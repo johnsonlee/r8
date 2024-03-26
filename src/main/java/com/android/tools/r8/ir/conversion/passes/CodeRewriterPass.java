@@ -59,7 +59,7 @@ public abstract class CodeRewriterPass<T extends AppInfo> {
     return noChange();
   }
 
-  private boolean verifyConsistentCode(IRCode code, boolean ssa, String preposition) {
+  protected boolean verifyConsistentCode(IRCode code, boolean ssa, String preposition) {
     boolean result;
     String message = "Invalid code " + preposition + " " + getRewriterId();
     try {

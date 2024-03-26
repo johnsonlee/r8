@@ -151,11 +151,6 @@ public class IdenticalAfterRegisterAllocationTest {
               }
 
               @Override
-              public boolean isStringSwitchConversionEnabled() {
-                return false;
-              }
-
-              @Override
               public boolean shouldFinalizeAfterLensCodeRewriter() {
                 return false;
               }

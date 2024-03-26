@@ -266,7 +266,6 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
         mode.isInitialTreeShaking()
             ? MethodConversionOptions.forPreLirPhase(appView)
             : MethodConversionOptions.forLirPhase(appView);
-    conversionOptions.disableStringSwitchConversion();
 
     IRCode ir = method.buildIR(appView, conversionOptions);
 

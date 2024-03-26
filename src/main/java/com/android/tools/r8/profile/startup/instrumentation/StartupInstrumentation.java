@@ -176,8 +176,7 @@ public class StartupInstrumentation {
   private void instrumentMethod(ProgramMethod method, boolean skipMethodLogging) {
     // Disable StringSwitch conversion to avoid having to run the StringSwitchRemover before
     // finalizing the code.
-    MutableMethodConversionOptions conversionOptions =
-        MethodConversionOptions.forD8(appView).disableStringSwitchConversion();
+    MutableMethodConversionOptions conversionOptions = MethodConversionOptions.forD8(appView);
     IRCode code = method.buildIR(appView, conversionOptions);
     InstructionListIterator instructionIterator = code.entryBlock().listIterator(code);
     instructionIterator.positionBeforeNextInstructionThatMatches(not(Instruction::isArgument));

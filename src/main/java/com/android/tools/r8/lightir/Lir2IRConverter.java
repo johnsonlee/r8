@@ -100,7 +100,6 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
-import com.android.tools.r8.ir.conversion.StringSwitchConverter;
 import com.android.tools.r8.lightir.LirBuilder.IntSwitchPayload;
 import com.android.tools.r8.lightir.LirBuilder.StringSwitchPayload;
 import com.android.tools.r8.lightir.LirCode.PositionEntry;
@@ -146,13 +145,6 @@ public class Lir2IRConverter {
     IRCode irCode = parser.getIRCode(method, conversionOptions);
     // Some instructions have bottom types (e.g., phis). Compute their actual types by widening.
     new TypeAnalysis(appView, irCode).widening();
-
-    if (conversionOptions.isStringSwitchConversionEnabled()) {
-      if (StringSwitchConverter.convertToStringSwitchInstructions(
-          irCode, appView.dexItemFactory())) {
-        irCode.removeRedundantBlocks();
-      }
-    }
     return irCode;
   }
 

@@ -19,6 +19,7 @@ import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
 import com.android.tools.r8.ir.conversion.passes.DexItemBasedConstStringRemover;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.conversion.passes.InitClassRemover;
+import com.android.tools.r8.ir.conversion.passes.StringSwitchConverter;
 import com.android.tools.r8.ir.conversion.passes.StringSwitchRemover;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
@@ -42,8 +43,9 @@ public class LirConverter {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isPreLirPhase();
     appView.testing().enterLirSupportedPhase();
-    ConstResourceNumberRewriter constResourceNumberRewriter =
-        new ConstResourceNumberRewriter(appView);
+    CodeRewriterPassCollection codeRewriterPassCollection =
+        new CodeRewriterPassCollection(
+            new ConstResourceNumberRewriter(appView), new StringSwitchConverter(appView));
     // Convert code objects to LIR.
     ThreadUtils.processItems(
         appView.appInfo().classes(),
@@ -53,7 +55,7 @@ public class LirConverter {
               method -> {
                 assert !method.getDefinition().getCode().hasExplicitCodeLens();
                 IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
-                constResourceNumberRewriter.run(code, Timing.empty());
+                codeRewriterPassCollection.run(code, null, null, Timing.empty());
                 LirCode<Integer> lirCode =
                     IR2LirConverter.translate(
                         code,

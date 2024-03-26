@@ -116,10 +116,7 @@ public class SingleCallerInliner {
                   .setApiLevelForCode(
                       appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()));
             }
-            IRCode code =
-                method.buildIR(
-                    appView,
-                    MethodConversionOptions.forLirPhase(appView).disableStringSwitchConversion());
+            IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
             inliner.performInlining(
                 method, code, getSimpleFeedback(), methodProcessor, Timing.empty());
             CodeRewriter.removeAssumeInstructions(appView, code);

@@ -742,10 +742,6 @@ public class IRBuilder {
       new TypeAnalysis(appView, ir).narrowing();
     }
 
-    if (conversionOptions.isStringSwitchConversionEnabled()) {
-      StringSwitchConverter.convertToStringSwitchInstructions(ir, appView.dexItemFactory());
-    }
-
     ir.removeRedundantBlocks();
     assert ir.isConsistentSSABeforeTypesAreCorrect(appView);
 

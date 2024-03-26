@@ -1,12 +1,15 @@
-// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.ir.conversion;
+package com.android.tools.r8.ir.conversion.passes;
 
 import static com.android.tools.r8.ir.code.ConstNumber.asConstNumberOrNull;
 
+import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfo;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -24,6 +27,8 @@ import com.android.tools.r8.ir.code.JumpInstruction;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
@@ -105,10 +110,28 @@ import java.util.Set;
  *   }
  * </pre>
  */
-public class StringSwitchConverter {
+public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
 
-  public static boolean convertToStringSwitchInstructions(
-      IRCode code, DexItemFactory dexItemFactory) {
+  public StringSwitchConverter(AppView<?> appView) {
+    super(appView);
+  }
+
+  @Override
+  protected String getRewriterId() {
+    return "StringSwitchConverter";
+  }
+
+  @Override
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
+    return options.shouldCompileMethodInReleaseMode(appView, code.context())
+        && options.enableStringSwitchConversion;
+  }
+
+  @Override
+  protected CodeRewriterResult rewriteCode(
+      IRCode code,
+      MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext) {
     List<BasicBlock> rewritingCandidates = getRewritingCandidates(code, dexItemFactory);
     if (rewritingCandidates != null) {
       boolean changed = false;
@@ -121,9 +144,15 @@ public class StringSwitchConverter {
         code.removeAllDeadAndTrivialPhis();
         code.removeUnreachableBlocks();
       }
-      return changed;
+      return CodeRewriterResult.hasChanged(changed);
     }
-    return false;
+    return CodeRewriterResult.NO_CHANGE;
+  }
+
+  @Override
+  protected boolean verifyConsistentCode(IRCode code, boolean ssa, String preposition) {
+    // Skip verification since this runs prior to the removal of invalid code.
+    return true;
   }
 
   private static List<BasicBlock> getRewritingCandidates(

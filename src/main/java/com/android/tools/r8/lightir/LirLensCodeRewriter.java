@@ -366,11 +366,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   @SuppressWarnings("unchecked")
   private LirCode<EV> removeUnreachableBlocks(LirCode<EV> rewritten) {
-    IRCode code =
-        rewritten.buildIR(
-            context,
-            appView,
-            MethodConversionOptions.forLirPhase(appView).disableStringSwitchConversion());
+    IRCode code = rewritten.buildIR(context, appView, MethodConversionOptions.forLirPhase(appView));
     AffectedValues affectedValues = code.removeUnreachableBlocks();
     affectedValues.narrowingWithAssumeRemoval(appView, code);
     new DeadCodeRemover(appView).run(code, Timing.empty());
@@ -386,7 +382,6 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         context.buildIR(
             appView,
             MethodConversionOptions.forLirPhase(appView)
-                .disableStringSwitchConversion()
                 .setFinalizeAfterLensCodeRewriter());
     // MethodProcessor argument is only used by unboxing lenses.
     MethodProcessor methodProcessor = null;

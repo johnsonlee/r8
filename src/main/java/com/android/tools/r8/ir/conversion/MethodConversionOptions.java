@@ -7,7 +7,6 @@ package com.android.tools.r8.ir.conversion;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
-import com.android.tools.r8.utils.InternalOptions;
 
 public abstract class MethodConversionOptions {
 
@@ -16,7 +15,7 @@ public abstract class MethodConversionOptions {
       return forD8(appView);
     }
     assert appView.testing().isPreLirPhase();
-    return new MutableMethodConversionOptions(Target.CF, appView.options());
+    return new MutableMethodConversionOptions(Target.CF);
   }
 
   public static MutableMethodConversionOptions forPostLirPhase(AppView<?> appView) {
@@ -25,8 +24,7 @@ public abstract class MethodConversionOptions {
     }
     assert appView.testing().isPostLirPhase();
     Target target = appView.options().isGeneratingClassFiles() ? Target.CF : Target.DEX;
-    return new MutableMethodConversionOptions(target, appView.options())
-        .disableStringSwitchConversion();
+    return new MutableMethodConversionOptions(target);
   }
 
   public static MutableMethodConversionOptions forLirPhase(AppView<?> appView) {
@@ -34,12 +32,12 @@ public abstract class MethodConversionOptions {
       return forD8(appView);
     }
     assert appView.testing().isSupportedLirPhase();
-    return new MutableMethodConversionOptions(determineTarget(appView), appView.options());
+    return new MutableMethodConversionOptions(determineTarget(appView));
   }
 
   public static MutableMethodConversionOptions forD8(AppView<?> appView) {
     assert !appView.enableWholeProgramOptimizations();
-    return new MutableMethodConversionOptions(determineTarget(appView), appView.options());
+    return new MutableMethodConversionOptions(determineTarget(appView));
   }
 
   public static MutableMethodConversionOptions nonConverting() {
@@ -82,34 +80,21 @@ public abstract class MethodConversionOptions {
 
   public abstract boolean isPeepholeOptimizationsEnabled();
 
-  public abstract boolean isStringSwitchConversionEnabled();
-
   public abstract boolean shouldFinalizeAfterLensCodeRewriter();
 
   public static class MutableMethodConversionOptions extends MethodConversionOptions {
 
-    private Target target;
+    private final Target target;
     private boolean enablePeepholeOptimizations = true;
-    private boolean enableStringSwitchConversion;
     private boolean finalizeAfterLensCodeRewriter;
 
-    private MutableMethodConversionOptions(Target target, boolean enableStringSwitchConversion) {
+    private MutableMethodConversionOptions(Target target) {
       this.target = target;
-      this.enableStringSwitchConversion = enableStringSwitchConversion;
-    }
-
-    private MutableMethodConversionOptions(Target target, InternalOptions options) {
-      this(target, options.isStringSwitchConversionEnabled());
     }
 
     public void disablePeepholeOptimizations(MethodProcessor methodProcessor) {
       assert methodProcessor.isPrimaryMethodProcessor();
       enablePeepholeOptimizations = false;
-    }
-
-    public MutableMethodConversionOptions disableStringSwitchConversion() {
-      enableStringSwitchConversion = false;
-      return this;
     }
 
     public MutableMethodConversionOptions setFinalizeAfterLensCodeRewriter() {
@@ -138,11 +123,6 @@ public abstract class MethodConversionOptions {
     }
 
     @Override
-    public boolean isStringSwitchConversionEnabled() {
-      return enableStringSwitchConversion;
-    }
-
-    @Override
     public boolean shouldFinalizeAfterLensCodeRewriter() {
       return finalizeAfterLensCodeRewriter;
     }
@@ -151,7 +131,7 @@ public abstract class MethodConversionOptions {
   public static class ThrowingMethodConversionOptions extends MutableMethodConversionOptions {
 
     private ThrowingMethodConversionOptions() {
-      super(null, true);
+      super(null);
     }
 
     @Override
