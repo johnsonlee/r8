@@ -63,14 +63,6 @@
       "rewrite_prefix": {
         "java.util.concurrent.DesugarTimeUnit": "j$.util.concurrent.DesugarTimeUnit"
       },
-      "emulate_interface": {
-        "java.util.Collection": {
-          "rewrittenType": "j$.util.Collection",
-          "emulatedMethods": [
-            "java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)"
-          ]
-        }
-      },
       "retarget_method": {
         "java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)": "java.util.concurrent.DesugarTimeUnit",
         "java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()": "java.util.concurrent.DesugarTimeUnit",
@@ -98,6 +90,14 @@
       "api_level_greater_or_equal": 24,
       "rewrite_prefix": {
         "java.util.stream.DesugarCollectors": "j$.util.stream.DesugarCollectors"
+      },
+      "emulate_interface": {
+        "java.util.Collection": {
+          "rewrittenType": "j$.util.Collection",
+          "emulatedMethods": [
+            "java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)"
+          ]
+        }
       },
       "retarget_method": {
         "java.util.stream.Collector java.util.stream.Collectors#filtering(java.util.function.Predicate, java.util.stream.Collector)": "java.util.stream.DesugarCollectors",
@@ -252,6 +252,7 @@
         "java.util.Collection": {
           "rewrittenType": "j$.util.Collection",
           "emulatedMethods": [
+            "java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)",
             "java.util.stream.Stream java.util.Collection#stream()",
             "java.util.stream.Stream java.util.Collection#parallelStream()",
             "java.util.Spliterator java.util.Collection#spliterator()",

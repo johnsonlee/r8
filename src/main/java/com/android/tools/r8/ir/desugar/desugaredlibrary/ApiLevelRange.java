@@ -24,6 +24,8 @@ public class ApiLevelRange {
 
   public ApiLevelRange(
       AndroidApiLevel apiLevelBelowOrEqual, AndroidApiLevel apiLevelGreaterOrEqual) {
+    assert apiLevelGreaterOrEqual == null
+        || apiLevelBelowOrEqual.isGreaterThanOrEqualTo(apiLevelGreaterOrEqual);
     this.apiLevelBelowOrEqual = apiLevelBelowOrEqual;
     this.apiLevelGreaterOrEqual = apiLevelGreaterOrEqual;
   }
@@ -38,6 +40,15 @@ public class ApiLevelRange {
 
   public boolean hasApiLevelGreaterOrEqual() {
     return apiLevelGreaterOrEqual != null;
+  }
+
+  public boolean overlap(ApiLevelRange other) {
+    AndroidApiLevel start =
+        apiLevelGreaterOrEqual == null ? AndroidApiLevel.B : apiLevelGreaterOrEqual;
+    AndroidApiLevel otherStart =
+        other.apiLevelGreaterOrEqual == null ? AndroidApiLevel.B : other.apiLevelGreaterOrEqual;
+    return start.isLessThanOrEqualTo(other.apiLevelBelowOrEqual)
+        && otherStart.isLessThanOrEqualTo(apiLevelBelowOrEqual);
   }
 
   @Override
@@ -73,5 +84,14 @@ public class ApiLevelRange {
       return -1;
     }
     return apiLevelGreaterOrEqual.compareTo(other.apiLevelGreaterOrEqual);
+  }
+
+  @Override
+  public String toString() {
+    return "[ "
+        + (apiLevelGreaterOrEqual == null ? "B" : apiLevelGreaterOrEqual)
+        + " ; "
+        + apiLevelBelowOrEqual
+        + " ]";
   }
 }

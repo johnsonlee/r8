@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.DexApplication;
@@ -30,8 +31,10 @@ import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class HumanToMachineSpecificationConverter {
@@ -63,11 +66,63 @@ public class HumanToMachineSpecificationConverter {
     Map<ApiLevelRange, MachineRewritingFlags> libraryFlags =
         convertRewritingFlagMap(humanSpec.getLibraryFlags(), synthesizedPrefix, true, identifier);
 
+    checkDisjointEmulatedInterfaceFlags(commonFlags, programFlags, libraryFlags);
+
     MultiAPILevelMachineDesugaredLibrarySpecification machineSpec =
         new MultiAPILevelMachineDesugaredLibrarySpecification(
             humanSpec.getOrigin(), machineTopLevelFlags, commonFlags, libraryFlags, programFlags);
     timing.end();
     return machineSpec;
+  }
+
+  // For backward compatibility, there can be only one emulated interface flag for a given type at
+  // a given API level.
+  private void checkDisjointEmulatedInterfaceFlags(
+      Map<ApiLevelRange, MachineRewritingFlags> commonFlags,
+      Map<ApiLevelRange, MachineRewritingFlags> programFlags,
+      Map<ApiLevelRange, MachineRewritingFlags> libraryFlags) {
+    Set<DexType> commonTypes = emulatedInterfaceTypes(commonFlags);
+    Set<DexType> programTypes = emulatedInterfaceTypes(programFlags);
+    Set<DexType> libraryTypes = emulatedInterfaceTypes(libraryFlags);
+    if (!Sets.intersection(commonTypes, programTypes).isEmpty()
+        || !Sets.intersection(commonTypes, libraryTypes).isEmpty()
+        || !Sets.intersection(libraryTypes, programTypes).isEmpty()) {
+      throw new CompilationError("Cannot have emulated interface split across flag types");
+    }
+    checkEmulatedInterfaceMap(commonFlags);
+    checkEmulatedInterfaceMap(programFlags);
+    checkEmulatedInterfaceMap(libraryFlags);
+  }
+
+  private void checkEmulatedInterfaceMap(Map<ApiLevelRange, MachineRewritingFlags> flagMap) {
+    Map<DexType, List<ApiLevelRange>> rangesForType = new IdentityHashMap<>();
+    flagMap.forEach(
+        (range, flags) ->
+            flags
+                .getEmulatedInterfaces()
+                .forEach(
+                    (ei, descr) -> {
+                      rangesForType.putIfAbsent(ei, new ArrayList<>());
+                      rangesForType.get(ei).add(range);
+                    }));
+    rangesForType.keySet().removeIf(t -> rangesForType.get(t).size() == 1);
+    rangesForType.forEach(
+        (type, ranges) -> {
+          for (ApiLevelRange range1 : ranges) {
+            for (ApiLevelRange range2 : ranges) {
+              if (!Objects.equals(range1, range2) && range1.overlap(range2)) {
+                throw new CompilationError(
+                    "Unsupported Machine specification for " + type + " " + range1 + " " + range2);
+              }
+            }
+          }
+        });
+  }
+
+  private Set<DexType> emulatedInterfaceTypes(Map<ApiLevelRange, MachineRewritingFlags> flagMap) {
+    Set<DexType> types = Sets.newIdentityHashSet();
+    flagMap.forEach((range, flags) -> types.addAll(flags.getEmulatedInterfaces().keySet()));
+    return types;
   }
 
   private Map<ApiLevelRange, MachineRewritingFlags> convertRewritingFlagMap(
