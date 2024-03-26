@@ -231,7 +231,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
 
   private boolean isDeadFieldAccess(DexField fieldReference, ProgramMethod context) {
     ProgramField field = appView.appInfo().resolveField(fieldReference, context).getProgramField();
-    return field != null && field.getOptimizationInfo().isDead();
+    return field != null && field.getOptimizationInfo().getAbstractValue().isBottom();
   }
 
   static class AffectedMethodUseRegistry
