@@ -516,6 +516,9 @@ def Main():
             ))
     rotate_test_reports()
 
+    if options.print_times:
+        gradle_args.append('-Pprint_times=true')
+
     # Now run tests on selected runtime(s).
     if options.runtimes:
         if options.dex_vm != 'default':
@@ -548,8 +551,6 @@ def Main():
     # Legacy testing populates the runtimes based on dex_vm.
     vms_to_test = [options.dex_vm] if options.dex_vm != "all" else ALL_ART_VMS
 
-    if options.print_times:
-        gradle_args.append('-Pprint_times=true')
     for art_vm in vms_to_test:
         vm_suffix = "_" + options.dex_vm_kind if art_vm != "default" else ""
         runtimes = ['dex-' + art_vm]
