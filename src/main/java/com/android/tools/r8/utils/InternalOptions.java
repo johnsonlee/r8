@@ -408,7 +408,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean enableDevirtualization = true;
   public boolean enableEnumUnboxing = true;
   public boolean enableSimpleInliningConstraints = true;
-  public final int simpleInliningConstraintThreshold = 0;
+  public final int simpleInliningConstraintThreshold = 1;
   public boolean enableClassInlining = true;
   public boolean enableClassStaticizer = true;
   public boolean enableInitializedClassesAnalysis = true;

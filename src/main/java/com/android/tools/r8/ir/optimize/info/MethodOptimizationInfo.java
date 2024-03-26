@@ -87,7 +87,7 @@ public abstract class MethodOptimizationInfo
 
   public abstract AbstractValue getAbstractReturnValue();
 
-  public abstract SimpleInliningConstraint getNopInliningConstraint(InternalOptions options);
+  public abstract SimpleInliningConstraint getNopInliningConstraint();
 
   public abstract SimpleInliningConstraint getSimpleInliningConstraint();
 

@@ -147,7 +147,7 @@ public class DefaultMethodOptimizationInfo extends MethodOptimizationInfo {
   }
 
   @Override
-  public SimpleInliningConstraint getNopInliningConstraint(InternalOptions options) {
+  public SimpleInliningConstraint getNopInliningConstraint() {
     return NeverSimpleInliningConstraint.getInstance();
   }
 

@@ -271,6 +271,11 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
   }
 
   @Override
+  public void setNopInliningConstraint(ProgramMethod method, SimpleInliningConstraint constraint) {
+    getMethodOptimizationInfoForUpdating(method).setNopInliningConstraint(constraint);
+  }
+
+  @Override
   public synchronized void setSimpleInliningConstraint(
       ProgramMethod method, SimpleInliningConstraint constraint) {
     getMethodOptimizationInfoForUpdating(method).setSimpleInliningConstraint(constraint);
@@ -378,6 +383,11 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
   @Override
   public synchronized void unsetReturnValueOnlyDependsOnArguments(ProgramMethod method) {
     getMethodOptimizationInfoForUpdating(method).unsetReturnValueOnlyDependsOnArguments();
+  }
+
+  @Override
+  public void unsetNopInliningConstraint(ProgramMethod method) {
+    getMethodOptimizationInfoForUpdating(method).unsetNopInliningConstraint();
   }
 
   @Override

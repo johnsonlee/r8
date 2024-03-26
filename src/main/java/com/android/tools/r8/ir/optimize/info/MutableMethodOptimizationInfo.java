@@ -78,6 +78,8 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   private BitSet nonNullParamOnNormalExits =
       DefaultMethodOptimizationInfo.NO_NULL_PARAMETER_ON_NORMAL_EXITS_FACTS;
 
+  private SimpleInliningConstraint nopInliningConstraint =
+      NeverSimpleInliningConstraint.getInstance();
   private SimpleInliningConstraint simpleInliningConstraint =
       NeverSimpleInliningConstraint.getInstance();
 
@@ -144,6 +146,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     abstractReturnValue = template.abstractReturnValue;
     setDynamicType(template.dynamicType);
     inlining = template.inlining;
+    nopInliningConstraint = template.nopInliningConstraint;
     simpleInliningConstraint = template.simpleInliningConstraint;
     bridgeInfo = template.bridgeInfo;
     instanceInitializerInfoCollection = template.instanceInitializerInfoCollection;
@@ -169,6 +172,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
         .fixupNonNullParamOrThrow(fixer)
         .fixupReturnedArgumentIndex(fixer)
         .fixupParametersWithBitwiseOperations(fixer)
+        .fixupNopInliningConstraint(appView, fixer)
         .fixupSimpleInliningConstraint(appView, fixer)
         .fixupUnusedArguments(fixer);
   }
@@ -486,12 +490,8 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   }
 
   @Override
-  public SimpleInliningConstraint getNopInliningConstraint(InternalOptions options) {
-    // We currently require that having a simple inlining constraint implies that the method becomes
-    // empty after inlining. Therefore, an invoke is a nop if the simple inlining constraint is
-    // satisfied (if the invoke does not trigger other side effects, such as class initialization).
-    assert options.simpleInliningConstraintThreshold == 0;
-    return getSimpleInliningConstraint();
+  public SimpleInliningConstraint getNopInliningConstraint() {
+    return nopInliningConstraint;
   }
 
   @Override
@@ -595,7 +595,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     if (!mayHaveSideEffects()) {
       return false;
     }
-    if (getNopInliningConstraint(options).isSatisfied(invoke)) {
+    if (getNopInliningConstraint().isSatisfied(invoke)) {
       return false;
     }
     return true;
@@ -604,6 +604,22 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   @Override
   public boolean returnValueOnlyDependsOnArguments() {
     return isFlagSet(RETURN_VALUE_ONLY_DEPENDS_ON_ARGUMENTS_FLAG);
+  }
+
+  void setNopInliningConstraint(SimpleInliningConstraint constraint) {
+    this.nopInliningConstraint = constraint;
+  }
+
+  void unsetNopInliningConstraint() {
+    nopInliningConstraint = NeverSimpleInliningConstraint.getInstance();
+  }
+
+  public MutableMethodOptimizationInfo fixupNopInliningConstraint(
+      AppView<AppInfoWithLiveness> appView, MethodOptimizationInfoFixer fixer) {
+    nopInliningConstraint =
+        fixer.fixupNopInliningConstraint(
+            appView, nopInliningConstraint, appView.simpleInliningConstraintFactory());
+    return this;
   }
 
   void setSimpleInliningConstraint(SimpleInliningConstraint constraint) {
@@ -811,6 +827,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
         && instanceInitializerInfoCollection.isEmpty()
         && nonNullParamOrThrow == top.getNonNullParamOrThrow()
         && nonNullParamOnNormalExits == top.getNonNullParamOnNormalExits()
+        && nopInliningConstraint == top.getNopInliningConstraint()
         && simpleInliningConstraint == top.getSimpleInliningConstraint()
         && maxRemovedAndroidLogLevel == top.getMaxRemovedAndroidLogLevel()
         && parametersWithBitwiseOperations == top.getParametersWithBitwiseOperations()

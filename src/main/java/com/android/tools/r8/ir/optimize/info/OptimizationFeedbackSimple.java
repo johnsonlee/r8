@@ -204,6 +204,11 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   }
 
   @Override
+  public void setNopInliningConstraint(ProgramMethod method, SimpleInliningConstraint constraint) {
+    method.getDefinition().getMutableOptimizationInfo().setNopInliningConstraint(constraint);
+  }
+
+  @Override
   public void setSimpleInliningConstraint(
       ProgramMethod method, SimpleInliningConstraint constraint) {
     method.getDefinition().getMutableOptimizationInfo().setSimpleInliningConstraint(constraint);
@@ -336,6 +341,12 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   public void unsetReturnValueOnlyDependsOnArguments(ProgramMethod method) {
     withMutableMethodOptimizationInfo(
         method, MutableMethodOptimizationInfo::unsetReturnValueOnlyDependsOnArguments);
+  }
+
+  @Override
+  public void unsetNopInliningConstraint(ProgramMethod method) {
+    withMutableMethodOptimizationInfo(
+        method, MutableMethodOptimizationInfo::unsetNopInliningConstraint);
   }
 
   @Override

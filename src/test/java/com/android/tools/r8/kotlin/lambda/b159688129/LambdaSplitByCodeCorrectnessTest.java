@@ -81,8 +81,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
             inspector ->
                 inspector
                     .applyIf(
-                        kotlinParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0)
-                            || splitGroup,
+                        splitGroup,
                         i -> {
                           if (kotlinParameters.getLambdaGeneration().isClass()) {
                             i.assertIsCompleteMergeGroup(
@@ -123,12 +122,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
               ClassSubject mergeTarget =
                   codeInspector.clazz(
                       "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1");
-              assertThat(
-                  mergeTarget,
-                  isPresentIf(
-                      kotlinParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0)
-                          || splitGroup));
-
+              assertThat(mergeTarget, isPresentIf(splitGroup));
               if (mergeTarget.isAbsent()) {
                 return;
               }

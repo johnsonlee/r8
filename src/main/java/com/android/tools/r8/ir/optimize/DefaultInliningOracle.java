@@ -221,18 +221,21 @@ public class DefaultInliningOracle implements InliningOracle {
       int estimatedSizeForInlining =
           code.getEstimatedSizeForInliningIfLessThanOrEquals(
               instructionLimit + estimatedMaxIncrement);
-      if (estimatedSizeForInlining < 0) {
-        return false;
-      }
-      if (estimatedSizeForInlining <= instructionLimit) {
-        return true;
-      }
-      int actualIncrement =
-          getInliningInstructionLimitIncrement(invoke, target, inliningIRProvider);
-      if (estimatedSizeForInlining <= instructionLimit + actualIncrement) {
-        return true;
+      if (estimatedSizeForInlining >= 0) {
+        if (estimatedSizeForInlining <= instructionLimit) {
+          return true;
+        }
+        int actualIncrement =
+            getInliningInstructionLimitIncrement(invoke, target, inliningIRProvider);
+        if (estimatedSizeForInlining <= instructionLimit + actualIncrement) {
+          return true;
+        }
       }
     }
+    return satisfiesSimpleInliningConstraint(invoke, target);
+  }
+
+  private boolean satisfiesSimpleInliningConstraint(InvokeMethod invoke, ProgramMethod target) {
     // Even if the inlinee is big it may become simple after inlining. We therefore check if the
     // inlinee's simple inlining constraint is satisfied by the invoke.
     SimpleInliningConstraint simpleInliningConstraint =

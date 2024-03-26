@@ -63,15 +63,15 @@ public class SimpleInliningConstraintAnalysis {
     this.simpleInliningConstraintThreshold = appView.options().simpleInliningConstraintThreshold;
   }
 
-  public SimpleInliningConstraint analyzeCode(IRCode code) {
+  public SimpleInliningConstraintWithDepth analyzeCode(IRCode code) {
     if (method.getReference().getArity() == 0) {
       // The method does not have any parameters, so there is no need to analyze the method.
-      return NeverSimpleInliningConstraint.getInstance();
+      return SimpleInliningConstraintWithDepth.getNever();
     }
 
     if (options.debug) {
       // Inlining is not enabled in debug mode.
-      return NeverSimpleInliningConstraint.getInstance();
+      return SimpleInliningConstraintWithDepth.getNever();
     }
 
     // Run a bounded depth-first traversal to collect the path constraints that lead to early
@@ -81,15 +81,16 @@ public class SimpleInliningConstraintAnalysis {
     return analyzeInstructionsInBlock(code.entryBlock(), 0, instructionIterator);
   }
 
-  private SimpleInliningConstraint analyzeInstructionsInBlock(BasicBlock block, int depth) {
+  private SimpleInliningConstraintWithDepth analyzeInstructionsInBlock(
+      BasicBlock block, int depth) {
     return analyzeInstructionsInBlock(block, depth, block.iterator());
   }
 
-  private SimpleInliningConstraint analyzeInstructionsInBlock(
+  private SimpleInliningConstraintWithDepth analyzeInstructionsInBlock(
       BasicBlock block, int instructionDepth, InstructionIterator instructionIterator) {
     // If we reach a block that has already been seen, give up.
     if (!seen.add(block)) {
-      return NeverSimpleInliningConstraint.getInstance();
+      return SimpleInliningConstraintWithDepth.getNever();
     }
 
     // Move the instruction iterator forward to the block's jump instruction, while incrementing the
@@ -114,12 +115,12 @@ public class SimpleInliningConstraintAnalysis {
     // If we have exceeded the threshold, then all paths from this instruction will not lead to any
     // early exits, so return 'never'.
     if (instructionDepth > simpleInliningConstraintThreshold) {
-      return NeverSimpleInliningConstraint.getInstance();
+      return SimpleInliningConstraintWithDepth.getNever();
     }
 
-    SimpleInliningConstraint jumpConstraint =
+    SimpleInliningConstraintWithDepth jumpConstraint =
         computeConstraintForJumpInstruction(instruction.asJumpInstruction(), instructionDepth);
-    return blockConstraint.meet(jumpConstraint);
+    return jumpConstraint.meet(blockConstraint);
   }
 
   private SimpleInliningConstraint computeConstraintForInstructionNotToMaterialize(
@@ -145,7 +146,7 @@ public class SimpleInliningConstraintAnalysis {
     return NeverSimpleInliningConstraint.getInstance();
   }
 
-  private SimpleInliningConstraint computeConstraintForJumpInstruction(
+  private SimpleInliningConstraintWithDepth computeConstraintForJumpInstruction(
       JumpInstruction instruction, int instructionDepth) {
     switch (instruction.opcode()) {
       case IF:
@@ -168,7 +169,7 @@ public class SimpleInliningConstraintAnalysis {
 
         // Compute the constraint for which paths through the true target are guaranteed to exit
         // early.
-        SimpleInliningConstraint trueTargetConstraint =
+        SimpleInliningConstraintWithDepth trueTargetConstraint =
             computeConstraintFromIfTest(
                     argumentIndex, argumentType, otherOperand, ifInstruction.getType())
                 // Only recurse into the true target if the constraint from the if-instruction
@@ -178,7 +179,7 @@ public class SimpleInliningConstraintAnalysis {
 
         // Compute the constraint for which paths through the false target are guaranteed to
         // exit early.
-        SimpleInliningConstraint fallthroughTargetConstraint =
+        SimpleInliningConstraintWithDepth fallthroughTargetConstraint =
             computeConstraintFromIfTest(
                     argumentIndex, argumentType, otherOperand, ifInstruction.getType().inverted())
                 // Only recurse into the false target if the constraint from the if-instruction
@@ -195,7 +196,7 @@ public class SimpleInliningConstraintAnalysis {
         return analyzeInstructionsInBlock(instruction.asGoto().getTarget(), instructionDepth);
 
       case RETURN:
-        return AlwaysSimpleInliningConstraint.getInstance();
+        return AlwaysSimpleInliningConstraint.getInstance().withDepth(instructionDepth);
 
       case STRING_SWITCH:
         // Require that all cases including the default case are simple. In that case we can
@@ -203,29 +204,34 @@ public class SimpleInliningConstraintAnalysis {
         StringSwitch stringSwitch = instruction.asStringSwitch();
         Value valueRoot = stringSwitch.value().getAliasedValue();
         if (!valueRoot.isDefinedByInstructionSatisfying(Instruction::isArgument)) {
-          return NeverSimpleInliningConstraint.getInstance();
+          return SimpleInliningConstraintWithDepth.getNever();
         }
+        int maxInstructionDepth = instructionDepth;
         for (BasicBlock successor : stringSwitch.getBlock().getNormalSuccessors()) {
-          SimpleInliningConstraint successorConstraint =
+          SimpleInliningConstraintWithDepth successorConstraintWithDepth =
               analyzeInstructionsInBlock(successor, instructionDepth);
-          if (!successorConstraint.isAlways()) {
-            return NeverSimpleInliningConstraint.getInstance();
+          if (!successorConstraintWithDepth.getConstraint().isAlways()) {
+            return SimpleInliningConstraintWithDepth.getNever();
           }
+          maxInstructionDepth =
+              Math.max(maxInstructionDepth, successorConstraintWithDepth.getInstructionDepth());
         }
         Argument argument = valueRoot.getDefinition().asArgument();
-        return constraintFactory.createConstConstraint(argument.getIndex());
+        ConstSimpleInliningConstraint simpleConstraint =
+            constraintFactory.createConstConstraint(argument.getIndex());
+        return simpleConstraint.withDepth(maxInstructionDepth);
 
       case THROW:
         return instruction.getBlock().hasCatchHandlers()
-            ? NeverSimpleInliningConstraint.getInstance()
-            : AlwaysSimpleInliningConstraint.getInstance();
+            ? SimpleInliningConstraintWithDepth.getNever()
+            : SimpleInliningConstraintWithDepth.getAlways(instructionDepth);
 
       default:
         break;
     }
 
     // Give up.
-    return NeverSimpleInliningConstraint.getInstance();
+    return SimpleInliningConstraintWithDepth.getNever();
   }
 
   private SimpleInliningConstraint computeConstraintFromIfTest(

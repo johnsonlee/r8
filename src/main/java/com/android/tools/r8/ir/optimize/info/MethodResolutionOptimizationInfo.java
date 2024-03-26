@@ -201,7 +201,7 @@ public class MethodResolutionOptimizationInfo extends MethodOptimizationInfo {
   }
 
   @Override
-  public SimpleInliningConstraint getNopInliningConstraint(InternalOptions options) {
+  public SimpleInliningConstraint getNopInliningConstraint() {
     throw new Unreachable();
   }
 

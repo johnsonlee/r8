@@ -122,6 +122,9 @@ public abstract class OptimizationFeedbackIgnore extends OptimizationFeedback {
   public void setNonNullParamOnNormalExits(DexEncodedMethod method, BitSet facts) {}
 
   @Override
+  public void setNopInliningConstraint(ProgramMethod method, SimpleInliningConstraint constraint) {}
+
+  @Override
   public void setSimpleInliningConstraint(
       ProgramMethod method, SimpleInliningConstraint constraint) {}
 
@@ -187,6 +190,9 @@ public abstract class OptimizationFeedbackIgnore extends OptimizationFeedback {
 
   @Override
   public void unsetReturnValueOnlyDependsOnArguments(ProgramMethod method) {}
+
+  @Override
+  public void unsetNopInliningConstraint(ProgramMethod method) {}
 
   @Override
   public void unsetSimpleInliningConstraint(ProgramMethod method) {}

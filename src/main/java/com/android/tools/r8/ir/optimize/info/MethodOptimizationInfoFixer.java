@@ -40,6 +40,13 @@ public abstract class MethodOptimizationInfoFixer {
 
   public abstract int fixupReturnedArgumentIndex(int returnedArgumentIndex);
 
+  public final SimpleInliningConstraint fixupNopInliningConstraint(
+      AppView<AppInfoWithLiveness> appView,
+      SimpleInliningConstraint constraint,
+      SimpleInliningConstraintFactory factory) {
+    return fixupSimpleInliningConstraint(appView, constraint, factory);
+  }
+
   public abstract SimpleInliningConstraint fixupSimpleInliningConstraint(
       AppView<AppInfoWithLiveness> appView,
       SimpleInliningConstraint constraint,

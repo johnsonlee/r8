@@ -5,7 +5,7 @@ package com.android.tools.r8.ir.optimize.inliner.conditionalsimpleinlining;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -46,8 +46,9 @@ public class SwitchWithSimpleCasesInliningTest extends TestBase {
 
               MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
               assertThat(mainMethodSubject, isPresent());
-              // TODO(b/331337747): Should be true.
-              assertFalse(
+              // TODO(b/331337747): Account for constant canonicalization in constraint analysis.
+              assertEquals(
+                  parameters.isCfRuntime(),
                   mainMethodSubject
                       .streamInstructions()
                       .filter(InstructionSubject::isConstString)

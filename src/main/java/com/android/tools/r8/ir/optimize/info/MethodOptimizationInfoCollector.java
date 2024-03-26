@@ -57,7 +57,9 @@ import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.DeterminismAnalysis;
 import com.android.tools.r8.ir.analysis.InitializedClassesOnNormalExitAnalysis;
+import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraint;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraintAnalysis;
+import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraintWithDepth;
 import com.android.tools.r8.ir.analysis.sideeffect.ClassInitializerSideEffectAnalysis;
 import com.android.tools.r8.ir.analysis.sideeffect.ClassInitializerSideEffectAnalysis.ClassInitializerSideEffect;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
@@ -827,8 +829,14 @@ public class MethodOptimizationInfoCollector {
 
   private void computeSimpleInliningConstraint(
       ProgramMethod method, IRCode code, OptimizationFeedback feedback) {
-    feedback.setSimpleInliningConstraint(
-        method, new SimpleInliningConstraintAnalysis(appView, method).analyzeCode(code));
+    SimpleInliningConstraintWithDepth simpleInliningConstraintWithDepth =
+        new SimpleInliningConstraintAnalysis(appView, method).analyzeCode(code);
+    SimpleInliningConstraint nopInliningConstraint =
+        simpleInliningConstraintWithDepth.getNopConstraint();
+    SimpleInliningConstraint simpleInliningConstraint =
+        simpleInliningConstraintWithDepth.getConstraint();
+    feedback.setNopInliningConstraint(method, nopInliningConstraint);
+    feedback.setSimpleInliningConstraint(method, simpleInliningConstraint);
   }
 
   private void computeDynamicReturnType(

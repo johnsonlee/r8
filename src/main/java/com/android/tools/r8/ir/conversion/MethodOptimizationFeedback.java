@@ -72,6 +72,8 @@ public interface MethodOptimizationFeedback {
 
   void setNonNullParamOnNormalExits(DexEncodedMethod method, BitSet facts);
 
+  void setNopInliningConstraint(ProgramMethod method, SimpleInliningConstraint constraint);
+
   void setSimpleInliningConstraint(ProgramMethod method, SimpleInliningConstraint constraint);
 
   void classInitializerMayBePostponed(DexEncodedMethod method);
@@ -117,6 +119,8 @@ public interface MethodOptimizationFeedback {
 
   void unsetReturnValueOnlyDependsOnArguments(ProgramMethod method);
 
+  void unsetNopInliningConstraint(ProgramMethod method);
+
   void unsetSimpleInliningConstraint(ProgramMethod method);
 
   void unsetUnusedArguments(ProgramMethod method);
@@ -139,6 +143,7 @@ public interface MethodOptimizationFeedback {
       unsetNonNullParamOrThrow(method);
       unsetReturnedArgument(method);
       unsetReturnValueOnlyDependsOnArguments(method);
+      unsetNopInliningConstraint(method);
       unsetSimpleInliningConstraint(method);
       unsetUnusedArguments(method);
     }

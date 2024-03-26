@@ -64,11 +64,12 @@ public abstract class SimpleInliningConstraint {
     return new SimpleInliningConstraintConjunction(ImmutableList.of(this, other));
   }
 
-  public final SimpleInliningConstraint lazyMeet(Supplier<SimpleInliningConstraint> supplier) {
+  public final SimpleInliningConstraintWithDepth lazyMeet(
+      Supplier<SimpleInliningConstraintWithDepth> supplier) {
     if (isNever()) {
-      return NeverSimpleInliningConstraint.getInstance();
+      return SimpleInliningConstraintWithDepth.getNever();
     }
-    return meet(supplier.get());
+    return supplier.get().meet(this);
   }
 
   public final SimpleInliningConstraint join(SimpleInliningConstraint other) {
@@ -96,4 +97,8 @@ public abstract class SimpleInliningConstraint {
       AppView<AppInfoWithLiveness> appView,
       ArgumentInfoCollection changes,
       SimpleInliningConstraintFactory factory);
+
+  public final SimpleInliningConstraintWithDepth withDepth(int instructionDepth) {
+    return new SimpleInliningConstraintWithDepth(this, instructionDepth);
+  }
 }
