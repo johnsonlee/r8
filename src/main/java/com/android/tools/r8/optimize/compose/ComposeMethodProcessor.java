@@ -37,6 +37,7 @@ import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropa
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.LazyBox;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
@@ -63,12 +64,12 @@ public class ComposeMethodProcessor extends MethodProcessor {
     this.converter = converter;
   }
 
-  // TODO(b/302483644): Process wave concurrently.
   public Set<ComposableCallGraphNode> processWave(
       Set<ComposableCallGraphNode> wave, ExecutorService executorService)
       throws ExecutionException {
     ProcessorContext processorContext = appView.createProcessorContext();
-    wave.forEach(
+    ThreadUtils.processItems(
+        wave,
         node -> {
           assert !processed.contains(node);
           converter.processDesugaredMethod(
@@ -77,7 +78,9 @@ public class ComposeMethodProcessor extends MethodProcessor {
               this,
               processorContext.createMethodProcessingContext(node.getMethod()),
               MethodConversionOptions.forLirPhase(appView));
-        });
+        },
+        appView.options().getThreadingModule(),
+        executorService);
     processed.addAll(wave);
     return optimizeComposableFunctionsCalledFromWave(wave, executorService);
   }
