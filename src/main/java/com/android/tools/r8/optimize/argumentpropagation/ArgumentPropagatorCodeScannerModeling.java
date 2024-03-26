@@ -17,7 +17,10 @@ public class ArgumentPropagatorCodeScannerModeling {
 
   ArgumentPropagatorCodeScannerModeling(AppView<AppInfoWithLiveness> appView) {
     this.composeModeling =
-        appView.testing().modelChangedArgumentsToComposableFunctions
+        appView
+                .options()
+                .getJetpackComposeOptions()
+                .isModelingChangedArgumentsToComposableFunctions()
             ? new ArgumentPropagatorComposeModeling(appView)
             : null;
   }

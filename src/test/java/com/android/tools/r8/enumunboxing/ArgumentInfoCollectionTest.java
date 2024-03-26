@@ -130,7 +130,7 @@ public class ArgumentInfoCollectionTest extends TestBase {
   public void testCombineRemoveRewritten() {
     InternalOptions options = new InternalOptions();
     DexItemFactory factory = options.dexItemFactory();
-    AbstractValueFactory abstractValueFactory = new AbstractValueFactory(options);
+    AbstractValueFactory abstractValueFactory = new AbstractValueFactory();
 
     ArgumentInfoCollection.Builder builder1 = ArgumentInfoCollection.builder();
     builder1.addArgumentInfo(

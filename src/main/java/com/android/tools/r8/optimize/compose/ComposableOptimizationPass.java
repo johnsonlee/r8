@@ -6,8 +6,6 @@ package com.android.tools.r8.optimize.compose;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.InternalOptions.TestingOptions;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Iterables;
@@ -35,18 +33,11 @@ public class ComposableOptimizationPass {
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
-    InternalOptions options = appView.options();
-    if (!options.isOptimizing() || !options.isShrinking()) {
-      return;
+    if (appView.options().getJetpackComposeOptions().isComposableOptimizationPassEnabled()) {
+      timing.time(
+          "ComposableOptimizationPass",
+          () -> new ComposableOptimizationPass(appView, converter).processWaves(executorService));
     }
-    TestingOptions testingOptions = options.getTestingOptions();
-    if (!testingOptions.enableComposableOptimizationPass
-        || !testingOptions.modelChangedArgumentsToComposableFunctions) {
-      return;
-    }
-    timing.time(
-        "ComposableOptimizationPass",
-        () -> new ComposableOptimizationPass(appView, converter).processWaves(executorService));
   }
 
   void processWaves(ExecutorService executorService) throws ExecutionException {

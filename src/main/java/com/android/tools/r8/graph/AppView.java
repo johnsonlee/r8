@@ -196,7 +196,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         timing.time(
             "Compilation context", () -> CompilationContext.createInitialContext(options()));
     this.wholeProgramOptimizations = wholeProgramOptimizations;
-    abstractValueFactory = new AbstractValueFactory(options());
+    abstractValueFactory = new AbstractValueFactory();
     abstractValueConstantPropagationJoiner = new AbstractValueConstantPropagationJoiner(this);
     if (enableWholeProgramOptimizations()) {
       abstractValueFieldJoiner = new AbstractValueFieldJoiner(withClassHierarchy());
@@ -542,7 +542,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public ComposeReferences getComposeReferences() {
-    assert testing().modelChangedArgumentsToComposableFunctions;
+    assert options().getJetpackComposeOptions().isAnyOptimizationsEnabled();
     if (composeReferences == null) {
       composeReferences = new ComposeReferences(dexItemFactory());
     }

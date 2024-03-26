@@ -334,7 +334,7 @@ public class AnnotationRemover {
       AnnotatedKind kind,
       Mode mode,
       InternalOptions options) {
-    return options.testing.modelChangedArgumentsToComposableFunctions
+    return options.getJetpackComposeOptions().isAnyOptimizationsEnabled()
         && mode.isInitialTreeShaking()
         && kind.isMethod()
         && annotation

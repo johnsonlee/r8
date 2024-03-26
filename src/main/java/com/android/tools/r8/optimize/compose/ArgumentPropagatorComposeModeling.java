@@ -38,7 +38,10 @@ public class ArgumentPropagatorComposeModeling {
   private final DexString invokeName;
 
   public ArgumentPropagatorComposeModeling(AppView<AppInfoWithLiveness> appView) {
-    assert appView.testing().modelChangedArgumentsToComposableFunctions;
+    assert appView
+        .options()
+        .getJetpackComposeOptions()
+        .isModelingChangedArgumentsToComposableFunctions();
     this.appView = appView;
     this.rewrittenComposeReferences =
         appView
