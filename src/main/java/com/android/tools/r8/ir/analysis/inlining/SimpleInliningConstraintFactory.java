@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNul
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNull;
 
 import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.utils.ArrayUtils;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -15,16 +16,29 @@ import java.util.function.Supplier;
 public class SimpleInliningConstraintFactory {
 
   // Immutable argument constraints for low argument indices to avoid overhead of ConcurrentHashMap.
+  private final ConstSimpleInliningConstraint[] lowConstConstraints =
+      ArrayUtils.initialize(
+          new ConstSimpleInliningConstraint[5], i -> ConstSimpleInliningConstraint.create(i, this));
   private final EqualToBooleanSimpleInliningConstraint[] lowEqualToFalseConstraints =
-      new EqualToBooleanSimpleInliningConstraint[5];
+      ArrayUtils.initialize(
+          new EqualToBooleanSimpleInliningConstraint[5],
+          i -> EqualToBooleanSimpleInliningConstraint.create(i, false, this));
   private final EqualToBooleanSimpleInliningConstraint[] lowEqualToTrueConstraints =
-      new EqualToBooleanSimpleInliningConstraint[5];
+      ArrayUtils.initialize(
+          new EqualToBooleanSimpleInliningConstraint[5],
+          i -> EqualToBooleanSimpleInliningConstraint.create(i, true, this));
   private final NullSimpleInliningConstraint[] lowNotEqualToNullConstraints =
-      new NullSimpleInliningConstraint[5];
+      ArrayUtils.initialize(
+          new NullSimpleInliningConstraint[5],
+          i -> NullSimpleInliningConstraint.create(i, definitelyNotNull(), this));
   private final NullSimpleInliningConstraint[] lowEqualToNullConstraints =
-      new NullSimpleInliningConstraint[5];
+      ArrayUtils.initialize(
+          new NullSimpleInliningConstraint[5],
+          i -> NullSimpleInliningConstraint.create(i, definitelyNull(), this));
 
   // Argument constraints for high argument indices.
+  private final Map<Integer, ConstSimpleInliningConstraint> highConstConstraints =
+      new ConcurrentHashMap<>();
   private final Map<Integer, EqualToBooleanSimpleInliningConstraint> highEqualToFalseConstraints =
       new ConcurrentHashMap<>();
   private final Map<Integer, EqualToBooleanSimpleInliningConstraint> highEqualToTrueConstraints =
@@ -34,20 +48,12 @@ public class SimpleInliningConstraintFactory {
   private final Map<Integer, NullSimpleInliningConstraint> highEqualToNullConstraints =
       new ConcurrentHashMap<>();
 
-  public SimpleInliningConstraintFactory() {
-    for (int i = 0; i < lowEqualToFalseConstraints.length; i++) {
-      lowEqualToFalseConstraints[i] = EqualToBooleanSimpleInliningConstraint.create(i, false, this);
-    }
-    for (int i = 0; i < lowEqualToTrueConstraints.length; i++) {
-      lowEqualToTrueConstraints[i] = EqualToBooleanSimpleInliningConstraint.create(i, true, this);
-    }
-    for (int i = 0; i < lowNotEqualToNullConstraints.length; i++) {
-      lowNotEqualToNullConstraints[i] =
-          NullSimpleInliningConstraint.create(i, definitelyNotNull(), this);
-    }
-    for (int i = 0; i < lowEqualToNullConstraints.length; i++) {
-      lowEqualToNullConstraints[i] = NullSimpleInliningConstraint.create(i, definitelyNull(), this);
-    }
+  public ConstSimpleInliningConstraint createConstConstraint(int argumentIndex) {
+    return createArgumentConstraint(
+        argumentIndex,
+        lowConstConstraints,
+        highConstConstraints,
+        () -> ConstSimpleInliningConstraint.create(argumentIndex, this));
   }
 
   public EqualToBooleanSimpleInliningConstraint createEqualToFalseConstraint(int argumentIndex) {

@@ -84,7 +84,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
       StringSwitch theSwitch = block.exit().asStringSwitch();
-      if (theSwitch != null) {
+      if (theSwitch != null && shouldBeRemoved(code, theSwitch)) {
         try {
           SingleStringSwitchRemover remover;
           if (theSwitch.numberOfKeys() < appView.options().minimumStringSwitchSize
@@ -132,7 +132,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
       BasicBlock block = blockIterator.next();
       for (BasicBlock predecessor : block.getNormalPredecessors()) {
         StringSwitch exit = predecessor.exit().asStringSwitch();
-        if (exit != null) {
+        if (exit != null && shouldBeRemoved(code, exit)) {
           hasStringSwitch = true;
           if (block == exit.fallthroughBlock()) {
             // After the elimination of this string-switch instruction, there will be two
@@ -162,6 +162,15 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
     }
 
     return hasStringSwitch;
+  }
+
+  private boolean shouldBeRemoved(IRCode code, StringSwitch theSwitch) {
+    // We only support retaining StringSwitch instructions in LIR. However, even when compiling to
+    // LIR, we (currently) need to remove StringSwitch instructions where the keys may be class
+    // names, so that these DexItemBasedConstStrings are correctly lens code rewritten.
+    // (Note this could be avoided by introducing a separate DexItemBasedStringSwitch instruction.)
+    return !code.getConversionOptions().isGeneratingLir()
+        || isClassNameValue(theSwitch.value(), dexItemFactory);
   }
 
   @Override

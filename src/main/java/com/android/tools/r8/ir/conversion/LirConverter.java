@@ -143,11 +143,12 @@ public class LirConverter {
         new CodeRewriterPassCollection(
             new AdaptClassStringsRewriter(appView),
             new ConstResourceNumberRemover(appView),
+            // Must run before DexItemBasedConstStringRemover.
+            new StringSwitchRemover(appView),
             new DexItemBasedConstStringRemover(appView),
             new InitClassRemover(appView),
             new RecordInvokeDynamicInvokeCustomRewriter(appView),
-            new FilledNewArrayRewriter(appView),
-            new StringSwitchRemover(appView));
+            new FilledNewArrayRewriter(appView));
     ThreadUtils.processItems(
         appView.appInfo().classes(),
         clazz ->

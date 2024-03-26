@@ -7,17 +7,23 @@ package com.android.tools.r8.ir.analysis.inlining;
 import static com.android.tools.r8.ir.code.Opcodes.GOTO;
 import static com.android.tools.r8.ir.code.Opcodes.IF;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
+import static com.android.tools.r8.ir.code.Opcodes.STRING_SWITCH;
 import static com.android.tools.r8.ir.code.Opcodes.THROW;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
+import com.android.tools.r8.ir.code.InvokeVirtual;
+import com.android.tools.r8.ir.code.JumpInstruction;
+import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
@@ -40,7 +46,8 @@ import java.util.Set;
  */
 public class SimpleInliningConstraintAnalysis {
 
-  private final SimpleInliningConstraintFactory factory;
+  private final SimpleInliningConstraintFactory constraintFactory;
+  private final DexItemFactory dexItemFactory;
   private final ProgramMethod method;
   private final InternalOptions options;
   private final int simpleInliningConstraintThreshold;
@@ -49,7 +56,8 @@ public class SimpleInliningConstraintAnalysis {
 
   public SimpleInliningConstraintAnalysis(
       AppView<AppInfoWithLiveness> appView, ProgramMethod method) {
-    this.factory = appView.simpleInliningConstraintFactory();
+    this.constraintFactory = appView.simpleInliningConstraintFactory();
+    this.dexItemFactory = appView.dexItemFactory();
     this.method = method;
     this.options = appView.options();
     this.simpleInliningConstraintThreshold = appView.options().simpleInliningConstraintThreshold;
@@ -87,11 +95,18 @@ public class SimpleInliningConstraintAnalysis {
     // Move the instruction iterator forward to the block's jump instruction, while incrementing the
     // instruction depth of the depth-first traversal.
     Instruction instruction = instructionIterator.next();
+    SimpleInliningConstraint blockConstraint = AlwaysSimpleInliningConstraint.getInstance();
     while (!instruction.isJumpInstruction()) {
       assert !instruction.isArgument();
       assert !instruction.isDebugInstruction();
-      if (!instruction.isAssume()) {
-        instructionDepth += 1;
+      SimpleInliningConstraint instructionConstraint =
+          computeConstraintForInstructionNotToMaterialize(instruction);
+      if (instructionConstraint.isAlways()) {
+        assert instruction.isAssume();
+      } else if (instructionConstraint.isNever()) {
+        instructionDepth++;
+      } else {
+        blockConstraint = blockConstraint.meet(instructionConstraint);
       }
       instruction = instructionIterator.next();
     }
@@ -102,8 +117,36 @@ public class SimpleInliningConstraintAnalysis {
       return NeverSimpleInliningConstraint.getInstance();
     }
 
-    // Analyze the jump instruction.
-    // TODO(b/132600418): Extend to switch and throw instructions.
+    SimpleInliningConstraint jumpConstraint =
+        computeConstraintForJumpInstruction(instruction.asJumpInstruction(), instructionDepth);
+    return blockConstraint.meet(jumpConstraint);
+  }
+
+  private SimpleInliningConstraint computeConstraintForInstructionNotToMaterialize(
+      Instruction instruction) {
+    if (instruction.isAssume()) {
+      return AlwaysSimpleInliningConstraint.getInstance();
+    }
+    if (instruction.isInvokeVirtual()) {
+      InvokeVirtual invoke = instruction.asInvokeVirtual();
+      if (invoke.getInvokedMethod().isIdenticalTo(dexItemFactory.objectMembers.getClass)
+          && invoke.hasUnusedOutValue()) {
+        Value receiver = invoke.getReceiver();
+        if (receiver.getType().isDefinitelyNotNull()) {
+          return AlwaysSimpleInliningConstraint.getInstance();
+        }
+        Value receiverRoot = receiver.getAliasedValue();
+        if (receiverRoot.isDefinedByInstructionSatisfying(Instruction::isArgument)) {
+          Argument argument = receiverRoot.getDefinition().asArgument();
+          return constraintFactory.createNotEqualToNullConstraint(argument.getIndex());
+        }
+      }
+    }
+    return NeverSimpleInliningConstraint.getInstance();
+  }
+
+  private SimpleInliningConstraint computeConstraintForJumpInstruction(
+      JumpInstruction instruction, int instructionDepth) {
     switch (instruction.opcode()) {
       case IF:
         If ifInstruction = instruction.asIf();
@@ -154,8 +197,26 @@ public class SimpleInliningConstraintAnalysis {
       case RETURN:
         return AlwaysSimpleInliningConstraint.getInstance();
 
+      case STRING_SWITCH:
+        // Require that all cases including the default case are simple. In that case we can
+        // guarantee simpleness by requiring that the switch value is constant.
+        StringSwitch stringSwitch = instruction.asStringSwitch();
+        Value valueRoot = stringSwitch.value().getAliasedValue();
+        if (!valueRoot.isDefinedByInstructionSatisfying(Instruction::isArgument)) {
+          return NeverSimpleInliningConstraint.getInstance();
+        }
+        for (BasicBlock successor : stringSwitch.getBlock().getNormalSuccessors()) {
+          SimpleInliningConstraint successorConstraint =
+              analyzeInstructionsInBlock(successor, instructionDepth);
+          if (!successorConstraint.isAlways()) {
+            return NeverSimpleInliningConstraint.getInstance();
+          }
+        }
+        Argument argument = valueRoot.getDefinition().asArgument();
+        return constraintFactory.createConstConstraint(argument.getIndex());
+
       case THROW:
-        return block.hasCatchHandlers()
+        return instruction.getBlock().hasCatchHandlers()
             ? NeverSimpleInliningConstraint.getInstance()
             : AlwaysSimpleInliningConstraint.getInstance();
 
@@ -174,15 +235,16 @@ public class SimpleInliningConstraintAnalysis {
       case EQ:
         if (isZeroTest) {
           if (argumentType.isReferenceType()) {
-            return factory.createEqualToNullConstraint(argumentIndex);
+            return constraintFactory.createEqualToNullConstraint(argumentIndex);
           }
           if (argumentType.isBooleanType()) {
-            return factory.createEqualToFalseConstraint(argumentIndex);
+            return constraintFactory.createEqualToFalseConstraint(argumentIndex);
           }
         } else if (argumentType.isPrimitiveType()) {
           OptionalLong rawValue = getRawNumberValue(otherOperand);
           if (rawValue.isPresent()) {
-            return factory.createEqualToNumberConstraint(argumentIndex, rawValue.getAsLong());
+            return constraintFactory.createEqualToNumberConstraint(
+                argumentIndex, rawValue.getAsLong());
           }
         }
         return NeverSimpleInliningConstraint.getInstance();
@@ -190,15 +252,16 @@ public class SimpleInliningConstraintAnalysis {
       case NE:
         if (isZeroTest) {
           if (argumentType.isReferenceType()) {
-            return factory.createNotEqualToNullConstraint(argumentIndex);
+            return constraintFactory.createNotEqualToNullConstraint(argumentIndex);
           }
           if (argumentType.isBooleanType()) {
-            return factory.createEqualToTrueConstraint(argumentIndex);
+            return constraintFactory.createEqualToTrueConstraint(argumentIndex);
           }
         } else if (argumentType.isPrimitiveType()) {
           OptionalLong rawValue = getRawNumberValue(otherOperand);
           if (rawValue.isPresent()) {
-            return factory.createNotEqualToNumberConstraint(argumentIndex, rawValue.getAsLong());
+            return constraintFactory.createNotEqualToNumberConstraint(
+                argumentIndex, rawValue.getAsLong());
           }
         }
         return NeverSimpleInliningConstraint.getInstance();
