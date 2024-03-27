@@ -541,6 +541,7 @@ public class ArgumentPropagatorCodeScanner {
     // TODO(b/331587404): Investigate if we can replace the receiver by null before entering this
     //  pass, so that this special case is not needed.
     if (dynamicReceiverType.isNullType()) {
+      assert appView.testing().allowNullDynamicTypeInCodeScanner : "b/250634405";
       // This can happen if we were unable to determine that the receiver is a phi value where null
       // information has not been propagated down. Ideally this case would never happen as it should
       // be possible to replace the receiver by the null constant in this case.

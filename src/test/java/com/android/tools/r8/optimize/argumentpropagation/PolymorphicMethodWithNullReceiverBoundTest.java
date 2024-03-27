@@ -23,11 +23,11 @@ import org.junit.runners.Parameterized.Parameters;
  * This is an attempt on a regression test for b/250634405. What happens in the input program is
  * that we determine a phi value to be always null in Phi.getDynamicUpperBoundType. That information
  * has not been propagated to the receiver during optimizing of the IR. Therefor the check at {@link
- * ArgumentPropagatorCodeScanner.scan} for receiver always being null returns false.
+ * ArgumentPropagatorCodeScanner#scan} for receiver always being null returns false.
  *
  * <p>Getting the exact IR to match was difficult so this test short circuit this by disabling IR
  * processing of a simple method (by specifying pass-through) and disabling the check in {@link
- * ArgumentPropagatorCodeScanner.scan}.
+ * ArgumentPropagatorCodeScanner#scan}.
  */
 @RunWith(Parameterized.class)
 public class PolymorphicMethodWithNullReceiverBoundTest extends TestBase {
@@ -44,24 +44,23 @@ public class PolymorphicMethodWithNullReceiverBoundTest extends TestBase {
   public void testR8WithTestAssertionsEnabled() {
     assertThrows(
         CompilationFailedException.class,
-        () -> {
-          testForR8(parameters.getBackend())
-              .addInnerClasses(getClass())
-              .addKeepMainRule(Main.class)
-              .enableNoHorizontalClassMergingAnnotations()
-              .enableNoVerticalClassMergingAnnotations()
-              .setMinApi(parameters)
-              .addOptionsModification(
-                  options -> {
-                    options.testing.cfByteCodePassThrough =
-                        method -> method.getName().startsWith("main");
-                    options.testing.checkReceiverAlwaysNullInCallSiteOptimization = false;
-                  })
-              .compileWithExpectedDiagnostics(
-                  diagnostics -> {
-                    diagnostics.assertErrorMessageThatMatches(containsString("b/250634405"));
-                  });
-        });
+        () ->
+            testForR8(parameters.getBackend())
+                .addInnerClasses(getClass())
+                .addKeepMainRule(Main.class)
+                .enableNoHorizontalClassMergingAnnotations()
+                .enableNoVerticalClassMergingAnnotations()
+                .setMinApi(parameters)
+                .addOptionsModification(
+                    options -> {
+                      options.testing.allowNullDynamicTypeInCodeScanner = false;
+                      options.testing.cfByteCodePassThrough =
+                          method -> method.getName().startsWith("main");
+                      options.testing.checkReceiverAlwaysNullInCallSiteOptimization = false;
+                    })
+                .compileWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics.assertErrorMessageThatMatches(containsString("b/250634405"))));
   }
 
   @Test

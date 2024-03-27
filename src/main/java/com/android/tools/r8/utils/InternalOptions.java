@@ -2333,6 +2333,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean allowClassInliningOfSynthetics = true;
     public boolean allowInjectedAnnotationMethods = false;
     public boolean allowInliningOfSynthetics = true;
+    public boolean allowNullDynamicTypeInCodeScanner = true;
     public boolean allowTypeErrors =
         !Version.isDevelopmentVersion()
             || System.getProperty("com.android.tools.r8.allowTypeErrors") != null;
