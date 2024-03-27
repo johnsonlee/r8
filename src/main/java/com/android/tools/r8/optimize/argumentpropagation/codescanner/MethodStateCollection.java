@@ -68,8 +68,7 @@ abstract class MethodStateCollection<K> {
         (ignore, existingMethodState) -> {
           if (existingMethodState == null) {
             MethodState newMethodState = methodStateSupplier.apply(MethodState.bottom());
-            assert !newMethodState.isBottom();
-            return newMethodState;
+            return newMethodState.isBottom() ? null : newMethodState;
           }
           assert !existingMethodState.isBottom();
           timing.begin("Join temporary method state");

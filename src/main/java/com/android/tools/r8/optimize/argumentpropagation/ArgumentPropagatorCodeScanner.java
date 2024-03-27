@@ -538,12 +538,16 @@ public class ArgumentPropagatorCodeScanner {
       ProgramMethod context,
       ConcretePolymorphicMethodStateOrBottom existingMethodState) {
     DynamicTypeWithUpperBound dynamicReceiverType = invoke.getReceiver().getDynamicType(appView);
+    // TODO(b/331587404): Investigate if we can replace the receiver by null before entering this
+    //  pass, so that this special case is not needed.
     if (dynamicReceiverType.isNullType()) {
       // This can happen if we were unable to determine that the receiver is a phi value where null
-      // information has not been propagated down. See if we can improve the test here or ensure
-      // that all phi's are normalized before computing the optimization info.
-      assert appView.checkForTesting(() -> false) : "b/250634405";
-      return MethodState.unknown();
+      // information has not been propagated down. Ideally this case would never happen as it should
+      // be possible to replace the receiver by the null constant in this case.
+      //
+      // Since the receiver is known to be null, no argument information should be propagated to the
+      // callees, so we return bottom here.
+      return MethodState.bottom();
     }
 
     ProgramMethod singleTarget = invoke.lookupSingleProgramTarget(appView, context);
