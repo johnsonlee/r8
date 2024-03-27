@@ -15,6 +15,7 @@ import utils
 
 GOLEM_BUILD_TARGETS_TESTS = [
     utils.GRADLE_TASK_ALL_TESTS_WITH_APPLY_MAPPING_JAR,
+    utils.GRADLE_TASK_TESTBASE_WITH_APPLY_MAPPING_JAR,
     utils.GRADLE_TASK_TEST_DEPS_JAR
 ]
 GOLEM_BUILD_TARGETS = [utils.GRADLE_TASK_R8LIB] + GOLEM_BUILD_TARGETS_TESTS
@@ -95,14 +96,15 @@ def main(argv, temp):
         ]
         buildTargets = [utils.GRADLE_TASK_R8] + testBuildTargets
         r8jar = utils.R8_JAR
-        testjars = [utils.R8_TESTS_JAR, utils.R8_TESTS_DEPS_JAR]
+        testjars = [utils.R8_TESTS_JAR, utils.R8_TESTS_DEPS_JAR, utils.R8_TESTBASE_JAR]
     else:
         testBuildTargets = GOLEM_BUILD_TARGETS_TESTS
         buildTargets = GOLEM_BUILD_TARGETS
         r8jar = utils.R8LIB_JAR
         testjars = [
             os.path.join(utils.R8LIB_TESTS_JAR),
-            os.path.join(utils.R8LIB_TESTS_DEPS_JAR)
+            os.path.join(utils.R8LIB_TESTS_DEPS_JAR),
+            os.path.join(utils.R8LIB_TESTBASE_JAR)
         ]
 
     if options.version:

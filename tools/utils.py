@@ -53,6 +53,7 @@ GRADLE_TASK_SOURCE_JAR = ':test:packageSources'
 GRADLE_TASK_SWISS_ARMY_KNIFE = ':main:swissArmyKnife'
 GRADLE_TASK_TEST = ':test:test'
 GRADLE_TASK_ALL_TESTS_WITH_APPLY_MAPPING_JAR = ':test:rewriteTestsForR8LibWithRelocatedDeps'
+GRADLE_TASK_TESTBASE_WITH_APPLY_MAPPING_JAR = ':test:rewriteTestBaseForR8LibWithRelocatedDeps'
 GRADLE_TASK_TEST_DEPS_JAR = ':test:packageTestDeps'
 GRADLE_TASK_TEST_JAR = ':test:relocateTestsForR8LibWithRelocatedDeps'
 
@@ -69,6 +70,8 @@ R8_FULL_EXCLUDE_DEPS_JAR = os.path.join(LIBS, 'r8-full-exclude-deps.jar')
 THREADING_MODULE_BLOCKING_JAR = os.path.join(LIBS, 'threading-module-blocking.jar')
 THREADING_MODULE_SINGLE_THREADED_JAR = os.path.join(LIBS, 'threading-module-single-threaded.jar')
 R8_TESTS_JAR = os.path.join(LIBS, 'r8tests.jar')
+R8_TESTBASE_JAR = os.path.join(LIBS, 'r8test_base.jar')
+R8LIB_TESTBASE_JAR = os.path.join(LIBS, 'r8libtestbase-cf.jar')
 R8LIB_TESTS_JAR = os.path.join(LIBS, 'r8libtestdeps-cf.jar')
 R8_TESTS_DEPS_JAR = os.path.join(LIBS, 'test_deps_all.jar')
 R8LIB_TESTS_DEPS_JAR = R8_TESTS_DEPS_JAR
