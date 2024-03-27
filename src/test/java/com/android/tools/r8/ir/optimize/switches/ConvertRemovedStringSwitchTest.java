@@ -13,8 +13,14 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.conversion.passes.StringSwitchConverter;
+import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -52,7 +58,7 @@ public class ConvertRemovedStringSwitchTest extends TestBase {
         .assertSuccessWithOutputLines("A", "B", "C", "D", "E!");
   }
 
-  private void inspect(CodeInspector inspector) {
+  private void inspect(CodeInspector inspector) throws Exception {
     ClassSubject classSubject = inspector.clazz(TestClass.class);
     assertThat(classSubject, isPresent());
 
@@ -69,7 +75,12 @@ public class ConvertRemovedStringSwitchTest extends TestBase {
     assertEquals(1, stringCounts.getInt("E!"));
 
     // Verify that we can rebuild the StringSwitch instruction.
-    IRCode code = mainMethodSubject.buildIR();
+    AppView<?> appView =
+        computeAppView(
+            AndroidApp.builder().build(),
+            new InternalOptions(inspector.getFactory(), new Reporter()));
+    IRCode code = mainMethodSubject.buildIR(appView);
+    new StringSwitchConverter(appView).run(code, Timing.empty());
     assertTrue(code.streamInstructions().anyMatch(Instruction::isStringSwitch));
   }
 

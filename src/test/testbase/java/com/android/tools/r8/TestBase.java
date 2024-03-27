@@ -793,9 +793,14 @@ public class TestBase {
   }
 
   protected static AppView<AppInfo> computeAppView(AndroidApp app) throws Exception {
+    return computeAppView(app, new InternalOptions());
+  }
+
+  protected static AppView<AppInfo> computeAppView(AndroidApp app, InternalOptions options)
+      throws Exception {
     AppInfo appInfo =
         AppInfo.createInitialAppInfo(
-            readApplicationForDexOutput(app, new InternalOptions()),
+            readApplicationForDexOutput(app, options),
             GlobalSyntheticsStrategy.forNonSynthesizing());
     return AppView.createForD8(appInfo);
   }

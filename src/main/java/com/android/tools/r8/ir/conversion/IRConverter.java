@@ -35,6 +35,7 @@ import com.android.tools.r8.ir.conversion.passes.DexConstantOptimizer;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.conversion.passes.MoveResultRewriter;
 import com.android.tools.r8.ir.conversion.passes.ParentConstructorHoistingCodeRewriter;
+import com.android.tools.r8.ir.conversion.passes.StringSwitchConverter;
 import com.android.tools.r8.ir.conversion.passes.StringSwitchRemover;
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
 import com.android.tools.r8.ir.conversion.passes.TrivialPhiSimplifier;
@@ -582,6 +583,13 @@ public class IRConverter {
       finalizeIR(code, feedback, BytecodeMetadataProvider.empty(), timing);
       timing.end();
       return timing;
+    }
+
+    // In R8, StringSwitch instructions are introduced when entering the LIR phase. In D8, we don't
+    // use LIR, so we explicitly introduce StringSwitch instructions here.
+    if (!options.getTestingOptions().isSupportedLirPhase()) {
+      new StringSwitchConverter(appView)
+          .run(code, methodProcessor, methodProcessingContext, timing);
     }
 
     if (options.canHaveArtStringNewInitBug()) {
