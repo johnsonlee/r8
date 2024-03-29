@@ -621,6 +621,7 @@ public class DexItemFactory {
   public final DexType androidOsBuildVersionType =
       createStaticallyKnownType("Landroid/os/Build$VERSION;");
   public final DexType androidOsBundleType = createStaticallyKnownType("Landroid/os/Bundle;");
+  public final DexType androidOsHandlerType = createStaticallyKnownType("Landroid/os/Handler;");
   public final DexType androidOsParcelableCreatorType =
       createStaticallyKnownType("Landroid/os/Parcelable$Creator;");
   public final DexType androidSystemOsConstantsType =
@@ -1053,6 +1054,7 @@ public class DexItemFactory {
       ImmutableSet.<DexType>builder()
           .add(
               androidAppActivity,
+              androidOsHandlerType,
               callableType,
               enumType,
               npeType,
