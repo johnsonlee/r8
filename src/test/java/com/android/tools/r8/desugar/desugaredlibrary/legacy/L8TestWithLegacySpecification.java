@@ -46,7 +46,7 @@ public class L8TestWithLegacySpecification extends TestBase {
         Arrays.stream(AndroidApiLevel.values())
             .sorted()
             .filter(apiLevel -> apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L))
-            .filter(apiLevel -> apiLevel.isLessThan(AndroidApiLevel.MASTER))
+            .filter(apiLevel -> apiLevel.isLessThan(AndroidApiLevel.MAIN))
             .collect(Collectors.toList()),
         CompilationMode.values(),
         ImmutableList.of(

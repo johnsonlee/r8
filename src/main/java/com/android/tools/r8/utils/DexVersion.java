@@ -66,8 +66,8 @@ public enum DexVersion implements Ordered<DexVersion> {
 
   public static DexVersion getDexVersion(AndroidApiLevel androidApiLevel) {
     switch (androidApiLevel) {
-        // MASTER is an unknown higher api version we therefore choose the highest known version.
-      case MASTER:
+        // MAIN is an unknown higher api version we therefore choose the highest known version.
+      case MAIN:
       case U:
       case T:
       case Sv2:

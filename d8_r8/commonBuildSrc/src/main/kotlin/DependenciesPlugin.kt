@@ -644,7 +644,7 @@ object ThirdPartyDeps {
 fun getThirdPartyAndroidJars() : List<ThirdPartyDependency> {
   return listOf(
     "libcore_latest",
-    "lib-master",
+    "lib-main",
     "lib-v14",
     "lib-v15",
     "lib-v19",

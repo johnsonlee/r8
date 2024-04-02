@@ -44,7 +44,7 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
   Sv2(32),
   T(33),
   U(34),
-  MASTER(35); // API level for master is tentative.
+  MAIN(35); // API level for main is tentative.
 
   // When updating LATEST and a new version goes public, add a new api-versions.xml to third_party
   // and update the version and generated jar in AndroidApiDatabaseBuilderGeneratorTest. Together
@@ -54,7 +54,7 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
 
   public static final AndroidApiLevel API_DATABASE_LEVEL = LATEST;
 
-  public static final AndroidApiLevel UNKNOWN = MASTER;
+  public static final AndroidApiLevel UNKNOWN = MAIN;
 
   /** Constant used to signify some unknown min api when compiling platform. */
   public static final int ANDROID_PLATFORM_CONSTANT = 10000;
@@ -106,7 +106,7 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
       case V40:
         return AndroidApiLevel.R;
       case V41:
-        return AndroidApiLevel.MASTER;
+        return AndroidApiLevel.MAIN;
       default:
         throw new Unreachable();
     }
@@ -186,7 +186,7 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
       case 34:
         return U;
       default:
-        return MASTER;
+        return MAIN;
     }
   }
 }

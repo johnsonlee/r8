@@ -5,7 +5,6 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.debug.CfDebugTestConfig;
-import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -199,7 +198,7 @@ public class JvmTestBuilder extends TestBuilder<JvmTestRunResult, JvmTestBuilder
   }
 
   public JvmTestBuilder addAndroidBuildVersion() {
-    return addAndroidBuildVersion(AndroidApiLevel.MASTER);
+    return addAndroidBuildVersion(AndroidApiLevel.MAIN);
   }
 
   public JvmTestBuilder addAndroidBuildVersion(AndroidApiLevel apiLevel) {

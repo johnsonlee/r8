@@ -87,7 +87,7 @@ public class TestBackportedNotPresentInAndroidJar extends TestBase {
   @Test
   public void testBackportedMethodsPerAPILevel() throws Exception {
     for (AndroidApiLevel apiLevel : AndroidApiLevel.values()) {
-      if (apiLevel == AndroidApiLevel.MASTER) {
+      if (apiLevel == AndroidApiLevel.MAIN) {
         continue;
       }
       if (apiLevel == AndroidApiLevel.U) {

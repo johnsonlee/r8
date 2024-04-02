@@ -30,7 +30,7 @@ public class AndroidJarMasterTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.MASTER))
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.MAIN))
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
@@ -41,7 +41,7 @@ public class AndroidJarMasterTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.MASTER))
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.MAIN))
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)

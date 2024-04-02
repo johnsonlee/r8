@@ -161,7 +161,7 @@ public interface ComputedApiLevel extends Equatable<ComputedApiLevel> {
 
   class KnownApiLevel implements ComputedApiLevel {
 
-    private static final KnownApiLevel MASTER_INSTANCE = new KnownApiLevel(AndroidApiLevel.MASTER);
+    private static final KnownApiLevel MASTER_INSTANCE = new KnownApiLevel(AndroidApiLevel.MAIN);
 
     private final AndroidApiLevel apiLevel;
 
