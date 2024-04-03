@@ -20,11 +20,16 @@ import com.android.tools.r8.compilerapi.globalsynthetics.GlobalSyntheticsTest;
 import com.android.tools.r8.compilerapi.globalsyntheticsgenerator.GlobalSyntheticsGeneratorTest;
 import com.android.tools.r8.compilerapi.inputdependencies.InputDependenciesTest;
 import com.android.tools.r8.compilerapi.inputmap.InputMapTest;
+import com.android.tools.r8.compilerapi.maindex.MainDexClassesTest;
+import com.android.tools.r8.compilerapi.maindex.MainDexListTest;
+import com.android.tools.r8.compilerapi.maindex.MainDexRulesTest;
 import com.android.tools.r8.compilerapi.mapid.CustomMapIdTest;
 import com.android.tools.r8.compilerapi.mockdata.MockClass;
 import com.android.tools.r8.compilerapi.mockdata.MockClassWithAssertion;
 import com.android.tools.r8.compilerapi.mockdata.PostStartupMockClass;
 import com.android.tools.r8.compilerapi.partitionmap.PartitionMapCommandTest;
+import com.android.tools.r8.compilerapi.sampleapi.D8ApiUsageSampleTest;
+import com.android.tools.r8.compilerapi.sampleapi.R8ApiUsageSampleTest;
 import com.android.tools.r8.compilerapi.sourcefile.CustomSourceFileTest;
 import com.android.tools.r8.compilerapi.startupprofile.StartupProfileApiTest;
 import com.android.tools.r8.compilerapi.syntheticscontexts.SyntheticContextsConsumerTest;
@@ -47,6 +52,8 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
   private static final List<Class<? extends CompilerApiTest>> CLASSES_FOR_BINARY_COMPATIBILITY =
       ImmutableList.of(
           ApiTestingSetUpTest.ApiTest.class,
+          D8ApiUsageSampleTest.ApiTest.class,
+          R8ApiUsageSampleTest.ApiTest.class,
           CustomMapIdTest.ApiTest.class,
           CustomSourceFileTest.ApiTest.class,
           AssertionConfigurationTest.ApiTest.class,
@@ -66,7 +73,10 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
           PartitionMapCommandTest.ApiTest.class,
           CancelCompilationCheckerTest.ApiTest.class,
           GlobalSyntheticsGeneratorTest.ApiTest.class,
-          InputMapTest.ApiTest.class);
+          InputMapTest.ApiTest.class,
+          MainDexListTest.ApiTest.class,
+          MainDexClassesTest.ApiTest.class,
+          MainDexRulesTest.ApiTest.class);
 
   private static final List<Class<? extends CompilerApiTest>> CLASSES_PENDING_BINARY_COMPATIBILITY =
       ImmutableList.of();
