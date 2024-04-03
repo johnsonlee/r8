@@ -117,6 +117,25 @@ public class AndroidApiLevelUtils {
     return apiLevelOfOriginal.max(apiLevel).isLessThanOrEqualTo(options.getMinApiLevel()).isTrue();
   }
 
+  public static boolean isApiSafeForReference(DexType type, AppView<?> appView) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexType baseType = type.toBaseType(dexItemFactory);
+    if (baseType.isPrimitiveType()) {
+      return true;
+    }
+    DexClass baseClass = appView.definitionFor(baseType);
+    if (baseClass == null) {
+      // This could be a library class that is only available on newer api levels.
+      return false;
+    }
+    if (!baseClass.isLibraryClass()) {
+      // Program and classpath classes are not api level dependent.
+      return true;
+    }
+    LibraryClass baseLibraryClass = baseClass.asLibraryClass();
+    return isApiSafeForReference(baseLibraryClass, appView);
+  }
+
   public static boolean isApiSafeForReference(LibraryDefinition definition, AppView<?> appView) {
     return isApiSafeForReference(
         definition, appView.apiLevelCompute(), appView.options(), appView.dexItemFactory());

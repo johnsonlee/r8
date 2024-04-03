@@ -44,6 +44,7 @@ import com.android.tools.r8.ir.code.ResourceConstNumber;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Sets;
@@ -453,6 +454,10 @@ public class ConstantCanonicalizer {
           if (instanceGet.instructionMayHaveSideEffects(appView, context)) {
             return false;
           }
+          if (!AndroidApiLevelUtils.isApiSafeForReference(
+              instanceGet.getField().getType(), appView)) {
+            return false;
+          }
           NewInstance newInstance = null;
           if (instanceGet.object().isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
             newInstance = instanceGet.object().getDefinition().asNewInstance();
@@ -474,6 +479,10 @@ public class ConstantCanonicalizer {
           // read. This is only OK if the instruction cannot have side effects.
           StaticGet staticGet = instruction.asStaticGet();
           if (staticGet.instructionMayHaveSideEffects(appView, context)) {
+            return false;
+          }
+          if (!AndroidApiLevelUtils.isApiSafeForReference(
+              staticGet.getField().getType(), appView)) {
             return false;
           }
           if (!isReadOfEffectivelyFinalFieldOutsideInitializer(staticGet)

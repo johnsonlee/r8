@@ -66,10 +66,15 @@ public class ApiModelConstantCanonicalizationTest extends TestBase {
                       .streamInstructions()
                       .filter(i -> i.isInstanceGet() | i.isIf())
                       .collect(Collectors.toList());
-              // TODO(b/331556916): The instance get should not be moved before the if, as the type
-              //  of the field is not safe to reference on all API levels.
-              assertTrue(filteredInstructions.get(0).isInstanceGet());
-              assertTrue(filteredInstructions.get(1).isIf());
+              // The instance get can only be moved before the if, when the type of the field is
+              // safe to reference on all supported API levels.
+              if (sdkInt < 22) {
+                assertTrue(filteredInstructions.get(0).isIf());
+                assertTrue(filteredInstructions.get(1).isInstanceGet());
+              } else {
+                assertTrue(filteredInstructions.get(0).isInstanceGet());
+                assertTrue(filteredInstructions.get(1).isIf());
+              }
             })
         .addRunClasspathClasses(ApiLevel22.class)
         .run(parameters.getRuntime(), Main.class, Integer.toString(sdkInt))
