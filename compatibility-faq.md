@@ -29,6 +29,10 @@ is specified. The weakest rule that will keep annotations and attributes is
 `-keep[classmembers],allowshrinking,allowoptimization,allowobfuscation,allowaccessmodification class-specification`
 Additionally, for attributes describing a relationship such as `InnerClass` and
 `EnclosingMethod`, non-compat mode requires both endpoints being kept.
+- When optimizing or minifying the `SourceFile` attribute will always be
+rewritten to `SourceFile` unless `-renamesourcefileattribute` is used in which
+case the provided value is used. The original source file name is in the mapping
+file and when optimizing or minifying a mapping file is always produced.
 
 ## Stack traces and retracing
 When compiling with R8, a mapping file can be produced to support mapping stack
