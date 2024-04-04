@@ -23,6 +23,11 @@ def ParseOptions(argv):
                       help='Print the line \'<BENCHMARKNAME>(RunTimeRaw):' +
                       ' <elapsed> ms\' at the end where <elapsed> is' +
                       ' the elapsed time in milliseconds.')
+    parser.add_option('--no-build',
+                      '--no_build',
+                      help='Do not build D8',
+                      default=False,
+                      action='store_true')
     parser.add_option('--version', help='Version of D8 to use.', default=None)
     parser.add_option('--tag', help='Tag of D8 to use.', default=None)
     return parser.parse_args(argv)
@@ -34,6 +39,7 @@ def main(argv):
     time_consumer = lambda duration: print_duration(duration, options)
     return toolhelper.run('d8',
                           d8_args,
+                          build=not options.no_build,
                           jar=utils.find_r8_jar_from_options(options),
                           main='com.android.tools.r8.D8',
                           time_consumer=time_consumer)
