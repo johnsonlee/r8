@@ -526,6 +526,15 @@ public class DexCode extends Code
     return false;
   }
 
+  public boolean hasThrowingInstructions() {
+    for (DexInstruction instruction : instructions) {
+      if (instruction.canThrow()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @Override
   public Code asCode() {
     return this;

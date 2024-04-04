@@ -291,6 +291,7 @@ public class MappedPositionToClassNameMapperBuilder {
           originalType)) {
         assert appView.options().lineNumberOptimization.isOff()
             || hasAtMostOnePosition(appView, definition)
+            || !hasThrowingInstructions(definition)
             || appView.isCfByteCodePassThrough(definition);
         return this;
       }
@@ -622,6 +623,11 @@ public class MappedPositionToClassNameMapperBuilder {
       // If the dex code is a single PC code then that also qualifies as having at most one
       // position.
       return code.isDexCode() && code.asDexCode().instructions.length == 1;
+    }
+
+    private boolean hasThrowingInstructions(DexEncodedMethod definition) {
+      Code code = definition.getCode();
+      return code.isDexCode() && code.asDexCode().hasThrowingInstructions();
     }
 
     private ClassNaming.Builder getBuilder() {

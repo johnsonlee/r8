@@ -84,7 +84,9 @@ public class DexPositionToPcMappedRangeMapper {
           mappedPositions);
     }
 
-    assert !mappedPositions.isEmpty() || dexCode.instructions.length == 1;
+    assert !mappedPositions.isEmpty()
+        || dexCode.instructions.length == 1
+        || !dexCode.hasThrowingInstructions();
     pcBasedDebugInfo.recordPcMappingFor(method, pcEncodingCutoff);
     return mappedPositions;
   }
