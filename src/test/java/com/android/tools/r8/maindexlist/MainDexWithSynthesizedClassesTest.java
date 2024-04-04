@@ -6,12 +6,13 @@ package com.android.tools.r8.maindexlist;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.hamcrest.CoreMatchers.allOf;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.OutputMode;
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestDiagnosticMessages;
@@ -125,72 +126,35 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
    * determined that TestClass and A are both traced. Thus the synthetic lambda from A will be
    * included in the main-dex file.
    *
-   * <p>TODO(b/181858113): Update to assert an error is raised once deprecated period is over.
+   * <p>Now that b/181858113 is resolved to disallow this API usage, this test just checks the error
+   * is reported.
    */
   @Test
   public void testDeprecatedSyntheticsFromMainDexListD8() throws Exception {
     assumeTrue(parameters.isDexRuntime());
     Path mainDexFile = temp.newFile("maindex.list").toPath();
     FileUtils.writeTextFile(mainDexFile, binaryName(A.class) + ".class");
-    D8TestCompileResult compileResult =
-        testForD8()
-            .addInnerClasses(MainDexWithSynthesizedClassesTest.class)
-            .addMainDexListClasses(TestClass.class)
-            .addMainDexListFiles(mainDexFile)
-            .setMinApi(parameters)
-            .compileWithExpectedDiagnostics(
-                diagnostics ->
-                    diagnostics
-                        .assertOnlyWarnings()
-                        .assertWarningsMatch(
-                            // The "classes" addition has no origin.
-                            allOf(
-                                diagnosticType(UnsupportedMainDexListUsageDiagnostic.class),
-                                diagnosticOrigin(Origin.unknown())),
-                            // The "file" addition must have the file origin.
-                            allOf(
-                                diagnosticType(UnsupportedMainDexListUsageDiagnostic.class),
-                                diagnosticOrigin(new PathOrigin(mainDexFile)))));
-    checkCompilationResult(compileResult);
-  }
-
-  /**
-   * This test checks for maintained support of including synthetics from main-dex-list entries in
-   * the main-dex file. This test simulates that the tracing done at the class-file level has
-   * determined that TestClass and A are both traced. Thus the synthetic lambda from A will be
-   * included in the main-dex file.
-   *
-   * <p>TODO(b/181858113): Remove once deprecated main-dex-list is removed.
-   */
-  @Test
-  public void testDeprecatedSyntheticsFromMainDexListR8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
-    Path mainDexFile = temp.newFile("maindex.list").toPath();
-    FileUtils.writeTextFile(mainDexFile, binaryName(A.class) + ".class");
-    R8TestCompileResult compileResult =
-        testForR8(parameters.getBackend())
-            .addInnerClasses(MainDexWithSynthesizedClassesTest.class)
-            .setMinApi(parameters)
-            .addOptionsModification(o -> o.minimalMainDex = true)
-            .addMainDexListClasses(TestClass.class)
-            .addMainDexListFiles(mainDexFile)
-            .addDontObfuscate()
-            .noTreeShaking()
-            .allowDiagnosticWarningMessages()
-            .compileWithExpectedDiagnostics(
-                diagnostics ->
-                    diagnostics
-                        .assertOnlyWarnings()
-                        .assertWarningsMatch(
-                            // The "classes" addition has no origin.
-                            allOf(
-                                diagnosticType(UnsupportedMainDexListUsageDiagnostic.class),
-                                diagnosticOrigin(Origin.unknown())),
-                            // The "file" addition must have the file origin.
-                            allOf(
-                                diagnosticType(UnsupportedMainDexListUsageDiagnostic.class),
-                                diagnosticOrigin(new PathOrigin(mainDexFile)))));
-    checkCompilationResult(compileResult, compileResult.app);
+    assertThrows(
+        CompilationFailedException.class,
+        () ->
+            testForD8()
+                .addInnerClasses(MainDexWithSynthesizedClassesTest.class)
+                .addMainDexListClasses(TestClass.class)
+                .addMainDexListFiles(mainDexFile)
+                .setMinApi(parameters)
+                .compileWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics
+                            .assertOnlyErrors()
+                            .assertErrorsMatch(
+                                // The "classes" addition has no origin.
+                                allOf(
+                                    diagnosticType(UnsupportedMainDexListUsageDiagnostic.class),
+                                    diagnosticOrigin(Origin.unknown())),
+                                // The "file" addition must have the file origin.
+                                allOf(
+                                    diagnosticType(UnsupportedMainDexListUsageDiagnostic.class),
+                                    diagnosticOrigin(new PathOrigin(mainDexFile))))));
   }
 
   private void checkCompilationResult(D8TestCompileResult compileResult) throws Exception {

@@ -189,13 +189,13 @@ public class ApplicationReader {
     if (inputApp.hasMainDexList()) {
       for (StringResource resource : inputApp.getMainDexListResources()) {
         if (emitDeprecatedDiagnostics) {
-          options.reporter.warning(new UnsupportedMainDexListUsageDiagnostic(resource.getOrigin()));
+          options.reporter.error(new UnsupportedMainDexListUsageDiagnostic(resource.getOrigin()));
         }
         addToMainDexClasses(app, builder, MainDexListParser.parseList(resource, itemFactory));
       }
       if (!inputApp.getMainDexClasses().isEmpty()) {
         if (emitDeprecatedDiagnostics) {
-          options.reporter.warning(new UnsupportedMainDexListUsageDiagnostic(Origin.unknown()));
+          options.reporter.error(new UnsupportedMainDexListUsageDiagnostic(Origin.unknown()));
         }
         addToMainDexClasses(
             app,

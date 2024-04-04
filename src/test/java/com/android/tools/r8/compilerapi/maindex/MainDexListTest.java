@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.compilerapi.maindex;
 
+import static org.junit.Assert.fail;
+
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
@@ -39,12 +41,14 @@ public class MainDexListTest extends CompilerApiTestRunner {
     void run(ApiTest test, Path mainDexList, DiagnosticsHandler handler) throws Exception;
   }
 
+  TestDiagnosticMessagesImpl handler;
+
   private TestDiagnosticMessagesImpl runTest(Runner runner) throws Exception {
     ApiTest test = new ApiTest(ApiTest.PARAMETERS);
     Path mainDexListInput =
         FileUtils.writeTextFile(
             temp.newFile().toPath(), InputClass.class.getName().replace('.', '/') + ".class");
-    TestDiagnosticMessagesImpl handler = new TestDiagnosticMessagesImpl();
+    handler = new TestDiagnosticMessagesImpl();
     runner.run(test, mainDexListInput, handler);
     return handler;
   }
@@ -65,18 +69,30 @@ public class MainDexListTest extends CompilerApiTestRunner {
 
   @Test
   public void testD8CfInputs() throws Exception {
-    runTest((test, mainDexList, handler) -> test.runD8(getCfInput(), mainDexList, handler))
-        .assertOnlyWarnings()
-        .assertAllWarningsMatch(
-            DiagnosticsMatcher.diagnosticType(UnsupportedMainDexListUsageDiagnostic.class));
+    try {
+      runTest((test, mainDexList, handler) -> test.runD8(getCfInput(), mainDexList, handler));
+    } catch (CompilationFailedException e) {
+      handler
+          .assertOnlyErrors()
+          .assertAllErrorsMatch(
+              DiagnosticsMatcher.diagnosticType(UnsupportedMainDexListUsageDiagnostic.class));
+      return;
+    }
+    fail("Expected compilation failure");
   }
 
   @Test
   public void testR8() throws Exception {
-    runTest((test, mainDexList, handler) -> test.runR8(getCfInput(), mainDexList, handler))
-        .assertOnlyWarnings()
-        .assertAllWarningsMatch(
-            DiagnosticsMatcher.diagnosticType(UnsupportedMainDexListUsageDiagnostic.class));
+    try {
+      runTest((test, mainDexList, handler) -> test.runR8(getCfInput(), mainDexList, handler));
+    } catch (CompilationFailedException e) {
+      handler
+          .assertOnlyErrors()
+          .assertAllErrorsMatch(
+              DiagnosticsMatcher.diagnosticType(UnsupportedMainDexListUsageDiagnostic.class));
+      return;
+    }
+    fail("Expected compilation failure");
   }
 
   public static class ApiTest extends CompilerApiTest {

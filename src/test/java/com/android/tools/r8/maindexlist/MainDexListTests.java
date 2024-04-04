@@ -10,16 +10,14 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
+import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.DiagnosticsMatcher;
 import com.android.tools.r8.OutputMode;
-import com.android.tools.r8.R8Command;
 import com.android.tools.r8.StringResource;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
@@ -566,16 +564,14 @@ public class MainDexListTests extends TestBase {
           originalInspector.clazz(clazz).isPresent());
     }
     Path outDir = temp.newFolder().toPath();
-    R8Command.Builder builder =
-        R8Command.builder(handler)
+    D8Command.Builder builder =
+        D8Command.builder(handler)
             .addProgramFiles(app)
             .setMode(
                 minimalMainDex && mainDex.size() > 0
                     ? CompilationMode.DEBUG
                     : CompilationMode.RELEASE)
-            .setOutput(outDir, OutputMode.DexIndexed)
-            .setDisableTreeShaking(true)
-            .setDisableMinification(true);
+            .setOutput(outDir, OutputMode.DexIndexed);
 
     switch (testMode) {
       case SINGLE_FILE:
@@ -619,7 +615,7 @@ public class MainDexListTests extends TestBase {
       }
     }
 
-    ToolHelper.runR8(builder.build());
+    D8.run(builder.build());
     if (!singleDexApp && !minimalMainDex) {
       assertTrue("Output run only produced one dex file.",
           1 < Files.list(outDir).filter(FileUtils::isDexFile).count());
@@ -671,7 +667,9 @@ public class MainDexListTests extends TestBase {
 
   private static void generateApplication(Path output, List<String> classes, int methodCount)
       throws IOException {
-    ArchiveConsumer consumer = new ArchiveConsumer(output);
+    // Translate and compile the app to DEX code as main-dex list requires DEX inputs.
+    D8TestBuilder builder =
+        testForD8(getStaticTemp(), Backend.DEX).setOutputMode(OutputMode.DexFilePerClass);
     for (String typename : classes) {
       String descriptor = DescriptorUtils.javaTypeToDescriptor(typename);
       byte[] bytes =
@@ -702,9 +700,13 @@ public class MainDexListTests extends TestBase {
                     }
                   })
               .transform();
-      consumer.accept(ByteDataView.of(bytes), descriptor, null);
+      builder.addProgramClassFileData(bytes);
     }
-    consumer.finished(null);
+    try {
+      builder.compile().writeToZip(output);
+    } catch (CompilationFailedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   // Simple stub/template for generating the input classes.

@@ -209,12 +209,19 @@ public class BackportMainDexTest extends TestBase {
             .compile()
             .writeToZip();
 
+    Path out3 =
+        testForD8()
+            .addProgramClasses(TestClass.class, MiniAssert.class)
+            .addClasspathClasses(CLASSES)
+            .setIntermediate(true)
+            .setMinApi(parameters)
+            .compile()
+            .writeToZip();
+
     MainDexConsumer mainDexConsumer = new MainDexConsumer();
-    List<Class<?>> classes = ImmutableList.of(TestClass.class, MiniAssert.class);
-    List<Path> files = ImmutableList.of(out1, out2);
-    GenerateMainDexListRunResult traceResult = traceMainDex(classes, files);
+    List<Path> files = ImmutableList.of(out1, out2, out3);
+    GenerateMainDexListRunResult traceResult = traceMainDex(Collections.emptyList(), files);
     testForD8()
-        .addProgramClasses(classes)
         .addProgramFiles(files)
         .setMinApi(parameters)
         .addMainDexListClassReferences(traceResult.getMainDexList())

@@ -37,8 +37,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class MainDexListFromGenerateMainVerticalMergingTest extends TestBase {
 
-  private static List<ClassReference> mainDexList;
-
   private final TestParameters parameters;
 
   @Parameters(name = "{0}")
@@ -49,34 +47,8 @@ public class MainDexListFromGenerateMainVerticalMergingTest extends TestBase {
         .build();
   }
 
-  @BeforeClass
-  public static void setup() throws Exception {
-    mainDexList =
-        testForMainDexListGenerator(getStaticTemp())
-            .addInnerClasses(MainDexListFromGenerateMainVerticalMergingTest.class)
-            .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
-            .addMainDexRules(
-                "-keep class " + Main.class.getTypeName() + " { public static void foo(); }")
-            .run()
-            .getMainDexList();
-  }
-
   public MainDexListFromGenerateMainVerticalMergingTest(TestParameters parameters) {
     this.parameters = parameters;
-  }
-
-  // TODO(b/181858113): This test is likely obsolete once main-dex-list support is removed.
-  @Test
-  public void testMainDexList() throws Exception {
-    assertEquals(3, mainDexList.size());
-    Set<String> mainDexReferences =
-        mainDexList.stream().map(TypeReference::getTypeName).collect(Collectors.toSet());
-    assertTrue(mainDexReferences.contains(A.class.getTypeName()));
-    assertTrue(mainDexReferences.contains(B.class.getTypeName()));
-    assertTrue(mainDexReferences.contains(Main.class.getTypeName()));
-    runTest(
-        builder ->
-            builder.addMainDexListClassReferences(mainDexList).allowDiagnosticWarningMessages());
   }
 
   @Test

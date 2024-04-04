@@ -4,13 +4,19 @@
 
 package com.android.tools.r8.maindexlist.warnings;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.errors.UnsupportedMainDexListUsageDiagnostic;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
@@ -61,7 +67,7 @@ public class MainDexWarningsTest extends TestBase {
         .assertNoMessages();
   }
 
-  @Test
+  @Test(expected = CompilationFailedException.class)
   public void testWarningFromManualMainDexList() throws Exception {
     testForR8(parameters.getBackend())
         .setMinApi(AndroidApiLevel.K)
@@ -72,15 +78,21 @@ public class MainDexWarningsTest extends TestBase {
         .addMainDexListClasses(Static.class)
         .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
-        .compile()
-        .inspect(this::classStaticGone)
-        .assertOnlyWarnings()
-        .assertWarningMessageThatMatches(containsString("Application does not contain"))
-        .assertWarningMessageThatMatches(containsString(Static.class.getTypeName()))
-        .assertWarningMessageThatMatches(containsString("as referenced in main-dex-list"));
+        .compileWithExpectedDiagnostics(
+            diagnostics -> {
+              diagnostics
+                  .assertNoInfos()
+                  .assertErrorsMatch(diagnosticType(UnsupportedMainDexListUsageDiagnostic.class))
+                  .assertWarningsMatch(
+                      allOf(
+                          diagnosticMessage(containsString("Application does not contain")),
+                          diagnosticMessage(containsString(Static.class.getTypeName())),
+                          diagnosticMessage(containsString("as referenced in main-dex-list")),
+                          not(diagnosticMessage(containsString(Static2.class.getTypeName())))));
+            });
   }
 
-  @Test
+  @Test(expected = CompilationFailedException.class)
   public void testWarningFromManualMainDexListWithRuleAsWell() throws Exception {
     testForR8(parameters.getBackend())
         .setMinApi(AndroidApiLevel.K)
@@ -93,13 +105,18 @@ public class MainDexWarningsTest extends TestBase {
         .addDontWarn(Static.class)
         .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
-        .compile()
-        .inspect(this::classStaticGone)
-        .assertOnlyWarnings()
-        .assertWarningMessageThatMatches(containsString("Application does not contain"))
-        .assertWarningMessageThatMatches(containsString(Static.class.getTypeName()))
-        .assertWarningMessageThatMatches(containsString("as referenced in main-dex-list"))
-        .assertNoWarningMessageThatMatches(containsString(Static2.class.getTypeName()));
+        .compileWithExpectedDiagnostics(
+            diagnostics -> {
+              diagnostics
+                  .assertNoInfos()
+                  .assertErrorsMatch(diagnosticType(UnsupportedMainDexListUsageDiagnostic.class))
+                  .assertWarningsMatch(
+                      allOf(
+                          diagnosticMessage(containsString("Application does not contain")),
+                          diagnosticMessage(containsString(Static.class.getTypeName())),
+                          diagnosticMessage(containsString("as referenced in main-dex-list")),
+                          not(diagnosticMessage(containsString(Static2.class.getTypeName())))));
+            });
   }
 }
 

@@ -5,18 +5,13 @@
 package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
+import static org.junit.Assert.assertThrows;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.NeverClassInline;
-import com.android.tools.r8.OutputMode;
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.UnsupportedMainDexListUsageDiagnostic;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -30,7 +25,7 @@ public class PreventMergeMainDexListTest extends HorizontalClassMergingTestBase 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withDexRuntimes()
+        .withDefaultDexRuntime()
         .withApiLevelsEndingAtExcluding(apiLevelWithNativeMultiDexSupport())
         .build();
   }
@@ -39,42 +34,23 @@ public class PreventMergeMainDexListTest extends HorizontalClassMergingTestBase 
   //  Ensure the main-dex-rules variant of this test (PreventMergeMainDexTracingTest) is sufficient.
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .addInnerClasses(getClass())
-        .addKeepClassAndMembersRules(Main.class)
-        .addMainDexListClasses(A.class, Main.class)
-        .addOptionsModification(options -> options.minimalMainDex = true)
-        .enableNeverClassInliningAnnotations()
-        .setMinApi(parameters)
-        .allowDiagnosticMessages()
-        .compileWithExpectedDiagnostics(
-            diagnostics ->
-                diagnostics
-                    .assertOnlyWarnings()
-                    .assertWarningsMatch(
-                        diagnosticType(UnsupportedMainDexListUsageDiagnostic.class)))
-        .apply(this::checkCompileResult)
-        .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("main dex");
-  }
-
-  private void checkCompileResult(R8TestCompileResult compileResult) throws Exception {
-    Path out = temp.newFolder().toPath();
-    compileResult.app.writeToDirectory(out, OutputMode.DexIndexed);
-    Path classes = out.resolve("classes.dex");
-    Path classes2 = out.resolve("classes2.dex");
-    inspectMainDex(new CodeInspector(classes, compileResult.getProguardMap()));
-    inspectSecondaryDex(new CodeInspector(classes2, compileResult.getProguardMap()));
-  }
-
-  private void inspectMainDex(CodeInspector inspector) {
-    assertThat(inspector.clazz(A.class), isPresent());
-    assertThat(inspector.clazz(B.class), not(isPresent()));
-  }
-
-  private void inspectSecondaryDex(CodeInspector inspector) {
-    assertThat(inspector.clazz(A.class), not(isPresent()));
-    assertThat(inspector.clazz(B.class), isPresent());
+    assertThrows(
+        CompilationFailedException.class,
+        () ->
+            testForR8(parameters.getBackend())
+                .addInnerClasses(getClass())
+                .addKeepClassAndMembersRules(Main.class)
+                .addMainDexListClasses(A.class, Main.class)
+                .addOptionsModification(options -> options.minimalMainDex = true)
+                .enableNeverClassInliningAnnotations()
+                .setMinApi(parameters)
+                .allowDiagnosticMessages()
+                .compileWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics
+                            .assertOnlyErrors()
+                            .assertErrorsMatch(
+                                diagnosticType(UnsupportedMainDexListUsageDiagnostic.class))));
   }
 
   public static class Main {

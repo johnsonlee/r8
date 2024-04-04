@@ -99,7 +99,12 @@ public class MainDexApi21Test extends TestBase {
     TestConsumer programConsumer = new TestConsumer();
     testForD8()
         .setMinApi(AndroidApiLevel.L)
-        .addProgramClasses(ImmutableList.of(TestClassA.class, TestClassB.class))
+        .addProgramFiles(
+            testForD8()
+                .addProgramClasses(TestClassA.class, TestClassB.class)
+                .setMinApi(AndroidApiLevel.L)
+                .compile()
+                .writeToZip())
         .addMainDexListClasses(TestClassB.class)
         .setProgramConsumer(programConsumer)
         .compile();
