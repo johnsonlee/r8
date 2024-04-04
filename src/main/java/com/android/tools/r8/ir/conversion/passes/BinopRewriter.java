@@ -70,13 +70,23 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
    * </code>
    */
   private enum BinopDescriptor {
-    ADD(0, 0, null, null, true) {
+    ADD(true) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return Add.create(numericType, dest, left, right);
       }
 
       @Override
+      Integer leftIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
       int evaluate(int left, int right) {
         return left + right;
       }
@@ -86,13 +96,18 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         return left + right;
       }
     },
-    SUB(null, 0, null, null, false) {
+    SUB(false) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return new Sub(numericType, dest, left, right);
       }
 
       @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
       int evaluate(int left, int right) {
         return left - right;
       }
@@ -102,10 +117,30 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         return left - right;
       }
     },
-    MUL(1, 1, 0, 0, true) {
+    MUL(true) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return Mul.create(numericType, dest, left, right);
+      }
+
+      @Override
+      Integer leftIdentity(boolean isBooleanValue) {
+        return 1;
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 1;
+      }
+
+      @Override
+      Integer leftAbsorbing(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer rightAbsorbing(boolean isBooleanValue) {
+        return 0;
       }
 
       @Override
@@ -119,15 +154,40 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       }
     },
     // The following two can be improved if we handle ZeroDivide.
-    DIV(null, 1, null, null, false),
-    REM(null, null, null, null, false),
-    AND(ALL_BITS_SET_MASK, ALL_BITS_SET_MASK, 0, 0, true) {
+    DIV(false) {
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 1;
+      }
+    },
+    REM(false),
+    AND(true) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return And.create(numericType, dest, left, right);
       }
 
       @Override
+      Integer leftIdentity(boolean isBooleanValue) {
+        return allBitsSet(isBooleanValue);
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return allBitsSet(isBooleanValue);
+      }
+
+      @Override
+      Integer leftAbsorbing(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer rightAbsorbing(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
       int evaluate(int left, int right) {
         return left & right;
       }
@@ -137,13 +197,33 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         return left & right;
       }
     },
-    OR(0, 0, ALL_BITS_SET_MASK, ALL_BITS_SET_MASK, true) {
+    OR(true) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return Or.create(numericType, dest, left, right);
       }
 
       @Override
+      Integer leftIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer leftAbsorbing(boolean isBooleanValue) {
+        return allBitsSet(isBooleanValue);
+      }
+
+      @Override
+      Integer rightAbsorbing(boolean isBooleanValue) {
+        return allBitsSet(isBooleanValue);
+      }
+
+      @Override
       int evaluate(int left, int right) {
         return left | right;
       }
@@ -153,13 +233,23 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         return left | right;
       }
     },
-    XOR(0, 0, null, null, true) {
+    XOR(true) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return Xor.create(numericType, dest, left, right);
       }
 
       @Override
+      Integer leftIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
       int evaluate(int left, int right) {
         return left ^ right;
       }
@@ -169,21 +259,20 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         return left ^ right;
       }
     },
-    SHL(null, 0, 0, null, false) {
+    SHL(false) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return new Shl(numericType, dest, left, right);
       }
 
       @Override
-      boolean isShift() {
-        return true;
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
       }
-    },
-    SHR(null, 0, 0, null, false) {
+
       @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return new Shr(numericType, dest, left, right);
+      Integer leftAbsorbing(boolean isBooleanValue) {
+        return 0;
       }
 
       @Override
@@ -191,10 +280,41 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         return true;
       }
     },
-    USHR(null, 0, 0, null, false) {
+    SHR(false) {
+      @Override
+      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
+        return new Shr(numericType, dest, left, right);
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer leftAbsorbing(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      boolean isShift() {
+        return true;
+      }
+    },
+    USHR(false) {
       @Override
       Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
         return new Ushr(numericType, dest, left, right);
+      }
+
+      @Override
+      Integer rightIdentity(boolean isBooleanValue) {
+        return 0;
+      }
+
+      @Override
+      Integer leftAbsorbing(boolean isBooleanValue) {
+        return 0;
       }
 
       @Override
@@ -203,27 +323,35 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       }
     };
 
-    final Integer leftIdentity;
-    final Integer rightIdentity;
-    final Integer leftAbsorbing;
-    final Integer rightAbsorbing;
     final boolean associativeAndCommutative;
 
     BinopDescriptor(
-        Integer leftIdentity,
-        Integer rightIdentity,
-        Integer leftAbsorbing,
-        Integer rightAbsorbing,
         boolean associativeAndCommutative) {
-      this.leftIdentity = leftIdentity;
-      this.rightIdentity = rightIdentity;
-      this.leftAbsorbing = leftAbsorbing;
-      this.rightAbsorbing = rightAbsorbing;
       this.associativeAndCommutative = associativeAndCommutative;
     }
 
     Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
       throw new Unreachable();
+    }
+
+    Integer allBitsSet(boolean isBooleanValue) {
+      return isBooleanValue ? 1 : ALL_BITS_SET_MASK;
+    }
+
+    Integer leftIdentity(boolean isBooleanValue) {
+      return null;
+    }
+
+    Integer rightIdentity(boolean isBooleanValue) {
+      return null;
+    }
+
+    Integer leftAbsorbing(boolean isBooleanValue) {
+      return null;
+    }
+
+    Integer rightAbsorbing(boolean isBooleanValue) {
+      return null;
     }
 
     int evaluate(int left, int right) {
@@ -403,26 +531,28 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       InstructionListIterator iterator, Binop binop, BinopDescriptor binopDescriptor) {
     ConstNumber constNumber = getConstNumber(binop.leftValue());
     if (constNumber != null) {
+      boolean isBooleanValue = binop.outValue().knownToBeBoolean();
       if (simplify(
           binop,
           iterator,
           constNumber,
-          binopDescriptor.leftIdentity,
+          binopDescriptor.leftIdentity(isBooleanValue),
           binop.rightValue(),
-          binopDescriptor.leftAbsorbing,
+          binopDescriptor.leftAbsorbing(isBooleanValue),
           binop.leftValue())) {
         return true;
       }
     }
     constNumber = getConstNumber(binop.rightValue());
     if (constNumber != null) {
+      boolean isBooleanValue = binop.outValue().knownToBeBoolean();
       return simplify(
           binop,
           iterator,
           constNumber,
-          binopDescriptor.rightIdentity,
+          binopDescriptor.rightIdentity(isBooleanValue),
           binop.leftValue(),
-          binopDescriptor.rightAbsorbing,
+          binopDescriptor.rightAbsorbing(isBooleanValue),
           binop.rightValue());
     }
     return false;
