@@ -18,7 +18,11 @@ public class CompilerDump {
   public static CompilerDump fromArchive(Path dumpArchive, Path dumpExtractionDirectory)
       throws IOException {
     ZipUtils.unzip(dumpArchive, dumpExtractionDirectory);
-    return new CompilerDump(dumpExtractionDirectory);
+    return fromDirectory(dumpExtractionDirectory);
+  }
+
+  public static CompilerDump fromDirectory(Path dumpDirectory) {
+    return new CompilerDump(dumpDirectory);
   }
 
   public CompilerDump(Path directory) {

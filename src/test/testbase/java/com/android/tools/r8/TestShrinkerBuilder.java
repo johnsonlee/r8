@@ -8,6 +8,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.RunInterface;
+import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
@@ -627,5 +628,11 @@ public abstract class TestShrinkerBuilder<
       first = false;
     }
     return builder.append(");").toString();
+  }
+
+  public T applyCompilerDump(CompilerDump dump) throws IOException {
+    super.applyCompilerDump(dump);
+    addKeepRuleFiles(dump.getProguardConfigFile());
+    return self();
   }
 }

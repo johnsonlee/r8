@@ -11,6 +11,8 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.debug.DebugTestConfig;
+import com.android.tools.r8.dump.CompilerDump;
+import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorEventConsumer;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.testing.AndroidBuildVersion;
@@ -720,5 +722,19 @@ public abstract class TestCompilerBuilder<
               .collect(Collectors.toSet());
       builder = null;
     }
+  }
+
+  public T applyCompilerDump(CompilerDump dump) throws IOException {
+    super.applyCompilerDump(dump);
+    DumpOptions options = dump.getBuildProperties();
+    setMinApi(options.getMinApi());
+    applyIf(
+        dump.hasDesugaredLibrary(),
+        b ->
+            b.enableCoreLibraryDesugaring(
+                LibraryDesugaringTestConfiguration.forSpecification(
+                    dump.getDesugaredLibraryFile())));
+    setMode(options.getCompilationMode());
+    return self();
   }
 }

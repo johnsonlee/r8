@@ -5,12 +5,15 @@
 package com.android.tools.r8;
 
 import com.android.tools.r8.ProgramResource.Kind;
+import com.android.tools.r8.dump.CompilerDump;
+import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -123,5 +126,13 @@ public abstract class TestBaseBuilder<
         return resources.get(descriptor);
       }
     };
+  }
+
+  public T applyCompilerDump(CompilerDump dump) throws IOException {
+    DumpOptions options = dump.getBuildProperties();
+    addLibraryFiles(dump.getLibraryArchive());
+    addClasspathFiles(dump.getClasspathArchive());
+    addProgramFiles(dump.getProgramArchive());
+    return self();
   }
 }
