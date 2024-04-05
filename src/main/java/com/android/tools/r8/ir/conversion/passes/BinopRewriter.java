@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.ir.conversion.passes;
 
-import static com.android.tools.r8.utils.BitUtils.ALL_BITS_SET_MASK;
+import static com.android.tools.r8.ir.conversion.passes.BinopDescriptor.ADD;
+import static com.android.tools.r8.ir.conversion.passes.BinopDescriptor.SUB;
 
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -18,10 +18,12 @@ import com.android.tools.r8.ir.code.Div;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
+import com.android.tools.r8.ir.code.LogicalBinop;
 import com.android.tools.r8.ir.code.Mul;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Rem;
 import com.android.tools.r8.ir.code.Shl;
 import com.android.tools.r8.ir.code.Shr;
@@ -45,8 +47,8 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
 
   private Map<Class<?>, BinopDescriptor> createBinopDescriptors() {
     ImmutableMap.Builder<Class<?>, BinopDescriptor> builder = ImmutableMap.builder();
-    builder.put(Add.class, BinopDescriptor.ADD);
-    builder.put(Sub.class, BinopDescriptor.SUB);
+    builder.put(Add.class, ADD);
+    builder.put(Sub.class, SUB);
     builder.put(Mul.class, BinopDescriptor.MUL);
     builder.put(Div.class, BinopDescriptor.DIV);
     builder.put(Rem.class, BinopDescriptor.REM);
@@ -57,314 +59,6 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     builder.put(Shr.class, BinopDescriptor.SHR);
     builder.put(Ushr.class, BinopDescriptor.USHR);
     return builder.build();
-  }
-
-  /**
-   * A Binop descriptor describes left and right identity and absorbing element of binop. <code>
-   * In a space K, for a binop *:
-   * - i is left identity if for each x in K, i * x = x.
-   * - i is right identity if for each x in K, x * i = x.
-   * - a is left absorbing if for each x in K, a * x = a.
-   * - a is right absorbing if for each x in K, x * a = a.
-   * In a space K, a binop * is associative if for each x,y,z in K, (x * y) * z = x * (y * z).
-   * </code>
-   */
-  private enum BinopDescriptor {
-    ADD(true) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return Add.create(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer leftIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      int evaluate(int left, int right) {
-        return left + right;
-      }
-
-      @Override
-      long evaluate(long left, long right) {
-        return left + right;
-      }
-    },
-    SUB(false) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return new Sub(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      int evaluate(int left, int right) {
-        return left - right;
-      }
-
-      @Override
-      long evaluate(long left, long right) {
-        return left - right;
-      }
-    },
-    MUL(true) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return Mul.create(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer leftIdentity(boolean isBooleanValue) {
-        return 1;
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 1;
-      }
-
-      @Override
-      Integer leftAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer rightAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      int evaluate(int left, int right) {
-        return left * right;
-      }
-
-      @Override
-      long evaluate(long left, long right) {
-        return left * right;
-      }
-    },
-    // The following two can be improved if we handle ZeroDivide.
-    DIV(false) {
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 1;
-      }
-    },
-    REM(false),
-    AND(true) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return And.create(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer leftIdentity(boolean isBooleanValue) {
-        return allBitsSet(isBooleanValue);
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return allBitsSet(isBooleanValue);
-      }
-
-      @Override
-      Integer leftAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer rightAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      int evaluate(int left, int right) {
-        return left & right;
-      }
-
-      @Override
-      long evaluate(long left, long right) {
-        return left & right;
-      }
-    },
-    OR(true) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return Or.create(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer leftIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer leftAbsorbing(boolean isBooleanValue) {
-        return allBitsSet(isBooleanValue);
-      }
-
-      @Override
-      Integer rightAbsorbing(boolean isBooleanValue) {
-        return allBitsSet(isBooleanValue);
-      }
-
-      @Override
-      int evaluate(int left, int right) {
-        return left | right;
-      }
-
-      @Override
-      long evaluate(long left, long right) {
-        return left | right;
-      }
-    },
-    XOR(true) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return Xor.create(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer leftIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      int evaluate(int left, int right) {
-        return left ^ right;
-      }
-
-      @Override
-      long evaluate(long left, long right) {
-        return left ^ right;
-      }
-    },
-    SHL(false) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return new Shl(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer leftAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      boolean isShift() {
-        return true;
-      }
-    },
-    SHR(false) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return new Shr(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer leftAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      boolean isShift() {
-        return true;
-      }
-    },
-    USHR(false) {
-      @Override
-      Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-        return new Ushr(numericType, dest, left, right);
-      }
-
-      @Override
-      Integer rightIdentity(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      Integer leftAbsorbing(boolean isBooleanValue) {
-        return 0;
-      }
-
-      @Override
-      boolean isShift() {
-        return true;
-      }
-    };
-
-    final boolean associativeAndCommutative;
-
-    BinopDescriptor(
-        boolean associativeAndCommutative) {
-      this.associativeAndCommutative = associativeAndCommutative;
-    }
-
-    Binop instantiate(NumericType numericType, Value dest, Value left, Value right) {
-      throw new Unreachable();
-    }
-
-    Integer allBitsSet(boolean isBooleanValue) {
-      return isBooleanValue ? 1 : ALL_BITS_SET_MASK;
-    }
-
-    Integer leftIdentity(boolean isBooleanValue) {
-      return null;
-    }
-
-    Integer rightIdentity(boolean isBooleanValue) {
-      return null;
-    }
-
-    Integer leftAbsorbing(boolean isBooleanValue) {
-      return null;
-    }
-
-    Integer rightAbsorbing(boolean isBooleanValue) {
-      return null;
-    }
-
-    int evaluate(int left, int right) {
-      throw new Unreachable();
-    }
-
-    long evaluate(long left, long right) {
-      throw new Unreachable();
-    }
-
-    boolean isShift() {
-      return false;
-    }
   }
 
   @Override
@@ -391,7 +85,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
             || binop.getNumericType() == NumericType.LONG) {
           BinopDescriptor binopDescriptor = descriptors.get(binop.getClass());
           assert binopDescriptor != null;
-          if (identityAbsorbingSimplification(iterator, binop, binopDescriptor)) {
+          if (identityAbsorbingSimplification(iterator, binop, binopDescriptor, code)) {
             hasChanged = true;
             continue;
           }
@@ -415,7 +109,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     ConstNumber constBRight = getConstNumber(binop.rightValue());
     if ((constBLeft != null && constBRight != null)
         || (constBLeft == null && constBRight == null)) {
-      return false;
+      return successiveLogicalSimplificationNoConstant(iterator, binop, binopDescriptor, code);
     }
     Value otherValue = constBLeft == null ? binop.leftValue() : binop.rightValue();
     if (otherValue.isPhi() || !otherValue.getDefinition().isBinop()) {
@@ -436,14 +130,14 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       if (binopDescriptor.associativeAndCommutative) {
         // a * x * b => x * (a * b) where (a * b) is a constant.
         assert binop.isCommutative();
-        Value newConst = addNewConstNumber(code, iterator, constB, constA, binopDescriptor);
-        replaceBinop(iterator, code, input, newConst, binopDescriptor);
+        rewriteIntoConstThenBinop(
+            iterator, binopDescriptor, binopDescriptor, constB, constA, input, true, code);
         return true;
       } else if (binopDescriptor.isShift()) {
         // x shift: a shift: b => x shift: (a + b) where a + b is a constant.
         if (constBRight != null && constARight != null) {
-          Value newConst = addNewConstNumber(code, iterator, constB, constA, BinopDescriptor.ADD);
-          replaceBinop(iterator, code, input, newConst, binopDescriptor);
+          rewriteIntoConstThenBinop(
+              iterator, ADD, binopDescriptor, constB, constA, input, false, code);
           return true;
         }
       } else if (binop.isSub() && constBRight != null) {
@@ -451,12 +145,10 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         // x - a - b => x - (a + b) where (a + b) is a constant.
         // We ignore b - (x - a) and b - (a - x) with constBRight != null.
         if (constARight == null) {
-          Value newConst = addNewConstNumber(code, iterator, constA, constB, BinopDescriptor.SUB);
-          replaceBinop(iterator, code, newConst, input, BinopDescriptor.SUB);
+          rewriteIntoConstThenBinop(iterator, SUB, SUB, constA, constB, input, true, code);
           return true;
         } else {
-          Value newConst = addNewConstNumber(code, iterator, constB, constA, BinopDescriptor.ADD);
-          replaceBinop(iterator, code, input, newConst, BinopDescriptor.SUB);
+          rewriteIntoConstThenBinop(iterator, ADD, SUB, constB, constA, input, false, code);
           return true;
         }
       }
@@ -465,24 +157,177 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
         // x + a - b => x + (a - b) where (a - b) is a constant.
         // a + x - b => x + (a - b) where (a - b) is a constant.
         // We ignore b - (x + a) and b - (a + x) with constBRight != null.
-        Value newConst = addNewConstNumber(code, iterator, constA, constB, BinopDescriptor.SUB);
-        replaceBinop(iterator, code, newConst, input, BinopDescriptor.ADD);
+        rewriteIntoConstThenBinop(iterator, SUB, ADD, constA, constB, input, true, code);
         return true;
       } else if (binop.isAdd() && prevBinop.isSub()) {
         // x - a + b => x - (a - b) where (a - b) is a constant.
         // a - x + b => (a + b) - x where (a + b) is a constant.
         if (constALeft == null) {
-          Value newConst = addNewConstNumber(code, iterator, constA, constB, BinopDescriptor.SUB);
-          replaceBinop(iterator, code, input, newConst, BinopDescriptor.SUB);
+          rewriteIntoConstThenBinop(iterator, SUB, SUB, constA, constB, input, false, code);
           return true;
         } else {
-          Value newConst = addNewConstNumber(code, iterator, constB, constA, BinopDescriptor.ADD);
-          replaceBinop(iterator, code, newConst, input, BinopDescriptor.SUB);
+          rewriteIntoConstThenBinop(iterator, ADD, SUB, constB, constA, input, true, code);
           return true;
         }
       }
     }
     return false;
+  }
+
+  private boolean successiveLogicalSimplificationNoConstant(
+      InstructionListIterator iterator, Binop binop, BinopDescriptor binopDescriptor, IRCode code) {
+    if (!(binop.isAnd() || binop.isOr())) {
+      return false;
+    }
+    if (binop.leftValue().isPhi() || binop.rightValue().isPhi()) {
+      return false;
+    }
+    LogicalBinop leftDef = binop.leftValue().getDefinition().asLogicalBinop();
+    LogicalBinop rightDef = binop.rightValue().getDefinition().asLogicalBinop();
+    if (leftDef == null
+        || rightDef == null
+        || (leftDef.getClass() != rightDef.getClass())
+        || (leftDef.getNumericType() != rightDef.getNumericType())) {
+      return false;
+    }
+    // These optimizations were implemented mostly to deal with Compose specific bit patterns.
+    if (leftDef.isAnd() || leftDef.isOr()) {
+      return andOrOnCommonInputSimplification(
+          iterator, binop, leftDef, rightDef, binopDescriptor, code);
+    }
+    if (leftDef.isShl() || leftDef.isShr() || leftDef.isUshr()) {
+      return shiftOnCommonValueSharing(iterator, binop, leftDef, rightDef, binopDescriptor, code);
+    }
+    return false;
+  }
+
+  private boolean andOrOnCommonInputSimplification(
+      InstructionListIterator iterator,
+      Instruction binop,
+      LogicalBinop leftDef,
+      LogicalBinop rightDef,
+      BinopDescriptor binopDescriptor,
+      IRCode code) {
+    // For all permutations of & and |, represented by &| and |&.
+    // (x &| a) |& (x &| b) => (a |& b) &| x.
+    // a |& b will be simplified into a new constant if both constant.
+    Value x, a, b;
+    if (leftDef.leftValue() == rightDef.leftValue()) {
+      x = leftDef.leftValue();
+      a = leftDef.rightValue();
+      b = rightDef.rightValue();
+    } else if (leftDef.leftValue() == rightDef.rightValue()) {
+      x = leftDef.leftValue();
+      a = leftDef.rightValue();
+      b = rightDef.leftValue();
+    } else if (leftDef.rightValue() == rightDef.leftValue()) {
+      x = leftDef.rightValue();
+      a = leftDef.leftValue();
+      b = rightDef.rightValue();
+    } else if (leftDef.rightValue() == rightDef.rightValue()) {
+      x = leftDef.rightValue();
+      a = leftDef.leftValue();
+      b = rightDef.leftValue();
+    } else {
+      return false;
+    }
+
+    rewriteIntoTwoSuccessiveBinops(
+        iterator,
+        binop.getPosition(),
+        binopDescriptor,
+        descriptors.get(leftDef.getClass()),
+        a,
+        b,
+        x,
+        code);
+    return true;
+  }
+
+  private boolean shiftOnCommonValueSharing(
+      InstructionListIterator iterator,
+      Instruction binop,
+      LogicalBinop leftDef,
+      LogicalBinop rightDef,
+      BinopDescriptor binopDescriptor,
+      IRCode code) {
+    // For all permutations of & and |, represented by &|, and any shift operation.
+    // (x shift: val) &| (y shift: val) => (x &| y) shift: val.
+    // x |& y will be simplified into a new constant if both constant.
+    ConstNumber constLeft = getConstNumber(leftDef.rightValue());
+    if (constLeft != null) {
+      // val is a constant.
+      ConstNumber constRight = getConstNumber(rightDef.rightValue());
+      if (constRight == null) {
+        return false;
+      }
+      if (constRight.getRawValue() != constLeft.getRawValue()) {
+        return false;
+      }
+    } else {
+      // val is not constant.
+      if (leftDef.rightValue() != rightDef.rightValue()) {
+        return false;
+      }
+    }
+
+    rewriteIntoTwoSuccessiveBinops(
+        iterator,
+        binop.getPosition(),
+        binopDescriptor,
+        descriptors.get(leftDef.getClass()),
+        leftDef.leftValue(),
+        rightDef.leftValue(),
+        leftDef.rightValue(),
+        code);
+    return true;
+  }
+
+  private void rewriteIntoTwoSuccessiveBinops(
+      InstructionListIterator iterator,
+      Position position,
+      BinopDescriptor firstBinop,
+      BinopDescriptor secondBinop,
+      Value firstLeft,
+      Value firstRight,
+      Value secondRight,
+      IRCode code) {
+    // This creates something along the lines of:
+    // `(firstLeft firstBinop: firstRight) secondBinop: secondOther`.
+    ConstNumber constA = getConstNumber(firstLeft);
+    if (constA != null) {
+      ConstNumber constB = getConstNumber(firstRight);
+      if (constB != null) {
+        rewriteIntoConstThenBinop(
+            iterator, firstBinop, secondBinop, constA, constB, secondRight, true, code);
+        return;
+      }
+    }
+    Binop newFirstBinop = instantiateBinop(code, firstLeft, firstRight, firstBinop);
+    newFirstBinop.setPosition(position);
+    iterator.previous();
+    iterator.add(newFirstBinop);
+    iterator.next();
+    replaceBinop(iterator, code, newFirstBinop.outValue(), secondRight, secondBinop);
+    iterator.previous();
+  }
+
+  private void rewriteIntoConstThenBinop(
+      InstructionListIterator iterator,
+      BinopDescriptor firstBinop,
+      BinopDescriptor secondBinop,
+      ConstNumber firstLeft,
+      ConstNumber firstRight,
+      Value secondOther,
+      boolean newConstFlowsIntoLeft,
+      IRCode code) {
+    Value firstOutValue = insertNewConstNumber(code, iterator, firstLeft, firstRight, firstBinop);
+    replaceBinop(
+        iterator,
+        code,
+        newConstFlowsIntoLeft ? firstOutValue : secondOther,
+        newConstFlowsIntoLeft ? secondOther : firstOutValue,
+        secondBinop);
   }
 
   private void replaceBinop(
@@ -493,11 +338,8 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       BinopDescriptor binopDescriptor) {
     Binop newBinop = instantiateBinop(code, left, right, binopDescriptor);
     iterator.replaceCurrentInstruction(newBinop);
-    // We need to reset the iterator state after replaceCurrentInstruction so that Iterator#remove()
-    // can work in identityAbsorbingSimplification by calling previous then next.
+    // We need to reset the iterator state to process the new instruction(s).
     iterator.previous();
-    iterator.next();
-    identityAbsorbingSimplification(iterator, newBinop, binopDescriptor);
   }
 
   private Binop instantiateBinop(IRCode code, Value left, Value right, BinopDescriptor descriptor) {
@@ -507,7 +349,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     return descriptor.instantiate(numericType, newValue, left, right);
   }
 
-  private Value addNewConstNumber(
+  private Value insertNewConstNumber(
       IRCode code,
       InstructionListIterator iterator,
       ConstNumber left,
@@ -528,7 +370,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
   }
 
   private boolean identityAbsorbingSimplification(
-      InstructionListIterator iterator, Binop binop, BinopDescriptor binopDescriptor) {
+      InstructionListIterator iterator, Binop binop, BinopDescriptor binopDescriptor, IRCode code) {
     ConstNumber constNumber = getConstNumber(binop.leftValue());
     if (constNumber != null) {
       boolean isBooleanValue = binop.outValue().knownToBeBoolean();
@@ -546,14 +388,28 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     constNumber = getConstNumber(binop.rightValue());
     if (constNumber != null) {
       boolean isBooleanValue = binop.outValue().knownToBeBoolean();
-      return simplify(
+      if (simplify(
           binop,
           iterator,
           constNumber,
           binopDescriptor.rightIdentity(isBooleanValue),
           binop.leftValue(),
           binopDescriptor.rightAbsorbing(isBooleanValue),
-          binop.rightValue());
+          binop.rightValue())) {
+        return true;
+      }
+    }
+    if (binop.leftValue() == binop.rightValue()) {
+      if (binop.isXor() || binop.isSub()) {
+        // a ^ a => 0, a - a => 0
+        ConstNumber zero = new ConstNumber(code.createValue(binop.outValue().getType()), 0);
+        iterator.replaceCurrentInstruction(zero);
+      } else if (binop.isAnd() || binop.isOr()) {
+        // a & a => a, a | a => a.
+        binop.outValue().replaceUsers(binop.leftValue());
+        iterator.remove();
+      }
+      return true;
     }
     return false;
   }
