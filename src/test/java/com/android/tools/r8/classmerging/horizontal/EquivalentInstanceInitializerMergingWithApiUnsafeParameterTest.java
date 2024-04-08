@@ -1,0 +1,141 @@
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+package com.android.tools.r8.classmerging.horizontal;
+
+import static com.android.tools.r8.classmerging.horizontal.EquivalentInstanceInitializerMergingWithApiUnsafeParameterTest.Main.encode;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoFieldTypeStrengthening;
+import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+@RunWith(Parameterized.class)
+public class EquivalentInstanceInitializerMergingWithApiUnsafeParameterTest extends TestBase {
+
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  }
+
+  @Test
+  public void test() throws Exception {
+    testForR8(parameters.getBackend())
+        .addProgramClasses(Main.class, Parent.class, A.class, B.class, MyLibraryClass.class)
+        .addLibraryClasses(LibraryClassBase.class, LibraryClass.class)
+        .addDefaultRuntimeLibrary(parameters)
+        .addKeepClassAndMembersRules(Main.class, Parent.class)
+        .addHorizontallyMergedClassesInspector(
+            inspector ->
+                inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
+        .enableInliningAnnotations()
+        .enableNoFieldTypeStrengtheningAnnotations()
+        .setMinApi(parameters)
+        .compile()
+        .inspect(
+            inspector -> {
+              // Verify that the two constructors A.<init> and B.<init> have been merged.
+              ClassSubject aClassSubject = inspector.clazz(A.class);
+              assertThat(aClassSubject, isPresent());
+              assertEquals(
+                  1, aClassSubject.allMethods(MethodSubject::isInstanceInitializer).size());
+
+              MethodSubject instanceInitializer = aClassSubject.uniqueInstanceInitializer();
+              assertThat(instanceInitializer, isPresent());
+              assertTrue(
+                  instanceInitializer
+                      .streamInstructions()
+                      .noneMatch(i -> i.isIf() || i.isSwitch()));
+            })
+        .addRunClasspathClasses(LibraryClassBase.class, LibraryClass.class)
+        .run(parameters.getRuntime(), Main.class)
+        // TODO(b/331574594): Should succeed with "LibraryClass", "MyLibraryClass".
+        .assertFailureWithErrorThatThrows(VerifyError.class);
+  }
+
+  static class LibraryClassBase {}
+
+  static class LibraryClass extends LibraryClassBase {
+
+    @Override
+    public String toString() {
+      return "LibraryClass";
+    }
+  }
+
+  // @Keep
+  static class Main {
+
+    public static void main(String[] args) {
+      System.out.println(new A(new LibraryClass()));
+      System.out.println(new B(new MyLibraryClass()));
+    }
+
+    public static String encode(Object o) {
+      return o.toString();
+    }
+  }
+
+  // @Keep
+  static class Parent {
+
+    Parent(LibraryClass lib) {}
+  }
+
+  static class A extends Parent {
+
+    @NoFieldTypeStrengthening LibraryClassBase f;
+
+    @NeverInline
+    A(LibraryClass c) {
+      super(c);
+      f = c;
+    }
+
+    @Override
+    public String toString() {
+      // Use `f` to ensure it is not removed.
+      return encode(f);
+    }
+  }
+
+  static class B extends Parent {
+
+    @NoFieldTypeStrengthening LibraryClassBase f;
+
+    @NeverInline
+    B(MyLibraryClass d) {
+      super(d);
+      f = d;
+    }
+
+    @Override
+    public String toString() {
+      // Use `f` to ensure it is not removed.
+      return encode(f);
+    }
+  }
+
+  static class MyLibraryClass extends LibraryClass {
+
+    @Override
+    public String toString() {
+      return "MyLibraryClass";
+    }
+  }
+}
