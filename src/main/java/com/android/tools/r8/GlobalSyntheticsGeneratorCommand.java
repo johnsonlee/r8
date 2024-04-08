@@ -23,7 +23,6 @@ import com.android.tools.r8.utils.StringDiagnostic;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
@@ -272,7 +271,7 @@ public final class GlobalSyntheticsGeneratorCommand {
               }
               written = true;
               try {
-                Files.write(path, data.copyByteData(), StandardOpenOption.TRUNCATE_EXISTING);
+                Files.write(path, data.copyByteData());
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
