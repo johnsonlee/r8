@@ -65,6 +65,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
@@ -161,8 +162,13 @@ public class CfApplicationWriter {
       Collection<DexProgramClass> allClasses = classes;
       classes = new ArrayList<>(allClasses.size());
       for (DexProgramClass clazz : allClasses) {
-        if (appView.getSyntheticItems().isGlobalSyntheticClass(clazz)) {
+        if (appView.getSyntheticItems().isGlobalSyntheticClassTransitive(clazz)) {
           globalSyntheticClasses.add(clazz);
+          Consumer<DexProgramClass> globalSyntheticCreatedCallback =
+              appView.options().testing.globalSyntheticCreatedCallback;
+          if (globalSyntheticCreatedCallback != null) {
+            globalSyntheticCreatedCallback.accept(clazz);
+          }
         } else {
           classes.add(clazz);
         }

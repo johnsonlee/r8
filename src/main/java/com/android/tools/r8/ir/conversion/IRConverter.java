@@ -65,7 +65,6 @@ import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfoCollector;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.D8MemberValuePropagation;
@@ -328,22 +327,6 @@ public class IRConverter {
 
   public boolean isInWave() {
     return onWaveDoneActions != null;
-  }
-
-  public void processSimpleSynthesizeMethods(
-      List<ProgramMethod> methods, ExecutorService executorService) throws ExecutionException {
-    ThreadUtils.processItems(
-        methods,
-        this::processAndFinalizeSimpleSynthesizedMethod,
-        options.getThreadingModule(),
-        executorService);
-  }
-
-  private void processAndFinalizeSimpleSynthesizedMethod(ProgramMethod method) {
-    IRCode code = method.buildIR(appView);
-    assert code != null;
-    new MoveResultRewriter(appView).run(code, Timing.empty());
-    removeDeadCodeAndFinalizeIR(code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
   }
 
   /**

@@ -31,7 +31,7 @@ public interface GlobalSyntheticsConsumer {
    * <p>The context class is the class for which the global synthetic data is needed. If compiling
    * in DexIndexed mode, the context class will be null.
    *
-   * <p>The accept method will be called at most once for a given context class (any only once at
+   * <p>The accept method will be called at most once for a given context class (and only once at
    * all for a DexIndexed mode compilation). The global data for that class may be the same as for
    * other context classes, but it will be provided for each context.
    *

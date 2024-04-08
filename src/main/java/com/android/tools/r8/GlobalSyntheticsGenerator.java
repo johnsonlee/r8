@@ -34,11 +34,12 @@ import com.android.tools.r8.graph.NestHostClassAttribute;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowExceptionCode;
-import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaringEventConsumer;
+import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.naming.RecordRewritingNamingLens;
 import com.android.tools.r8.naming.VarHandleDesugaringRewritingNamingLens;
@@ -72,15 +73,14 @@ import java.util.concurrent.ExecutorService;
 @KeepForApi
 public class GlobalSyntheticsGenerator {
 
-  @SuppressWarnings("ReferenceEquality")
   private static boolean ensureAllGlobalSyntheticsModeled(SyntheticNaming naming) {
     for (SyntheticKind kind : naming.kinds()) {
       assert !kind.isGlobal()
           || !kind.isMayOverridesNonProgramType()
-          || kind == naming.RECORD_TAG
-          || kind == naming.API_MODEL_STUB
-          || kind == naming.METHOD_HANDLES_LOOKUP
-          || kind == naming.VAR_HANDLE;
+          || kind.equals(naming.RECORD_TAG)
+          || kind.equals(naming.API_MODEL_STUB)
+          || kind.equals(naming.METHOD_HANDLES_LOOKUP)
+          || kind.equals(naming.VAR_HANDLE);
     }
     return true;
   }
@@ -129,8 +129,13 @@ public class GlobalSyntheticsGenerator {
               timing.end();
 
               assert GlobalSyntheticsGeneratorVerifier.verifyExpectedClassesArePresent(appView);
-
-              ApplicationWriter.create(appView, options.getMarker()).write(executorService, app);
+              if (options.isGeneratingDex()) {
+                ApplicationWriter.create(appView, options.getMarker()).write(executorService, app);
+              } else {
+                assert options.isGeneratingClassFiles();
+                new CfApplicationWriter(appView, options.getMarker())
+                    .write(options.getClassFileConsumer(), app);
+              }
             } catch (ExecutionException e) {
               throw unwrapExecutionException(e);
             } catch (IOException e) {
@@ -202,11 +207,18 @@ public class GlobalSyntheticsGenerator {
     VarHandleDesugaring.ensureMethodHandlesLookupClass(
         appView, varHandleEventConsumer, synthesizingContext);
 
-    IRConverter converter = new IRConverter(appView);
-    converter.processSimpleSynthesizeMethods(methodsToProcess, executorService);
+    // Commit all the synthetics to the program and then convert as per D8.
+    // We must run proper D8 conversion as the global synthetics may give rise to additional
+    // synthetics as part of their implementation.
+    assert appView.getSyntheticItems().hasPendingSyntheticClasses();
+    appView.setAppInfo(
+        new AppInfo(
+            appView.appInfo().getSyntheticItems().commit(appView.app()),
+            appView.appInfo().getMainDexInfo()));
+
+    new PrimaryD8L8IRConverter(appView, Timing.empty()).convert(appView, executorService);
 
     appView
-        .withoutClassHierarchy()
         .setAppInfo(
             new AppInfo(
                 appView.appInfo().getSyntheticItems().commit(appView.app()),
@@ -221,11 +233,12 @@ public class GlobalSyntheticsGenerator {
         VarHandleDesugaringRewritingNamingLens.createVarHandleDesugaringRewritingNamingLens(
             appView));
 
-    // Add global synthetic classes for api stubs.
-    createAllApiStubs(appView, synthesizingContext, executorService);
+    if (appView.options().isGeneratingDex()) {
+      // Add global synthetic classes for api stubs.
+      createAllApiStubs(appView, synthesizingContext, executorService);
+    }
 
     appView
-        .withoutClassHierarchy()
         .setAppInfo(
             new AppInfo(
                 appView.appInfo().getSyntheticItems().commit(appView.app()),

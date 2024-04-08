@@ -14,6 +14,7 @@ import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.ProgramConsumer;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.Version;
+import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
@@ -203,12 +204,28 @@ public abstract class InternalGlobalSyntheticsProgramConsumer
     public void finished(AppView<?> appView) {
       Map<DexType, Set<DexType>> globalsToContexts =
           appView.getSyntheticItems().getFinalGlobalSyntheticContexts(appView);
+      // The global synthetics generator is generating the world of globals, thus no contexts exist.
+      if (appView.options().tool.equals(Tool.GlobalSyntheticsGenerator)) {
+        assert globalsToContexts.isEmpty();
+        GlobalsFileBuilder builder = new GlobalsFileBuilder(getKind());
+        globalToBytes.forEach(
+            (globalType, globalBytes) -> {
+              builder.addGlobalSynthetic(globalType.toDescriptorString(), globalBytes);
+            });
+        try {
+          clientConsumer.accept(ByteDataView.of(builder.build()), null, appView.reporter());
+        } catch (IOException e) {
+          appView.reporter().error(new ExceptionDiagnostic(e));
+        }
+        clientConsumer.finished(appView.reporter());
+        return;
+      }
+      // Otherwise, there must be at least one context for any global.
       Map<DexType, Set<DexType>> contextToGlobals = new IdentityHashMap<>();
       for (DexType globalType : globalToBytes.keySet()) {
         // It would be good to assert that the global is a synthetic type, but the naming-lens
         // is not applied to SyntheticItems in AppView.
         Set<DexType> contexts = globalsToContexts.get(globalType);
-        // TODO(b/231598779): Contexts should never be null once fixed for records.
         assert contexts != null;
         assert !contexts.isEmpty();
         for (DexType contextType : contexts) {

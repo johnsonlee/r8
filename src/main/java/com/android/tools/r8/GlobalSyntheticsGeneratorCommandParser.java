@@ -21,6 +21,7 @@ public class GlobalSyntheticsGeneratorCommandParser {
 
   private static final String LOWER_CASE_NAME = "globalsyntheticsgenerator";
   private static final String MIN_API_FLAG = "--min-api";
+  private static final String CLASSFILE_DESUGARING_MODE = "--classfile";
 
   private static final String USAGE_MESSAGE =
       StringUtils.lines("Usage: " + LOWER_CASE_NAME + " [options] " + "where options are:");
@@ -29,7 +30,14 @@ public class GlobalSyntheticsGeneratorCommandParser {
     return ImmutableList.<ParseFlagInfo>builder()
         .add(ParseFlagInfoImpl.getMinApi())
         .add(ParseFlagInfoImpl.getLib())
-        .add(ParseFlagInfoImpl.flag1("--output", "<dex-file>", "Output result in <dex-file>."))
+        .add(
+            ParseFlagInfoImpl.flag1(
+                "--output", "<globals-file>", "Output result in <globals-file>."))
+        .add(
+            ParseFlagInfoImpl.flag0(
+                "--classfile",
+                "Generate globals for only classfile to classfile desugaring.",
+                "(By default globals for both classfile and dex desugaring are generated)."))
         .add(ParseFlagInfoImpl.getVersion(LOWER_CASE_NAME))
         .add(ParseFlagInfoImpl.getHelp())
         .build();
@@ -98,6 +106,8 @@ public class GlobalSyntheticsGeneratorCommandParser {
         }
       } else if (arg.equals("--lib")) {
         builder.addLibraryFiles(Paths.get(nextArg));
+      } else if (arg.equals(CLASSFILE_DESUGARING_MODE)) {
+        builder.setClassfileDesugaringOnly(true);
       } else if (arg.startsWith("--")) {
         builder.error(new StringDiagnostic("Unknown option: " + arg, origin));
       }
@@ -105,6 +115,6 @@ public class GlobalSyntheticsGeneratorCommandParser {
     if (outputPath == null) {
       outputPath = Paths.get(".");
     }
-    return builder.setProgramConsumerOutput(outputPath);
+    return builder.setGlobalSyntheticsOutput(outputPath);
   }
 }

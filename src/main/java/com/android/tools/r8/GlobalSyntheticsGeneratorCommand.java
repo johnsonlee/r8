@@ -7,21 +7,26 @@ import com.android.tools.r8.BaseCommand.LibraryInputOrigin;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.AbortException;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
-import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * Immutable command structure for an invocation of the {@link GlobalSyntheticsGenerator} compiler.
@@ -29,9 +34,10 @@ import java.util.Collection;
 @KeepForApi
 public final class GlobalSyntheticsGeneratorCommand {
 
-  private final ProgramConsumer programConsumer;
+  private final GlobalSyntheticsConsumer globalsConsumer;
   private final Reporter reporter;
   private final int minApiLevel;
+  private final boolean classfileDesugaringOnly;
 
   private final boolean printHelp;
   private final boolean printVersion;
@@ -41,10 +47,15 @@ public final class GlobalSyntheticsGeneratorCommand {
   private final DexItemFactory factory = new DexItemFactory();
 
   private GlobalSyntheticsGeneratorCommand(
-      AndroidApp inputApp, ProgramConsumer programConsumer, Reporter reporter, int minApiLevel) {
+      AndroidApp inputApp,
+      GlobalSyntheticsConsumer globalsConsumer,
+      Reporter reporter,
+      int minApiLevel,
+      boolean classfileDesugaringOnly) {
     this.inputApp = inputApp;
-    this.programConsumer = programConsumer;
+    this.globalsConsumer = globalsConsumer;
     this.minApiLevel = minApiLevel;
+    this.classfileDesugaringOnly = classfileDesugaringOnly;
     this.reporter = reporter;
     this.printHelp = false;
     this.printVersion = false;
@@ -55,8 +66,9 @@ public final class GlobalSyntheticsGeneratorCommand {
     this.printVersion = printVersion;
 
     this.inputApp = null;
-    this.programConsumer = null;
+    this.globalsConsumer = null;
     this.minApiLevel = AndroidApiLevel.B.getLevel();
+    this.classfileDesugaringOnly = false;
 
     reporter = new Reporter();
   }
@@ -130,9 +142,11 @@ public final class GlobalSyntheticsGeneratorCommand {
     assert !internal.debug;
     assert !internal.minimalMainDex;
     internal.setMinApiLevel(AndroidApiLevel.getAndroidApiLevel(minApiLevel));
-    assert !internal.intermediate;
     assert internal.retainCompileTimeAnnotations;
-    internal.programConsumer = programConsumer;
+    internal.intermediate = true;
+    internal.programConsumer =
+        classfileDesugaringOnly ? new ThrowingCfConsumer() : new ThrowingDexConsumer();
+    internal.setGlobalSyntheticsConsumer(globalsConsumer);
 
     // Assert and fixup defaults.
     assert !internal.isShrinking();
@@ -148,6 +162,33 @@ public final class GlobalSyntheticsGeneratorCommand {
     return internal;
   }
 
+  private static class ThrowingCfConsumer implements ClassFileConsumer {
+
+    @Override
+    public void accept(ByteDataView data, String descriptor, DiagnosticsHandler handler) {
+      throw new Unreachable("Unexpected attempt to write a non-global artifact");
+    }
+
+    @Override
+    public void finished(DiagnosticsHandler handler) {
+      // Nothing to do.
+    }
+  }
+
+  private static class ThrowingDexConsumer implements DexIndexedConsumer {
+
+    @Override
+    public void accept(
+        int fileIndex, ByteDataView data, Set<String> descriptors, DiagnosticsHandler handler) {
+      throw new Unreachable("Unexpected attempt to write a non-global artifact");
+    }
+
+    @Override
+    public void finished(DiagnosticsHandler handler) {
+      // Nothing to do.
+    }
+  }
+
   /**
    * Builder for constructing a GlobalSyntheticsGeneratorCommand.
    *
@@ -156,9 +197,10 @@ public final class GlobalSyntheticsGeneratorCommand {
   @KeepForApi
   public static class Builder {
 
-    private ProgramConsumer programConsumer = null;
+    private GlobalSyntheticsConsumer globalsConsumer = null;
     private final Reporter reporter;
     private int minApiLevel = AndroidApiLevel.B.getLevel();
+    private boolean classfileDesugaringOnly = false;
     private boolean printHelp = false;
     private boolean printVersion = false;
     private final AndroidApp.Builder appBuilder = AndroidApp.builder();
@@ -174,6 +216,11 @@ public final class GlobalSyntheticsGeneratorCommand {
     /** Set the min api level. */
     public Builder setMinApiLevel(int minApiLevel) {
       this.minApiLevel = minApiLevel;
+      return this;
+    }
+
+    public Builder setClassfileDesugaringOnly(boolean value) {
+      this.classfileDesugaringOnly = value;
       return this;
     }
 
@@ -210,17 +257,32 @@ public final class GlobalSyntheticsGeneratorCommand {
       return this;
     }
 
-    /** Set an output path to consume the resulting program. */
-    public Builder setProgramConsumerOutput(Path path) {
-      return setProgramConsumer(
-          FileUtils.isArchive(path)
-              ? new DexIndexedConsumer.ArchiveConsumer(path, false)
-              : new DexIndexedConsumer.DirectoryConsumer(path, false));
+    /** Set a destination to write the resulting global synthetics output file. */
+    public Builder setGlobalSyntheticsOutput(Path path) {
+      return setGlobalSyntheticsConsumer(
+          new GlobalSyntheticsConsumer() {
+
+            private boolean written = false;
+
+            @Override
+            public synchronized void accept(
+                ByteDataView data, ClassReference context, DiagnosticsHandler handler) {
+              if (written) {
+                throw new Unreachable("Unexpected attempt to repeatedly write global synthetics");
+              }
+              written = true;
+              try {
+                Files.write(path, data.copyByteData(), StandardOpenOption.TRUNCATE_EXISTING);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            }
+          });
     }
 
-    /** Set a consumer for obtaining the resulting program. */
-    public Builder setProgramConsumer(ProgramConsumer programConsumer) {
-      this.programConsumer = programConsumer;
+    /** Set a consumer for obtaining the resulting global synthetics output. */
+    public Builder setGlobalSyntheticsConsumer(GlobalSyntheticsConsumer globalsConsumer) {
+      this.globalsConsumer = globalsConsumer;
       return this;
     }
 
@@ -230,7 +292,7 @@ public final class GlobalSyntheticsGeneratorCommand {
         return new GlobalSyntheticsGeneratorCommand(printHelp, printVersion);
       }
       return new GlobalSyntheticsGeneratorCommand(
-          appBuilder.build(), programConsumer, reporter, minApiLevel);
+          appBuilder.build(), globalsConsumer, reporter, minApiLevel, classfileDesugaringOnly);
     }
 
     private boolean isPrintHelpOrPrintVersion() {
@@ -241,9 +303,8 @@ public final class GlobalSyntheticsGeneratorCommand {
       if (isPrintHelpOrPrintVersion()) {
         return;
       }
-      if (!(programConsumer instanceof DexIndexedConsumer)) {
-        reporter.error(
-            "GlobalSyntheticsGenerator does not support compiling to dex per class or class files");
+      if (globalsConsumer == null) {
+        reporter.error("GlobalSyntheticsGenerator does not support compiling without output");
       }
     }
 

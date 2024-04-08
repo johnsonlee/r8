@@ -5,22 +5,19 @@
 package com.android.tools.r8.globalsynthetics;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.GlobalSyntheticsGenerator;
 import com.android.tools.r8.GlobalSyntheticsGeneratorCommand;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.synthesis.globals.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.SetUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
-import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -31,91 +28,109 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class GlobalSyntheticsEnsureClassesOutputTest extends TestBase {
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withNoneRuntime().build();
+  private final Backend backend;
+
+  @Parameters(name = "{0}, backend:{1}")
+  public static List<Object[]> data() {
+    return buildParameters(getTestParameters().withNoneRuntime().build(), Backend.values());
   }
 
-  public GlobalSyntheticsEnsureClassesOutputTest(TestParameters parameters) {
+  public GlobalSyntheticsEnsureClassesOutputTest(TestParameters parameters, Backend backend) {
     parameters.assertNoneRuntime();
+    this.backend = backend;
   }
 
   @Test
   public void testNumberOfClassesOnK() throws Exception {
-    Path output = temp.newFolder().toPath().resolve("output.zip");
+    GlobalSyntheticsTestingConsumer globalsConsumer = new GlobalSyntheticsTestingConsumer();
     GlobalSyntheticsGenerator.run(
         GlobalSyntheticsGeneratorCommand.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.API_DATABASE_LEVEL))
             .setMinApiLevel(AndroidApiLevel.K.getLevel())
-            .setProgramConsumer(new DexIndexedConsumer.ArchiveConsumer(output))
+            .setGlobalSyntheticsConsumer(globalsConsumer)
+            .setClassfileDesugaringOnly(backend.isCf())
             .build());
-    CodeInspector inspector = new CodeInspector(output);
-    assertEquals(1044, inspector.allClasses().size());
+    assertTrue(globalsConsumer.isSingleGlobal());
+    testForD8(backend)
+        .apply(
+            b ->
+                b.getBuilder().addGlobalSyntheticsResourceProviders(globalsConsumer.getProviders()))
+        .setMinApi(AndroidApiLevel.K)
+        .compile()
+        .inspect(
+            inspector -> assertEquals(backend.isDex() ? 1045 : 4, inspector.allClasses().size()));
   }
 
   @Test
   public void testNumberOfClassesOnLatest() throws Exception {
-    Path output = temp.newFolder().toPath().resolve("output.zip");
+    GlobalSyntheticsTestingConsumer globalsConsumer = new GlobalSyntheticsTestingConsumer();
     GlobalSyntheticsGenerator.run(
         GlobalSyntheticsGeneratorCommand.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.API_DATABASE_LEVEL))
             .setMinApiLevel(AndroidApiLevel.LATEST.getLevel())
-            .setProgramConsumer(new DexIndexedConsumer.ArchiveConsumer(output))
+            .setGlobalSyntheticsConsumer(globalsConsumer)
+            .setClassfileDesugaringOnly(backend.isCf())
             .build());
+    assertTrue(globalsConsumer.isSingleGlobal());
     Set<String> expectedInOutput = new HashSet<>();
     // The output contains a RecordTag type that is mapped back to the original java.lang.Record by
     // our codeinspector.
     expectedInOutput.add("Ljava/lang/Record;");
     expectedInOutput.add("Ljava/lang/invoke/VarHandle;");
     expectedInOutput.add("Ljava/lang/invoke/MethodHandles$Lookup;");
-    assertEquals(
-        expectedInOutput,
-        new CodeInspector(output)
-            .allClasses().stream()
-                .map(FoundClassSubject::getFinalDescriptor)
-                .collect(Collectors.toSet()));
+    testForD8(backend)
+        .apply(
+            b ->
+                b.getBuilder().addGlobalSyntheticsResourceProviders(globalsConsumer.getProviders()))
+        .setMinApi(AndroidApiLevel.LATEST)
+        .compile()
+        .inspect(
+            inspector ->
+                assertEquals(
+                    expectedInOutput,
+                    inspector.allClasses().stream()
+                        .map(FoundClassSubject::getFinalDescriptor)
+                        .collect(Collectors.toSet())));
   }
 
   @Test
   public void testClassFileListOutput() throws Exception {
     Set<String> generatedGlobalSynthetics = SetUtils.newConcurrentHashSet();
-    Path output = temp.newFolder().toPath().resolve("output.zip");
+    GlobalSyntheticsTestingConsumer globalsConsumer = new GlobalSyntheticsTestingConsumer();
     runGlobalSyntheticsGenerator(
         GlobalSyntheticsGeneratorCommand.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.API_DATABASE_LEVEL))
             .setMinApiLevel(AndroidApiLevel.K.getLevel())
-            .setProgramConsumer(new DexIndexedConsumer.ArchiveConsumer(output))
+            .setGlobalSyntheticsConsumer(globalsConsumer)
+            .setClassfileDesugaringOnly(backend.isCf())
             .build(),
         options ->
             options.testing.globalSyntheticCreatedCallback =
                 programClass -> {
-                  if (programClass
-                      .getClassReference()
-                      .getDescriptor()
-                      .equals(DexItemFactory.varHandleDescriptorString)) {
-                    // We emit a desugared var handle. Rewrite it here to allow checking for final
-                    // type names.
-                    generatedGlobalSynthetics.add(
-                        Reference.classFromDescriptor(
-                                DexItemFactory.desugarVarHandleDescriptorString)
-                            .getTypeName());
-                  } else if (programClass
-                      .getClassReference()
-                      .getDescriptor()
-                      .equals(DexItemFactory.methodHandlesLookupDescriptorString)) {
-                    // We emit a desugared var handle. Rewrite it here to allow checking for final
-                    // type names.
-                    generatedGlobalSynthetics.add(
-                        Reference.classFromDescriptor(
-                                DexItemFactory.desugarMethodHandlesLookupDescriptorString)
-                            .getTypeName());
-                  } else {
-                    generatedGlobalSynthetics.add(programClass.getTypeName());
-                  }
+                  String descriptor = programClass.getClassReference().getDescriptor();
+                  generatedGlobalSynthetics.add(
+                      descriptor
+                          .replace(
+                              "Ljava/lang/invoke/VarHandle",
+                              "Lcom/android/tools/r8/DesugarVarHandle")
+                          .replace(
+                              "Ljava/lang/invoke/MethodHandles$Lookup",
+                              "Lcom/android/tools/r8/DesugarMethodHandlesLookup"));
                 });
-    Set<String> readGlobalSynthetics =
-        new CodeInspector(output)
-            .allClasses().stream().map(FoundClassSubject::getFinalName).collect(Collectors.toSet());
-    assertEquals(generatedGlobalSynthetics, readGlobalSynthetics);
+    assertTrue(globalsConsumer.isSingleGlobal());
+    testForD8()
+        .apply(
+            b ->
+                b.getBuilder().addGlobalSyntheticsResourceProviders(globalsConsumer.getProviders()))
+        .setMinApi(AndroidApiLevel.K)
+        .compile()
+        .inspect(
+            inspector -> {
+              Set<String> readGlobalSynthetics =
+                  inspector.allClasses().stream()
+                      .map(FoundClassSubject::getFinalDescriptor)
+                      .collect(Collectors.toSet());
+              assertEquals(generatedGlobalSynthetics, readGlobalSynthetics);
+            });
   }
 }

@@ -89,6 +89,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -216,7 +217,12 @@ public class ApplicationWriter {
       Collection<DexProgramClass> allClasses = classes;
       classes = new ArrayList<>(allClasses.size());
       for (DexProgramClass clazz : allClasses) {
-        if (appView.getSyntheticItems().isGlobalSyntheticClass(clazz)) {
+        if (appView.getSyntheticItems().isGlobalSyntheticClassTransitive(clazz)) {
+          Consumer<DexProgramClass> globalSyntheticCreatedCallback =
+              appView.options().testing.globalSyntheticCreatedCallback;
+          if (globalSyntheticCreatedCallback != null) {
+            globalSyntheticCreatedCallback.accept(clazz);
+          }
           globalSynthetics.add(clazz);
         } else {
           classes.add(clazz);

@@ -427,6 +427,26 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     return isGlobalSyntheticClass(clazz.getType());
   }
 
+  public boolean isGlobalSyntheticClassTransitive(DexProgramClass clazz) {
+    // Fast path the common case where the class is not synthetic at all.
+    if (!isSynthetic(clazz)) {
+      return false;
+    }
+    if (isGlobalSyntheticClass(clazz)) {
+      return true;
+    }
+    DexType type = clazz.getType();
+    for (SyntheticReference<?, ?, ?> reference : committed.getItems(type)) {
+      // Only a single context should exist for a globally derived synthetic, so return early.
+      return isGlobalSyntheticClass(reference.getContext().getSynthesizingContextType());
+    }
+    SyntheticDefinition<?, ?, ?> definition = pending.definitions.get(type);
+    if (definition != null) {
+      return isGlobalSyntheticClass(definition.getContext().getSynthesizingContextType());
+    }
+    return false;
+  }
+
   private static boolean isGlobalReferences(List<SyntheticProgramClassReference> references) {
     if (references == null) {
       return false;
@@ -1017,6 +1037,8 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     Consumer<DexProgramClass> globalSyntheticCreatedCallback =
         appView.options().testing.globalSyntheticCreatedCallback;
     if (globalSyntheticCreatedCallback != null) {
+      // These are also reported in the writer to ensure transitive classes are reported too.
+      // However, we keep the test reporting here too to fail fast on direct globals.
       globalSyntheticCreatedCallback.accept(globalSynthetic);
     }
     addGlobalContexts(globalSynthetic.getType(), contexts);
@@ -1046,6 +1068,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     SyntheticKind kind = kindSelector.select(naming);
     DexType type =
         SyntheticNaming.createInternalType(kind, outerContext, syntheticIdSupplier.get(), appView);
+
     SyntheticProgramClassBuilder classBuilder =
         new SyntheticProgramClassBuilder(type, kind, outerContext, appView.dexItemFactory());
     DexProgramClass clazz =

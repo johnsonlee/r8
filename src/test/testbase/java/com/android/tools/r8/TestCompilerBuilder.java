@@ -619,7 +619,10 @@ public abstract class TestCompilerBuilder<
           GlobalSyntheticsGeneratorCommand.builder()
               .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.API_DATABASE_LEVEL))
               .setMinApiLevel(minApiLevel)
-              .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
+              .setGlobalSyntheticsConsumer(
+                  (data, context, handler) -> {
+                    // Ignore the data and context, callback is hit below.
+                  })
               .build();
       InternalOptions internalOptions = command.getInternalOptions();
       internalOptions.testing.globalSyntheticCreatedCallback =
