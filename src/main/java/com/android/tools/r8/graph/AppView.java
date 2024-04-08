@@ -259,15 +259,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         defaultTypeRewriter(appInfo));
   }
 
-  public static <T extends AppInfo> AppView<T> createForSimulatingD8InR8(T appInfo) {
-    return new AppView<>(
-        appInfo,
-        ArtProfileCollection.empty(),
-        StartupProfile.empty(),
-        WholeProgramOptimizations.OFF,
-        defaultTypeRewriter(appInfo));
-  }
-
   public static AppView<AppInfoWithClassHierarchy> createForSimulatingR8InD8(
       DirectMappedDexApplication application, MainDexInfo mainDexInfo) {
     ClassToFeatureSplitMap classToFeatureSplitMap =

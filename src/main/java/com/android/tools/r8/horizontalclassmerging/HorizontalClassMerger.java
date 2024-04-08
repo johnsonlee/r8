@@ -20,8 +20,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.horizontalclassmerging.code.SyntheticInitializerConverter;
 import com.android.tools.r8.ir.conversion.LirConverter;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.naming.IdentifierMinifier;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -72,11 +70,7 @@ public class HorizontalClassMerger {
       throws ExecutionException {
     timing.begin("HorizontalClassMerger");
     if (shouldRun()) {
-      IRCodeProvider codeProvider =
-          appView.hasClassHierarchy()
-              ? IRCodeProvider.create(appView.withClassHierarchy(), this::getConversionOptions)
-              : IRCodeProvider.createThrowing();
-      run(runtimeTypeCheckInfo, codeProvider, executorService, timing);
+      run(runtimeTypeCheckInfo, executorService, timing);
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
@@ -95,13 +89,8 @@ public class HorizontalClassMerger {
         && !appView.hasCfByteCodePassThroughMethods();
   }
 
-  private MutableMethodConversionOptions getConversionOptions() {
-    return MethodConversionOptions.forLirPhase(appView);
-  }
-
   private void run(
       RuntimeTypeCheckInfo runtimeTypeCheckInfo,
-      IRCodeProvider codeProvider,
       ExecutorService executorService,
       Timing timing)
       throws ExecutionException {
@@ -128,7 +117,7 @@ public class HorizontalClassMerger {
         new HorizontalClassMergerGraphLens.Builder();
 
     // Determine which classes need a class id field.
-    List<ClassMerger.Builder> classMergerBuilders = createClassMergerBuilders(codeProvider, groups);
+    List<ClassMerger.Builder> classMergerBuilders = createClassMergerBuilders(groups);
     initializeClassIdFields(classMergerBuilders);
 
     // Ensure that all allocations of classes that end up needing a class id use a constructor on
@@ -141,7 +130,7 @@ public class HorizontalClassMerger {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
     SyntheticInitializerConverter.Builder syntheticInitializerConverterBuilder =
-        SyntheticInitializerConverter.builder(appView, codeProvider);
+        SyntheticInitializerConverter.builder(appView);
     List<VirtuallyMergedMethodsKeepInfo> virtuallyMergedMethodsKeepInfos = new ArrayList<>();
     PrunedItems prunedItems =
         applyClassMergers(
@@ -184,7 +173,6 @@ public class HorizontalClassMerger {
 
     // Set the new graph lens before finalizing any synthetic code.
     appView.setGraphLens(horizontalClassMergerGraphLens);
-    codeProvider.setGraphLens(horizontalClassMergerGraphLens);
 
     // Must rewrite AppInfoWithLiveness before pruning the merged classes, to ensure that allocation
     // sites, fields accesses, etc. are correctly transferred to the target classes.
@@ -378,13 +366,13 @@ public class HorizontalClassMerger {
   }
 
   private List<ClassMerger.Builder> createClassMergerBuilders(
-      IRCodeProvider codeProvider, Collection<HorizontalMergeGroup> groups) {
+      Collection<HorizontalMergeGroup> groups) {
     List<ClassMerger.Builder> classMergerBuilders = new ArrayList<>(groups.size());
     for (HorizontalMergeGroup group : groups) {
       assert group.isNonTrivial();
       assert group.hasInstanceFieldMap();
       assert group.hasTarget();
-      classMergerBuilders.add(new ClassMerger.Builder(appView, codeProvider, group));
+      classMergerBuilders.add(new ClassMerger.Builder(appView, group));
     }
     return classMergerBuilders;
   }

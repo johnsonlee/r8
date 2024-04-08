@@ -7,9 +7,7 @@ import static com.android.tools.r8.classmerging.horizontal.EquivalentInstanceIni
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoFieldTypeStrengthening;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -43,29 +41,20 @@ public class EquivalentInstanceInitializerMergingWithApiUnsafeParameterTest exte
         .addHorizontallyMergedClassesInspector(
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
-        .enableInliningAnnotations()
         .enableNoFieldTypeStrengtheningAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspect(
             inspector -> {
-              // Verify that the two constructors A.<init> and B.<init> have been merged.
+              // Verify that the two constructors A.<init> and B.<init> have not been merged.
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
               assertEquals(
-                  1, aClassSubject.allMethods(MethodSubject::isInstanceInitializer).size());
-
-              MethodSubject instanceInitializer = aClassSubject.uniqueInstanceInitializer();
-              assertThat(instanceInitializer, isPresent());
-              assertTrue(
-                  instanceInitializer
-                      .streamInstructions()
-                      .noneMatch(i -> i.isIf() || i.isSwitch()));
+                  2, aClassSubject.allMethods(MethodSubject::isInstanceInitializer).size());
             })
         .addRunClasspathClasses(LibraryClassBase.class, LibraryClass.class)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/331574594): Should succeed with "LibraryClass", "MyLibraryClass".
-        .assertFailureWithErrorThatThrows(VerifyError.class);
+        .assertSuccessWithOutputLines("LibraryClass", "MyLibraryClass");
   }
 
   static class LibraryClassBase {}
@@ -101,7 +90,6 @@ public class EquivalentInstanceInitializerMergingWithApiUnsafeParameterTest exte
 
     @NoFieldTypeStrengthening LibraryClassBase f;
 
-    @NeverInline
     A(LibraryClass c) {
       super(c);
       f = c;
@@ -118,7 +106,6 @@ public class EquivalentInstanceInitializerMergingWithApiUnsafeParameterTest exte
 
     @NoFieldTypeStrengthening LibraryClassBase f;
 
-    @NeverInline
     B(MyLibraryClass d) {
       super(d);
       f = d;

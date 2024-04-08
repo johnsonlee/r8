@@ -12,14 +12,30 @@ import com.google.common.collect.Iterables;
 
 public class DexTypeUtils {
 
+  public static DexType computeApiSafeLeastUpperBound(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<DexType> types) {
+    DexType leastUpperBound = computeLeastUpperBound(appView, types);
+    return findApiSafeUpperBound(appView, leastUpperBound);
+  }
+
   public static DexType computeLeastUpperBound(
       AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<DexType> types) {
     TypeElement join =
         TypeElement.join(Iterables.transform(types, type -> type.toTypeElement(appView)), appView);
-    return findApiSafeUpperBound(appView, toDexType(appView, join));
+    return toDexType(appView, join);
   }
 
-  @SuppressWarnings("ReferenceEquality")
+  public static boolean isApiSafe(
+      AppView<? extends AppInfoWithClassHierarchy> appView, DexType type) {
+    DexType apiSafeUpperBound = findApiSafeUpperBound(appView, type);
+    return apiSafeUpperBound.isIdenticalTo(type);
+  }
+
+  public static boolean isLeastUpperBoundApiSafe(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<DexType> types) {
+    return isApiSafe(appView, computeLeastUpperBound(appView, types));
+  }
+
   public static DexType toDexType(
       AppView<? extends AppInfoWithClassHierarchy> appView, TypeElement type) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
@@ -33,7 +49,7 @@ public class DexTypeUtils {
     }
     assert type.isClassType();
     ClassTypeElement classType = type.asClassType();
-    if (classType.getClassType() != dexItemFactory.objectType) {
+    if (classType.getClassType().isNotIdenticalTo(dexItemFactory.objectType)) {
       return classType.getClassType();
     }
     if (classType.getInterfaces().hasSingleKnownInterface()) {

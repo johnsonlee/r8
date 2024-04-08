@@ -189,7 +189,7 @@ public interface ClassInstanceFieldsMerger {
       DexEncodedField newField;
       if (needsRelaxedType(targetField, sourceFields)) {
         DexType newFieldType =
-            DexTypeUtils.computeLeastUpperBound(
+            DexTypeUtils.computeApiSafeLeastUpperBound(
                 appView,
                 Iterables.transform(
                     Iterables.concat(IterableUtils.singleton(targetField), sourceFields),

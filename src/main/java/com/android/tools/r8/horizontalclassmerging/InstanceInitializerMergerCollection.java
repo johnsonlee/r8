@@ -40,7 +40,6 @@ public class InstanceInitializerMergerCollection {
   public static InstanceInitializerMergerCollection create(
       AppView<?> appView,
       Reference2IntMap<DexType> classIdentifiers,
-      IRCodeProvider codeProvider,
       HorizontalMergeGroup group,
       HorizontalClassMergerGraphLens.Builder lensBuilder) {
     if (!appView.hasClassHierarchy()) {
@@ -61,7 +60,7 @@ public class InstanceInitializerMergerCollection {
                 instanceInitializer -> {
                   InstanceInitializerDescription description =
                       InstanceInitializerAnalysis.analyze(
-                          appViewWithClassHierarchy, codeProvider, group, instanceInitializer);
+                          appViewWithClassHierarchy, group, instanceInitializer);
                   if (description != null) {
                     buildersByDescription
                         .computeIfAbsent(
@@ -80,14 +79,17 @@ public class InstanceInitializerMergerCollection {
         equivalentInstanceInitializerMergers = new LinkedHashMap<>();
     buildersByDescription.forEach(
         (description, builder) -> {
-          InstanceInitializerMerger instanceInitializerMerger =
-              builder.buildSingle(group, description);
-          if (instanceInitializerMerger.size() == 1) {
-            // If there is only one constructor with a specific behavior, then consider it for
-            // normal instance initializer merging below.
-            buildersWithoutDescription.addAll(instanceInitializerMerger.getInstanceInitializers());
-          } else {
-            equivalentInstanceInitializerMergers.put(description, instanceInitializerMerger);
+          List<InstanceInitializerMerger> instanceInitializerMergers =
+              builder.buildEquivalent(group, description);
+          for (InstanceInitializerMerger instanceInitializerMerger : instanceInitializerMergers) {
+            if (instanceInitializerMerger.size() == 1) {
+              // If there is only one constructor with a specific behavior, then consider it for
+              // normal instance initializer merging below.
+              buildersWithoutDescription.addAll(
+                  instanceInitializerMerger.getInstanceInitializers());
+            } else {
+              equivalentInstanceInitializerMergers.put(description, instanceInitializerMerger);
+            }
           }
         });
 

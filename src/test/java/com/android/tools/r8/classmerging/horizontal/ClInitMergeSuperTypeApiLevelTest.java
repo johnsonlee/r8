@@ -6,10 +6,12 @@ package com.android.tools.r8.classmerging.horizontal;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -39,11 +41,14 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
+  private boolean canUseExecutable() {
+    return parameters.isDexRuntime()
+        && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
+  }
+
   private TypeReference getMergeReferenceForApiLevel() {
-    boolean canUseExecutable =
-        parameters.isDexRuntime()
-            && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O);
-    return Reference.typeFromTypeName(typeName(canUseExecutable ? Executable.class : Object.class));
+    return Reference.typeFromTypeName(
+        typeName(canUseExecutable() ? Executable.class : Object.class));
   }
 
   @Test
@@ -59,17 +64,34 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
         .compile()
         .inspect(
             inspector -> {
               ClassSubject clazz = inspector.clazz(A.class);
               assertThat(clazz, isPresent());
-              TypeReference mergeTypeRef = getMergeReferenceForApiLevel();
-              MethodSubject init = clazz.init(mergeTypeRef.getTypeName(), "int");
-              assertThat(init, isPresent());
+
               assertTrue(
                   clazz.allFields().stream()
-                      .anyMatch(f -> mergeTypeRef.equals(f.getFinalReference().getFieldType())));
+                      .anyMatch(
+                          f ->
+                              f.getFinalReference()
+                                  .getFieldType()
+                                  .equals(getMergeReferenceForApiLevel())));
+
+              assertEquals(
+                  canUseExecutable() ? 1 : 2,
+                  clazz.allMethods(MethodSubject::isInstanceInitializer).size());
+              if (canUseExecutable()) {
+                MethodSubject constructorInit = clazz.init(Executable.class.getTypeName(), "int");
+                assertThat(constructorInit, isPresent());
+              } else {
+                MethodSubject constructorInit = clazz.init(Constructor.class.getTypeName());
+                assertThat(constructorInit, isPresent());
+
+                MethodSubject methodInit = clazz.init(Method.class.getTypeName());
+                assertThat(methodInit, isPresent());
+              }
             })
         .run(parameters.getRuntime(), Main.class)
         // The test succeeds for some unknown reason.
@@ -92,6 +114,7 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
     }
   }
 
+  @NoVerticalClassMerging
   public abstract static class Factory {
 
     abstract Object newInstance() throws Exception;

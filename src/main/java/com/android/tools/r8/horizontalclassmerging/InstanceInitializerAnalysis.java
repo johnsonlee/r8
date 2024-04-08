@@ -29,6 +29,7 @@ import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Iterables;
@@ -39,7 +40,6 @@ public class InstanceInitializerAnalysis {
 
   public static InstanceInitializerDescription analyze(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      IRCodeProvider codeProvider,
       HorizontalMergeGroup group,
       InstanceInitializer instanceInitializer) {
     if (instanceInitializer.isAbsent()) {
@@ -61,19 +61,17 @@ public class InstanceInitializerAnalysis {
       builder.addInvokeConstructor(invokedConstructor, invokedConstructorArguments);
       return builder.build();
     } else {
-      return analyze(appView, codeProvider, group, instanceInitializer.asPresent().getMethod());
+      return analyze(appView, group, instanceInitializer.asPresent().getMethod());
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public static InstanceInitializerDescription analyze(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      IRCodeProvider codeProvider,
       HorizontalMergeGroup group,
       ProgramMethod instanceInitializer) {
     InstanceInitializerDescription.Builder builder =
         InstanceInitializerDescription.builder(appView, instanceInitializer);
-    IRCode code = codeProvider.buildIR(instanceInitializer);
+    IRCode code = instanceInitializer.buildIR(appView, MethodConversionOptions.nonConverting());
     GraphLens codeLens = instanceInitializer.getDefinition().getCode().getCodeLens(appView);
     WorkList<BasicBlock> workList = WorkList.newIdentityWorkList(code.entryBlock());
     while (workList.hasNext()) {
@@ -108,8 +106,9 @@ public class InstanceInitializerAnalysis {
               DexField fieldReference = instancePut.getField();
               DexField lensRewrittenFieldReference =
                   appView.graphLens().lookupField(fieldReference, codeLens);
-              if (lensRewrittenFieldReference.getHolderType()
-                  != instanceInitializer.getHolderType()) {
+              if (lensRewrittenFieldReference
+                  .getHolderType()
+                  .isNotIdenticalTo(instanceInitializer.getHolderType())) {
                 return invalid();
               }
 

@@ -77,7 +77,6 @@ public class ClassMerger {
 
   private ClassMerger(
       AppView<?> appView,
-      IRCodeProvider codeProvider,
       HorizontalClassMergerGraphLens.Builder lensBuilder,
       HorizontalMergeGroup group,
       Collection<VirtualMethodMerger> virtualMethodMergers) {
@@ -93,8 +92,7 @@ public class ClassMerger {
     // Method mergers.
     this.classInitializerMerger = ClassInitializerMerger.create(group);
     this.instanceInitializerMergers =
-        InstanceInitializerMergerCollection.create(
-            appView, classIdentifiers, codeProvider, group, lensBuilder);
+        InstanceInitializerMergerCollection.create(appView, classIdentifiers, group, lensBuilder);
     this.virtualMethodMergers = virtualMethodMergers;
 
     buildClassIdentifierMap();
@@ -365,14 +363,12 @@ public class ClassMerger {
   public static class Builder {
 
     private final AppView<?> appView;
-    private final IRCodeProvider codeProvider;
     private final HorizontalMergeGroup group;
 
     private List<VirtualMethodMerger> virtualMethodMergers;
 
-    public Builder(AppView<?> appView, IRCodeProvider codeProvider, HorizontalMergeGroup group) {
+    public Builder(AppView<?> appView, HorizontalMergeGroup group) {
       this.appView = appView;
-      this.codeProvider = codeProvider;
       this.group = group;
     }
 
@@ -464,7 +460,7 @@ public class ClassMerger {
 
     public ClassMerger build(
         HorizontalClassMergerGraphLens.Builder lensBuilder) {
-      return new ClassMerger(appView, codeProvider, lensBuilder, group, virtualMethodMergers);
+      return new ClassMerger(appView, lensBuilder, group, virtualMethodMergers);
     }
   }
 }

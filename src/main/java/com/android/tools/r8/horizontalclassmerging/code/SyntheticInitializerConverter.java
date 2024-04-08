@@ -4,14 +4,12 @@
 
 package com.android.tools.r8.horizontalclassmerging.code;
 
-import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.horizontalclassmerging.IRCodeProvider;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
-import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
@@ -26,25 +24,22 @@ import java.util.concurrent.ExecutorService;
 public class SyntheticInitializerConverter {
 
   private final AppView<?> appView;
-  private final IRCodeProvider codeProvider;
 
   private final List<ProgramMethod> classInitializers;
 
-  private SyntheticInitializerConverter(
-      AppView<?> appView, IRCodeProvider codeProvider, List<ProgramMethod> classInitializers) {
+  private SyntheticInitializerConverter(AppView<?> appView, List<ProgramMethod> classInitializers) {
     this.appView = appView;
-    this.codeProvider = codeProvider;
     this.classInitializers = classInitializers;
   }
 
-  public static Builder builder(AppView<?> appView, IRCodeProvider codeProvider) {
-    return new Builder(appView, codeProvider);
+  public static Builder builder(AppView<?> appView) {
+    return new Builder(appView);
   }
 
   public void convertClassInitializers(ExecutorService executorService) throws ExecutionException {
     if (!classInitializers.isEmpty()) {
       assert appView.dexItemFactory().verifyNoCachedTypeElements();
-      IRConverter converter = new IRConverter(createAppViewForConversion());
+      IRConverter converter = new IRConverter(appView);
       ThreadUtils.processItems(
           classInitializers,
           method -> processMethod(method, converter),
@@ -54,30 +49,8 @@ public class SyntheticInitializerConverter {
     }
   }
 
-  private AppView<AppInfo> createAppViewForConversion() {
-    assert appView.enableWholeProgramOptimizations();
-    assert appView.hasClassHierarchy();
-
-    // At this point the code rewritings described by repackaging and synthetic finalization have
-    // not been applied to the code objects. These code rewritings will be applied in the
-    // application writer. We therefore simulate that we are in D8, to allow building IR for each of
-    // the class initializers without applying the unapplied code rewritings, to avoid that we apply
-    // the lens more than once to the same piece of code.
-
-    // Since we are now running in D8 mode clear type elements cache.
-    appView.dexItemFactory().clearTypeElementsCache();
-
-    AppView<AppInfo> appViewForConversion =
-        AppView.createForSimulatingD8InR8(
-            AppInfo.createInitialAppInfo(
-                appView.appInfo().app(), GlobalSyntheticsStrategy.forNonSynthesizing()));
-    appViewForConversion.setGraphLens(appView.graphLens());
-    appViewForConversion.setCodeLens(appView.codeLens());
-    return appViewForConversion;
-  }
-
   private void processMethod(ProgramMethod method, IRConverter converter) {
-    IRCode code = codeProvider.buildIR(method);
+    IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
     converter.removeDeadCodeAndFinalizeIR(
         code, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
   }
@@ -89,13 +62,11 @@ public class SyntheticInitializerConverter {
   public static class Builder {
 
     private final AppView<?> appView;
-    private final IRCodeProvider codeProvider;
 
     private final List<ProgramMethod> classInitializers = new ArrayList<>();
 
-    private Builder(AppView<?> appView, IRCodeProvider codeProvider) {
+    private Builder(AppView<?> appView) {
       this.appView = appView;
-      this.codeProvider = codeProvider;
     }
 
     public Builder addClassInitializer(ProgramMethod method) {
@@ -104,7 +75,7 @@ public class SyntheticInitializerConverter {
     }
 
     public SyntheticInitializerConverter build() {
-      return new SyntheticInitializerConverter(appView, codeProvider, classInitializers);
+      return new SyntheticInitializerConverter(appView, classInitializers);
     }
   }
 }

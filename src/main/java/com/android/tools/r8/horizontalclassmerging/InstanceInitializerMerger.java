@@ -101,16 +101,12 @@ public class InstanceInitializerMerger {
     DexType[] newParameters =
         new DexType[representative.getParameters().size() + BooleanUtils.intValue(needsClassId)];
     System.arraycopy(oldParameters, 0, newParameters, 0, oldParameters.length);
-    for (int i = 0; i < oldParameters.length; i++) {
-      final int parameterIndex = i;
-      Set<DexType> parameterTypes =
-          SetUtils.newIdentityHashSet(
-              builder ->
-                  instanceInitializers.forEach(
-                      instanceInitializer ->
-                          builder.accept(instanceInitializer.getParameter(parameterIndex))));
+    for (int parameterIndex = 0; parameterIndex < oldParameters.length; parameterIndex++) {
+      Set<DexType> parameterTypes = getParameterTypes(instanceInitializers, parameterIndex);
       if (parameterTypes.size() > 1) {
-        newParameters[i] = DexTypeUtils.computeLeastUpperBound(appView, parameterTypes);
+        DexType leastUpperBound = DexTypeUtils.computeLeastUpperBound(appView, parameterTypes);
+        assert DexTypeUtils.isApiSafe(appView, leastUpperBound);
+        newParameters[parameterIndex] = leastUpperBound;
       }
     }
     if (needsClassId) {
@@ -118,6 +114,15 @@ public class InstanceInitializerMerger {
       newParameters[newParameters.length - 1] = dexItemFactory.intType;
     }
     return dexItemFactory.createInstanceInitializer(group.getTarget().getType(), newParameters);
+  }
+
+  private static Set<DexType> getParameterTypes(
+      List<ProgramMethod> instanceInitializers, int parameterIndex) {
+    return SetUtils.newIdentityHashSet(
+        builder ->
+            instanceInitializers.forEach(
+                instanceInitializer ->
+                    builder.accept(instanceInitializer.getParameter(parameterIndex))));
   }
 
   /**
@@ -169,9 +174,11 @@ public class InstanceInitializerMerger {
       createNewGroup();
     }
 
-    private void createNewGroup() {
+    private List<ProgramMethod> createNewGroup() {
       estimatedDexCodeSize = 0;
-      instanceInitializerGroups.add(new ArrayList<>());
+      List<ProgramMethod> newGroup = new ArrayList<>();
+      instanceInitializerGroups.add(newGroup);
+      return newGroup;
     }
 
     public Builder add(ProgramMethod instanceInitializer) {
@@ -190,8 +197,38 @@ public class InstanceInitializerMerger {
     }
 
     public Builder addEquivalent(ProgramMethod instanceInitializer) {
-      ListUtils.last(instanceInitializerGroups).add(instanceInitializer);
+      // If adding the given constructor to the current merge group leads to any API unsafe
+      // parameter types, then the constructor should be merged into a new group.
+      List<ProgramMethod> eligibleGroup = null;
+      for (List<ProgramMethod> candidateGroup : instanceInitializerGroups) {
+        if (isMergeApiSafe(candidateGroup, instanceInitializer)) {
+          eligibleGroup = candidateGroup;
+          break;
+        }
+      }
+      if (eligibleGroup == null) {
+        eligibleGroup = createNewGroup();
+      }
+      eligibleGroup.add(instanceInitializer);
       return this;
+    }
+
+    private boolean isMergeApiSafe(List<ProgramMethod> group, ProgramMethod instanceInitializer) {
+      if (group.isEmpty()) {
+        return true;
+      }
+      for (int parameterIndex = 0;
+          parameterIndex < instanceInitializer.getParameters().size();
+          parameterIndex++) {
+        Set<DexType> parameterTypes = getParameterTypes(group, parameterIndex);
+        // Adding the given instance initializer to the group can only lead to an API unsafe
+        // parameter type if the instance initializer contributes a new parameter type to the group.
+        if (parameterTypes.add(instanceInitializer.getParameter(parameterIndex))
+            && !DexTypeUtils.isLeastUpperBoundApiSafe(appView, parameterTypes)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     public List<InstanceInitializerMerger> build(HorizontalMergeGroup group) {
@@ -203,18 +240,19 @@ public class InstanceInitializerMerger {
                   appView, classIdentifiers, group, instanceInitializers, lensBuilder));
     }
 
-    public InstanceInitializerMerger buildSingle(
+    public List<InstanceInitializerMerger> buildEquivalent(
         HorizontalMergeGroup group, InstanceInitializerDescription instanceInitializerDescription) {
       assert instanceInitializerGroups.stream().noneMatch(List::isEmpty);
-      assert instanceInitializerGroups.size() == 1;
-      List<ProgramMethod> instanceInitializers = ListUtils.first(instanceInitializerGroups);
-      return new InstanceInitializerMerger(
-          appView,
-          classIdentifiers,
-          group,
-          instanceInitializers,
-          lensBuilder,
-          instanceInitializerDescription);
+      return ListUtils.map(
+          instanceInitializerGroups,
+          instanceInitializers ->
+              new InstanceInitializerMerger(
+                  appView,
+                  classIdentifiers,
+                  group,
+                  instanceInitializers,
+                  lensBuilder,
+                  instanceInitializerDescription));
     }
   }
 
