@@ -112,7 +112,7 @@ def generate_file_info(path, options):
                     entry.set_size(False)
                 file_info_map[file_path] = entry
     threads = []
-    file_infos = file_info_map.values() if options.use_code_size else []
+    file_infos = list(file_info_map.values()) if options.use_code_size else []
     while len(file_infos) > 0 or len(threads) > 0:
         for t in threads:
             if not t.is_alive():
