@@ -61,20 +61,22 @@ public class DexTypeUtils {
   public static DexType findApiSafeUpperBound(
       AppView<? extends AppInfoWithClassHierarchy> appView, DexType type) {
     DexItemFactory factory = appView.dexItemFactory();
-    if (type.toBaseType(factory).isPrimitiveType()) {
+    DexType baseType = type.toBaseType(factory);
+    if (baseType.isPrimitiveType()) {
       return type;
     }
-    DexClass clazz = appView.definitionFor(type.isArrayType() ? type.toBaseType(factory) : type);
+    DexClass clazz = appView.definitionFor(baseType);
     if (clazz == null) {
       assert false : "We should not have found an upper bound if the hierarchy is missing";
       return type;
     }
     if (!clazz.isLibraryClass()
-        || AndroidApiLevelUtils.isApiSafeForReference(clazz.asLibraryClass(), appView)) {
+        || AndroidApiLevelUtils.isApiSafeForReference(clazz.asLibraryClass(), appView)
+        || !clazz.hasSuperType()) {
       return type;
     }
-    // Always just return the object type since this is safe for all api versions.
-    return factory.objectType;
+    // Return the nearest API safe supertype.
+    return findApiSafeUpperBound(appView, clazz.getSuperType());
   }
 
   public static boolean isTypeAccessibleInMethodContext(

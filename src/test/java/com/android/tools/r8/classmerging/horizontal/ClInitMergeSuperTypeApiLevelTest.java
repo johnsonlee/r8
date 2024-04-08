@@ -21,6 +21,7 @@ import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
@@ -48,7 +49,7 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
 
   private TypeReference getMergeReferenceForApiLevel() {
     return Reference.typeFromTypeName(
-        typeName(canUseExecutable() ? Executable.class : Object.class));
+        typeName(canUseExecutable() ? Executable.class : AccessibleObject.class));
   }
 
   @Test
