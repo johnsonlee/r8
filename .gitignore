@@ -1,5 +1,4 @@
 !third_party/chrome/*.sha1
-!third_party/gmail/*.sha1
 !third_party/gmscore/*.sha1
 !third_party/internal/*.sha1
 !third_party/nest/*.sha1
@@ -111,7 +110,6 @@ third_party/examplesAndroidPGenerated
 third_party/examplesAndroidPGenerated.tar.gz
 third_party/framework
 third_party/framework.tar.gz
-third_party/gmail/*
 third_party/gmscore/*
 third_party/google/google-java-format/1.14.0
 third_party/google/google-java-format/1.14.0.tar.gz
