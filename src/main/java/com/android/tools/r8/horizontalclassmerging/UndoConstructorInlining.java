@@ -12,6 +12,8 @@ import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMember;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -42,7 +44,9 @@ import com.android.tools.r8.lightir.LirWriter;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ObjectUtils;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
@@ -52,6 +56,7 @@ import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -179,6 +184,7 @@ public class UndoConstructorInlining {
           this::processClass,
           appView.options().getThreadingModule(),
           executorService);
+      commitPendingConstructors();
       profileCollectionAdditions.commit(appView);
     }
 
@@ -429,6 +435,13 @@ public class UndoConstructorInlining {
     private StronglyConnectedComponent getStronglyConnectedComponent(DexProgramClass clazz) {
       return stronglyConnectedComponents.get(clazz);
     }
+
+    private void commitPendingConstructors() {
+      Set<StronglyConnectedComponent> uniqueStronglyConnectedComponents =
+          SetUtils.newIdentityHashSet(stronglyConnectedComponents.values());
+      uniqueStronglyConnectedComponents.forEach(
+          StronglyConnectedComponent::commitPendingConstructors);
+    }
   }
 
   private static class InvokeDirectInfo {
@@ -525,7 +538,6 @@ public class UndoConstructorInlining {
               .setApiLevelForDefinition(
                   appView.apiLevelCompute().computeInitialMinApiLevel(appView.options()))
               .build();
-      clazz.addDirectMethod(method);
       ProgramMethod programMethod = method.asProgramMethod(clazz);
       creationConsumer.accept(programMethod);
       return programMethod;
@@ -578,6 +590,17 @@ public class UndoConstructorInlining {
       instructionIndex++;
 
       return lirBuilder.build();
+    }
+
+    public void commitPendingConstructors() {
+      constructorCache.forEach(
+          (clazz, constructors) -> {
+            List<DexEncodedMethod> methods =
+                ListUtils.sort(
+                    ListUtils.map(constructors.values(), DexClassAndMember::getDefinition),
+                    Comparator.comparing(DexEncodedMember::getReference));
+            clazz.addDirectMethods(methods);
+          });
     }
   }
 }
