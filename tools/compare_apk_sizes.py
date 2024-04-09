@@ -39,6 +39,11 @@ def parse_options():
         default=False,
         action='store_true')
     result.add_option(
+        '--ignore_debug_info',
+        help='Do not include debug info in the comparison.',
+        default=False,
+        action='store_true')
+    result.add_option(
         '--report', help='Print comparison to this location instead of stdout')
     return result.parse_args()
 
@@ -66,7 +71,10 @@ def extract_classes(input, output, options):
     if options.no_build:
         args.extend(['--no-build'])
     args.extend(input)
-    if toolhelper.run('d8', args) is not 0:
+    extra_args = []
+    if options.ignore_debug_info:
+        extra_args.append('-Dcom.android.tools.r8.nullOutDebugInfo=1')
+    if toolhelper.run('d8', args, extra_args=extra_args) is not 0:
         raise Exception('Failed running d8')
 
 
