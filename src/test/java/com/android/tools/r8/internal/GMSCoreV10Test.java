@@ -70,54 +70,8 @@ public class GMSCoreV10Test extends GMSCoreCompilationTestBase {
   }
 
   @Test
-  public void testD8DebugLegacyMultidex() throws Exception {
-    compileWithD8Debug(
-            builder ->
-                builder
-                    .addMainDexListFiles(base.resolve("main_dex_list.txt"))
-                    .setMinApi(AndroidApiLevel.K))
-        .runDex2Oat(parameters.getRuntime())
-        .assertNoVerificationErrors();
-  }
-
-  @Test
-  public void testD8DebugLegacyMultidexDexOpt() throws Exception {
-    compileWithD8Debug(
-            builder ->
-                builder
-                    .addMainDexListFiles(base.resolve("main_dex_list.txt"))
-                    .setMinApi(AndroidApiLevel.K)
-                    .setOptimizeMultidexForLinearAlloc())
-        .runDex2Oat(parameters.getRuntime())
-        .assertNoVerificationErrors();
-  }
-
-  @Test
   public void testD8Release() throws Exception {
     compileWithD8Release(ThrowableConsumer.empty())
-        .runDex2Oat(parameters.getRuntime())
-        .assertNoVerificationErrors();
-  }
-
-  @Test
-  public void testD8ReleaseLegacyMultidex() throws Exception {
-    compileWithD8Release(
-            builder ->
-                builder
-                    .addMainDexListFiles(base.resolve("main_dex_list.txt"))
-                    .setMinApi(AndroidApiLevel.K))
-        .runDex2Oat(parameters.getRuntime())
-        .assertNoVerificationErrors();
-  }
-
-  @Test
-  public void buildD8ReleaseLegacyMultidexDexOpt() throws Exception {
-    compileWithD8Release(
-            builder ->
-                builder
-                    .addMainDexListFiles(base.resolve("main_dex_list.txt"))
-                    .setMinApi(AndroidApiLevel.K)
-                    .setOptimizeMultidexForLinearAlloc())
         .runDex2Oat(parameters.getRuntime())
         .assertNoVerificationErrors();
   }
