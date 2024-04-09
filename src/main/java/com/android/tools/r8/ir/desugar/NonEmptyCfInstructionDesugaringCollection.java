@@ -74,6 +74,10 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (alwaysThrowingInstructionDesugaring != null) {
       desugarings.add(alwaysThrowingInstructionDesugaring);
     }
+    if (appView.options().apiModelingOptions().enableOutliningOfMethods) {
+      assert appView.options().isGeneratingDex();
+      yieldingDesugarings.add(new ApiInvokeOutlinerDesugaring(appView, apiLevelCompute));
+    }
     if (appView.options().desugarState.isOff()) {
       this.nestBasedAccessDesugaring = null;
       this.recordRewriter = null;
@@ -99,9 +103,6 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     disableDesugarer = DesugaredLibraryDisableDesugarer.create(appView);
     if (disableDesugarer != null) {
       desugarings.add(disableDesugarer);
-    }
-    if (appView.options().apiModelingOptions().enableOutliningOfMethods) {
-      yieldingDesugarings.add(new ApiInvokeOutlinerDesugaring(appView, apiLevelCompute));
     }
     if (appView.options().enableTryWithResourcesDesugaring()) {
       desugarings.add(new TwrInstructionDesugaring(appView));
@@ -174,11 +175,12 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     return desugaringCollection;
   }
 
-  static NonEmptyCfInstructionDesugaringCollection createForCfToDexNonDesugar(AppView<?> appView) {
+  static NonEmptyCfInstructionDesugaringCollection createForCfToDexNonDesugar(
+      AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
     assert appView.options().desugarState.isOff();
     assert appView.options().isGeneratingDex();
     NonEmptyCfInstructionDesugaringCollection desugaringCollection =
-        new NonEmptyCfInstructionDesugaringCollection(appView, noAndroidApiLevelCompute());
+        new NonEmptyCfInstructionDesugaringCollection(appView, apiLevelCompute);
     desugaringCollection.desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
     desugaringCollection.yieldingDesugarings.add(
         new UnrepresentableInDexInstructionRemover(appView));

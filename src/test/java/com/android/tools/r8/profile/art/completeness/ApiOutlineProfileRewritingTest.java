@@ -49,8 +49,8 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
         : parameters.getRuntime().maxSupportedApiLevel();
   }
 
-  public boolean isLibraryClassAlwaysPresent(boolean isDesugaring) {
-    return !isDesugaring || parameters.getApiLevel().isGreaterThanOrEqualTo(classApiLevel);
+  public boolean isLibraryClassAlwaysPresent(boolean isApiOutlining) {
+    return !isApiOutlining || parameters.getApiLevel().isGreaterThanOrEqualTo(classApiLevel);
   }
 
   public boolean isLibraryClassPresentInCurrentRuntime() {
@@ -114,7 +114,7 @@ public class ApiOutlineProfileRewritingTest extends TestBase {
 
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector)
       throws Exception {
-    inspect(profileInspector, inspector, isLibraryClassAlwaysPresent(true));
+    inspect(profileInspector, inspector, isLibraryClassAlwaysPresent(parameters.isDexRuntime()));
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector)

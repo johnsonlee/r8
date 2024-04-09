@@ -130,6 +130,10 @@ public abstract class TestCompilerBuilder<
 
   public T addAndroidBuildVersion(AndroidApiLevel specifiedApiLevel) {
     addProgramClasses(AndroidBuildVersion.class);
+    return markAndroidBuildVersionAsActive(specifiedApiLevel);
+  }
+
+  public T markAndroidBuildVersionAsActive(AndroidApiLevel specifiedApiLevel) {
     isAndroidBuildVersionAdded =
         Optional.ofNullable(specifiedApiLevel == null ? null : specifiedApiLevel.getLevel());
     return self();

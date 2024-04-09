@@ -168,13 +168,8 @@ public class ApiModelIndirectTargetWithDifferentApiLevelTest extends TestBase {
                 "foo",
                 Collections.emptyList(),
                 null));
-    if (isR8 && parameters.isCfRuntime()) {
-      verifyHelper.isOutlinedFromUntil(
-          Main.class.getDeclaredMethod("main", String[].class), classMethodApiLevel);
-    } else {
-      verifyHelper.isOutlinedFromUntilAlsoForCf(
-          Main.class.getDeclaredMethod("main", String[].class), classMethodApiLevel);
-    }
+    verifyHelper.isOutlinedFromUntil(
+        Main.class.getDeclaredMethod("main", String[].class), classMethodApiLevel);
   }
 
   // Only present from api level 23.

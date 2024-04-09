@@ -138,27 +138,33 @@ public abstract class ApiModelingTestHelper {
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
-          options.apiModelingOptions().enableLibraryApiModeling = true;
-          options.apiModelingOptions().enableStubbingOfClasses = true;
-          // Our tests rely on us amending the library path with additional classes that are not
-          // in the library.
-          options.testing.globalSyntheticCreatedCallback = null;
+          if (options.isGeneratingDex()) {
+            options.apiModelingOptions().enableLibraryApiModeling = true;
+            options.apiModelingOptions().enableStubbingOfClasses = true;
+            // Our tests rely on us amending the library path with additional classes that are not
+            // in the library.
+            options.testing.globalSyntheticCreatedCallback = null;
+          }
         });
   }
 
   public static void enableStubbingOfClasses(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
-          options.apiModelingOptions().enableLibraryApiModeling = true;
-          options.apiModelingOptions().enableStubbingOfClasses = true;
+          if (options.isGeneratingDex()) {
+            options.apiModelingOptions().enableLibraryApiModeling = true;
+            options.apiModelingOptions().enableStubbingOfClasses = true;
+          }
         });
   }
 
   public static void enableOutliningOfMethods(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
-          options.apiModelingOptions().enableLibraryApiModeling = true;
-          options.apiModelingOptions().enableOutliningOfMethods = true;
+          if (options.isGeneratingDex()) {
+            options.apiModelingOptions().enableLibraryApiModeling = true;
+            options.apiModelingOptions().enableOutliningOfMethods = true;
+          }
         });
   }
 
@@ -490,14 +496,6 @@ public abstract class ApiModelingTestHelper {
       if (parameters.isDexRuntime()
           && parameters.getApiLevel().isLessThan(upperBound)
           && parameters.getApiLevel().isGreaterThanOrEqualTo(lowerBoundInclusive)) {
-        isOutlinedFrom(method);
-      } else {
-        isNotOutlinedFrom(method);
-      }
-    }
-
-    void isOutlinedFromUntilAlsoForCf(Executable method, AndroidApiLevel apiLevel) {
-      if (parameters.getApiLevel().isLessThan(apiLevel)) {
         isOutlinedFrom(method);
       } else {
         isNotOutlinedFrom(method);

@@ -146,6 +146,10 @@ public final class GlobalSyntheticsGeneratorCommand {
     internal.programConsumer =
         classfileDesugaringOnly ? new ThrowingCfConsumer() : new ThrowingDexConsumer();
     internal.setGlobalSyntheticsConsumer(globalsConsumer);
+    if (classfileDesugaringOnly) {
+      internal.apiModelingOptions().disableApiCallerIdentification();
+      internal.apiModelingOptions().disableOutliningAndStubbing();
+    }
 
     // Assert and fixup defaults.
     assert !internal.isShrinking();

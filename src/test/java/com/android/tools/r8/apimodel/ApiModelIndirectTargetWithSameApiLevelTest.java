@@ -150,13 +150,8 @@ public class ApiModelIndirectTargetWithSameApiLevelTest extends TestBase {
                 "foo",
                 Collections.emptyList(),
                 null));
-    if (isR8 && parameters.isCfRuntime()) {
-      verifyHelper.isOutlinedFromUntil(
-          Main.class.getDeclaredMethod("main", String[].class), mockApiLevel);
-    } else {
-      verifyHelper.isOutlinedFromUntilAlsoForCf(
-          Main.class.getDeclaredMethod("main", String[].class), mockApiLevel);
-    }
+    verifyHelper.isOutlinedFromUntil(
+        Main.class.getDeclaredMethod("main", String[].class), mockApiLevel);
   }
 
   // Only present from api level 23.

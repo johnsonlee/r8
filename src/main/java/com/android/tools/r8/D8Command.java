@@ -771,7 +771,9 @@ public final class D8Command extends BaseCompilerCommand {
     internal.configureDesugaredLibrary(desugaredLibrarySpecification, synthesizedClassPrefix);
     internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
-    if (!enableMissingLibraryApiModeling) {
+    if (internal.isGeneratingClassFiles()
+        || (System.getProperty("com.android.tools.r8.enableApiOutliningAndStubbing") == null
+            && !enableMissingLibraryApiModeling)) {
       internal.apiModelingOptions().disableApiCallerIdentification();
       internal.apiModelingOptions().disableOutliningAndStubbing();
     }

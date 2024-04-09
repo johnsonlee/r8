@@ -6,6 +6,7 @@ package com.android.tools.r8.profile.art.completeness;
 
 import static com.android.tools.r8.desugar.LibraryFilesHelper.getJdk11LibraryFiles;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -111,11 +112,6 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         .build();
   }
 
-  private boolean hasTwrCloseResourceSupport(boolean isDesugaring) {
-    return !isDesugaring
-        || parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithTwrCloseResourceSupport());
-  }
-
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
     inspect(profileInspector, inspector, hasTwrCloseResourceSupport(true));
   }
@@ -128,10 +124,17 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
       boolean hasTwrCloseResourceSupport) {
+    int expectedClassCount = 3;
+    if (!hasTwrCloseResourceSupport) {
+      expectedClassCount += 8;
+    }
+    if (hasTwrCloseResourceApiOutlines()) {
+      expectedClassCount += 4;
+    }
     inspector
         .allClasses()
         .forEach(c -> System.out.println(c.getDexProgramClass().toSourceString()));
-    assertEquals(hasTwrCloseResourceSupport ? 3 : 15, inspector.allClasses().size());
+    assertEquals(expectedClassCount, inspector.allClasses().size());
     assertThat(inspector.clazz(MAIN.typeName()), isPresent());
 
     // Class Foo has two methods foo() and $closeResource().
@@ -167,49 +170,60 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
       ClassSubject syntheticApiOutlineClassSubject0 =
           inspector.clazz(
               SyntheticItemsTestUtils.syntheticApiOutlineClass(clazz.getClassReference(), 0));
-      assertThat(syntheticApiOutlineClassSubject0, notIf(isPresent(), hasTwrCloseResourceSupport));
+      assertThat(syntheticApiOutlineClassSubject0, isPresentIf(hasTwrCloseResourceApiOutlines()));
 
       ClassSubject syntheticApiOutlineClassSubject1 =
           inspector.clazz(
               SyntheticItemsTestUtils.syntheticApiOutlineClass(clazz.getClassReference(), 1));
-      assertThat(syntheticApiOutlineClassSubject1, notIf(isPresent(), hasTwrCloseResourceSupport));
+      assertThat(syntheticApiOutlineClassSubject1, isPresentIf(hasTwrCloseResourceApiOutlines()));
+
+      int initialSyntheticId = hasTwrCloseResourceApiOutlines() ? 2 : 0;
 
       ClassSubject syntheticBackportClassSubject =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticBackportClass(clazz.getClassReference(), 2));
+              SyntheticItemsTestUtils.syntheticBackportClass(
+                  clazz.getClassReference(), initialSyntheticId));
       assertThat(syntheticBackportClassSubject, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject3 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(clazz.getClassReference(), 3));
+              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(
+                  clazz.getClassReference(), initialSyntheticId + 1));
       assertThat(
           syntheticTwrCloseResourceClassSubject3, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject4 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(clazz.getClassReference(), 4));
+              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(
+                  clazz.getClassReference(), initialSyntheticId + 2));
       assertThat(
           syntheticTwrCloseResourceClassSubject4, notIf(isPresent(), hasTwrCloseResourceSupport));
 
       ClassSubject syntheticTwrCloseResourceClassSubject5 =
           inspector.clazz(
-              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(clazz.getClassReference(), 5));
+              SyntheticItemsTestUtils.syntheticTwrCloseResourceClass(
+                  clazz.getClassReference(), initialSyntheticId + 3));
       assertThat(
           syntheticTwrCloseResourceClassSubject5, notIf(isPresent(), hasTwrCloseResourceSupport));
+
+      profileInspector.applyIf(
+          hasTwrCloseResourceApiOutlines(),
+          i ->
+              i.assertContainsClassRules(
+                      syntheticApiOutlineClassSubject0, syntheticApiOutlineClassSubject1)
+                  .assertContainsMethodRules(
+                      syntheticApiOutlineClassSubject0.uniqueMethod(),
+                      syntheticApiOutlineClassSubject1.uniqueMethod()));
 
       profileInspector.applyIf(
           !hasTwrCloseResourceSupport,
           i ->
               i.assertContainsClassRules(
-                      syntheticApiOutlineClassSubject0,
-                      syntheticApiOutlineClassSubject1,
                       syntheticBackportClassSubject,
                       syntheticTwrCloseResourceClassSubject3,
                       syntheticTwrCloseResourceClassSubject4,
                       syntheticTwrCloseResourceClassSubject5)
                   .assertContainsMethodRules(
-                      syntheticApiOutlineClassSubject0.uniqueMethod(),
-                      syntheticApiOutlineClassSubject1.uniqueMethod(),
                       syntheticBackportClassSubject.uniqueMethod(),
                       syntheticTwrCloseResourceClassSubject3.uniqueMethod(),
                       syntheticTwrCloseResourceClassSubject4.uniqueMethod(),

@@ -70,6 +70,16 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
         .build();
   }
 
+  protected boolean hasTwrCloseResourceSupport(boolean isDesugaring) {
+    return !isDesugaring
+        || parameters.getApiLevel().isGreaterThanOrEqualTo(apiLevelWithTwrCloseResourceSupport());
+  }
+
+  protected boolean hasTwrCloseResourceApiOutlines() {
+    return parameters.isDexRuntime()
+        && parameters.getApiLevel().isLessThan(apiLevelWithTwrCloseResourceSupport());
+  }
+
   protected String getZipFile() throws IOException {
     return ZipUtils.ZipBuilder.builder(temp.newFile("file.zip").toPath())
         // DEX VMs from 4.4 up-to 9.0 including, will fail if no entry is added.
@@ -106,10 +116,13 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               // Throwable.addSuppressed that is still present in the original $closeResource.
               // TODO(b/214329923): If the original $closeResource is pruned this will decrease.
               // TODO(b/168568827): Once we support a nested addSuppressed this will increase.
-              int expectedSynthetics =
-                  parameters.getApiLevel().isLessThan(apiLevelWithTwrCloseResourceSupport())
-                      ? 3
-                      : 0;
+              int expectedSynthetics = 0;
+              if (!hasTwrCloseResourceSupport(true)) {
+                expectedSynthetics += 2;
+              }
+              if (hasTwrCloseResourceApiOutlines()) {
+                expectedSynthetics += 1;
+              }
               assertEquals(INPUT_CLASSES + expectedSynthetics, inspector.allClasses().size());
             });
   }
@@ -137,7 +150,7 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               // exception is known or not, thus the synthetic methods will be 2.
               Set<String> nonSyntheticClassOutput =
                   ImmutableSet.of(FOO.typeName(), BAR.typeName(), MAIN.typeName());
-              if (parameters.getApiLevel().isLessThan(apiLevelWithTwrCloseResourceSupport())) {
+              if (!hasTwrCloseResourceSupport(parameters.isDexRuntime())) {
                 Set<String> classOutputWithSynthetics = new HashSet<>(nonSyntheticClassOutput);
                 classOutputWithSynthetics.add(
                     SyntheticItemsTestUtils.syntheticApiOutlineClass(BAR.getClassReference(), 0)

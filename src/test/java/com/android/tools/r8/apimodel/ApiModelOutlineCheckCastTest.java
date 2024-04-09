@@ -9,6 +9,7 @@ import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLeve
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
@@ -17,6 +18,8 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.lang.reflect.Method;
+import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -38,12 +41,17 @@ public class ApiModelOutlineCheckCastTest extends TestBase {
   }
 
   private void setupTestBuilder(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder) throws Exception {
+    setupTestBuilderWithoutProgram(
+        testBuilder.addProgramClasses(Main.class).addAndroidBuildVersion(getApiLevelForRuntime()));
+  }
+
+  private void setupTestBuilderWithoutProgram(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder)
+      throws Exception {
     testBuilder
+        .markAndroidBuildVersionAsActive(getApiLevelForRuntime())
         .addLibraryClasses(LibraryClass.class, LibraryProvider.class)
         .addDefaultRuntimeLibrary(parameters)
-        .addProgramClasses(Main.class)
         .setMinApi(parameters)
-        .addAndroidBuildVersion(getApiLevelForRuntime())
         .apply(setMockApiLevelForClass(LibraryProvider.class, AndroidApiLevel.B))
         .apply(
             setMockApiLevelForMethod(
@@ -73,6 +81,52 @@ public class ApiModelOutlineCheckCastTest extends TestBase {
         .addProgramClasses(Main.class)
         .addAndroidBuildVersion(parameters.getApiLevel())
         .addLibraryClasses(LibraryProvider.class)
+        .run(parameters.getRuntime(), Main.class)
+        .apply(this::checkOutput);
+  }
+
+  @Test
+  public void testD8Cf() throws Exception {
+    parameters.assumeCfRuntime();
+    testForD8(parameters.getBackend())
+        .setMinApi(parameters)
+        .setMode(CompilationMode.DEBUG)
+        .apply(this::setupTestBuilder)
+        .compile()
+        .inspect(
+            inspector ->
+                // Compiling to CF should never result in stubs and outlining for API modeling.
+                verifyThat(inspector, parameters, LibraryClass.class)
+                    .hasNotCheckCastOutlinedFrom(getMainMethod()))
+        .applyIf(
+            addToBootClasspath(),
+            b -> b.addBootClasspathClasses(LibraryClass.class, LibraryProvider.class),
+            b -> b.addBootClasspathClasses(LibraryProvider.class))
+        .run(parameters.getRuntime(), Main.class)
+        .apply(this::checkOutput);
+  }
+
+  @Test
+  public void testD8CfAndDexNoDesugaring() throws Exception {
+    parameters.assumeDexRuntime();
+    D8TestCompileResult compileResult =
+        testForD8(Backend.CF)
+            .setMinApi(parameters)
+            .setMode(CompilationMode.DEBUG)
+            .apply(this::setupTestBuilder)
+            .compile();
+    Path out = compileResult.writeToZip();
+    testForD8()
+        .disableDesugaring()
+        .setMode(CompilationMode.DEBUG)
+        .apply(this::setupTestBuilderWithoutProgram)
+        .addProgramFiles(out)
+        .compile()
+        .inspect(this::inspect)
+        .applyIf(
+            addToBootClasspath(),
+            b -> b.addBootClasspathClasses(LibraryClass.class, LibraryProvider.class),
+            b -> b.addBootClasspathClasses(LibraryProvider.class))
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
   }
@@ -127,7 +181,11 @@ public class ApiModelOutlineCheckCastTest extends TestBase {
 
   private void inspect(CodeInspector inspector) throws Exception {
     verifyThat(inspector, parameters, LibraryClass.class)
-        .hasCheckCastOutlinedFromUntil(Main.class.getMethod("main", String[].class), classApiLevel);
+        .hasCheckCastOutlinedFromUntil(getMainMethod(), classApiLevel);
+  }
+
+  private static Method getMainMethod() throws NoSuchMethodException {
+    return Main.class.getMethod("main", String[].class);
   }
 
   private void checkOutput(SingleTestRunResult<?> runResult) {

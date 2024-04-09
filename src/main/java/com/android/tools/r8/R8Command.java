@@ -1264,6 +1264,9 @@ public final class R8Command extends BaseCompilerCommand {
       horizontalClassMergerOptions.disable();
       // R8 CF output does not support desugaring so disable it.
       internal.desugarState = DesugarState.OFF;
+      // TODO(b/333477035): Since D8 dexing now supports outline/stubbing API calls R8/CF should
+      //  likely disable API caller identification too so as not to prevent inlining.
+      internal.apiModelingOptions().disableOutliningAndStubbing();
     }
 
     // EXPERIMENTAL flags.
