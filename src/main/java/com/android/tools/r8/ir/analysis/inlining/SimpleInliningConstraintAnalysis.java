@@ -103,7 +103,7 @@ public class SimpleInliningConstraintAnalysis {
       SimpleInliningConstraint instructionConstraint =
           computeConstraintForInstructionNotToMaterialize(instruction);
       if (instructionConstraint.isAlways()) {
-        assert instruction.isAssume();
+        assert instruction.isAssume() || instruction.isConstInstruction();
       } else if (instructionConstraint.isNever()) {
         instructionDepth++;
       } else {
@@ -126,6 +126,13 @@ public class SimpleInliningConstraintAnalysis {
   private SimpleInliningConstraint computeConstraintForInstructionNotToMaterialize(
       Instruction instruction) {
     if (instruction.isAssume()) {
+      return AlwaysSimpleInliningConstraint.getInstance();
+    }
+    // We treat const instructions as non-materializing, although they may actually materialize.
+    // In practice, since we limit the number of materializing instructions to one, only few
+    // constants should remain after inlining (e.g., if the materializing instruction is an invoke
+    // that uses constants as in-values).
+    if (instruction.isConstInstruction()) {
       return AlwaysSimpleInliningConstraint.getInstance();
     }
     if (instruction.isInvokeVirtual()) {
