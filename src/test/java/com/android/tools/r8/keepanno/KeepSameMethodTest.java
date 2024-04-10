@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -38,6 +39,7 @@ public class KeepSameMethodTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
@@ -54,8 +56,10 @@ public class KeepSameMethodTest extends KeepAnnoTestBase {
 
   private void checkOutput(CodeInspector inspector) throws Exception {
     assertThat(inspector.clazz(A.class).method(A.class.getMethod("foo")), isPresent());
-    // TODO(b/265892343): The extracted rule will match all params so this is incorrectly kept.
-    assertThat(inspector.clazz(A.class).method(A.class.getMethod("foo", int.class)), isPresent());
+    // The extracted rules must overapproximate by matching all params (see b/265892343).
+    assertThat(
+        inspector.clazz(A.class).method(A.class.getMethod("foo", int.class)),
+        isAbsentIf(parameters.isNativeR8()));
     // Bar is unused and thus removed.
     assertThat(inspector.clazz(A.class).uniqueMethodWithOriginalName("bar"), isAbsent());
   }

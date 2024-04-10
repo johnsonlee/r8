@@ -659,11 +659,24 @@ public class Enqueuer {
   }
 
   public boolean addLiveMethod(ProgramMethod method, KeepReason reason) {
+    addEffectivelyLiveOriginalMethod(method);
     return liveMethods.add(method, reason);
   }
 
   public boolean addTargetedMethod(ProgramMethod method, KeepReason reason) {
+    addEffectivelyLiveOriginalMethod(method);
     return targetedMethods.add(method, reason);
+  }
+
+  private void addEffectivelyLiveOriginalMethod(ProgramMethod method) {
+    if (!options.testing.isKeepAnnotationsEnabled()) {
+      return;
+    }
+    if (method.getDefinition().hasPendingInlineFrame()) {
+      traceMethodPosition(method.getDefinition().getPendingInlineFrameAsPosition(), method);
+    } else if (!method.getDefinition().isD8R8Synthesized()) {
+      markEffectivelyLiveOriginalReference(method.getReference());
+    }
   }
 
   private void recordCompilerSynthesizedTypeReference(DexType type) {
@@ -1662,17 +1675,23 @@ public class Enqueuer {
     while (position.hasCallerPosition()) {
       // Any inner position should not be non-synthetic user methods.
       assert !position.isD8R8Synthesized();
-      DexMethod method = position.getMethod();
-      // TODO(b/325014359): It might be reasonable to reduce this map size by tracking which methods
-      //  actually are used in preconditions.
-      if (effectivelyLiveOriginalReferences.add(method)) {
-        effectivelyLiveOriginalReferences.add(method.getHolderType());
-      }
+      markEffectivelyLiveOriginalReference(position.getMethod());
       position = position.getCallerPosition();
     }
     // The outer-most position should be equal to the context.
-    // No need to trace this as the method is already traced since it is invoked.
+    // Mark it if it is not synthetic.
     assert context.getReference().isIdenticalTo(position.getMethod());
+    if (!context.getDefinition().isD8R8Synthesized()) {
+      markEffectivelyLiveOriginalReference(context.getReference());
+    }
+  }
+
+  void markEffectivelyLiveOriginalReference(DexMethod method) {
+    // TODO(b/325014359): It might be reasonable to reduce this map size by tracking which methods
+    //  actually are used in preconditions.
+    if (effectivelyLiveOriginalReferences.add(method)) {
+      effectivelyLiveOriginalReferences.add(method.getHolderType());
+    }
   }
 
   void traceNewInstance(DexType type, ProgramMethod context) {
@@ -4797,6 +4816,7 @@ public class Enqueuer {
     long result = liveTypes.getItems().size();
     result += liveMethods.items.size();
     result += liveFields.fields.size();
+    result += effectivelyLiveOriginalReferences.size();
     return result;
   }
 
