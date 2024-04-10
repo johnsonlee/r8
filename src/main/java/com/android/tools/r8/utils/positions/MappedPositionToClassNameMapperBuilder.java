@@ -227,11 +227,6 @@ public class MappedPositionToClassNameMapperBuilder {
           appView.getNamingLens().lookupMethod(method.getReference(), appView.dexItemFactory());
       MethodSignature residualSignature = MethodSignature.fromDexMethod(residualMethod);
 
-      // TODO(b/261971803): This original method via lens is just to assert compatibility with the
-      //  previous implementation. Remove this as part of cleaning-up / reducing lens usage.
-      DexMethod lensOriginalMethod =
-          appView.graphLens().getOriginalMethodSignatureForMapping(method.getReference());
-
       DexMethod originalMethod;
       boolean canStripOuterFrame;
       boolean residualIsD8R8Synthesized;
@@ -258,10 +253,7 @@ public class MappedPositionToClassNameMapperBuilder {
                   : definition.getReference();
         }
       }
-      assert residualIsD8R8Synthesized
-          || originalMethod.isIdenticalTo(lensOriginalMethod)
-          // TODO(b/326562454): In some case the lens is mapping two methods to a common original.
-          || originalMethod.getHolderType().isIdenticalTo(lensOriginalMethod.getHolderType());
+      assert verifyMethodMapping(method, originalMethod, residualIsD8R8Synthesized);
 
       OneShotCollectionConsumer<MappingInformation> methodSpecificMappingInformation =
           OneShotCollectionConsumer.wrap(new ArrayList<>());
@@ -459,6 +451,19 @@ public class MappedPositionToClassNameMapperBuilder {
       assert mappedPositions.size() <= 1
           || getBuilder().hasNoOverlappingRangesForSignature(residualSignature);
       return this;
+    }
+
+    private boolean verifyMethodMapping(
+        ProgramMethod method, DexMethod originalMethod, boolean residualIsD8R8Synthesized) {
+      // TODO(b/261971803): This original method via lens is just to assert compatibility with the
+      //  previous implementation. Remove this as part of cleaning-up / reducing lens usage.
+      DexMethod lensOriginalMethod =
+          appView.graphLens().getOriginalMethodSignatureForMapping(method.getReference());
+      assert residualIsD8R8Synthesized
+          || originalMethod.isIdenticalTo(lensOriginalMethod)
+          // TODO(b/326562454): In some case the lens is mapping two methods to a common original.
+          || originalMethod.getHolderType().isIdenticalTo(lensOriginalMethod.getHolderType());
+      return true;
     }
 
     private boolean markAsCompilerSynthetic(ProgramMethod method) {
