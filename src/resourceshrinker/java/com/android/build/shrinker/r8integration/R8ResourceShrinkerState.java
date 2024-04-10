@@ -103,20 +103,14 @@ public class R8ResourceShrinkerState {
     } catch (IOException e) {
       throw errorHandler.apply(e);
     }
-    // TODO(b/329584653): Update processToolsAttributes in AGP to return the kept resources and
-    //  trace directly using this instead of iterating the full resource store below.
-    r8ResourceShrinkerModel.getResourceStore().processToolsAttributes();
-    traceLiveResources();
+    // ProcessToolsAttribute returns the resources that becomes live
+    r8ResourceShrinkerModel
+        .getResourceStore()
+        .processToolsAttributes()
+        .forEach(resource -> trace(resource.value));
     for (Supplier<InputStream> manifestProvider : manifestProviders) {
       traceXml("AndroidManifest.xml", manifestProvider.get());
     }
-  }
-
-  private void traceLiveResources() {
-    r8ResourceShrinkerModel.getResourceStore().getResources().stream()
-        .filter(Resource::isReachable)
-        .map(r -> r.value)
-        .forEach(this::trace);
   }
 
   public void setEnqueuerCallback(ClassReferenceCallback enqueuerCallback) {
