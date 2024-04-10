@@ -36,4 +36,3 @@ includeBuild(root.resolve("test_modules").resolve("tests_java_10"))
 includeBuild(root.resolve("test_modules").resolve("tests_java_11"))
 includeBuild(root.resolve("test_modules").resolve("tests_java_17"))
 includeBuild(root.resolve("test_modules").resolve("tests_java_21"))
-

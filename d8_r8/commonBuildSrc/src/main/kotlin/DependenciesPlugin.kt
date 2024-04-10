@@ -13,12 +13,18 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.Directory
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.file.RegularFile
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
+import org.gradle.jvm.toolchain.JavaInstallationMetadata
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaLauncher
+import org.gradle.jvm.toolchain.internal.DefaultJavaLanguageVersion
 import org.gradle.kotlin.dsl.register
 import org.gradle.nativeplatform.platform.OperatingSystem
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
@@ -43,12 +49,12 @@ class DependenciesPlugin: Plugin<Project> {
   }
 }
 
-enum class Jdk(val folder : String) {
-  JDK_8("jdk8"),
-  JDK_9("openjdk-9.0.4"),
-  JDK_11("jdk-11"),
-  JDK_17("jdk-17"),
-  JDK_21("jdk-21");
+enum class Jdk(val folder : String, val version: Int) {
+  JDK_8("jdk8", 8),
+  JDK_9("openjdk-9.0.4", 9),
+  JDK_11("jdk-11", 11),
+  JDK_17("jdk-17", 17),
+  JDK_21("jdk-21", 21);
 
   fun isJdk8() : Boolean {
     return this == JDK_8
@@ -266,6 +272,42 @@ fun Project.getJavaPath(jdk : Jdk) : String {
   val os: OperatingSystem = DefaultNativePlatform.getCurrentOperatingSystem()
   val binary = if (os.isWindows()) "java.exe" else "java"
   return getJavaHome(jdk).resolveAll("bin", binary).toString()
+}
+
+fun Project.getJavaLauncher(jdk : Jdk) : JavaLauncher {
+  return object : JavaLauncher {
+    override fun getMetadata(): JavaInstallationMetadata {
+      return object : JavaInstallationMetadata {
+        override fun getLanguageVersion(): JavaLanguageVersion {
+          return DefaultJavaLanguageVersion.of(jdk.version)
+        }
+
+        override fun getJavaRuntimeVersion(): String {
+          return jdk.name
+        }
+
+        override fun getJvmVersion(): String {
+          return jdk.name
+        }
+
+        override fun getVendor(): String {
+          return "vendor"
+        }
+
+        override fun getInstallationPath(): Directory {
+          return project.layout.projectDirectory.dir(getJavaHome(jdk).toString())
+        }
+
+        override fun isCurrentJvm(): Boolean {
+          return false
+        }
+      }
+    }
+
+    override fun getExecutablePath(): RegularFile {
+      return project.layout.projectDirectory.file(getJavaPath(jdk))
+    }
+  }
 }
 
 fun Project.getClasspath(vararg paths: File) : String {

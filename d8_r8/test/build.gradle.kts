@@ -459,6 +459,7 @@ tasks {
       dependsOn(testR8LibNoDeps)
     } else {
       dependsOn(gradle.includedBuild("tests_java_8").task(":test"))
+      dependsOn(gradle.includedBuild("tests_java_17").task(":test"))
       dependsOn(gradle.includedBuild("tests_bootstrap").task(":test"))
     }
   }

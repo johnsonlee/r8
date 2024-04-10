@@ -14,6 +14,9 @@ plugins {
 val root = getRoot()
 
 java {
+  // Can be moved into src/test/java14 when all examples have been converted
+  // to tests. Currently both the Test target below and buildExampleJars depend
+  // on this.
   sourceSets.test.configure {
     java.srcDir(root.resolveAll("src", "test", "examplesJava17"))
   }
@@ -21,7 +24,16 @@ java {
   targetCompatibility = JavaVersion.VERSION_17
 }
 
-dependencies { }
+val testbaseJavaCompileTask = projectTask("testbase", "compileJava")
+val testbaseDepsJarTask = projectTask("testbase", "depsJar")
+val mainCompileTask = projectTask("main", "compileJava")
+
+
+dependencies {
+  implementation(files(testbaseDepsJarTask.outputs.files.getSingleFile()))
+  implementation(testbaseJavaCompileTask.outputs.files)
+  implementation(mainCompileTask.outputs.files)
+}
 
 // We just need to register the examples jars for it to be referenced by other modules.
 val buildExampleJars = buildExampleJars("examplesJava17")
@@ -32,6 +44,13 @@ tasks {
     options.setFork(true)
     options.forkOptions.memoryMaximumSize = "3g"
     options.forkOptions.executable = getCompilerPath(Jdk.JDK_17)
+  }
+
+  withType<Test> {
+    TestingState.setUpTestingState(this)
+    javaLauncher = getJavaLauncher(Jdk.JDK_17)
+    systemProperty("TEST_DATA_LOCATION",
+                   layout.buildDirectory.dir("classes/java/test").get().toString())
   }
 }
 

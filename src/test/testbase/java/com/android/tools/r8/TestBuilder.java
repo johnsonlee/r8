@@ -3,11 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static com.android.tools.r8.TestBase.descriptor;
+
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.TestBase.Backend;
-import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.debug.DebugTestConfig;
 import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.transformers.ClassFileTransformer.FieldPredicate;
+import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.structural.Ordered;
@@ -142,6 +145,18 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
 
   public T addInnerClasses(Collection<Class<?>> classes) throws IOException {
     return addProgramFiles(getFilesForInnerClasses(classes));
+  }
+
+  public T addInnerClassesAndStrippedOuter(Class<?> clazz) throws IOException {
+    return addProgramClassFileData(
+            TestBase.transformer(clazz)
+                .removeFields(FieldPredicate.all())
+                .removeMethods(MethodPredicate.all())
+                .removeAllAnnotations()
+                .setSuper(descriptor(Object.class))
+                .setImplements()
+                .transform())
+        .addInnerClasses(ImmutableList.of(clazz));
   }
 
   public abstract T addLibraryFiles(Collection<Path> files);
