@@ -496,9 +496,6 @@ public class R8ApiUsageSampleTest extends CompilerApiTestRunner {
       if (labelValue.isEmpty()) {
         throw new RuntimeException("Expected LABEL constant");
       }
-      if (Version.LABEL.isEmpty()) {
-        throw new RuntimeException("Expected LABEL constant");
-      }
       if (Version.getVersionString() == null) {
         throw new RuntimeException("Expected getVersionString API");
       }
