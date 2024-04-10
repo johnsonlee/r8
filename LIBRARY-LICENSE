@@ -200,14 +200,20 @@
   license: The Apache License, Version 2.0
   licenseUrl: http://www.apache.org/licenses/LICENSE-2.0.txt
   url: http://code.google.com/p/atinject/source/checkout
-- artifact: org.bouncycastle:bcpkix-jdk15on
+- artifact: org.bouncycastle:bcpkix-jdk18on
   name: Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs
   copyrightHolder: The Legion of the Bouncy Castle Inc.
   license: The MIT License
   licenseUrl: http://opensource.org/licenses/MIT
   url: http://www.bouncycastle.org/java.html
-- artifact: org.bouncycastle:bcprov-jdk15on
+- artifact: org.bouncycastle:bcprov-jdk18on
   name: Bouncy Castle Provider
+  copyrightHolder: The Legion of the Bouncy Castle Inc.
+  license: The MIT License
+  licenseUrl: http://opensource.org/licenses/MIT
+  url: http://www.bouncycastle.org/java.html
+- artifact: org.bouncycastle:bcutil-jdk18on
+  name: Bouncy Castle ASN.1 Extension and Utility APIs
   copyrightHolder: The Legion of the Bouncy Castle Inc.
   license: The MIT License
   licenseUrl: http://opensource.org/licenses/MIT

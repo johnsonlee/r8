@@ -38,7 +38,7 @@ TESTNG_VERSION = '6.10'
 # Resource shrinker dependency versions
 AAPT2_PROTO_VERSION = '8.2.0-alpha10-10154469'
 PROTOBUF_VERSION = '3.19.3'
-STUDIO_SDK_VERSION = '31.2.0-rc01'
+STUDIO_SDK_VERSION = '31.5.0-alpha04'
 
 BUILD_DEPENDENCIES = [
     'com.google.code.gson:gson:{version}'.format(version=GSON_VERSION),
