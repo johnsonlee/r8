@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.keeprules.RulePrintingUtils;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class KeepEdgeMetaInfo {
@@ -60,6 +63,21 @@ public class KeepEdgeMetaInfo {
 
   public KeepEdgeVersion getVersion() {
     return version;
+  }
+
+  public String toString() {
+    List<String> props = new ArrayList<>(3);
+    if (hasVersion()) {
+      props.add("version=" + version);
+    }
+    if (hasContext()) {
+      props.add("context=" + context.getDescriptorString());
+    }
+    if (hasDescription()) {
+      props.add(
+          "description=\"" + RulePrintingUtils.escapeLineBreaks(description.description) + "\"");
+    }
+    return "MetaInfo{" + String.join(", ", props) + "}";
   }
 
   public static class Builder {

@@ -868,6 +868,7 @@ public class R8 {
       assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
       // Generate the resulting application resources.
+      writeKeepDeclarationsToConfigurationConsumer(keepDeclarations);
       writeApplication(appView, inputApp, executorService);
 
       if (options.androidResourceProvider != null && options.androidResourceConsumer != null) {
@@ -885,6 +886,27 @@ public class R8 {
     } finally {
       inputApp.signalFinishedToProviders(options.reporter);
       options.signalFinishedToConsumers();
+    }
+  }
+
+  private void writeKeepDeclarationsToConfigurationConsumer(
+      List<KeepDeclaration> keepDeclarations) {
+    if (options.configurationConsumer == null) {
+      return;
+    }
+    if (keepDeclarations.isEmpty()) {
+      return;
+    }
+    for (KeepDeclaration declaration : keepDeclarations) {
+      List<String> lines = StringUtils.splitLines(declaration.toString());
+      StringBuilder builder = new StringBuilder();
+      builder.append("# Start of content from keep annotations\n");
+      for (String line : lines) {
+        builder.append("# ").append(line).append("\n");
+      }
+      builder.append("# End of content from keep annotations\n");
+      ExceptionUtils.withConsumeResourceHandler(
+          options.reporter, options.configurationConsumer, builder.toString());
     }
   }
 

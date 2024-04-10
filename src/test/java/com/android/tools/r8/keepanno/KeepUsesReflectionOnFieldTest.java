@@ -38,13 +38,22 @@ public class KeepUsesReflectionOnFieldTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
         .inspectOutputConfig(
             rules -> {
-              assertThat(rules, containsString("context: " + descriptor(A.class) + "foo()V"));
-              assertThat(rules, containsString("description: Keep the\\nstring-valued fields"));
+              if (parameters.isNativeR8()) {
+                // TODO(b/323816623): Once a final distribution format is defined for normalized
+                //  edges, that format should likely be the bases of the annotation printing too.
+                assertThat(rules, containsString("context=" + descriptor(A.class) + "foo()V"));
+                assertThat(
+                    rules, containsString("description=\"Keep the\\nstring-valued fields\""));
+              } else {
+                assertThat(rules, containsString("context: " + descriptor(A.class) + "foo()V"));
+                assertThat(rules, containsString("description: Keep the\\nstring-valued fields"));
+              }
             })
         .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)

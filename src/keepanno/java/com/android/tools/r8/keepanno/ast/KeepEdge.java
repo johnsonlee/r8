@@ -215,6 +215,12 @@ public final class KeepEdge extends KeepDeclaration {
 
   @Override
   public String toString() {
-    return "KeepEdge{" + "preconditions=" + preconditions + ", consequences=" + consequences + '}';
+    return "KeepEdge{metainfo="
+        + getMetaInfo()
+        + ", preconditions="
+        + preconditions
+        + ", consequences="
+        + consequences
+        + '}';
   }
 }
