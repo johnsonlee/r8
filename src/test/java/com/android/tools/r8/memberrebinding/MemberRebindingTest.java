@@ -116,8 +116,8 @@ public class MemberRebindingTest extends TestBase {
     assertTrue(iterator.next().holder().is("java.util.AbstractList"));
     assertTrue(iterator.next().holder().is("java.util.AbstractList"));
     assertTrue(iterator.next().holder().is("java.util.AbstractList"));
-    assertTrue(iterator.next().holder().is("memberrebinding.subpackage.PublicClassInTheMiddle"));
-    assertTrue(iterator.next().holder().is("memberrebinding.subpackage.PublicClassInTheMiddle"));
+    assertTrue(iterator.next().holder().is("memberrebinding.subpackage.PackagePrivateClass"));
+    assertTrue(iterator.next().holder().is("memberrebinding.subpackage.PackagePrivateClass"));
     // For the next three - test that we re-bind to the lowest library class.
     assertTrue(iterator.next().holder().is("memberrebindinglib.SubClass"));
     assertTrue(iterator.next().holder().is("memberrebindinglib.SubClass"));
@@ -170,7 +170,7 @@ public class MemberRebindingTest extends TestBase {
     Iterator<InvokeInstructionSubject> iterator =
         main.iterateInstructions(InstructionSubject::isInvoke);
     assertTrue(iterator.next().holder().is("memberrebinding4.Memberrebinding$Inner"));
-    assertTrue(iterator.next().holder().is("memberrebinding4.subpackage.PublicInterface"));
+    assertTrue(iterator.next().holder().is("memberrebinding4.subpackage.PackagePrivateInterface"));
     assertFalse(iterator.hasNext());
   }
 

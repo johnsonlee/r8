@@ -147,6 +147,8 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
         return null;
       }
       ProgramMethodSet methodsToReprocess = methodsToReprocessBuilder.build(appView);
+      // TODO(b/333677610): Check this assert when bridges synthesized by member rebinding is
+      //  always removed
       assert !appView.options().debug
           || methodsToReprocess.stream()
               .allMatch(methodToReprocess -> methodToReprocess.getDefinition().isD8R8Synthesized());

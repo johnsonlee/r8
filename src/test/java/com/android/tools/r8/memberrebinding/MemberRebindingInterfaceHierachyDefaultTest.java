@@ -25,7 +25,7 @@ public class MemberRebindingInterfaceHierachyDefaultTest extends TestBase {
   @Parameter(1)
   public static boolean dontOptimize;
 
-  @Parameters(name = "{0}, dontOptimize = {2}")
+  @Parameters(name = "{0}, dontOptimize = {1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
@@ -53,13 +53,7 @@ public class MemberRebindingInterfaceHierachyDefaultTest extends TestBase {
         // Issue b/328859009 failed in DEBUG mode. Use -dontoptimize to get the same effect.
         .applyIf(dontOptimize, TestShrinkerBuilder::addDontOptimize)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            parameters.isCfRuntime() && dontOptimize,
-            // TODO(b/328859009): VerifyError caused by invokespecial in K.m (R8 generated bridge)
-            //  targetting I.m (I not an not an immediate super interface when I, J and K are all
-            //  present).
-            r -> r.assertFailureWithErrorThatThrows(VerifyError.class),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   interface I {

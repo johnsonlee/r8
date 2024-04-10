@@ -4,7 +4,7 @@
 package com.android.tools.r8.shaking;
 
 /** Immutable keep requirements for a method. */
-public final class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepMethodInfo> {
+public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepMethodInfo> {
 
   // Requires all aspects of a method to be kept.
   private static final KeepMethodInfo TOP = new Builder().makeTop().build();
@@ -36,7 +36,7 @@ public final class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder,
   private final boolean allowUnusedArgumentOptimization;
   private final boolean allowUnusedReturnValueOptimization;
 
-  private KeepMethodInfo(Builder builder) {
+  protected KeepMethodInfo(Builder builder) {
     super(builder);
     this.allowClassInlining = builder.isClassInliningAllowed();
     this.allowClosedWorldReasoning = builder.isClosedWorldReasoningAllowed();
@@ -202,7 +202,7 @@ public final class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder,
     private boolean allowUnusedArgumentOptimization;
     private boolean allowUnusedReturnValueOptimization;
 
-    private Builder() {
+    public Builder() {
       super();
     }
 
@@ -514,6 +514,10 @@ public final class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder,
 
     public Joiner(KeepMethodInfo info) {
       super(info.builder());
+    }
+
+    protected Joiner(Builder builder) {
+      super(builder);
     }
 
     public Joiner disallowClassInlining() {

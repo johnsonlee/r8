@@ -53,6 +53,8 @@ import java.util.function.Supplier;
 // Non-mutable collection of keep information pertaining to a program.
 public abstract class KeepInfoCollection {
 
+  abstract void forEachSyntheticKeepInfo(Consumer<DexMethod> method);
+
   abstract void forEachRuleInstance(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       BiConsumer<DexProgramClass, KeepClassInfo.Joiner> classRuleInstanceConsumer,
@@ -90,6 +92,8 @@ public abstract class KeepInfoCollection {
    * <p>See comment on class access for why this is typed at program method.
    */
   public abstract KeepMethodInfo getMethodInfo(DexEncodedMethod method, DexProgramClass holder);
+
+  public abstract KeepMethodInfo registerCompilerSynthesizedMethod(DexMethod method);
 
   /**
    * Base accessor for keep info on a field.
@@ -466,6 +470,16 @@ public abstract class KeepInfoCollection {
     }
 
     @Override
+    void forEachSyntheticKeepInfo(Consumer<DexMethod> method) {
+      keepMethodInfo.forEach(
+          (m, info) -> {
+            if (info instanceof SyntheticKeepMethodInfo) {
+              method.accept(m);
+            }
+          });
+    }
+
+    @Override
     void forEachRuleInstance(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         BiConsumer<DexProgramClass, KeepClassInfo.Joiner> classRuleInstanceConsumer,
@@ -523,6 +537,13 @@ public abstract class KeepInfoCollection {
             .computeIfAbsent(method.getReference(), ignoreKey(KeepMethodInfo::newEmptyJoiner))
             .merge(minimumKeepInfo);
       }
+    }
+
+    @Override
+    public KeepMethodInfo registerCompilerSynthesizedMethod(DexMethod method) {
+      assert !keepMethodInfo.containsKey(method);
+      keepMethodInfo.put(method, SyntheticKeepMethodInfo.newEmptyJoiner().join());
+      return keepMethodInfo.get(method);
     }
 
     @Override

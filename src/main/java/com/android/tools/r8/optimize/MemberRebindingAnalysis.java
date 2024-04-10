@@ -445,6 +445,12 @@ public class MemberRebindingAnalysis {
               assert !bridgeMethodDefinition.belongsToVirtualPool()
                   || !bridgeMethodDefinition.isLibraryMethodOverride().isUnknown();
               bridgeHolder.addMethod(bridgeMethodDefinition);
+              if (!appView.options().debug) {
+                // TODO(b/333677610): Register these methods in debug mode as well.
+                appView
+                    .getKeepInfo()
+                    .registerCompilerSynthesizedMethod(bridgeMethodDefinition.getReference());
+              }
               eventConsumer.acceptMemberRebindingBridgeMethod(
                   bridgeMethodDefinition.asProgramMethod(bridgeHolder), target);
             }

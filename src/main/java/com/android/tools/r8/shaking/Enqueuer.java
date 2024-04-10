@@ -3846,20 +3846,22 @@ public class Enqueuer {
       timing.begin("Model library");
       modelLibraryMethodsWithCovariantReturnTypes(appView);
       timing.end();
-    } else if (appView.getKeepInfo() != null) {
-      timing.begin("Retain keep info");
-      applicableRules = appView.getKeepInfo().getApplicableRules();
-      EnqueuerEvent preconditionEvent = UnconditionalKeepInfoEvent.get();
-      appView
-          .getKeepInfo()
-          .forEachRuleInstance(
-              appView,
-              (clazz, minimumKeepInfo) ->
-                  applyMinimumKeepInfoWhenLive(clazz, minimumKeepInfo, preconditionEvent),
-              (field, minimumKeepInfo) ->
-                  applyMinimumKeepInfoWhenLive(field, minimumKeepInfo, preconditionEvent),
-              this::applyMinimumKeepInfoWhenLiveOrTargeted);
-      timing.end();
+    } else {
+      KeepInfoCollection keepInfoCollection = appView.getKeepInfo();
+      if (keepInfoCollection != null) {
+        timing.begin("Retain keep info");
+        applicableRules = keepInfoCollection.getApplicableRules();
+        EnqueuerEvent preconditionEvent = UnconditionalKeepInfoEvent.get();
+        keepInfoCollection.forEachSyntheticKeepInfo(keepInfo::registerCompilerSynthesizedMethod);
+        keepInfoCollection.forEachRuleInstance(
+            appView,
+            (clazz, minimumKeepInfo) ->
+                applyMinimumKeepInfoWhenLive(clazz, minimumKeepInfo, preconditionEvent),
+            (field, minimumKeepInfo) ->
+                applyMinimumKeepInfoWhenLive(field, minimumKeepInfo, preconditionEvent),
+            this::applyMinimumKeepInfoWhenLiveOrTargeted);
+        timing.end();
+      }
     }
     timing.time("Unconditional rules", () -> applicableRules.evaluateUnconditionalRules(this));
     timing.begin("Enqueue all");
