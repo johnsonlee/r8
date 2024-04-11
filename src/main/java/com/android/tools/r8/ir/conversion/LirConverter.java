@@ -84,7 +84,9 @@ public class LirConverter {
 
     GraphLens graphLens = appView.graphLens();
     assert graphLens.isNonIdentityLens();
-    assert appView.codeLens().isAppliedLens() || appView.codeLens().isClearCodeRewritingLens();
+    assert appView.codeLens().isAppliedLens()
+        || appView.codeLens().isClearCodeRewritingLens()
+        || appView.codeLens().isIdentityLens();
 
     MemberRebindingIdentityLens memberRebindingIdentityLens =
         graphLens.asNonIdentityLens().find(GraphLens::isMemberRebindingIdentityLens);

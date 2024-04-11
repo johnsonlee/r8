@@ -502,6 +502,9 @@ public class R8 {
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
+      LirConverter.rewriteLirWithLens(appView, timing, executorService);
+      appView.clearCodeRewritings(executorService, timing);
+
       VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness, timing)
           .runIfNecessary(executorService, timing);
 

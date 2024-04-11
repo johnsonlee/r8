@@ -10,7 +10,6 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
@@ -34,7 +33,6 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
-import com.android.tools.r8.lightir.LirBuilder.RecordFieldValuesPayload;
 import com.android.tools.r8.lightir.LirCode.TryCatchTable;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -125,9 +123,10 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     assert newMethod.getArity() == method.getArity();
     if (newOpcode != opcode) {
       assert type == newType
-              || (type.isVirtual() && newType.isInterface())
+              || (type.isDirect() && (newType.isInterface() || newType.isVirtual()))
               || (type.isInterface() && newType.isVirtual())
               || (type.isSuper() && newType.isVirtual())
+              || (type.isVirtual() && newType.isInterface())
           : type + " -> " + newType;
       numberOfInvokeOpcodeChanges++;
     } else {
@@ -273,6 +272,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   private InvokeType getInvokeTypeThatMayChange(int opcode) {
+    if (codeLens.isIdentityLens() && LirOpcodeUtils.isInvokeMethod(opcode)) {
+      return LirOpcodeUtils.getInvokeType(opcode);
+    }
     if (opcode == LirOpcodes.INVOKEVIRTUAL) {
       return InvokeType.VIRTUAL;
     }
@@ -400,8 +402,6 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     boolean hasFieldReference = false;
     boolean hasPotentialRewrittenMethod = false;
     for (LirConstant constant : code.getConstantPool()) {
-      // RecordFieldValuesPayload is lowered to NewArrayEmpty before lens code rewriting any LIR.
-      assert !(constant instanceof RecordFieldValuesPayload);
       if (constant instanceof DexType) {
         onTypeReference((DexType) constant);
       } else if (constant instanceof DexField) {
@@ -521,15 +521,18 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   // TODO(b/157111832): This should be part of the graph lens lookup result.
   private boolean lookupIsInterface(DexMethod method, int opcode, MethodLookupResult result) {
+    boolean wasInterface = LirOpcodeUtils.getInterfaceBitFromInvokeOpcode(opcode);
+    // Update interface bit after member rebinding.
+    if (codeLens.isIdentityLens() && method.isNotIdenticalTo(result.getReference())) {
+      return result.getReference().getHolderType().isInterfaceOrDefault(appView, wasInterface);
+    }
+    // Update interface bit after vertical class merging.
     VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
     if (verticalClassMergerLens != null
         && verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(method.getHolderType())) {
-      DexClass clazz = appView.definitionFor(result.getReference().getHolderType());
-      if (clazz != null) {
-        return clazz.isInterface();
-      }
+      return result.getReference().getHolderType().isInterfaceOrDefault(appView, wasInterface);
     }
-    return LirOpcodeUtils.getInterfaceBitFromInvokeOpcode(opcode);
+    return wasInterface;
   }
 
   private LirCode<EV> rewriteTryCatchTable(LirCode<EV> code) {

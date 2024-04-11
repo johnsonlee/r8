@@ -12,6 +12,9 @@ import static com.android.tools.r8.lightir.LirOpcodes.INVOKESUPER;
 import static com.android.tools.r8.lightir.LirOpcodes.INVOKESUPER_ITF;
 import static com.android.tools.r8.lightir.LirOpcodes.INVOKEVIRTUAL;
 
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.ir.code.InvokeType;
+
 public class LirOpcodeUtils {
 
   public static boolean getInterfaceBitFromInvokeOpcode(int opcode) {
@@ -27,6 +30,27 @@ public class LirOpcodeUtils {
             || opcode == INVOKESUPER
             || opcode == INVOKEVIRTUAL;
         return false;
+    }
+  }
+
+  public static InvokeType getInvokeType(int opcode) {
+    assert isInvokeMethod(opcode);
+    switch (opcode) {
+      case INVOKEDIRECT:
+      case INVOKEDIRECT_ITF:
+        return InvokeType.DIRECT;
+      case INVOKEINTERFACE:
+        return InvokeType.INTERFACE;
+      case INVOKESTATIC:
+      case INVOKESTATIC_ITF:
+        return InvokeType.STATIC;
+      case INVOKESUPER:
+      case INVOKESUPER_ITF:
+        return InvokeType.SUPER;
+      case INVOKEVIRTUAL:
+        return InvokeType.VIRTUAL;
+      default:
+        throw new Unreachable();
     }
   }
 

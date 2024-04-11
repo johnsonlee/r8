@@ -394,6 +394,12 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
     return definitionSupplier.definitionFor(this).isInterface();
   }
 
+  public boolean isInterfaceOrDefault(
+      DexDefinitionSupplier definitionSupplier, boolean defaultValue) {
+    DexClass clazz = definitionSupplier.definitionFor(this);
+    return clazz != null ? clazz.isInterface() : defaultValue;
+  }
+
   public DexProgramClass asProgramClass(DexDefinitionSupplier definitions) {
     return asProgramClassOrNull(definitions.definitionFor(this));
   }
