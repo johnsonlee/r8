@@ -1688,11 +1688,11 @@ public class Enqueuer {
     }
   }
 
-  void markEffectivelyLiveOriginalReference(DexMethod method) {
-    // TODO(b/325014359): It might be reasonable to reduce this map size by tracking which methods
+  void markEffectivelyLiveOriginalReference(DexReference reference) {
+    // TODO(b/325014359): It might be reasonable to reduce this map size by tracking which items
     //  actually are used in preconditions.
-    if (effectivelyLiveOriginalReferences.add(method)) {
-      effectivelyLiveOriginalReferences.add(method.getHolderType());
+    if (effectivelyLiveOriginalReferences.add(reference) && reference.isDexMember()) {
+      effectivelyLiveOriginalReferences.add(reference.getContextType());
     }
   }
 
@@ -3274,6 +3274,13 @@ public class Enqueuer {
     }
   }
 
+  private void addEffectivelyLiveOriginalField(ProgramField field) {
+    if (!options.testing.isKeepAnnotationsEnabled()) {
+      return;
+    }
+    markEffectivelyLiveOriginalReference(field.getReference());
+  }
+
   private void markFieldAsLive(ProgramField field, ProgramMethod context) {
     markFieldAsLive(field, context, KeepReason.fieldReferencedIn(context));
   }
@@ -3286,6 +3293,7 @@ public class Enqueuer {
       // Already live.
       return;
     }
+    addEffectivelyLiveOriginalField(field);
 
     // Mark the field as targeted.
     if (field.getAccessFlags().isStatic()) {
@@ -3327,13 +3335,12 @@ public class Enqueuer {
       graphReporter.registerField(field.getDefinition(), reason);
       return;
     }
-
+    addEffectivelyLiveOriginalField(field);
     traceFieldDefinition(field);
 
     analyses.forEach(analysis -> analysis.notifyMarkFieldAsReachable(field, worklist));
   }
 
-  @SuppressWarnings("UnusedVariable")
   private void traceFieldDefinition(ProgramField field) {
     markTypeAsLive(field.getHolder(), field);
     markTypeAsLive(field.getType(), field);

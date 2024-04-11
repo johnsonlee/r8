@@ -107,6 +107,19 @@ public class KeepAnnotationMatcher {
               minimumKeepInfoCollection.getOrCreateMinimumKeepInfoFor(item.getReference());
           updateWithConstraints(item, joiner, result.constraints.get(i), result.edge);
         });
+    // TODO(b/323816623): Encode originals instead of soft-pinning class/field preconditions.
+    for (ProgramDefinition precondition : result.preconditions) {
+      if (precondition.isClass() || precondition.isField()) {
+        minimumKeepInfoCollection
+            .getOrCreateMinimumKeepInfoFor(precondition.getReference())
+            .disallowOptimization();
+        if (precondition.isField()) {
+          minimumKeepInfoCollection
+              .getOrCreateMinimumKeepInfoFor(precondition.getContextType())
+              .disallowOptimization();
+        }
+      }
+    }
     return minimumKeepInfoCollection;
   }
 
