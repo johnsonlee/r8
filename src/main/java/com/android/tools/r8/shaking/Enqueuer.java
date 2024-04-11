@@ -2192,6 +2192,7 @@ public class Enqueuer {
     if (!liveTypes.add(clazz, witness)) {
       return;
     }
+    markEffectivelyLiveOriginalReference(clazz.getType());
 
     assert !mode.isFinalMainDexTracing()
             || !options.testing.checkForNotExpandingMainDexTracingResult
@@ -2329,7 +2330,6 @@ public class Enqueuer {
     analyses.forEach(analysis -> analysis.processNewlyLiveClass(clazz, worklist));
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void processDeferredAnnotations(
       DexProgramClass clazz,
       Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations,
@@ -2338,7 +2338,7 @@ public class Enqueuer {
         deferredAnnotations.remove(clazz.getType());
     if (annotations != null) {
       assert annotations.keySet().stream()
-          .allMatch(annotation -> annotation.getAnnotationType() == clazz.getType());
+          .allMatch(annotation -> clazz.getType().isIdenticalTo(annotation.getAnnotationType()));
       annotations.forEach(
           (annotation, annotatedItems) ->
               annotatedItems.forEach(
