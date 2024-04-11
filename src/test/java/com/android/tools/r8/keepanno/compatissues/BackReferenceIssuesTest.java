@@ -8,7 +8,6 @@ import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertThrowsI
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -82,7 +81,7 @@ public class BackReferenceIssuesTest extends TestBase {
                 assertThat(
                     inspector.clazz(A.class).uniqueMethodWithOriginalName("foo"),
                     // The rule is not valid and does not keep the method in R8.
-                    shrinker.isPG() ? isPresentAndNotRenamed() : isPresentAndRenamed()));
+                    shrinker.isPG() ? isPresentAndNotRenamed() : isAbsent()));
   }
 
   @Test

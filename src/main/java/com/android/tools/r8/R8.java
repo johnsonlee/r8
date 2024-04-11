@@ -33,7 +33,6 @@ import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
-import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -1138,9 +1137,6 @@ public class R8 {
             appView, profileCollectionAdditions, executorService, subtypingInfo);
     enqueuer.setKeepDeclarations(keepDeclarations);
     enqueuer.setAnnotationRemoverBuilder(annotationRemoverBuilder);
-    if (appView.options().enableInitializedClassesInInstanceMethodsAnalysis) {
-      enqueuer.registerAnalysis(new InitializedClassesInInstanceMethodsAnalysis(appView));
-    }
     if (AssertionsRewriter.isEnabled(appView.options())) {
       ClassInitializerAssertionEnablingAnalysis analysis =
           new ClassInitializerAssertionEnablingAnalysis(

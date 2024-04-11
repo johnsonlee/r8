@@ -10,6 +10,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverSingleCallerInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -55,6 +56,7 @@ public class BridgeWithUnboxingInliningTest extends TestBase {
             })
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
+        .enableNeverSingleCallerInlineAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspect(this::inspect)
@@ -114,6 +116,7 @@ public class BridgeWithUnboxingInliningTest extends TestBase {
       foo(o1, o2, o3, o4, o5);
     }
 
+    @NeverSingleCallerInline
     static void foo(Integer o1, Integer o2, Integer o3, Integer o4, Integer o5) {
       int i1 = o1;
       int i2 = o2;

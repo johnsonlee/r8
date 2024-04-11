@@ -29,4 +29,20 @@ public class LirOpcodeUtils {
         return false;
     }
   }
+
+  public static boolean isInvokeMethod(int opcode) {
+    switch (opcode) {
+      case INVOKEDIRECT:
+      case INVOKEDIRECT_ITF:
+      case INVOKEINTERFACE:
+      case INVOKESTATIC:
+      case INVOKESTATIC_ITF:
+      case INVOKESUPER:
+      case INVOKESUPER_ITF:
+      case INVOKEVIRTUAL:
+        return true;
+      default:
+        return false;
+    }
+  }
 }
