@@ -119,4 +119,5 @@ def print_thread(msg, worker_id):
     if worker_id is None:
         print(msg)
     else:
-        print('WORKER %s: %s' % (worker_id, msg))
+        for line in msg.splitlines():
+            print('WORKER %s: %s' % (worker_id, line))

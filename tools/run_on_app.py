@@ -718,47 +718,53 @@ def run_with_options(options,
                 args.extend(
                     ['--desugared-lib-pg-conf-output', desugared_lib_pg_conf])
 
+            stdout_path = os.path.join(temp, 'stdout')
             stderr_path = os.path.join(temp, 'stderr')
-            with open(stderr_path, 'w') as stderr:
-                jar = None
-                main = None
-                if options.compiler_build == 'full':
-                    tool = options.compiler
-                else:
-                    assert (options.compiler_build == 'lib')
-                    tool = 'r8lib-' + options.compiler
-                if options.hash:
-                    jar = os.path.join(utils.LIBS,
-                                       'r8-' + options.hash + '.jar')
-                    main = 'com.android.tools.r8.' + options.compiler.upper()
-                if should_build(options):
-                    gradle.RunGradle([
-                        utils.GRADLE_TASK_R8LIB
-                        if tool.startswith('r8lib') else utils.GRADLE_TASK_R8
-                    ])
-                t0 = time.time()
-                exit_code = toolhelper.run(
-                    tool,
-                    args,
-                    build=False,
-                    debug=not options.disable_assertions,
-                    profile=options.profile,
-                    track_memory_file=options.track_memory_to_file,
-                    extra_args=extra_args,
-                    stdout=stdout,
-                    stderr=stderr,
-                    timeout=options.timeout,
-                    quiet=quiet,
-                    cmd_prefix=['taskset', '-c', options.cpu_list]
-                    if options.cpu_list else [],
-                    jar=jar,
-                    main=main,
-                    worker_id=worker_id)
+            with open(stdout_path, 'w') as stdout_workers:
+                with open(stderr_path, 'w') as stderr:
+                    jar = None
+                    main = None
+                    if options.compiler_build == 'full':
+                        tool = options.compiler
+                    else:
+                        assert (options.compiler_build == 'lib')
+                        tool = 'r8lib-' + options.compiler
+                    if options.hash:
+                        jar = os.path.join(utils.LIBS,
+                                           'r8-' + options.hash + '.jar')
+                        main = 'com.android.tools.r8.' + options.compiler.upper()
+                    if should_build(options):
+                        gradle.RunGradle([
+                            utils.GRADLE_TASK_R8LIB
+                            if tool.startswith('r8lib') else utils.GRADLE_TASK_R8
+                        ])
+                    t0 = time.time()
+                    exit_code = toolhelper.run(
+                        tool,
+                        args,
+                        build=False,
+                        debug=not options.disable_assertions,
+                        profile=options.profile,
+                        track_memory_file=options.track_memory_to_file,
+                        extra_args=extra_args,
+                        stdout=stdout if worker_id is None else stdout_workers,
+                        stderr=stderr,
+                        timeout=options.timeout,
+                        quiet=quiet,
+                        cmd_prefix=['taskset', '-c', options.cpu_list]
+                        if options.cpu_list else [],
+                        jar=jar,
+                        main=main,
+                        worker_id=worker_id)
+            if worker_id is not None:
+                with open(stdout_path) as stdout:
+                    stdout_text = stdout.read()
+                    print_thread(stdout_text, worker_id)
             if exit_code != 0:
                 with open(stderr_path) as stderr:
                     stderr_text = stderr.read()
                     if not quiet:
-                        print(stderr_text)
+                        print_thread(stderr_text, worker_id)
                     if 'java.lang.OutOfMemoryError' in stderr_text:
                         if not quiet:
                             print('Failure was OOM')
