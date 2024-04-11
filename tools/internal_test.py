@@ -117,7 +117,7 @@ TEST_COMMANDS = [
         '--java_max_memory_size=8G'
     ],
     # Ensure that all internal apps compile.
-    ['tools/run_on_app.py', '--run-all', '--out=out', '--workers', '4'],
+    ['tools/run_on_app.py', '--run-all', '--out=out', '--workers', '3'],
 ]
 
 # Command timeout, in seconds.
