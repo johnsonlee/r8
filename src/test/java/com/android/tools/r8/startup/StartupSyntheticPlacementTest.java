@@ -162,7 +162,6 @@ public class StartupSyntheticPlacementTest extends TestBase {
             testBuilder ->
                 configureStartupOptions(
                     testBuilder, instrumentationCompileResult.inspector(), startupList))
-        .noInliningOfSynthetics()
         .setMinApi(parameters)
         .compile()
         .inspectDiagnosticMessages(

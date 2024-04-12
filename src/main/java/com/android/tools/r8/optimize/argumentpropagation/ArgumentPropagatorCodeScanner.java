@@ -66,7 +66,6 @@ import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,7 +128,7 @@ public class ArgumentPropagatorCodeScanner {
     this.reprocessingCriteriaCollection = reprocessingCriteriaCollection;
   }
 
-  public synchronized void addMonomorphicVirtualMethods(Collection<DexMethod> extension) {
+  public synchronized void addMonomorphicVirtualMethods(Set<DexMethod> extension) {
     monomorphicVirtualMethods.addAll(extension);
   }
 

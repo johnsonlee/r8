@@ -7,7 +7,6 @@ import static com.android.tools.r8.references.Reference.classFromClass;
 import static com.android.tools.r8.references.Reference.methodFromMethod;
 import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -25,7 +24,6 @@ import org.junit.runners.Parameterized.Parameters;
 public class KeptByConditionalOnMethodTest extends TestBase {
 
   public static class IfClass {
-    @NeverInline
     public void foo(String name) throws Exception {
       Class<?> clazz = Class.forName(name);
       Object object = clazz.getDeclaredConstructor().newInstance();
@@ -79,7 +77,6 @@ public class KeptByConditionalOnMethodTest extends TestBase {
             .addProgramClasses(Main.class, IfClass.class, ThenClass.class)
             .addKeepMainRule(Main.class)
             .addKeepRules(ifRuleContent)
-            .enableInliningAnnotations()
             .setMinApi(parameters)
             .run(parameters.getRuntime(), Main.class, ThenClass.class.getTypeName())
             .assertSuccessWithOutput(EXPECTED)

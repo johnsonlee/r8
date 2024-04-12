@@ -7,7 +7,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -39,7 +38,6 @@ public class IfMemberRuleWithUnusedParameterTest extends TestBase {
             "  public static void print(" + Object.class.getTypeName() + ");",
             "}",
             "-keep class " + KeptByIf.class.getTypeName())
-        .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspect(
@@ -63,7 +61,6 @@ public class IfMemberRuleWithUnusedParameterTest extends TestBase {
       print(args);
     }
 
-    @NeverInline
     public static void print(Object unused) {
       System.out.println("Hello, world!");
     }

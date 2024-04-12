@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.shaking.ifrule.inlining;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -71,10 +70,8 @@ public class IfRuleWithInlining extends ProguardCompatibilityTestBase {
     CodeInspector inspector = new CodeInspector(app);
     ClassSubject clazzA = inspector.clazz(A.class);
     assertThat(clazzA, isPresent());
-    // A.a may be inlined when neverInlineMethod is false.
-    assertThat(
-        clazzA.uniqueMethodWithOriginalName("a"),
-        isAbsentIf(shrinker.isR8() && !neverInlineMethod));
+    // A.a should not be inlined.
+    assertThat(clazzA.method("int", "a", ImmutableList.of()), isPresent());
     assertThat(inspector.clazz(D.class), isPresent());
     ProcessResult result;
     if (shrinker == Shrinker.R8) {

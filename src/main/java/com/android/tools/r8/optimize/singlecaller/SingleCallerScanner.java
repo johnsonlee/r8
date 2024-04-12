@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.singlecaller;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
@@ -16,7 +17,7 @@ import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.lightir.LirInstructionView;
-import com.android.tools.r8.lightir.LirOpcodeUtils;
+import com.android.tools.r8.lightir.LirOpcodes;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -30,22 +31,15 @@ public class SingleCallerScanner {
   private static final ProgramMethod MULTIPLE_CALLERS = ProgramMethod.createSentinel();
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final ProgramMethodSet monomorphicVirtualMethods;
 
-  SingleCallerScanner(
-      AppView<AppInfoWithLiveness> appView, ProgramMethodSet monomorphicVirtualMethods) {
+  SingleCallerScanner(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
-    this.monomorphicVirtualMethods = monomorphicVirtualMethods;
   }
 
   public ProgramMethodMap<ProgramMethod> getSingleCallerMethods(ExecutorService executorService)
       throws ExecutionException {
     ProgramMethodMap<ProgramMethod> singleCallerMethodCandidates =
         traceConstantPools(executorService);
-    singleCallerMethodCandidates.removeIf(
-        (callee, caller) ->
-            callee.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
-                || appView.appInfo().isNeverInlineDueToSingleCallerMethod(callee));
     return traceInstructions(singleCallerMethodCandidates, executorService);
   }
 
@@ -139,13 +133,28 @@ public class SingleCallerScanner {
     if (referencedMethod.getHolderType().isArrayType()) {
       return;
     }
-    ProgramMethod resolvedMethod =
-        appView
-            .appInfo()
-            .unsafeResolveMethodDueToDexFormat(referencedMethod)
-            .getResolvedProgramMethod();
-    if (resolvedMethod != null) {
-      recordCallEdge(method, resolvedMethod, threadLocalSingleCallerMethods);
+    if (referencedMethod.isInstanceInitializer(appView.dexItemFactory())) {
+      ProgramMethod referencedProgramMethod =
+          appView
+              .appInfo()
+              .unsafeResolveMethodDueToDexFormat(referencedMethod)
+              .getResolvedProgramMethod();
+      if (referencedProgramMethod != null) {
+        recordCallEdge(method, referencedProgramMethod, threadLocalSingleCallerMethods);
+      }
+    } else {
+      DexProgramClass referencedProgramMethodHolder =
+          asProgramClassOrNull(
+              appView
+                  .appInfo()
+                  .definitionForWithoutExistenceAssert(referencedMethod.getHolderType()));
+      ProgramMethod referencedProgramMethod =
+          referencedMethod.lookupOnProgramClass(referencedProgramMethodHolder);
+      if (referencedProgramMethod != null
+          && referencedProgramMethod.getAccessFlags().isPrivate()
+          && !referencedProgramMethod.getAccessFlags().isStatic()) {
+        recordCallEdge(method, referencedProgramMethod, threadLocalSingleCallerMethods);
+      }
     }
   }
 
@@ -172,7 +181,10 @@ public class SingleCallerScanner {
           ProgramMethodMap<Integer> counters = ProgramMethodMap.create();
           for (LirInstructionView view : code) {
             int opcode = view.getOpcode();
-            if (!LirOpcodeUtils.isInvokeMethod(opcode)) {
+            if (opcode != LirOpcodes.INVOKEDIRECT
+                && opcode != LirOpcodes.INVOKEDIRECT_ITF
+                // JDK 17 generates invokevirtual to private methods.
+                && opcode != LirOpcodes.INVOKEVIRTUAL) {
               continue;
             }
             DexMethod invokedMethod =
@@ -180,17 +192,11 @@ public class SingleCallerScanner {
             ProgramMethod resolvedMethod =
                 appView
                     .appInfo()
-                    .resolveMethod(
-                        invokedMethod, LirOpcodeUtils.getInterfaceBitFromInvokeOpcode(opcode))
+                    .resolveMethod(invokedMethod, opcode == LirOpcodes.INVOKEDIRECT_ITF)
                     .getResolvedProgramMethod();
-            if (resolvedMethod == null || !callees.contains(resolvedMethod)) {
-              continue;
+            if (resolvedMethod != null && callees.contains(resolvedMethod)) {
+              counters.put(resolvedMethod, counters.getOrDefault(resolvedMethod, 0) + 1);
             }
-            if (resolvedMethod.getAccessFlags().belongsToVirtualPool()
-                && !monomorphicVirtualMethods.contains(resolvedMethod)) {
-              continue;
-            }
-            counters.put(resolvedMethod, counters.getOrDefault(resolvedMethod, 0) + 1);
           }
           callees.forEach(
               (callee) -> {

@@ -50,11 +50,9 @@ public class SingleTargetAfterInliningTest extends TestBase {
         .addInnerClasses(SingleTargetAfterInliningTest.class)
         .addKeepMainRule(TestClass.class)
         .addOptionsModification(
-            options -> {
-              options.inlinerOptions().applyInliningToInlineePredicateForTesting =
-                  (appView, inlinee, inliningDepth) -> inliningDepth <= maxInliningDepth;
-              options.getSingleCallerInlinerOptions().setEnable(false);
-            })
+            options ->
+                options.inlinerOptions().applyInliningToInlineePredicateForTesting =
+                    (appView, inlinee, inliningDepth) -> inliningDepth <= maxInliningDepth)
         .enableAlwaysInliningAnnotations()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()

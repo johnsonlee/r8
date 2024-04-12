@@ -48,10 +48,10 @@ public class VerticalClassMergingWithMissingTypeArgsSubstitutionTest extends Tes
         .addKeepClassRules(A.class)
         .addKeepAttributeSignature()
         .addOptionsModification(
-            options -> {
-              options.getSingleCallerInlinerOptions().setEnable(false);
-              options.getVerticalClassMergerOptions().setEnableBridgeAnalysis(enableBridgeAnalysis);
-            })
+            options ->
+                options
+                    .getVerticalClassMergerOptions()
+                    .setEnableBridgeAnalysis(enableBridgeAnalysis))
         .addVerticallyMergedClassesInspector(
             inspector -> inspector.assertMergedIntoSubtype(B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()

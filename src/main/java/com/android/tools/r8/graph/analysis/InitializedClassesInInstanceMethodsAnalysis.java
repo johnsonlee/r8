@@ -63,16 +63,6 @@ public class InitializedClassesInInstanceMethodsAnalysis extends EnqueuerAnalysi
     this.appView = appView;
   }
 
-  public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    if (appView.options().enableInitializedClassesInInstanceMethodsAnalysis
-        && enqueuer.getMode().isInitialTreeShaking()) {
-      enqueuer.registerAnalysis(new InitializedClassesInInstanceMethodsAnalysis(appView));
-    } else {
-      appView.setInitializedClassesInInstanceMethods(null);
-    }
-  }
-
   @Override
   public void processNewlyInstantiatedClass(
       DexProgramClass clazz, ProgramMethod context, EnqueuerWorklist worklist) {
