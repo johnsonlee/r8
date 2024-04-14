@@ -206,7 +206,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       super();
     }
 
-    private Builder(KeepMethodInfo original) {
+    protected Builder(KeepMethodInfo original) {
       super(original);
       allowClassInlining = original.internalIsClassInliningAllowed();
       allowClosedWorldReasoning = original.internalIsClosedWorldReasoningAllowed();

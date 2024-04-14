@@ -53,8 +53,6 @@ import java.util.function.Supplier;
 // Non-mutable collection of keep information pertaining to a program.
 public abstract class KeepInfoCollection {
 
-  abstract void forEachSyntheticKeepInfo(Consumer<DexMethod> method);
-
   abstract void forEachRuleInstance(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       BiConsumer<DexProgramClass, KeepClassInfo.Joiner> classRuleInstanceConsumer,
@@ -470,16 +468,6 @@ public abstract class KeepInfoCollection {
     }
 
     @Override
-    void forEachSyntheticKeepInfo(Consumer<DexMethod> method) {
-      keepMethodInfo.forEach(
-          (m, info) -> {
-            if (info instanceof SyntheticKeepMethodInfo) {
-              method.accept(m);
-            }
-          });
-    }
-
-    @Override
     void forEachRuleInstance(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         BiConsumer<DexProgramClass, KeepClassInfo.Joiner> classRuleInstanceConsumer,
@@ -544,6 +532,19 @@ public abstract class KeepInfoCollection {
       assert !keepMethodInfo.containsKey(method);
       keepMethodInfo.put(method, SyntheticKeepMethodInfo.newEmptyJoiner().join());
       return keepMethodInfo.get(method);
+    }
+
+    public void registerCompilerSynthesizedMethods(KeepInfoCollection keepInfoCollection) {
+      keepInfoCollection.mutate(
+          mutableKeepInfoCollection -> {
+            mutableKeepInfoCollection.keepMethodInfo.forEach(
+                (m, info) -> {
+                  if (info instanceof SyntheticKeepMethodInfo) {
+                    assert !keepMethodInfo.containsKey(m);
+                    keepMethodInfo.put(m, info);
+                  }
+                });
+          });
     }
 
     @Override

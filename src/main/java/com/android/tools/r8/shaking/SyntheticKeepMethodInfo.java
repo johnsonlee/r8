@@ -16,7 +16,21 @@ public class SyntheticKeepMethodInfo extends KeepMethodInfo {
     return bottom().joiner();
   }
 
+  @Override
+  Builder builder() {
+    return new Builder(this);
+  }
+
   public static class Builder extends KeepMethodInfo.Builder {
+
+    public Builder() {
+      super();
+    }
+
+    private Builder(SyntheticKeepMethodInfo original) {
+      super(original);
+    }
+
     @Override
     public Builder disallowMinification() {
       // Ignore as synthetic items can always be minified.

@@ -3859,7 +3859,7 @@ public class Enqueuer {
         timing.begin("Retain keep info");
         applicableRules = keepInfoCollection.getApplicableRules();
         EnqueuerEvent preconditionEvent = UnconditionalKeepInfoEvent.get();
-        keepInfoCollection.forEachSyntheticKeepInfo(keepInfo::registerCompilerSynthesizedMethod);
+        keepInfo.registerCompilerSynthesizedMethods(keepInfoCollection);
         keepInfoCollection.forEachRuleInstance(
             appView,
             (clazz, minimumKeepInfo) ->
@@ -4131,7 +4131,7 @@ public class Enqueuer {
 
     private final Map<DexMethod, ProgramMethod> liveMethods = new ConcurrentHashMap<>();
 
-    private final ProgramMethodMap<KeepMethodInfo.Joiner> minimumKeepInfo =
+    private final ProgramMethodMap<KeepMethodInfo.Joiner> minimumSyntheticKeepInfo =
         ProgramMethodMap.createConcurrent();
 
     private final Map<DexType, DexClasspathClass> syntheticClasspathClasses =
@@ -4188,9 +4188,11 @@ public class Enqueuer {
       newInterfaces.add(newInterface);
     }
 
-    public void addMinimumKeepInfo(ProgramMethod method, Consumer<KeepMethodInfo.Joiner> consumer) {
+    public void addMinimumSyntheticKeepInfo(
+        ProgramMethod method, Consumer<KeepMethodInfo.Joiner> consumer) {
       consumer.accept(
-          minimumKeepInfo.computeIfAbsent(method, ignoreKey(KeepMethodInfo::newEmptyJoiner)));
+          minimumSyntheticKeepInfo.computeIfAbsent(
+              method, ignoreKey(KeepMethodInfo::newEmptyJoiner)));
     }
 
     void enqueueWorkItems(Enqueuer enqueuer) {
@@ -4217,9 +4219,11 @@ public class Enqueuer {
                 enqueuer.appInfo(), clazz, itfs);
           });
 
-      minimumKeepInfo.forEach(
-          (method, minimumKeepInfoForMethod) ->
-              enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(method, minimumKeepInfoForMethod));
+      minimumSyntheticKeepInfo.forEach(
+          (method, minimumKeepInfoForMethod) -> {
+            enqueuer.getKeepInfo().registerCompilerSynthesizedMethod(method.getReference());
+            enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(method, minimumKeepInfoForMethod);
+          });
     }
   }
 

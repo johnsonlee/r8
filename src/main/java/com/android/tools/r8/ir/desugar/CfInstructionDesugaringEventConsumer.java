@@ -610,7 +610,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void acceptInvokeStaticInterfaceOutliningMethod(
         ProgramMethod method, ProgramMethod context) {
       // Intentionally empty. The method will be hit by tracing if required.
-      additions.addMinimumKeepInfo(method, Joiner::disallowInlining);
+      additions.addMinimumSyntheticKeepInfo(method, Joiner::disallowInlining);
     }
 
     @Override
