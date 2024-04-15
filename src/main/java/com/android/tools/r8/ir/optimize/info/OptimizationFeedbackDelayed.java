@@ -155,9 +155,8 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
         .getFieldAccessInfoCollection()
         .get(field.getReference())
         .hasReflectiveAccess();
-    if (appView.appInfo().mayPropagateValueFor(appView, field.getReference())) {
-      getFieldOptimizationInfoForUpdating(field).setAbstractValue(abstractValue, field);
-    }
+    assert verifyValuePropagationIsAllowed(field, appView);
+    getFieldOptimizationInfoForUpdating(field).setAbstractValue(abstractValue, field);
   }
 
   // METHOD OPTIMIZATION INFO:
@@ -186,10 +185,9 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
 
   @Override
   public synchronized void methodReturnsAbstractValue(
-      DexEncodedMethod method, AppView<AppInfoWithLiveness> appView, AbstractValue value) {
-    if (appView.appInfo().mayPropagateValueFor(appView, method.getReference())) {
-      getMethodOptimizationInfoForUpdating(method).setAbstractReturnValue(value, method);
-    }
+      DexEncodedMethod definition, AppView<AppInfoWithLiveness> appView, AbstractValue value) {
+    assert verifyValuePropagationIsAllowed(definition, appView);
+    getMethodOptimizationInfoForUpdating(definition).setAbstractReturnValue(value, definition);
   }
 
   @Override

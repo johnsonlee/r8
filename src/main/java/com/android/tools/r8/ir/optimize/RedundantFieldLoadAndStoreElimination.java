@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.android.tools.r8.utils.PredicateUtils.not;
@@ -18,6 +19,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -535,10 +537,13 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       fieldInitializationInfos.forEachWithDeterministicOrder(
           appView,
           (field, info) -> {
-            if (!appViewWithLiveness
-                .appInfo()
-                .mayPropagateValueFor(appViewWithLiveness, field.getReference())) {
-              return;
+            if (field.isProgramField()) {
+              ProgramField programField = field.asProgramField();
+              if (!appView
+                  .getKeepInfo(programField)
+                  .isValuePropagationAllowed(appViewWithLiveness, programField)) {
+                return;
+              }
             }
             if (info.isArgumentInitializationInfo()) {
               Value value =
@@ -848,14 +853,22 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       objectState.forEachAbstractFieldValue(
           (field, fieldValue) -> {
-            if (appViewWithLiveness.appInfo().mayPropagateValueFor(appViewWithLiveness, field)
-                && fieldValue.isSingleValue()) {
-              SingleValue singleFieldValue = fieldValue.asSingleValue();
-              if (singleFieldValue.hasSingleMaterializingInstruction()
-                  && singleFieldValue.isMaterializableInContext(appViewWithLiveness, method)) {
-                activeState.putFinalOrEffectivelyFinalInstanceField(
-                    new FieldAndObject(field, value), new MaterializableValue(singleFieldValue));
-              }
+            if (!fieldValue.isSingleValue()) {
+              return;
+            }
+            ProgramField programField =
+                asProgramFieldOrNull(appViewWithLiveness.definitionFor(field));
+            if (programField != null
+                && !appView
+                    .getKeepInfo(programField)
+                    .isValuePropagationAllowed(appViewWithLiveness, programField)) {
+              return;
+            }
+            SingleValue singleFieldValue = fieldValue.asSingleValue();
+            if (singleFieldValue.hasSingleMaterializingInstruction()
+                && singleFieldValue.isMaterializableInContext(appViewWithLiveness, method)) {
+              activeState.putFinalOrEffectivelyFinalInstanceField(
+                  new FieldAndObject(field, value), new MaterializableValue(singleFieldValue));
             }
           });
     }

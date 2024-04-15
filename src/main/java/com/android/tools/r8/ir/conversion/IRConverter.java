@@ -521,7 +521,7 @@ public class IRConverter {
             + ExceptionUtils.getMainStackTrace();
     assert !method.isProcessed()
             || !appView.enableWholeProgramOptimizations()
-            || !appView.appInfo().withLiveness().isNeverReprocessMethod(context)
+            || appView.getKeepInfo(context).isReprocessingAllowed(options, context)
         : "Unexpected reprocessing of method: " + context.toSourceString();
 
     if (typeChecker != null && !typeChecker.check(code)) {

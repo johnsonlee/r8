@@ -60,7 +60,7 @@ public class NumberUnboxerMethodReprocessingEnqueuer {
               return;
             }
             if (shouldReprocess(method.getReference())) {
-              assert !appView.appInfo().isNeverReprocessMethod(method);
+              assert appView.getKeepInfo(method).isReprocessingAllowed(appView.options(), method);
               postMethodProcessorBuilder.add(method, numberUnboxerLens);
             }
           });

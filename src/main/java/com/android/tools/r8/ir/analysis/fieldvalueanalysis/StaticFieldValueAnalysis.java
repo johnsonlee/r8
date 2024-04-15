@@ -15,7 +15,7 @@ import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
-import com.android.tools.r8.graph.DexValue.DexValueNull;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues.EmptyStaticValues;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -98,7 +98,8 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     classInitializerDefaultsResult.forEachOptimizedField(
         (field, value) -> {
           if (putsPerField.containsKey(field)
-              || !appView.appInfo().isFieldOnlyWrittenInMethod(field, context.getDefinition())) {
+              || !appView.appInfo().isFieldOnlyWrittenInMethod(field, context.getDefinition())
+              || !appView.getKeepInfo(field).isValuePropagationAllowed(appView, field)) {
             return;
           }
 
@@ -134,16 +135,17 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
 
   @Override
   void updateFieldOptimizationInfo(DexClassAndField field, FieldInstruction fieldPut, Value value) {
+    assert field.isProgramField();
     AbstractValue abstractValue = getOrComputeAbstractValue(value, field);
-    updateFieldOptimizationInfo(field, value, abstractValue, false);
+    updateFieldOptimizationInfo(field.asProgramField(), value, abstractValue, false);
   }
 
   void updateFieldOptimizationInfo(
-      DexClassAndField field, Value value, AbstractValue abstractValue, boolean maybeNull) {
+      ProgramField field, Value value, AbstractValue abstractValue, boolean maybeNull) {
     builder.recordStaticField(field, abstractValue, appView.dexItemFactory());
 
     // We cannot modify FieldOptimizationInfo of pinned fields.
-    if (appView.appInfo().isPinned(field)) {
+    if (!appView.getKeepInfo(field).isValuePropagationAllowed(appView, field)) {
       return;
     }
 
@@ -164,12 +166,11 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public void updateFieldOptimizationInfoWith2Values(
-      DexClassAndField field, Value valuePut, DexValue valueBeforePut) {
+      ProgramField field, Value valuePut, DexValue valueBeforePut) {
     // We are interested in the AbstractValue only if it's null or a value, so we can use the value
     // if the code is protected by a null check.
-    if (valueBeforePut != DexValueNull.NULL) {
+    if (!valueBeforePut.isDexValueNull()) {
       return;
     }
 

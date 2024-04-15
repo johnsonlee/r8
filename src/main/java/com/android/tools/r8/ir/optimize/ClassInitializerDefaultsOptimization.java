@@ -31,6 +31,7 @@ import com.android.tools.r8.graph.DexValue.DexValueNull;
 import com.android.tools.r8.graph.DexValue.DexValueShort;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.ArrayPut;
@@ -86,8 +87,9 @@ public class ClassInitializerDefaultsOptimization {
     }
 
     public void forEachOptimizedField(
-        BiConsumer<DexClassAndField, DexValue> consumer, AppView<?> appView) {
-      forEachOptimizedField((field, value) -> consumer.accept(field.asClassField(appView), value));
+        BiConsumer<ProgramField, DexValue> consumer, AppView<?> appView) {
+      forEachOptimizedField(
+          (field, value) -> consumer.accept(field.asProgramField(appView), value));
     }
 
     public boolean hasStaticValue(DexClassAndField field) {

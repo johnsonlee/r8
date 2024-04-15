@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import com.android.tools.r8.graph.ProgramMethod;
+
 /** Immutable keep requirements for a method. */
 public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepMethodInfo> {
 
@@ -32,7 +34,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
   private final boolean allowParameterRemoval;
   private final boolean allowParameterReordering;
   private final boolean allowParameterTypeStrengthening;
+  private final boolean allowReprocessing;
   private final boolean allowReturnTypeStrengthening;
+  private final boolean allowSingleCallerInlining;
   private final boolean allowUnusedArgumentOptimization;
   private final boolean allowUnusedReturnValueOptimization;
 
@@ -46,7 +50,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     this.allowParameterRemoval = builder.isParameterRemovalAllowed();
     this.allowParameterReordering = builder.isParameterReorderingAllowed();
     this.allowParameterTypeStrengthening = builder.isParameterTypeStrengtheningAllowed();
+    this.allowReprocessing = builder.isReprocessingAllowed();
     this.allowReturnTypeStrengthening = builder.isReturnTypeStrengtheningAllowed();
+    this.allowSingleCallerInlining = builder.isSingleCallerInliningAllowed();
     this.allowUnusedArgumentOptimization = builder.isUnusedArgumentOptimizationAllowed();
     this.allowUnusedReturnValueOptimization = builder.isUnusedReturnValueOptimizationAllowed();
   }
@@ -140,6 +146,16 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return allowParameterTypeStrengthening;
   }
 
+  public boolean isReprocessingAllowed(
+      GlobalKeepInfoConfiguration configuration, ProgramMethod method) {
+    return !method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()
+        && internalIsReprocessingAllowed();
+  }
+
+  boolean internalIsReprocessingAllowed() {
+    return allowReprocessing;
+  }
+
   public boolean isReturnTypeStrengtheningAllowed(GlobalKeepInfoConfiguration configuration) {
     return isClosedWorldReasoningAllowed(configuration)
         && isOptimizationAllowed(configuration)
@@ -149,6 +165,14 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
   boolean internalIsReturnTypeStrengtheningAllowed() {
     return allowReturnTypeStrengthening;
+  }
+
+  public boolean isSingleCallerInliningAllowed(GlobalKeepInfoConfiguration configuration) {
+    return internalIsSingleCallerInliningAllowed();
+  }
+
+  boolean internalIsSingleCallerInliningAllowed() {
+    return allowSingleCallerInlining;
   }
 
   public boolean isUnusedArgumentOptimizationAllowed(GlobalKeepInfoConfiguration configuration) {
@@ -188,7 +212,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return this.equals(bottom());
   }
 
-  public static class Builder extends KeepInfo.Builder<Builder, KeepMethodInfo> {
+  public static class Builder extends KeepMemberInfo.Builder<Builder, KeepMethodInfo> {
 
     private boolean allowClassInlining;
     private boolean allowClosedWorldReasoning;
@@ -198,7 +222,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     private boolean allowParameterRemoval;
     private boolean allowParameterReordering;
     private boolean allowParameterTypeStrengthening;
+    private boolean allowReprocessing;
     private boolean allowReturnTypeStrengthening;
+    private boolean allowSingleCallerInlining;
     private boolean allowUnusedArgumentOptimization;
     private boolean allowUnusedReturnValueOptimization;
 
@@ -216,7 +242,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       allowParameterRemoval = original.internalIsParameterRemovalAllowed();
       allowParameterReordering = original.internalIsParameterReorderingAllowed();
       allowParameterTypeStrengthening = original.internalIsParameterTypeStrengtheningAllowed();
+      allowReprocessing = original.internalIsReprocessingAllowed();
       allowReturnTypeStrengthening = original.internalIsReturnTypeStrengtheningAllowed();
+      allowSingleCallerInlining = original.internalIsSingleCallerInliningAllowed();
       allowUnusedArgumentOptimization = original.internalIsUnusedArgumentOptimizationAllowed();
       allowUnusedReturnValueOptimization =
           original.internalIsUnusedReturnValueOptimizationAllowed();
@@ -374,6 +402,25 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return setAllowParameterTypeStrengthening(false);
     }
 
+    // Reprocessing.
+
+    public boolean isReprocessingAllowed() {
+      return allowReprocessing;
+    }
+
+    public Builder setAllowReprocessing(boolean allowReprocessing) {
+      this.allowReprocessing = allowReprocessing;
+      return self();
+    }
+
+    public Builder allowReprocessing() {
+      return setAllowReprocessing(true);
+    }
+
+    public Builder disallowReprocessing() {
+      return setAllowReprocessing(false);
+    }
+
     // Return type strengthening.
 
     public boolean isReturnTypeStrengtheningAllowed() {
@@ -391,6 +438,25 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     public Builder disallowReturnTypeStrengthening() {
       return setAllowReturnTypeStrengthening(false);
+    }
+
+    // Single caller inlining.
+
+    public boolean isSingleCallerInliningAllowed() {
+      return allowSingleCallerInlining;
+    }
+
+    public Builder setAllowSingleCallerInlining(boolean allowSingleCallerInlining) {
+      this.allowSingleCallerInlining = allowSingleCallerInlining;
+      return self();
+    }
+
+    public Builder allowSingleCallerInlining() {
+      return setAllowSingleCallerInlining(true);
+    }
+
+    public Builder disallowSingleCallerInlining() {
+      return setAllowSingleCallerInlining(false);
     }
 
     // Unused argument optimization.
@@ -465,7 +531,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           && isParameterReorderingAllowed() == other.internalIsParameterReorderingAllowed()
           && isParameterTypeStrengtheningAllowed()
               == other.internalIsParameterTypeStrengtheningAllowed()
+          && isReprocessingAllowed() == other.internalIsReprocessingAllowed()
           && isReturnTypeStrengtheningAllowed() == other.internalIsReturnTypeStrengtheningAllowed()
+          && isSingleCallerInliningAllowed() == other.internalIsSingleCallerInliningAllowed()
           && isUnusedArgumentOptimizationAllowed()
               == other.internalIsUnusedArgumentOptimizationAllowed()
           && isUnusedReturnValueOptimizationAllowed()
@@ -488,7 +556,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .disallowParameterRemoval()
           .disallowParameterReordering()
           .disallowParameterTypeStrengthening()
+          .disallowReprocessing()
           .disallowReturnTypeStrengthening()
+          .disallowSingleCallerInlining()
           .disallowUnusedArgumentOptimization()
           .disallowUnusedReturnValueOptimization();
     }
@@ -504,13 +574,15 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .allowParameterRemoval()
           .allowParameterReordering()
           .allowParameterTypeStrengthening()
+          .allowReprocessing()
           .allowReturnTypeStrengthening()
+          .allowSingleCallerInlining()
           .allowUnusedArgumentOptimization()
           .allowUnusedReturnValueOptimization();
     }
   }
 
-  public static class Joiner extends KeepInfo.Joiner<Joiner, Builder, KeepMethodInfo> {
+  public static class Joiner extends KeepMemberInfo.Joiner<Joiner, Builder, KeepMethodInfo> {
 
     public Joiner(KeepMethodInfo info) {
       super(info.builder());
@@ -560,8 +632,18 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
+    public Joiner disallowReprocessing() {
+      builder.disallowReprocessing();
+      return self();
+    }
+
     public Joiner disallowReturnTypeStrengthening() {
       builder.disallowReturnTypeStrengthening();
+      return self();
+    }
+
+    public Joiner disallowSingleCallerInlining() {
+      builder.disallowSingleCallerInlining();
       return self();
     }
 
@@ -598,9 +680,12 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .applyIf(
               !joiner.builder.isParameterTypeStrengtheningAllowed(),
               Joiner::disallowParameterTypeStrengthening)
+          .applyIf(!joiner.builder.isReprocessingAllowed(), Joiner::disallowReprocessing)
           .applyIf(
               !joiner.builder.isReturnTypeStrengtheningAllowed(),
               Joiner::disallowReturnTypeStrengthening)
+          .applyIf(
+              !joiner.builder.isSingleCallerInliningAllowed(), Joiner::disallowSingleCallerInlining)
           .applyIf(
               !joiner.builder.isUnusedArgumentOptimizationAllowed(),
               Joiner::disallowUnusedArgumentOptimization)

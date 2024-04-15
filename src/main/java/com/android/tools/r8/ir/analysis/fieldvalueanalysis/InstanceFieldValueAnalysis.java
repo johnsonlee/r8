@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -33,6 +34,7 @@ import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationIn
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoFactory;
 import com.android.tools.r8.ir.optimize.info.field.UnknownInstanceFieldInitializationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.Timing;
 
 public class InstanceFieldValueAnalysis extends FieldValueAnalysis {
@@ -221,10 +223,17 @@ public class InstanceFieldValueAnalysis extends FieldValueAnalysis {
 
   void recordInstanceFieldIsInitializedWithInfo(
       DexClassAndField field, InstanceFieldInitializationInfo info) {
-    if (!info.isUnknown()
-        && appView.appInfo().mayPropagateValueFor(appView, field.getReference())) {
-      builder.recordInitializationInfo(field, info);
+    if (info.isUnknown()) {
+      return;
     }
+    if (field.isProgramField()) {
+      ProgramField programField = field.asProgramField();
+      KeepFieldInfo keepInfo = appView.getKeepInfo(programField);
+      if (!keepInfo.isValuePropagationAllowed(appView, programField)) {
+        return;
+      }
+    }
+    builder.recordInitializationInfo(field, info);
   }
 
   void recordInstanceFieldIsInitializedWithValue(DexClassAndField field, Value value) {

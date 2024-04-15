@@ -184,6 +184,9 @@ public class MethodOptimizationInfoCollector {
   private void analyzeReturns(
       IRCode code, OptimizationFeedback feedback, MethodProcessor methodProcessor) {
     ProgramMethod context = code.context();
+    if (!appView.getKeepInfo(context).isValuePropagationAllowed(appView, context)) {
+      return;
+    }
     DexEncodedMethod method = context.getDefinition();
     List<BasicBlock> normalExits = code.computeNormalExitBlocks();
     if (normalExits.isEmpty()) {
@@ -855,10 +858,9 @@ public class MethodOptimizationInfoCollector {
       OptimizationFeedback feedback,
       ProgramMethod method,
       IRCode code) {
-    if (dynamicTypeOptimization == null) {
-      return;
-    }
-    if (!method.getReturnType().isReferenceType()) {
+    if (dynamicTypeOptimization == null
+        || !method.getReturnType().isReferenceType()
+        || !appView.getKeepInfo(method).isValuePropagationAllowed(appView, method)) {
       return;
     }
 

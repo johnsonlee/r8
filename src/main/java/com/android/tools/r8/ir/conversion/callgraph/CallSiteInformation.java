@@ -111,7 +111,7 @@ public abstract class CallSiteInformation {
 
         int numberOfCallSites = node.getNumberOfCallSites();
         if (numberOfCallSites == 1) {
-          if (appView.appInfo().isNeverInlineDueToSingleCallerMethod(method)) {
+          if (!appView.getKeepInfo(method).isSingleCallerInliningAllowed(options)) {
             continue;
           }
           Set<Node> callersWithDeterministicOrder = node.getCallersWithDeterministicOrder();

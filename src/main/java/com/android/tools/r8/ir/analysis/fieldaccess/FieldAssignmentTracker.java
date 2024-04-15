@@ -42,7 +42,6 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePri
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.collections.ProgramFieldMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -138,8 +137,7 @@ public class FieldAssignmentTracker {
       clazz.forEachProgramField(
           field -> {
             FieldAccessInfo accessInfo = fieldAccessInfos.get(field.getReference());
-            KeepFieldInfo keepInfo = appView.getKeepInfo(field);
-            if (keepInfo.isPinned(appView.options())
+            if (!appView.getKeepInfo(field).isValuePropagationAllowed(appView, field)
                 || (accessInfo != null && accessInfo.isWrittenFromMethodHandle())) {
               fieldStates.put(field.getDefinition(), ValueState.unknown());
             }
@@ -314,7 +312,6 @@ public class FieldAssignmentTracker {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void recordAllFieldPutsProcessed(
       ProgramField field, OptimizationFeedbackDelayed feedback) {
     ValueState fieldState =
@@ -324,7 +321,7 @@ public class FieldAssignmentTracker {
             ? appView.abstractValueFactory().createDefaultValue(field.getType())
             : fieldState.getAbstractValue(appView);
     if (abstractValue.isNonTrivial()) {
-      feedback.recordFieldHasAbstractValue(field.getDefinition(), appView, abstractValue);
+      feedback.recordFieldHasAbstractValue(field, appView, abstractValue);
     }
 
     if (fieldState.isClassState() && field.getOptimizationInfo().getDynamicType().isUnknown()) {
@@ -332,7 +329,7 @@ public class FieldAssignmentTracker {
       DynamicType dynamicType = classFieldState.getDynamicType();
       if (!dynamicType.isUnknown()) {
         assert WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, field.getType())
-            == dynamicType;
+            .equals(dynamicType);
         if (dynamicType.isNotNullType()) {
           feedback.markFieldHasDynamicType(field, dynamicType);
         } else {
@@ -393,7 +390,7 @@ public class FieldAssignmentTracker {
     assert !abstractValue.isBottom();
 
     if (!abstractValue.isUnknown()) {
-      feedback.recordFieldHasAbstractValue(field.getDefinition(), appView, abstractValue);
+      feedback.recordFieldHasAbstractValue(field, appView, abstractValue);
     }
   }
 

@@ -16,7 +16,6 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
-import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexDefinition;
@@ -67,12 +66,10 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Visibility;
-import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.collections.ThrowingSet;
 import com.android.tools.r8.utils.structural.Ordered;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
@@ -148,17 +145,10 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
   /** All methods that should be inlined if possible due to a configuration directive. */
   private final Set<DexMethod> alwaysInline;
-  /**
-   * All methods that *must* never be inlined as a result of having a single caller due to a
-   * configuration directive (testing only).
-   */
-  private final Set<DexMethod> neverInlineDueToSingleCaller;
   /** Items for which to print inlining decisions for (testing only). */
   private final Set<DexMethod> whyAreYouNotInlining;
   /** All methods that must be reprocessed (testing only). */
   private final Set<DexMethod> reprocess;
-  /** All methods that must not be reprocessed (testing only). */
-  private final Set<DexMethod> neverReprocess;
   /** All types that should be inlined if possible due to a configuration directive. */
   public final PredicateSet<DexType> alwaysClassInline;
   /**
@@ -174,11 +164,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * Set of all methods including a RecordFieldValues instruction. Set only in final tree shaking.
    */
   public final Set<DexMethod> recordFieldValuesReferences;
-  /**
-   * All methods and fields whose value *must* never be propagated due to a configuration directive.
-   * (testing only).
-   */
-  private final Set<DexMember<?, ?>> neverPropagateValue;
   /**
    * All items with -identifiernamestring rule. Bound boolean value indicates the rule is explicitly
    * specified by users (<code>true</code>) or not, i.e., implicitly added by R8 (<code>false</code>
@@ -214,12 +199,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       KeepInfoCollection keepInfo,
       Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
       Set<DexMethod> alwaysInline,
-      Set<DexMethod> neverInlineDueToSingleCaller,
       Set<DexMethod> whyAreYouNotInlining,
       Set<DexMethod> reprocess,
-      Set<DexMethod> neverReprocess,
       PredicateSet<DexType> alwaysClassInline,
-      Set<DexMember<?, ?>> neverPropagateValue,
       Object2BooleanMap<DexMember<?, ?>> identifierNameStrings,
       Set<DexType> prunedTypes,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
@@ -242,12 +224,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.mayHaveSideEffects = mayHaveSideEffects;
     this.callSites = callSites;
     this.alwaysInline = alwaysInline;
-    this.neverInlineDueToSingleCaller = neverInlineDueToSingleCaller;
     this.whyAreYouNotInlining = whyAreYouNotInlining;
     this.reprocess = reprocess;
-    this.neverReprocess = neverReprocess;
     this.alwaysClassInline = alwaysClassInline;
-    this.neverPropagateValue = neverPropagateValue;
     this.identifierNameStrings = identifierNameStrings;
     this.prunedTypes = prunedTypes;
     this.switchMaps = switchMaps;
@@ -278,12 +257,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.keepInfo,
         previous.mayHaveSideEffects,
         previous.alwaysInline,
-        previous.neverInlineDueToSingleCaller,
         previous.whyAreYouNotInlining,
         previous.reprocess,
-        previous.neverReprocess,
         previous.alwaysClassInline,
-        previous.neverPropagateValue,
         previous.identifierNameStrings,
         previous.prunedTypes,
         previous.switchMaps,
@@ -315,12 +291,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         extendPinnedItems(previous, prunedItems.getAdditionalPinnedItems()),
         previous.mayHaveSideEffects,
         pruneMethods(previous.alwaysInline, prunedItems, tasks),
-        pruneMethods(previous.neverInlineDueToSingleCaller, prunedItems, tasks),
         pruneMethods(previous.whyAreYouNotInlining, prunedItems, tasks),
         pruneMethods(previous.reprocess, prunedItems, tasks),
-        pruneMethods(previous.neverReprocess, prunedItems, tasks),
         previous.alwaysClassInline,
-        pruneMembers(previous.neverPropagateValue, prunedItems, tasks),
         pruneMapFromMembers(previous.identifierNameStrings, prunedItems, tasks),
         prunedItems.hasRemovedClasses()
             ? CollectionUtils.mergeSets(previous.prunedTypes, prunedItems.getRemovedClasses())
@@ -358,29 +331,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       Set<DexField> fields, PrunedItems prunedItems, TaskCollection<?> tasks)
       throws ExecutionException {
     return pruneItems(fields, prunedItems.getRemovedFields(), tasks);
-  }
-
-  private static Set<DexMember<?, ?>> pruneMembers(
-      Set<DexMember<?, ?>> members, PrunedItems prunedItems, TaskCollection<?> tasks)
-      throws ExecutionException {
-    if (prunedItems.hasRemovedMembers()) {
-      tasks.submit(
-          () -> {
-            Set<DexField> removedFields = prunedItems.getRemovedFields();
-            Set<DexMethod> removedMethods = prunedItems.getRemovedMethods();
-            if (members.size() <= removedFields.size() + removedMethods.size()) {
-              members.removeIf(
-                  member ->
-                      member.isDexField()
-                          ? removedFields.contains(member.asDexField())
-                          : removedMethods.contains(member.asDexMethod()));
-            } else {
-              removedFields.forEach(members::remove);
-              removedMethods.forEach(members::remove);
-            }
-          });
-    }
-    return members;
   }
 
   private static Set<DexMethod> pruneMethods(
@@ -483,12 +433,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         keepInfo,
         mayHaveSideEffects,
         alwaysInline,
-        neverInlineDueToSingleCaller,
         whyAreYouNotInlining,
         reprocess,
-        neverReprocess,
         alwaysClassInline,
-        neverPropagateValue,
         identifierNameStrings,
         prunedTypes,
         switchMaps,
@@ -556,12 +503,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.mayHaveSideEffects = previous.mayHaveSideEffects;
     this.callSites = previous.callSites;
     this.alwaysInline = previous.alwaysInline;
-    this.neverInlineDueToSingleCaller = previous.neverInlineDueToSingleCaller;
     this.whyAreYouNotInlining = previous.whyAreYouNotInlining;
     this.reprocess = previous.reprocess;
-    this.neverReprocess = previous.neverReprocess;
     this.alwaysClassInline = previous.alwaysClassInline;
-    this.neverPropagateValue = previous.neverPropagateValue;
     this.identifierNameStrings = previous.identifierNameStrings;
     this.prunedTypes = previous.prunedTypes;
     this.switchMaps = switchMaps;
@@ -678,10 +622,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return alwaysInline.contains(method);
   }
 
-  public boolean isNeverInlineDueToSingleCallerMethod(ProgramMethod method) {
-    return neverInlineDueToSingleCaller.contains(method.getReference());
-  }
-
   public boolean isWhyAreYouNotInliningMethod(DexMethod method) {
     return whyAreYouNotInlining.contains(method);
   }
@@ -690,38 +630,8 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return whyAreYouNotInlining.isEmpty();
   }
 
-  public boolean isNeverReprocessMethod(ProgramMethod method) {
-    return neverReprocess.contains(method.getReference())
-        || method.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite();
-  }
-
   public Set<DexMethod> getReprocessMethods() {
     return reprocess;
-  }
-
-  public void forEachReachableInterface(Consumer<DexClass> consumer) {
-    forEachReachableInterface(consumer, ImmutableList.of());
-  }
-
-  public void forEachReachableInterface(
-      Consumer<DexClass> consumer, Iterable<DexType> additionalPaths) {
-    WorkList<DexType> worklist = WorkList.newIdentityWorkList();
-    worklist.addIfNotSeen(additionalPaths);
-    worklist.addIfNotSeen(objectAllocationInfoCollection.getInstantiatedLambdaInterfaces());
-    for (DexProgramClass clazz : classes()) {
-      worklist.addIfNotSeen(clazz.type);
-    }
-    while (worklist.hasNext()) {
-      DexType type = worklist.next();
-      DexClass definition = definitionFor(type);
-      if (definition == null) {
-        continue;
-      }
-      if (definition.isInterface()) {
-        consumer.accept(definition);
-      }
-      definition.forEachImmediateSupertype(worklist::addIfNotSeen);
-    }
   }
 
   /**
@@ -925,41 +835,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return staticInitializer != null && isFieldOnlyWrittenInMethod(field, staticInitializer);
   }
 
-  public boolean mayPropagateValueFor(
-      AppView<AppInfoWithLiveness> appView, DexClassAndMember<?, ?> member) {
-    assert checkIfObsolete();
-    return member
-        .getReference()
-        .apply(
-            field -> mayPropagateValueFor(appView, field),
-            method -> mayPropagateValueFor(appView, method));
-  }
-
-  public boolean mayPropagateValueFor(AppView<AppInfoWithLiveness> appView, DexField field) {
-    assert checkIfObsolete();
-    if (neverPropagateValue.contains(field)) {
-      return false;
-    }
-    if (isPinnedWithDefinitionLookup(field) && !field.getType().isAlwaysNull(appView)) {
-      return false;
-    }
-    return true;
-  }
-
-  public boolean mayPropagateValueFor(AppView<AppInfoWithLiveness> appView, DexMethod method) {
-    assert checkIfObsolete();
-    if (neverPropagateValue.contains(method)) {
-      return false;
-    }
-    if (!method.getReturnType().isAlwaysNull(appView)
-        && !getKeepInfo()
-            .getMethodInfoWithDefinitionLookup(method, this)
-            .isOptimizationAllowed(options())) {
-      return false;
-    }
-    return true;
-  }
-
   public boolean isInstantiatedInterface(DexProgramClass clazz) {
     assert checkIfObsolete();
     return objectAllocationInfoCollection.isInterfaceWithUnknownSubtypeHierarchy(clazz);
@@ -1107,12 +982,9 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         // Take any rule in case of collisions.
         lens.rewriteReferenceKeys(mayHaveSideEffects, (reference, rules) -> ListUtils.first(rules)),
         lens.rewriteReferences(alwaysInline),
-        lens.rewriteReferences(neverInlineDueToSingleCaller),
         lens.rewriteReferences(whyAreYouNotInlining),
         lens.rewriteReferences(reprocess),
-        lens.rewriteReferences(neverReprocess),
         alwaysClassInline.rewriteItems(lens::lookupType),
-        lens.rewriteReferences(neverPropagateValue),
         lens.rewriteReferenceKeys(identifierNameStrings),
         // Don't rewrite pruned types - the removed types are identified by their original name.
         prunedTypes,

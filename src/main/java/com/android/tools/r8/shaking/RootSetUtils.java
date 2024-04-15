@@ -118,13 +118,10 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection.createConcurrent();
     private final LinkedHashMap<DexReference, DexReference> reasonAsked = new LinkedHashMap<>();
     private final Set<DexMethod> alwaysInline = Sets.newIdentityHashSet();
-    private final Set<DexMethod> neverInlineDueToSingleCaller = Sets.newIdentityHashSet();
     private final Set<DexMethod> bypassClinitforInlining = Sets.newIdentityHashSet();
     private final Set<DexMethod> whyAreYouNotInlining = Sets.newIdentityHashSet();
     private final Set<DexMethod> reprocess = Sets.newIdentityHashSet();
-    private final Set<DexMethod> neverReprocess = Sets.newIdentityHashSet();
     private final PredicateSet<DexType> alwaysClassInline = new PredicateSet<>();
-    private final Set<DexMember<?, ?>> neverPropagateValue = Sets.newIdentityHashSet();
     private final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule =
         new IdentityHashMap<>();
     private final Map<DexReference, ProguardMemberRule> mayHaveSideEffects =
@@ -391,13 +388,10 @@ public class RootSetUtils {
           dependentMinimumKeepInfo,
           ImmutableList.copyOf(reasonAsked.values()),
           alwaysInline,
-          neverInlineDueToSingleCaller,
           bypassClinitforInlining,
           whyAreYouNotInlining,
           reprocess,
-          neverReprocess,
           alwaysClassInline,
-          neverPropagateValue,
           mayHaveSideEffects,
           dependentKeepClassCompatRule,
           identifierNameStrings,
@@ -463,7 +457,6 @@ public class RootSetUtils {
 
     ConsequentRootSet buildConsequentRootSet() {
       return new ConsequentRootSet(
-          neverInlineDueToSingleCaller,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           Lists.newArrayList(delayedRootSetActionItems),
@@ -1184,7 +1177,10 @@ public class RootSetUtils {
                   .disallowClassInlining();
               break;
             case NEVER_SINGLE_CALLER:
-              neverInlineDueToSingleCaller.add(reference);
+              dependentMinimumKeepInfo
+                  .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+                  .asMethodJoiner()
+                  .disallowSingleCallerInlining();
               break;
             default:
               throw new Unreachable();
@@ -1292,20 +1288,12 @@ public class RootSetUtils {
             .disallowReturnTypeStrengthening();
         context.markAsUsed();
       } else if (context instanceof NoValuePropagationRule) {
-        // Only add members from propgram classes to `neverPropagateValue` since class member values
-        // from library types are not propagated by default.
-        if (item.isField()) {
-          DexClassAndField field = item.asField();
-          if (field.isProgramField()) {
-            neverPropagateValue.add(field.getReference());
-            context.markAsUsed();
-          }
-        } else if (item.isMethod()) {
-          DexClassAndMethod method = item.asMethod();
-          if (method.isProgramMethod()) {
-            neverPropagateValue.add(method.getReference());
-            context.markAsUsed();
-          }
+        if (item.isProgramMember()) {
+          dependentMinimumKeepInfo
+              .getOrCreateUnconditionalMinimumKeepInfoFor(item.getReference())
+              .asMemberJoiner()
+              .disallowValuePropagation();
+          context.markAsUsed();
         }
       } else if (context instanceof ProguardIdentifierNameStringRule) {
         evaluateIdentifierNameStringRule(item, context, ifRule);
@@ -1317,7 +1305,11 @@ public class RootSetUtils {
               reprocess.add(clazz.getClassInitializer().getReference());
               break;
             case NEVER:
-              neverReprocess.add(clazz.getClassInitializer().getReference());
+              dependentMinimumKeepInfo
+                  .getOrCreateUnconditionalMinimumKeepInfoFor(
+                      clazz.getClassInitializer().getReference())
+                  .asMethodJoiner()
+                  .disallowReprocessing();
               break;
             default:
               throw new Unreachable();
@@ -1332,7 +1324,10 @@ public class RootSetUtils {
               reprocess.add(method.getReference());
               break;
             case NEVER:
-              neverReprocess.add(method.getReference());
+              dependentMinimumKeepInfo
+                  .getOrCreateUnconditionalMinimumKeepInfoFor(method.getReference())
+                  .asMethodJoiner()
+                  .disallowReprocessing();
               break;
             default:
               throw new Unreachable();
@@ -1796,19 +1791,16 @@ public class RootSetUtils {
 
   abstract static class RootSetBase {
 
-    final Set<DexMethod> neverInlineDueToSingleCaller;
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
     final Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule;
     final List<DelayedRootSetActionItem> delayedRootSetActionItems;
     public final ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse;
 
     RootSetBase(
-        Set<DexMethod> neverInlineDueToSingleCaller,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
-      this.neverInlineDueToSingleCaller = neverInlineDueToSingleCaller;
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
       this.dependentKeepClassCompatRule = dependentKeepClassCompatRule;
       this.delayedRootSetActionItems = delayedRootSetActionItems;
@@ -1831,9 +1823,7 @@ public class RootSetUtils {
     public final Set<DexMethod> bypassClinitForInlining;
     public final Set<DexMethod> whyAreYouNotInlining;
     public final Set<DexMethod> reprocess;
-    public final Set<DexMethod> neverReprocess;
     public final PredicateSet<DexType> alwaysClassInline;
-    public final Set<DexMember<?, ?>> neverPropagateValue;
     public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
     public final Set<DexMember<?, ?>> identifierNameStrings;
     public final Set<ProguardIfRule> ifRules;
@@ -1842,13 +1832,10 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         ImmutableList<DexReference> reasonAsked,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> neverInlineDueToSingleCaller,
         Set<DexMethod> bypassClinitForInlining,
         Set<DexMethod> whyAreYouNotInlining,
         Set<DexMethod> reprocess,
-        Set<DexMethod> neverReprocess,
         PredicateSet<DexType> alwaysClassInline,
-        Set<DexMember<?, ?>> neverPropagateValue,
         Map<DexReference, ProguardMemberRule> mayHaveSideEffects,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         Set<DexMember<?, ?>> identifierNameStrings,
@@ -1856,7 +1843,6 @@ public class RootSetUtils {
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
-          neverInlineDueToSingleCaller,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems,
@@ -1866,9 +1852,7 @@ public class RootSetUtils {
       this.bypassClinitForInlining = bypassClinitForInlining;
       this.whyAreYouNotInlining = whyAreYouNotInlining;
       this.reprocess = reprocess;
-      this.neverReprocess = neverReprocess;
       this.alwaysClassInline = alwaysClassInline;
-      this.neverPropagateValue = neverPropagateValue;
       this.mayHaveSideEffects = mayHaveSideEffects;
       this.identifierNameStrings = Collections.unmodifiableSet(identifierNameStrings);
       this.ifRules = Collections.unmodifiableSet(ifRules);
@@ -1898,7 +1882,6 @@ public class RootSetUtils {
     }
 
     void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
-      neverInlineDueToSingleCaller.addAll(consequentRootSet.neverInlineDueToSingleCaller);
       consequentRootSet.dependentKeepClassCompatRule.forEach(
           (type, rules) ->
               dependentKeepClassCompatRule
@@ -1974,13 +1957,10 @@ public class RootSetUtils {
                 getDependentMinimumKeepInfo().rewrittenWithLens(graphLens, timing),
                 reasonAsked,
                 alwaysInline,
-                neverInlineDueToSingleCaller,
                 bypassClinitForInlining,
                 whyAreYouNotInlining,
                 reprocess,
-                neverReprocess,
                 alwaysClassInline,
-                neverPropagateValue,
                 mayHaveSideEffects,
                 dependentKeepClassCompatRule,
                 identifierNameStrings,
@@ -2216,13 +2196,11 @@ public class RootSetUtils {
   public static class ConsequentRootSet extends RootSetBase {
 
     ConsequentRootSet(
-        Set<DexMethod> neverInlineDueToSingleCaller,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         Map<DexType, Set<ProguardKeepRuleBase>> dependentKeepClassCompatRule,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
       super(
-          neverInlineDueToSingleCaller,
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
           delayedRootSetActionItems,
@@ -2282,10 +2260,7 @@ public class RootSetUtils {
           Collections.emptySet(),
           Collections.emptySet(),
           Collections.emptySet(),
-          Collections.emptySet(),
-          Collections.emptySet(),
           PredicateSet.empty(),
-          Collections.emptySet(),
           emptyMap(),
           emptyMap(),
           Collections.emptySet(),

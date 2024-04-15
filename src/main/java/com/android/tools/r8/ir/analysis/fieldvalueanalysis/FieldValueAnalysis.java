@@ -102,7 +102,7 @@ public abstract class FieldValueAnalysis {
 
   abstract boolean isSubjectToOptimization(DexClassAndField field);
 
-  void recordFieldPut(DexClassAndField field, Instruction instruction) {
+  void recordFieldPut(ProgramField field, Instruction instruction) {
     recordFieldPut(field, instruction, UnknownInstanceFieldInitializationInfo.getInstance());
   }
 
@@ -175,7 +175,8 @@ public abstract class FieldValueAnalysis {
               // after a null/0 check can take advantage of the optimization.
               DexValue valueBeforePut = classInitializerDefaultsResult.getStaticValue(field);
               asStaticFieldValueAnalysis()
-                  .updateFieldOptimizationInfoWith2Values(field, fieldPut.value(), valueBeforePut);
+                  .updateFieldOptimizationInfoWith2Values(
+                      field.asProgramField(), fieldPut.value(), valueBeforePut);
             }
             return;
           }

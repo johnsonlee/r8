@@ -454,7 +454,7 @@ public class ArgumentPropagatorProgramOptimizer {
           // OK, this can be rewritten to have void return type.
           continue;
         }
-        if (!appView.appInfo().mayPropagateValueFor(appView, method)) {
+        if (!appView.getKeepInfo(method).isValuePropagationAllowed(appView, method)) {
           return null;
         }
         AbstractValue returnValueForMethod =

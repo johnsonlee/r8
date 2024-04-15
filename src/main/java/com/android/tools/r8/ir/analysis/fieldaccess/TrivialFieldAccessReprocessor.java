@@ -36,6 +36,7 @@ import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.threading.ThreadingModule;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -279,7 +280,7 @@ public final class TrivialFieldAccessReprocessor {
       DexEncodedField field,
       boolean isWrite,
       FieldAccessInfoCollection<?> fieldAccessInfoCollection) {
-    assert !appView.appInfo().isPinned(field) || field.getType().isAlwaysNull(appView);
+    assert verifyValuePropagationIsAllowed(field);
 
     FieldAccessInfo fieldAccessInfo = fieldAccessInfoCollection.get(field.getReference());
     if (fieldAccessInfo == null) {
@@ -306,6 +307,13 @@ public final class TrivialFieldAccessReprocessor {
       }
     }
 
+    return true;
+  }
+
+  private boolean verifyValuePropagationIsAllowed(DexEncodedField definition) {
+    ProgramField field = definition.asProgramField(appView);
+    assert field != null;
+    assert appView.getKeepInfo(field).isValuePropagationAllowed(appView, field);
     return true;
   }
 
@@ -340,11 +348,13 @@ public final class TrivialFieldAccessReprocessor {
       ProgramField field = resolutionResult.getProgramField();
       DexEncodedField definition = field.getDefinition();
 
+      InternalOptions options = appView.options();
+      ProgramMethod context = getContext();
       if (definition.isStatic() != isStatic
-          || appView.isCfByteCodePassThrough(getContext().getDefinition())
+          || appView.isCfByteCodePassThrough(context.getDefinition())
           || !resolutionResult.isSingleProgramFieldResolutionResult()
-          || resolutionResult.isAccessibleFrom(getContext(), appView()).isPossiblyFalse()
-          || appView().appInfo().isNeverReprocessMethod(getContext())) {
+          || resolutionResult.isAccessibleFrom(context, appView()).isPossiblyFalse()
+          || !appView().getKeepInfo(context).isReprocessingAllowed(options, context)) {
         recordAccessThatCannotBeOptimized(field, definition);
         return;
       }
@@ -366,7 +376,7 @@ public final class TrivialFieldAccessReprocessor {
       }
 
       // Record access.
-      if (field.isProgramField() && appView().appInfo().mayPropagateValueFor(appView(), field)) {
+      if (appView.getKeepInfo(field).isValuePropagationAllowed(appView(), field)) {
         if (field.getAccessFlags().isStatic() == isStatic) {
           if (isWrite) {
             recordFieldAccessContext(definition, writtenFields, readFields);
@@ -408,10 +418,9 @@ public final class TrivialFieldAccessReprocessor {
       return true;
     }
 
-    private void recordAccessThatCannotBeOptimized(
-        DexClassAndField field, DexEncodedField definition) {
+    private void recordAccessThatCannotBeOptimized(ProgramField field, DexEncodedField definition) {
       constantFields.remove(definition);
-      if (field.isProgramField() && appView().appInfo().mayPropagateValueFor(appView(), field)) {
+      if (appView.getKeepInfo(field).isValuePropagationAllowed(appView(), field)) {
         destroyFieldAccessContexts(definition);
       }
     }

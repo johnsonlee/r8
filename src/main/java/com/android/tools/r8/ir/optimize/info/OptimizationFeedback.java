@@ -9,8 +9,10 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.ir.conversion.FieldOptimizationFeedback;
 import com.android.tools.r8.ir.conversion.MethodOptimizationFeedback;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.AppInfoWithLivenessModifier;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -71,5 +73,12 @@ public abstract class OptimizationFeedback
 
   public void modifyAppInfoWithLiveness(Consumer<AppInfoWithLivenessModifier> consumer) {
     // Intentionally empty.
+  }
+
+  protected boolean verifyValuePropagationIsAllowed(
+      DexEncodedMember<?, ?> definition, AppView<AppInfoWithLiveness> appView) {
+    ProgramMember<?, ?> member = definition.asProgramMember(appView);
+    assert appView.getKeepInfo(member).isValuePropagationAllowed(appView, member);
+    return true;
   }
 }

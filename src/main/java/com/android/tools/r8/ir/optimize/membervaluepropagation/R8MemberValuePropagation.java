@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.optimize.membervaluepropagation;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndField;
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
@@ -12,6 +13,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -37,6 +39,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfoLookup;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepMemberInfo;
 import com.android.tools.r8.utils.ArrayUtils;
 import java.util.Set;
 
@@ -103,18 +106,13 @@ public class R8MemberValuePropagation extends MemberValuePropagation<AppInfoWith
     }
   }
 
-  private boolean mayPropagateValueFor(DexClassAndField field) {
-    if (field.isProgramField()) {
-      return appView.appInfo().mayPropagateValueFor(appView, field.getReference());
+  private boolean mayPropagateValueFor(DexClassAndMember<?, ?> member) {
+    if (member.isProgramMember()) {
+      ProgramMember<?, ?> programMember = member.asProgramMember();
+      KeepMemberInfo<?, ?> keepInfo = appView.getKeepInfo(programMember);
+      return keepInfo.isValuePropagationAllowed(appView, programMember);
     }
-    return appView.getAssumeInfoCollection().contains(field);
-  }
-
-  private boolean mayPropagateValueFor(DexClassAndMethod method) {
-    if (method.isProgramMethod()) {
-      return appView.appInfo().mayPropagateValueFor(appView, method.getReference());
-    }
-    return appView.getAssumeInfoCollection().contains(method);
+    return appView.getAssumeInfoCollection().contains(member);
   }
 
   @Override

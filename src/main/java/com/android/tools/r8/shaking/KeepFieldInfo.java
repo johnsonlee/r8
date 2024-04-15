@@ -75,7 +75,7 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     return this.equals(bottom());
   }
 
-  public static class Builder extends KeepInfo.Builder<Builder, KeepFieldInfo> {
+  public static class Builder extends KeepMemberInfo.Builder<Builder, KeepFieldInfo> {
 
     private boolean allowFieldTypeStrengthening;
     private boolean allowRedundantFieldLoadElimination;
@@ -172,7 +172,7 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     }
   }
 
-  public static class Joiner extends KeepInfo.Joiner<Joiner, Builder, KeepFieldInfo> {
+  public static class Joiner extends KeepMemberInfo.Joiner<Joiner, Builder, KeepFieldInfo> {
 
     public Joiner(KeepFieldInfo info) {
       super(info.builder());

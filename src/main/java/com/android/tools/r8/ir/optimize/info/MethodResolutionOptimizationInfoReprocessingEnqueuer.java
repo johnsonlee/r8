@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,6 +45,7 @@ class MethodResolutionOptimizationInfoReprocessingEnqueuer {
       PostMethodProcessor.Builder postMethodProcessorBuilder, ExecutorService executorService)
       throws ExecutionException {
     GraphLens currentGraphLens = appView.graphLens();
+    InternalOptions options = appView.options();
     Collection<List<ProgramMethod>> methodsToReprocess =
         ThreadUtils.processItemsWithResults(
             appView.appInfo().classes(),
@@ -53,7 +55,7 @@ class MethodResolutionOptimizationInfoReprocessingEnqueuer {
                   DexEncodedMethod::hasCode,
                   method -> {
                     if (!postMethodProcessorBuilder.contains(method, currentGraphLens)
-                        && !appView.appInfo().isNeverReprocessMethod(method)) {
+                        && appView.getKeepInfo(method).isReprocessingAllowed(options, method)) {
                       AffectedMethodUseRegistry registry =
                           new AffectedMethodUseRegistry(appView, method);
                       if (method.registerCodeReferencesWithResult(registry)) {
@@ -63,7 +65,7 @@ class MethodResolutionOptimizationInfoReprocessingEnqueuer {
                   });
               return methodsToReprocessInClass;
             },
-            appView.options().getThreadingModule(),
+            options.getThreadingModule(),
             executorService);
     methodsToReprocess.forEach(
         methodsToReprocessInClass ->

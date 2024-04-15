@@ -27,7 +27,7 @@ import java.util.function.Consumer;
 
 public class OptimizationFeedbackSimple extends OptimizationFeedback {
 
-  private static OptimizationFeedbackSimple INSTANCE = new OptimizationFeedbackSimple();
+  private static final OptimizationFeedbackSimple INSTANCE = new OptimizationFeedbackSimple();
 
   OptimizationFeedbackSimple() {}
 
@@ -65,9 +65,8 @@ public class OptimizationFeedbackSimple extends OptimizationFeedback {
   @Override
   public void recordFieldHasAbstractValue(
       DexEncodedField field, AppView<AppInfoWithLiveness> appView, AbstractValue abstractValue) {
-    if (appView.appInfo().mayPropagateValueFor(appView, field.getReference())) {
-      field.getMutableOptimizationInfo().setAbstractValue(abstractValue, field);
-    }
+    assert verifyValuePropagationIsAllowed(field, appView);
+    field.getMutableOptimizationInfo().setAbstractValue(abstractValue, field);
   }
 
   public void setMultiCallerMethod(ProgramMethod method) {

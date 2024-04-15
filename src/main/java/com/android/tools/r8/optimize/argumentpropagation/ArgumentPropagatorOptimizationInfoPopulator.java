@@ -108,8 +108,7 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     ValueState state = fieldStates.remove(field);
     // TODO(b/296030319): Also publish non-bottom field states.
     if (state.isBottom()) {
-      getSimpleFeedback()
-          .recordFieldHasAbstractValue(field.getDefinition(), appView, AbstractValue.bottom());
+      getSimpleFeedback().recordFieldHasAbstractValue(field, appView, AbstractValue.bottom());
     }
   }
 

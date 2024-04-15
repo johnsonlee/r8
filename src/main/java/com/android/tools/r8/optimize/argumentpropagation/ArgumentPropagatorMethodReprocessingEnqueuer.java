@@ -32,6 +32,7 @@ import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.ArgumentPropagatorReprocessingCriteriaCollection;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -95,6 +96,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
       ArgumentPropagatorGraphLens graphLens,
       PostMethodProcessor.Builder postMethodProcessorBuilder) {
     GraphLens currentGraphLens = appView.graphLens();
+    InternalOptions options = appView.options();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       clazz.forEachProgramMethodMatching(
           DexEncodedMethod::hasCode,
@@ -107,7 +109,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
               DexMethod rewrittenMethodSignature =
                   graphLens.getNextMethodSignature(method.getReference());
               if (graphLens.hasPrototypeChanges(rewrittenMethodSignature)) {
-                assert !appView.appInfo().isNeverReprocessMethod(method);
+                assert appView.getKeepInfo(method).isReprocessingAllowed(options, method);
                 postMethodProcessorBuilder.add(method, currentGraphLens);
                 appView.testing().callSiteOptimizationInfoInspector.accept(method);
                 return;
@@ -119,7 +121,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
             if (reprocessingCriteriaCollection
                     .getReprocessingCriteria(method)
                     .shouldReprocess(appView, method, callSiteOptimizationInfo)
-                && !appView.appInfo().isNeverReprocessMethod(method)) {
+                && appView.getKeepInfo(method).isReprocessingAllowed(options, method)) {
               postMethodProcessorBuilder.add(method, currentGraphLens);
               appView.testing().callSiteOptimizationInfoInspector.accept(method);
             }

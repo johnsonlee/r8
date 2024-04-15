@@ -514,6 +514,10 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return joiner != null ? joiner.asFieldJoiner() : null;
     }
 
+    public KeepMemberInfo.Joiner<?, ?, ?> asMemberJoiner() {
+      return null;
+    }
+
     public KeepMethodInfo.Joiner asMethodJoiner() {
       return null;
     }
