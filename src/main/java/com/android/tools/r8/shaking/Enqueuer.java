@@ -98,6 +98,7 @@ import com.android.tools.r8.graph.analysis.EnqueuerInvokeAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerNewInstanceAnalysis;
 import com.android.tools.r8.graph.analysis.EnqueuerTypeAccessAnalysis;
 import com.android.tools.r8.graph.analysis.GetArrayOfMissingTypeVerifyErrorWorkaround;
+import com.android.tools.r8.graph.analysis.InitializedClassesInInstanceMethodsAnalysis;
 import com.android.tools.r8.graph.analysis.InvokeVirtualToInterfaceVerifyErrorWorkaround;
 import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
@@ -519,6 +520,7 @@ public class Enqueuer {
     }
     if (mode.isTreeShaking()) {
       GetArrayOfMissingTypeVerifyErrorWorkaround.register(appView, this);
+      InitializedClassesInInstanceMethodsAnalysis.register(appView, this);
       InvokeVirtualToInterfaceVerifyErrorWorkaround.register(appView, this);
       if (options.protoShrinking().enableGeneratedMessageLiteShrinking) {
         registerAnalysis(new ProtoEnqueuerExtension(appView));
