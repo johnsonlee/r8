@@ -173,6 +173,10 @@ public class RootSetUtils {
           null);
     }
 
+    public DependentMinimumKeepInfoCollection getDependentMinimumKeepInfo() {
+      return dependentMinimumKeepInfo;
+    }
+
     boolean isMainDexRootSetBuilder() {
       return false;
     }

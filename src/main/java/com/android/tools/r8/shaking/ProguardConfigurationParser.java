@@ -18,6 +18,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
+import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
 import com.android.tools.r8.shaking.ProguardConfiguration.Builder;
 import com.android.tools.r8.shaking.ProguardTypeMatcher.ClassOrType;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
@@ -464,7 +465,7 @@ public class ProguardConfigurationParser {
       } else if (acceptString("alwaysinline")) {
         InlineRule rule =
             parseRuleWithClassSpec(
-                optionStart, InlineRule.builder().setType(InlineRule.Type.ALWAYS));
+                optionStart, InlineRule.builder().setType(InlineRuleType.ALWAYS));
         configurationBuilder.addRule(rule);
       } else if (acceptString("adaptclassstrings")) {
         parseClassFilter(configurationBuilder::addAdaptClassStringsPattern);
@@ -566,14 +567,14 @@ public class ProguardConfigurationParser {
         if (acceptString("neverinline")) {
           InlineRule rule =
               parseRuleWithClassSpec(
-                  optionStart, InlineRule.builder().setType(InlineRule.Type.NEVER));
+                  optionStart, InlineRule.builder().setType(InlineRuleType.NEVER));
           configurationBuilder.addRule(rule);
           return true;
         }
         if (acceptString("neversinglecallerinline")) {
           InlineRule rule =
               parseRuleWithClassSpec(
-                  optionStart, InlineRule.builder().setType(InlineRule.Type.NEVER_SINGLE_CALLER));
+                  optionStart, InlineRule.builder().setType(InlineRuleType.NEVER_SINGLE_CALLER));
           configurationBuilder.addRule(rule);
           return true;
         }

@@ -716,6 +716,14 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     this.kotlinMetadataLens = kotlinMetadataLens;
   }
 
+  public boolean hasInitializedClassesInInstanceMethods() {
+    return initializedClassesInInstanceMethods != null;
+  }
+
+  public InitializedClassesInInstanceMethods getInitializedClassesInInstanceMethods() {
+    return initializedClassesInInstanceMethods;
+  }
+
   public void setInitializedClassesInInstanceMethods(
       InitializedClassesInInstanceMethods initializedClassesInInstanceMethods) {
     this.initializedClassesInInstanceMethods = initializedClassesInInstanceMethods;
@@ -1245,6 +1253,20 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
                 @Override
                 public boolean shouldRun() {
                   return !appView.cfByteCodePassThrough.isEmpty();
+                }
+              },
+              new ThreadTask() {
+                @Override
+                public void run(Timing timing) {
+                  appView.setInitializedClassesInInstanceMethods(
+                      appView
+                          .getInitializedClassesInInstanceMethods()
+                          .rewrittenWithLens(lens, appliedLens));
+                }
+
+                @Override
+                public boolean shouldRun() {
+                  return appView.hasInitializedClassesInInstanceMethods();
                 }
               });
         });

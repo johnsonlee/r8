@@ -6,9 +6,7 @@ package com.android.tools.r8.shaking.ifrule.verticalclassmerging;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NoAccessModification;
@@ -89,6 +87,11 @@ public class MergedFieldTypeTest extends MergedTypeBaseTest {
     public void configure(R8FullTestBuilder builder) {
       super.configure(builder);
       builder
+          .addVerticallyMergedClassesInspector(
+              inspector ->
+                  inspector
+                      .applyIf(enableVerticalClassMerging, i -> i.assertMergedIntoSubtype(A.class))
+                      .assertNoOtherClassesMerged())
           .enableNeverClassInliningAnnotations()
           .enableNoRedundantFieldLoadEliminationAnnotations();
     }
@@ -116,16 +119,13 @@ public class MergedFieldTypeTest extends MergedTypeBaseTest {
       assertThat(testClassSubject, isPresent());
 
       if (enableVerticalClassMerging) {
-        // Verify that SuperTestClass has been merged into TestClass.
-        assertThat(inspector.clazz(SuperTestClass.class), not(isPresent()));
-        assertEquals(
-            "java.lang.Object", testClassSubject.getDexProgramClass().superType.toSourceString());
-
         // Verify that TestClass.field has been removed.
         assertEquals(1, testClassSubject.allFields().size());
 
-        // Verify that there was a naming conflict such that SuperTestClass.field was renamed.
-        assertNotEquals("field", testClassSubject.allFields().get(0).getFinalName());
+        // Due to the -if rule, the SuperTestClass is only merged into TestClass after the final
+        // round of tree shaking, at which point TestClass.field has already been removed.
+        // Therefore, we expect no collision to have happened.
+        assertEquals("field", testClassSubject.allFields().get(0).getFinalName());
       }
     }
   }

@@ -122,6 +122,9 @@ public class MapUtils {
             return;
           }
           V2 newValue = valueMapping.apply(key, value);
+          if (newValue == null) {
+            return;
+          }
           V2 existingValue = result.put(newKey, newValue);
           if (existingValue != null) {
             result.put(newKey, valueMerger.apply(newKey, existingValue, newValue));
