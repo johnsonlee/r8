@@ -143,11 +143,10 @@ public class VerticalClassMerger {
     rewriteCodeWithLens(executorService, timing);
 
     // Remove merged classes from app now that the code is fully rewritten.
-    removeMergedClasses(
-        verticalClassMergerResult.getVerticallyMergedClasses(), executorService, timing);
+    removeMergedClasses(verticalClassMergerResult.getVerticallyMergedClasses(), timing);
 
     // Convert the (incomplete) synthesized bridges to LIR.
-    finalizeSynthesizedBridges(verticalClassMergerResult.getSynthesizedBridges(), timing);
+    finalizeSynthesizedBridges(verticalClassMergerResult.getSynthesizedBridges(), lens, timing);
 
     // Finally update the code lens to signal that the code is fully up to date.
     markRewrittenWithLens(executorService, timing);
@@ -248,6 +247,9 @@ public class VerticalClassMerger {
 
   private void rewriteCodeWithLens(ExecutorService executorService, Timing timing)
       throws ExecutionException {
+    if (mode.isInitial()) {
+      return;
+    }
     LirConverter.rewriteLirWithLens(appView, timing, executorService);
     new IdentifierMinifier(appView).rewriteDexItemBasedConstStringInStaticFields(executorService);
   }
@@ -290,14 +292,11 @@ public class VerticalClassMerger {
     timing.end();
   }
 
-  private void removeMergedClasses(
-      VerticallyMergedClasses verticallyMergedClasses,
-      ExecutorService executorService,
-      Timing timing)
-      throws ExecutionException {
+  private void removeMergedClasses(VerticallyMergedClasses verticallyMergedClasses, Timing timing) {
     if (mode.isInitial()) {
       return;
     }
+
     timing.begin("Remove merged classes");
     DirectMappedDexApplication newApplication =
         appView
@@ -306,17 +305,13 @@ public class VerticalClassMerger {
             .builder()
             .removeProgramClasses(clazz -> verticallyMergedClasses.isMergeSource(clazz.getType()))
             .build();
-    PrunedItems prunedItems =
-        PrunedItems.builder()
-            .addRemovedClasses(verticallyMergedClasses.getSources())
-            .setPrunedApp(newApplication)
-            .build();
-    appView.setAppInfo(appView.appInfo().prunedCopyFrom(prunedItems, executorService, timing));
+    appView.setAppInfo(appView.appInfo().rebuildWithLiveness(newApplication));
     timing.end();
   }
 
   private void finalizeSynthesizedBridges(
       List<IncompleteVerticalClassMergerBridgeCode> bridges,
+      VerticalClassMergerGraphLens lens,
       Timing timing) {
     timing.begin("Finalize synthesized bridges");
     KeepInfoCollection keepInfo = appView.getKeepInfo();
@@ -328,7 +323,7 @@ public class VerticalClassMerger {
       assert target != null;
 
       // Finalize code.
-      bridge.setCode(code.toLirCode(appView), appView);
+      bridge.setCode(code.toLirCode(appView, lens, mode), appView);
 
       // Copy keep info to newly synthesized methods.
       keepInfo.mutate(
@@ -340,6 +335,9 @@ public class VerticalClassMerger {
 
   private void markRewrittenWithLens(ExecutorService executorService, Timing timing)
       throws ExecutionException {
+    if (mode.isInitial()) {
+      return;
+    }
     timing.begin("Mark rewritten with lens");
     appView.clearCodeRewritings(executorService, timing);
     timing.end();

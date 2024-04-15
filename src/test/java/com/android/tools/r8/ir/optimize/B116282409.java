@@ -4,20 +4,24 @@
 
 package com.android.tools.r8.ir.optimize;
 
-import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
-import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
-import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assert.assertFalse;
 
+import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.jasmin.JasminBuilder;
 import com.android.tools.r8.jasmin.JasminBuilder.ClassBuilder;
 import com.android.tools.r8.jasmin.JasminTestBase;
+import com.android.tools.r8.utils.AbortException;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.UnverifiableCfCodeDiagnostic;
 import com.google.common.collect.ImmutableList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -101,36 +105,79 @@ public class B116282409 extends JasminTestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .addProgramClassFileData(programClassFileData)
-        .addKeepMainRule("TestClass")
-        .addOptionsModification(
-            options ->
-                options.getVerticalClassMergerOptions().setEnabled(enableVerticalClassMerging))
-        .allowDiagnosticWarningMessages()
-        .setMinApi(parameters)
-        .compileWithExpectedDiagnostics(
-            diagnostics ->
-                diagnostics.assertWarningsMatch(
-                    allOf(
-                        diagnosticType(UnverifiableCfCodeDiagnostic.class),
-                        diagnosticMessage(
-                            containsString(
-                                "Constructor mismatch, expected constructor from B, but was"
-                                    + " A.<init>()")))))
+    if (enableVerticalClassMerging) {
+      exception.expect(CompilationFailedException.class);
+      exception.expectCause(
+          new CustomExceptionMatcher(
+              "Unable to rewrite `invoke-direct A.<init>(new B, ...)` in method "
+                  + "`void TestClass.main(java.lang.String[])` after type `A` was merged into `B`.",
+              "Please add the following rule to your Proguard configuration file: "
+                  + "`-keep,allowobfuscation class A`."));
+    }
+
+    R8TestCompileResult compileResult =
+        testForR8(parameters.getBackend())
+            .addProgramClassFileData(programClassFileData)
+            .addKeepMainRule("TestClass")
+            .addOptionsModification(
+                options ->
+                    options.getVerticalClassMergerOptions().setEnabled(enableVerticalClassMerging))
+            .allowDiagnosticWarningMessages()
+            .setMinApi(parameters)
+            .compile();
+
+    assertFalse(enableVerticalClassMerging);
+
+    compileResult
         .run(parameters.getRuntime(), "TestClass")
         .applyIf(
-            (parameters.isCfRuntime() || parameters.getDexRuntimeVersion().isDalvik())
-                && !enableVerticalClassMerging,
+            parameters.isCfRuntime(),
             runResult ->
                 runResult
                     .assertFailureWithErrorThatThrows(VerifyError.class)
                     .assertFailureWithErrorThatMatches(
-                        containsString(
-                            parameters.isCfRuntime()
-                                ? "Call to wrong initialization method"
-                                : "VFY: invoke-direct <init> on super only allowed for 'this' in"
-                                    + " <init>")),
-            runResult -> runResult.assertSuccessWithOutputLines("In A.<init>()", "42"));
+                        containsString("Call to wrong initialization method")),
+            runResult -> {
+              if (parameters.getDexRuntimeVersion().isDalvik()) {
+                runResult.assertFailureWithErrorThatMatches(
+                    containsString(
+                        "VFY: invoke-direct <init> on super only allowed for 'this' in <init>"));
+              } else {
+                runResult.assertSuccessWithOutputLines("In A.<init>()", "42");
+              }
+            });
+  }
+
+  private static class CustomExceptionMatcher extends BaseMatcher<Throwable> {
+
+    private List<String> messages;
+
+    public CustomExceptionMatcher(String... messages) {
+      this.messages = Arrays.asList(messages);
+    }
+
+    @Override
+    public void describeTo(Description description) {
+      description
+          .appendText("a string containing ")
+          .appendText(
+              String.join(
+                  ", ", messages.stream().map(m -> "\"" + m + "\"").collect(Collectors.toList())));
+    }
+
+    @Override
+    public boolean matches(Object o) {
+      if (o instanceof AbortException) {
+        AbortException exception = (AbortException) o;
+        if (exception.getMessage() != null
+            && messages.stream().allMatch(message -> exception.getMessage().contains(message))) {
+          return true;
+        }
+        if (exception.getCause() != null) {
+          return matches(exception.getCause());
+        }
+      }
+      return false;
+    }
   }
 }

@@ -5,10 +5,9 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
-import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
 import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
@@ -26,14 +25,21 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
         }
       };
 
-  private final DexProgramClass precondition;
+  private static final Origin NO_HORIZONTAL_CLASS_MERGING_ORIGIN =
+      new Origin(Origin.root()) {
+        @Override
+        public String part() {
+          return "<SYNTHETIC_NO_HORIZONTAL_CLASS_MERGING_RULE>";
+        }
+      };
+
+  private final Set<DexReference> preconditions;
   final ProguardKeepRule subsequentRule;
 
   private Map<DexField, DexField> inlinableFieldsInPrecondition = new ConcurrentHashMap<>();
 
-  public DexProgramClass getPrecondition() {
-    assert precondition != null;
-    return precondition;
+  public Set<DexReference> getPreconditions() {
+    return preconditions;
   }
 
   public ProguardKeepRule getSubsequentRule() {
@@ -106,7 +112,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
       boolean inheritanceIsExtends,
       List<ProguardMemberRule> memberRules,
       ProguardKeepRule subsequentRule,
-      DexProgramClass precondition) {
+      Set<DexReference> preconditions) {
     super(
         origin,
         position,
@@ -124,7 +130,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
         ProguardKeepRuleType.CONDITIONAL,
         ProguardKeepRuleModifiers.builder().build());
     this.subsequentRule = subsequentRule;
-    this.precondition = precondition;
+    this.preconditions = preconditions;
   }
 
   public static Builder builder() {
@@ -147,7 +153,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
   }
 
   protected ProguardIfRule materialize(
-      DexItemFactory dexItemFactory, DexProgramClass precondition) {
+      DexItemFactory dexItemFactory, Set<DexReference> preconditions) {
     return new ProguardIfRule(
         getOrigin(),
         getPosition(),
@@ -169,7 +175,27 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
                 .map(memberRule -> memberRule.materialize(dexItemFactory))
                 .collect(Collectors.toList()),
         subsequentRule.materialize(dexItemFactory),
-        precondition);
+        preconditions);
+  }
+
+  protected ClassInlineRule neverClassInlineRuleForCondition(DexItemFactory dexItemFactory) {
+    return new ClassInlineRule(
+        NEVER_INLINE_ORIGIN,
+        Position.UNKNOWN,
+        null,
+        ProguardTypeMatcher.materializeList(getClassAnnotations(), dexItemFactory),
+        getClassAccessFlags(),
+        getNegatedClassAccessFlags(),
+        getClassTypeNegated(),
+        getClassType(),
+        getClassNames().materialize(dexItemFactory),
+        ProguardTypeMatcher.materializeList(getInheritanceAnnotations(), dexItemFactory),
+        getInheritanceClassName() == null
+            ? null
+            : getInheritanceClassName().materialize(dexItemFactory),
+        getInheritanceIsExtends(),
+        getMemberRules(),
+        ClassInlineRule.Type.NEVER);
   }
 
   /**
@@ -195,7 +221,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
    * -neverinline rule for the condition of the -if rule.
    */
   protected InlineRule neverInlineRuleForCondition(
-      DexItemFactory dexItemFactory, InlineRuleType type) {
+      DexItemFactory dexItemFactory, InlineRule.Type type) {
     if (getMemberRules() == null || getMemberRules().isEmpty()) {
       return null;
     }
@@ -219,6 +245,36 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
             .map(memberRule -> memberRule.materialize(dexItemFactory))
             .collect(Collectors.toList()),
         type);
+  }
+
+  protected NoHorizontalClassMergingRule noHorizontalClassMergingRuleForCondition(
+      DexItemFactory dexItemFactory) {
+    List<ProguardMemberRule> memberRules = null;
+    if (getMemberRules() != null) {
+      memberRules =
+          getMemberRules().stream()
+              .map(memberRule -> memberRule.materialize(dexItemFactory))
+              .collect(Collectors.toList());
+    }
+
+    return NoHorizontalClassMergingRule.builder()
+        .setOrigin(NO_HORIZONTAL_CLASS_MERGING_ORIGIN)
+        .addClassAnnotations(
+            ProguardTypeMatcher.materializeList(getClassAnnotations(), dexItemFactory))
+        .setClassAccessFlags(getClassAccessFlags())
+        .setNegatedClassAccessFlags(getNegatedClassAccessFlags())
+        .setClassType(getClassType())
+        .setClassTypeNegated(getClassTypeNegated())
+        .setClassNames(getClassNames().materialize(dexItemFactory))
+        .addInheritanceAnnotations(
+            ProguardTypeMatcher.materializeList(getInheritanceAnnotations(), dexItemFactory))
+        .setInheritanceClassName(
+            getInheritanceClassName() == null
+                ? null
+                : getInheritanceClassName().materialize(dexItemFactory))
+        .setInheritanceIsExtends(getInheritanceIsExtends())
+        .setMemberRules(memberRules)
+        .build();
   }
 
   @Override

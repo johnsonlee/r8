@@ -87,6 +87,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.InvokeCustom;
+import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMultiNewArray;
 import com.android.tools.r8.ir.code.InvokePolymorphic;
@@ -115,6 +116,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.verticalclassmerging.InterfaceTypeToClassTypeLensCodeRewriterHelper;
+import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -394,6 +396,9 @@ public class LensCodeRewriter {
               if (!invokedHolder.isClassType()) {
                 assert false;
                 continue;
+              }
+              if (invoke.isInvokeDirect()) {
+                checkInvokeDirect(method.getReference(), invoke.asInvokeDirect());
               }
               MethodLookupResult lensLookup =
                   graphLens.lookupMethod(
@@ -1306,6 +1311,54 @@ public class LensCodeRewriter {
       return TypeElement.fromDexType(type, null, appView);
     }
     return TypeElement.getNull();
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  // If the given invoke is on the form "invoke-direct A.<init>, v0, ..." and the definition of
+  // value v0 is "new-instance v0, B", where B is a subtype of A (see the Art800 and B116282409
+  // tests), then fail with a compilation error if A has previously been merged into B.
+  //
+  // The motivation for this is that the vertical class merger cannot easily recognize the above
+  // code pattern, since it runs prior to IR construction. Therefore, we currently allow merging
+  // A and B although this will lead to invalid code, because this code pattern does generally
+  // not occur in practice (it leads to a verification error on the JVM, but not on Art).
+  private void checkInvokeDirect(DexMethod method, InvokeDirect invoke) {
+    VerticallyMergedClasses verticallyMergedClasses = appView.getVerticallyMergedClasses();
+    if (verticallyMergedClasses == null) {
+      // No need to check the invocation.
+      return;
+    }
+    DexMethod invokedMethod = invoke.getInvokedMethod();
+    if (invokedMethod.name != factory.constructorMethodName) {
+      // Not a constructor call.
+      return;
+    }
+    if (invoke.arguments().isEmpty()) {
+      // The new instance should always be passed to the constructor call, but continue gracefully.
+      return;
+    }
+    Value receiver = invoke.arguments().get(0);
+    if (!receiver.isPhi() && receiver.definition.isNewInstance()) {
+      NewInstance newInstance = receiver.definition.asNewInstance();
+      if (newInstance.clazz != invokedMethod.holder
+          && verticallyMergedClasses.hasBeenMergedIntoSubtype(invokedMethod.holder)) {
+        // Generated code will not work. Fail with a compilation error.
+        throw appView
+            .options()
+            .reporter
+            .fatalError(
+                String.format(
+                    "Unable to rewrite `invoke-direct %s.<init>(new %s, ...)` in method `%s` after "
+                        + "type `%s` was merged into `%s`. Please add the following rule to your "
+                        + "Proguard configuration file: `-keep,allowobfuscation class %s`.",
+                    invokedMethod.holder.toSourceString(),
+                    newInstance.clazz,
+                    method.toSourceString(),
+                    invokedMethod.holder,
+                    verticallyMergedClasses.getTargetFor(invokedMethod.holder),
+                    invokedMethod.holder.toSourceString()));
+      }
+    }
   }
 
   /**

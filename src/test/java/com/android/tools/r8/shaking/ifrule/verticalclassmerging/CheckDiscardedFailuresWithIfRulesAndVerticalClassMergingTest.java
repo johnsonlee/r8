@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking.ifrule.verticalclassmerging;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NoVerticalClassMerging;
@@ -15,7 +16,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.errors.CheckDiscardDiagnostic;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.AssertUtils;
-import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +55,13 @@ public class CheckDiscardedFailuresWithIfRulesAndVerticalClassMergingTest extend
                     "-if class " + A.class.getTypeName(), "-keep class " + C.class.getTypeName())
                 .addNoVerticalClassMergingAnnotations()
                 .addVerticallyMergedClassesInspector(
-                    VerticallyMergedClassesInspector::assertNoClassesMerged)
+                    inspector -> {
+                      if (enableVerticalClassMerging) {
+                        inspector.assertMergedIntoSubtype(A.class);
+                      } else {
+                        inspector.assertNoClassesMerged();
+                      }
+                    })
                 // Intentionally fail compilation due to -checkdiscard. This triggers the
                 // (re)running of the Enqueuer after the final round of tree shaking, for generating
                 // -whyareyoukeeping output.
@@ -75,7 +81,14 @@ public class CheckDiscardedFailuresWithIfRulesAndVerticalClassMergingTest extend
                         diagnostics.assertNoMessages();
                       }
                     })
-                .inspect(inspector -> assertThat(inspector.clazz(C.class), isPresent()))
+                // TODO(b/266049507): It is questionable not to keep C when vertical class merging
+                // is enabled. A simple fix is to disable vertical class merging of classes matched
+                // by the -if condition.
+                .inspect(
+                    inspector ->
+                        assertThat(
+                            inspector.clazz(C.class),
+                            notIf(isPresent(), enableVerticalClassMerging)))
                 .run(parameters.getRuntime(), Main.class)
                 .assertSuccessWithOutputLines("B"));
   }

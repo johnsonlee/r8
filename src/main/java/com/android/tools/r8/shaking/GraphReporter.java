@@ -33,13 +33,13 @@ import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -532,12 +532,14 @@ public class GraphReporter {
     }
     if (rule instanceof ProguardIfRule) {
       ProguardIfRule ifRule = (ProguardIfRule) rule;
-      assert ifRule.getPrecondition() != null;
+      assert !ifRule.getPreconditions().isEmpty();
       return ruleNodes.computeIfAbsent(
           ifRule,
           key -> {
-            Set<GraphNode> preconditions =
-                SetUtils.newHashSet(getGraphNode(ifRule.getPrecondition().getReference()));
+            Set<GraphNode> preconditions = new HashSet<>(ifRule.getPreconditions().size());
+            for (DexReference condition : ifRule.getPreconditions()) {
+              preconditions.add(getGraphNode(condition));
+            }
             return new KeepRuleGraphNode(ifRule, preconditions);
           });
     }

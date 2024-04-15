@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InvokeType;
@@ -33,7 +34,7 @@ import java.util.List;
 
 /**
  * A short-lived piece of code that will be converted into {@link LirCode} using {@link
- * #toLirCode(AppView, VerticalClassMergerGraphLens, ClassMergerMode)}.
+ * #toLirCode(AppView)}.
  */
 public class IncompleteVerticalClassMergerBridgeCode extends Code {
 
@@ -86,7 +87,10 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
     method = lens.getNextBridgeMethodSignature(method);
   }
 
-  public LirCode<?> toLirCode(AppView<AppInfoWithLiveness> appView) {
+  public LirCode<?> toLirCode(
+      AppView<AppInfoWithLiveness> appView,
+      VerticalClassMergerGraphLens lens,
+      ClassMergerMode mode) {
     boolean isD8R8Synthesized = true;
     LirEncodingStrategy<Value, Integer> strategy =
         LirStrategy.getDefaultStrategy().getEncodingStrategy();
@@ -124,7 +128,21 @@ public class IncompleteVerticalClassMergerBridgeCode extends Code {
       lirBuilder.addReturn(returnValue);
     }
 
-    return lirBuilder.build();
+    LirCode<Integer> lirCode = lirBuilder.build();
+    return mode.isFinal()
+        ? lirCode
+        : new LirCode<>(lirCode) {
+
+          @Override
+          public boolean hasExplicitCodeLens() {
+            return true;
+          }
+
+          @Override
+          public GraphLens getCodeLens(AppView<?> appView) {
+            return lens;
+          }
+        };
   }
 
   // Implement Code.

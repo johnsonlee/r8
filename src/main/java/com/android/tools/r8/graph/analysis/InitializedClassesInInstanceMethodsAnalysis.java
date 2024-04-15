@@ -9,11 +9,9 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
-import com.android.tools.r8.utils.MapUtils;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
@@ -51,26 +49,6 @@ public class InitializedClassesInInstanceMethodsAnalysis extends EnqueuerAnalysi
       // Also check that `subject` is not an interface, since interfaces are not initialized
       // transitively.
       return !subject.isInterface();
-    }
-
-    public InitializedClassesInInstanceMethods rewrittenWithLens(
-        GraphLens lens, GraphLens appliedLens) {
-      return new InitializedClassesInInstanceMethods(
-          appView,
-          MapUtils.transform(
-              mapping,
-              IdentityHashMap::new,
-              key -> {
-                DexType rewrittenKey = lens.lookupType(key, appliedLens);
-                return rewrittenKey.isPrimitiveType() ? null : rewrittenKey;
-              },
-              value -> {
-                DexType rewrittenValue = lens.lookupType(value, appliedLens);
-                return rewrittenValue.isPrimitiveType() ? null : rewrittenValue;
-              },
-              (key, value, otherValue) ->
-                  ClassTypeElement.computeLeastUpperBoundOfClasses(
-                      appView.appInfo(), value, otherValue)));
     }
   }
 
