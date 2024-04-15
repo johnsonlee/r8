@@ -23,9 +23,5 @@ public abstract class KmPropertySubject extends Subject {
 
   public abstract JvmMethodSignature setterSignature();
 
-  public KmProperty getKmProperty() {
-    return null;
-  }
-
   public abstract KmTypeSubject returnType();
 }

@@ -124,16 +124,6 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
           originalAssignmentTracker.add(method.getReference());
         }
       }
-      if (propertyProcessor.syntheticMethodForAnnotationsSignature() != null) {
-        DexEncodedMethod method =
-            methodSignatureMap.get(
-                propertyProcessor.syntheticMethodForAnnotationsSignature().asString());
-        if (method != null) {
-          hasBacking = true;
-          method.setKotlinMemberInfo(kotlinPropertyInfo);
-          originalAssignmentTracker.add(method.getReference());
-        }
-      }
       if (!hasBacking) {
         notBackedProperties.add(kotlinPropertyInfo);
       }
@@ -219,13 +209,8 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       KotlinPropertyGroup kotlinPropertyGroup =
           properties.computeIfAbsent(kotlinPropertyInfo, ignored -> new KotlinPropertyGroup());
       if (method.getReference().proto.returnType == appView.dexItemFactory().voidType) {
-        if (method.getReference().getArity() == 0) {
-          // This is an annotation method.
-          kotlinPropertyGroup.setSyntheticMethodForAnnotations(method);
-        } else {
-          // This is a setter.
-          kotlinPropertyGroup.setSetter(method);
-        }
+        // This is a setter.
+        kotlinPropertyGroup.setSetter(method);
       } else {
         kotlinPropertyGroup.setGetter(method);
       }
@@ -238,7 +223,6 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
               kotlinPropertyGroup.backingField,
               kotlinPropertyGroup.getter,
               kotlinPropertyGroup.setter,
-              kotlinPropertyGroup.syntheticMethodForAnnotations,
               appView);
     }
     // Add all not backed functions and properties.
@@ -269,7 +253,6 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
     private DexEncodedField backingField = null;
     private DexEncodedMethod setter = null;
     private DexEncodedMethod getter = null;
-    private DexEncodedMethod syntheticMethodForAnnotations = null;
 
     void setBackingField(DexEncodedField backingField) {
       assert this.backingField == null;
@@ -284,11 +267,6 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
     void setSetter(DexEncodedMethod setter) {
       assert this.setter == null;
       this.setter = setter;
-    }
-
-    public void setSyntheticMethodForAnnotations(DexEncodedMethod syntheticMethodForAnnotations) {
-      assert this.syntheticMethodForAnnotations == null;
-      this.syntheticMethodForAnnotations = syntheticMethodForAnnotations;
     }
   }
 }

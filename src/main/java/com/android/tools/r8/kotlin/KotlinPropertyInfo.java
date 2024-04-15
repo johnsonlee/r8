@@ -146,7 +146,7 @@ public class KotlinPropertyInfo implements KotlinFieldLevelInfo, KotlinMethodLev
   }
 
   boolean rewriteNoBacking(Consumer<KmProperty> consumer, AppView<?> appView) {
-    return rewrite(consumer, null, null, null, null, appView);
+    return rewrite(consumer, null, null, null, appView);
   }
 
   boolean rewrite(
@@ -154,7 +154,6 @@ public class KotlinPropertyInfo implements KotlinFieldLevelInfo, KotlinMethodLev
       DexEncodedField field,
       DexEncodedMethod getter,
       DexEncodedMethod setter,
-      DexEncodedMethod syntheticMethodForAnnotationsMethod,
       AppView<?> appView) {
     // TODO(b/154348683): Flags again.
     KmProperty kmProperty =
@@ -208,15 +207,13 @@ public class KotlinPropertyInfo implements KotlinFieldLevelInfo, KotlinMethodLev
               setter,
               appView);
     }
-    if (syntheticMethodForAnnotations != null) {
-      rewritten |=
-          syntheticMethodForAnnotations.rewrite(
-              newSignature ->
-                  JvmExtensionsKt.setSyntheticMethodForAnnotations(kmProperty, newSignature),
-              syntheticMethodForAnnotationsMethod,
-              appView);
-    }
     JvmExtensionsKt.setJvmFlags(kmProperty, jvmFlags);
+    rewritten |=
+        rewriteIfNotNull(
+            appView,
+            syntheticMethodForAnnotations,
+            newMethod -> JvmExtensionsKt.setSyntheticMethodForAnnotations(kmProperty, newMethod),
+            KotlinJvmMethodSignatureInfo::rewriteNoBacking);
     rewritten |=
         rewriteIfNotNull(
             appView,
