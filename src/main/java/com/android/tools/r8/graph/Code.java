@@ -13,10 +13,12 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.Position.OutlineCallerPosition;
 import com.android.tools.r8.ir.code.Position.PositionBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.utils.Int2StructuralItemArrayMap;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.util.function.Consumer;
@@ -219,16 +221,48 @@ public abstract class Code extends CachedHashValueDexItem {
     if (!outermostCallee.isOutline() && !outermostCallee.isRemoveInnerFramesIfThrowingNpe()) {
       return calleePosition.replacePosition(outermostCallee, callerPosition);
     }
+    // If the position is inlining an outline then both frames are to be replaced by the
+    // translation of the line positions.
+    if (callerPosition.isOutlineCaller() && outermostCallee.isOutline()) {
+      OutlineCallerPosition outlineCaller = callerPosition.asOutlineCaller();
+      Int2StructuralItemArrayMap<Position> translation = outlineCaller.getOutlinePositions();
+      // Map the synthetic line found in the outline to the actual position as encoded in the
+      // outline-caller position table. Note that the outline may have more lines than the table
+      // if multiple outline instructions translate to the same original caller positions.
+      int outlineLine = outermostCallee.getLine();
+      Position translatedPosition = null;
+      for (int i = 0; i <= outlineLine; i++) {
+        Position result = translation.lookup(i);
+        if (result != null) {
+          translatedPosition = result;
+        }
+      }
+      assert translatedPosition != null;
+      // If the caller has outer frames compose them with the translated position.
+      if (callerPosition.hasCallerPosition()) {
+        translatedPosition =
+            translatedPosition.withOutermostCallerPosition(callerPosition.getCallerPosition());
+      }
+      // If the outline has additional inner frames append them as inner frames on the translation.
+      if (calleePosition.hasCallerPosition()) {
+        translatedPosition = calleePosition.replacePosition(outermostCallee, translatedPosition);
+      }
+      return translatedPosition;
+    }
 
     assert !callerPosition.isOutline();
-    assert !callerPosition.hasCallerPosition();
     // Copy the callee frame to ensure transfer of the outline key if present.
     PositionBuilder<?, ?> newCallerBuilder =
         outermostCallee.builderWithCopy().setMethod(callerPosition.getMethod());
+    // Transfer the callers outer frames if any.
+    if (callerPosition.hasCallerPosition()) {
+      newCallerBuilder.setCallerPosition(callerPosition.getCallerPosition());
+    }
     // If the callee is an outline, the line must be that of the outline to maintain the positions.
     if (outermostCallee.isOutline()) {
       // This does not implement inlining an outline. The cases this hits should always be a full
       // "move as inlining" to be correct.
+      assert !callerPosition.isOutlineCaller();
       assert callerPosition.isD8R8Synthesized();
       assert callerPosition.getLine() == 0;
     } else {
