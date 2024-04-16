@@ -84,6 +84,7 @@ import com.android.tools.r8.optimize.accessmodification.AccessModifierOptions;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorEventConsumer;
 import com.android.tools.r8.optimize.compose.JetpackComposeOptions;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemovalOptions;
+import com.android.tools.r8.optimize.singlecaller.SingleCallerInlinerOptions;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.art.ArtProfileOptions;
@@ -931,6 +932,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final CfCodeAnalysisOptions cfCodeAnalysisOptions = new CfCodeAnalysisOptions();
   private final ClassInlinerOptions classInlinerOptions = new ClassInlinerOptions();
   private final InlinerOptions inlinerOptions = new InlinerOptions(this);
+  private final SingleCallerInlinerOptions singleCallerInlinerOptions =
+      new SingleCallerInlinerOptions(this);
   private final JetpackComposeOptions jetpackComposeOptions = new JetpackComposeOptions(this);
   private final HorizontalClassMergerOptions horizontalClassMergerOptions =
       new HorizontalClassMergerOptions();
@@ -987,6 +990,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public JetpackComposeOptions getJetpackComposeOptions() {
     return jetpackComposeOptions;
+  }
+
+  public SingleCallerInlinerOptions getSingleCallerInlinerOptions() {
+    return singleCallerInlinerOptions;
   }
 
   public VerticalClassMergerOptions getVerticalClassMergerOptions() {
