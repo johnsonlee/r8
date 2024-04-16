@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -33,13 +34,15 @@ import com.android.tools.r8.ir.optimize.inliner.InliningReasonStrategy;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.lightir.LirCode;
+import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.Deque;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -61,16 +64,15 @@ public class SingleCallerInliner {
   }
 
   private boolean shouldRun() {
-    InternalOptions options = appView.options();
-    return !options.debug
-        && !options.intermediate
-        && options.isOptimizing()
-        && options.isShrinking();
+    return appView.options().getSingleCallerInlinerOptions().isEnabled();
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
+    ProgramMethodSet monomorphicVirtualMethods =
+        computeMonomorphicVirtualRootMethods(executorService);
     ProgramMethodMap<ProgramMethod> singleCallerMethods =
-        new SingleCallerScanner(appView).getSingleCallerMethods(executorService);
+        new SingleCallerScanner(appView, monomorphicVirtualMethods)
+            .getSingleCallerMethods(executorService);
     if (singleCallerMethods.isEmpty()) {
       return;
     }
@@ -79,6 +81,21 @@ public class SingleCallerInliner {
     performInlining(inliner, singleCallerMethods, executorService);
     pruneEnclosingMethodAttributes();
     pruneItems(singleCallerMethods, executorService);
+  }
+
+  // We only allow single caller inlining of "direct dispatch virtual methods". We currently only
+  // deal with (rooted) virtual methods that do not override abstract/interface methods. In order to
+  // also deal with virtual methods that override abstract/interface methods we would need to record
+  // calls to the abstract/interface methods as calls to the non-abstract virtual method.
+  private ProgramMethodSet computeMonomorphicVirtualRootMethods(ExecutorService executorService)
+      throws ExecutionException {
+    ImmediateProgramSubtypingInfo immediateSubtypingInfo =
+        ImmediateProgramSubtypingInfo.create(appView);
+    List<Set<DexProgramClass>> stronglyConnectedComponents =
+        new ProgramClassesBidirectedGraph(appView, immediateSubtypingInfo)
+            .computeStronglyConnectedComponents();
+    return MonomorphicVirtualMethodsAnalysis.computeMonomorphicVirtualRootMethods(
+        appView, immediateSubtypingInfo, stronglyConnectedComponents, executorService);
   }
 
   private void processCallees(

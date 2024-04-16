@@ -73,7 +73,8 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
   private int expectedActualStackTraceHeight() {
     // In RELEASE mode a synthetic bridge is added by the vertical class merger if the method is
     // targeted by the invoke-super (which is modeled by setting enableBridgeAnalysis to false).
-    return mode == CompilationMode.DEBUG || enableBridgeAnalysis ? 2 : 3;
+    // Due to single caller inlining we still end up with a stack trace height of 2.
+    return 2;
   }
 
   private boolean filterSynthesizedMethodWhenLineNumberAvailable(

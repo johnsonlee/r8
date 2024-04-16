@@ -519,6 +519,7 @@ public class Enqueuer {
       appView.getResourceShrinkerState().setEnqueuerCallback(this::recordReferenceFromResources);
     }
     if (mode.isTreeShaking()) {
+      InitializedClassesInInstanceMethodsAnalysis.register(appView, this);
       GetArrayOfMissingTypeVerifyErrorWorkaround.register(appView, this);
       InitializedClassesInInstanceMethodsAnalysis.register(appView, this);
       InvokeVirtualToInterfaceVerifyErrorWorkaround.register(appView, this);

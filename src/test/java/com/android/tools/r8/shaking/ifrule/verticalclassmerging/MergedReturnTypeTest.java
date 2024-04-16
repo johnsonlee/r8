@@ -6,14 +6,15 @@ package com.android.tools.r8.shaking.ifrule.verticalclassmerging;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.AssumeMayHaveSideEffects;
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoAccessModification;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.shaking.ifrule.verticalclassmerging.MergedParameterTypeTest.MergedParameterTypeWithCollisionTest.SuperTestClass;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
@@ -67,6 +68,7 @@ public class MergedReturnTypeTest extends MergedTypeBaseTest {
     static class SuperTestClass {
 
       @AssumeMayHaveSideEffects
+      @NeverInline
       public static A method() {
         return new B();
       }
@@ -101,6 +103,7 @@ public class MergedReturnTypeTest extends MergedTypeBaseTest {
                   inspector
                       .applyIf(enableVerticalClassMerging, i -> i.assertMergedIntoSubtype(A.class))
                       .assertNoOtherClassesMerged())
+          .enableInliningAnnotations()
           .enableNoHorizontalClassMergingAnnotations()
           .enableSideEffectAnnotations();
     }
@@ -128,11 +131,6 @@ public class MergedReturnTypeTest extends MergedTypeBaseTest {
       assertThat(testClassSubject, isPresent());
 
       if (enableVerticalClassMerging) {
-        // Verify that SuperTestClass has been merged into TestClass.
-        assertThat(inspector.clazz(SuperTestClass.class), not(isPresent()));
-        assertEquals(
-            "java.lang.Object", testClassSubject.getDexProgramClass().superType.toSourceString());
-
         // Verify that TestClass.method has been removed.
         List<FoundMethodSubject> methods =
             testClassSubject.allMethods().stream()
