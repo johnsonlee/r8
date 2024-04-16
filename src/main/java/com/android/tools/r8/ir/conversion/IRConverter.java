@@ -787,11 +787,6 @@ public class IRConverter {
     previous =
         printMethod(code, "IR after idempotent function call canonicalization (SSA)", previous);
 
-    // Insert code to log arguments if requested.
-    if (options.methodMatchesLogArgumentsFilter(method) && !method.isProcessed()) {
-      codeRewriter.logArgumentTypes(method, code);
-    }
-
     previous = printMethod(code, "IR after argument type logging (SSA)", previous);
 
     assert code.verifyTypes(appView);

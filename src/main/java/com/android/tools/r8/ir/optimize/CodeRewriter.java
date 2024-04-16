@@ -4,38 +4,22 @@
 
 package com.android.tools.r8.ir.optimize;
 
-import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
-import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
-
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
-import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
-import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
-import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.DebugLocalWrite;
 import com.android.tools.r8.ir.code.DebugLocalsChange;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.If;
-import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
-import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Move;
 import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.ir.code.Position.SyntheticPosition;
-import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -45,17 +29,14 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.util.List;
 import java.util.Set;
 
 public class CodeRewriter {
 
   private final AppView<?> appView;
-  private final DexItemFactory dexItemFactory;
 
   public CodeRewriter(AppView<?> appView) {
     this.appView = appView;
-    this.dexItemFactory = appView.dexItemFactory();
   }
 
   public static void removeAssumeInstructions(AppView<?> appView, IRCode code) {
@@ -327,128 +308,5 @@ public class CodeRewriter {
       int newRegister = mapping.getOrDefault(oldRegister, oldRegister);
       locals.put(newRegister, entry.getValue());
     }
-  }
-
-  private Value addConstString(IRCode code, InstructionListIterator iterator, String s) {
-    TypeElement typeLattice = TypeElement.stringClassType(appView, definitelyNotNull());
-    Value value = code.createValue(typeLattice);
-    iterator.add(new ConstString(value, dexItemFactory.createString(s)));
-    return value;
-  }
-
-  /**
-   * Insert code into <code>method</code> to log the argument types to System.out.
-   *
-   * The type is determined by calling getClass() on the argument.
-   */
-  public void logArgumentTypes(DexEncodedMethod method, IRCode code) {
-    List<Value> arguments = code.collectArguments();
-    BasicBlock block = code.entryBlock();
-    InstructionListIterator iterator = block.listIterator(code);
-
-    // Attach some synthetic position to all inserted code.
-    Position position =
-        SyntheticPosition.builder().setLine(1).setMethod(method.getReference()).build();
-    iterator.setInsertionPosition(position);
-
-    // Split arguments into their own block.
-    iterator.nextUntil(instruction -> !instruction.isArgument());
-    iterator.previous();
-    iterator.split(code);
-    iterator.previous();
-
-    // Now that the block is split there should not be any catch handlers in the block.
-    assert !block.hasCatchHandlers();
-    DexType javaLangSystemType = dexItemFactory.javaLangSystemType;
-    DexType javaIoPrintStreamType = dexItemFactory.javaIoPrintStreamType;
-    Value out =
-        code.createValue(TypeElement.fromDexType(javaIoPrintStreamType, maybeNull(), appView));
-
-    DexProto proto = dexItemFactory.createProto(dexItemFactory.voidType, dexItemFactory.objectType);
-    DexMethod print = dexItemFactory.createMethod(javaIoPrintStreamType, proto, "print");
-    DexMethod printLn = dexItemFactory.createMethod(javaIoPrintStreamType, proto, "println");
-
-    iterator.add(
-        new StaticGet(
-            out, dexItemFactory.createField(javaLangSystemType, javaIoPrintStreamType, "out")));
-
-    Value value = addConstString(code, iterator, "INVOKE ");
-    iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, value)));
-
-    value = addConstString(code, iterator, method.getReference().qualifiedName());
-    iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, value)));
-
-    Value openParenthesis = addConstString(code, iterator, "(");
-    Value comma = addConstString(code, iterator, ",");
-    Value closeParenthesis = addConstString(code, iterator, ")");
-    Value indent = addConstString(code, iterator, "  ");
-    Value nul = addConstString(code, iterator, "(null)");
-    Value primitive = addConstString(code, iterator, "(primitive)");
-    Value empty = addConstString(code, iterator, "");
-
-    iterator.add(new InvokeVirtual(printLn, null, ImmutableList.of(out, openParenthesis)));
-    for (int i = 0; i < arguments.size(); i++) {
-      iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, indent)));
-
-      // Add a block for end-of-line printing.
-      BasicBlock eol =
-          BasicBlock.createGotoBlock(code.getNextBlockNumber(), position, code.metadata());
-      code.blocks.add(eol);
-
-      BasicBlock successor = block.unlinkSingleSuccessor();
-      block.link(eol);
-      eol.link(successor);
-
-      Value argument = arguments.get(i);
-      if (!argument.getType().isReferenceType()) {
-        iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, primitive)));
-      } else {
-        // Insert "if (argument != null) ...".
-        successor = block.unlinkSingleSuccessor();
-        If theIf = new If(IfType.NE, argument);
-        theIf.setPosition(position);
-        BasicBlock ifBlock =
-            BasicBlock.createIfBlock(code.getNextBlockNumber(), theIf, code.metadata());
-        code.blocks.add(ifBlock);
-        // Fallthrough block must be added right after the if.
-        BasicBlock isNullBlock =
-            BasicBlock.createGotoBlock(code.getNextBlockNumber(), position, code.metadata());
-        code.blocks.add(isNullBlock);
-        BasicBlock isNotNullBlock =
-            BasicBlock.createGotoBlock(code.getNextBlockNumber(), position, code.metadata());
-        code.blocks.add(isNotNullBlock);
-
-        // Link the added blocks together.
-        block.link(ifBlock);
-        ifBlock.link(isNotNullBlock);
-        ifBlock.link(isNullBlock);
-        isNotNullBlock.link(successor);
-        isNullBlock.link(successor);
-
-        // Fill code into the blocks.
-        iterator = isNullBlock.listIterator(code);
-        iterator.setInsertionPosition(position);
-        iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, nul)));
-        iterator = isNotNullBlock.listIterator(code);
-        iterator.setInsertionPosition(position);
-        value = code.createValue(TypeElement.classClassType(appView, maybeNull()));
-        iterator.add(
-            new InvokeVirtual(
-                dexItemFactory.objectMembers.getClass, value, ImmutableList.of(arguments.get(i))));
-        iterator.add(new InvokeVirtual(print, null, ImmutableList.of(out, value)));
-      }
-
-      iterator = eol.listIterator(code);
-      iterator.setInsertionPosition(position);
-      if (i == arguments.size() - 1) {
-        iterator.add(new InvokeVirtual(printLn, null, ImmutableList.of(out, closeParenthesis)));
-      } else {
-        iterator.add(new InvokeVirtual(printLn, null, ImmutableList.of(out, comma)));
-      }
-      block = eol;
-    }
-    // When we fall out of the loop the iterator is in the last eol block.
-    iterator.add(new InvokeVirtual(printLn, null, ImmutableList.of(out, empty)));
-    assert code.isConsistentSSA(appView);
   }
 }
