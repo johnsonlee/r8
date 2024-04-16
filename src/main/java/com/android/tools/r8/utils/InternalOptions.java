@@ -2334,6 +2334,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean allowClassInliningOfSynthetics = true;
     public boolean allowInjectedAnnotationMethods = false;
+    public boolean allowInliningOfOutlines = true;
     public boolean allowInliningOfSynthetics = true;
     public boolean allowNullDynamicTypeInCodeScanner = true;
     public boolean allowTypeErrors =

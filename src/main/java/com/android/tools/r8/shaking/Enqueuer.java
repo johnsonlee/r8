@@ -4223,7 +4223,7 @@ public class Enqueuer {
 
       minimumSyntheticKeepInfo.forEach(
           (method, minimumKeepInfoForMethod) -> {
-            enqueuer.getKeepInfo().registerCompilerSynthesizedMethod(method.getReference());
+            enqueuer.getKeepInfo().registerCompilerSynthesizedMethod(method);
             enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(method, minimumKeepInfoForMethod);
           });
     }

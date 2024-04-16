@@ -72,6 +72,7 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.OutlineOptions;
 import com.android.tools.r8.utils.ListUtils;
@@ -1402,6 +1403,7 @@ public class OutlinerImpl extends Outliner {
           },
           executorService);
       List<ProgramMethod> outlineMethods = buildOutlineMethods(eventConsumer);
+      disallowInlining(outlineMethods);
       MethodProcessorEventConsumer methodProcessorEventConsumer =
           MethodProcessorEventConsumer.empty();
       converter.optimizeSynthesizedMethods(
@@ -1429,6 +1431,21 @@ public class OutlinerImpl extends Outliner {
     }
     appView.notifyOptimizationFinishedForTesting();
     timing.end();
+  }
+
+  private void disallowInlining(List<ProgramMethod> outlineMethods) {
+    if (appView.testing().allowInliningOfOutlines) {
+      return;
+    }
+    appView
+        .getKeepInfo()
+        .mutate(
+            keepInfo -> {
+              for (ProgramMethod outlineMethod : outlineMethods) {
+                keepInfo.registerCompilerSynthesizedMethod(outlineMethod);
+                keepInfo.joinMethod(outlineMethod, Joiner::disallowInlining);
+              }
+            });
   }
 
   private void forEachSelectedOutliningMethod(

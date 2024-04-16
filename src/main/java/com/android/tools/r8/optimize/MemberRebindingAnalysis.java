@@ -417,9 +417,9 @@ public class MemberRebindingAnalysis {
           for (Pair<DexMethod, DexClassAndMethod> pair : targets) {
             DexMethod method = pair.getFirst();
             DexClassAndMethod target = pair.getSecond();
-            DexMethod bridgeMethod =
+            DexMethod bridgeMethodReference =
                 method.withHolder(bridgeHolder.getType(), appView.dexItemFactory());
-            if (bridgeHolder.getMethodCollection().getMethod(bridgeMethod) == null) {
+            if (bridgeHolder.getMethodCollection().getMethod(bridgeMethodReference) == null) {
               DexEncodedMethod targetDefinition = target.getDefinition();
               DexEncodedMethod bridgeMethodDefinition =
                   targetDefinition.toForwardingMethod(
@@ -445,21 +445,19 @@ public class MemberRebindingAnalysis {
               assert !bridgeMethodDefinition.belongsToVirtualPool()
                   || !bridgeMethodDefinition.isLibraryMethodOverride().isUnknown();
               bridgeHolder.addMethod(bridgeMethodDefinition);
+              ProgramMethod bridgeMethod = bridgeMethodDefinition.asProgramMethod(bridgeHolder);
               if (!appView.options().debug) {
                 // TODO(b/333677610): Register these methods in debug mode as well.
-                appView
-                    .getKeepInfo()
-                    .registerCompilerSynthesizedMethod(bridgeMethodDefinition.getReference());
+                appView.getKeepInfo().registerCompilerSynthesizedMethod(bridgeMethod);
               }
-              eventConsumer.acceptMemberRebindingBridgeMethod(
-                  bridgeMethodDefinition.asProgramMethod(bridgeHolder), target);
+              eventConsumer.acceptMemberRebindingBridgeMethod(bridgeMethod, target);
             }
             assert appView
                 .appInfo()
                 .unsafeResolveMethodDueToDexFormat(method)
                 .getResolvedMethod()
                 .getReference()
-                .isIdenticalTo(bridgeMethod);
+                .isIdenticalTo(bridgeMethodReference);
           }
         });
   }
