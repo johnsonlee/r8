@@ -10,7 +10,7 @@ import java.util.List;
 
 public class InlineRule extends ProguardConfigurationRule {
 
-  public enum Type {
+  public enum InlineRuleType {
     ALWAYS,
     NEVER,
     NEVER_CLASS_INLINE,
@@ -24,14 +24,14 @@ public class InlineRule extends ProguardConfigurationRule {
       super();
     }
 
-    Type type;
+    InlineRuleType type;
 
     @Override
     public Builder self() {
       return this;
     }
 
-    public Builder setType(Type type) {
+    public Builder setType(InlineRuleType type) {
       this.type = type;
       return this;
     }
@@ -56,7 +56,7 @@ public class InlineRule extends ProguardConfigurationRule {
     }
   }
 
-  private final Type type;
+  private final InlineRuleType type;
 
   protected InlineRule(
       Origin origin,
@@ -72,7 +72,7 @@ public class InlineRule extends ProguardConfigurationRule {
       ProguardTypeMatcher inheritanceClassName,
       boolean inheritanceIsExtends,
       List<ProguardMemberRule> memberRules,
-      Type type) {
+      InlineRuleType type) {
     super(
         origin,
         position,
@@ -94,7 +94,7 @@ public class InlineRule extends ProguardConfigurationRule {
     return new Builder();
   }
 
-  public Type getType() {
+  public InlineRuleType getType() {
     return type;
   }
 

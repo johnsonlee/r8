@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -14,17 +12,14 @@ import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexReference;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.SubtypingInfo;
-import com.android.tools.r8.shaking.InlineRule.Type;
+import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions.ProguardIfRuleEvaluationData;
 import com.google.common.base.Equivalence.Wrapper;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
@@ -98,45 +93,9 @@ public class IfRuleEvaluator {
                 if (appView.options().testing.measureProguardIfRuleEvaluations) {
                   ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
                 }
-                boolean matched = evaluateIfRuleMembersAndMaterialize(ifRule, clazz, clazz);
+                boolean matched = evaluateIfRuleMembersAndMaterialize(ifRule, clazz);
                 if (matched && canRemoveSubsequentKeepRule(ifRule)) {
                   toRemove.add(ifRule);
-                }
-              }
-            }
-
-            // Check if one of the types that have been merged into `clazz` satisfies the if-rule.
-            if (appView.getVerticallyMergedClasses() != null) {
-              Iterable<DexType> sources =
-                  appView.getVerticallyMergedClasses().getSourcesFor(clazz.type);
-              for (DexType sourceType : sources) {
-                // Note that, although `sourceType` has been merged into `type`, the dex class for
-                // `sourceType` is still available until the second round of tree shaking. This
-                // way we can still retrieve the access flags of `sourceType`.
-                DexProgramClass sourceClass =
-                    asProgramClassOrNull(
-                        appView.appInfo().definitionForWithoutExistenceAssert(sourceType));
-                if (sourceClass == null) {
-                  // TODO(b/266049507): The evaluation of -if rules in the final round of tree
-                  //  shaking and during -whyareyoukeeping should be the same. Currently the pruning
-                  //  of classes changes behavior.
-                  assert enqueuer.getMode().isWhyAreYouKeeping();
-                  continue;
-                }
-                if (appView.options().testing.measureProguardIfRuleEvaluations) {
-                  ifRuleEvaluationData.numberOfProguardIfRuleClassEvaluations++;
-                }
-                if (evaluateClassForIfRule(ifRuleKey, sourceClass)) {
-                  for (ProguardIfRule ifRule : ifRulesInEquivalence) {
-                    registerClassCapture(ifRule, sourceClass, clazz);
-                    if (appView.options().testing.measureProguardIfRuleEvaluations) {
-                      ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
-                    }
-                    if (evaluateIfRuleMembersAndMaterialize(ifRule, sourceClass, clazz)
-                        && canRemoveSubsequentKeepRule(ifRule)) {
-                      toRemove.add(ifRule);
-                    }
-                  }
                 }
               }
             }
@@ -203,12 +162,11 @@ public class IfRuleEvaluator {
     return true;
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private boolean evaluateIfRuleMembersAndMaterialize(
-      ProguardIfRule rule, DexClass sourceClass, DexClass targetClass) throws ExecutionException {
+  private boolean evaluateIfRuleMembersAndMaterialize(ProguardIfRule rule, DexProgramClass clazz)
+      throws ExecutionException {
     Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
     if (memberKeepRules.isEmpty()) {
-      materializeIfRule(rule, ImmutableSet.of(sourceClass.getReference()));
+      materializeIfRule(rule, clazz);
       return true;
     }
 
@@ -216,12 +174,12 @@ public class IfRuleEvaluator {
     Set<DexDefinition> filteredMembers = Sets.newIdentityHashSet();
     Iterables.addAll(
         filteredMembers,
-        targetClass.fields(
+        clazz.fields(
             f -> {
               // Fields that are javac inlined are unsound as predicates for conditional rules.
               // Ignore any such field members and record it for possible reporting later.
               if (isFieldInlinedByJavaC(f)) {
-                fieldsInlinedByJavaC.add(DexClassAndField.create(targetClass, f));
+                fieldsInlinedByJavaC.add(DexClassAndField.create(clazz, f));
                 return false;
               }
               // Fields referenced only by -keep may not be referenced, we therefore have to
@@ -229,18 +187,24 @@ public class IfRuleEvaluator {
               return (enqueuer.isFieldLive(f)
                       || enqueuer.isFieldReferenced(f)
                       || f.getOptimizationInfo().valueHasBeenPropagated())
-                  && (appView.graphLens().getOriginalFieldSignature(f.getReference()).holder
-                      == sourceClass.type);
+                  && appView
+                      .graphLens()
+                      .getOriginalFieldSignature(f.getReference())
+                      .getHolderType()
+                      .isIdenticalTo(clazz.getType());
             }));
     Iterables.addAll(
         filteredMembers,
-        targetClass.methods(
+        clazz.methods(
             m ->
                 (enqueuer.isMethodLive(m)
                         || enqueuer.isMethodTargeted(m)
                         || m.getOptimizationInfo().returnValueHasBeenPropagated())
-                    && appView.graphLens().getOriginalMethodSignature(m.getReference()).holder
-                        == sourceClass.type));
+                    && appView
+                        .graphLens()
+                        .getOriginalMethodSignature(m.getReference())
+                        .getHolderType()
+                        .isIdenticalTo(clazz.getType())));
 
     // Check if the rule could hypothetically have matched a javac inlined field.
     // If so mark the rule. Reporting happens only if the rule is otherwise unused.
@@ -271,11 +235,11 @@ public class IfRuleEvaluator {
         Sets.combinations(filteredMembers, memberKeepRules.size())) {
       Collection<DexClassAndField> fieldsInCombination =
           DexDefinition.filterDexEncodedField(
-                  combination.stream(), field -> DexClassAndField.create(targetClass, field))
+                  combination.stream(), field -> DexClassAndField.create(clazz, field))
               .collect(Collectors.toList());
       Collection<DexClassAndMethod> methodsInCombination =
           DexDefinition.filterDexEncodedMethod(
-                  combination.stream(), method -> DexClassAndMethod.create(targetClass, method))
+                  combination.stream(), method -> DexClassAndMethod.create(clazz, method))
               .collect(Collectors.toList());
       // Member rules are combined as AND logic: if found unsatisfied member rule, this
       // combination of live members is not a good fit.
@@ -287,7 +251,7 @@ public class IfRuleEvaluator {
                           || rootSetBuilder.ruleSatisfiedByMethods(
                               memberRule, methodsInCombination));
       if (satisfied) {
-        materializeIfRule(rule, ImmutableSet.of(sourceClass.getReference()));
+        materializeIfRule(rule, clazz);
         if (canRemoveSubsequentKeepRule(rule)) {
           return true;
         }
@@ -305,25 +269,17 @@ public class IfRuleEvaluator {
     return field.getOrComputeIsInlinableByJavaC(appView.dexItemFactory());
   }
 
-  @SuppressWarnings("BadImport")
-  private void materializeIfRule(ProguardIfRule rule, Set<DexReference> preconditions)
+  private void materializeIfRule(ProguardIfRule rule, DexProgramClass precondition)
       throws ExecutionException {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    ProguardIfRule materializedRule = rule.materialize(dexItemFactory, preconditions);
+    ProguardIfRule materializedRule = rule.materialize(dexItemFactory, precondition);
 
     if (enqueuer.getMode().isInitialTreeShaking()
         && !rule.isUsed()
         && !rule.isTrivalAllClassMatch()) {
-      // We need to abort class inlining of classes that could be matched by the condition of this
-      // -if rule.
-      ClassInlineRule neverClassInlineRuleForCondition =
-          materializedRule.neverClassInlineRuleForCondition(dexItemFactory);
-      if (neverClassInlineRuleForCondition != null) {
-        rootSetBuilder.runPerRule(tasks, neverClassInlineRuleForCondition, null);
-      }
-
       InlineRule neverInlineForClassInliningRuleForCondition =
-          materializedRule.neverInlineRuleForCondition(dexItemFactory, Type.NEVER_CLASS_INLINE);
+          materializedRule.neverInlineRuleForCondition(
+              dexItemFactory, InlineRuleType.NEVER_CLASS_INLINE);
       if (neverInlineForClassInliningRuleForCondition != null) {
         rootSetBuilder.runPerRule(tasks, neverInlineForClassInliningRuleForCondition, null);
       }
@@ -332,17 +288,18 @@ public class IfRuleEvaluator {
       // ensure that the subsequent rule will be applied again in the second round of tree
       // shaking.
       InlineRule neverInlineRuleForCondition =
-          materializedRule.neverInlineRuleForCondition(dexItemFactory, Type.NEVER);
+          materializedRule.neverInlineRuleForCondition(dexItemFactory, InlineRuleType.NEVER);
       if (neverInlineRuleForCondition != null) {
         rootSetBuilder.runPerRule(tasks, neverInlineRuleForCondition, null);
       }
 
-      // Prevent horizontal class merging of any -if rule members.
-      NoHorizontalClassMergingRule noHorizontalClassMergingRule =
-          materializedRule.noHorizontalClassMergingRuleForCondition(dexItemFactory);
-      if (noHorizontalClassMergingRule != null) {
-        rootSetBuilder.runPerRule(tasks, noHorizontalClassMergingRule, null);
-      }
+      rootSetBuilder
+          .getDependentMinimumKeepInfo()
+          .getOrCreateUnconditionalMinimumKeepInfoFor(precondition.getType())
+          .asClassJoiner()
+          .disallowClassInlining()
+          .disallowHorizontalClassMerging()
+          .disallowVerticalClassMerging();
     }
 
     // Keep whatever is required by the -if rule.
