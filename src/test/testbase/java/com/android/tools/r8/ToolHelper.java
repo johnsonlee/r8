@@ -1573,16 +1573,29 @@ public class ToolHelper {
   public static Path getClassFileForTestClass(Class<?> clazz, TestDataSourceSet sourceSet) {
     List<String> parts = getNamePartsForTestClass(clazz);
     Path filePath = Paths.get("", parts.toArray(StringUtils.EMPTY_ARRAY));
-    Path resolve =
-        getClassPathForTestDataSourceSet(sourceSet)
-            .resolve(filePath);
-    if (!Files.exists(resolve)) {
-      resolve = sourceSet.getTestBaseClassLocation().resolve(filePath);
-      if (!Files.exists(resolve)) {
-        throw new RuntimeException("Could not find: " + resolve.toString());
-      }
+    Path resolveTestPath = getClassPathForTestDataSourceSet(sourceSet).resolve(filePath);
+    Path resolveBasePath = sourceSet.getTestBaseClassLocation().resolve(filePath);
+    boolean foundTestPath = Files.exists(resolveTestPath);
+    boolean foundBasePath = Files.exists(resolveBasePath);
+    if (resolveTestPath.equals(resolveBasePath)) {
+      throw new RuntimeException(
+          "Unexpected configuration with identical test and test-base path" + resolveTestPath);
     }
-    return resolve;
+    if (foundTestPath && foundBasePath) {
+      throw new RuntimeException(
+          "Ambiguous test file: " + resolveTestPath + " and " + resolveBasePath);
+    }
+    if (foundTestPath) {
+      return resolveTestPath;
+    }
+    if (foundBasePath) {
+      return resolveBasePath;
+    }
+    throw new RuntimeException(
+        "Could not find test class in either of paths:\n"
+            + resolveTestPath
+            + " and\n"
+            + resolveBasePath);
   }
 
   public static Collection<Path> getClassFilesForInnerClasses(Collection<Class<?>> classes)

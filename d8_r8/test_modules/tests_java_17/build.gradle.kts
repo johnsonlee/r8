@@ -14,7 +14,7 @@ plugins {
 val root = getRoot()
 
 java {
-  // Can be moved into src/test/java14 when all examples have been converted
+  // Can be moved into src/test/java17 when all examples have been converted
   // to tests. Currently both the Test target below and buildExampleJars depend
   // on this.
   sourceSets.test.configure {
@@ -50,7 +50,12 @@ tasks {
     TestingState.setUpTestingState(this)
     javaLauncher = getJavaLauncher(Jdk.JDK_17)
     systemProperty("TEST_DATA_LOCATION",
-                   layout.buildDirectory.dir("classes/java/test").get().toString())
+                   // This should be
+                   //   layout.buildDirectory.dir("classes/java/test").get().toString()
+                   // once the use of 'buildExampleJars' above is removed.
+                   getRoot().resolveAll("build", "test", "examplesJava17", "classes"))
+    systemProperty("TESTBASE_DATA_LOCATION",
+                   testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
   }
 }
 
