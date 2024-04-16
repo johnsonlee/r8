@@ -7,6 +7,11 @@ import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimp
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
@@ -66,9 +71,13 @@ public class SingleCallerInliner {
   public void run(ExecutorService executorService) throws ExecutionException {
     ProgramMethodMap<ProgramMethod> singleCallerMethods =
         new SingleCallerScanner(appView).getSingleCallerMethods(executorService);
+    if (singleCallerMethods.isEmpty()) {
+      return;
+    }
     Inliner inliner = new SingleCallerInlinerImpl(appView, singleCallerMethods);
     processCallees(inliner, singleCallerMethods, executorService);
     performInlining(inliner, singleCallerMethods, executorService);
+    pruneEnclosingMethodAttributes();
     pruneItems(singleCallerMethods, executorService);
   }
 
@@ -158,6 +167,42 @@ public class SingleCallerInliner {
         throw new Unreachable();
       }
     };
+  }
+
+  // TODO(b/335124741): Determine what to do when single caller inlining the enclosing method
+  //  of a class.
+  private void pruneEnclosingMethodAttributes() {
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      if (!clazz.hasEnclosingMethodAttribute()) {
+        continue;
+      }
+      EnclosingMethodAttribute enclosingMethodAttribute = clazz.getEnclosingMethodAttribute();
+      if (!enclosingMethodAttribute.hasEnclosingMethod()) {
+        continue;
+      }
+      DexMethod enclosingMethodReference = enclosingMethodAttribute.getEnclosingMethod();
+      DexClassAndMethod enclosingMethod = appView.definitionFor(enclosingMethodReference);
+      if (enclosingMethod == null
+          || !enclosingMethod.getOptimizationInfo().hasBeenInlinedIntoSingleCallSite()) {
+        continue;
+      }
+
+      // Remove enclosing method attribute and rewrite the inner class attribute.
+      clazz.clearEnclosingMethodAttribute();
+
+      InnerClassAttribute innerClassAttributeForThisClass =
+          clazz.getInnerClassAttributeForThisClass();
+      if (innerClassAttributeForThisClass != null) {
+        assert innerClassAttributeForThisClass.getOuter() == null;
+        InnerClassAttribute replacement =
+            new InnerClassAttribute(
+                innerClassAttributeForThisClass.getAccess(),
+                innerClassAttributeForThisClass.getInner(),
+                enclosingMethod.getHolderType(),
+                innerClassAttributeForThisClass.getInnerName());
+        clazz.replaceInnerClassAttributeForThisClass(replacement);
+      }
+    }
   }
 
   private void pruneItems(
