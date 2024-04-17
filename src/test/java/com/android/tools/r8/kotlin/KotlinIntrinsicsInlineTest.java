@@ -76,7 +76,11 @@ public class KotlinIntrinsicsInlineTest extends KotlinTestBase {
               MethodSubject isSupported = main.uniqueMethodWithOriginalName("isSupported");
               assertThat(isSupported, isPresent());
               assertEquals(
-                  kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72) ? 1 : 0,
+                  kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72)
+                          && (parameters.isCfRuntime()
+                              || parameters.getApiLevel().equals(AndroidApiLevel.B))
+                      ? 1
+                      : 0,
                   countCall(isSupported, "checkParameterIsNotNull"));
 
               // In general cases, null check won't be invoked only once or twice, hence no subtle
