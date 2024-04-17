@@ -24,7 +24,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DexValue.DexValueNull;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
@@ -34,14 +33,10 @@ import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.lambda.ForcefullyMovedLambdaMethodConsumer;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring.DesugarInvoke;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import org.objectweb.asm.Opcodes;
 
 /**
  * Represents lambda class generated for a lambda descriptor in context of lambda instantiation
@@ -64,16 +59,12 @@ public final class LambdaClass {
   public static final String JAVAC_EXPECTED_LAMBDA_METHOD_PREFIX = "lambda$";
   public static final String R8_LAMBDA_ACCESSOR_METHOD_PREFIX = "$r8$lambda$";
 
-  private static final OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
-
   final AppView<?> appView;
   final LambdaInstructionDesugaring desugaring;
   public final DexType type;
   public LambdaDescriptor descriptor;
   public final DexMethod constructor;
-  final DexMethod classConstructor;
   private final DexMethod factoryMethod;
-  public final DexField lambdaField;
   public final Target target;
 
   // Considered final but is set after due to circularity in allocation.
@@ -101,15 +92,6 @@ public final class LambdaClass {
 
     this.target = createTarget(accessedFrom);
 
-    boolean statelessSingleton = isStatelessSingleton();
-    this.classConstructor =
-        statelessSingleton
-            ? factory.createMethod(type, constructorProto, factory.classConstructorMethodName)
-            : null;
-    this.lambdaField =
-        statelessSingleton
-            ? factory.createField(type, type, factory.lambdaInstanceFieldName)
-            : null;
     this.factoryMethod =
         useFactoryMethodForConstruction
                 || appView.options().testing.alwaysGenerateLambdaFactoryMethods
@@ -147,7 +129,6 @@ public final class LambdaClass {
   private void synthesizeLambdaClass(
       SyntheticProgramClassBuilder builder, DesugarInvoke desugarInvoke) {
     builder.setInterfaces(descriptor.interfaces);
-    synthesizeStaticFields(builder);
     synthesizeInstanceFields(builder);
     synthesizeDirectMethods(builder);
     synthesizeVirtualMethods(builder, desugarInvoke);
@@ -160,10 +141,6 @@ public final class LambdaClass {
             this.type,
             descriptor.captures.values[index],
             appView.dexItemFactory().createString("f$" + index));
-  }
-
-  public final boolean isStatelessSingleton() {
-    return appView.options().createSingletonsForStatelessLambdas && descriptor.isStateless();
   }
 
   public boolean hasFactoryMethod() {
@@ -217,15 +194,12 @@ public final class LambdaClass {
 
   // Synthesize direct methods.
   private void synthesizeDirectMethods(SyntheticProgramClassBuilder builder) {
-    boolean statelessSingleton = isStatelessSingleton();
-    List<DexEncodedMethod> methods = new ArrayList<>(statelessSingleton ? 2 : 1);
+    List<DexEncodedMethod> methods = new ArrayList<>(hasFactoryMethod() ? 2 : 1);
 
     // Constructor.
     MethodAccessFlags accessFlags =
         MethodAccessFlags.fromSharedAccessFlags(
-            (statelessSingleton ? Constants.ACC_PRIVATE : Constants.ACC_PUBLIC)
-                | Constants.ACC_SYNTHETIC,
-            true);
+            Constants.ACC_PUBLIC | Constants.ACC_SYNTHETIC, true);
     methods.add(
         DexEncodedMethod.syntheticBuilder()
             .setMethod(constructor)
@@ -236,19 +210,6 @@ public final class LambdaClass {
             .build());
 
     // Class constructor for stateless lambda classes.
-    if (statelessSingleton) {
-      methods.add(
-          DexEncodedMethod.syntheticBuilder()
-              .setMethod(classConstructor)
-              .setAccessFlags(
-                  MethodAccessFlags.fromSharedAccessFlags(
-                      Constants.ACC_SYNTHETIC | Constants.ACC_STATIC, true))
-              .setCode(LambdaClassConstructorSourceCode.build(this))
-              // The api level is computed when tracing.
-              .disableAndroidApiLevelCheck()
-              .build());
-      feedback.classInitializerMayBePostponed(methods.get(1));
-    }
     if (hasFactoryMethod()) {
       methods.add(
           DexEncodedMethod.syntheticBuilder()
@@ -281,43 +242,6 @@ public final class LambdaClass {
               .build());
     }
     builder.setInstanceFields(fields);
-  }
-
-  // Synthesize static fields to represent singleton instance.
-  private void synthesizeStaticFields(SyntheticProgramClassBuilder builder) {
-    if (isStatelessSingleton()) {
-      // Create instance field for stateless lambda.
-      assert this.lambdaField != null;
-      builder.setStaticFields(
-          Collections.singletonList(
-              DexEncodedField.syntheticBuilder()
-                  .setField(this.lambdaField)
-                  .setAccessFlags(
-                      FieldAccessFlags.fromSharedAccessFlags(
-                          Constants.ACC_PUBLIC
-                              | Constants.ACC_FINAL
-                              | Constants.ACC_SYNTHETIC
-                              | Constants.ACC_STATIC))
-                  .setStaticValue(DexValueNull.NULL)
-                  // The api level is computed when tracing.
-                  .disableAndroidApiLevelCheck()
-                  .build()));
-    }
-  }
-
-  public static int getAsmOpcodeForInvokeType(MethodHandleType type) {
-    switch (type) {
-      case INVOKE_INTERFACE:
-        return Opcodes.INVOKEINTERFACE;
-      case INVOKE_STATIC:
-        return Opcodes.INVOKESTATIC;
-      case INVOKE_DIRECT:
-        return Opcodes.INVOKESPECIAL;
-      case INVOKE_INSTANCE:
-        return Opcodes.INVOKEVIRTUAL;
-      default:
-        throw new Unreachable("Unexpected method handle type: " + type);
-    }
   }
 
   // Creates a delegation target for this particular lambda class. Note that we

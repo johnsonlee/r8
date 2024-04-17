@@ -11,7 +11,6 @@ import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfNew;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
-import com.android.tools.r8.cf.code.CfStaticFieldRead;
 import com.android.tools.r8.cf.code.CfStore;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
@@ -142,11 +141,6 @@ public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
     if (lambdaClass.hasFactoryMethod()) {
       return ImmutableList.of(
           new CfInvoke(Opcodes.INVOKESTATIC, lambdaClass.getFactoryMethod(), false));
-    }
-
-    if (lambdaClass.isStatelessSingleton()) {
-      return ImmutableList.of(
-          new CfStaticFieldRead(lambdaClass.lambdaField, lambdaClass.lambdaField));
     }
 
     DexTypeList captureTypes = lambdaClass.descriptor.captures;

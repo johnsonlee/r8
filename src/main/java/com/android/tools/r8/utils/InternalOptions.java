@@ -488,11 +488,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Boolean value indicating that byte code pass through may be enabled.
   public boolean enableCfByteCodePassThrough = false;
 
-  // Flag to control the representation of stateless lambdas.
-  // See b/222081665 for context.
-  public boolean createSingletonsForStatelessLambdas =
-      System.getProperty("com.android.tools.r8.createSingletonsForStatelessLambdas") != null;
-
   // TODO(b/293591931): Remove this flag when records are stable in Platform
   //  Flag to allow record annotations in DEX. See b/231930852 for context.
   private final boolean emitRecordAnnotationsInDex =
