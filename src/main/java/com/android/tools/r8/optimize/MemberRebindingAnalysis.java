@@ -170,7 +170,9 @@ public class MemberRebindingAnalysis {
   }
 
   private boolean isInvokeSuperToAbstractMethod(DexClassAndMethod method, InvokeType invokeType) {
-    return method.getAccessFlags().isAbstract() && invokeType.isSuper();
+    return options.canHaveSuperInvokeToAbstractMethodBug()
+        && method.getAccessFlags().isAbstract()
+        && invokeType.isSuper();
   }
 
   public static DexField validMemberRebindingTargetFor(

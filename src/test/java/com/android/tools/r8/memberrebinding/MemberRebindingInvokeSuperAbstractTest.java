@@ -6,6 +6,7 @@ package com.android.tools.r8.memberrebinding;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithHolderAndName;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -14,10 +15,11 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.apimodel.ApiModelingTestHelper;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.codeinspector.CodeMatchers;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
+import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,6 +61,14 @@ public class MemberRebindingInvokeSuperAbstractTest extends TestBase {
         .apply(
             setMockApiLevelForMethod(
                 LibrarySub.class.getDeclaredMethod("getSystemService"), AndroidApiLevel.B))
+        .apply(
+            setMockApiLevelForMethod(
+                Reference.method(
+                    Reference.classFromClass(LibrarySubSub.class),
+                    "getSystemService",
+                    Collections.emptyList(),
+                    null),
+                AndroidApiLevel.B))
         .compile()
         .addRunClasspathClasses(libraryClasses)
         .inspect(
@@ -66,13 +76,21 @@ public class MemberRebindingInvokeSuperAbstractTest extends TestBase {
               MethodSubject getSystemService =
                   inspector.clazz(Main.class).uniqueMethodWithOriginalName("getSystemService");
               assertThat(getSystemService, isPresent());
-              // We should never rebind this call to LibraryBase::getSystemService since this can
-              // cause errors when verifying the code on a device where the image has a definition
-              // but it is abstract. For more information, see b/213581039.
+              // We should only rebind this call to LibraryBase::getSystemService when compiling to
+              // Android 5.1 or above since this can cause errors when verifying the code on a
+              // device where the image has a definition but it is abstract. For more information,
+              // see b/213581039.
+              //
+              // Due to b/215573892 we also select LibrarySubSub rather than LibraryBase when
+              // compiling to Android 5.1.
+              Class<?> expectedRebindingTarget =
+                  parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.N)
+                      ? LibrarySubSub.class
+                      : LibraryBase.class;
               assertThat(
                   getSystemService,
-                  CodeMatchers.invokesMethodWithHolderAndName(
-                      typeName(LibrarySubSub.class), "getSystemService"));
+                  invokesMethodWithHolderAndName(
+                      typeName(expectedRebindingTarget), "getSystemService"));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("LibrarySub::getSystemService");
