@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.horizontalclassmerging.InstanceInitializerMerger.Builder;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.ArrayList;
@@ -25,12 +26,12 @@ import java.util.function.Consumer;
 public class InstanceInitializerMergerCollection {
 
   private final List<InstanceInitializerMerger> instanceInitializerMergers;
-  private final Map<InstanceInitializerDescription, InstanceInitializerMerger>
+  private final Map<InstanceInitializerDescription, List<InstanceInitializerMerger>>
       equivalentInstanceInitializerMergers;
 
   private InstanceInitializerMergerCollection(
       List<InstanceInitializerMerger> instanceInitializerMergers,
-      Map<InstanceInitializerDescription, InstanceInitializerMerger>
+      Map<InstanceInitializerDescription, List<InstanceInitializerMerger>>
           equivalentInstanceInitializerMergers) {
     this.instanceInitializerMergers = instanceInitializerMergers;
     this.equivalentInstanceInitializerMergers = equivalentInstanceInitializerMergers;
@@ -75,7 +76,7 @@ public class InstanceInitializerMergerCollection {
                   }
                 }));
 
-    Map<InstanceInitializerDescription, InstanceInitializerMerger>
+    Map<InstanceInitializerDescription, List<InstanceInitializerMerger>>
         equivalentInstanceInitializerMergers = new LinkedHashMap<>();
     buildersByDescription.forEach(
         (description, builder) -> {
@@ -88,7 +89,9 @@ public class InstanceInitializerMergerCollection {
               buildersWithoutDescription.addAll(
                   instanceInitializerMerger.getInstanceInitializers());
             } else {
-              equivalentInstanceInitializerMergers.put(description, instanceInitializerMerger);
+              equivalentInstanceInitializerMergers
+                  .computeIfAbsent(description, ignoreKey(ArrayList::new))
+                  .add(instanceInitializerMerger);
             }
           }
         });
@@ -127,7 +130,7 @@ public class InstanceInitializerMergerCollection {
 
   public void forEach(Consumer<InstanceInitializerMerger> consumer) {
     instanceInitializerMergers.forEach(consumer);
-    equivalentInstanceInitializerMergers.values().forEach(consumer);
+    IterableUtils.flatten(equivalentInstanceInitializerMergers.values()).forEach(consumer);
   }
 
   public void setObsolete() {
