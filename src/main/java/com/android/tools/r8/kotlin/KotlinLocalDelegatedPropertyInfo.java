@@ -36,7 +36,7 @@ public class KotlinLocalDelegatedPropertyInfo implements EnqueuerMetadataTraceab
     ImmutableList.Builder<KotlinPropertyInfo> builder = ImmutableList.builder();
     for (KmProperty kmProperty : kmProperties) {
       KotlinPropertyInfo kotlinPropertyInfo =
-          KotlinPropertyInfo.create(kmProperty, factory, reporter);
+          ConcreteKotlinPropertyInfo.create(kmProperty, factory, reporter);
       // For ordinary properties, we place these on the fields and methods, but these are hooked in,
       // and do not have any jvm signatures:
       assert kotlinPropertyInfo.getFieldSignature() == null;

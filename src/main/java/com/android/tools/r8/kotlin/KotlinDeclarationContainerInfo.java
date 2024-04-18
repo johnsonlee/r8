@@ -16,6 +16,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.kotlin.KotlinMetadataUtils.KmPropertyProcessor;
+import com.android.tools.r8.kotlin.KotlinPropertyInfoDelegate.PropertyType;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
@@ -91,8 +92,8 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
 
     ImmutableList.Builder<KotlinPropertyInfo> notBackedProperties = ImmutableList.builder();
     for (KmProperty kmProperty : container.getProperties()) {
-      KotlinPropertyInfo kotlinPropertyInfo =
-          KotlinPropertyInfo.create(kmProperty, factory, reporter);
+      ConcreteKotlinPropertyInfo kotlinPropertyInfo =
+          ConcreteKotlinPropertyInfo.create(kmProperty, factory, reporter);
       KmPropertyProcessor propertyProcessor = new KmPropertyProcessor(kmProperty);
       boolean hasBacking = false;
       if (propertyProcessor.fieldSignature() != null) {
@@ -110,7 +111,8 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
         if (method != null) {
           hasBacking = true;
           keepIfAccessorInline(kmProperty.getGetterFlags(), method, keepByteCode);
-          method.setKotlinMemberInfo(kotlinPropertyInfo);
+          method.setKotlinMemberInfo(
+              new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.GETTER));
           originalAssignmentTracker.add(method.getReference());
         }
       }
@@ -120,7 +122,20 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
         if (method != null) {
           hasBacking = true;
           keepIfAccessorInline(kmProperty.getGetterFlags(), method, keepByteCode);
-          method.setKotlinMemberInfo(kotlinPropertyInfo);
+          method.setKotlinMemberInfo(
+              new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.SETTER));
+          originalAssignmentTracker.add(method.getReference());
+        }
+      }
+      if (propertyProcessor.syntheticMethodForAnnotationsSignature() != null) {
+        DexEncodedMethod method =
+            methodSignatureMap.get(
+                propertyProcessor.syntheticMethodForAnnotationsSignature().asString());
+        if (method != null) {
+          hasBacking = true;
+          method.setKotlinMemberInfo(
+              new KotlinPropertyInfoDelegate(
+                  kotlinPropertyInfo, PropertyType.SYNTHETIC_METHOD_FOR_ANNOTATIONS));
           originalAssignmentTracker.add(method.getReference());
         }
       }
@@ -207,12 +222,20 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       }
       rewrittenMembersWithKotlinInfo.add(method.getReference());
       KotlinPropertyGroup kotlinPropertyGroup =
-          properties.computeIfAbsent(kotlinPropertyInfo, ignored -> new KotlinPropertyGroup());
-      if (method.getReference().proto.returnType == appView.dexItemFactory().voidType) {
-        // This is a setter.
-        kotlinPropertyGroup.setSetter(method);
-      } else {
-        kotlinPropertyGroup.setGetter(method);
+          properties.computeIfAbsent(
+              kotlinPropertyInfo.getReference(), ignored -> new KotlinPropertyGroup());
+      switch (kotlinPropertyInfo.getPropertyType()) {
+        case GETTER:
+          kotlinPropertyGroup.setGetter(method);
+          break;
+        case SETTER:
+          kotlinPropertyGroup.setSetter(method);
+          break;
+        case SYNTHETIC_METHOD_FOR_ANNOTATIONS:
+          kotlinPropertyGroup.setSyntheticMethodForAnnotations(method);
+          break;
+        default:
+          // Do nothing.
       }
     }
     for (KotlinPropertyInfo kotlinPropertyInfo : properties.keySet()) {
@@ -223,6 +246,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
               kotlinPropertyGroup.backingField,
               kotlinPropertyGroup.getter,
               kotlinPropertyGroup.setter,
+              kotlinPropertyGroup.syntheticMethodForAnnotations,
               appView);
     }
     // Add all not backed functions and properties.
@@ -253,6 +277,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
     private DexEncodedField backingField = null;
     private DexEncodedMethod setter = null;
     private DexEncodedMethod getter = null;
+    private DexEncodedMethod syntheticMethodForAnnotations = null;
 
     void setBackingField(DexEncodedField backingField) {
       assert this.backingField == null;
@@ -267,6 +292,11 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
     void setSetter(DexEncodedMethod setter) {
       assert this.setter == null;
       this.setter = setter;
+    }
+
+    public void setSyntheticMethodForAnnotations(DexEncodedMethod syntheticMethodForAnnotations) {
+      assert this.syntheticMethodForAnnotations == null;
+      this.syntheticMethodForAnnotations = syntheticMethodForAnnotations;
     }
   }
 }

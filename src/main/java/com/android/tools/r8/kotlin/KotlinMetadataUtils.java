@@ -114,6 +114,8 @@ public class KotlinMetadataUtils {
     private JvmMethodSignature getterSignature = null;
     // Custom getter via @set:JvmName("..."). Otherwise, null.
     private JvmMethodSignature setterSignature = null;
+    private JvmMethodSignature syntheticMethodForAnnotationsSignature = null;
+
     KmPropertyProcessor(KmProperty kmProperty) {
       kmProperty.accept(
           new KmPropertyVisitor() {
@@ -137,6 +139,12 @@ public class KotlinMetadataUtils {
                   assert setterSignature == null : setterSignature.asString();
                   setterSignature = setterDesc;
                 }
+
+                @Override
+                public void visitSyntheticMethodForAnnotations(JvmMethodSignature signature) {
+                  assert syntheticMethodForAnnotationsSignature == null : signature.asString();
+                  syntheticMethodForAnnotationsSignature = signature;
+                }
               };
             }
           });
@@ -152,6 +160,10 @@ public class KotlinMetadataUtils {
 
     JvmMethodSignature setterSignature() {
       return setterSignature;
+    }
+
+    public JvmMethodSignature syntheticMethodForAnnotationsSignature() {
+      return syntheticMethodForAnnotationsSignature;
     }
   }
 

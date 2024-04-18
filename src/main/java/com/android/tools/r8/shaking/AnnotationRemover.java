@@ -203,7 +203,7 @@ public class AnnotationRemover {
         member -> {
           KotlinMemberLevelInfo kotlinInfo = member.getKotlinInfo();
           if (kotlinInfo.isProperty()
-              && !pinnedKotlinProperties.contains(kotlinInfo.asProperty())) {
+              && !pinnedKotlinProperties.contains(kotlinInfo.asProperty().getReference())) {
             member.clearKotlinInfo();
           }
         });
@@ -238,7 +238,7 @@ public class AnnotationRemover {
     // Postpone removal of kotlin property info until we have seen all fields, setters and getters.
     if (member.getKotlinInfo().isProperty()
         && !memberInfo.isKotlinMetadataRemovalAllowed(clazz, options)) {
-      pinnedKotlinProperties.add(member.getKotlinInfo().asProperty());
+      pinnedKotlinProperties.add(member.getKotlinInfo().asProperty().getReference());
     }
   }
 

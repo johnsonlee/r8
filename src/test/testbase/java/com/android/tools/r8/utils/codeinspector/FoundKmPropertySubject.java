@@ -70,6 +70,11 @@ public class FoundKmPropertySubject extends KmPropertySubject {
   }
 
   @Override
+  public KmProperty getKmProperty() {
+    return kmProperty;
+  }
+
+  @Override
   public KmTypeSubject returnType() {
     return new KmTypeSubject(codeInspector, kmProperty.getReturnType());
   }
