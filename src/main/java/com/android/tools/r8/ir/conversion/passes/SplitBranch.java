@@ -27,7 +27,7 @@ import java.util.Set;
 
 public class SplitBranch extends CodeRewriterPass<AppInfo> {
 
-  private static final boolean ALLOW_PARTIAL_REWRITE = true;
+  private static final boolean ALLOW_PARTIAL_REWRITE = false;
 
   public SplitBranch(AppView<?> appView) {
     super(appView);
