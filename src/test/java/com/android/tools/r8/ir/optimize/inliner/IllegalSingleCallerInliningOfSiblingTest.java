@@ -41,8 +41,7 @@ public class IllegalSingleCallerInliningOfSiblingTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/335584013): Fix single caller inlining.
-        .assertFailureWithErrorThatThrows(AbstractMethodError.class);
+        .assertSuccessWithOutputLines("A", "A");
   }
 
   static class Main {

@@ -68,8 +68,8 @@ public class SingleCallerInliner {
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
-    ProgramMethodSet monomorphicVirtualMethods =
-        computeMonomorphicVirtualRootMethods(executorService);
+    // TODO(b/335584013): Re-enable monomorphic method analysis.
+    ProgramMethodSet monomorphicVirtualMethods = ProgramMethodSet.empty();
     ProgramMethodMap<ProgramMethod> singleCallerMethods =
         new SingleCallerScanner(appView, monomorphicVirtualMethods)
             .getSingleCallerMethods(executorService);
@@ -87,6 +87,7 @@ public class SingleCallerInliner {
   // deal with (rooted) virtual methods that do not override abstract/interface methods. In order to
   // also deal with virtual methods that override abstract/interface methods we would need to record
   // calls to the abstract/interface methods as calls to the non-abstract virtual method.
+  @SuppressWarnings("UnusedMethod")
   private ProgramMethodSet computeMonomorphicVirtualRootMethods(ExecutorService executorService)
       throws ExecutionException {
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
