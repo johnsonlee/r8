@@ -5,6 +5,7 @@
 package com.android.tools.r8.graph.analysis;
 
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
+import com.android.tools.r8.errors.FinalRClassEntriesWithOptimizedShrinkingDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -90,7 +91,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void populateRClassValues(ProgramField field) {
     // TODO(287398085): Pending discussions with the AAPT2 team, we might need to harden this
     // to not fail if we wrongly classify an unrelated class as R class in our heuristic..
@@ -100,8 +100,26 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     if (programClassInitializer != null) {
       analyzeClassInitializer(rClassValueBuilder, programClassInitializer);
     }
-
+    warnOnFinalIdFields(field.getHolder());
     fieldToValueMapping.put(field.getHolderType(), rClassValueBuilder.build());
+  }
+
+  private void warnOnFinalIdFields(DexProgramClass holder) {
+    if (!appView.options().isOptimizedResourceShrinking()) {
+      return;
+    }
+    for (DexEncodedField field : holder.fields()) {
+      if (field.isStatic()
+          && field.isFinal()
+          && field.hasExplicitStaticValue()
+          && field.getType().isIntType()) {
+        appView
+            .reporter()
+            .warning(
+                new FinalRClassEntriesWithOptimizedShrinkingDiagnostic(
+                    holder.origin, field.getReference()));
+      }
+    }
   }
 
   private void analyzeClassInitializer(
