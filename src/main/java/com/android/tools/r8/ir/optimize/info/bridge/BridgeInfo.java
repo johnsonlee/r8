@@ -17,6 +17,14 @@ public abstract class BridgeInfo {
     return null;
   }
 
+  public boolean isSuperBridgeInfo() {
+    return false;
+  }
+
+  public SuperBridgeInfo asSuperBridgeInfo() {
+    return null;
+  }
+
   public boolean isVirtualBridgeInfo() {
     return false;
   }

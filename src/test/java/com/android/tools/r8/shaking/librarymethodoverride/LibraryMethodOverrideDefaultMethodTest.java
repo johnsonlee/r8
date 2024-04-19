@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.shaking.librarymethodoverride;
 
+import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -16,6 +17,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -50,6 +52,7 @@ public class LibraryMethodOverrideDefaultMethodTest extends TestBase {
         .addOptionsModification(
             options -> options.testing.enqueuerInspector = this::verifyLibraryOverrideInformation)
         .addLibraryClasses(LibraryI.class, LibraryClass.class)
+        .apply(setMockApiLevelForMethod(LibraryI.class.getMethod("foo"), AndroidApiLevel.B))
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .compile()

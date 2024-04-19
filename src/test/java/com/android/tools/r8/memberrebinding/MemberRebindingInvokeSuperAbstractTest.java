@@ -7,6 +7,7 @@ package com.android.tools.r8.memberrebinding;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithHolderAndName;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -17,6 +18,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.apimodel.ApiModelingTestHelper;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
@@ -73,9 +75,14 @@ public class MemberRebindingInvokeSuperAbstractTest extends TestBase {
         .addRunClasspathClasses(libraryClasses)
         .inspect(
             inspector -> {
+              ClassSubject mainClassSubject = inspector.clazz(Main.class);
+              assertThat(mainClassSubject, isPresent());
+
+              // The getSystemService() method is removed by redundant bridge removal.
               MethodSubject getSystemService =
-                  inspector.clazz(Main.class).uniqueMethodWithOriginalName("getSystemService");
-              assertThat(getSystemService, isPresent());
+                  mainClassSubject.uniqueMethodWithOriginalName("getSystemService");
+              assertThat(getSystemService, isAbsent());
+
               // We should only rebind this call to LibraryBase::getSystemService when compiling to
               // Android 5.1 or above since this can cause errors when verifying the code on a
               // device where the image has a definition but it is abstract. For more information,
@@ -87,8 +94,10 @@ public class MemberRebindingInvokeSuperAbstractTest extends TestBase {
                   parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.N)
                       ? LibrarySubSub.class
                       : LibraryBase.class;
+              MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
+              assertThat(mainMethodSubject, isPresent());
               assertThat(
-                  getSystemService,
+                  mainMethodSubject,
                   invokesMethodWithHolderAndName(
                       typeName(expectedRebindingTarget), "getSystemService"));
             })

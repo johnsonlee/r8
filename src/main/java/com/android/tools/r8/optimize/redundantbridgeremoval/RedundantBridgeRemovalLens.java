@@ -5,7 +5,7 @@
 package com.android.tools.r8.optimize.redundantbridgeremoval;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -72,10 +72,11 @@ public class RedundantBridgeRemovalLens extends DefaultNonIdentityGraphLens {
     private final Set<DexType> interfaces = Sets.newIdentityHashSet();
     private final Map<DexMethod, DexMethod> methodMap = new IdentityHashMap<>();
 
-    public synchronized Builder map(ProgramMethod from, DexClassAndMethod to) {
-      methodMap.put(from.getReference(), to.getReference());
-      if (to.getHolder().isInterface()) {
-        interfaces.add(to.getHolderType());
+    public synchronized Builder map(ProgramMethod from, DexMethod to, DexClass toHolder) {
+      assert to.getHolderType().isIdenticalTo(toHolder.getType());
+      methodMap.put(from.getReference(), to);
+      if (toHolder.isInterface()) {
+        interfaces.add(toHolder.getType());
       }
       return this;
     }

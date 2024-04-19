@@ -17,12 +17,15 @@ import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleLibraryResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
+import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.optimize.info.bridge.BridgeInfo;
 import com.android.tools.r8.optimize.InvokeSingleTargetExtractor;
 import com.android.tools.r8.optimize.InvokeSingleTargetExtractor.InvokeKind;
+import com.android.tools.r8.optimize.MemberRebindingHelper;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.optimize.argumentpropagation.utils.DepthFirstTopDownClassHierarchyTraversal;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBidirectedGraph;
@@ -38,9 +41,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-public class RedundantBridgeRemover {
+public class RedundantBridgeRemover extends MemberRebindingHelper {
 
-  private final AppView<AppInfoWithLiveness> appView;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   private final RedundantBridgeRemovalOptions redundantBridgeRemovalOptions;
 
@@ -50,7 +52,7 @@ public class RedundantBridgeRemover {
   private boolean mustRetargetInvokesToTargetMethod = false;
 
   public RedundantBridgeRemover(AppView<AppInfoWithLiveness> appView) {
-    this.appView = appView;
+    super(appView);
     this.immediateSubtypingInfo = ImmediateProgramSubtypingInfo.create(appView);
     this.redundantBridgeRemovalOptions = appView.options().getRedundantBridgeRemovalOptions();
   }
@@ -65,6 +67,12 @@ public class RedundantBridgeRemover {
     BridgeInfo bridgeInfo = definition.getOptimizationInfo().getBridgeInfo();
     boolean isBridge = definition.isBridge() || bridgeInfo != null;
     if (!isBridge || definition.isAbstract()) {
+      return null;
+    }
+    // If the bridge takes the lock, then it can only be removed if the target is guaranteed to take
+    // the same lock. Conservatively bail-out when compiling to class files (due to implicit locking
+    // on the JVM, unlike ART).
+    if (appView.options().isGeneratingClassFiles() && definition.isSynchronized()) {
       return null;
     }
     InvokeSingleTargetExtractor targetExtractor = new InvokeSingleTargetExtractor(appView, method);
@@ -297,8 +305,25 @@ public class RedundantBridgeRemover {
             }
 
             // Rewrite invokes to the bridge to the target if it is accessible.
-            if (canRetargetInvokesToTargetMethod(method, target)) {
-              lensBuilder.map(method, target);
+            if (target.isLibraryMethod()) {
+              SingleResolutionResult<?> resolutionResult =
+                  new SingleLibraryResolutionResult(
+                      method.getHolder(),
+                      target.getHolder().asLibraryClass(),
+                      target.getDefinition());
+              DexMethod validTarget =
+                  validMemberRebindingTargetForNonProgramMethod(
+                      target,
+                      resolutionResult,
+                      ProgramMethodSet.empty(),
+                      InvokeType.SUPER,
+                      method.getReference());
+              DexClass validTargetHolder = appView.definitionFor(validTarget.getHolderType());
+              assert validTargetHolder != null;
+              assert validTargetHolder != method.getHolder();
+              lensBuilder.map(method, validTarget, validTargetHolder);
+            } else if (canRetargetInvokesToTargetMethod(method, target)) {
+              lensBuilder.map(method, target.getReference(), target.getHolder());
             } else if (mustRetargetInvokesToTargetMethod) {
               return;
             }

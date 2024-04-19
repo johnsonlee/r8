@@ -171,12 +171,10 @@ public class BridgeHoisting {
       }
 
       BridgeInfo currentBridgeInfo = definition.getOptimizationInfo().getBridgeInfo();
-      if (currentBridgeInfo == null || currentBridgeInfo.isDirectBridgeInfo()) {
-        // This is not a bridge, so the method needs to remain on the subclass.
+      if (currentBridgeInfo == null || !currentBridgeInfo.isVirtualBridgeInfo()) {
+        // This is not a virtual bridge, so the method needs to remain on the subclass.
         continue;
       }
-
-      assert currentBridgeInfo.isVirtualBridgeInfo();
 
       VirtualBridgeInfo currentVirtualBridgeInfo = currentBridgeInfo.asVirtualBridgeInfo();
       DexMethod invokedMethod = currentVirtualBridgeInfo.getInvokedMethod();

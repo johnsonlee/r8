@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize.devirtualize;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithHolderAndName;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -14,6 +15,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,11 +48,18 @@ public class DevirtualizeLibrarySuperTest extends TestBase {
         .compile()
         .inspect(
             inspector -> {
-              MethodSubject fooMethod =
-                  inspector.clazz(Main.class).uniqueMethodWithOriginalName("foo");
-              assertThat(fooMethod, isPresent());
+              ClassSubject mainClassSubject = inspector.clazz(Main.class);
+              assertThat(mainClassSubject, isPresent());
+
+              // The foo() method is removed by redundant bridge removal.
+              MethodSubject fooMethod = mainClassSubject.uniqueMethodWithOriginalName("foo");
+              assertThat(fooMethod, isAbsent());
+
+              // Verify that main() does not call LibraryOverride.foo().
+              MethodSubject mainMethod = mainClassSubject.mainMethod();
+              assertThat(mainMethod, isPresent());
               assertThat(
-                  fooMethod,
+                  mainMethod,
                   not(invokesMethodWithHolderAndName(LibraryOverride.class.getTypeName(), "foo")));
             })
         .applyIf(

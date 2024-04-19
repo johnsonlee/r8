@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -33,6 +34,7 @@ public class InvokeSingleTargetExtractor extends UseRegistry<ProgramMethod> {
 
   private void invalid() {
     kind = InvokeKind.ILLEGAL;
+    doBreak();
   }
 
   public DexMethod getTarget() {
@@ -70,7 +72,14 @@ public class InvokeSingleTargetExtractor extends UseRegistry<ProgramMethod> {
 
   @Override
   public void registerInvokeSuper(DexMethod method) {
-    setTarget(method, InvokeKind.SUPER);
+    AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
+    DexClassAndMethod superTarget =
+        appViewWithLiveness.appInfo().lookupSuperTarget(method, getContext(), appViewWithLiveness);
+    if (superTarget != null) {
+      setTarget(method, InvokeKind.SUPER);
+    } else {
+      invalid();
+    }
   }
 
   @Override

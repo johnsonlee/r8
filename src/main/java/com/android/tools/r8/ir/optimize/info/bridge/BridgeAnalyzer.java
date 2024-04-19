@@ -8,9 +8,11 @@ import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
 import static com.android.tools.r8.ir.code.Opcodes.GOTO;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_DIRECT;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_SUPER;
 import static com.android.tools.r8.ir.code.Opcodes.INVOKE_VIRTUAL;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -64,6 +66,7 @@ public class BridgeAnalyzer {
           }
 
         case INVOKE_DIRECT:
+        case INVOKE_SUPER:
         case INVOKE_VIRTUAL:
           {
             if (uniqueInvoke != null) {
@@ -108,10 +111,19 @@ public class BridgeAnalyzer {
     }
 
     assert uniqueInvoke != null;
-    assert uniqueInvoke.isInvokeDirect() || uniqueInvoke.isInvokeVirtual();
-    return uniqueInvoke.isInvokeDirect()
-        ? new DirectBridgeInfo(uniqueInvoke.getInvokedMethod())
-        : new VirtualBridgeInfo(uniqueInvoke.getInvokedMethod());
+    assert uniqueInvoke.isInvokeDirect()
+        || uniqueInvoke.isInvokeSuper()
+        || uniqueInvoke.isInvokeVirtual();
+    switch (uniqueInvoke.getType()) {
+      case DIRECT:
+        return new DirectBridgeInfo(uniqueInvoke.getInvokedMethod());
+      case SUPER:
+        return new SuperBridgeInfo(uniqueInvoke.getInvokedMethod());
+      case VIRTUAL:
+        return new VirtualBridgeInfo(uniqueInvoke.getInvokedMethod());
+      default:
+        throw new Unreachable();
+    }
   }
 
   private static boolean analyzeCheckCast(
