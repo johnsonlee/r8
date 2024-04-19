@@ -247,10 +247,7 @@ public class MemberRebindingAnalysis extends MemberRebindingHelper {
                   || !bridgeMethodDefinition.isLibraryMethodOverride().isUnknown();
               bridgeHolder.addMethod(bridgeMethodDefinition);
               ProgramMethod bridgeMethod = bridgeMethodDefinition.asProgramMethod(bridgeHolder);
-              if (!appView.options().debug) {
-                // TODO(b/333677610): Register these methods in debug mode as well.
-                appView.getKeepInfo().registerCompilerSynthesizedMethod(bridgeMethod);
-              }
+              appView.getKeepInfo().registerCompilerSynthesizedMethod(bridgeMethod);
               eventConsumer.acceptMemberRebindingBridgeMethod(bridgeMethod, target);
             }
             assert appView

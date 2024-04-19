@@ -908,7 +908,7 @@ public class IRConverter {
       timing.end();
     }
 
-    if (appView.getKeepInfo(code.context()).isPinned(options)) {
+    if (options.debug || appView.getKeepInfo(code.context()).isPinned(options)) {
       return;
     }
 

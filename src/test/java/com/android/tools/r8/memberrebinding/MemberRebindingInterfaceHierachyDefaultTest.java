@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.memberrebinding;
 
+import static org.junit.Assume.assumeFalse;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
@@ -25,10 +27,14 @@ public class MemberRebindingInterfaceHierachyDefaultTest extends TestBase {
   @Parameter(1)
   public static boolean dontOptimize;
 
-  @Parameters(name = "{0}, dontOptimize = {1}")
+  @Parameter(2)
+  public static boolean debug;
+
+  @Parameters(name = "{0}, dontOptimize = {1}, debug = {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        BooleanUtils.values(),
         BooleanUtils.values());
   }
 
@@ -45,13 +51,14 @@ public class MemberRebindingInterfaceHierachyDefaultTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    assumeFalse(dontOptimize && debug); // debug implies -dontoptimize.
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addKeepMainRule(TestClass.class)
-        // Issue b/328859009 failed in DEBUG mode. Use -dontoptimize to get the same effect.
         .applyIf(dontOptimize, TestShrinkerBuilder::addDontOptimize)
+        .applyIf(debug, TestShrinkerBuilder::debug)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
