@@ -30,6 +30,8 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
   private static final Set<String> OPTIONS_WITH_ONE_PARAMETER =
       ImmutableSet.of(
           "--output",
+          "--globals",
+          "--globals-output",
           "--lib",
           "--classpath",
           "--pg-map",
@@ -53,6 +55,8 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
         .add(ParseFlagInfoImpl.getDebug(true))
         .add(ParseFlagInfoImpl.getRelease(false))
         .add(ParseFlagInfoImpl.getOutput())
+        .add(ParseFlagInfoImpl.getGlobals())
+        .add(ParseFlagInfoImpl.getGlobalsOutput())
         .add(ParseFlagInfoImpl.getLib())
         .add(ParseFlagInfoImpl.getClasspath())
         .add(ParseFlagInfoImpl.getMinApi())
@@ -211,6 +215,7 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
   private D8Command.Builder parse(String[] args, Origin origin, D8Command.Builder builder) {
     CompilationMode compilationMode = null;
     Path outputPath = null;
+    Path globalsOutputPath = null;
     OutputMode outputMode = null;
     boolean hasDefinedApiLevel = false;
     OrderedClassFileResourceProvider.Builder classpathBuilder =
@@ -279,6 +284,21 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
           continue;
         }
         outputPath = Paths.get(nextArg);
+      } else if (arg.equals("--globals")) {
+        builder.addGlobalSyntheticsFiles(Paths.get(nextArg));
+      } else if (arg.equals("--globals-output")) {
+        if (globalsOutputPath != null) {
+          builder.error(
+              new StringDiagnostic(
+                  "Cannot output globals both to '"
+                      + globalsOutputPath.toString()
+                      + "' and '"
+                      + nextArg
+                      + "'",
+                  origin));
+          continue;
+        }
+        globalsOutputPath = Paths.get(nextArg);
       } else if (arg.equals("--lib")) {
         addLibraryArgument(builder, origin, nextArg);
       } else if (arg.equals("--classpath")) {
@@ -372,6 +392,9 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
     }
     if (outputPath == null) {
       outputPath = Paths.get(".");
+    }
+    if (globalsOutputPath != null) {
+      builder.setGlobalSyntheticsOutput(globalsOutputPath);
     }
     return builder.setOutput(outputPath, outputMode);
   }

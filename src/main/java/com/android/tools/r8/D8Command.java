@@ -16,7 +16,9 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecific
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.naming.MapConsumer;
 import com.android.tools.r8.naming.ProguardMapStringConsumer;
+import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.profile.art.ArtProfileForRewriting;
 import com.android.tools.r8.shaking.ProguardConfigurationParser;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
@@ -24,10 +26,14 @@ import com.android.tools.r8.shaking.ProguardConfigurationSource;
 import com.android.tools.r8.shaking.ProguardConfigurationSourceFile;
 import com.android.tools.r8.shaking.ProguardConfigurationSourceStrings;
 import com.android.tools.r8.startup.StartupProfileProvider;
+import com.android.tools.r8.synthesis.GlobalSyntheticsResourceBytes;
+import com.android.tools.r8.synthesis.GlobalSyntheticsResourceFile;
+import com.android.tools.r8.synthesis.GlobalSyntheticsUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
 import com.android.tools.r8.utils.DumpInputFlags;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalGlobalSyntheticsProgramProvider;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
@@ -38,7 +44,10 @@ import com.android.tools.r8.utils.ProgramClassCollection;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -90,6 +99,7 @@ public final class D8Command extends BaseCompilerCommand {
   public static class Builder extends BaseCompilerCommand.Builder<D8Command, Builder> {
 
     private boolean intermediate = false;
+    private Path globalSyntheticsOutput = null;
     private GlobalSyntheticsConsumer globalSyntheticsConsumer = null;
     private final List<GlobalSyntheticsResourceProvider> globalSyntheticsResourceProviders =
         new ArrayList<>();
@@ -257,12 +267,28 @@ public final class D8Command extends BaseCompilerCommand {
     }
 
     /**
+     * Set an output path for receiving the global synthetic content for the given compilation.
+     *
+     * <p>Note: this output is ignored if the compilation is not an "intermediate mode" compilation.
+     *
+     * <p>Note: setting this will clear out any consumer set by setGlobalSyntheticsConsumer.
+     */
+    public Builder setGlobalSyntheticsOutput(Path globalSyntheticsOutput) {
+      this.globalSyntheticsConsumer = null;
+      this.globalSyntheticsOutput = globalSyntheticsOutput;
+      return self();
+    }
+
+    /**
      * Set a consumer for receiving the global synthetic content for the given compilation.
      *
      * <p>Note: this consumer is ignored if the compilation is not an "intermediate mode"
      * compilation.
+     *
+     * <p>Note: setting this will clear out any output path set by setGlobalSyntheticsOutput.
      */
     public Builder setGlobalSyntheticsConsumer(GlobalSyntheticsConsumer globalSyntheticsConsumer) {
+      this.globalSyntheticsOutput = null;
       this.globalSyntheticsConsumer = globalSyntheticsConsumer;
       return self();
     }
@@ -288,9 +314,28 @@ public final class D8Command extends BaseCompilerCommand {
     /** Add global synthetics resource files. */
     public Builder addGlobalSyntheticsFiles(Collection<Path> files) {
       for (Path file : files) {
-        addGlobalSyntheticsResourceProviders(new GlobalSyntheticsResourceFile(file));
+        addGlobalSyntheticsFileOrArchiveOfGlobalSynthetics(file);
       }
       return self();
+    }
+
+    private void addGlobalSyntheticsFileOrArchiveOfGlobalSynthetics(Path file) {
+      if (!FileUtils.isZipFile(file)) {
+        addGlobalSyntheticsResourceProviders(new GlobalSyntheticsResourceFile(file));
+        return;
+      }
+      PathOrigin origin = new PathOrigin(file);
+      try {
+        ZipUtils.iter(
+            file,
+            (entry, input) ->
+                addGlobalSyntheticsResourceProviders(
+                    new GlobalSyntheticsResourceBytes(
+                        new ArchiveEntryOrigin(entry.getName(), origin),
+                        ByteStreams.toByteArray(input))));
+      } catch (IOException e) {
+        error(origin, e);
+      }
     }
 
     /**
@@ -495,7 +540,8 @@ public final class D8Command extends BaseCompilerCommand {
         return new D8Command(isPrintHelp(), isPrintVersion());
       }
 
-      intermediate |= getProgramConsumer() instanceof DexFilePerClassFileConsumer;
+      final ProgramConsumer programConsumer = getProgramConsumer();
+      intermediate |= programConsumer instanceof DexFilePerClassFileConsumer;
 
       DexItemFactory factory = new DexItemFactory();
       DesugaredLibrarySpecification desugaredLibrarySpecification =
@@ -511,20 +557,24 @@ public final class D8Command extends BaseCompilerCommand {
 
       // If compiling to CF with --no-desugaring then the target API is B for consistency with R8.
       int minApiLevel =
-          getProgramConsumer() instanceof ClassFileConsumer && getDisableDesugaring()
+          programConsumer instanceof ClassFileConsumer && getDisableDesugaring()
               ? AndroidApiLevel.B.getLevel()
               : getMinApiLevel();
+
+      GlobalSyntheticsConsumer globalConsumer =
+          GlobalSyntheticsUtils.determineGlobalSyntheticsConsumer(
+              intermediate, globalSyntheticsOutput, globalSyntheticsConsumer, programConsumer);
 
       return new D8Command(
           getAppBuilder().build(),
           getMode(),
-          getProgramConsumer(),
+          programConsumer,
           getMainDexListConsumer(),
           minApiLevel,
           getReporter(),
           getDesugaringState(),
           intermediate,
-          intermediate ? globalSyntheticsConsumer : null,
+          globalConsumer,
           isOptimizeMultidexForLinearAlloc(),
           getIncludeClassesChecksum(),
           getDexClassChecksumFilter(),
@@ -841,4 +891,5 @@ public final class D8Command extends BaseCompilerCommand {
         .setEnableMissingLibraryApiModeling(enableMissingLibraryApiModeling)
         .build();
   }
+
 }

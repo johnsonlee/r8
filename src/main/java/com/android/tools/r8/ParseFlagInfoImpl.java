@@ -47,6 +47,23 @@ public class ParseFlagInfoImpl implements ParseFlagInfo {
         "<file> must be an existing directory or a zip file.");
   }
 
+  public static ParseFlagInfoImpl getGlobals() {
+    return flag1(
+        "--globals",
+        "<file>",
+        "Global synthetics <file> from a previous intermediate compilation.",
+        "The <file> may be either a zip-archive of global synthetics or the",
+        "global-synthetic files directly.");
+  }
+
+  public static ParseFlagInfoImpl getGlobalsOutput() {
+    return flag1(
+        "--globals-output",
+        "<file>",
+        "Output global synthetics in <file>.",
+        "<file> must be an existing directory or a non-existent zip archive.");
+  }
+
   public static ParseFlagInfoImpl getLib() {
     return flag1("--lib", "<file|jdk-home>", "Add <file|jdk-home> as a library resource.");
   }
