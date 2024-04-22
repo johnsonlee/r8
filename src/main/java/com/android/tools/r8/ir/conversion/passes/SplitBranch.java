@@ -27,6 +27,10 @@ import java.util.Set;
 
 public class SplitBranch extends CodeRewriterPass<AppInfo> {
 
+  // Partial rewriting is not sound as it may change the dominator tree such that a rewritten phi
+  // usage is not dominated by the definition of the operand. The issue reproduces with the dump
+  // attached in b/334275655#comment12.
+  // TODO(b/336170435): Consider if the rewriting should be fixed and enabled again.
   private static final boolean ALLOW_PARTIAL_REWRITE = false;
 
   public SplitBranch(AppView<?> appView) {
