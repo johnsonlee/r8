@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.FieldAccessInfo;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -90,7 +91,12 @@ public class ArgumentPropagatorUnoptimizableFieldsAndMethods {
   private boolean isUnoptimizableField(ProgramField field) {
     KeepFieldInfo keepInfo = appView.getKeepInfo(field);
     InternalOptions options = appView.options();
-    return !keepInfo.isFieldPropagationAllowed(options);
+    if (!keepInfo.isFieldPropagationAllowed(options)) {
+      return true;
+    }
+    FieldAccessInfo fieldAccessInfo =
+        appView.appInfo().getFieldAccessInfoCollection().get(field.getReference());
+    return fieldAccessInfo.hasReflectiveWrite() || fieldAccessInfo.isWrittenFromMethodHandle();
   }
 
   private boolean isUnoptimizableMethod(ProgramMethod method) {
