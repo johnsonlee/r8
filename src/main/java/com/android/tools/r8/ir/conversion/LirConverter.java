@@ -19,7 +19,6 @@ import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
 import com.android.tools.r8.ir.conversion.passes.DexItemBasedConstStringRemover;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.conversion.passes.InitClassRemover;
-import com.android.tools.r8.ir.conversion.passes.OriginalFieldWitnessRemover;
 import com.android.tools.r8.ir.conversion.passes.StringSwitchConverter;
 import com.android.tools.r8.ir.conversion.passes.StringSwitchRemover;
 import com.android.tools.r8.ir.optimize.ConstantCanonicalizer;
@@ -148,7 +147,6 @@ public class LirConverter {
         new CodeRewriterPassCollection(
             new AdaptClassStringsRewriter(appView),
             new ConstResourceNumberRemover(appView),
-            new OriginalFieldWitnessRemover(appView),
             // Must run before DexItemBasedConstStringRemover.
             new StringSwitchRemover(appView),
             new DexItemBasedConstStringRemover(appView),

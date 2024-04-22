@@ -13,7 +13,6 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
@@ -235,10 +234,5 @@ public class LirUseRegistryCallback<EV> extends LirParsedInstructionCallback<EV>
   @Override
   public void onRecordFieldValues(DexField[] fields, List<EV> values) {
     registry.registerRecordFieldValues(fields);
-  }
-
-  @Override
-  public void onOriginalFieldWitness(OriginalFieldWitness witness, EV value) {
-    registry.registerOriginalFieldWitness(witness);
   }
 }

@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NumericType;
@@ -524,10 +523,6 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
   }
 
   public void onRecordFieldValues(DexField[] fields, List<EV> values) {
-    onInstruction();
-  }
-
-  public void onOriginalFieldWitness(OriginalFieldWitness witness, EV value) {
     onInstruction();
   }
 
@@ -1291,14 +1286,6 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
         {
           int value = view.getNextIntegerOperand();
           onConstResourceNumber(value);
-          return;
-        }
-      case LirOpcodes.ORIGINALFIELDWITNESS:
-        {
-          OriginalFieldWitness witness =
-              (OriginalFieldWitness) getConstantItem(view.getNextConstantOperand());
-          EV value = getNextValueOperand(view);
-          onOriginalFieldWitness(witness, value);
           return;
         }
       default:

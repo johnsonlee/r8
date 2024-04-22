@@ -111,10 +111,6 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.RESOURCE_CONST_NUMBER);
   }
 
-  public boolean mayHaveOriginalFieldWitness() {
-    return get(Opcodes.ORIGINAL_FIELD_WITNESS);
-  }
-
   public boolean mayHaveConstString() {
     return get(Opcodes.CONST_STRING);
   }

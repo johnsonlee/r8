@@ -138,16 +138,13 @@ public class AssemblyWriter extends DexByteCodeWriter {
       writeAnnotations(null, field.annotations(), ps);
       ps.print(field.accessFlags + " ");
       ps.print(retracer.toSourceString(field.getReference()));
+      if (!retracer.isEmpty()) {
+        ps.println("# Residual: '" + field.getReference().toSourceString() + "'");
+      }
       if (field.isStatic() && field.hasExplicitStaticValue()) {
         ps.print(" = " + field.getStaticValue());
       }
       ps.println();
-      if (!retracer.isEmpty()) {
-        ps.println("# Residual: '" + field.getReference().toSourceString() + "'");
-      }
-      if (field.hasNonIdentityOriginalFieldWitness()) {
-        ps.println("# Original: '" + field.getOriginalFieldWitness() + "'");
-      }
     }
   }
 

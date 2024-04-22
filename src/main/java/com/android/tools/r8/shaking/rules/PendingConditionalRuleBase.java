@@ -8,14 +8,12 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 public abstract class PendingConditionalRuleBase<T> {
 
-  private List<T> outstandingPreconditions;
-  private final List<T> satisfiedPreconditions;
+  private final List<T> outstandingPreconditions;
+  private final List<DexReference> satisfiedPreconditions;
   private final MinimumKeepInfoCollection consequences;
 
   PendingConditionalRuleBase(List<T> preconditions, MinimumKeepInfoCollection consequences) {
@@ -24,11 +22,7 @@ public abstract class PendingConditionalRuleBase<T> {
     this.consequences = consequences;
   }
 
-  public List<T> getSatisfiedPreconditions() {
-    return satisfiedPreconditions;
-  }
-
-  abstract List<DexReference> getReferences(List<T> items);
+  abstract DexReference getReference(T item);
 
   abstract boolean isSatisfied(T item, Enqueuer enqueuer);
 
@@ -38,7 +32,7 @@ public abstract class PendingConditionalRuleBase<T> {
 
   MaterializedConditionalRule asMaterialized() {
     assert !isOutstanding();
-    return new MaterializedConditionalRule(getReferences(satisfiedPreconditions), consequences);
+    return new MaterializedConditionalRule(satisfiedPreconditions, consequences);
   }
 
   final boolean isOutstanding() {
@@ -51,7 +45,7 @@ public abstract class PendingConditionalRuleBase<T> {
     for (T precondition : outstandingPreconditions) {
       if (isSatisfied(precondition, enqueuer)) {
         ++newlySatisfied;
-        satisfiedPreconditions.add(precondition);
+        satisfiedPreconditions.add(getReference(precondition));
       }
     }
     // Not satisfied and nothing changed.
@@ -60,26 +54,13 @@ public abstract class PendingConditionalRuleBase<T> {
     }
     // The rule is satisfied in full.
     if (newlySatisfied == outstandingPreconditions.size()) {
-      outstandingPreconditions = Collections.emptyList();
+      outstandingPreconditions.clear();
       return true;
     }
     // Partially satisfied.
     // This is expected to be the uncommon case so the update to outstanding is delayed to here.
-    int newOutstandingSize = outstandingPreconditions.size() - newlySatisfied;
-    assert newOutstandingSize > 0;
-    List<DexReference> satisfied = getReferences(satisfiedPreconditions);
-    List<DexReference> outstanding = getReferences(outstandingPreconditions);
-    List<T> newOutstanding = new ArrayList<>();
-    Iterator<T> it = outstandingPreconditions.iterator();
-    for (DexReference reference : outstanding) {
-      T precondition = it.next();
-      if (!satisfied.contains(reference)) {
-        newOutstanding.add(precondition);
-      }
-    }
-    assert !it.hasNext();
-    assert newOutstanding.size() == newOutstandingSize;
-    outstandingPreconditions = newOutstanding;
+    outstandingPreconditions.removeIf(
+        outstanding -> satisfiedPreconditions.contains(getReference(outstanding)));
     assert isOutstanding();
     return false;
   }

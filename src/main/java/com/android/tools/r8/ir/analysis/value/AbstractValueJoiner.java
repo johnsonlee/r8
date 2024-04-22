@@ -38,11 +38,6 @@ public abstract class AbstractValueJoiner {
         || abstractValue.equals(otherAbstractValue)) {
       return abstractValue;
     }
-    if (abstractValue.hasWitness() || otherAbstractValue.hasWitness()) {
-      // TODO(b/334822108): Implement support for actually joining values with witness.
-      assert !(abstractValue.hasWitness() && otherAbstractValue.hasWitness());
-      return unknown();
-    }
     if (type.isReferenceType()) {
       return joinReference(abstractValue, otherAbstractValue);
     } else {

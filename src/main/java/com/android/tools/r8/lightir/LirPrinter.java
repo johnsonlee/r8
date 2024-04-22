@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.ir.code.CatchHandlers.CatchHandler;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
@@ -443,11 +442,5 @@ public class LirPrinter<EV> extends LirParsedInstructionCallback<EV> {
   @Override
   public void onRecordFieldValues(DexField[] fields, List<EV> values) {
     appendValueArguments(values);
-  }
-
-  @Override
-  public void onOriginalFieldWitness(OriginalFieldWitness witness, EV value) {
-    appendOutValue().append(witness);
-    appendValueArguments(value);
   }
 }

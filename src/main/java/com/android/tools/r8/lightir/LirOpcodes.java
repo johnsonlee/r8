@@ -213,7 +213,6 @@ public interface LirOpcodes {
   int CONSTCLASS_IGNORE_COMPAT = 226;
   int STRINGSWITCH = 227;
   int RESOURCENUMBER = 228;
-  int ORIGINALFIELDWITNESS = 229;
 
   static String toString(int opcode) {
     switch (opcode) {

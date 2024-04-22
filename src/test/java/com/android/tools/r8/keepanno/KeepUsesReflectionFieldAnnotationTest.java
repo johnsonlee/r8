@@ -49,15 +49,8 @@ public class KeepUsesReflectionFieldAnnotationTest extends KeepAnnoTestBase {
   }
 
   private void checkOutput(CodeInspector inspector) {
-    if (parameters.isNativeR8()) {
-      // A and its field are completely eliminated despite being a precondition.
-      assertThat(inspector.clazz(A.class), isAbsent());
-    } else {
-      // A and its field are soft-pinned in the rules-based extraction.
-      assertThat(inspector.clazz(A.class), isPresent());
-      assertThat(
-          inspector.clazz(A.class).uniqueFieldWithOriginalName("classNameForB"), isPresent());
-    }
+    assertThat(inspector.clazz(A.class), isPresent());
+    assertThat(inspector.clazz(A.class).uniqueFieldWithOriginalName("classNameForB"), isPresent());
     assertThat(inspector.clazz(B.class), isPresent());
     assertThat(inspector.clazz(B.class).init(), isPresent());
     assertThat(inspector.clazz(B.class).init("int"), isAbsent());

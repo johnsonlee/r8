@@ -11,10 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.BiConsumer;
 
-public class ApplicableRulesEvaluatorImpl<T, R extends PendingConditionalRuleBase<T>>
-    extends ApplicableRulesEvaluator {
+public class ApplicableRulesEvaluatorImpl<T> extends ApplicableRulesEvaluator {
 
   private final MinimumKeepInfoCollection rootConsequences;
 
@@ -22,25 +20,16 @@ public class ApplicableRulesEvaluatorImpl<T, R extends PendingConditionalRuleBas
   private static final int reallocMinThreshold = 1;
   private static final int reallocRatioThreshold = 10;
   private int prunedCount = 0;
-  private List<R> pendingConditionalRules;
+  private List<PendingConditionalRuleBase<T>> pendingConditionalRules;
 
   private final List<MaterializedConditionalRule> materializedRules = new ArrayList<>();
 
-  private BiConsumer<R, Enqueuer> onSatisfiedRuleCallback;
-
-  ApplicableRulesEvaluatorImpl(
-      MinimumKeepInfoCollection rootConsequences, List<R> conditionalRules) {
-    this(rootConsequences, conditionalRules, (unusedRule, unusedEnqueuer) -> {});
-  }
-
   ApplicableRulesEvaluatorImpl(
       MinimumKeepInfoCollection rootConsequences,
-      List<R> conditionalRules,
-      BiConsumer<R, Enqueuer> onSatisfiedRuleCallback) {
+      List<PendingConditionalRuleBase<T>> conditionalRules) {
     assert !rootConsequences.isEmpty() || !conditionalRules.isEmpty();
     this.rootConsequences = rootConsequences;
     this.pendingConditionalRules = conditionalRules;
-    this.onSatisfiedRuleCallback = onSatisfiedRuleCallback;
   }
 
   @Override
@@ -59,13 +48,12 @@ public class ApplicableRulesEvaluatorImpl<T, R extends PendingConditionalRuleBas
     // TODO(b/323816623): If we tracked newly live, we could speed up finding rules.
     // TODO(b/323816623): Parallelize this.
     for (int i = 0; i < pendingConditionalRules.size(); i++) {
-      R rule = pendingConditionalRules.get(i);
+      PendingConditionalRuleBase<T> rule = pendingConditionalRules.get(i);
       if (rule != null && rule.isSatisfiedAfterUpdate(enqueuer)) {
         ++prunedCount;
         pendingConditionalRules.set(i, null);
         enqueuer.includeMinimumKeepInfo(rule.getConsequences());
         materializedRules.add(rule.asMaterialized());
-        onSatisfiedRuleCallback.accept(rule, enqueuer);
       }
     }
 
@@ -80,8 +68,8 @@ public class ApplicableRulesEvaluatorImpl<T, R extends PendingConditionalRuleBas
         Math.max(reallocMinThreshold, pendingConditionalRules.size() / reallocRatioThreshold);
     if (prunedCount >= threshold) {
       int newSize = pendingConditionalRules.size() - prunedCount;
-      List<R> newPending = new ArrayList<>(newSize);
-      for (R rule : pendingConditionalRules) {
+      List<PendingConditionalRuleBase<T>> newPending = new ArrayList<>(newSize);
+      for (PendingConditionalRuleBase<T> rule : pendingConditionalRules) {
         if (rule != null) {
           assert rule.isOutstanding();
           newPending.add(rule);

@@ -237,10 +237,6 @@ public abstract class AbstractValue {
     return null;
   }
 
-  public boolean hasWitness() {
-    return false;
-  }
-
   public boolean isUnknown() {
     return false;
   }

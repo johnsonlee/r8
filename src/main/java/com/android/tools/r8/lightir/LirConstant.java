@@ -25,8 +25,7 @@ public interface LirConstant {
     STRING_SWITCH,
     FILL_ARRAY,
     NAME_COMPUTATION,
-    RECORD_FIELD_VALUES,
-    ORIGINAL_FIELD_WITNESS
+    RECORD_FIELD_VALUES
   }
 
   class LirConstantStructuralAcceptor implements StructuralAcceptor<LirConstant> {

@@ -16,8 +16,8 @@ public class PendingConditionalRule extends PendingConditionalRuleBase<DexRefere
   }
 
   @Override
-  List<DexReference> getReferences(List<DexReference> items) {
-    return items;
+  DexReference getReference(DexReference item) {
+    return item;
   }
 
   @Override

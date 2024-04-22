@@ -19,7 +19,6 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
@@ -103,12 +102,6 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
   public void registerInliningPosition(Position position) {
     super.registerInliningPosition(position);
     enqueuer.traceMethodPosition(position, getContext());
-  }
-
-  @Override
-  public void registerOriginalFieldWitness(OriginalFieldWitness witness) {
-    super.registerOriginalFieldWitness(witness);
-    enqueuer.traceOriginalFieldWitness(witness);
   }
 
   @Override
