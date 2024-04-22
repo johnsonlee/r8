@@ -63,9 +63,6 @@ public class KeepEdgeReaderUtils {
 
   public static KeepTypePattern typePatternFromString(
       String string, PropertyParsingContext property) {
-    if (string.equals("<any>")) {
-      return KeepTypePattern.any();
-    }
     return KeepTypePattern.fromDescriptor(internalDescriptorFromJavaType(string, property::error));
   }
 
@@ -92,6 +89,8 @@ public class KeepEdgeReaderUtils {
         return "F";
       case "double":
         return "D";
+      case "void":
+        return "V";
       default:
         {
           StringBuilder builder = new StringBuilder(type.length());

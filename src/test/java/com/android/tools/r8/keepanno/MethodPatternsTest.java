@@ -41,6 +41,7 @@ public class MethodPatternsTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)
@@ -74,7 +75,7 @@ public class MethodPatternsTest extends KeepAnnoTestBase {
       @KeepTarget(
           classConstant = B.class,
           methodName = "bar",
-          methodReturnTypePattern = @TypePattern(name = "void"),
+          methodReturnTypePattern = @TypePattern(),
           methodParameterTypePatterns = {@TypePattern(constant = int.class)}),
       @KeepTarget(
           classConstant = B.class,

@@ -252,8 +252,8 @@ public class KeepAnnotationMatcherPredicates {
     if (returnTypePattern.isAny()) {
       return true;
     }
-    if (returnTypePattern.isVoid() && returnType.isVoidType()) {
-      return true;
+    if (returnTypePattern.isVoid()) {
+      return returnType.isVoidType();
     }
     return matchesType(returnType, returnTypePattern.asType());
   }
