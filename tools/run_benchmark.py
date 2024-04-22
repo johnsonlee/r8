@@ -134,7 +134,8 @@ def run(options, r8jar, testjars):
         cmd.append('-Dcom.android.tools.r8.printtimes=1')
     if not options.golem:
         cmd.extend([
-            f'-DTEST_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/tests_java_8/build/classes/java/test'
+            f'-DTEST_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/tests_java_8/build/classes/java/test',
+            f'-DTESTBASE_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/testbase/build/classes/java/main',
         ])
     cmd.extend(['-cp', ':'.join([r8jar] + testjars)])
     cmd.extend([
