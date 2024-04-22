@@ -78,4 +78,5 @@ public interface Opcodes {
   int UNINITIALIZED_THIS_LOCAL_READ = 69;
   int RECORD_FIELD_VALUES = 70;
   int RESOURCE_CONST_NUMBER = 71;
+  int ORIGINAL_FIELD_WITNESS = 72;
 }

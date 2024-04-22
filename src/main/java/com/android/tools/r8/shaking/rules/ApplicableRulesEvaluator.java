@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.shaking.rules;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
 import java.util.ArrayList;
@@ -65,11 +68,22 @@ public abstract class ApplicableRulesEvaluator {
       rules.add(rule);
     }
 
-    public ApplicableRulesEvaluator build() {
+    public ApplicableRulesEvaluator build(AppView<? extends AppInfoWithClassHierarchy> appView) {
       if (rootConsequences.isEmpty() && rules.isEmpty()) {
         return ApplicableRulesEvaluator.empty();
       }
-      return new ApplicableRulesEvaluatorImpl<>(rootConsequences, new ArrayList<>(rules));
+      return new ApplicableRulesEvaluatorImpl<>(
+          rootConsequences,
+          new ArrayList<>(rules),
+          (rule, enqueuer) -> {
+            // When evaluating the initial rules, if a satisfied rule has a field precondition,
+            // mark it to maintain its original field witness.
+            for (ProgramDefinition precondition : rule.getSatisfiedPreconditions()) {
+              if (precondition.isProgramField()) {
+                precondition.asProgramField().recordOriginalFieldWitness(appView);
+              }
+            }
+          });
     }
   }
 }

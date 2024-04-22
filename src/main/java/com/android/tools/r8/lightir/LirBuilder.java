@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -1113,5 +1114,12 @@ public class LirBuilder<V, EV> {
     RecordFieldValuesPayload payload = new RecordFieldValuesPayload(fields);
     return addInstructionTemplate(
         LirOpcodes.RECORDFIELDVALUES, Collections.singletonList(payload), values);
+  }
+
+  public LirBuilder<V, EV> addOriginalFieldWitness(OriginalFieldWitness witness, V value) {
+    return addInstructionTemplate(
+        LirOpcodes.ORIGINALFIELDWITNESS,
+        Collections.singletonList(witness),
+        Collections.singletonList(value));
   }
 }

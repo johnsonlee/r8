@@ -80,6 +80,7 @@ import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.ObjectAllocationInfoCollectionImpl;
+import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.PermittedSubclassAttribute;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramDerivedContext;
@@ -1689,7 +1690,15 @@ public class Enqueuer {
     }
   }
 
-  void markEffectivelyLiveOriginalReference(DexReference reference) {
+  void traceOriginalFieldWitness(OriginalFieldWitness witness) {
+    markEffectivelyLiveOriginalReference(witness);
+  }
+
+  private void markEffectivelyLiveOriginalReference(OriginalFieldWitness witness) {
+    witness.forEachReference(this::markEffectivelyLiveOriginalReference);
+  }
+
+  private void markEffectivelyLiveOriginalReference(DexReference reference) {
     // TODO(b/325014359): It might be reasonable to reduce this map size by tracking which items
     //  actually are used in preconditions.
     if (effectivelyLiveOriginalReferences.add(reference) && reference.isDexMember()) {
@@ -3279,7 +3288,11 @@ public class Enqueuer {
     if (!options.testing.isKeepAnnotationsEnabled()) {
       return;
     }
-    markEffectivelyLiveOriginalReference(field.getReference());
+    if (field.getDefinition().hasOriginalFieldWitness()) {
+      markEffectivelyLiveOriginalReference(field.getDefinition().getOriginalFieldWitness());
+    } else {
+      markEffectivelyLiveOriginalReference(field.getReference());
+    }
   }
 
   private void markFieldAsLive(ProgramField field, ProgramMethod context) {
@@ -3851,7 +3864,7 @@ public class Enqueuer {
     if (mode.isInitialTreeShaking()) {
       applicableRules =
           KeepAnnotationMatcher.computeInitialRules(
-              appInfo, keepDeclarations, options.getThreadingModule(), executorService);
+              appView, keepDeclarations, options.getThreadingModule(), executorService);
       // Amend library methods with covariant return types.
       timing.begin("Model library");
       modelLibraryMethodsWithCovariantReturnTypes(appView);

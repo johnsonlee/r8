@@ -18,6 +18,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.kotlin.KotlinFieldLevelInfo;
 import com.android.tools.r8.kotlin.KotlinMetadataUtils;
 import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
@@ -31,6 +32,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
 
   public final FieldAccessFlags accessFlags;
   private DexValue staticValue;
+  private OriginalFieldWitness originalFieldWitness = null;
   private final boolean deprecated;
   /** Generic signature information if the attribute is present in the input */
   private FieldTypeSignature genericSignature;
@@ -358,6 +360,28 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     return true;
   }
 
+  void recordOriginalFieldWitness(
+      ProgramField field, AppView<? extends AppInfoWithClassHierarchy> appView) {
+    assert ObjectUtils.identical(this, field.getDefinition());
+    originalFieldWitness = OriginalFieldWitness.forProgramField(field);
+    optimizationInfo =
+        optimizationInfo
+            .toMutableOptimizationInfo()
+            .addOriginalFieldWitness(originalFieldWitness, field, appView);
+  }
+
+  public OriginalFieldWitness getOriginalFieldWitness() {
+    return originalFieldWitness;
+  }
+
+  public boolean hasOriginalFieldWitness() {
+    return originalFieldWitness != null;
+  }
+
+  public boolean hasNonIdentityOriginalFieldWitness() {
+    return hasOriginalFieldWitness() && !originalFieldWitness.isEqualToDexField(getReference());
+  }
+
   public static class Builder {
 
     private DexField field;
@@ -366,6 +390,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     private FieldTypeSignature genericSignature = FieldTypeSignature.noSignature();
     private KotlinFieldLevelInfo kotlinInfo = KotlinMetadataUtils.getNoKotlinInfo();
     private DexValue staticValue = null;
+    private OriginalFieldWitness originalFieldWitness = null;
     private ComputedApiLevel apiLevel = ComputedApiLevel.notSet();
     private FieldOptimizationInfo optimizationInfo = DefaultFieldOptimizationInfo.getInstance();
     private boolean deprecated;
@@ -388,6 +413,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
       kotlinInfo = from.getKotlinInfo();
       annotations = from.annotations();
       staticValue = from.staticValue;
+      originalFieldWitness = from.originalFieldWitness;
       apiLevel = from.getApiLevel();
       optimizationInfo =
           from.optimizationInfo.isMutableOptimizationInfo()
@@ -487,6 +513,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
               d8R8Synthesized);
       dexEncodedField.setKotlinMemberInfo(kotlinInfo);
       dexEncodedField.optimizationInfo = optimizationInfo;
+      dexEncodedField.originalFieldWitness = originalFieldWitness;
       buildConsumer.accept(dexEncodedField);
       return dexEncodedField;
     }
