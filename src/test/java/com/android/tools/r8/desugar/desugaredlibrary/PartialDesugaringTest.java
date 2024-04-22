@@ -68,7 +68,8 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
         AndroidApiLevel.R,
         AndroidApiLevel.S,
         AndroidApiLevel.T,
-        AndroidApiLevel.U);
+        AndroidApiLevel.U,
+        AndroidApiLevel.MAIN);
   }
 
   // TODO(b/268425188): Fix remaining failures.
@@ -203,7 +204,9 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
     Set<String> expectedFailures = new HashSet<>();
     boolean jdk11NonMinimal = librarySpecification != JDK8 && librarySpecification != JDK11_MINIMAL;
     if (jdk11NonMinimal && api.isGreaterThanOrEqualTo(AndroidApiLevel.N)) {
-      expectedFailures.addAll(FAILURES_NUMBER_STREAM);
+      if (api.isLessThan(AndroidApiLevel.MAIN)) {
+        expectedFailures.addAll(FAILURES_NUMBER_STREAM);
+      }
       if (api.isLessThan(AndroidApiLevel.U)) {
         expectedFailures.addAll(FAILURES_STREAM);
         expectedFailures.addAll(FAILURES_DOUBLE_SUMMARY_STATISTICS);
@@ -228,7 +231,9 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
       expectedFailures.addAll(FAILURES_CHRONOLOGY);
       expectedFailures.addAll(FAILURES_DATE_TIME_BUILDER);
     }
-    if (librarySpecification == JDK8 && api.isGreaterThanOrEqualTo(AndroidApiLevel.O)) {
+    if (librarySpecification == JDK8
+        && api.isGreaterThanOrEqualTo(AndroidApiLevel.O)
+        && api.isLessThan(AndroidApiLevel.MAIN)) {
       expectedFailures.addAll(FAILURES_ERA);
     }
     return expectedFailures;

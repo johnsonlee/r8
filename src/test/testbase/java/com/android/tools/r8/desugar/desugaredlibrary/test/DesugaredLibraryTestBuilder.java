@@ -138,6 +138,12 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<T> addInnerClassesAndStrippedOuter(Class<?> clazz)
+      throws IOException {
+    builder.addInnerClassesAndStrippedOuter(clazz);
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> addClasspathClasses(Class<?>... clazz) {
     builder.addClasspathClasses(clazz);
     return this;
@@ -268,6 +274,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public DesugaredLibraryTestBuilder<T> allowDiagnosticWarningMessages() {
     withR8TestBuilder(R8TestBuilder::allowDiagnosticWarningMessages);
+    return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> allowDiagnosticWarningMessages(boolean condition) {
+    withR8TestBuilder(b -> b.allowDiagnosticWarningMessages(condition));
     return this;
   }
 

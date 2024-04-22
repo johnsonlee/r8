@@ -141,6 +141,11 @@ public class TestParametersBuilder {
     return withDexRuntimes();
   }
 
+  public TestParametersBuilder allowMaster() {
+    this.allowMaster = true;
+    return this;
+  }
+
   /** Add all available DEX runtimes except master. */
   public TestParametersBuilder withDexRuntimes() {
     return withDexRuntimeFilter(vm -> true);

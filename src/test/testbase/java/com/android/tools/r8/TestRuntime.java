@@ -222,6 +222,9 @@ public abstract class TestRuntime {
     if (version.equals("17") || version.startsWith("17.")) {
       return new CfRuntime(CfVm.JDK17, Paths.get(home));
     }
+    if (version.equals("21") || version.startsWith("21.")) {
+      return new CfRuntime(CfVm.JDK21, Paths.get(home));
+    }
     throw new Unimplemented("No support for JDK version: " + version);
   }
 

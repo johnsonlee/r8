@@ -245,6 +245,10 @@ public class L8TestBuilder {
     // In this case, all warnings should apply to org.testng.Assert types which are not present
     // in the vanilla desugared library.
     // Vanilla desugared library compilation should have no warnings.
+    warnings.removeIf(
+        w ->
+            w.getDiagnosticMessage().contains("An API level of")
+                && w.getDiagnosticMessage().contains("is not supported by this compiler"));
     assertTrue(
         warnings.stream().map(Diagnostic::getDiagnosticMessage).collect(Collectors.joining()),
         warnings.isEmpty()
