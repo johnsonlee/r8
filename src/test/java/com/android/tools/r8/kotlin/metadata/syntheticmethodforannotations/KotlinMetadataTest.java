@@ -9,6 +9,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationFailedException;
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -26,6 +27,7 @@ import java.util.concurrent.ExecutionException;
 import kotlinx.metadata.internal.extensions.KmPropertyExtension;
 import kotlinx.metadata.jvm.JvmMethodSignature;
 import kotlinx.metadata.jvm.internal.JvmPropertyExtension;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -99,6 +101,9 @@ public class KotlinMetadataTest extends KotlinTestBase {
 
   @Test
   public void testR8() throws Exception {
+    Assume.assumeFalse(
+        "Kotlin reflect failure on oldest compiler",
+        kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72));
     testForR8(parameters.getBackend())
         .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
@@ -161,6 +166,9 @@ public class KotlinMetadataTest extends KotlinTestBase {
 
   @Test
   public void testR8NoKR() throws Exception {
+    Assume.assumeFalse(
+        "Kotlin reflect failure on oldest compiler",
+        kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72));
     testForR8(parameters.getBackend())
         .addProgramFiles(compilationResults.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
