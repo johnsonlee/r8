@@ -144,15 +144,7 @@ public class GenerateDesugaredLibraryLintFiles extends AbstractGenerateFiles {
       AndroidApiLevel minApiLevel,
       SupportedClasses supportedMethods)
       throws Exception {
-    System.out.print("  - generating for min API:");
-    System.out.print(" " + minApiLevel);
     writeLintFiles(compilationApiLevel, minApiLevel, supportedMethods);
-  }
-
-  String getDebugIdentifier() {
-    return desugaredLibrarySpecification.getIdentifier() == null
-        ? "backported methods only"
-        : desugaredLibrarySpecification.getIdentifier();
   }
 
   @Override
@@ -162,15 +154,8 @@ public class GenerateDesugaredLibraryLintFiles extends AbstractGenerateFiles {
     SupportedClasses supportedMethods =
         new SupportedClassesGenerator(options, androidJar)
             .run(desugaredLibraryImplementation, desugaredLibrarySpecificationResource);
-    System.out.println(
-        "Generating lint files for "
-            + getDebugIdentifier()
-            + " (compile API "
-            + compilationLevel
-            + ")");
     generateLintFiles(compilationLevel, AndroidApiLevel.B, supportedMethods);
     generateLintFiles(compilationLevel, AndroidApiLevel.L, supportedMethods);
-    System.out.println();
     return compilationLevel;
   }
 
