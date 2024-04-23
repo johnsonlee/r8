@@ -58,6 +58,7 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
     RuntimeWorkaroundCodeRewriter.workaroundForwardingInitializerBug(code, options);
     RuntimeWorkaroundCodeRewriter.workaroundExceptionTargetingLoopHeaderBug(code, options);
     RuntimeWorkaroundCodeRewriter.rewriteJdk8272564Fix(code, options, appView);
+    RuntimeWorkaroundCodeRewriter.reportInvokeSuperToInterfaceOnDalvik(code, options, appView);
     assert code.isConsistentSSA(appView);
   }
 

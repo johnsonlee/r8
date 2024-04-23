@@ -19,6 +19,7 @@ import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.collect.ImmutableList;
@@ -137,6 +138,8 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
         .apply(this::configureR8)
         .setMinApi(parameters)
         .addKeepMainRule(TestClass.class)
+        .allowDiagnosticWarningMessages(
+            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.L))
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             runtimeWithJavaTime(parameters),

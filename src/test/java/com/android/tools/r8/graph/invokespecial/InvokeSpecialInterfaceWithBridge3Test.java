@@ -14,6 +14,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
 import org.junit.Test;
@@ -74,6 +75,8 @@ public class InvokeSpecialInterfaceWithBridge3Test extends TestBase {
         .addProgramClassFileData(getClassWithTransformedInvoked())
         .addKeepMainRule(Main.class)
         .addOptionsModification(options -> options.getTestingOptions().allowInvokeErrors = true)
+        .allowDiagnosticWarningMessages(
+            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.L))
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(

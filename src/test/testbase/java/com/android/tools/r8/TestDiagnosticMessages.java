@@ -10,6 +10,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.diagnosticinspector.DiagnosticSubject;
 import com.android.tools.r8.diagnosticinspector.FoundDiagnosticSubject;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -18,6 +19,19 @@ import java.util.List;
 import org.hamcrest.Matcher;
 
 public abstract class TestDiagnosticMessages {
+
+  public <E extends Exception> TestDiagnosticMessages applyIf(
+      boolean condition,
+      ThrowingConsumer<TestDiagnosticMessages, E> thenConsumer,
+      ThrowingConsumer<TestDiagnosticMessages, E> elseConsumer)
+      throws E {
+    if (condition) {
+      thenConsumer.accept(this);
+    } else {
+      elseConsumer.accept(this);
+    }
+    return this;
+  }
 
   public abstract List<Diagnostic> getInfos();
 

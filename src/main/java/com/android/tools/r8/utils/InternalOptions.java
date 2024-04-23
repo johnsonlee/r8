@@ -3125,6 +3125,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return canHaveBugPresentUntilExclusive(AndroidApiLevel.L_MR1);
   }
 
+  // Dalvik does not support invoke-super instructions that target interfaces.
+  public boolean canHaveSuperInvokeToInterfaceMethodBug() {
+    return canHaveBugPresentUntilExclusive(AndroidApiLevel.L);
+  }
+
   // Some Dalvik and Art MVs does not support interface invokes to Object
   // members not explicitly defined on the symbolic reference of the
   // interface invoke. In these cases rewrite to a virtual invoke with

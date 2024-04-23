@@ -39,6 +39,8 @@ public class ApiModelBridgeToLibraryMethodTest extends TestBase {
         .setMinApi(parameters)
         .addKeepMainRule(TestClassWithApiLevelCheck.class)
         .addAndroidBuildVersion()
+        .allowDiagnosticWarningMessages(
+            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.L))
         .run(parameters.getRuntime(), TestClassWithApiLevelCheck.class)
         .applyIf(
             parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.N),

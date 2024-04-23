@@ -387,12 +387,12 @@ public abstract class TestCompilerBuilder<
   }
 
   @FunctionalInterface
-  public interface DiagnosticsConsumer {
-    void accept(TestDiagnosticMessages diagnostics);
+  public interface DiagnosticsConsumer<E extends Exception> {
+    void accept(TestDiagnosticMessages diagnostics) throws E;
   }
 
-  public CR compileWithExpectedDiagnostics(DiagnosticsConsumer diagnosticsConsumer)
-      throws CompilationFailedException {
+  public <E extends Exception> CR compileWithExpectedDiagnostics(
+      DiagnosticsConsumer<E> diagnosticsConsumer) throws CompilationFailedException, E {
     TestDiagnosticMessages diagnosticsHandler = getState().getDiagnosticsMessages();
     try {
       CR result = compile();

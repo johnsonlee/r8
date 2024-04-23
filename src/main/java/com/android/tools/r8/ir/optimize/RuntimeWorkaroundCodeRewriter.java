@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.optimize;
 
+import com.android.tools.r8.errors.IllegalInvokeSuperToInterfaceOnDalvikDiagnostic;
+import com.android.tools.r8.errors.dontwarn.DontWarnConfiguration;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -23,6 +25,7 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.InvokeInterface;
 import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.InvokeSuper;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Value;
@@ -426,5 +429,27 @@ public class RuntimeWorkaroundCodeRewriter {
       }
     }
     assert code.isConsistentSSA(appView);
+  }
+
+  public static void reportInvokeSuperToInterfaceOnDalvik(
+      IRCode code, InternalOptions options, AppView<?> appView) {
+    DontWarnConfiguration dontWarnConfiguration = appView.getDontWarnConfiguration();
+    if (!options.canHaveSuperInvokeToInterfaceMethodBug()
+        || dontWarnConfiguration.matches(code.context())) {
+      return;
+    }
+    for (InvokeSuper invoke : code.<InvokeSuper>instructions(Instruction::isInvokeSuper)) {
+      DexMethod invokedMethod = invoke.getInvokedMethod();
+      if (invokedMethod.getHolderType().isInterfaceOrDefault(appView, false)
+          && !dontWarnConfiguration.matches(invokedMethod.getHolderType())) {
+        appView
+            .reporter()
+            .warning(
+                new IllegalInvokeSuperToInterfaceOnDalvikDiagnostic(
+                    code.context().getMethodReference(),
+                    invokedMethod.asMethodReference(),
+                    code.context().getOrigin()));
+      }
+    }
   }
 }

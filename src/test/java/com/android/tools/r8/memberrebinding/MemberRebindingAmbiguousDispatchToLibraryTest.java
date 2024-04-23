@@ -10,6 +10,7 @@ import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
 import org.junit.Test;
@@ -74,6 +75,10 @@ public class MemberRebindingAmbiguousDispatchToLibraryTest extends TestBase {
         .apply(this::setupInput)
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
+        .allowDiagnosticWarningMessages(
+            parameters.isDexRuntime()
+                && parameters.getApiLevel().isLessThan(AndroidApiLevel.L)
+                && interfaceAsSymbolicReference)
         .compile()
         .addRunClasspathClasses(SuperInterface.class)
         .addRunClasspathClassFileData(getSuperClass())
