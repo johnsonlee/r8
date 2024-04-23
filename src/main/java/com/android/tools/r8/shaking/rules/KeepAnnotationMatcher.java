@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking.rules;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
@@ -56,20 +57,20 @@ import java.util.function.Consumer;
 public class KeepAnnotationMatcher {
 
   public static ApplicableRulesEvaluator computeInitialRules(
-      AppInfoWithClassHierarchy appInfo,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       List<KeepDeclaration> keepDeclarations,
       ThreadingModule threadingModule,
       ExecutorService executorService)
       throws ExecutionException {
     KeepAnnotationMatcherPredicates predicates =
-        new KeepAnnotationMatcherPredicates(appInfo.dexItemFactory());
+        new KeepAnnotationMatcherPredicates(appView.dexItemFactory());
     ApplicableRulesEvaluator.Builder builder = ApplicableRulesEvaluator.initialRulesBuilder();
     ThreadUtils.processItems(
         keepDeclarations,
-        declaration -> processDeclaration(declaration, appInfo, predicates, builder),
+        declaration -> processDeclaration(declaration, appView.appInfo(), predicates, builder),
         threadingModule,
         executorService);
-    return builder.build();
+    return builder.build(appView);
   }
 
   private static void processDeclaration(
@@ -107,19 +108,6 @@ public class KeepAnnotationMatcher {
               minimumKeepInfoCollection.getOrCreateMinimumKeepInfoFor(item.getReference());
           updateWithConstraints(item, joiner, result.constraints.get(i), result.edge);
         });
-    // TODO(b/323816623): Encode originals instead of soft-pinning class/field preconditions.
-    for (ProgramDefinition precondition : result.preconditions) {
-      if (precondition.isClass() || precondition.isField()) {
-        minimumKeepInfoCollection
-            .getOrCreateMinimumKeepInfoFor(precondition.getReference())
-            .disallowOptimization();
-        if (precondition.isField()) {
-          minimumKeepInfoCollection
-              .getOrCreateMinimumKeepInfoFor(precondition.getContextType())
-              .disallowOptimization();
-        }
-      }
-    }
     return minimumKeepInfoCollection;
   }
 

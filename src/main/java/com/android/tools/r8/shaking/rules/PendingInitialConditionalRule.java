@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
+import com.android.tools.r8.utils.ListUtils;
 import java.util.List;
 
 public class PendingInitialConditionalRule extends PendingConditionalRuleBase<ProgramDefinition> {
@@ -19,8 +20,8 @@ public class PendingInitialConditionalRule extends PendingConditionalRuleBase<Pr
   }
 
   @Override
-  DexReference getReference(ProgramDefinition item) {
-    return item.getReference();
+  List<DexReference> getReferences(List<ProgramDefinition> items) {
+    return ListUtils.map(items, ProgramDefinition::getReference);
   }
 
   @Override

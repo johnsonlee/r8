@@ -880,6 +880,14 @@ public abstract class Instruction
     return null;
   }
 
+  public boolean isOriginalFieldWitness() {
+    return false;
+  }
+
+  public OriginalFieldWitnessInstruction asOriginalFieldWitness() {
+    return null;
+  }
+
   public boolean isConstInstruction() {
     return false;
   }

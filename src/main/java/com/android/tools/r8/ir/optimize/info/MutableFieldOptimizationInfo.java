@@ -6,12 +6,17 @@ package com.android.tools.r8.ir.optimize.info;
 
 import static java.util.Collections.emptySet;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.OriginalFieldWitness;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueFieldJoiner;
+import com.android.tools.r8.ir.analysis.value.AbstractValueWithWitness;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Set;
@@ -64,6 +69,18 @@ public class MutableFieldOptimizationInfo extends FieldOptimizationInfo
       AbstractValue abstractValue, DexEncodedField field) {
     assert !abstractValue.isNull() || field.getType().isReferenceType();
     return setAbstractValue(abstractValue);
+  }
+
+  public MutableFieldOptimizationInfo addOriginalFieldWitness(
+      OriginalFieldWitness unused,
+      ProgramField field,
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    AbstractValueWithWitness witnessValue = AbstractValueWithWitness.getInstance();
+    if (abstractValue.isUnknown()) {
+      return setAbstractValue(witnessValue);
+    }
+    return setAbstractValue(
+        new AbstractValueFieldJoiner(appView).join(abstractValue, witnessValue, field));
   }
 
   private MutableFieldOptimizationInfo setAbstractValue(AbstractValue abstractValue) {

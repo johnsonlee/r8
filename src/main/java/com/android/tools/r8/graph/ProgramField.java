@@ -99,4 +99,8 @@ public class ProgramField extends DexClassAndField
   public KotlinFieldLevelInfo getKotlinInfo() {
     return getDefinition().getKotlinInfo();
   }
+
+  public void recordOriginalFieldWitness(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    getDefinition().recordOriginalFieldWitness(this, appView);
+  }
 }

@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.proto.ArgumentInfo;
 import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
@@ -80,6 +81,7 @@ import com.android.tools.r8.ir.code.NumberConversion;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
+import com.android.tools.r8.ir.code.OriginalFieldWitnessInstruction;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.RecordFieldValues;
@@ -1036,6 +1038,13 @@ public class Lir2IRConverter {
               appView.dexItemFactory().objectArrayType, Nullability.definitelyNotNull(), appView);
       Value dest = getOutValueForNextInstruction(typeElement);
       addInstruction(new RecordFieldValues(fields, dest, getValues(values)));
+    }
+
+    @Override
+    public void onOriginalFieldWitness(OriginalFieldWitness witness, EV value) {
+      // The instruction is a move and its type must be computed as that of its source value.
+      Value dest = getOutValueForNextInstruction(TypeElement.getBottom());
+      addInstruction(new OriginalFieldWitnessInstruction(witness, dest, getValue(value)));
     }
   }
 }

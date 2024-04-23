@@ -65,6 +65,8 @@ public abstract class UseRegistry<T extends Definition> {
     assert position.hasCallerPosition();
   }
 
+  public void registerOriginalFieldWitness(OriginalFieldWitness witness) {}
+
   public void registerRecordFieldValues(DexField[] fields) {
     registerTypeReference(appView.dexItemFactory().objectArrayType);
   }

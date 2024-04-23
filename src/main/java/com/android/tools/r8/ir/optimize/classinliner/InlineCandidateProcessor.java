@@ -25,6 +25,7 @@ import com.android.tools.r8.graph.FieldResolutionResult.SingleProgramFieldResolu
 import com.android.tools.r8.graph.LibraryMethod;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
@@ -35,6 +36,7 @@ import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
@@ -49,6 +51,7 @@ import com.android.tools.r8.ir.code.InstructionOrPhi;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
+import com.android.tools.r8.ir.code.OriginalFieldWitnessInstruction;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
@@ -765,11 +768,27 @@ final class InlineCandidateProcessor {
       AffectedValues affectedValues,
       Map<DexField, FieldValueHelper> fieldHelpers) {
     Value value = fieldRead.outValue();
+    Instruction replacement = null;
     if (value != null) {
       FieldValueHelper helper =
           fieldHelpers.computeIfAbsent(
               fieldRead.getField(), field -> new FieldValueHelper(field, code, root, appView));
       Value newValue = helper.getValueForFieldRead(fieldRead.getBlock(), fieldRead);
+      SingleProgramFieldResolutionResult resolution =
+          appView
+              .appInfo()
+              .resolveFieldOn(eligibleClass, fieldRead.getField())
+              .asSingleProgramFieldResolutionResult();
+      assert resolution != null;
+      if (resolution != null) {
+        OriginalFieldWitness witness =
+            resolution.getProgramField().getDefinition().getOriginalFieldWitness();
+        if (witness != null) {
+          Value dest = code.createValue(newValue.getType(), newValue.getLocalInfo());
+          replacement = new OriginalFieldWitnessInstruction(witness, dest, newValue);
+          newValue = dest;
+        }
+      }
       value.replaceUsers(newValue);
       for (FieldValueHelper fieldValueHelper : fieldHelpers.values()) {
         fieldValueHelper.replaceValue(value, newValue);
@@ -781,7 +800,12 @@ final class InlineCandidateProcessor {
       affectedValues.add(newValue);
       affectedValues.addAll(newValue.affectedValues());
     }
-    removeInstruction(fieldRead);
+    if (replacement != null) {
+      BasicBlockInstructionListIterator it = fieldRead.getBlock().listIterator(code, fieldRead);
+      it.replaceCurrentInstruction(replacement, affectedValues);
+    } else {
+      removeInstruction(fieldRead);
+    }
   }
 
   private void removeFieldReadsFromStaticGet(IRCode code, AffectedValues affectedValues) {
