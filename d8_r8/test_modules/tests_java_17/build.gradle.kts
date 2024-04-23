@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import org.gradle.api.JavaVersion
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
   `kotlin-dsl`
@@ -47,6 +46,8 @@ tasks {
   }
 
   withType<Test> {
+    notCompatibleWithConfigurationCache(
+      "Failure storing the configuration cache: cannot serialize object of type 'org.gradle.api.internal.project.DefaultProject', a subtype of 'org.gradle.api.Project', as these are not supported with the configuration cache")
     TestingState.setUpTestingState(this)
     javaLauncher = getJavaLauncher(Jdk.JDK_17)
     systemProperty("TEST_DATA_LOCATION",
