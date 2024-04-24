@@ -33,12 +33,13 @@ import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -127,8 +128,8 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
                 AppInfo.createInitialAppInfo(
                     finalApp, GlobalSyntheticsStrategy.forNonSynthesizing()))
             .appInfoForDesugaring();
-    List<DexMethod> backports =
-        BackportedMethodRewriter.generateListOfBackportedMethods(libHolder, options);
+    Set<DexMethod> backports = Sets.newIdentityHashSet();
+    backports.addAll(BackportedMethodRewriter.generateListOfBackportedMethods(libHolder, options));
     Map<DexMethod, Object> failures = new IdentityHashMap<>();
     for (FoundClassSubject clazz : inspector.allClasses()) {
       if (clazz.toString().startsWith("j$.sun.nio.cs.")
@@ -140,39 +141,38 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
       for (FoundMethodSubject method : clazz.allMethods()) {
         if (method.hasCode()) {
           for (InstructionSubject instruction : method.instructions(InstructionSubject::isInvoke)) {
-            assertInvokeResolution(instruction, appInfo, method, failures);
+            assertInvokeResolution(instruction, appInfo, method, failures, backports);
           }
         }
       }
     }
-    for (DexMethod dexMethod : new HashSet<>(failures.keySet())) {
-      if (ALLOWED_MISSING_HOLDER.contains(dexMethod.getHolderType().toString())) {
-        failures.remove(dexMethod);
-      } else if (ALLOWED_MISSING_METHOD.contains(dexMethod.toString())) {
-        failures.remove(dexMethod);
-      } else if (backports.contains(dexMethod)) {
-        failures.remove(dexMethod);
-      }
-    }
-    assertTrue(failures.isEmpty());
+    assertTrue("Failing methods: " + shortPrintFailures(failures), failures.isEmpty());
+  }
+
+  private static List<String> shortPrintFailures(Map<DexMethod, Object> failures) {
+    return failures.keySet().stream()
+        .map(m -> m.getHolderType() + "#" + m.getName())
+        .collect(Collectors.toList());
+  }
+
+  private boolean isAllowedFailure(DexMethod dexMethod, Set<DexMethod> backports) {
+    return ALLOWED_MISSING_HOLDER.contains(dexMethod.getHolderType().toString())
+        || ALLOWED_MISSING_METHOD.contains(dexMethod.toString())
+        || backports.contains(dexMethod);
   }
 
   private void assertInvokeResolution(
       InstructionSubject instruction,
       AppInfoWithClassHierarchy appInfo,
       FoundMethodSubject context,
-      Map<DexMethod, Object> failures) {
+      Map<DexMethod, Object> failures,
+      Set<DexMethod> backports) {
     DexMethod method = instruction.getMethod();
     assert method != null;
     MethodResolutionResult methodResolutionResult =
         appInfo.unsafeResolveMethodDueToDexFormatLegacy(method);
-    if (methodResolutionResult.isFailedResolution()) {
+    if (methodResolutionResult.isFailedResolution() && !isAllowedFailure(method, backports)) {
       failures.put(method, new Pair<>(context, methodResolutionResult));
     }
-  }
-
-  static class GuineaPig {
-
-    public static void main(String[] args) {}
   }
 }
