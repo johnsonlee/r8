@@ -163,7 +163,7 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
   private static final Set<String> EXPECTED_MISSING_WRAPPERS_JDK8 =
       ImmutableSet.of("java.util.stream.Collector$Characteristics");
 
-  // TODO(b/330457027): mapMulti methods need to be tested.
+  // The mapMulti methods don't work with desugared library, wrapper or not.
   private static final Set<String> EXPECTED_MISSING_WRAPPERS_ANDROID_V =
       ImmutableSet.of(
           "java.util.stream.DoubleStream$DoubleMapMultiConsumer",
