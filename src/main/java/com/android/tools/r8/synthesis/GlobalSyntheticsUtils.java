@@ -68,6 +68,7 @@ public final class GlobalSyntheticsUtils {
           // If not global info was written, close the builder with empty content.
           if (!written) {
             builder.close(handler);
+            written = true;
           }
         }
       };

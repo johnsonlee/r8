@@ -75,6 +75,33 @@ public class GlobalSyntheticOutputCliTest extends TestBase {
   }
 
   @Test
+  public void testDexNoGlobals() throws Exception {
+    Path input1 = ToolHelper.getClassFileForTestClass(TestClass1.class);
+    Path input2 = ToolHelper.getClassFileForTestClass(TestClass2.class);
+    Path dexOut = temp.newFolder().toPath().resolve("out.jar");
+    Path globalsOut = temp.newFolder().toPath().resolve("out.zip");
+    forkD8(
+        input1.toString(),
+        input2.toString(),
+        "--intermediate",
+        "--output",
+        dexOut.toString(),
+        "--globals-output",
+        globalsOut.toString());
+
+    assertTrue(Files.exists(dexOut));
+    assertTrue(Files.exists(globalsOut));
+
+    Path finalOut = temp.newFolder().toPath().resolve("out.jar");
+    forkD8(dexOut.toString(), "--globals", globalsOut.toString(), "--output", finalOut.toString());
+
+    testForD8()
+        .addProgramFiles(finalOut)
+        .run(parameters.getRuntime(), TestClass1.class)
+        .assertSuccessWithOutput(EXPECTED);
+  }
+
+  @Test
   public void testDexIndexedZip() throws Exception {
     Path input1 = transformClass(TestClass1.class);
     Path input2 = transformClass(TestClass2.class);

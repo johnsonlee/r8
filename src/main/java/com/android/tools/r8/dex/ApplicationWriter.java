@@ -353,6 +353,9 @@ public class ApplicationWriter {
     merger.end();
     if (globalsSyntheticsConsumer != null) {
       globalsSyntheticsConsumer.finished(appView);
+    } else if (options.hasGlobalSyntheticsConsumer()) {
+      // Make sure to also call finished even if no global output was generated.
+      options.getGlobalSyntheticsConsumer().finished(appView.reporter());
     }
   }
 
