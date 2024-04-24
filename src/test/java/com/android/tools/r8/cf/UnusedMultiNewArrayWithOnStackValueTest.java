@@ -1,4 +1,4 @@
-// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -12,9 +12,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-/** Regression test for b/138668220. */
+/** Regression test for b/335663479. */
 @RunWith(Parameterized.class)
-public class UnusedMultiNewArrayTest extends TestBase {
+public class UnusedMultiNewArrayWithOnStackValueTest extends TestBase {
 
   private final TestParameters parameters;
 
@@ -23,7 +23,7 @@ public class UnusedMultiNewArrayTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public UnusedMultiNewArrayTest(TestParameters parameters) {
+  public UnusedMultiNewArrayWithOnStackValueTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -37,14 +37,17 @@ public class UnusedMultiNewArrayTest extends TestBase {
         .compile()
         .addRunClasspathClasses(A.class)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput("");
+        .assertSuccessWithOutputLines("42");
   }
 
   static class TestClass {
 
     public static void main(String[] args) {
-      // This instruction cannot be removed because A is not provided as a program class.
-      A[][] unused = new A[42][42];
+      // The array instructions cannot be removed because A is not provided as a program class.
+      int dim = 42;
+      A[][] local = new A[dim][dim];
+      local = new A[dim][dim];
+      System.out.println(local.length);
     }
   }
 

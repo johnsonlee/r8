@@ -194,12 +194,7 @@ public final class InvokeCustom extends Invoke {
     if (getCallSite().methodProto.returnType.isVoidType()) {
       return;
     }
-    if (outValue == null) {
-      helper.popOutType(getCallSite().methodProto.returnType, this, it);
-    } else {
-      assert outValue.isUsed();
-      helper.storeOutValue(this, it);
-    }
+    helper.storeOrPopOutValue(getCallSite().methodProto.returnType, this, it);
   }
 
   @Override

@@ -270,12 +270,7 @@ public abstract class InvokeMethod extends Invoke {
     if (getReturnType().isVoidType()) {
       return;
     }
-    if (outValue == null) {
-      helper.popOutType(getReturnType(), this, it);
-    } else {
-      assert outValue.isUsed();
-      helper.storeOutValue(this, it);
-    }
+    helper.storeOrPopOutValue(getReturnType(), this, it);
   }
 
   @Override

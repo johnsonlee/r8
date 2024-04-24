@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexMoveResult;
@@ -294,4 +295,10 @@ public abstract class Invoke extends Instruction {
   public boolean outTypeKnownToBeBoolean(Set<Phi> seen) {
     return getReturnType().isBooleanType();
   }
+
+  /**
+   * Subclasses must implement load and store handling and make sure to deal with a null out-value
+   */
+  @Override
+  public abstract void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper);
 }

@@ -103,7 +103,7 @@ public class InvokeMultiNewArray extends Invoke {
   @Override
   public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
     helper.loadInValues(this, it);
-    helper.storeOutValue(this, it);
+    helper.storeOrPopOutValue(type, this, it);
   }
 
   @Override

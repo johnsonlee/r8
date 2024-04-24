@@ -167,10 +167,18 @@ public class LoadStoreHelper {
     it.next();
   }
 
-  public void storeOutValue(Instruction instruction, InstructionListIterator it) {
-    if (!instruction.hasOutValue()) {
-      return;
+  public void storeOrPopOutValue(
+      DexType type, Instruction instruction, InstructionListIterator it) {
+    if (instruction.hasOutValue()) {
+      assert instruction.outValue().isUsed();
+      storeOutValue(instruction, it);
+    } else {
+      popOutType(type, instruction, it);
     }
+  }
+
+  public void storeOutValue(Instruction instruction, InstructionListIterator it) {
+    assert instruction.hasOutValue();
     assert !(instruction.outValue() instanceof StackValue);
     if (instruction.isConstInstruction()) {
       ConstInstruction constInstruction = instruction.asConstInstruction();
