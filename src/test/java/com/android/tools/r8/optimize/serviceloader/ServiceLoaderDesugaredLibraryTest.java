@@ -138,8 +138,6 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
         .apply(this::configureR8)
         .setMinApi(parameters)
         .addKeepMainRule(TestClass.class)
-        .allowDiagnosticWarningMessages(
-            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.L))
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             runtimeWithJavaTime(parameters),

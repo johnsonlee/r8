@@ -91,8 +91,6 @@ public class InvokeSuperInDefaultMethodResolvingToLibraryTest extends TestBase {
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .setMinApi(parameters)
         .addKeepMainRule(TestClass.class)
-        .allowDiagnosticWarningMessages(
-            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.L))
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             parameters.isDexRuntime()
@@ -114,8 +112,6 @@ public class InvokeSuperInDefaultMethodResolvingToLibraryTest extends TestBase {
         .setMinApi(parameters)
         .addKeepMainRule(TestClassWithApiLevelCheck.class)
         .addAndroidBuildVersion(parameters.getApiLevel())
-        .allowDiagnosticWarningMessages(
-            parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.L))
         .run(parameters.getRuntime(), TestClassWithApiLevelCheck.class)
         .assertSuccessWithOutputLines(getExpectedOutputForApiCheck());
   }

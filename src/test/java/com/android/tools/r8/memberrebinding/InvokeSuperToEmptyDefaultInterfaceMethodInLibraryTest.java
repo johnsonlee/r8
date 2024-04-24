@@ -17,6 +17,7 @@ import com.android.tools.r8.errors.IllegalInvokeSuperToInterfaceOnDalvikDiagnost
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.MethodReferenceUtils;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -84,7 +85,9 @@ public class InvokeSuperToEmptyDefaultInterfaceMethodInLibraryTest extends TestB
             runResult -> runResult.assertFailureWithErrorThatThrows(VerifyError.class),
             runResult ->
                 runResult.assertSuccessWithOutputLines(
-                    hasDefaultInterfaceMethodsSupport(parameters) ? "Call!" : "Skip!"));
+                    hasDefaultInterfaceMethodsSupport(parameters)
+                        ? ImmutableList.of("In override!", "Call!")
+                        : ImmutableList.of("Skip!")));
   }
 
   private boolean shouldReportDiagnostic() {
@@ -134,6 +137,7 @@ public class InvokeSuperToEmptyDefaultInterfaceMethodInLibraryTest extends TestB
     @Override
     @NeverInline
     public void foo() {
+      System.out.println("In override!");
       I.super.foo();
     }
   }
