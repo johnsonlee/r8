@@ -226,15 +226,8 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
             VirtualRootMethod singleDispatchTarget = virtualRootMethod.getSingleDispatchTarget();
             if (singleDispatchTarget != null) {
               virtualRootMethod.forEach(
-                  method -> {
-                    // Interface methods can have siblings and can therefore not be mapped to their
-                    // unique non-abstract implementation, unless the interface method does not have
-                    // any siblings.
-                    setRootMethod(method, virtualRootMethod, singleDispatchTarget);
-                  });
-              if (!singleDispatchTarget.getMethod().getHolder().isInterface()) {
-                monomorphicVirtualNonRootMethods.add(singleDispatchTarget.getMethod());
-              }
+                  method -> setRootMethod(method, virtualRootMethod, singleDispatchTarget));
+              monomorphicVirtualNonRootMethods.add(singleDispatchTarget.getMethod());
             } else {
               virtualRootMethod.forEach(
                   method -> setRootMethod(method, virtualRootMethod, virtualRootMethod));
