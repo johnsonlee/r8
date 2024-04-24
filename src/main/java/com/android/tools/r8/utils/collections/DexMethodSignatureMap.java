@@ -8,7 +8,6 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodSignature;
-import com.android.tools.r8.graph.ProgramMethod;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -142,12 +141,6 @@ public class DexMethodSignatureMap<T> implements Map<DexMethodSignature, T> {
       DexMethodSignature key,
       BiFunction<? super DexMethodSignature, ? super T, ? extends T> remappingFunction) {
     return backing.compute(key, remappingFunction);
-  }
-
-  public T compute(
-      ProgramMethod method,
-      BiFunction<? super DexMethodSignature, ? super T, ? extends T> remappingFunction) {
-    return compute(method.getMethodSignature(), remappingFunction);
   }
 
   @Override

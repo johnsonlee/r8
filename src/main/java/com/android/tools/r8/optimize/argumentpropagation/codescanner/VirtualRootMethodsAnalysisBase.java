@@ -3,8 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
@@ -13,13 +14,8 @@ import com.android.tools.r8.optimize.argumentpropagation.utils.DepthFirstTopDown
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.collections.DexMethodSignatureMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.google.common.collect.Sets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -31,89 +27,58 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
   protected static class VirtualRootMethod {
 
     private final VirtualRootMethod parent;
-    private final ProgramMethod method;
-
-    private Set<VirtualRootMethod> overrides = Collections.emptySet();
-    private List<VirtualRootMethod> siblings = Collections.emptyList();
-    private boolean mayDispatchOutsideProgram = false;
+    private final ProgramMethod root;
+    private final ProgramMethodSet overrides = ProgramMethodSet.create();
 
     VirtualRootMethod(ProgramMethod root) {
       this(root, null);
     }
 
-    VirtualRootMethod(ProgramMethod method, VirtualRootMethod parent) {
-      assert method != null;
+    VirtualRootMethod(ProgramMethod root, VirtualRootMethod parent) {
+      assert root != null;
       this.parent = parent;
-      this.method = method;
+      this.root = root;
     }
 
-    void addOverride(VirtualRootMethod override) {
-      assert !override.getMethod().isStructurallyEqualTo(method);
-      assert override.getMethod().getReference().match(method.getReference());
-      if (overrides.isEmpty()) {
-        overrides = Sets.newIdentityHashSet();
-      }
+    void addOverride(ProgramMethod override) {
+      assert override.getDefinition() != root.getDefinition();
+      assert override.getMethodSignature().equals(root.getMethodSignature());
       overrides.add(override);
       if (hasParent()) {
         getParent().addOverride(override);
       }
-      for (VirtualRootMethod sibling : siblings) {
-        sibling.addOverride(override);
-      }
-    }
-
-    void addSibling(VirtualRootMethod sibling) {
-      if (siblings.isEmpty()) {
-        siblings = new ArrayList<>(1);
-      }
-      siblings.add(sibling);
-    }
-
-    void setMayDispatchOutsideProgram() {
-      mayDispatchOutsideProgram = true;
     }
 
     boolean hasParent() {
       return parent != null;
     }
 
-    boolean hasSiblings() {
-      return !siblings.isEmpty();
-    }
-
     VirtualRootMethod getParent() {
       return parent;
     }
 
-    VirtualRootMethod getRoot() {
-      return hasParent() ? getParent().getRoot() : this;
+    ProgramMethod getRoot() {
+      return root;
     }
 
-    ProgramMethod getMethod() {
-      return method;
-    }
-
-    VirtualRootMethod getSingleDispatchTarget() {
-      assert !hasParent();
-      if (isMayDispatchOutsideProgramSet()) {
-        return null;
-      }
-      VirtualRootMethod singleDispatchTarget = isAbstract() ? null : this;
-      for (VirtualRootMethod override : overrides) {
-        if (!override.isAbstract()) {
-          if (singleDispatchTarget != null) {
+    ProgramMethod getSingleNonAbstractMethod() {
+      ProgramMethod singleNonAbstractMethod = root.getAccessFlags().isAbstract() ? null : root;
+      for (ProgramMethod override : overrides) {
+        if (!override.getAccessFlags().isAbstract()) {
+          if (singleNonAbstractMethod != null) {
             // Not a single non-abstract method.
             return null;
           }
-          singleDispatchTarget = override;
+          singleNonAbstractMethod = override;
         }
       }
-      assert singleDispatchTarget == null || !singleDispatchTarget.isAbstract();
-      return singleDispatchTarget;
+      assert singleNonAbstractMethod == null
+          || !singleNonAbstractMethod.getAccessFlags().isAbstract();
+      return singleNonAbstractMethod;
     }
 
-    void forEach(Consumer<VirtualRootMethod> consumer) {
-      consumer.accept(this);
+    void forEach(Consumer<ProgramMethod> consumer) {
+      consumer.accept(root);
       overrides.forEach(consumer);
     }
 
@@ -121,12 +86,10 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
       return !overrides.isEmpty();
     }
 
-    boolean isAbstract() {
-      return method.getAccessFlags().isAbstract();
-    }
-
-    boolean isMayDispatchOutsideProgramSet() {
-      return mayDispatchOutsideProgram;
+    boolean isInterfaceMethodWithSiblings() {
+      // TODO(b/190154391): Conservatively returns true for all interface methods, but should only
+      //  return true for those with siblings.
+      return root.getHolder().isInterface();
     }
   }
 
@@ -159,48 +122,18 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
           DexMethodSignatureMap<VirtualRootMethod> virtualRootMethodsForSuperclass =
               virtualRootMethodsPerClass.get(superclass);
           virtualRootMethodsForSuperclass.forEach(
-              (signature, info) -> {
-                virtualRootMethodsForClass.compute(
-                    signature,
-                    (ignore, existing) -> {
-                      if (existing == null || existing == info) {
-                        return info;
-                      } else {
-                        // We iterate the immediate supertypes in-order using
-                        // forEachImmediateProgramSuperClass. Therefore, the current method is
-                        // guaranteed to be an interface method when existing != null.
-                        assert info.getMethod().getHolder().isInterface();
-                        if (!existing.getMethod().getHolder().isInterface()) {
-                          existing.addSibling(info);
-                          info.addOverride(existing);
-                        }
-                        return existing;
-                      }
-                    });
-                if (!clazz.isInterface() && superclass.isInterface()) {
-                  DexClassAndMethod resolvedMethod =
-                      appView.appInfo().resolveMethodOnClass(clazz, signature).getResolutionPair();
-                  if (resolvedMethod != null
-                      && !resolvedMethod.isProgramMethod()
-                      && !resolvedMethod.getAccessFlags().isAbstract()) {
-                    info.setMayDispatchOutsideProgram();
-                  }
-                }
-              });
+              (signature, info) ->
+                  virtualRootMethodsForClass.computeIfAbsent(
+                      signature, ignoreKey(() -> new VirtualRootMethod(info.getRoot(), info))));
         });
     clazz.forEachProgramVirtualMethod(
-        method ->
-            virtualRootMethodsForClass.compute(
-                method,
-                (ignore, parent) -> {
-                  if (parent == null) {
-                    return new VirtualRootMethod(method);
-                  } else {
-                    VirtualRootMethod override = new VirtualRootMethod(method, parent);
-                    parent.addOverride(override);
-                    return override;
-                  }
-                }));
+        method -> {
+          if (virtualRootMethodsForClass.containsKey(method)) {
+            virtualRootMethodsForClass.get(method).getParent().addOverride(method);
+          } else {
+            virtualRootMethodsForClass.put(method, new VirtualRootMethod(method));
+          }
+        });
     return virtualRootMethodsForClass;
   }
 
@@ -214,39 +147,35 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
           VirtualRootMethod virtualRootMethod =
               virtualRootMethodsForClass.remove(rootCandidate.getMethodSignature());
           acceptVirtualMethod(rootCandidate, virtualRootMethod);
-          if (virtualRootMethod.hasParent()
-              || !rootCandidate.isStructurallyEqualTo(virtualRootMethod.getMethod())) {
+          if (!rootCandidate.isStructurallyEqualTo(virtualRootMethod.getRoot())) {
             return;
           }
-          if (!virtualRootMethod.hasOverrides()
-              && !virtualRootMethod.hasSiblings()
-              && !virtualRootMethod.isMayDispatchOutsideProgramSet()) {
+          boolean isMonomorphicVirtualMethod =
+              !clazz.isInterface() && !virtualRootMethod.hasOverrides();
+          if (isMonomorphicVirtualMethod) {
             monomorphicVirtualRootMethods.add(rootCandidate);
           } else {
-            VirtualRootMethod singleDispatchTarget = virtualRootMethod.getSingleDispatchTarget();
-            if (singleDispatchTarget != null) {
+            ProgramMethod singleNonAbstractMethod = virtualRootMethod.getSingleNonAbstractMethod();
+            if (singleNonAbstractMethod != null
+                && !virtualRootMethod.isInterfaceMethodWithSiblings()) {
               virtualRootMethod.forEach(
-                  method -> setRootMethod(method, virtualRootMethod, singleDispatchTarget));
-              monomorphicVirtualNonRootMethods.add(singleDispatchTarget.getMethod());
+                  method -> {
+                    // Interface methods can have siblings and can therefore not be mapped to their
+                    // unique non-abstract implementation, unless the interface method does not have
+                    // any siblings.
+                    virtualRootMethods.put(
+                        method.getReference(), singleNonAbstractMethod.getReference());
+                  });
+              if (!singleNonAbstractMethod.getHolder().isInterface()) {
+                monomorphicVirtualNonRootMethods.add(singleNonAbstractMethod);
+              }
             } else {
               virtualRootMethod.forEach(
-                  method -> setRootMethod(method, virtualRootMethod, virtualRootMethod));
+                  method ->
+                      virtualRootMethods.put(method.getReference(), rootCandidate.getReference()));
             }
           }
         });
-  }
-
-  private void setRootMethod(
-      VirtualRootMethod method, VirtualRootMethod currentRoot, VirtualRootMethod root) {
-    // Since the same method can have multiple roots due to interface methods, we only allow
-    // controlling the virtual root of methods that are rooted at the current root. Otherwise, we
-    // would be setting the virtual root of the same method multiple times, which could lead to
-    // non-determinism in the result (i.e., the `virtualRootMethods` map).
-    if (method.getRoot() == currentRoot) {
-      DexMethod rootReference = root.getMethod().getReference();
-      DexMethod previous = virtualRootMethods.put(method.getMethod().getReference(), rootReference);
-      assert previous == null || previous.isIdenticalTo(rootReference);
-    }
   }
 
   protected void acceptVirtualMethod(ProgramMethod method, VirtualRootMethod virtualRootMethod) {

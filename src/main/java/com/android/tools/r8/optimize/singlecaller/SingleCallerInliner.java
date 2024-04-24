@@ -68,8 +68,8 @@ public class SingleCallerInliner {
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
-    ProgramMethodSet monomorphicVirtualMethods =
-        computeMonomorphicVirtualRootMethods(executorService);
+    // TODO(b/335584013): Re-enable monomorphic method analysis.
+    ProgramMethodSet monomorphicVirtualMethods = ProgramMethodSet.empty();
     ProgramMethodMap<ProgramMethod> singleCallerMethods =
         new SingleCallerScanner(appView, monomorphicVirtualMethods)
             .getSingleCallerMethods(executorService);
