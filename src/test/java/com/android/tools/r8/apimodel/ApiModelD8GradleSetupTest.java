@@ -148,20 +148,24 @@ public class ApiModelD8GradleSetupTest extends TestBase {
       ThrowingConsumer<CodeInspector, Exception> inspect,
       ThrowableConsumer<HorizontallyMergedClassesInspector> horizontallyMergingConsumer)
       throws Exception {
-    GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
+    GlobalSyntheticsTestingConsumer globals1 = new GlobalSyntheticsTestingConsumer();
+    GlobalSyntheticsTestingConsumer globals2 = new GlobalSyntheticsTestingConsumer();
+    GlobalSyntheticsTestingConsumer globals3 = new GlobalSyntheticsTestingConsumer();
     D8TestCompileResult compileResultProgramClass =
-        compileIntermediate(mode, globals, ProgramClassOne.class);
+        compileIntermediate(mode, globals1, ProgramClassOne.class);
     D8TestCompileResult compileResultProgramClassTwo =
-        compileIntermediate(mode, globals, ProgramClassTwo.class);
+        compileIntermediate(mode, globals2, ProgramClassTwo.class);
     D8TestCompileResult compileResultMain =
         compileIntermediate(
-            mode, globals, Main.class, ProgramClassOne.class, ProgramClassTwo.class);
+            mode, globals3, Main.class, ProgramClassOne.class, ProgramClassTwo.class);
 
     if (willStubLibraryClassThree()) {
-      assertTrue(globals.isSingleGlobal());
+      assertTrue(globals2.isSingleGlobal());
     } else {
-      assertFalse(globals.hasGlobals());
+      assertFalse(globals2.hasGlobals());
     }
+    assertFalse(globals1.hasGlobals());
+    assertFalse(globals3.hasGlobals());
 
     List<Class<?>> bootClassPath = new ArrayList<>();
     if (addToBootClasspath(LibraryClassOne.class)) {
@@ -177,7 +181,7 @@ public class ApiModelD8GradleSetupTest extends TestBase {
     testForD8()
         .setMode(mode)
         .setUseDefaultRuntimeLibrary(false)
-        .apply(b -> b.getBuilder().addGlobalSyntheticsResourceProviders(globals.getProviders()))
+        .apply(b -> b.getBuilder().addGlobalSyntheticsResourceProviders(globals2.getProviders()))
         .addProgramFiles(
             compileResultProgramClass.writeToZip(),
             compileResultProgramClassTwo.writeToZip(),
