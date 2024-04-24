@@ -181,9 +181,11 @@ public class LirConverter {
     if (!(code instanceof LirCode)) {
       return;
     }
+    IRConverter.printMethod(method, "LIR before output format", appView.options());
     Timing onThreadTiming = Timing.empty();
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
+    String previous = IRConverter.printMethodIR(irCode, "IR from LIR", "", appView.options());
     boolean changed = codeRewriterPassCollection.run(irCode, null, null, onThreadTiming);
     if (appView.options().isGeneratingDex() && changed) {
       ConstantCanonicalizer constantCanonicalizer =
@@ -196,10 +198,12 @@ public class LirConverter {
     // E.g., we may now have knowledge that an invoke does not have side effects.
     // Thus, we re-run the dead-code remover now as it is assumed complete by CF/DEX finalization.
     deadCodeRemover.run(irCode, onThreadTiming);
+    previous = IRConverter.printMethodIR(irCode, "IR before finalize", previous, appView.options());
     MethodConversionOptions conversionOptions = irCode.getConversionOptions();
     assert !conversionOptions.isGeneratingLir();
     IRFinalizer<?> finalizer = conversionOptions.getFinalizer(deadCodeRemover, appView);
-    method.setCode(finalizer.finalizeCode(irCode, noMetadata, onThreadTiming), appView);
+    method.setCode(finalizer.finalizeCode(irCode, noMetadata, onThreadTiming, previous), appView);
+    IRConverter.printMethod(method, "Finalized output format", appView.options());
   }
 
   public static boolean verifyLirOnly(AppView<? extends AppInfoWithClassHierarchy> appView) {

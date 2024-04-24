@@ -563,7 +563,7 @@ public class IRConverter {
     if (methodConversionOptions.shouldFinalizeAfterLensCodeRewriter()) {
       deadCodeRemover.run(code, timing);
       timing.begin("Finalize IR");
-      finalizeIR(code, feedback, BytecodeMetadataProvider.empty(), timing);
+      finalizeIR(code, feedback, BytecodeMetadataProvider.empty(), timing, previous);
       timing.end();
       return timing;
     }
@@ -834,13 +834,9 @@ public class IRConverter {
     previous =
         printMethod(code, "IR after computation of optimization info summary (SSA)", previous);
 
-    printMethod(code, "Optimized IR (SSA)", previous);
+    previous = printMethod(code, "Optimized IR (SSA)", previous);
     timing.begin("Finalize IR");
-    finalizeIR(
-        code,
-        feedback,
-        bytecodeMetadataProviderBuilder.build(),
-        timing);
+    finalizeIR(code, feedback, bytecodeMetadataProviderBuilder.build(), timing, previous);
     timing.end();
     return timing;
   }
@@ -950,24 +946,22 @@ public class IRConverter {
     }
     code.removeRedundantBlocks();
     deadCodeRemover.run(code, timing);
-    finalizeIR(
-        code,
-        feedback,
-        BytecodeMetadataProvider.empty(),
-        timing);
+    finalizeIR(code, feedback, BytecodeMetadataProvider.empty(), timing, "");
   }
 
   public void finalizeIR(
       IRCode code,
       OptimizationFeedback feedback,
       BytecodeMetadataProvider bytecodeMetadataProvider,
-      Timing timing) {
+      Timing timing,
+      String printString) {
     if (options.testing.roundtripThroughLir) {
       code = roundtripThroughLir(code, bytecodeMetadataProvider, timing);
     }
     ProgramMethod method = code.context();
     IRFinalizer<?> finalizer = code.getConversionOptions().getFinalizer(deadCodeRemover, appView);
-    method.setCode(finalizer.finalizeCode(code, bytecodeMetadataProvider, timing), appView);
+    method.setCode(
+        finalizer.finalizeCode(code, bytecodeMetadataProvider, timing, printString), appView);
     markProcessed(code, feedback);
     printMethod(code.context(), "After finalization");
   }
@@ -1035,6 +1029,11 @@ public class IRConverter {
   }
 
   public String printMethod(IRCode code, String title, String previous) {
+    return printMethodIR(code, title, previous, options);
+  }
+
+  public static String printMethodIR(
+      IRCode code, String title, String previous, InternalOptions options) {
     if (options.extensiveLoggingFilter.isEmpty()) {
       return previous;
     }
@@ -1057,6 +1056,10 @@ public class IRConverter {
   }
 
   public void printMethod(ProgramMethod method, String title) {
+    printMethod(method, title, options);
+  }
+
+  public static void printMethod(ProgramMethod method, String title, InternalOptions options) {
     if (options.extensiveLoggingFilter.size() > 0
         && options.extensiveLoggingFilter.contains(method.getReference().toSourceString())) {
       String current = method.getDefinition().codeToString();

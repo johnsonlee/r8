@@ -20,7 +20,10 @@ public class IRToLirFinalizer extends IRFinalizer<LirCode<Integer>> {
 
   @Override
   public LirCode<Integer> finalizeCode(
-      IRCode code, BytecodeMetadataProvider bytecodeMetadataProvider, Timing timing) {
+      IRCode code,
+      BytecodeMetadataProvider bytecodeMetadataProvider,
+      Timing timing,
+      String previousPrintString) {
     timing.begin("Finalize LIR code");
     LirCode<Integer> lirCode =
         IR2LirConverter.translate(

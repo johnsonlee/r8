@@ -18,6 +18,14 @@ public abstract class IRFinalizer<C extends Code> {
     this.appView = appView;
   }
 
+  public C finalizeCode(
+      IRCode code, BytecodeMetadataProvider bytecodeMetadataProvider, Timing timing) {
+    return finalizeCode(code, bytecodeMetadataProvider, timing, "");
+  }
+
   public abstract C finalizeCode(
-      IRCode code, BytecodeMetadataProvider bytecodeMetadataProvider, Timing timing);
+      IRCode code,
+      BytecodeMetadataProvider bytecodeMetadataProvider,
+      Timing timing,
+      String previousPrintString);
 }

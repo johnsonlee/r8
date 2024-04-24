@@ -146,7 +146,7 @@ public class CfBuilder {
     this.bytecodeMetadataBuilder = BytecodeMetadata.builder(bytecodeMetadataProvider);
   }
 
-  public CfCode build(DeadCodeRemover deadCodeRemover, Timing timing) {
+  public CfCode build(DeadCodeRemover deadCodeRemover, Timing timing, String previousPrintString) {
     timing.time("Trace blocks", code::traceBlocks);
     timing.time("Compute Initializers", () -> computeInitializers());
     timing.begin("Compute verification types");
@@ -159,6 +159,9 @@ public class CfBuilder {
     LoadStoreHelper loadStoreHelper = new LoadStoreHelper(appView, code, typeVerificationHelper);
     loadStoreHelper.insertLoadsAndStores();
     timing.end();
+    previousPrintString =
+        IRConverter.printMethodIR(
+            code, "After load/store insertion", previousPrintString, appView.options());
     // Run optimizations on phis and basic blocks in a fixpoint.
     if (appView.options().enableLoadStoreOptimization) {
       timing.begin("Load store optimizations (BasicBlockMunching)");
@@ -173,6 +176,9 @@ public class CfBuilder {
     }
     code.removeRedundantBlocks();
     assert code.isConsistentGraph(appView, false);
+    previousPrintString =
+        IRConverter.printMethodIR(
+            code, "After load/store optimization", previousPrintString, appView.options());
     // Insert reads for uninitialized read blocks to ensure correct stack maps.
     timing.begin("Insert uninitialized local reads");
     Set<UninitializedThisLocalRead> uninitializedThisLocalReads =
@@ -214,6 +220,7 @@ public class CfBuilder {
     timing.begin("Remove redundant debug positions");
     DexBuilder.removeRedundantDebugPositions(appView, code);
     timing.end();
+    IRConverter.printMethodIR(code, "Before CF building", previousPrintString, appView.options());
     timing.begin("Build CF Code");
     CfCode code = buildCfCode();
     timing.end();

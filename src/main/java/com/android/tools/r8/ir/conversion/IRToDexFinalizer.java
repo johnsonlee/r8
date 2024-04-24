@@ -35,7 +35,10 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
 
   @Override
   public DexCode finalizeCode(
-      IRCode code, BytecodeMetadataProvider bytecodeMetadataProvider, Timing timing) {
+      IRCode code,
+      BytecodeMetadataProvider bytecodeMetadataProvider,
+      Timing timing,
+      String previousPrintString) {
     if (options.canUseNestBasedAccess()) {
       D8NestBasedAccessDesugaring.checkAndFailOnIncompleteNests(appView);
     }
