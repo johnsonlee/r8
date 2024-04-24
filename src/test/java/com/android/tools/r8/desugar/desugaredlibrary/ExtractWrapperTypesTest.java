@@ -69,13 +69,11 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
   private static final Set<String> GENERIC_NOT_NEEDED =
       ImmutableSet.of("java.util.String", "java.util.Locale$LanguageRange");
 
-  // We need wrappers for only a subset of java.nio.channels. The whole package is marked as
-  // needing wrappers and this is the exclusion set.
   private static final Set<String> NOT_NEEDED =
       ImmutableSet.of(
           "java.time.InstantSource", // Introduced after Java 11.
-          "java.util.HexFormat",
-          "java.util.Locale$IsoCountryCode",
+          // We need wrappers for only a subset of java.nio.channels. The whole package is marked as
+          // needing wrappers and this is the exclusion set.
           "java.nio.channels.AsynchronousByteChannel",
           "java.nio.channels.AsynchronousChannelGroup",
           "java.nio.channels.AsynchronousServerSocketChannel",
@@ -83,7 +81,15 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
           "java.nio.channels.MembershipKey",
           "java.nio.channels.MulticastChannel",
           "java.nio.channels.NetworkChannel",
-          "java.nio.channels.spi.AsynchronousChannelProvider");
+          "java.nio.channels.spi.AsynchronousChannelProvider",
+          // We need wrappers for only a subset of java.util. The whole package is marked as
+          // needing wrappers and this is the exclusion set.
+          "java.util.HexFormat",
+          "java.util.Locale$IsoCountryCode",
+          "java.util.SequencedCollection",
+          "java.util.SequencedMap",
+          "java.util.SequencedSet",
+          "java.util.ServiceLoader$Provider");
 
   // Types not in API docs, referenced in android.jar and must be wrapped.
   private static final Set<String> NEEDED_BUT_NOT_IN_DOCS = ImmutableSet.of();
@@ -151,11 +157,31 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
           "int java.util.concurrent.SubmissionPublisher.offer(java.lang.Object, long,"
               + " java.util.concurrent.TimeUnit, java.util.function.BiPredicate)");
 
+  // java.util.stream.Collector$Characteristics is required for api generic type conversion
+  // on JDK8, but that is not supported on legacy specification used for JDK8 and on old
+  // R8 compiler versions.
+  private static final Set<String> EXPECTED_MISSING_WRAPPERS_JDK8 =
+      ImmutableSet.of("java.util.stream.Collector$Characteristics");
+
+  // TODO(b/330457027): mapMulti methods need to be tested.
+  private static final Set<String> EXPECTED_MISSING_WRAPPERS_ANDROID_V =
+      ImmutableSet.of(
+          "java.util.stream.DoubleStream$DoubleMapMultiConsumer",
+          "java.util.stream.IntStream$IntMapMultiConsumer",
+          "java.util.stream.LongStream$LongMapMultiConsumer");
+
+  // Acl types appear unusable on Android anyway.
+  private static final Set<String> EXPECTED_MISSING_WRAPPERS_PATH =
+      ImmutableSet.of(
+          "java.nio.file.attribute.AclEntry",
+          "java.nio.file.attribute.AclEntryFlag",
+          "java.nio.file.attribute.AclEntryPermission",
+          "java.nio.file.attribute.AclEntryType");
+
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
 
   @Parameters(name = "{0}, spec: {1}")
   public static List<Object[]> data() {
-    // TODO(b/236356665): Support JDK11 desugared lib.
     return buildParameters(
         getTestParameters().withNoneRuntime().build(), ImmutableList.of(JDK8, JDK11, JDK11_PATH));
   }
@@ -168,7 +194,7 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
 
   // TODO: parameterize to check both api<=23 as well as 23<api<26 for which the spec differs.
   private final AndroidApiLevel minApi = AndroidApiLevel.B;
-  private final AndroidApiLevel targetApi = AndroidApiLevel.U;
+  private final AndroidApiLevel targetApi = AndroidApiLevel.MAIN;
 
   private Set<String> getMissingGenericTypeConversions() {
     HashSet<String> missing = new HashSet<>(MISSING_GENERIC_TYPE_CONVERSION);
@@ -180,6 +206,17 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
     }
     if (libraryDesugaringSpecification != JDK8) {
       missing.addAll(MISSING_GENERIC_TYPE_CONVERSION_FLOW);
+    }
+    return missing;
+  }
+
+  private Set<String> getMissingIndirectWrappers() {
+    HashSet<String> missing = new HashSet<>(EXPECTED_MISSING_WRAPPERS_ANDROID_V);
+    if (libraryDesugaringSpecification == JDK8) {
+      missing.addAll(EXPECTED_MISSING_WRAPPERS_JDK8);
+    }
+    if (libraryDesugaringSpecification == JDK11_PATH) {
+      missing.addAll(EXPECTED_MISSING_WRAPPERS_PATH);
     }
     return missing;
   }
@@ -217,6 +254,7 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
         || type.startsWith("java.security.")
         || type.startsWith("java.net.")
         || type.startsWith("java.awt.")
+        || type.startsWith("java.util.random.")
         || (type.startsWith("java.util.concurrent.")
             && (!type.startsWith("java.util.concurrent.Flow")
                 || libraryDesugaringSpecification == JDK8))
@@ -297,13 +335,7 @@ public class ExtractWrapperTypesTest extends DesugaredLibraryTestBase {
           missingWrappers.isEmpty());
     }
 
-    // java.util.stream.Collector$Characteristics is required for api generic type conversion
-    // on JDK8, but that is not supported on legacy specification used for JDK8 and on old
-    // R8 compiler versions.
-    int expectedMissingWrappers =
-        libraryDesugaringSpecification == JDK8
-            ? 1
-            : (libraryDesugaringSpecification == JDK11_PATH ? 4 : 0);
+    int expectedMissingWrappers = getMissingIndirectWrappers().size();
 
     {
       Set<String> missingWrappers = getMissingWrappers(indirectWrappers, wrappersInSpec);
