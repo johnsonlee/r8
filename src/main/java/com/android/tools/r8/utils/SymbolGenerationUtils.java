@@ -19,7 +19,8 @@ public class SymbolGenerationUtils {
 
   public static Set<String> RESERVED_NAMES =
       Sets.newHashSet(
-          "boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "it", "by");
+          "boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "it", "by",
+          "do");
 
   // These letters are used not creating fresh names to output and not for parsing dex/class files.
   private static final char[] IDENTIFIER_CHARACTERS =
