@@ -442,6 +442,9 @@ public class Enqueuer {
    */
   private final Set<DexMethod> recordFieldValuesReferences = Sets.newIdentityHashSet();
 
+  /** Set of annotations that are live (needed for deferred (re)processing). */
+  private final Set<DexType> liveAnnotations = Sets.newIdentityHashSet();
+
   /**
    * A map from annotation classes to annotations that need to be processed should the classes ever
    * become live.
@@ -2327,11 +2330,8 @@ public class Enqueuer {
 
     processAnnotations(clazz);
 
-    // If this type has deferred annotations, we have to process those now, too.
     if (clazz.isAnnotation()) {
-      processDeferredAnnotations(clazz, deferredAnnotations, AnnotatedKind::from);
-      processDeferredAnnotations(
-          clazz, deferredParameterAnnotations, annotatedItem -> AnnotatedKind.PARAMETER);
+      liveAnnotations.add(clazz.getType());
     }
 
     compatEnqueueHolderIfDependentNonStaticMember(
@@ -2341,20 +2341,21 @@ public class Enqueuer {
   }
 
   private void processDeferredAnnotations(
-      DexProgramClass clazz,
       Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations,
       Function<ProgramDefinition, AnnotatedKind> kindProvider) {
-    Map<DexAnnotation, List<ProgramDefinition>> annotations =
-        deferredAnnotations.remove(clazz.getType());
-    if (annotations != null) {
-      assert annotations.keySet().stream()
-          .allMatch(annotation -> clazz.getType().isIdenticalTo(annotation.getAnnotationType()));
-      annotations.forEach(
-          (annotation, annotatedItems) ->
-              annotatedItems.forEach(
-                  annotatedItem ->
-                      processAnnotation(
-                          annotatedItem, annotation, kindProvider.apply(annotatedItem))));
+    for (DexType annotationType : liveAnnotations) {
+      Map<DexAnnotation, List<ProgramDefinition>> annotations =
+          deferredAnnotations.remove(annotationType);
+      if (annotations != null) {
+        assert annotations.keySet().stream()
+            .allMatch(annotation -> annotationType.isIdenticalTo(annotation.getAnnotationType()));
+        annotations.forEach(
+            (annotation, annotatedItems) ->
+                annotatedItems.forEach(
+                    annotatedItem ->
+                        processAnnotation(
+                            annotatedItem, annotation, kindProvider.apply(annotatedItem))));
+      }
     }
   }
 
@@ -4731,6 +4732,11 @@ public class Enqueuer {
             continue;
           }
         }
+
+        // Process all deferred annotations.
+        processDeferredAnnotations(deferredAnnotations, AnnotatedKind::from);
+        processDeferredAnnotations(
+            deferredParameterAnnotations, annotatedItem -> AnnotatedKind.PARAMETER);
 
         // Continue fix-point processing while there are additional work items to ensure items that
         // are passed to Java reflections are traced.
