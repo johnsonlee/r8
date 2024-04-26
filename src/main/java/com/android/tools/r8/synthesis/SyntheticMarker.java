@@ -205,6 +205,11 @@ public class SyntheticMarker {
     this.context = context;
   }
 
+  public boolean isValidMarker() {
+    assert getContext() != null || this == NO_MARKER;
+    return getContext() != null;
+  }
+
   public boolean isSyntheticMethods() {
     return kind != null && kind.isSingleSyntheticMethod();
   }

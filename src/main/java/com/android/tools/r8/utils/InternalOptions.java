@@ -2404,6 +2404,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean emitDebugLocalStartBeforeDefaultEvent = false;
 
+    public boolean disableSyntheticMarkerAttributeWriting = false;
+
     // Option for testing outlining with interface array arguments, see b/132420510.
     public boolean allowOutlinerInterfaceArrayArguments = false;
 

@@ -137,7 +137,7 @@ public class SyntheticMarkerCfTest extends TestBase {
     }
   }
 
-  private static List<Attribute> readAttributes(byte[] bytes) {
+  public static List<Attribute> readAttributes(byte[] bytes) {
     List<Attribute> attributes = new ArrayList<>();
     ClassReader reader = new ClassReader(bytes);
     reader.accept(

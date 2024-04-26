@@ -424,8 +424,10 @@ public class SyntheticNaming {
     assert !kind.isGlobal();
     String binaryName = type.toBinaryName();
     int index =
-        binaryName.indexOf(
-            kind.isFixedSuffixSynthetic() ? kind.descriptor : EXTERNAL_SYNTHETIC_CLASS_SEPARATOR);
+        binaryName.lastIndexOf(
+            kind.isFixedSuffixSynthetic()
+                ? kind.descriptor
+                : EXTERNAL_SYNTHETIC_CLASS_SEPARATOR + kind.getDescriptor());
     if (index < 0) {
       throw new Unreachable(
           "Unexpected failure to determine the context of synthetic class: " + binaryName);

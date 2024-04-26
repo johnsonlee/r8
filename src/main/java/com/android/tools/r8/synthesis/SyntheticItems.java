@@ -300,33 +300,19 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     assert synthetics.committed.isEmpty();
     assert synthetics.pending.isEmpty();
     CommittedSyntheticsCollection.Builder builder = synthetics.committed.builder();
-    // TODO(b/158159959): Consider populating the input synthetics when identified.
-    for (DexProgramClass clazz : appView.appInfo().classes()) {
-      SyntheticMarker marker = SyntheticMarker.stripMarkerFromClass(clazz, appView);
-      if (!appView.options().intermediate && marker.getContext() != null) {
-        DexClass contextClass =
-            appView
-                .appInfo()
-                .definitionForWithoutExistenceAssert(
-                    marker.getContext().getSynthesizingContextType());
-        if (contextClass == null || contextClass.isNotProgramClass()) {
-          appView
-              .reporter()
-              .error(
-                  new StringDiagnostic(
-                      "Attempt at compiling intermediate artifact without its context",
-                      clazz.getOrigin()));
-        }
-      }
-      if (marker.isSyntheticMethods()) {
-        clazz.forEachProgramMethod(
-            method ->
-                builder.addMethod(
-                    new SyntheticMethodDefinition(marker.getKind(), marker.getContext(), method)));
-      } else if (marker.isSyntheticClass()) {
-        builder.addClass(
-            new SyntheticProgramClassDefinition(marker.getKind(), marker.getContext(), clazz));
-      }
+    if (appView.options().intermediate) {
+      appView
+          .appInfo()
+          .classes()
+          .forEach(
+              clazz -> {
+                SyntheticMarker marker = SyntheticMarker.stripMarkerFromClass(clazz, appView);
+                if (marker.isValidMarker()) {
+                  addSyntheticInput(clazz, marker, marker.getContext(), builder);
+                }
+              });
+    } else {
+      collectSyntheticInputsTransitive(appView, builder);
     }
     CommittedSyntheticsCollection committed = builder.collectSyntheticInputs().build();
     if (committed.isEmpty()) {
@@ -347,6 +333,77 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       appView
           .withoutClassHierarchy()
           .setAppInfo(new AppInfo(commit, appView.appInfo().getMainDexInfo()));
+    }
+  }
+
+  private static void addSyntheticInput(
+      DexProgramClass clazz,
+      SyntheticMarker marker,
+      SynthesizingContext context,
+      CommittedSyntheticsCollection.Builder builder) {
+    if (marker.isSyntheticMethods()) {
+      clazz.forEachProgramMethod(
+          method ->
+              builder.addMethod(new SyntheticMethodDefinition(marker.getKind(), context, method)));
+    } else if (marker.isSyntheticClass()) {
+      builder.addClass(new SyntheticProgramClassDefinition(marker.getKind(), context, clazz));
+    }
+  }
+
+  private static void collectSyntheticInputsTransitive(
+      AppView<?> appView, CommittedSyntheticsCollection.Builder builder) {
+    Map<DexType, SynthesizingContext> cache = new IdentityHashMap<>();
+    appView
+        .appInfo()
+        .classes()
+        .forEach(clazz -> collectSyntheticInputTransitive(clazz, cache, builder, appView));
+  }
+
+  private static SynthesizingContext collectSyntheticInputTransitive(
+      DexProgramClass clazz,
+      Map<DexType, SynthesizingContext> cache,
+      CommittedSyntheticsCollection.Builder builder,
+      AppView<?> appView) {
+    SyntheticMarker marker = SyntheticMarker.stripMarkerFromClass(clazz, appView);
+    if (!marker.isValidMarker()) {
+      return cache.get(clazz.getType());
+    }
+    return cache.computeIfAbsent(
+        clazz.getType(),
+        type -> {
+          SynthesizingContext context =
+              ensureSyntheticInputContext(clazz, marker, cache, builder, appView);
+          addSyntheticInput(clazz, marker, context, builder);
+          return context;
+        });
+  }
+
+  private static SynthesizingContext ensureSyntheticInputContext(
+      DexProgramClass clazz,
+      SyntheticMarker marker,
+      Map<DexType, SynthesizingContext> cache,
+      CommittedSyntheticsCollection.Builder builder,
+      AppView<?> appView) {
+    assert !appView.options().intermediate;
+    // The context should be flattened such that it is not itself a synthetic.
+    DexProgramClass contextClass =
+        DexProgramClass.asProgramClassOrNull(
+            appView
+                .appInfo()
+                .definitionForWithoutExistenceAssert(
+                    marker.getContext().getSynthesizingContextType()));
+    if (contextClass == null) {
+      appView
+          .reporter()
+          .error(
+              new StringDiagnostic(
+                  "Attempt at compiling intermediate artifact without its context",
+                  clazz.getOrigin()));
+      return marker.getContext();
+    } else {
+      SynthesizingContext contextOfContext =
+          collectSyntheticInputTransitive(contextClass, cache, builder, appView);
+      return contextOfContext != null ? contextOfContext : marker.getContext();
     }
   }
 
@@ -1165,6 +1222,9 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   public void writeAttributeIfIntermediateSyntheticClass(
       ClassWriter writer, DexProgramClass clazz, AppView<?> appView) {
+    if (appView.options().testing.disableSyntheticMarkerAttributeWriting) {
+      return;
+    }
     if (!appView.options().intermediate || !appView.options().isGeneratingClassFiles()) {
       return;
     }

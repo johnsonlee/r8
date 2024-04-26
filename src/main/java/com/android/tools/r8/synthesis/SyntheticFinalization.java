@@ -576,7 +576,9 @@ public class SyntheticFinalization {
   private static boolean shouldAnnotateSynthetics(InternalOptions options) {
     // Only intermediate builds have annotated synthetics to allow later sharing.
     // Also, CF builds are marked in the writer using an attribute.
-    return options.intermediate && options.isGeneratingDex();
+    return options.intermediate
+        && options.isGeneratingDex()
+        && !options.testing.disableSyntheticMarkerAttributeWriting;
   }
 
   private <T extends SyntheticDefinition<?, T, ?>>
