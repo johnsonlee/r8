@@ -2341,6 +2341,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableDeadSwitchCaseElimination = true;
     public boolean enableInvokeSuperToInvokeVirtualRewriting = true;
     public boolean enableMultiANewArrayDesugaringForClassFiles = false;
+    public boolean enableStrictFrameVerification = false;
     public boolean enableSyntheticSharing = true;
     public boolean enableSwitchToIfRewriting = true;
     public boolean enableEnumUnboxingDebugLogs =

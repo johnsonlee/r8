@@ -18,7 +18,10 @@ public class CfFrameVerifierDefaultAnalysisConfig implements CfAnalysisConfig {
   private final ProgramMethod method;
 
   CfFrameVerifierDefaultAnalysisConfig(AppView<?> appView, CfCode code, ProgramMethod method) {
-    this.assignability = new CfAssignability(appView);
+    this.assignability =
+        appView.testing().enableStrictFrameVerification
+            ? new CfSubtypingAssignability(appView.withClassHierarchy(), false)
+            : new CfAssignability(appView);
     this.code = code;
     this.method = method;
   }

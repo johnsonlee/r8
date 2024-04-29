@@ -11,8 +11,17 @@ import com.android.tools.r8.graph.DexType;
 
 public class CfSubtypingAssignability extends CfAssignability {
 
+  private final boolean allowAnyAssignmentToInterfaceTypes;
+
   public CfSubtypingAssignability(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    this(appView, true);
+  }
+
+  public CfSubtypingAssignability(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      boolean allowAnyAssignmentToInterfaceTypes) {
     super(appView);
+    this.allowAnyAssignmentToInterfaceTypes = allowAnyAssignmentToInterfaceTypes;
   }
 
   @Override
@@ -24,9 +33,11 @@ public class CfSubtypingAssignability extends CfAssignability {
     if (source.toTypeElement(appView).lessThanOrEqual(target.toTypeElement(appView), appView)) {
       return true;
     }
-    DexClass targetClass = appView.definitionFor(target);
-    if (targetClass != null && targetClass.isInterface()) {
-      return true;
+    if (allowAnyAssignmentToInterfaceTypes) {
+      DexClass targetClass = appView.definitionFor(target);
+      if (targetClass != null && targetClass.isInterface()) {
+        return true;
+      }
     }
     return false;
   }
