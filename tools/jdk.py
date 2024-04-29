@@ -11,7 +11,7 @@ import defines
 JDK_DIR = os.path.join(defines.THIRD_PARTY, 'openjdk')
 
 ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-15', 'jdk-16', 'jdk-17',
-            'jdk-18', 'jdk-21']
+            'jdk-18', 'jdk-21', 'jdk-22']
 
 
 def GetJdkHome():

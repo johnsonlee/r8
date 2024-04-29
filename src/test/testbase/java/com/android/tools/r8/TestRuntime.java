@@ -43,7 +43,8 @@ public abstract class TestRuntime {
     JDK17("jdk17", 61),
     JDK18("jdk18", 62),
     JDK20("jdk20", 64),
-    JDK21("jdk21", 65);
+    JDK21("jdk21", 65),
+    JDK22("jdk22", 66);
 
     /** This should generally be the latest checked in CF runtime we fully support. */
     private static final CfVm DEFAULT = JDK11;
@@ -98,13 +99,15 @@ public abstract class TestRuntime {
   private static final Path JDK11_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-11");
   private static final Path JDK17_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-17");
   private static final Path JDK21_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-21");
+  private static final Path JDK22_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-22");
   private static final Map<CfVm, Path> jdkPaths =
       ImmutableMap.of(
           CfVm.JDK8, JDK8_PATH,
           CfVm.JDK9, JDK9_PATH,
           CfVm.JDK11, JDK11_PATH,
           CfVm.JDK17, JDK17_PATH,
-          CfVm.JDK21, JDK21_PATH);
+          CfVm.JDK21, JDK21_PATH,
+          CfVm.JDK22, JDK22_PATH);
 
   public static CfRuntime getCheckedInJdk(CfVm vm) {
     if (vm == CfVm.JDK8) {
@@ -157,6 +160,10 @@ public abstract class TestRuntime {
     return new CfRuntime(CfVm.JDK21, getCheckedInJdkHome(CfVm.JDK21));
   }
 
+  public static CfRuntime getCheckedInJdk22() {
+    return new CfRuntime(CfVm.JDK22, getCheckedInJdkHome(CfVm.JDK22));
+  }
+
   public static List<CfRuntime> getCheckedInCfRuntimes() {
     CfRuntime[] jdks =
         new CfRuntime[] {
@@ -164,7 +171,8 @@ public abstract class TestRuntime {
           getCheckedInJdk9(),
           getCheckedInJdk11(),
           getCheckedInJdk17(),
-          getCheckedInJdk21()
+          getCheckedInJdk21(),
+          getCheckedInJdk22()
         };
     Builder<CfRuntime> builder = ImmutableList.builder();
     for (CfRuntime jdk : jdks) {
@@ -224,6 +232,9 @@ public abstract class TestRuntime {
     }
     if (version.equals("21") || version.startsWith("21.")) {
       return new CfRuntime(CfVm.JDK21, Paths.get(home));
+    }
+    if (version.equals("22") || version.startsWith("22.")) {
+      return new CfRuntime(CfVm.JDK22, Paths.get(home));
     }
     throw new Unimplemented("No support for JDK version: " + version);
   }
