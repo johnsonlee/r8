@@ -15,11 +15,17 @@ ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-15', 'jdk-16', 'jdk-17',
 
 
 def GetJdkHome():
-    return GetJdk11Home()
+    return GetJdk17Home()
 
 
 def GetJdkRoot():
-    return GetJdk11Root()
+    return GetJdk17Root()
+
+
+def GetJdk17Root():
+    root = os.path.join(JDK_DIR, 'jdk-17')
+    os_root = GetOSPath(root)
+    return os_root if os_root else os.environ['JAVA_HOME']
 
 
 def GetJdk11Root():
@@ -47,6 +53,15 @@ def GetAllJdkDirs():
         if os.path.exists(root + '.tar.gz.sha1'):
             dirs.append(root)
     return dirs
+
+
+def GetJdk17Home():
+    root = GetJdk17Root()
+    # osx has the home inside Contents/Home in the bundle
+    if defines.IsOsX():
+        return os.path.join(root, 'Contents', 'Home')
+    else:
+        return root
 
 
 def GetJdk11Home():
