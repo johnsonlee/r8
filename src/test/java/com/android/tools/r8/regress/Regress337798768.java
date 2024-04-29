@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.regress;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -25,15 +24,16 @@ public class Regress337798768 extends TestBase {
     this.parameters = parameters;
   }
 
-  // TODO(b/337798768): should not fail verification
-  @Test(expected = CompilationFailedException.class)
+  @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
         .addOptionsModification(o -> o.testing.enableStrictFrameVerification = true)
         .addKeepClassAndMembersRules(A.class, B.class, I.class)
-        .compile();
+        .compile()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("foobar");
   }
 
   interface I {
