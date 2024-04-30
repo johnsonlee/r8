@@ -57,9 +57,6 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
       if (hasParent()) {
         getParent().addOverride(override);
       }
-      for (VirtualRootMethod sibling : siblings) {
-        sibling.addOverride(override);
-      }
     }
 
     void addSibling(VirtualRootMethod sibling) {
