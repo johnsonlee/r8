@@ -128,6 +128,11 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
     // field's holder. Therefore, we unconditionally trace the class initializer in this case.
     // The corresponding IR rewriter will rewrite the field access into an init-class instruction.
     if (accessKind.isStatic()) {
+      if (enqueuer.getMode().isInitialTreeShaking() && field.getHolder() != context.getHolder()) {
+        // TODO(b/338000616): No support for InitClass until we have LIR in the initial round of
+        //  tree shaking.
+        return false;
+      }
       KeepReason reason =
           enqueuer.getGraphReporter().reportClassReferencedFrom(field.getHolder(), context);
       enqueuer.getWorklist().enqueueTraceTypeReferenceAction(field.getHolder(), reason);
@@ -148,7 +153,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
     }
 
     assert enqueuer.getKeepInfo(field).isBottom();
-    assert !enqueuer.getKeepInfo(field).isPinned(options);
+    assert !enqueuer.getKeepInfo(field).isPinned(options) || options.isOptimizedResourceShrinking();
 
     FieldAccessInfo info = enqueuer.getFieldAccessInfoCollection().get(field.getReference());
     if (info.hasReflectiveAccess()
@@ -161,6 +166,12 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
                 !minimumKeepInfo.isOptimizationAllowed()
                     || !minimumKeepInfo.isShrinkingAllowed())) {
       return false;
+    }
+    if (!options.isOptimizing()) {
+      assert options.isOptimizedResourceShrinking();
+      if (!enqueuer.isRClass(field.getHolder())) {
+        return false;
+      }
     }
 
     if (info.isWritten()) {

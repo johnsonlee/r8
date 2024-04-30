@@ -248,29 +248,32 @@ public class CfFrameVerifier {
     // safe assuming an incoming type state T. The type state T is derived from ExcStackFrame
     // by replacing the operand stack with a stack whose sole element is the handler's
     // exception class.
-    for (CfLabel target : tryCatchRange.getTargets()) {
+    List<CfLabel> targets = tryCatchRange.getTargets();
+    for (int i = 0; i < targets.size(); i++) {
+      CfLabel target = targets.get(i);
+      DexType guard = tryCatchRange.guards.get(i);
       CfFrame destinationFrame = labelToFrameMap.get(target);
       if (destinationFrame == null) {
         return CfCodeStackMapValidatingException.invalidTryCatchRange(
             method, tryCatchRange, "No frame for target catch range target", appView);
       }
-      // From the spec: the handler's exception class is assignable to the class Throwable.
-      for (DexType guard : tryCatchRange.guards) {
-        if (!config.getAssignability().isAssignable(guard, factory.throwableType)) {
-          return CfCodeStackMapValidatingException.invalidTryCatchRange(
-              method,
-              tryCatchRange,
-              "Could not assign " + guard.getTypeName() + " to java.lang.Throwable",
-              appView);
-        }
-        Deque<PreciseFrameType> sourceStack =
-            ImmutableDeque.of(FrameType.initializedNonNullReference(guard));
-        AssignabilityResult assignabilityResult =
-            config.getAssignability().isStackAssignable(sourceStack, destinationFrame.getStack());
-        if (assignabilityResult.isFailed()) {
-          return CfCodeStackMapValidatingException.invalidTryCatchRange(
-              method, tryCatchRange, assignabilityResult.asFailed().getMessage(), appView);
-        }
+      Deque<PreciseFrameType> sourceStack =
+          ImmutableDeque.of(FrameType.initializedNonNullReference(guard));
+      AssignabilityResult assignabilityResult =
+          config.getAssignability().isStackAssignable(sourceStack, destinationFrame.getStack());
+      if (assignabilityResult.isFailed()) {
+        return CfCodeStackMapValidatingException.invalidTryCatchRange(
+            method, tryCatchRange, assignabilityResult.asFailed().getMessage(), appView);
+      }
+    }
+    // From the spec: the handler's exception class is assignable to the class Throwable.
+    for (DexType guard : tryCatchRange.guards) {
+      if (!config.getAssignability().isAssignable(guard, factory.throwableType)) {
+        return CfCodeStackMapValidatingException.invalidTryCatchRange(
+            method,
+            tryCatchRange,
+            "Could not assign " + guard.getTypeName() + " to java.lang.Throwable",
+            appView);
       }
     }
     return null;
