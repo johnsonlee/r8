@@ -91,9 +91,9 @@ public class YouTubeV1719Test extends YouTubeCompilationTestBase {
             .addOptionsModification(
                 options ->
                     options
-                        .getStartupInstrumentationOptions()
-                        .setEnableStartupInstrumentation()
-                        .setStartupInstrumentationTag("r8"))
+                        .getInstrumentationOptions()
+                        .setEnableExecutedClassesAndMethodsInstrumentation()
+                        .setTag("r8"))
             .enableCoreLibraryDesugaring(
                 LibraryDesugaringTestConfiguration.builder()
                     .addDesugaredLibraryConfiguration(

@@ -57,7 +57,7 @@ public class ArtProfileOptions {
     return enableCompletenessCheckForTesting
         && !options.isDesugaredLibraryCompilation()
         && !options.getStartupOptions().isStartupCompletenessCheckForTestingEnabled()
-        && !options.getStartupInstrumentationOptions().isStartupInstrumentationEnabled();
+        && !options.getInstrumentationOptions().isInstrumentationEnabled();
   }
 
   public boolean isNopCheckForTestingEnabled() {

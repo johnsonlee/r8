@@ -7,7 +7,13 @@ package com.android.tools.r8.profile.startup.instrumentation;
 import static com.android.tools.r8.utils.SystemPropertyUtils.getSystemPropertyForDevelopment;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
 
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.MethodReferenceUtils;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
 import java.util.Set;
 
@@ -23,9 +29,9 @@ public class InstrumentationOptions {
    * <p>This will also inject the startup runtime library (i.e., the InstrumentationServer) into the
    * app.
    */
-  private boolean enableStartupInstrumentation =
+  private boolean enableExecutedClassesAndMethodsInstrumentation =
       parseSystemPropertyForDevelopmentOrDefault(
-          "com.android.tools.r8.startup.instrumentation.instrument", false);
+          "com.android.tools.r8.instrumentation.executedclassesandmethods", false);
 
   /**
    * Specifies the synthetic context of the startup runtime library. When this is set, the startup
@@ -35,11 +41,11 @@ public class InstrumentationOptions {
    *
    * <p>Example synthetic context: "app.tivi.home.MainActivity".
    *
-   * <p>Note that this is only meaningful when {@link #enableStartupInstrumentation} is set to true.
+   * <p>Note that this is only meaningful when one or more instrumentations are enabled.
    */
-  private String startupInstrumentationServerSyntheticContext =
+  private String syntheticServerContext =
       getSystemPropertyForDevelopment(
-          "com.android.tools.r8.startup.instrumentation.instrumentationserversyntheticcontext");
+          "com.android.tools.r8.instrumentation.syntheticservercontext");
 
   /**
    * Specifies the logcat tag that should be used by the InstrumentationServer when logging events.
@@ -48,9 +54,33 @@ public class InstrumentationOptions {
    * logcat. Instead, the startup events must be obtained by requesting the InstrumentationServer to
    * write the events to a file.
    */
-  private String startupInstrumentationTag =
-      getSystemPropertyForDevelopment(
-          "com.android.tools.r8.startup.instrumentation.instrumentationtag");
+  private String tag = getSystemPropertyForDevelopment("com.android.tools.r8.instrumentation.tag");
+
+  public InstrumentationOptions(InternalOptions options) {
+    String callSitesToInstrumentString =
+        getSystemPropertyForDevelopment("com.android.tools.r8.instrumentation.callsites");
+    if (callSitesToInstrumentString != null) {
+      setCallSitesToInstrument(
+          parseCallSitesToInstrument(callSitesToInstrumentString, options.dexItemFactory()));
+    }
+  }
+
+  private static Set<DexMethod> parseCallSitesToInstrument(
+      String smaliStrings, DexItemFactory factory) {
+    ImmutableSet.Builder<DexMethod> builder = ImmutableSet.builder();
+    for (String smaliString : Splitter.on(':').split(smaliStrings)) {
+      MethodReference methodReference = MethodReferenceUtils.parseSmaliString(smaliString);
+      if (methodReference == null) {
+        throw new IllegalArgumentException(smaliString);
+      }
+      builder.add(MethodReferenceUtils.toDexMethod(methodReference, factory));
+    }
+    return builder.build();
+  }
+
+  public boolean isInstrumentationEnabled() {
+    return enableExecutedClassesAndMethodsInstrumentation || !callSitesToInstrument.isEmpty();
+  }
 
   public Set<DexMethod> getCallSitesToInstrument() {
     return callSitesToInstrument;
@@ -60,40 +90,33 @@ public class InstrumentationOptions {
     this.callSitesToInstrument = callSitesToInstrument;
   }
 
-  public boolean hasStartupInstrumentationServerSyntheticContext() {
-    return startupInstrumentationServerSyntheticContext != null;
+  public boolean isExecutedClassesAndMethodsInstrumentationEnabled() {
+    return enableExecutedClassesAndMethodsInstrumentation;
   }
 
-  public String getStartupInstrumentationServerSyntheticContext() {
-    return startupInstrumentationServerSyntheticContext;
-  }
-
-  public InstrumentationOptions setStartupInstrumentationServerSyntheticContext(
-      String startupInstrumentationServerSyntheticContext) {
-    this.startupInstrumentationServerSyntheticContext =
-        startupInstrumentationServerSyntheticContext;
+  public InstrumentationOptions setEnableExecutedClassesAndMethodsInstrumentation() {
+    enableExecutedClassesAndMethodsInstrumentation = true;
     return this;
   }
 
-  public boolean hasStartupInstrumentationTag() {
-    return startupInstrumentationTag != null;
+  public boolean hasSyntheticServerContext() {
+    return syntheticServerContext != null;
   }
 
-  public String getStartupInstrumentationTag() {
-    return startupInstrumentationTag;
+  public String getSyntheticServerContext() {
+    return syntheticServerContext;
   }
 
-  public InstrumentationOptions setStartupInstrumentationTag(String startupInstrumentationTag) {
-    this.startupInstrumentationTag = startupInstrumentationTag;
-    return this;
+  public boolean hasTag() {
+    return tag != null;
   }
 
-  public boolean isStartupInstrumentationEnabled() {
-    return enableStartupInstrumentation;
+  public String getTag() {
+    return tag;
   }
 
-  public InstrumentationOptions setEnableStartupInstrumentation() {
-    enableStartupInstrumentation = true;
+  public InstrumentationOptions setTag(String tag) {
+    this.tag = tag;
     return this;
   }
 }

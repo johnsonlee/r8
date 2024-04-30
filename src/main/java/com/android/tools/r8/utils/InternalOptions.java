@@ -263,6 +263,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     proguardConfiguration = null;
     enableTreeShaking = false;
     enableMinification = false;
+    instrumentationOptions = new InstrumentationOptions(this);
   }
 
   // Constructor for D8, L8, Lint and other non-shrinkers.
@@ -275,6 +276,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     enableTreeShaking = false;
     enableMinification = false;
     disableGlobalOptimizations();
+    instrumentationOptions = new InstrumentationOptions(this);
   }
 
   // Constructor for R8.
@@ -288,6 +290,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     itemFactory = proguardConfiguration.getDexItemFactory();
     enableTreeShaking = proguardConfiguration.isShrinking();
     enableMinification = proguardConfiguration.isObfuscating();
+    instrumentationOptions = new InstrumentationOptions(this);
 
     if (!proguardConfiguration.isOptimizing()) {
       // TODO(b/171457102): Avoid the need for this.
@@ -946,7 +949,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final MappingComposeOptions mappingComposeOptions = new MappingComposeOptions();
   private final ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);
   private final StartupOptions startupOptions = new StartupOptions();
-  private final InstrumentationOptions startupInstrumentationOptions = new InstrumentationOptions();
+  private final InstrumentationOptions instrumentationOptions;
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
@@ -1042,8 +1045,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return startupOptions;
   }
 
-  public InstrumentationOptions getStartupInstrumentationOptions() {
-    return startupInstrumentationOptions;
+  public InstrumentationOptions getInstrumentationOptions() {
+    return instrumentationOptions;
   }
 
   public TestingOptions getTestingOptions() {

@@ -101,10 +101,11 @@ public class StartupTestingUtils {
         .addOptionsModification(
             options -> {
               InstrumentationOptions startupInstrumentationOptions =
-                  options.getStartupInstrumentationOptions().setEnableStartupInstrumentation();
+                  options
+                      .getInstrumentationOptions()
+                      .setEnableExecutedClassesAndMethodsInstrumentation();
               if (logcat) {
-                startupInstrumentationOptions.setStartupInstrumentationTag(
-                    startupInstrumentationTag);
+                startupInstrumentationOptions.setTag(startupInstrumentationTag);
               }
             })
         .addLibraryFiles(parameters.getDefaultRuntimeLibrary())

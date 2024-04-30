@@ -78,9 +78,9 @@ public class ChromeStartupTest extends TestBase {
         .addOptionsModification(
             options ->
                 options
-                    .getStartupInstrumentationOptions()
-                    .setEnableStartupInstrumentation()
-                    .setStartupInstrumentationTag("r8"))
+                    .getInstrumentationOptions()
+                    .setEnableExecutedClassesAndMethodsInstrumentation()
+                    .setTag("r8"))
         .setMinApi(apiLevel)
         .release()
         .compile()
@@ -98,9 +98,9 @@ public class ChromeStartupTest extends TestBase {
         .addOptionsModification(
             options ->
                 options
-                    .getStartupInstrumentationOptions()
-                    .setEnableStartupInstrumentation()
-                    .setStartupInstrumentationTag("r8"))
+                    .getInstrumentationOptions()
+                    .setEnableExecutedClassesAndMethodsInstrumentation()
+                    .setTag("r8"))
         .setMinApi(apiLevel)
         .release()
         .compile()

@@ -58,7 +58,7 @@ public class StartupInstrumentation {
   private final DexItemFactory dexItemFactory;
   private final InternalOptions options;
   private final StartupInstrumentationReferences references;
-  private final InstrumentationOptions startupInstrumentationOptions;
+  private final InstrumentationOptions instrumentationOptions;
 
   private StartupInstrumentation(AppView<AppInfo> appView) {
     this.appView = appView;
@@ -66,12 +66,12 @@ public class StartupInstrumentation {
     this.dexItemFactory = appView.dexItemFactory();
     this.options = appView.options();
     this.references = new StartupInstrumentationReferences(dexItemFactory);
-    this.startupInstrumentationOptions = options.getStartupInstrumentationOptions();
+    this.instrumentationOptions = options.getInstrumentationOptions();
   }
 
   public static void run(AppView<AppInfo> appView, ExecutorService executorService)
       throws ExecutionException {
-    if (appView.options().getStartupInstrumentationOptions().isStartupInstrumentationEnabled()
+    if (appView.options().getInstrumentationOptions().isInstrumentationEnabled()
         && appView.options().isGeneratingDex()) {
       StartupInstrumentation startupInstrumentation = new StartupInstrumentation(appView);
       startupInstrumentation.instrumentAllClasses(executorService);
@@ -97,11 +97,11 @@ public class StartupInstrumentation {
     // If the startup options has a synthetic context for the startup instrumentation server, then
     // only inject the runtime library if the synthetic context exists in program to avoid injecting
     // the runtime library multiple times when there is separate compilation.
-    if (startupInstrumentationOptions.hasStartupInstrumentationServerSyntheticContext()) {
+    if (instrumentationOptions.hasSyntheticServerContext()) {
       DexType syntheticContext =
           dexItemFactory.createType(
               DescriptorUtils.javaTypeToDescriptor(
-                  startupInstrumentationOptions.getStartupInstrumentationServerSyntheticContext()));
+                  instrumentationOptions.getSyntheticServerContext()));
       if (asProgramClassOrNull(appView.definitionFor(syntheticContext)) == null) {
         return;
       }
@@ -126,7 +126,7 @@ public class StartupInstrumentation {
   private List<DexProgramClass> createStartupRuntimeLibraryClasses() {
     DexProgramClass instrumentationServerImplClass =
         InstrumentationServerImplFactory.createClass(dexItemFactory);
-    if (startupInstrumentationOptions.hasStartupInstrumentationTag()) {
+    if (instrumentationOptions.hasTag()) {
       instrumentationServerImplClass
           .lookupUniqueStaticFieldWithName(dexItemFactory.createString("writeToLogcat"))
           .setStaticValue(DexValueBoolean.create(true));
@@ -137,9 +137,7 @@ public class StartupInstrumentation {
       instrumentationServerImplClass
           .lookupUniqueStaticFieldWithName(dexItemFactory.createString("logcatTag"))
           .setStaticValue(
-              new DexValueString(
-                  dexItemFactory.createString(
-                      startupInstrumentationOptions.getStartupInstrumentationTag())));
+              new DexValueString(dexItemFactory.createString(instrumentationOptions.getTag())));
     }
 
     return ImmutableList.of(
@@ -162,7 +160,8 @@ public class StartupInstrumentation {
   }
 
   private boolean ensureClassInitializer(DexProgramClass clazz) {
-    if (clazz.hasClassInitializer()) {
+    if (clazz.hasClassInitializer()
+        || !instrumentationOptions.isExecutedClassesAndMethodsInstrumentationEnabled()) {
       return false;
     }
     ComputedApiLevel computedApiLevel =
@@ -191,7 +190,8 @@ public class StartupInstrumentation {
     instructionIterator.positionBeforeNextInstructionThatMatches(not(Instruction::isArgument));
 
     // Insert invoke to record that the enclosing class is a startup class.
-    if (method.getDefinition().isClassInitializer()) {
+    if (instrumentationOptions.isExecutedClassesAndMethodsInstrumentationEnabled()
+        && method.getDefinition().isClassInitializer()) {
       DexType classToPrint = method.getHolderType();
       Value descriptorValue =
           instructionIterator.insertConstStringInstruction(
@@ -209,15 +209,16 @@ public class StartupInstrumentation {
       Value descriptorValue =
           instructionIterator.insertConstStringInstruction(
               appView, code, dexItemFactory.createString(method.getReference().toSmaliString()));
-      instructionIterator.add(
-          InvokeStatic.builder()
-              .setMethod(references.addMethod)
-              .setSingleArgument(descriptorValue)
-              .setPosition(Position.syntheticNone())
-              .build());
+      if (instrumentationOptions.isExecutedClassesAndMethodsInstrumentationEnabled()) {
+        instructionIterator.add(
+            InvokeStatic.builder()
+                .setMethod(references.addMethod)
+                .setSingleArgument(descriptorValue)
+                .setPosition(Position.syntheticNone())
+                .build());
+      }
 
-      Set<DexMethod> callSitesToInstrument =
-          startupInstrumentationOptions.getCallSitesToInstrument();
+      Set<DexMethod> callSitesToInstrument = instrumentationOptions.getCallSitesToInstrument();
       if (!callSitesToInstrument.isEmpty()) {
         do {
           while (instructionIterator.hasNext()) {

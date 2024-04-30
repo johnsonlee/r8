@@ -30,6 +30,14 @@ def parse_options(argv):
     result.add_argument('--discard',
                         action='append',
                         help='Name of dex files to discard')
+    result.add_argument('--print-boxing-unboxing-callsites',
+                        action='store_true',
+                        default=False,
+                        help='Print caller->callee edges for primitive boxing')
+    result.add_argument('--print-executed-classes-and-methods',
+                        action='store_true',
+                        default=False,
+                        help='Print the classes and methods that are executed')
     result.add_argument('--out',
                         help='Destination of resulting apk',
                         required=True)
@@ -52,14 +60,40 @@ def instrument_dex_file(dex_file, include_instrumentation_server, options,
                         tmp_dir):
     d8_cmd = [
         'java', '-cp', utils.R8_JAR,
-        '-Dcom.android.tools.r8.startup.instrumentation.instrument=1',
-        '-Dcom.android.tools.r8.startup.instrumentation.instrumentationtag=R8'
+        '-Dcom.android.tools.r8.instrumentation.tag=R8'
     ]
+    if options.print_boxing_unboxing_callsites:
+        callsites = ':'.join([
+                # Boxing
+                "Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;",
+                "Ljava/lang/Byte;->valueOf(B)Ljava/lang/Byte;",
+                "Ljava/lang/Character;->valueOf(C)Ljava/lang/Character;",
+                "Ljava/lang/Double;->valueOf(D)Ljava/lang/Double;",
+                "Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;",
+                "Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;",
+                "Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;",
+                "Ljava/lang/Short;->valueOf(S)Ljava/lang/Short;",
+                # Unboxing
+                "Ljava/lang/Boolean;->booleanValue()Z",
+                "Ljava/lang/Byte;->byteValue()B",
+                "Ljava/lang/Character;->charValue()C",
+                "Ljava/lang/Double;->doubleValue()D",
+                "Ljava/lang/Float;->floatValue()F",
+                "Ljava/lang/Integer;->intValue()I",
+                "Ljava/lang/Long;->longValue()J",
+                "Ljava/lang/Short;->shortValue()S"
+            ])
+        d8_cmd.append(
+            '-Dcom.android.tools.r8.instrumentation.callsites='
+                + callsites)
+    if options.print_executed_classes_and_methods:
+        d8_cmd.append(
+            '-Dcom.android.tools.r8.instrumentation.executedclassesandmethods=1')
     if not include_instrumentation_server:
         # We avoid injecting the InstrumentationServer by specifying it should only
         # be added if foo.bar.Baz is in the program.
         d8_cmd.append(
-            '-Dcom.android.tools.r8.startup.instrumentation.instrumentationserversyntheticcontext=foo.bar.Baz'
+            '-Dcom.android.tools.r8.instrumentation.syntheticservercontext=foo.bar.Baz'
         )
     d8_cmd.extend([
         'com.android.tools.r8.D8', '--min-api',
