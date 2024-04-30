@@ -1,4 +1,4 @@
-// Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.DexMethod;
 import java.util.Collections;
 import java.util.Set;
 
-public class StartupInstrumentationOptions {
+public class InstrumentationOptions {
 
   /** Set of method references where all calls to the exact method reference should print. */
   private Set<DexMethod> callSitesToInstrument = Collections.emptySet();
@@ -68,7 +68,7 @@ public class StartupInstrumentationOptions {
     return startupInstrumentationServerSyntheticContext;
   }
 
-  public StartupInstrumentationOptions setStartupInstrumentationServerSyntheticContext(
+  public InstrumentationOptions setStartupInstrumentationServerSyntheticContext(
       String startupInstrumentationServerSyntheticContext) {
     this.startupInstrumentationServerSyntheticContext =
         startupInstrumentationServerSyntheticContext;
@@ -83,8 +83,7 @@ public class StartupInstrumentationOptions {
     return startupInstrumentationTag;
   }
 
-  public StartupInstrumentationOptions setStartupInstrumentationTag(
-      String startupInstrumentationTag) {
+  public InstrumentationOptions setStartupInstrumentationTag(String startupInstrumentationTag) {
     this.startupInstrumentationTag = startupInstrumentationTag;
     return this;
   }
@@ -93,7 +92,7 @@ public class StartupInstrumentationOptions {
     return enableStartupInstrumentation;
   }
 
-  public StartupInstrumentationOptions setEnableStartupInstrumentation() {
+  public InstrumentationOptions setEnableStartupInstrumentation() {
     enableStartupInstrumentation = true;
     return this;
   }

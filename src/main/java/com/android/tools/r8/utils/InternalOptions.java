@@ -89,7 +89,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.art.ArtProfileOptions;
 import com.android.tools.r8.profile.startup.StartupOptions;
-import com.android.tools.r8.profile.startup.instrumentation.StartupInstrumentationOptions;
+import com.android.tools.r8.profile.startup.instrumentation.InstrumentationOptions;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
@@ -946,8 +946,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final MappingComposeOptions mappingComposeOptions = new MappingComposeOptions();
   private final ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);
   private final StartupOptions startupOptions = new StartupOptions();
-  private final StartupInstrumentationOptions startupInstrumentationOptions =
-      new StartupInstrumentationOptions();
+  private final InstrumentationOptions startupInstrumentationOptions = new InstrumentationOptions();
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
@@ -1043,7 +1042,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return startupOptions;
   }
 
-  public StartupInstrumentationOptions getStartupInstrumentationOptions() {
+  public InstrumentationOptions getStartupInstrumentationOptions() {
     return startupInstrumentationOptions;
   }
 

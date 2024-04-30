@@ -58,7 +58,7 @@ public class StartupInstrumentation {
   private final DexItemFactory dexItemFactory;
   private final InternalOptions options;
   private final StartupInstrumentationReferences references;
-  private final StartupInstrumentationOptions startupInstrumentationOptions;
+  private final InstrumentationOptions startupInstrumentationOptions;
 
   private StartupInstrumentation(AppView<AppInfo> appView) {
     this.appView = appView;
