@@ -921,7 +921,14 @@ public class LazyCfCode extends Code {
     @Override
     public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
       DexCallSite callSite =
-          DexCallSite.fromAsmInvokeDynamic(application, method.holder, name, desc, bsm, bsmArgs);
+          DexCallSite.fromAsmInvokeDynamic(
+              application,
+              method.holder,
+              name,
+              desc,
+              bsm,
+              bsmArgs,
+              constantDynamicSymbolicReferencesSupplier);
       addInstruction(new CfInvokeDynamic(callSite));
     }
 
@@ -1027,16 +1034,12 @@ public class LazyCfCode extends Code {
         // instance from ASM, even when they are equal (i.e. all their components are equal). See
         // ConstantDynamicMultipleConstantsWithDifferentSymbolicReferenceUsingSameBSMAndArgumentsTest
         // for an example.
-        Reference2IntMap<ConstantDynamic> constantDynamicSymbolicReferences =
-            constantDynamicSymbolicReferencesSupplier.get();
-        int symbolicReferenceId = constantDynamicSymbolicReferences.getOrDefault(cst, -1);
-        if (symbolicReferenceId == -1) {
-          symbolicReferenceId = constantDynamicSymbolicReferences.size();
-          constantDynamicSymbolicReferences.put((ConstantDynamic) cst, symbolicReferenceId);
-        }
         addInstruction(
             CfConstDynamic.fromAsmConstantDynamic(
-                symbolicReferenceId, (ConstantDynamic) cst, application, method.holder));
+                (ConstantDynamic) cst,
+                application,
+                method.holder,
+                constantDynamicSymbolicReferencesSupplier));
       } else {
         throw new CompilationError("Unsupported constant: " + cst.toString());
       }

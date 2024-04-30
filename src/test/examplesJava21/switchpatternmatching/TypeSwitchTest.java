@@ -13,7 +13,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -48,24 +47,19 @@ public class TypeSwitchTest extends TestBase {
     CodeInspector inspector = new CodeInspector(ToolHelper.getClassFileForTestClass(Main.class));
     // javac generated an invokedynamic using bootstrap method argument of an arrya type (sort 9
     // is org.objectweb.asm.Type.ARRAY).
-    try {
       inspector
           .clazz(Main.class)
           .uniqueMethodWithOriginalName("typeSwitch")
           .streamInstructions()
           .filter(InstructionSubject::isInvokeDynamic)
           .count();
-    } catch (CompilationError e) {
-      assertEquals("Could not parse code", e.getMessage());
-      assertEquals("Type sort is not supported: 9", e.getCause().getMessage());
-    }
     // javac generated an invokedynamic using bootstrap method
     // java.lang.runtime.SwitchBootstraps.typeSwitch.
     assertEquals(
         1,
         inspector
             .clazz(Main.class)
-            .uniqueMethodWithOriginalName("typeSwitchNoArray")
+            .uniqueMethodWithOriginalName("typeSwitch")
             .streamInstructions()
             .filter(InstructionSubject::isInvokeDynamic)
             .map(
@@ -126,17 +120,6 @@ public class TypeSwitchTest extends TestBase {
   }
 
   static class Main {
-
-    // No array version only for loading into code inspector.
-    static void typeSwitchNoArray(Object obj) {
-      switch (obj) {
-        case null -> System.out.println("null");
-        case String string -> System.out.println("String");
-        case Color color -> System.out.println("Color: " + color);
-        case Point point -> System.out.println("Record class: " + point);
-        default -> System.out.println("Other");
-      }
-    }
 
     static void typeSwitch(Object obj) {
       switch (obj) {

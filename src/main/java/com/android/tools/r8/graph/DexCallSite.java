@@ -17,6 +17,7 @@ import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
 import com.google.common.io.BaseEncoding;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
@@ -24,9 +25,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 
 public final class DexCallSite extends IndexedDexItem
     implements StructuralItem<DexCallSite>, LirConstant {
@@ -76,17 +78,13 @@ public final class DexCallSite extends IndexedDexItem
   }
 
   public static DexCallSite fromAsmInvokeDynamic(
-      InvokeDynamicInsnNode insn, JarApplicationReader application, DexType clazz) {
-    return fromAsmInvokeDynamic(application, clazz, insn.name, insn.desc, insn.bsm, insn.bsmArgs);
-  }
-
-  public static DexCallSite fromAsmInvokeDynamic(
       JarApplicationReader application,
       DexType clazz,
       String name,
       String desc,
       Handle bsmHandle,
-      Object[] bsmArgs) {
+      Object[] bsmArgs,
+      Supplier<Reference2IntMap<ConstantDynamic>> constantDynamicSymbolicReferencesSupplier) {
     // Bootstrap method
     if (bsmHandle.getTag() != Opcodes.H_INVOKESTATIC
         && bsmHandle.getTag() != Opcodes.H_NEWINVOKESPECIAL) {
@@ -99,7 +97,9 @@ public final class DexCallSite extends IndexedDexItem
     // Decode static bootstrap arguments
     List<DexValue> bootstrapArgs = new ArrayList<>();
     for (Object arg : bsmArgs) {
-      bootstrapArgs.add(DexValue.fromAsmBootstrapArgument(arg, application, clazz));
+      bootstrapArgs.add(
+          DexValue.fromAsmBootstrapArgument(
+              arg, application, clazz, constantDynamicSymbolicReferencesSupplier));
     }
 
     // Construct call site

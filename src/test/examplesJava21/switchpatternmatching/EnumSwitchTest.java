@@ -13,7 +13,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -41,38 +40,31 @@ public class EnumSwitchTest extends TestBase {
     CodeInspector inspector = new CodeInspector(ToolHelper.getClassFileForTestClass(Main.class));
     // javac generated an invokedynamic using bootstrap method
     // java.lang.runtime.SwitchBootstraps.typeSwitch.
-    try {
-      assertEquals(
-          1,
-          inspector
-              .clazz(Main.class)
-              .uniqueMethodWithOriginalName("enumSwitch")
-              .streamInstructions()
-              .filter(InstructionSubject::isInvokeDynamic)
-              .map(
-                  instruction ->
-                      instruction
-                          .asCfInstruction()
-                          .getInstruction()
-                          .asInvokeDynamic()
-                          .getCallSite()
-                          .getBootstrapMethod()
-                          .member
-                          .asDexMethod())
-              .filter(
-                  method ->
-                      method
-                          .getHolderType()
-                          .toString()
-                          .contains("java.lang.runtime.SwitchBootstraps"))
-              .filter(method -> method.toString().contains("typeSwitch"))
-              .count());
-    } catch (CompilationError e) {
-      assertEquals("Could not parse code", e.getMessage());
-      assertEquals(
-          "Unsupported bootstrap static argument of type ConstantDynamic",
-          e.getCause().getMessage());
-    }
+    assertEquals(
+        1,
+        inspector
+            .clazz(Main.class)
+            .uniqueMethodWithOriginalName("enumSwitch")
+            .streamInstructions()
+            .filter(InstructionSubject::isInvokeDynamic)
+            .map(
+                instruction ->
+                    instruction
+                        .asCfInstruction()
+                        .getInstruction()
+                        .asInvokeDynamic()
+                        .getCallSite()
+                        .getBootstrapMethod()
+                        .member
+                        .asDexMethod())
+            .filter(
+                method ->
+                    method
+                        .getHolderType()
+                        .toString()
+                        .contains("java.lang.runtime.SwitchBootstraps"))
+            .filter(method -> method.toString().contains("typeSwitch"))
+            .count());
 
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
@@ -116,6 +108,7 @@ public class EnumSwitchTest extends TestBase {
   static final class C implements I {}
 
   static class Main {
+
     static void enumSwitch(I i) {
       switch (i) {
         case E.E1 -> {

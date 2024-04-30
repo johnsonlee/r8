@@ -104,17 +104,17 @@ public class StringSwitchTest extends TestBase {
         case null -> {
           System.out.println("null");
         }
-        case "y", "Y" -> {
-          System.out.println("y or Y");
-        }
-        case "n", "N" -> {
-          System.out.println("n or N");
-        }
         case String s when s.equalsIgnoreCase("YES") -> {
           System.out.println("yes");
         }
+        case "y", "Y" -> {
+          System.out.println("y or Y");
+        }
         case String s when s.equalsIgnoreCase("NO") -> {
           System.out.println("no");
+        }
+        case "n", "N" -> {
+          System.out.println("n or N");
         }
         case String s -> {
           System.out.println("unknown");

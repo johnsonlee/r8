@@ -9,6 +9,7 @@ import com.android.tools.r8.dex.DexOutputBuffer;
 import com.android.tools.r8.dex.FileWriter;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
+import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -19,6 +20,7 @@ import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.DexItemBasedConstString;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicReference;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.EncodedValueUtils;
@@ -26,8 +28,11 @@ import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.Arrays;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
 
@@ -51,7 +56,8 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
     ARRAY(0x1c),
     ANNOTATION(0x1d),
     NULL(0x1e),
-    BOOLEAN(0x1f);
+    BOOLEAN(0x1f),
+    CONST_DYNAMIC(-1);
 
     public static DexValueKind fromId(int id) {
       switch (id) {
@@ -91,6 +97,8 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
           return NULL;
         case 0x1f:
           return BOOLEAN;
+        case -1:
+          return CONST_DYNAMIC;
         default:
           throw new Unreachable();
       }
@@ -159,6 +167,14 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
   }
 
   public DexValueMethodHandle asDexValueMethodHandle() {
+    return null;
+  }
+
+  public boolean isDexValueConstDynamic() {
+    return false;
+  }
+
+  public DexValueConstDynamic asDexValueConstDynamic() {
     return null;
   }
 
@@ -313,7 +329,10 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
   public abstract AbstractValue toAbstractValue(AbstractValueFactory factory);
 
   public static DexValue fromAsmBootstrapArgument(
-      Object value, JarApplicationReader application, DexType clazz) {
+      Object value,
+      JarApplicationReader application,
+      DexType clazz,
+      Supplier<Reference2IntMap<ConstantDynamic>> constantDynamicSymbolicReferencesSupplier) {
     if (value instanceof Integer) {
       return DexValue.DexValueInt.create((Integer) value);
     } else if (value instanceof Long) {
@@ -334,12 +353,23 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
         case Type.METHOD:
           return new DexValue.DexValueMethodType(
               application.getProto(((Type) value).getDescriptor()));
+        case Type.ARRAY:
+          DexType arrayType = application.getTypeFromDescriptor(((Type) value).getDescriptor());
+          assert arrayType.isArrayType();
+          return new DexValue.DexValueType(arrayType);
         default:
           throw new Unreachable("Type sort is not supported: " + type.getSort());
       }
     } else if (value instanceof Handle) {
       return new DexValue.DexValueMethodHandle(
           DexMethodHandle.fromAsmHandle((Handle) value, application, clazz));
+    } else if (value instanceof ConstantDynamic) {
+      return new DexValue.DexValueConstDynamic(
+          ConstantDynamicReference.fromAsmConstantDynamic(
+              (ConstantDynamic) value,
+              application,
+              clazz,
+              constantDynamicSymbolicReferencesSupplier));
     } else {
       throw new Unreachable(
           "Unsupported bootstrap static argument of type " + value.getClass().getSimpleName());
@@ -2047,6 +2077,98 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
     @Override
     public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
       value.collectIndexedItems(appView, indexedItems);
+    }
+
+    @Override
+    public AbstractValue toAbstractValue(AbstractValueFactory factory) {
+      return UnknownValue.getInstance();
+    }
+  }
+
+  public static class DexValueConstDynamic extends DexValue {
+
+    private final ConstantDynamicReference value;
+
+    public DexValueConstDynamic(ConstantDynamicReference value) {
+      this.value = value;
+    }
+
+    @Override
+    public boolean isDexValueConstDynamic() {
+      return true;
+    }
+
+    @Override
+    public DexValueConstDynamic asDexValueConstDynamic() {
+      return this;
+    }
+
+    @Override
+    int internalAcceptCompareTo(DexValue other, CompareToVisitor visitor) {
+      return value.acceptCompareTo(other.asDexValueConstDynamic().value, visitor);
+    }
+
+    @Override
+    void internalAcceptHashing(HashingVisitor visitor) {
+      value.acceptHashing(visitor);
+    }
+
+    @Override
+    public DexValueKind getValueKind() {
+      return DexValueKind.CONST_DYNAMIC;
+    }
+
+    private CompilationError throwCannotConvertToDex() {
+      throw new CompilationError("DexValueConstDynamic should be desugared");
+    }
+
+    @Override
+    public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
+      throw throwCannotConvertToDex();
+    }
+
+    @Override
+    public void sort() {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void writeTo(DexOutputBuffer dest, ObjectToOffsetMapping mapping) {
+      throw throwCannotConvertToDex();
+    }
+
+    @Override
+    public int hashCode() {
+      return 7 * value.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof DexValueConstDynamic) {
+        DexValueConstDynamic otherCstDynamic = (DexValueConstDynamic) other;
+        return otherCstDynamic.value.equals(value);
+      }
+      return false;
+    }
+
+    @Override
+    public String toString() {
+      return "Item " + getValueKind() + " " + value;
+    }
+
+    @Override
+    public DexType getType(DexItemFactory factory) {
+      return null;
+    }
+
+    @Override
+    public Object getBoxedValue() {
+      throw new Unreachable("No boxed value for DexValueConstDynamic");
+    }
+
+    @Override
+    public Object asAsmEncodedObject() {
+      throw new Unreachable("No ASM conversion for DexValueConstDynamic");
     }
 
     @Override

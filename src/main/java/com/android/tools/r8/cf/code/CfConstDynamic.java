@@ -31,9 +31,10 @@ import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.function.Supplier;
 import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.MethodVisitor;
 
@@ -41,22 +42,8 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
 
   private final ConstantDynamicReference reference;
 
-  public CfConstDynamic(
-      int symbolicReferenceId,
-      DexString name,
-      DexType type,
-      DexMethodHandle bootstrapMethod,
-      List<DexValue> bootstrapMethodArguments) {
-    assert symbolicReferenceId >= 0;
-    assert name != null;
-    assert type != null;
-    assert bootstrapMethod != null;
-    assert bootstrapMethodArguments != null;
-    assert bootstrapMethodArguments.isEmpty();
-
-    reference =
-        new ConstantDynamicReference(
-            symbolicReferenceId, name, type, bootstrapMethod, bootstrapMethodArguments);
+  public CfConstDynamic(ConstantDynamicReference constantDynamicReference) {
+    reference = constantDynamicReference;
   }
 
   @Override
@@ -86,27 +73,14 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
   }
 
   public static CfConstDynamic fromAsmConstantDynamic(
-      int symbolicReferenceId,
       ConstantDynamic insn,
       JarApplicationReader application,
-      DexType clazz) {
-    String constantName = insn.getName();
-    String constantDescriptor = insn.getDescriptor();
-    DexMethodHandle bootstrapMethodHandle =
-        DexMethodHandle.fromAsmHandle(insn.getBootstrapMethod(), application, clazz);
-    int argumentCount = insn.getBootstrapMethodArgumentCount();
-    List<DexValue> bootstrapMethodArguments = new ArrayList<>(argumentCount);
-    for (int i = 0; i < argumentCount; i++) {
-      Object argument = insn.getBootstrapMethodArgument(i);
-      DexValue dexValue = DexValue.fromAsmBootstrapArgument(argument, application, clazz);
-      bootstrapMethodArguments.add(dexValue);
-    }
+      DexType clazz,
+      Supplier<Reference2IntMap<ConstantDynamic>> constantDynamicSymbolicReferencesSupplier) {
+    assert insn.getBootstrapMethodArgumentCount() == 0;
     return new CfConstDynamic(
-        symbolicReferenceId,
-        application.getString(constantName),
-        application.getTypeFromDescriptor(constantDescriptor),
-        bootstrapMethodHandle,
-        bootstrapMethodArguments);
+        ConstantDynamicReference.fromAsmConstantDynamic(
+            insn, application, clazz, constantDynamicSymbolicReferencesSupplier));
   }
 
   @Override
