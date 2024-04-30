@@ -33,15 +33,6 @@ public class PropagationFromBaseMethodWithSingleTargetTest extends TestBase {
   }
 
   @Test
-  public void testJvm() throws Exception {
-    parameters.assumeJvmTestParameters();
-    testForJvm(parameters)
-        .addInnerClasses(getClass())
-        .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("B", "C");
-  }
-
-  @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
@@ -54,8 +45,7 @@ public class PropagationFromBaseMethodWithSingleTargetTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/336791970): Should succeed.
-        .assertFailureWithErrorThatThrows(NullPointerException.class);
+        .assertSuccessWithOutputLines("B", "C");
   }
 
   static class Main {

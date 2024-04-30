@@ -219,17 +219,19 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
               && !virtualRootMethod.hasSiblings()
               && !virtualRootMethod.isMayDispatchOutsideProgramSet()) {
             monomorphicVirtualRootMethods.add(rootCandidate);
-          } else {
+            return;
+          }
+          if (!rootCandidate.getHolder().isInterface()) {
             VirtualRootMethod singleDispatchTarget = virtualRootMethod.getSingleDispatchTarget();
             if (singleDispatchTarget != null) {
               virtualRootMethod.forEach(
                   method -> setRootMethod(method, virtualRootMethod, singleDispatchTarget));
               monomorphicVirtualNonRootMethods.add(singleDispatchTarget.getMethod());
-            } else {
-              virtualRootMethod.forEach(
-                  method -> setRootMethod(method, virtualRootMethod, virtualRootMethod));
+              return;
             }
           }
+          virtualRootMethod.forEach(
+              method -> setRootMethod(method, virtualRootMethod, virtualRootMethod));
         });
   }
 
