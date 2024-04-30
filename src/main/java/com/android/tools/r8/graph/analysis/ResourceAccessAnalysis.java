@@ -25,7 +25,6 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
-import com.android.tools.r8.utils.DescriptorUtils;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.IdentityHashMap;
@@ -36,16 +35,19 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
   private final R8ResourceShrinkerState resourceShrinkerState;
   private final Map<DexType, RClassFieldToValueStore> fieldToValueMapping = new IdentityHashMap<>();
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final Enqueuer enqueuer;
 
-  private ResourceAccessAnalysis(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  private ResourceAccessAnalysis(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.resourceShrinkerState = appView.getResourceShrinkerState();
+    this.enqueuer = enqueuer;
   }
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     if (enabled(appView, enqueuer)) {
-      enqueuer.registerFieldAccessAnalysis(new ResourceAccessAnalysis(appView));
+      enqueuer.registerFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
     }
   }
 
@@ -73,7 +75,7 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     if (resolvedField == null) {
       return;
     }
-    if (getMaybeCachedIsRClass(resolvedField.getHolder())) {
+    if (enqueuer.isRClass(resolvedField.getHolder())) {
       DexType holderType = resolvedField.getHolderType();
       if (!fieldToValueMapping.containsKey(holderType)) {
         populateRClassValues(resolvedField);
@@ -187,18 +189,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
         rClassValueBuilder.addMapping(staticField.getReference(), values);
       }
     }
-  }
-
-  private final Map<DexProgramClass, Boolean> cachedClassLookups = new IdentityHashMap<>();
-
-  private boolean getMaybeCachedIsRClass(DexProgramClass holder) {
-    Boolean result = cachedClassLookups.get(holder);
-    if (result != null) {
-      return result;
-    }
-    boolean isRClass = DescriptorUtils.isRClassDescriptor(holder.getType().toDescriptorString());
-    cachedClassLookups.put(holder, isRClass);
-    return isRClass;
   }
 
   private static class RClassFieldToValueStore {

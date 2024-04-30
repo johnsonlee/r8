@@ -268,6 +268,8 @@ public class Enqueuer {
   private final Set<EnqueuerConstClassAnalysis> constClassAnalyses = new LinkedHashSet<>();
   private final Set<EnqueuerNewInstanceAnalysis> newInstanceAnalyses = new LinkedHashSet<>();
 
+  private final Map<DexProgramClass, Boolean> rClassLookupCache = new IdentityHashMap<>();
+
   // Don't hold a direct pointer to app info (use appView).
   private AppInfoWithClassHierarchy appInfo;
   private final AppView<AppInfoWithClassHierarchy> appView;
@@ -3802,6 +3804,12 @@ public class Enqueuer {
         });
     invokeAnalyses.forEach(
         analysis -> analysis.traceInvokeSuper(reference, resolutionResults, context));
+  }
+
+  public boolean isRClass(DexProgramClass dexProgramClass) {
+    return rClassLookupCache.computeIfAbsent(
+        dexProgramClass,
+        clazz -> DescriptorUtils.isRClassDescriptor(clazz.getType().toDescriptorString()));
   }
 
   // Returns the set of live types.
