@@ -188,7 +188,7 @@ public class TypeVerificationHelper {
     while (iterator.hasNext()) {
       result = result.join(toTypeElement(iterator.next()), appView);
     }
-    // All types are reference types so the join is either a class or an array.
+    // All types are reference types so the join is either a class, an interface or an array.
     if (result.isClassType()) {
       ClassTypeElement classType = result.asClassType();
       if (classType.getClassType().isIdenticalTo(appView.dexItemFactory().objectType)
