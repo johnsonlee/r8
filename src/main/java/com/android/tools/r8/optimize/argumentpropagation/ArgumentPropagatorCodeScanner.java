@@ -774,16 +774,16 @@ public class ArgumentPropagatorCodeScanner {
       return resolvedMethod.getReference();
     }
 
+    if (isMonomorphicVirtualMethod(resolvedMethod)) {
+      return resolvedMethod.getReference();
+    }
+
     if (invoke.isInvokeInterface()) {
       assert !isMonomorphicVirtualMethod(resolvedMethod);
       return getVirtualRootMethod(resolvedMethod);
     }
 
     assert invoke.isInvokeSuper() || invoke.isInvokeVirtual();
-
-    if (isMonomorphicVirtualMethod(resolvedMethod)) {
-      return resolvedMethod.getReference();
-    }
 
     DexMethod rootMethod = getVirtualRootMethod(resolvedMethod);
     assert rootMethod != null;

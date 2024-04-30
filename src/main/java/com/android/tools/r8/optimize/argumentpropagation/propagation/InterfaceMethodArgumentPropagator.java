@@ -108,10 +108,12 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
             return;
           }
 
-          // TODO(b/190154391): We should always have an unknown or polymorphic state, but it would
-          //  be better to use a monomorphic state when the interface method is a default method
-          //  with no overrides (CF backend only). In this case, there is no need to add methodState
-          //  to interfaceState.
+          // If the method state is monomorphic, then this is an interface method with no overrides.
+          // In this case, there is no need to add methodState to interfaceState.
+          if (methodState.isMonomorphic()) {
+            return;
+          }
+
           assert methodState.isUnknown() || methodState.asConcrete().isPolymorphic();
           interfaceState.addMethodState(appView, method, methodState);
         });
