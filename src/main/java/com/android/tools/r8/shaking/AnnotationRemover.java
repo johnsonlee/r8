@@ -59,10 +59,13 @@ public class AnnotationRemover {
 
   /** Used to filter annotations on classes, methods and fields. */
   private boolean filterAnnotations(
-      ProgramDefinition holder, DexAnnotation annotation, AnnotatedKind kind) {
+      ProgramDefinition holder,
+      DexAnnotation annotation,
+      AnnotatedKind kind,
+      KeepInfo<?, ?> keepInfo) {
     return annotationsToRetain.contains(annotation)
         || shouldKeepAnnotation(
-            appView, holder, annotation, isAnnotationTypeLive(annotation), kind, mode);
+            appView, holder, annotation, isAnnotationTypeLive(annotation), kind, mode, keepInfo);
   }
 
   public static boolean shouldKeepAnnotation(
@@ -71,12 +74,16 @@ public class AnnotationRemover {
       DexAnnotation annotation,
       boolean isAnnotationTypeLive,
       AnnotatedKind kind,
-      Mode mode) {
+      Mode mode,
+      KeepInfo<?, ?> keepInfo) {
     // If we cannot run the AnnotationRemover we are keeping the annotation.
     InternalOptions options = appView.options();
     if (!options.isShrinking()) {
       return true;
     }
+
+    boolean isAnnotationOnAnnotationClass =
+        holder.isProgramClass() && holder.asProgramClass().isAnnotation();
 
     ProguardKeepAttributes config =
         options.getProguardConfiguration() != null
@@ -109,20 +116,17 @@ public class AnnotationRemover {
             && DexAnnotation.isParameterNameAnnotation(annotation, dexItemFactory)) {
           return true;
         }
-        if (DexAnnotation.isAnnotationDefaultAnnotation(annotation, dexItemFactory)) {
-          // These have to be kept if the corresponding annotation class is kept to retain default
-          // values.
+        if (isAnnotationOnAnnotationClass
+            && DexAnnotation.isAnnotationDefaultAnnotation(annotation, dexItemFactory)
+            && shouldRetainAnnotationDefaultAnnotationOnAnnotationClass(annotation)) {
           return true;
         }
         return false;
 
       case DexAnnotation.VISIBILITY_RUNTIME:
-        // We always keep the @java.lang.Retention annotation on annotation classes, since the
-        // removal of this annotation may change the annotation from being runtime visible to
-        // runtime invisible.
-        if (holder.isProgramClass()
-            && holder.asProgramClass().isAnnotation()
-            && DexAnnotation.isJavaLangRetentionAnnotation(annotation, dexItemFactory)) {
+        if (isAnnotationOnAnnotationClass
+            && DexAnnotation.isJavaLangRetentionAnnotation(annotation, dexItemFactory)
+            && shouldRetainRetentionAnnotationOnAnnotationClass(annotation, dexItemFactory)) {
           return true;
         }
 
@@ -137,7 +141,7 @@ public class AnnotationRemover {
             && !options.isKeepRuntimeVisibleTypeAnnotationsEnabled()) {
           return false;
         }
-        return isAnnotationTypeLive;
+        return !keepInfo.isAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
 
       case DexAnnotation.VISIBILITY_BUILD:
         if (annotation
@@ -160,7 +164,7 @@ public class AnnotationRemover {
             && !options.isKeepRuntimeInvisibleTypeAnnotationsEnabled()) {
           return false;
         }
-        return isAnnotationTypeLive;
+        return !keepInfo.isAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
       default:
         throw new Unreachable("Unexpected annotation visibility.");
     }
@@ -243,9 +247,12 @@ public class AnnotationRemover {
   }
 
   private DexAnnotation rewriteAnnotation(
-      ProgramDefinition holder, DexAnnotation original, AnnotatedKind kind) {
+      ProgramDefinition holder,
+      DexAnnotation original,
+      AnnotatedKind kind,
+      KeepInfo<?, ?> keepInfo) {
     // Check if we should keep this annotation first.
-    if (filterAnnotations(holder, original, kind)) {
+    if (filterAnnotations(holder, original, kind, keepInfo)) {
       // Then, filter out values that refer to dead definitions.
       return original.rewrite(this::rewriteEncodedAnnotation);
     }
@@ -296,36 +303,8 @@ public class AnnotationRemover {
 
   private void removeAnnotations(ProgramDefinition definition, KeepInfo<?, ?> keepInfo) {
     assert mode.isInitialTreeShaking() || annotationsToRetain.isEmpty();
-    boolean isAnnotation =
-        definition.isProgramClass() && definition.asProgramClass().isAnnotation();
-    if (keepInfo.isAnnotationRemovalAllowed(options)) {
-      if (isAnnotation || mode.isInitialTreeShaking()) {
-        definition.rewriteAllAnnotations(
-            (annotation, kind) ->
-                shouldRetainAnnotation(definition, annotation, kind) ? annotation : null);
-      } else {
-        definition.clearAllAnnotations();
-      }
-    } else {
-      definition.rewriteAllAnnotations(
-          (annotation, kind) -> rewriteAnnotation(definition, annotation, kind));
-    }
-  }
-
-  private boolean shouldRetainAnnotation(
-      ProgramDefinition definition, DexAnnotation annotation, AnnotatedKind kind) {
-    boolean isAnnotationOnAnnotationClass =
-        definition.isProgramClass() && definition.asProgramClass().isAnnotation();
-    if (isAnnotationOnAnnotationClass) {
-      if (DexAnnotation.isAnnotationDefaultAnnotation(annotation, appView.dexItemFactory())) {
-        return shouldRetainAnnotationDefaultAnnotationOnAnnotationClass(annotation);
-      }
-      if (DexAnnotation.isJavaLangRetentionAnnotation(annotation, appView.dexItemFactory())) {
-        return shouldRetainRetentionAnnotationOnAnnotationClass(annotation);
-      }
-    }
-    return annotationsToRetain.contains(annotation)
-        || isComposableAnnotationToRetain(appView, annotation, kind, mode, options);
+    definition.rewriteAllAnnotations(
+        (annotation, kind) -> rewriteAnnotation(definition, annotation, kind, keepInfo));
   }
 
   private static boolean isComposableAnnotationToRetain(
@@ -342,29 +321,30 @@ public class AnnotationRemover {
             .isIdenticalTo(appView.getComposeReferences().composableType);
   }
 
-  @SuppressWarnings("UnusedVariable")
-  private boolean shouldRetainAnnotationDefaultAnnotationOnAnnotationClass(
-      DexAnnotation annotation) {
+  private static boolean shouldRetainAnnotationDefaultAnnotationOnAnnotationClass(
+      DexAnnotation unusedAnnotation) {
     // We currently always retain the @AnnotationDefault annotations for annotation classes. In full
     // mode we could consider only retaining @AnnotationDefault annotations for pinned annotations,
     // as this is consistent with removing all annotations for non-kept items.
     return true;
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private boolean shouldRetainRetentionAnnotationOnAnnotationClass(DexAnnotation annotation) {
+  private static boolean shouldRetainRetentionAnnotationOnAnnotationClass(
+      DexAnnotation annotation, DexItemFactory dexItemFactory) {
     // Retain @Retention annotations that are different from @Retention(RetentionPolicy.CLASS).
     if (annotation.annotation.getNumberOfElements() != 1) {
       return true;
     }
     DexAnnotationElement element = annotation.annotation.getElement(0);
-    if (element.name != appView.dexItemFactory().valueString) {
+    if (element.name.isNotIdenticalTo(dexItemFactory.valueString)) {
       return true;
     }
     DexValue value = element.getValue();
     if (!value.isDexValueEnum()
-        || value.asDexValueEnum().getValue()
-            != appView.dexItemFactory().javaLangAnnotationRetentionPolicyMembers.CLASS) {
+        || value
+            .asDexValueEnum()
+            .getValue()
+            .isNotIdenticalTo(dexItemFactory.javaLangAnnotationRetentionPolicyMembers.CLASS)) {
       return true;
     }
     return false;
