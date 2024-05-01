@@ -15,9 +15,11 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.locks.Lock;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,6 +61,9 @@ public class GMSCoreV10Test extends GMSCoreCompilationTestBase {
                 builder.addOptionsModification(
                     options -> {
                       options.testing.forceJumboStringProcessing = true;
+                      options
+                          .getOpenClosedInterfacesOptions()
+                          .suppressSingleOpenInterface(Reference.classFromClass(Lock.class));
                     }))
         .runDex2Oat(parameters.getRuntime())
         .assertNoVerificationErrors();

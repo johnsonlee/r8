@@ -55,13 +55,8 @@ public class NoOptResourceShrinkingTest extends TestBase {
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               resourceTableInspector.assertContainsResourceWithName("string", "foo");
-              if (optimized) {
-                // TODO(b/336983087): This should be removed.
-                resourceTableInspector.assertContainsResourceWithName("string", "unused_string");
-              } else {
-                resourceTableInspector.assertDoesNotContainResourceWithName(
-                    "string", "unused_string");
-              }
+              resourceTableInspector.assertDoesNotContainResourceWithName(
+                  "string", "unused_string");
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccess();
