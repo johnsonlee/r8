@@ -107,7 +107,7 @@ public class TestOptimizedShrinking extends TestBase {
 
                 // In optimized mode we track these correctly, so we should not unconditionally keep
                 // all attributes.
-                if (optimized) {
+                if (optimized && !debug) {
                   resourceTableInspector.assertDoesNotContainResourceWithName(
                       "attr", "attr_unused_styleable" + i);
                 } else {

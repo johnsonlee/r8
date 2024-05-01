@@ -21,11 +21,13 @@ public abstract class EnqueuerDeferredTracing {
 
   public static EnqueuerDeferredTracing create(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer, Mode mode) {
-    InternalOptions options = appView.options();
-    if (!options.isShrinking() || !options.enableEnqueuerDeferredTracing) {
+    if (mode.isInitialTreeShaking()) {
       return empty();
     }
-    if (!options.isOptimizing() && !options.isOptimizedResourceShrinking()) {
+    InternalOptions options = appView.options();
+    if (!options.isOptimizing()
+        || !options.isShrinking()
+        || !options.enableEnqueuerDeferredTracing) {
       return empty();
     }
     return new EnqueuerDeferredTracingImpl(appView, enqueuer, mode);
