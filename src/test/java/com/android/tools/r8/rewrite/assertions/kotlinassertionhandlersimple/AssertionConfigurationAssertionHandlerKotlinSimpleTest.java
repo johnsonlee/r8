@@ -62,7 +62,7 @@ public class AssertionConfigurationAssertionHandlerKotlinSimpleTest
   @Override
   protected void configureR8(R8FullTestBuilder builder) {
     boolean referencesNotNull =
-        !kotlinParameters.is(KotlinCompilerVersion.KOTLINC_1_3_72)
+        !kotlinParameters.isOlderThan(KotlinCompilerVersion.KOTLINC_1_6_0)
             && !kotlinStdlibAsLibrary
             && !useJvmAssertions;
     builder
