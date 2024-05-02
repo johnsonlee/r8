@@ -261,8 +261,6 @@ public class DexItemFactory {
   public final DexString classLoaderDescriptor = createString("Ljava/lang/ClassLoader;");
   public final DexString autoCloseableDescriptor = createString("Ljava/lang/AutoCloseable;");
   public final DexString classArrayDescriptor = createString("[Ljava/lang/Class;");
-  public final DexString classDescDescriptor = createString("Ljava/lang/constant/ClassDesc;");
-  public final DexString enumDescDescriptor = createString("Ljava/lang/Enum$EnumDesc;");
   public final DexString constructorDescriptor = createString("Ljava/lang/reflect/Constructor;");
   public final DexString fieldDescriptor = createString("Ljava/lang/reflect/Field;");
   public final DexString methodDescriptor = createString("Ljava/lang/reflect/Method;");
@@ -458,9 +456,6 @@ public class DexItemFactory {
 
   public final DexType stringBuilderType = createStaticallyKnownType(stringBuilderDescriptor);
   public final DexType stringBufferType = createStaticallyKnownType(stringBufferDescriptor);
-
-  public final DexType classDescType = createStaticallyKnownType(classDescDescriptor);
-  public final DexType enumDescType = createStaticallyKnownType(enumDescDescriptor);
 
   public final DexType javaLangAnnotationRetentionPolicyType =
       createStaticallyKnownType("Ljava/lang/annotation/RetentionPolicy;");
@@ -822,17 +817,6 @@ public class DexItemFactory {
   public final DexType callSiteType = createStaticallyKnownType("Ljava/lang/invoke/CallSite;");
   public final DexType lookupType =
       createStaticallyKnownType("Ljava/lang/invoke/MethodHandles$Lookup;");
-  public final DexMethod constantDynamicBootstrapMethod =
-      createMethod(
-          constantBootstrapsType,
-          createProto(
-              objectType,
-              methodHandlesLookupType,
-              stringType,
-              classType,
-              methodHandleType,
-              objectArrayType),
-          invokeMethodName);
   public final DexType objectMethodsType =
       createStaticallyKnownType("Ljava/lang/runtime/ObjectMethods;");
   public final DexType typeDescriptorType =
