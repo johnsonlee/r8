@@ -2473,18 +2473,20 @@ public class Enqueuer {
       ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind kind) {
     DexType type = annotation.getAnnotationType();
     DexClass clazz = definitionFor(type, annotatedItem);
-    boolean annotationTypeIsLibraryClass = clazz == null || clazz.isNotProgramClass();
-    boolean isLive = annotationTypeIsLibraryClass || liveTypes.contains(clazz.asProgramClass());
+    boolean annotationTypeIsNotProgramClass = clazz == null || clazz.isNotProgramClass();
+    boolean isLive = annotationTypeIsNotProgramClass || liveTypes.contains(clazz.asProgramClass());
     if (!shouldKeepAnnotation(annotatedItem, annotation, kind, isLive)) {
       // Remember this annotation for later.
-      if (!annotationTypeIsLibraryClass) {
-        Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations =
-            kind.isParameter() ? deferredParameterAnnotations : this.deferredAnnotations;
-        Map<DexAnnotation, List<ProgramDefinition>> deferredAnnotationsForAnnotationType =
-            deferredAnnotations.computeIfAbsent(type, ignore -> new IdentityHashMap<>());
-        deferredAnnotationsForAnnotationType
-            .computeIfAbsent(annotation, ignore -> new ArrayList<>())
-            .add(annotatedItem);
+      Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations =
+          kind.isParameter() ? deferredParameterAnnotations : this.deferredAnnotations;
+      Map<DexAnnotation, List<ProgramDefinition>> deferredAnnotationsForAnnotationType =
+          deferredAnnotations.computeIfAbsent(type, ignore -> new IdentityHashMap<>());
+      deferredAnnotationsForAnnotationType
+          .computeIfAbsent(annotation, ignore -> new ArrayList<>())
+          .add(annotatedItem);
+      // Also, non-program annotations should be considered live w.r.t the deferred processing.
+      if (annotationTypeIsNotProgramClass) {
+        liveAnnotations.add(type);
       }
       return;
     }
@@ -2510,7 +2512,13 @@ public class Enqueuer {
       return true;
     }
     return AnnotationRemover.shouldKeepAnnotation(
-        appView, annotatedItem, annotation, isLive, annotatedKind, mode);
+        appView,
+        annotatedItem,
+        annotation,
+        isLive,
+        annotatedKind,
+        mode,
+        keepInfo.getInfo(annotatedItem));
   }
 
   private DexClass resolveBaseType(DexType type, ProgramDefinition context) {
