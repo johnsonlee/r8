@@ -168,7 +168,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
   }
 
   public boolean isSingleCallerInliningAllowed(GlobalKeepInfoConfiguration configuration) {
-    return internalIsSingleCallerInliningAllowed();
+    return isOptimizationAllowed(configuration)
+        && isShrinkingAllowed(configuration)
+        && internalIsSingleCallerInliningAllowed();
   }
 
   boolean internalIsSingleCallerInliningAllowed() {
