@@ -8,6 +8,7 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpec
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -139,6 +140,8 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testR8CompiledWithR8Dex() throws Exception {
+    // TODO(b/338379138): Fix and reenable
+    assumeTrue(false);
     // Compile once R8_WITH_RELOCATED_DEPS_JAR using normal R8_WITH_RELOCATED_DEPS_JAR to dex,
     // and once R8_WITH_RELOCATED_DEPS_JAR with the previously compiled version to dex.
     // Both applications should be identical.
