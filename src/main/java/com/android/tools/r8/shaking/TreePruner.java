@@ -24,7 +24,6 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
 import com.android.tools.r8.graph.PermittedSubclassAttribute;
-import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.RecordComponentInfo;
@@ -113,17 +112,12 @@ public class TreePruner {
     InternalOptions options = appView.options();
     List<DexProgramClass> newClasses = new ArrayList<>();
     for (DexProgramClass clazz : classes) {
-      boolean isLiveClass = appInfo.isLiveProgramClass(clazz);
       if (options.configurationDebugging) {
         newClasses.add(clazz);
         pruneMembersAndAttributes(clazz);
-        if (!isLiveClass) {
-          clazz.clearAllAnnotations();
-          clazz.forEachProgramMember(ProgramMember::clearAllAnnotations);
-        }
         continue;
       }
-      if (isLiveClass) {
+      if (appInfo.isLiveProgramClass(clazz)) {
         newClasses.add(clazz);
         if (!appInfo.getObjectAllocationInfoCollection().isInstantiatedDirectly(clazz)
             && !options.forceProguardCompatibility) {

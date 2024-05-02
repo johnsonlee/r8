@@ -2510,13 +2510,7 @@ public class Enqueuer {
       return true;
     }
     return AnnotationRemover.shouldKeepAnnotation(
-        appView,
-        annotatedItem,
-        annotation,
-        isLive,
-        annotatedKind,
-        mode,
-        keepInfo.getInfo(annotatedItem));
+        appView, annotatedItem, annotation, isLive, annotatedKind, mode);
   }
 
   private DexClass resolveBaseType(DexType type, ProgramDefinition context) {
