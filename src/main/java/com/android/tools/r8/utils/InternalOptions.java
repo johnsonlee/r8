@@ -718,6 +718,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public DesugarState desugarState = DesugarState.ON;
   // Flag to turn on/off partial VarHandle desugaring.
   public boolean enableVarHandleDesugaring = false;
+  // Flag to turn on/off partial Type switch desugaring.
+  public boolean enableTypeSwitchDesugaring = true;
   // Flag to turn off backport methods (and report errors if triggered).
   public boolean disableBackportsAndReportIfTriggered = false;
   // Flag to turn on/off reduction of nest to improve class merging optimizations.

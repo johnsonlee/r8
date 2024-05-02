@@ -4,10 +4,8 @@
 package switchpatternmatching;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -16,11 +14,13 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import switchpatternmatching.TypeSwitchTest.Main;
 
 @RunWith(Parameterized.class)
 public class StringSwitchTest extends TestBase {
@@ -81,21 +81,22 @@ public class StringSwitchTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    assertThrows(
-        CompilationFailedException.class,
-        () -> testForD8().addInnerClasses(getClass()).setMinApi(parameters).compile());
+    testForD8()
+        .addInnerClassesAndStrippedOuter(getClass())
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testR8() throws Exception {
-    assertThrows(
-        CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .setMinApi(parameters)
-                .addKeepMainRule(Main.class)
-                .compile());
+    Assume.assumeTrue("For Cf we should compile with Jdk 21 library", parameters.isDexRuntime());
+    testForR8(parameters.getBackend())
+        .addInnerClassesAndStrippedOuter(getClass())
+        .setMinApi(parameters)
+        .addKeepMainRule(Main.class)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class Main {

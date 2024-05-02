@@ -137,6 +137,7 @@ public class ToolHelper {
   public enum TestDataSourceSet {
     LEGACY(null),
     TESTS_JAVA_8("tests_java_8/build/classes/java/test"),
+    TESTBASE_DATA_LOCATION("testbase/build/classes/java/main"),
     TESTS_BOOTSTRAP("tests_bootstrap/build/classes/java/test"),
     SPECIFIED_BY_GRADLE_PROPERTY(null);
 

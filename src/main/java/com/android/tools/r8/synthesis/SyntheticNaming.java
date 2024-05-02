@@ -65,6 +65,8 @@ public class SyntheticNaming {
   public final SyntheticKind CONST_DYNAMIC = generator.forNonSharableInstanceClass("$Condy");
 
   // Method synthetics.
+  public final SyntheticKind TYPE_SWITCH_HELPER =
+      generator.forSingleMethodWithGlobalMerging("TypeSwitch");
   public final SyntheticKind ENUM_UNBOXING_CHECK_NOT_ZERO_METHOD =
       generator.forSingleMethodWithGlobalMerging("CheckNotZero");
   public final SyntheticKind RECORD_HELPER = generator.forSingleMethodWithGlobalMerging("Record");

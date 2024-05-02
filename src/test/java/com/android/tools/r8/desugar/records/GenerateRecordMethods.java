@@ -64,7 +64,8 @@ public class GenerateRecordMethods extends MethodGenerationBase {
   }
 
   public static void main(String[] args) throws Exception {
-    setUpSystemPropertiesForMain(TestDataSourceSet.TESTS_JAVA_8);
+    setUpSystemPropertiesForMain(
+        TestDataSourceSet.TESTS_JAVA_8, TestDataSourceSet.TESTBASE_DATA_LOCATION);
     new GenerateRecordMethods(null).generateMethodsAndWriteThemToFile();
   }
 }

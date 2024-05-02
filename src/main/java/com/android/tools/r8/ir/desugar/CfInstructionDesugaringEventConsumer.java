@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.desugar.lambda.LambdaDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.twr.TwrCloseResourceDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaringEventConsumer;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.profile.rewriting.ProfileRewritingCfInstructionDesugaringEventConsumer;
@@ -68,7 +69,8 @@ public abstract class CfInstructionDesugaringEventConsumer
         ClasspathEmulatedInterfaceSynthesizerEventConsumer,
         ApiInvokeOutlinerDesugaringEventConsumer,
         VarHandleDesugaringEventConsumer,
-        DesugaredLibRewriterEventConsumer {
+        DesugaredLibRewriterEventConsumer,
+        TypeSwitchDesugaringEventConsumer {
 
   public static CfInstructionDesugaringEventConsumer createForD8(
       AppView<?> appView,
@@ -177,6 +179,11 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptBackportedMethod(ProgramMethod backportedMethod, ProgramMethod context) {
       methodProcessor.scheduleMethodForProcessing(backportedMethod, outermostEventConsumer);
+    }
+
+    @Override
+    public void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context) {
+      methodProcessor.scheduleMethodForProcessing(typeSwitchMethod, outermostEventConsumer);
     }
 
     @Override
@@ -640,6 +647,11 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptBackportedClass(DexProgramClass backportedClass, ProgramMethod context) {
+      // Intentionally empty. The method will be hit by tracing if required.
+    }
+
+    @Override
+    public void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context) {
       // Intentionally empty. The method will be hit by tracing if required.
     }
 

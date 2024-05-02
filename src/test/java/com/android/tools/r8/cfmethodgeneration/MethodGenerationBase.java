@@ -371,7 +371,9 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
     }
   }
 
-  protected static void setUpSystemPropertiesForMain(TestDataSourceSet sourceSet) {
+  protected static void setUpSystemPropertiesForMain(
+      TestDataSourceSet sourceSet, TestDataSourceSet sourceSet2) {
     System.setProperty("TEST_DATA_LOCATION", sourceSet.getBuildDir().toString());
+    System.setProperty("TESTBASE_DATA_LOCATION", sourceSet2.getBuildDir().toString());
   }
 }

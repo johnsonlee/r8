@@ -33,6 +33,7 @@ import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
 import com.android.tools.r8.ir.desugar.stringconcat.StringConcatInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.twr.TwrInstructionDesugaring;
+import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.utils.Box;
@@ -106,6 +107,9 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     }
     if (appView.options().enableTryWithResourcesDesugaring()) {
       desugarings.add(new TwrInstructionDesugaring(appView));
+    }
+    if (appView.options().enableTypeSwitchDesugaring) {
+      desugarings.add(new TypeSwitchDesugaring(appView));
     }
     recordRewriter = RecordDesugaring.create(appView);
     if (recordRewriter != null) {
