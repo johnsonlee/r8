@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
@@ -837,6 +838,22 @@ public class Value implements Comparable<Value> {
   public ConstInstruction getConstInstruction() {
     assert isConstant();
     return definition.getOutConstantConstInstruction();
+  }
+
+  public boolean isConstInt() {
+    assert type.isInt();
+    return !hasLocalInfo() && isDefinedByInstructionSatisfying(Instruction::isConstNumber);
+  }
+
+  public int getConstInt() {
+    assert isConstInt();
+    return definition.asConstNumber().getIntValue();
+  }
+
+  public DexString getConstStringOrNull() {
+    return hasLocalInfo() || !isDefinedByInstructionSatisfying(Instruction::isConstString)
+        ? null
+        : definition.asConstString().getValue();
   }
 
   public boolean isConstNumber() {

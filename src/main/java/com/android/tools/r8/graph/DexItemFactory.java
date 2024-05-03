@@ -2226,15 +2226,21 @@ public class DexItemFactory {
         createMethod(stringType, createProto(voidType, stringType), constructorMethodName);
     public final DexMethod contains;
     public final DexMethod startsWith;
+    public final DexMethod substring;
+    public final DexMethod substringWithEndIndex;
     public final DexMethod endsWith;
     public final DexMethod equals;
     public final DexMethod equalsIgnoreCase;
     public final DexMethod contentEqualsCharSequence;
 
     public final DexMethod indexOfInt;
+    public final DexMethod indexOfIntWithFromIndex;
     public final DexMethod indexOfString;
+    public final DexMethod indexOfStringWithFromIndex;
     public final DexMethod lastIndexOfInt;
+    public final DexMethod lastIndexOfIntWithFromIndex;
     public final DexMethod lastIndexOfString;
+    public final DexMethod lastIndexOfStringWithFromIndex;
     public final DexMethod compareTo;
     public final DexMethod compareToIgnoreCase;
 
@@ -2254,38 +2260,46 @@ public class DexItemFactory {
       length = createMethod(
           stringDescriptor, lengthMethodName, intDescriptor, DexString.EMPTY_ARRAY);
 
-      DexString[] needsOneCharSequence = { charSequenceDescriptor };
-      DexString[] needsOneString = { stringDescriptor };
-      DexString[] needsOneObject = { objectDescriptor };
-      DexString[] needsOneInt = { intDescriptor };
+      DexString[] charSequenceArgs = {charSequenceDescriptor};
+      DexString[] intArgs = {intDescriptor};
+      DexString[] intIntArgs = {intDescriptor, intDescriptor};
+      DexString[] objectArgs = {objectDescriptor};
+      DexString[] stringArgs = {stringDescriptor};
+      DexString[] stringIntArgs = {stringDescriptor, intDescriptor};
 
-      concat = createMethod(stringDescriptor, concatMethodName, stringDescriptor, needsOneString);
-      contains = createMethod(
-          stringDescriptor, containsMethodName, booleanDescriptor, needsOneCharSequence);
-      startsWith = createMethod(
-          stringDescriptor, startsWithMethodName, booleanDescriptor, needsOneString);
-      endsWith = createMethod(
-          stringDescriptor, endsWithMethodName, booleanDescriptor, needsOneString);
-      equals = createMethod(
-          stringDescriptor, equalsMethodName, booleanDescriptor, needsOneObject);
-      equalsIgnoreCase = createMethod(
-          stringDescriptor, equalsIgnoreCaseMethodName, booleanDescriptor, needsOneString);
-      contentEqualsCharSequence = createMethod(
-          stringDescriptor, contentEqualsMethodName, booleanDescriptor, needsOneCharSequence);
+      concat = createMethod(stringDescriptor, concatMethodName, stringDescriptor, stringArgs);
+      contains =
+          createMethod(stringDescriptor, containsMethodName, booleanDescriptor, charSequenceArgs);
+      startsWith =
+          createMethod(stringDescriptor, startsWithMethodName, booleanDescriptor, stringArgs);
+      endsWith = createMethod(stringDescriptor, endsWithMethodName, booleanDescriptor, stringArgs);
+      substring = createMethod(stringDescriptor, substringName, stringDescriptor, intArgs);
+      substringWithEndIndex =
+          createMethod(stringDescriptor, substringName, stringDescriptor, intIntArgs);
+      equals = createMethod(stringDescriptor, equalsMethodName, booleanDescriptor, objectArgs);
+      equalsIgnoreCase =
+          createMethod(stringDescriptor, equalsIgnoreCaseMethodName, booleanDescriptor, stringArgs);
+      contentEqualsCharSequence =
+          createMethod(
+              stringDescriptor, contentEqualsMethodName, booleanDescriptor, charSequenceArgs);
 
-      indexOfString =
-          createMethod(stringDescriptor, indexOfMethodName, intDescriptor, needsOneString);
-      indexOfInt =
-          createMethod(stringDescriptor, indexOfMethodName, intDescriptor, needsOneInt);
+      indexOfString = createMethod(stringDescriptor, indexOfMethodName, intDescriptor, stringArgs);
+      indexOfStringWithFromIndex =
+          createMethod(stringDescriptor, indexOfMethodName, intDescriptor, stringIntArgs);
+      indexOfInt = createMethod(stringDescriptor, indexOfMethodName, intDescriptor, intArgs);
+      indexOfIntWithFromIndex =
+          createMethod(stringDescriptor, indexOfMethodName, intDescriptor, intIntArgs);
       lastIndexOfString =
-          createMethod(stringDescriptor, lastIndexOfMethodName, intDescriptor, needsOneString);
+          createMethod(stringDescriptor, lastIndexOfMethodName, intDescriptor, stringArgs);
+      lastIndexOfStringWithFromIndex =
+          createMethod(stringDescriptor, lastIndexOfMethodName, intDescriptor, stringIntArgs);
       lastIndexOfInt =
-          createMethod(stringDescriptor, lastIndexOfMethodName, intDescriptor, needsOneInt);
-      compareTo =
-          createMethod(stringDescriptor, compareToMethodName, intDescriptor, needsOneString);
+          createMethod(stringDescriptor, lastIndexOfMethodName, intDescriptor, intArgs);
+      lastIndexOfIntWithFromIndex =
+          createMethod(stringDescriptor, lastIndexOfMethodName, intDescriptor, intIntArgs);
+      compareTo = createMethod(stringDescriptor, compareToMethodName, intDescriptor, stringArgs);
       compareToIgnoreCase =
-          createMethod(stringDescriptor, compareToIgnoreCaseMethodName, intDescriptor,
-              needsOneString);
+          createMethod(stringDescriptor, compareToIgnoreCaseMethodName, intDescriptor, stringArgs);
 
       hashCode = createMethod(stringType, createProto(intType), hashCodeMethodName);
       format =
@@ -2301,8 +2315,7 @@ public class DexItemFactory {
               stringDescriptor,
               new DexString[] {localeDescriptor, stringDescriptor, objectArrayDescriptor});
 
-      valueOf = createMethod(
-          stringDescriptor, valueOfMethodName, stringDescriptor, needsOneObject);
+      valueOf = createMethod(stringDescriptor, valueOfMethodName, stringDescriptor, objectArgs);
       toString = createMethod(
           stringDescriptor, toStringMethodName, stringDescriptor, DexString.EMPTY_ARRAY);
       intern = createMethod(

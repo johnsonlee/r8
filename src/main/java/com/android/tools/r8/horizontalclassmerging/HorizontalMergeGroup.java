@@ -186,7 +186,7 @@ public class HorizontalMergeGroup extends MergeGroup implements Collection<DexPr
         break;
       }
       // Select the target with the shortest name.
-      if (current.getType().getDescriptor().size() < target.getType().getDescriptor().size) {
+      if (current.getType().getDescriptor().length() < target.getType().getDescriptor().length()) {
         target = current;
       }
     }

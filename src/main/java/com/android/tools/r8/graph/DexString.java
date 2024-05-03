@@ -37,25 +37,49 @@ public class DexString extends IndexedDexItem
   public static final DexString[] EMPTY_ARRAY = {};
   private static final int ARRAY_CHARACTER = '[';
 
-  public final int size;  // size of this string, in UTF-16
+  private final int javaLangStringLength; // size of this string, in UTF-16
   public final byte[] content;
 
-  DexString(int size, byte[] content) {
-    this.size = size;
+  DexString(int javaLangStringLength, byte[] content) {
+    this.javaLangStringLength = javaLangStringLength;
     this.content = content;
   }
 
   DexString(String string) {
-    this.size = string.length();
+    this.javaLangStringLength = string.length();
     this.content = encodeToMutf8(string);
+  }
+
+  public boolean equalsIgnoreCase(DexString str) {
+    return toString().equalsIgnoreCase(str.toString());
   }
 
   public char getFirstByteAsChar() {
     return (char) content[0];
   }
 
+  public int indexOf(int ch) {
+    return toString().indexOf(ch);
+  }
+
+  public int indexOf(int ch, int fromIndex) {
+    return toString().indexOf(ch, fromIndex);
+  }
+
+  public int indexOf(DexString str) {
+    return toString().indexOf(str.toString());
+  }
+
+  public int indexOf(DexString str, int fromIndex) {
+    return toString().indexOf(str.toString(), fromIndex);
+  }
+
+  public boolean isEmpty() {
+    return javaLangStringLength == 0;
+  }
+
   public boolean isEqualTo(String string) {
-    if (size != string.length()) {
+    if (javaLangStringLength != string.length()) {
       return false;
     }
     int index = 0;
@@ -72,17 +96,52 @@ public class DexString extends IndexedDexItem
       }
       index++;
     }
-    assert index == size;
+    assert index == javaLangStringLength;
     return true;
+  }
+
+  public int lastIndexOf(int ch) {
+    return toString().lastIndexOf(ch);
+  }
+
+  public int lastIndexOf(int ch, int fromIndex) {
+    return toString().lastIndexOf(ch, fromIndex);
+  }
+
+  public int lastIndexOf(DexString str) {
+    return toString().lastIndexOf(str.toString());
+  }
+
+  public int lastIndexOf(DexString str, int fromIndex) {
+    return toString().lastIndexOf(str.toString(), fromIndex);
+  }
+
+  public int length() {
+    return javaLangStringLength;
+  }
+
+  public DexString substring(int beginIndex, DexItemFactory factory) {
+    String str = toString();
+    String substring = str.substring(beginIndex);
+    return substring.equals(str) ? this : factory.createString(substring);
+  }
+
+  @SuppressWarnings("InconsistentOverloads")
+  public DexString substring(int beginIndex, int endIndex, DexItemFactory factory) {
+    String str = toString();
+    String substring = str.substring(beginIndex, endIndex);
+    return substring.equals(str) ? this : factory.createString(substring);
+  }
+
+  public DexString trim(DexItemFactory factory) {
+    String str = toString();
+    String trimmed = str.trim();
+    return trimmed.equals(str) ? this : factory.createString(trimmed);
   }
 
   @Override
   public DexString self() {
     return this;
-  }
-
-  public int size() {
-    return size;
   }
 
   @Override
@@ -99,6 +158,18 @@ public class DexString extends IndexedDexItem
   @Override
   public int compareTo(DexString other) {
     return internalCompareTo(other);
+  }
+
+  public int javaLangStringCompareTo(DexString other) {
+    return toString().compareTo(other.toString());
+  }
+
+  public int javaLangStringHashCode() {
+    return toString().hashCode();
+  }
+
+  public int compareToIgnoreCase(DexString other) {
+    return toString().compareToIgnoreCase(other.toString());
   }
 
   @Override
@@ -168,14 +239,14 @@ public class DexString extends IndexedDexItem
 
   @Override
   public int computeHashCode() {
-    return size * 7 + Arrays.hashCode(content);
+    return javaLangStringLength * 7 + Arrays.hashCode(content);
   }
 
   @Override
   public boolean computeEquals(Object other) {
     if (other instanceof DexString) {
       DexString o = (DexString) other;
-      return size == o.size && Arrays.equals(content, o.content);
+      return javaLangStringLength == o.javaLangStringLength && Arrays.equals(content, o.content);
     }
     return false;
   }
@@ -198,7 +269,7 @@ public class DexString extends IndexedDexItem
   }
 
   private String decode() throws UTFDataFormatException {
-    char[] out = new char[size];
+    char[] out = new char[javaLangStringLength];
     int decodedLength = decodePrefix(out);
     return new String(out, 0, decodedLength);
   }
@@ -244,7 +315,7 @@ public class DexString extends IndexedDexItem
   }
 
   public int decodedHashCode() throws UTFDataFormatException {
-    if (size == 0) {
+    if (javaLangStringLength == 0) {
       assert decode().hashCode() == 0;
       return 0;
     }
@@ -516,7 +587,7 @@ public class DexString extends IndexedDexItem
   }
 
   public DexString prepend(DexString prefix, DexItemFactory dexItemFactory) {
-    int newSize = prefix.size + this.size;
+    int newSize = prefix.javaLangStringLength + this.javaLangStringLength;
     // Each string ends with a 0 terminating byte, hence the +/- 1.
     byte[] newContent = new byte[prefix.content.length + this.content.length - 1];
     System.arraycopy(prefix.content, 0, newContent, 0, prefix.content.length - 1);
@@ -538,9 +609,9 @@ public class DexString extends IndexedDexItem
     // 'L' -> 'Lfoo/bar', for a string 'Lbaz/Qux' the result should be 'Lfoo/bar' + '/' + 'baz/Qux'.
     // 'Lfoo' -> 'L', for a string 'Lfoo/Qux' the result should be 'L' + Qux', thus we remove a '/'.
     boolean insertSeparator =
-        prefix.size == 1 && !rewrittenPrefix.endsWith(factory.descriptorSeparator);
+        prefix.javaLangStringLength == 1 && !rewrittenPrefix.endsWith(factory.descriptorSeparator);
     boolean removeSeparator =
-        rewrittenPrefix.size == 1 && !prefix.endsWith(factory.descriptorSeparator);
+        rewrittenPrefix.javaLangStringLength == 1 && !prefix.endsWith(factory.descriptorSeparator);
     int sizeAdjustment = 0;
     if (insertSeparator) {
       sizeAdjustment += 1;
@@ -549,7 +620,11 @@ public class DexString extends IndexedDexItem
     }
     int arrayDim = getArrayDim();
     // In the case that prefix is 'L' we also insert a separator '/' after the destination
-    int newSize = rewrittenPrefix.size + this.size - prefix.size + sizeAdjustment;
+    int newSize =
+        rewrittenPrefix.javaLangStringLength
+            + this.javaLangStringLength
+            - prefix.javaLangStringLength
+            + sizeAdjustment;
     byte[] newContent =
         new byte
             [rewrittenPrefix.content.length
@@ -585,7 +660,7 @@ public class DexString extends IndexedDexItem
     }
     byte[] newContent = new byte[content.length - arrayDim];
     System.arraycopy(this.content, arrayDim, newContent, 0, newContent.length);
-    return factory.createString(this.size - arrayDim, newContent);
+    return factory.createString(this.javaLangStringLength - arrayDim, newContent);
   }
 
   private int getArrayDim() {
@@ -600,6 +675,6 @@ public class DexString extends IndexedDexItem
     byte[] newContent = new byte[content.length + dimensions];
     Arrays.fill(newContent, 0, dimensions, (byte) '[');
     System.arraycopy(content, 0, newContent, dimensions, content.length);
-    return dexItemFactory.createString(size + dimensions, newContent);
+    return dexItemFactory.createString(javaLangStringLength + dimensions, newContent);
   }
 }

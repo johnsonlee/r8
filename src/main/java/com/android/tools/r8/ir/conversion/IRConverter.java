@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
+import com.android.tools.r8.ir.conversion.passes.ClassGetNameOptimizer;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
 import com.android.tools.r8.ir.conversion.passes.DexConstantOptimizer;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
@@ -72,7 +73,6 @@ import com.android.tools.r8.ir.optimize.membervaluepropagation.MemberValuePropag
 import com.android.tools.r8.ir.optimize.membervaluepropagation.R8MemberValuePropagation;
 import com.android.tools.r8.ir.optimize.numberunboxer.NumberUnboxer;
 import com.android.tools.r8.ir.optimize.outliner.Outliner;
-import com.android.tools.r8.ir.optimize.string.StringOptimizer;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.Lir2IRConverter;
 import com.android.tools.r8.lightir.LirCode;
@@ -659,7 +659,8 @@ public class IRConverter {
     }
 
     if (!isDebugMode) {
-      new StringOptimizer(appView).run(code, methodProcessor, methodProcessingContext, timing);
+      new ClassGetNameOptimizer(appView)
+          .run(code, methodProcessor, methodProcessingContext, timing);
       timing.begin("Optimize library methods");
       appView
           .libraryMethodOptimizer()

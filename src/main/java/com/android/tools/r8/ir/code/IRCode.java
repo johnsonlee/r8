@@ -5,7 +5,6 @@ package com.android.tools.r8.ir.code;
 
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
-import static com.google.common.base.Predicates.alwaysFalse;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -1339,8 +1338,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
           reachablePhis.getSeenSet().forEach(Phi::removeDeadPhi);
           anyPhisRemoved = true;
         } else {
-          anyPhisRemoved |=
-              phi.removeTrivialPhi(builder, affectedValues, emptyConsumer(), alwaysFalse());
+          anyPhisRemoved |= phi.removeTrivialPhi(builder, affectedValues);
         }
       }
     }

@@ -637,7 +637,7 @@ public class FileWriter {
 
   private void writeStringData(DexString string) {
     mixedSectionOffsets.setOffsetFor(string, dest.position());
-    dest.putUleb128(string.size);
+    dest.putUleb128(string.length());
     dest.putBytes(string.content);
   }
 

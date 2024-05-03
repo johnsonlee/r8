@@ -219,7 +219,7 @@ public final class DexCallSite extends IndexedDexItem
     private ObjectOutputStream out;
 
     private void write(DexString string) throws IOException {
-      out.writeInt(string.size); // To avoid same-prefix problem
+      out.writeInt(string.length()); // To avoid same-prefix problem
       out.write(string.content);
     }
 

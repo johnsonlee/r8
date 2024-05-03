@@ -56,7 +56,7 @@ public class ClassesChecksum {
   @SuppressWarnings("EmptyCatch")
   // Try to parse the string as a marker and append its content if successful.
   public void tryParseAndAppend(DexString dexString) {
-    if (dexString.size > 2
+    if (dexString.length() > 2
         && dexString.content[0] == PREFIX_CHAR0
         && dexString.content[1] == PREFIX_CHAR1
         && dexString.content[2] == PREFIX_CHAR2) {

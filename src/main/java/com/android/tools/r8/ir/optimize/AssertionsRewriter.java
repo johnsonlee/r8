@@ -157,7 +157,7 @@ public class AssertionsRewriter {
           result = entry;
           break;
         case PACKAGE:
-          if (entry.value.size == 0) {
+          if (entry.value.length() == 0) {
             if (!type.descriptor.contains(dexItemFactory.descriptorSeparator)) {
               result = entry;
             }
@@ -191,7 +191,7 @@ public class AssertionsRewriter {
 
     // Check for inner class name by checking if the prefix is the class descriptor,
     // where ';' is replaced whit '$' and no '/' after that.
-    if (classOrInnerClassDescriptor.size < classDescriptor.size) {
+    if (classOrInnerClassDescriptor.length() < classDescriptor.length()) {
       return false;
     }
     ThrowingCharIterator<UTFDataFormatException> i1 = classDescriptor.iterator();

@@ -25,7 +25,6 @@ import com.android.tools.r8.ir.optimize.InliningOracle;
 import com.android.tools.r8.ir.optimize.classinliner.InlineCandidateProcessor.IllegalClassInlinerStateException;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
-import com.android.tools.r8.ir.optimize.string.StringOptimizer;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.Timing;
@@ -246,8 +245,9 @@ public final class ClassInliner {
       new BranchSimplifier(appView)
           .run(code, methodProcessor, methodProcessingContext, Timing.empty());
       // If a method was inlined we may see more trivial computation/conversion of String.
-      new StringOptimizer(appView)
-          .run(code, methodProcessor, methodProcessingContext, Timing.empty());
+      appView
+          .libraryMethodOptimizer()
+          .optimize(code, feedback, methodProcessor, methodProcessingContext);
     }
   }
 

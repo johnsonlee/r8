@@ -100,6 +100,14 @@ public abstract class Invoke extends Instruction {
     return getArgument(0);
   }
 
+  public Value getSecondArgument() {
+    return getArgument(1);
+  }
+
+  public Value getThirdArgument() {
+    return getArgument(2);
+  }
+
   public Value getLastArgument() {
     return getArgument(arguments().size() - 1);
   }

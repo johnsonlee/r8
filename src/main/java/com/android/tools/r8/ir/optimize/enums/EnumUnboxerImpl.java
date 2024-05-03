@@ -893,7 +893,10 @@ public class EnumUnboxerImpl extends EnumUnboxer {
 
   private EnumData buildData(DexProgramClass enumClass, Set<DexField> instanceFields) {
     if (!enumClass.hasStaticFields()) {
-      return new EnumData(ImmutableMap.of(), null, ImmutableMap.of(), ImmutableSet.of(), -1);
+      if (instanceFields.isEmpty()) {
+        return new EnumData(ImmutableMap.of(), null, ImmutableMap.of(), ImmutableSet.of(), -1);
+      }
+      return null;
     }
 
     // This map holds all the accessible fields to their unboxed value, so we can remap the field

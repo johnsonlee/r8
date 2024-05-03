@@ -152,7 +152,7 @@ public class Phi extends Value implements InstructionOrPhi {
       builder.constrainType(operand, readConstraint);
       appendOperand(operand);
     }
-    removeTrivialPhi(builder, null, emptyConsumer(), alwaysFalse());
+    removeTrivialPhi(builder);
   }
 
   public void addOperands(List<Value> operands) {
@@ -275,7 +275,15 @@ public class Phi extends Value implements InstructionOrPhi {
   }
 
   public void removeTrivialPhi() {
-    removeTrivialPhi(null, null, emptyConsumer(), alwaysFalse());
+    removeTrivialPhi(null);
+  }
+
+  public boolean removeTrivialPhi(IRBuilder builder) {
+    return removeTrivialPhi(builder, null);
+  }
+
+  public boolean removeTrivialPhi(IRBuilder builder, AffectedValues affectedValues) {
+    return removeTrivialPhi(builder, affectedValues, emptyConsumer(), alwaysFalse());
   }
 
   @SuppressWarnings("ReferenceEquality")

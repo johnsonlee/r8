@@ -46,7 +46,7 @@ public class LibraryOptimizationInfoCollection {
   private static ComputedMethodOptimizationInfoCollection
       getComputedMethodOptimizationInfoCollection(AppView<?> appView, DexType type) {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    switch (type.getDescriptor().size()) {
+    switch (type.getDescriptor().length()) {
       case 16:
         // java.lang.Byte
         // java.lang.Long
