@@ -147,10 +147,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
    * value on a given item.
    */
   public boolean isSignatureRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
-    if (!configuration.isKeepAttributesSignatureEnabled()) {
-      return true;
-    }
-    return !configuration.isForceProguardCompatibilityEnabled()
+    return !configuration.isForceKeepSignatureAttributeEnabled()
         && internalIsSignatureRemovalAllowed();
   }
 

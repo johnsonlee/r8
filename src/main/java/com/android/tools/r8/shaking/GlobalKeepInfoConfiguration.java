@@ -22,7 +22,7 @@ public interface GlobalKeepInfoConfiguration {
 
   boolean isForceProguardCompatibilityEnabled();
 
-  boolean isKeepAttributesSignatureEnabled();
+  boolean isForceKeepSignatureAttributeEnabled();
 
   boolean isKeepEnclosingMethodAttributeEnabled();
 

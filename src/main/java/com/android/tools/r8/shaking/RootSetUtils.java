@@ -1583,6 +1583,11 @@ public class RootSetUtils {
         preconditionEvent = UnconditionalKeepInfoEvent.get();
       }
 
+      ProguardKeepAttributes attributesConfig =
+          options.getProguardConfiguration() != null
+              ? options.getProguardConfiguration().getKeepAttributes()
+              : ProguardKeepAttributes.fromPatterns(ProguardKeepAttributes.KEEP_ALL);
+
       if (isInterfaceMethodNeedingDesugaring(item)) {
         ProgramMethod method = item.asMethod();
         ProgramMethod companion =
@@ -1624,7 +1629,7 @@ public class RootSetUtils {
         context.markAsUsed();
       }
 
-      if (appView.options().isKeepAttributesSignatureEnabled()) {
+      if (attributesConfig.signature) {
         dependentMinimumKeepInfo
             .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
             .disallowSignatureRemoval();
