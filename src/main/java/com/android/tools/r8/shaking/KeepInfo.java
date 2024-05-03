@@ -19,42 +19,42 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
   private final boolean allowAccessModification;
   private final boolean allowAccessModificationForTesting;
-  private final boolean allowAnnotationRemoval;
   private final boolean allowMinification;
   private final boolean allowOptimization;
   private final boolean allowShrinking;
   private final boolean allowSignatureRemoval;
   private final boolean checkDiscarded;
+  private final KeepAnnotationCollectionInfo annotationsInfo;
 
   private KeepInfo(
       boolean allowAccessModification,
       boolean allowAccessModificationForTesting,
-      boolean allowAnnotationRemoval,
       boolean allowMinification,
       boolean allowOptimization,
       boolean allowShrinking,
       boolean allowSignatureRemoval,
-      boolean checkDiscarded) {
+      boolean checkDiscarded,
+      KeepAnnotationCollectionInfo annotationsInfo) {
     this.allowAccessModification = allowAccessModification;
     this.allowAccessModificationForTesting = allowAccessModificationForTesting;
-    this.allowAnnotationRemoval = allowAnnotationRemoval;
     this.allowMinification = allowMinification;
     this.allowOptimization = allowOptimization;
     this.allowShrinking = allowShrinking;
     this.allowSignatureRemoval = allowSignatureRemoval;
     this.checkDiscarded = checkDiscarded;
+    this.annotationsInfo = annotationsInfo;
   }
 
   KeepInfo(B builder) {
     this(
         builder.isAccessModificationAllowed(),
         builder.isAccessModificationAllowedForTesting(),
-        builder.isAnnotationRemovalAllowed(),
         builder.isMinificationAllowed(),
         builder.isOptimizationAllowed(),
         builder.isShrinkingAllowed(),
         builder.isSignatureRemovalAllowed(),
-        builder.isCheckDiscardedEnabled());
+        builder.isCheckDiscardedEnabled(),
+        builder.getAnnotationsInfo().build());
   }
 
   public static Joiner<?, ?, ?> newEmptyJoinerFor(DexReference reference) {
@@ -73,11 +73,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
    * keep all annotation attributes.
    */
   public boolean isAnnotationRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
-    return configuration.isAnnotationRemovalEnabled() && internalIsAnnotationRemovalAllowed();
+    return configuration.isAnnotationRemovalEnabled() && internalAnnotationsInfo().isBottom();
   }
 
-  boolean internalIsAnnotationRemovalAllowed() {
-    return allowAnnotationRemoval;
+  KeepAnnotationCollectionInfo internalAnnotationsInfo() {
+    return annotationsInfo;
   }
 
   public boolean isCheckDiscardedEnabled(GlobalKeepInfoConfiguration configuration) {
@@ -225,12 +225,12 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     return (allowAccessModification || !other.internalIsAccessModificationAllowed())
         && (allowAccessModificationForTesting
             || !other.internalIsAccessModificationAllowedForTesting())
-        && (allowAnnotationRemoval || !other.internalIsAnnotationRemovalAllowed())
         && (allowMinification || !other.internalIsMinificationAllowed())
         && (allowOptimization || !other.internalIsOptimizationAllowed())
         && (allowShrinking || !other.internalIsShrinkingAllowed())
         && (allowSignatureRemoval || !other.internalIsSignatureRemovalAllowed())
-        && (!checkDiscarded || other.internalIsCheckDiscardedEnabled());
+        && (!checkDiscarded || other.internalIsCheckDiscardedEnabled())
+        && annotationsInfo.isLessThanOrEquals(other.internalAnnotationsInfo());
   }
 
   /** Builder to construct an arbitrary keep info object. */
@@ -249,12 +249,12 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     protected K original;
     private boolean allowAccessModification;
     private boolean allowAccessModificationForTesting;
-    private boolean allowAnnotationRemoval;
     private boolean allowMinification;
     private boolean allowOptimization;
     private boolean allowShrinking;
     private boolean allowSignatureRemoval;
     private boolean checkDiscarded;
+    private KeepAnnotationCollectionInfo.Builder annotationsInfo;
 
     Builder() {
       // Default initialized. Use should be followed by makeTop/makeBottom.
@@ -264,12 +264,12 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       this.original = original;
       allowAccessModification = original.internalIsAccessModificationAllowed();
       allowAccessModificationForTesting = original.internalIsAccessModificationAllowedForTesting();
-      allowAnnotationRemoval = original.internalIsAnnotationRemovalAllowed();
       allowMinification = original.internalIsMinificationAllowed();
       allowOptimization = original.internalIsOptimizationAllowed();
       allowShrinking = original.internalIsShrinkingAllowed();
       allowSignatureRemoval = original.internalIsSignatureRemovalAllowed();
       checkDiscarded = original.internalIsCheckDiscardedEnabled();
+      annotationsInfo = original.internalAnnotationsInfo().toBuilder();
     }
 
     B makeTop() {
@@ -315,12 +315,12 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return isAccessModificationAllowed() == other.internalIsAccessModificationAllowed()
           && isAccessModificationAllowedForTesting()
               == other.internalIsAccessModificationAllowedForTesting()
-          && isAnnotationRemovalAllowed() == other.internalIsAnnotationRemovalAllowed()
           && isMinificationAllowed() == other.internalIsMinificationAllowed()
           && isOptimizationAllowed() == other.internalIsOptimizationAllowed()
           && isShrinkingAllowed() == other.internalIsShrinkingAllowed()
           && isSignatureRemovalAllowed() == other.internalIsSignatureRemovalAllowed()
-          && isCheckDiscardedEnabled() == other.internalIsCheckDiscardedEnabled();
+          && isCheckDiscardedEnabled() == other.internalIsCheckDiscardedEnabled()
+          && annotationsInfo.isEqualTo(other.internalAnnotationsInfo());
     }
 
     public boolean isAccessModificationAllowed() {
@@ -329,10 +329,6 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     public boolean isAccessModificationAllowedForTesting() {
       return allowAccessModificationForTesting;
-    }
-
-    public boolean isAnnotationRemovalAllowed() {
-      return allowAnnotationRemoval;
     }
 
     public boolean isCheckDiscardedEnabled() {
@@ -433,17 +429,21 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return setAllowAccessModificationForTesting(false);
     }
 
-    public B setAllowAnnotationRemoval(boolean allowAnnotationRemoval) {
-      this.allowAnnotationRemoval = allowAnnotationRemoval;
+    private B setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder annotationsInfo) {
+      this.annotationsInfo = annotationsInfo;
       return self();
     }
 
+    KeepAnnotationCollectionInfo.Builder getAnnotationsInfo() {
+      return annotationsInfo;
+    }
+
     public B allowAnnotationRemoval() {
-      return setAllowAnnotationRemoval(true);
+      return setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeBottom());
     }
 
     public B disallowAnnotationRemoval() {
-      return setAllowAnnotationRemoval(false);
+      return setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
     }
 
     private B setAllowSignatureRemoval(boolean allowSignatureRemoval) {
@@ -603,17 +603,17 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     }
 
     public J merge(J joiner) {
-      Builder<B, K> builder = joiner.builder;
-      applyIf(!builder.isAccessModificationAllowed(), Joiner::disallowAccessModification);
+      Builder<B, K> otherBuilder = joiner.builder;
+      applyIf(!otherBuilder.isAccessModificationAllowed(), Joiner::disallowAccessModification);
       applyIf(
-          !builder.isAccessModificationAllowedForTesting(),
+          !otherBuilder.isAccessModificationAllowedForTesting(),
           Joiner::disallowAccessModificationForTesting);
-      applyIf(!builder.isAnnotationRemovalAllowed(), Joiner::disallowAnnotationRemoval);
-      applyIf(!builder.isMinificationAllowed(), Joiner::disallowMinification);
-      applyIf(!builder.isOptimizationAllowed(), Joiner::disallowOptimization);
-      applyIf(!builder.isShrinkingAllowed(), Joiner::disallowShrinking);
-      applyIf(!builder.isSignatureRemovalAllowed(), Joiner::disallowSignatureRemoval);
-      applyIf(builder.isCheckDiscardedEnabled(), Joiner::setCheckDiscarded);
+      applyIf(!otherBuilder.isMinificationAllowed(), Joiner::disallowMinification);
+      applyIf(!otherBuilder.isOptimizationAllowed(), Joiner::disallowOptimization);
+      applyIf(!otherBuilder.isShrinkingAllowed(), Joiner::disallowShrinking);
+      applyIf(!otherBuilder.isSignatureRemovalAllowed(), Joiner::disallowSignatureRemoval);
+      applyIf(otherBuilder.isCheckDiscardedEnabled(), Joiner::setCheckDiscarded);
+      builder.getAnnotationsInfo().join(otherBuilder.getAnnotationsInfo());
       reasons.addAll(joiner.reasons);
       rules.addAll(joiner.rules);
       return self();
