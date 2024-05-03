@@ -25,6 +25,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
   private final boolean allowSignatureRemoval;
   private final boolean checkDiscarded;
   private final KeepAnnotationCollectionInfo annotationsInfo;
+  private final KeepAnnotationCollectionInfo typeAnnotationsInfo;
 
   private KeepInfo(
       boolean allowAccessModification,
@@ -34,7 +35,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       boolean allowShrinking,
       boolean allowSignatureRemoval,
       boolean checkDiscarded,
-      KeepAnnotationCollectionInfo annotationsInfo) {
+      KeepAnnotationCollectionInfo annotationsInfo,
+      KeepAnnotationCollectionInfo typeAnnotationsInfo) {
     this.allowAccessModification = allowAccessModification;
     this.allowAccessModificationForTesting = allowAccessModificationForTesting;
     this.allowMinification = allowMinification;
@@ -43,6 +45,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     this.allowSignatureRemoval = allowSignatureRemoval;
     this.checkDiscarded = checkDiscarded;
     this.annotationsInfo = annotationsInfo;
+    this.typeAnnotationsInfo = typeAnnotationsInfo;
   }
 
   KeepInfo(B builder) {
@@ -54,7 +57,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         builder.isShrinkingAllowed(),
         builder.isSignatureRemovalAllowed(),
         builder.isCheckDiscardedEnabled(),
-        builder.getAnnotationsInfo().build());
+        builder.getAnnotationsInfo().build(),
+        builder.getTypeAnnotationsInfo().build());
   }
 
   public static Joiner<?, ?, ?> newEmptyJoinerFor(DexReference reference) {
@@ -66,6 +70,10 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
   abstract B builder();
 
+  public KeepMethodInfo asMethodInfo() {
+    return null;
+  }
+
   /**
    * True if an item may have all of its annotations removed.
    *
@@ -73,11 +81,21 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
    * keep all annotation attributes.
    */
   public boolean isAnnotationRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
+    assert internalAnnotationsInfo().isTop() || internalAnnotationsInfo().isBottom();
     return configuration.isAnnotationRemovalEnabled() && internalAnnotationsInfo().isBottom();
+  }
+
+  public boolean isTypeAnnotationRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
+    assert internalTypeAnnotationsInfo().isTop() || internalTypeAnnotationsInfo().isBottom();
+    return configuration.isAnnotationRemovalEnabled() && internalTypeAnnotationsInfo().isBottom();
   }
 
   KeepAnnotationCollectionInfo internalAnnotationsInfo() {
     return annotationsInfo;
+  }
+
+  KeepAnnotationCollectionInfo internalTypeAnnotationsInfo() {
+    return typeAnnotationsInfo;
   }
 
   public boolean isCheckDiscardedEnabled(GlobalKeepInfoConfiguration configuration) {
@@ -230,7 +248,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && (allowShrinking || !other.internalIsShrinkingAllowed())
         && (allowSignatureRemoval || !other.internalIsSignatureRemovalAllowed())
         && (!checkDiscarded || other.internalIsCheckDiscardedEnabled())
-        && annotationsInfo.isLessThanOrEquals(other.internalAnnotationsInfo());
+        && annotationsInfo.isLessThanOrEquals(other.internalAnnotationsInfo())
+        && typeAnnotationsInfo.isLessThanOrEquals(other.internalTypeAnnotationsInfo());
   }
 
   /** Builder to construct an arbitrary keep info object. */
@@ -255,6 +274,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     private boolean allowSignatureRemoval;
     private boolean checkDiscarded;
     private KeepAnnotationCollectionInfo.Builder annotationsInfo;
+    private KeepAnnotationCollectionInfo.Builder typeAnnotationsInfo;
 
     Builder() {
       // Default initialized. Use should be followed by makeTop/makeBottom.
@@ -270,12 +290,14 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       allowSignatureRemoval = original.internalIsSignatureRemovalAllowed();
       checkDiscarded = original.internalIsCheckDiscardedEnabled();
       annotationsInfo = original.internalAnnotationsInfo().toBuilder();
+      typeAnnotationsInfo = original.internalTypeAnnotationsInfo().toBuilder();
     }
 
     B makeTop() {
       disallowAccessModification();
       disallowAccessModificationForTesting();
       disallowAnnotationRemoval();
+      disallowTypeAnnotationRemoval();
       disallowMinification();
       disallowOptimization();
       disallowShrinking();
@@ -288,6 +310,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       allowAccessModification();
       allowAccessModificationForTesting();
       allowAnnotationRemoval();
+      allowTypeAnnotationRemoval();
       allowMinification();
       allowOptimization();
       allowShrinking();
@@ -320,7 +343,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
           && isShrinkingAllowed() == other.internalIsShrinkingAllowed()
           && isSignatureRemovalAllowed() == other.internalIsSignatureRemovalAllowed()
           && isCheckDiscardedEnabled() == other.internalIsCheckDiscardedEnabled()
-          && annotationsInfo.isEqualTo(other.internalAnnotationsInfo());
+          && annotationsInfo.isEqualTo(other.internalAnnotationsInfo())
+          && typeAnnotationsInfo.isEqualTo(other.internalTypeAnnotationsInfo());
     }
 
     public boolean isAccessModificationAllowed() {
@@ -444,6 +468,23 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     public B disallowAnnotationRemoval() {
       return setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
+    }
+
+    KeepAnnotationCollectionInfo.Builder getTypeAnnotationsInfo() {
+      return typeAnnotationsInfo;
+    }
+
+    private B setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder typeAnnotationsInfo) {
+      this.typeAnnotationsInfo = typeAnnotationsInfo;
+      return self();
+    }
+
+    public B allowTypeAnnotationRemoval() {
+      return setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeBottom());
+    }
+
+    public B disallowTypeAnnotationRemoval() {
+      return setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
     }
 
     private B setAllowSignatureRemoval(boolean allowSignatureRemoval) {
@@ -577,6 +618,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
+    public J disallowTypeAnnotationRemoval() {
+      builder.disallowTypeAnnotationRemoval();
+      return self();
+    }
+
     public J disallowMinification() {
       builder.disallowMinification();
       return self();
@@ -614,6 +660,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       applyIf(!otherBuilder.isSignatureRemovalAllowed(), Joiner::disallowSignatureRemoval);
       applyIf(otherBuilder.isCheckDiscardedEnabled(), Joiner::setCheckDiscarded);
       builder.getAnnotationsInfo().join(otherBuilder.getAnnotationsInfo());
+      builder.getTypeAnnotationsInfo().join(otherBuilder.getTypeAnnotationsInfo());
       reasons.addAll(joiner.reasons);
       rules.addAll(joiner.rules);
       return self();

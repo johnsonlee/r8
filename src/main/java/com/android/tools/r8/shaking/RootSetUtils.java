@@ -1623,9 +1623,15 @@ public class RootSetUtils {
       }
 
       if (appView.options().isAnnotationRemovalEnabled() && !modifiers.allowsAnnotationRemoval) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .disallowAnnotationRemoval();
+        Joiner<?, ?, ?> joiner =
+            dependentMinimumKeepInfo
+                .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
+                .disallowAnnotationRemoval()
+                .disallowTypeAnnotationRemoval();
+        KeepMethodInfo.Joiner methodJoiner = joiner.asMethodJoiner();
+        if (methodJoiner != null) {
+          methodJoiner.disallowParameterAnnotationsRemoval();
+        }
         context.markAsUsed();
       }
 

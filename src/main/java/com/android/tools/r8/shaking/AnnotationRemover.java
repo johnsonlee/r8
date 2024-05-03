@@ -131,14 +131,21 @@ public class AnnotationRemover {
         }
 
         if (kind.isParameter()) {
-          if (!options.isKeepRuntimeVisibleParameterAnnotationsEnabled()) {
+          KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
+          if (methodInfo == null || !options.isKeepRuntimeVisibleParameterAnnotationsEnabled()) {
             return false;
           }
-        } else if (!annotation.isTypeAnnotation()
-            && !options.isKeepRuntimeVisibleAnnotationsEnabled()) {
-          return false;
-        } else if (annotation.isTypeAnnotation()
-            && !options.isKeepRuntimeVisibleTypeAnnotationsEnabled()) {
+          return !methodInfo.isParameterAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+        }
+
+        if (annotation.isTypeAnnotation()) {
+          if (!options.isKeepRuntimeVisibleTypeAnnotationsEnabled()) {
+            return false;
+          }
+          return !keepInfo.isTypeAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+        }
+
+        if (!options.isKeepRuntimeVisibleAnnotationsEnabled()) {
           return false;
         }
         return !keepInfo.isAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
@@ -154,17 +161,25 @@ public class AnnotationRemover {
           return true;
         }
         if (kind.isParameter()) {
-          if (!options.isKeepRuntimeInvisibleParameterAnnotationsEnabled()) {
+          KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
+          if (methodInfo == null || !options.isKeepRuntimeInvisibleParameterAnnotationsEnabled()) {
             return false;
           }
-        } else if (!annotation.isTypeAnnotation()
-            && !options.isKeepRuntimeInvisibleAnnotationsEnabled()) {
-          return false;
-        } else if (annotation.isTypeAnnotation()
-            && !options.isKeepRuntimeInvisibleTypeAnnotationsEnabled()) {
+          return !methodInfo.isParameterAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+        }
+
+        if (annotation.isTypeAnnotation()) {
+          if (!options.isKeepRuntimeInvisibleTypeAnnotationsEnabled()) {
+            return false;
+          }
+          return !keepInfo.isTypeAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+        }
+
+        if (!options.isKeepRuntimeInvisibleAnnotationsEnabled()) {
           return false;
         }
         return !keepInfo.isAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+
       default:
         throw new Unreachable("Unexpected annotation visibility.");
     }
