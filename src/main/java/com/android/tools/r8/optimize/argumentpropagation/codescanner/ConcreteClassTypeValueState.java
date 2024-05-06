@@ -46,6 +46,19 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
+  public ValueState cast(AppView<AppInfoWithLiveness> appView, DexType type) {
+    DynamicType castDynamicType = cast(appView, type, dynamicType);
+    if (castDynamicType.equals(dynamicType)) {
+      return this;
+    }
+    if (castDynamicType.isBottom()) {
+      return bottomClassTypeState();
+    }
+    assert castDynamicType.isDynamicTypeWithUpperBound();
+    return new ConcreteClassTypeValueState(abstractValue, castDynamicType, copyInFlow());
+  }
+
+  @Override
   public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     if (getNullability().isDefinitelyNull()) {
       assert abstractValue.isNull() || abstractValue.isUnknown();

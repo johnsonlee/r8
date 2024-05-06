@@ -15,7 +15,6 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.UnknownMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.classhierarchy.MethodOverridesCollector;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -89,9 +88,7 @@ public class ArgumentPropagatorUnoptimizableFieldsAndMethods {
   }
 
   private boolean isUnoptimizableField(ProgramField field) {
-    KeepFieldInfo keepInfo = appView.getKeepInfo(field);
-    InternalOptions options = appView.options();
-    if (!keepInfo.isFieldPropagationAllowed(options)) {
+    if (!appView.getKeepInfo(field).isValuePropagationAllowed(appView, field)) {
       return true;
     }
     FieldAccessInfo fieldAccessInfo =

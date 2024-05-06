@@ -25,9 +25,23 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
 
   public ConcreteReceiverValueState(DynamicType dynamicType, Set<InFlow> inFlow) {
     super(inFlow);
+    assert !dynamicType.isUnknown();
     this.dynamicType = dynamicType;
     assert !isEffectivelyBottom() : "Must use BottomReceiverParameterState instead";
     assert !isEffectivelyUnknown() : "Must use UnknownParameterState instead";
+  }
+
+  @Override
+  public ValueState cast(AppView<AppInfoWithLiveness> appView, DexType type) {
+    DynamicType castDynamicType = cast(appView, type, dynamicType);
+    if (castDynamicType.equals(dynamicType)) {
+      return this;
+    }
+    if (castDynamicType.isBottom()) {
+      return bottomReceiverParameter();
+    }
+    assert castDynamicType.isDynamicTypeWithUpperBound();
+    return new ConcreteReceiverValueState(castDynamicType, copyInFlow());
   }
 
   @Override
@@ -42,6 +56,7 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
 
   @Override
   public DynamicType getDynamicType() {
+    assert !dynamicType.isUnknown();
     return dynamicType;
   }
 
@@ -62,7 +77,8 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
 
   @Override
   public boolean isEffectivelyUnknown() {
-    return dynamicType.isUnknown();
+    assert !dynamicType.isUnknown();
+    return dynamicType.isNotNullType();
   }
 
   @Override
@@ -111,8 +127,10 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
     if (staticType != null) {
       DynamicType widenedDynamicType =
           WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, staticType);
+      assert !widenedDynamicType.isUnknown();
       dynamicType = widenedDynamicType;
     } else {
+      assert !joinedDynamicType.isUnknown();
       dynamicType = joinedDynamicType;
     }
     return !dynamicType.equals(oldDynamicType);

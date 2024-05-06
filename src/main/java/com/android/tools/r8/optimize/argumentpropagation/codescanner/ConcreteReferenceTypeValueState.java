@@ -6,8 +6,11 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import java.util.Set;
@@ -16,6 +19,32 @@ public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState
 
   ConcreteReferenceTypeValueState(Set<InFlow> inFlow) {
     super(inFlow);
+  }
+
+  public abstract ValueState cast(AppView<AppInfoWithLiveness> appView, DexType type);
+
+  protected static DynamicType cast(
+      AppView<AppInfoWithLiveness> appView, DexType type, DynamicType dynamicType) {
+    if (dynamicType.isBottom() || dynamicType.isNotNullType() || dynamicType.isUnknown()) {
+      return dynamicType;
+    }
+    assert dynamicType.isDynamicTypeWithUpperBound();
+    DynamicTypeWithUpperBound dynamicTypeWithUpperBound = dynamicType.asDynamicTypeWithUpperBound();
+    TypeElement typeElement = type.toTypeElement(appView, dynamicType.getNullability());
+    if (dynamicTypeWithUpperBound
+        .getDynamicUpperBoundType()
+        .lessThanOrEqual(typeElement, appView)) {
+      return dynamicType;
+    }
+    if (dynamicType.hasDynamicLowerBoundType()) {
+      ClassTypeElement lowerBound = dynamicTypeWithUpperBound.getDynamicLowerBoundType();
+      if (typeElement.lessThanOrEqual(lowerBound, appView)) {
+        return DynamicType.create(appView, typeElement, lowerBound);
+      } else {
+        return DynamicType.bottom();
+      }
+    }
+    return DynamicType.create(appView, typeElement);
   }
 
   public abstract DynamicType getDynamicType();

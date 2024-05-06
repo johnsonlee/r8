@@ -10,6 +10,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -44,6 +45,7 @@ public class EquivalentConstructorsWithoutClassIdMergingTest extends TestBase {
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .setMinApi(parameters)
@@ -102,6 +104,8 @@ public class EquivalentConstructorsWithoutClassIdMergingTest extends TestBase {
   static class C {
 
     @Override
+    @NeverInline
+    @NeverPropagateValue
     public String toString() {
       return "C";
     }
@@ -112,6 +116,8 @@ public class EquivalentConstructorsWithoutClassIdMergingTest extends TestBase {
   static class D {
 
     @Override
+    @NeverInline
+    @NeverPropagateValue
     public String toString() {
       return "D";
     }

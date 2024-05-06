@@ -39,6 +39,7 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
 
   @NeverClassInline
   public static class A {
+
     FooGreeter greeter;
 
     A(FooGreeter greeter) {
@@ -115,10 +116,12 @@ public class MinimizeFieldCastsTest extends HorizontalClassMergingTestBase {
 
   static class Main {
     public static void main(String[] args) {
-      new A(new FooGreeter()).greet();
-      new B(new FooGreeter()).greet();
-      new C(new BarGreeter()).greet();
-      new D(new BarGreeter()).greet();
+      FooGreeter fooGreeter = System.currentTimeMillis() > 0 ? new FooGreeter() : null;
+      BarGreeter barGreeter = System.currentTimeMillis() > 0 ? new BarGreeter() : null;
+      new A(fooGreeter).greet();
+      new B(fooGreeter).greet();
+      new C(barGreeter).greet();
+      new D(barGreeter).greet();
     }
   }
 }

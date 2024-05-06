@@ -81,6 +81,8 @@ public abstract class FlowGraphNode {
   }
 
   void clearDanglingSuccessors() {
+    assert successors.keySet().stream()
+        .noneMatch(successor -> successor.getPredecessors().contains(this));
     successors.clear();
   }
 
@@ -118,6 +120,10 @@ public abstract class FlowGraphNode {
 
   FlowGraphParameterNode asParameterNode() {
     return null;
+  }
+
+  boolean isReceiverNode() {
+    return false;
   }
 
   boolean isEffectivelyUnknown() {

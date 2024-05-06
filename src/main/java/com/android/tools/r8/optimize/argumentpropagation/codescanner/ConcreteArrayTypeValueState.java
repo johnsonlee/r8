@@ -40,6 +40,11 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
+  public ValueState cast(AppView<AppInfoWithLiveness> appView, DexType type) {
+    return this;
+  }
+
+  @Override
   public AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView) {
     if (getNullability().isDefinitelyNull()) {
       return appView.abstractValueFactory().createUncheckedNullValue();

@@ -40,10 +40,6 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     return new Builder(this);
   }
 
-  public boolean isFieldPropagationAllowed(GlobalKeepInfoConfiguration configuration) {
-    return isOptimizationAllowed(configuration) && isShrinkingAllowed(configuration);
-  }
-
   public boolean isFieldTypeStrengtheningAllowed(GlobalKeepInfoConfiguration configuration) {
     return internalIsFieldTypeStrengtheningAllowed();
   }

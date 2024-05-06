@@ -58,4 +58,9 @@ class FlowGraphParameterNode extends FlowGraphNode {
   FlowGraphParameterNode asParameterNode() {
     return this;
   }
+
+  @Override
+  boolean isReceiverNode() {
+    return !method.getAccessFlags().isStatic() && parameterIndex == 0;
+  }
 }

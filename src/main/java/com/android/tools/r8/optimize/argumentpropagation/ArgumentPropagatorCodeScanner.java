@@ -19,12 +19,14 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
+import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.FieldPut;
 import com.android.tools.r8.ir.code.IRCode;
@@ -35,6 +37,7 @@ import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.CastAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
@@ -262,6 +265,11 @@ public class ArgumentPropagatorCodeScanner {
       ProgramField field,
       AbstractValueSupplier abstractValueSupplier,
       ProgramMethod context) {
+    TypeElement fieldType = field.getType().toTypeElement(appView);
+    if (!fieldPut.value().getType().lessThanOrEqual(fieldType, appView)) {
+      return ValueState.unknown();
+    }
+
     NonEmptyValueState inFlowState = computeInFlowState(field.getType(), fieldPut.value(), context);
     if (inFlowState != null) {
       return inFlowState;
@@ -298,7 +306,7 @@ public class ArgumentPropagatorCodeScanner {
     if (valueRoot.isArgument()) {
       MethodParameter inParameter =
           methodParameterFactory.create(context, valueRoot.getDefinition().asArgument().getIndex());
-      return widenBaseInFlow(inParameter, context);
+      return castBaseInFlow(widenBaseInFlow(inParameter, context), value);
     } else if (valueRoot.isDefinedByInstructionSatisfying(Instruction::isFieldGet)) {
       FieldGet fieldGet = valueRoot.getDefinition().asFieldGet();
       ProgramField field = fieldGet.resolveField(appView, context).getProgramField();
@@ -313,9 +321,22 @@ public class ArgumentPropagatorCodeScanner {
           return new InstanceFieldReadAbstractFunction(receiverInFlow, field.getReference());
         }
       }
-      return widenBaseInFlow(fieldValueFactory.create(field), context);
+      return castBaseInFlow(widenBaseInFlow(fieldValueFactory.create(field), context), value);
     }
     return null;
+  }
+
+  private InFlow castBaseInFlow(InFlow inFlow, Value value) {
+    if (inFlow.isUnknownAbstractFunction()) {
+      return inFlow;
+    }
+    assert inFlow.isBaseInFlow();
+    Value valueRoot = value.getAliasedValue();
+    if (!valueRoot.isDefinedByInstructionSatisfying(Instruction::isCheckCast)) {
+      return inFlow;
+    }
+    CheckCast checkCast = valueRoot.getDefinition().asCheckCast();
+    return new CastAbstractFunction(inFlow.asBaseInFlow(), checkCast.getType());
   }
 
   private InFlow widenBaseInFlow(BaseInFlow inFlow, ProgramMethod context) {
@@ -341,7 +362,9 @@ public class ArgumentPropagatorCodeScanner {
     if (inFlow.isUnknownAbstractFunction()) {
       return ValueState.unknown();
     }
-    assert inFlow.isBaseInFlow() || inFlow.isInstanceFieldReadAbstractFunction();
+    assert inFlow.isBaseInFlow()
+        || inFlow.isCastAbstractFunction()
+        || inFlow.isInstanceFieldReadAbstractFunction();
     return ConcreteValueState.create(staticType, inFlow);
   }
 
@@ -375,10 +398,9 @@ public class ArgumentPropagatorCodeScanner {
     return fieldState;
   }
 
-  // TODO(b/296030319): Also handle effectively final fields.
   private AbstractValue getFallbackAbstractValueForField(
       ProgramField field, Supplier<ObjectState> objectStateSupplier) {
-    if (field.getAccessFlags().isFinal() && field.getAccessFlags().isStatic()) {
+    if (field.isFinalOrEffectivelyFinal(appView) && field.getAccessFlags().isStatic()) {
       return appView
           .abstractValueFactory()
           .createSingleFieldValue(field.getReference(), objectStateSupplier.get());

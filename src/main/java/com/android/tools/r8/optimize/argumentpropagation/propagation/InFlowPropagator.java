@@ -3,12 +3,21 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
+import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
+import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
@@ -16,6 +25,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateC
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
@@ -134,51 +144,111 @@ public class InFlowPropagator {
       return;
     }
     if (node.isUnknown()) {
-      assert !node.hasPredecessors();
-      for (FlowGraphNode successorNode : node.getSuccessors()) {
-        assert !successorNode.isUnknown();
-        successorNode.clearPredecessors(node);
-        successorNode.setStateToUnknown();
-        successorNode.addToWorkList(worklist);
-      }
-      node.clearDanglingSuccessors();
+      propagateUnknownNode(flowGraph, node, worklist);
     } else {
-      propagateNode(flowGraph, node, worklist);
+      propagateConcreteNode(flowGraph, node, worklist);
     }
   }
 
-  private void propagateNode(
+  private void propagateUnknownNode(
+      FlowGraph flowGraph, FlowGraphNode node, Deque<FlowGraphNode> worklist) {
+    assert !node.hasPredecessors();
+    node.forEachSuccessor(
+        (successorNode, transferFunctions) ->
+            propagateUnknownStateToSuccessor(
+                flowGraph, node, successorNode, transferFunctions, worklist));
+    node.clearDanglingSuccessors();
+  }
+
+  private void propagateUnknownStateToSuccessor(
+      FlowGraph flowGraph,
+      FlowGraphNode node,
+      FlowGraphNode successorNode,
+      Set<AbstractFunction> transferFunctions,
+      Deque<FlowGraphNode> worklist) {
+    assert node.isUnknown();
+    assert !successorNode.isUnknown();
+    NonEmptyValueState stateToPropagate = narrowUnknownState(node, successorNode);
+    if (stateToPropagate.isUnknown()) {
+      successorNode.clearPredecessors(node);
+      successorNode.setStateToUnknown();
+      successorNode.addToWorkList(worklist);
+    } else {
+      boolean isSuccessorNodeUnknown =
+          propagateConcreteStateToSuccessor(
+              flowGraph,
+              node,
+              successorNode,
+              stateToPropagate.asConcrete(),
+              transferFunctions,
+              worklist);
+      if (isSuccessorNodeUnknown) {
+        assert !successorNode.hasPredecessors();
+      } else {
+        successorNode.getPredecessors().remove(node);
+      }
+    }
+  }
+
+  private NonEmptyValueState narrowUnknownState(FlowGraphNode node, FlowGraphNode successorNode) {
+    boolean applyNarrowing =
+        node.getStaticType().isReferenceType()
+            && node.getStaticType().isNotIdenticalTo(successorNode.getStaticType());
+    if (!applyNarrowing) {
+      return ValueState.unknown();
+    }
+    Nullability nullabilityToPropagate = node.isReceiverNode() ? definitelyNotNull() : maybeNull();
+    if (node.getStaticType().isArrayType()) {
+      return ConcreteArrayTypeValueState.create(nullabilityToPropagate);
+    } else {
+      TypeElement typeToPropagate =
+          node.getStaticType().toTypeElement(appView, nullabilityToPropagate);
+      DynamicType dynamicTypeToPropagate = DynamicType.create(appView, typeToPropagate);
+      return ConcreteClassTypeValueState.create(AbstractValue.unknown(), dynamicTypeToPropagate);
+    }
+  }
+
+  private void propagateConcreteNode(
       FlowGraph flowGraph, FlowGraphNode node, Deque<FlowGraphNode> worklist) {
     ConcreteValueState state = node.getState().asConcrete();
     node.removeSuccessorIf(
-        (successorNode, transferFunctions) -> {
-          assert !successorNode.isUnknown();
-          for (AbstractFunction transferFunction : transferFunctions) {
-            FlowGraphStateProvider flowGraphStateProvider =
-                FlowGraphStateProvider.create(flowGraph, transferFunction);
-            ValueState transferState =
-                transferFunction.apply(appView, flowGraphStateProvider, state);
-            if (transferState.isBottom()) {
-              // Nothing to propagate.
-            } else if (transferState.isUnknown()) {
-              successorNode.setStateToUnknown();
-              successorNode.addToWorkList(worklist);
-            } else {
-              ConcreteValueState concreteTransferState = transferState.asConcrete();
-              successorNode.addState(
-                  appView, concreteTransferState, () -> successorNode.addToWorkList(worklist));
-            }
-            // If this successor has become unknown, there is no point in continuing to propagate
-            // flow to it from any of its predecessors. We therefore clear the predecessors to
-            // improve performance of the fixpoint computation.
-            if (successorNode.isUnknown()) {
-              successorNode.clearPredecessors(node);
-              return true;
-            }
-            assert !successorNode.isEffectivelyUnknown();
-          }
-          return false;
-        });
+        (successorNode, transferFunctions) ->
+            propagateConcreteStateToSuccessor(
+                flowGraph, node, successorNode, state, transferFunctions, worklist));
+  }
+
+  private boolean propagateConcreteStateToSuccessor(
+      FlowGraph flowGraph,
+      FlowGraphNode node,
+      FlowGraphNode successorNode,
+      ConcreteValueState state,
+      Set<AbstractFunction> transferFunctions,
+      Deque<FlowGraphNode> worklist) {
+    assert !successorNode.isUnknown();
+    for (AbstractFunction transferFunction : transferFunctions) {
+      FlowGraphStateProvider flowGraphStateProvider =
+          FlowGraphStateProvider.create(flowGraph, transferFunction);
+      ValueState transferState = transferFunction.apply(appView, flowGraphStateProvider, state);
+      if (transferState.isBottom()) {
+        // Nothing to propagate.
+      } else if (transferState.isUnknown()) {
+        successorNode.setStateToUnknown();
+        successorNode.addToWorkList(worklist);
+      } else {
+        ConcreteValueState concreteTransferState = transferState.asConcrete();
+        successorNode.addState(
+            appView, concreteTransferState, () -> successorNode.addToWorkList(worklist));
+      }
+      // If this successor has become unknown, there is no point in continuing to propagate
+      // flow to it from any of its predecessors. We therefore clear the predecessors to
+      // improve performance of the fixpoint computation.
+      if (successorNode.isUnknown()) {
+        successorNode.clearPredecessors(node);
+        return true;
+      }
+      assert !successorNode.isEffectivelyUnknown();
+    }
+    return false;
   }
 
   private void postProcessMethodStates(ExecutorService executorService) throws ExecutionException {

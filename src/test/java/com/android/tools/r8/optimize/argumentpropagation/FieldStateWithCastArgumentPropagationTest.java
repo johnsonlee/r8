@@ -5,7 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -48,8 +48,7 @@ public class FieldStateWithCastArgumentPropagationTest extends TestBase {
               MethodSubject printMethodSubject =
                   mainClassSubject.uniqueMethodWithOriginalName("print");
               assertThat(printMethodSubject, isPresent());
-              // TODO(b/296030319): Should be equals.
-              assertNotEquals("java.lang.String", printMethodSubject.getParameter(0).getTypeName());
+              assertEquals("java.lang.String", printMethodSubject.getParameter(0).getTypeName());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");

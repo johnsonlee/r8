@@ -24,6 +24,14 @@ public interface InFlow {
     return null;
   }
 
+  default boolean isCastAbstractFunction() {
+    return false;
+  }
+
+  default CastAbstractFunction asCastAbstractFunction() {
+    return null;
+  }
+
   default boolean isFieldValue() {
     return false;
   }
