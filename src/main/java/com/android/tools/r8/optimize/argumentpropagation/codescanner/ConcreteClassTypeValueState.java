@@ -182,4 +182,8 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
     dynamicType = widenedDynamicType;
     return !dynamicType.equals(oldDynamicType);
   }
+
+  public ConcreteClassTypeValueState withDynamicType(DynamicType dynamicType) {
+    return new ConcreteClassTypeValueState(abstractValue, dynamicType, copyInFlow());
+  }
 }

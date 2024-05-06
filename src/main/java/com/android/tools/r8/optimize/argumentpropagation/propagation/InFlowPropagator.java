@@ -193,6 +193,7 @@ public class InFlowPropagator {
   }
 
   private NonEmptyValueState narrowUnknownState(FlowGraphNode node, FlowGraphNode successorNode) {
+    assert node.isUnknown();
     boolean applyNarrowing =
         node.getStaticType().isReferenceType()
             && node.getStaticType().isNotIdenticalTo(successorNode.getStaticType());
@@ -226,11 +227,13 @@ public class InFlowPropagator {
       ConcreteValueState state,
       Set<AbstractFunction> transferFunctions,
       Deque<FlowGraphNode> worklist) {
+    ConcreteValueState stateToPropagate = narrowConcreteState(node, successorNode, state);
     assert !successorNode.isUnknown();
     for (AbstractFunction transferFunction : transferFunctions) {
       FlowGraphStateProvider flowGraphStateProvider =
           FlowGraphStateProvider.create(flowGraph, transferFunction);
-      ValueState transferState = transferFunction.apply(appView, flowGraphStateProvider, state);
+      ValueState transferState =
+          transferFunction.apply(appView, flowGraphStateProvider, stateToPropagate);
       if (transferState.isBottom()) {
         // Nothing to propagate.
       } else if (transferState.isUnknown()) {
@@ -252,6 +255,29 @@ public class InFlowPropagator {
       assert !successorNode.isEffectivelyUnknown();
     }
     return false;
+  }
+
+  private ConcreteValueState narrowConcreteState(
+      FlowGraphNode node, FlowGraphNode successorNode, ConcreteValueState state) {
+    boolean applyNarrowing =
+        node.getStaticType().isReferenceType()
+            && node.getStaticType().isNotIdenticalTo(successorNode.getStaticType());
+    if (!applyNarrowing) {
+      return state;
+    }
+    if (state.isArrayState()) {
+      // We don't track the dynamic type of array types, currently.
+      return state;
+    }
+    Nullability nullabilityToPropagate = state.asReferenceState().getNullability();
+    TypeElement typeToPropagate =
+        node.getStaticType().toTypeElement(appView, nullabilityToPropagate);
+    DynamicType dynamicTypeToPropagate = DynamicType.create(appView, typeToPropagate);
+    if (state.isClassState()) {
+      return state.asClassState().withDynamicType(dynamicTypeToPropagate);
+    } else {
+      return state.asReceiverState().withDynamicType(dynamicTypeToPropagate);
+    }
   }
 
   private void postProcessMethodStates(ExecutorService executorService) throws ExecutionException {

@@ -62,7 +62,7 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
 
   @Override
   public Nullability getNullability() {
-    return getDynamicType().getNullability();
+    return Nullability.definitelyNotNull();
   }
 
   @Override
@@ -139,5 +139,9 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
       dynamicType = joinedDynamicType;
     }
     return !dynamicType.equals(oldDynamicType);
+  }
+
+  public ConcreteReceiverValueState withDynamicType(DynamicType dynamicType) {
+    return new ConcreteReceiverValueState(dynamicType, copyInFlow());
   }
 }
