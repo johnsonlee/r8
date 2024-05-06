@@ -66,8 +66,13 @@ import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.Pa
 import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
+import com.android.tools.r8.utils.DeterminismChecker;
+import com.android.tools.r8.utils.DeterminismChecker.LineCallback;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.structural.StructuralItem;
 import com.google.common.collect.Sets;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.IdentityHashMap;
@@ -831,6 +836,24 @@ public class ArgumentPropagatorCodeScanner {
             .asSingleResolution();
     if (resolution != null && resolution.getResolvedHolder().isProgramClass()) {
       methodStates.set(resolution.getResolvedProgramMethod(), UnknownMethodState.get());
+    }
+  }
+
+  public void dump(DeterminismChecker determinismChecker) throws IOException {
+    determinismChecker.accept(this::dump);
+  }
+
+  private void dump(LineCallback lineCallback) throws IOException {
+    List<DexMethod> monomorphicVirtualMethodsSorted =
+        ListUtils.sort(monomorphicVirtualMethods, StructuralItem::compareTo);
+    for (DexMethod method : monomorphicVirtualMethodsSorted) {
+      lineCallback.onLine(method.toSourceString());
+    }
+    List<DexMethod> virtualRootMethodsSorted =
+        ListUtils.sort(virtualRootMethods.keySet(), StructuralItem::compareTo);
+    for (DexMethod method : virtualRootMethodsSorted) {
+      lineCallback.onLine(
+          method.toSourceString() + " -> " + virtualRootMethods.get(method).toSourceString());
     }
   }
 }

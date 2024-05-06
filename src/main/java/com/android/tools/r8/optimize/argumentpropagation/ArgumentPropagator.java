@@ -111,6 +111,9 @@ public class ArgumentPropagator {
 
     timing.end();
     timing.end();
+
+    // Ensure determinism of monomorphic methods.
+    appView.testing().checkDeterminism(codeScanner::dump);
   }
 
   /** Called by {@link IRConverter} prior to finalizing methods. */
