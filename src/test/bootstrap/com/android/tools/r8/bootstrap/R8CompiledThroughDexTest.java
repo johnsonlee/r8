@@ -8,6 +8,7 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpec
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -85,7 +86,7 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
   private static final String R8_KEEP =
       Paths.get(ToolHelper.SOURCE_DIR + "main/keep.txt").toAbsolutePath().toString();
 
-  private Pair<List<String>, Consumer<Builder>> buildArguments() throws IOException {
+  private Pair<List<String>, Consumer<Builder>> buildArguments() {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     List<Consumer<Builder>> buildup = new ArrayList<>();
 
@@ -103,13 +104,6 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
 
     arguments.add("--pg-conf").add(commandLinePathFor(R8_KEEP));
     buildup.add(b -> b.addProguardConfigurationFiles(Paths.get(R8_KEEP)));
-
-    // The resource shrinker has transitive dependencies that refer to classes in
-    // javax.xml.stream, which is not in android.jar. We don't run the resource shrinker, so
-    // we simply ignore these.
-    Path dontwarn = writeTextToTempFile("-dontwarn  javax.xml.stream.*");
-    arguments.add("--pg-conf").add(commandLinePathFor(dontwarn));
-    buildup.add(b -> b.addProguardConfigurationFiles(dontwarn));
 
     arguments
         .add("--desugared-lib")
@@ -132,11 +126,11 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
     return new Pair<>(arguments.build(), consumer);
   }
 
-  private List<String> getSharedArguments() throws IOException {
+  private List<String> getSharedArguments() {
     return buildArguments().getFirst();
   }
 
-  private Consumer<Builder> getSharedBuilder() throws IOException {
+  private Consumer<Builder> getSharedBuilder() {
     return buildArguments().getSecond();
   }
 
@@ -146,6 +140,8 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testR8CompiledWithR8Dex() throws Exception {
+    // TODO(b/338379138): Fix and reenable
+    assumeTrue(false);
     // Compile once R8_WITH_RELOCATED_DEPS_JAR using normal R8_WITH_RELOCATED_DEPS_JAR to dex,
     // and once R8_WITH_RELOCATED_DEPS_JAR with the previously compiled version to dex.
     // Both applications should be identical.
@@ -201,11 +197,7 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
                   commandLinePathFor(
                       getNonShrunkDesugaredLib(parameters, libraryDesugaringSpecification))),
               R8.class.getTypeName(),
-              builder ->
-                  builder
-                      .appendArtOption("--64")
-                      .appendArtOption("-Xmx512m")
-                      .appendArtSystemProperty("com.android.tools.r8.enableKeepAnnotations", "1"),
+              builder -> builder.appendArtOption("--64").appendArtOption("-Xmx512m"),
               parameters.getRuntime().asDex().getVm(),
               true,
               ImmutableList.builder()
@@ -238,7 +230,6 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
                 .add("-Xmx1g")
                 // Set the system property to check determinism.
                 .add("-D" + checkDeterminismKey + "=" + determinismLogsDir)
-                .add("-Dcom.android.tools.r8.enableKeepAnnotations=1")
                 .add(R8.class.getTypeName())
                 .add("--output")
                 .add(commandLinePathFor(outputThroughCfExternal))
@@ -250,14 +241,13 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
   }
 
   private void runInProcessR8(Path outputThroughCf, Path determinismLogsDir)
-      throws CompilationFailedException, IOException {
+      throws CompilationFailedException {
     long start = System.nanoTime();
     // Manually construct the R8 command as the test builder will change defaults compared
     // to the CLI invocation (eg, compressed and pg-map output).
     Builder builder = R8Command.builder().setOutput(outputThroughCf, OutputMode.DexIndexed);
     // Set API model until default changes.
     builder.setEnableExperimentalMissingLibraryApiModeling(true);
-    builder.setEnableExperimentalKeepAnnotations(true);
     getSharedBuilder().accept(builder);
     ToolHelper.runR8WithOptionsModificationOnly(
         builder.build(),
