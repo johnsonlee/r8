@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.kotlin.lambda;
 
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.ENCLOSING_METHOD;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.INNER_CLASSES;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.SIGNATURE;
@@ -12,7 +13,6 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -233,7 +233,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 17));
         inspector
             .applyIf(
-                kotlinc.is(KotlinCompilerVersion.KOTLINC_1_9_21)
+                kotlinc.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_1_9_21)
                     && parameters.isDexRuntime()
                     && lambdaGeneration.isInvokeDynamic(),
                 i ->
