@@ -28,7 +28,6 @@ java {
 val testbaseJavaCompileTask = projectTask("testbase", "compileJava")
 val testbaseDepsJarTask = projectTask("testbase", "depsJar")
 
-val testsJava8Jar = projectTask("tests_java_8", "testJar")
 val keepAnnoJarTask = projectTask("keepanno", "jar")
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
 val mainR8RelocatedTask = projectTask("main", "r8WithRelocatedDeps")
@@ -38,7 +37,6 @@ val resourceShrinkerDepsJarTask = projectTask("resourceshrinker", "depsJar")
 
 dependencies {
   implementation(keepAnnoJarTask.outputs.files)
-  implementation(files(testsJava8Jar.outputs.files.getSingleFile()))
   implementation(projectTask("main", "jar").outputs.files)
   implementation(resourceShrinkerJavaCompileTask.outputs.files)
   implementation(resourceShrinkerKotlinCompileTask.outputs.files)
@@ -61,7 +59,6 @@ fun testDependencies() : FileCollection {
 
 tasks {
   withType<JavaCompile> {
-    dependsOn(testsJava8Jar)
     dependsOn(gradle.includedBuild("main").task(":jar"))
   }
 

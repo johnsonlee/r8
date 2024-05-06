@@ -40,6 +40,8 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GenericSignature;
+import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SmaliWriter;
 import com.android.tools.r8.graph.SubtypingInfo;
@@ -112,6 +114,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -128,6 +131,7 @@ import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -2138,5 +2142,47 @@ public class TestBase {
     InternalOptions internalOptions = command.getInternalOptions();
     internalOptionsConsumer.accept(internalOptions);
     GlobalSyntheticsGenerator.runForTesting(command.getInputApp(), internalOptions);
+  }
+
+  public static void testParseSignaturesInJar(Path jar) throws Exception {
+    GenericSignatureReader genericSignatureReader = new GenericSignatureReader();
+    ZipInputStream inputStream = new ZipInputStream(Files.newInputStream(jar));
+    ZipEntry next = inputStream.getNextEntry();
+    while (next != null) {
+      if (next.getName().endsWith(".class")) {
+        ClassReader classReader = new ClassReader(inputStream);
+        classReader.accept(genericSignatureReader, 0);
+      }
+      next = inputStream.getNextEntry();
+    }
+  }
+
+  private static class GenericSignatureReader extends ClassVisitor {
+
+    public final Set<String> signatures = new HashSet<>();
+    private final DexItemFactory factory = new DexItemFactory();
+
+    private GenericSignatureReader() {
+      super(ASM_VERSION);
+    }
+
+    @Override
+    public void visit(
+        int version,
+        int access,
+        String name,
+        String signature,
+        String superName,
+        String[] interfaces) {
+      if (signature == null) {
+        return;
+      }
+      TestDiagnosticMessagesImpl testDiagnosticMessages = new TestDiagnosticMessagesImpl();
+      ClassSignature classSignature =
+          GenericSignature.parseClassSignature(
+              name, signature, Origin.unknown(), factory, new Reporter(testDiagnosticMessages));
+      assertEquals(signature, classSignature.toString());
+      testDiagnosticMessages.assertNoMessages();
+    }
   }
 }
