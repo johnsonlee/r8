@@ -19,6 +19,8 @@ public abstract class FieldSubject extends MemberSubject {
     return getField().getReference();
   }
 
+  public abstract TypeSubject getType();
+
   public abstract DexValue getStaticValue();
 
   @Override

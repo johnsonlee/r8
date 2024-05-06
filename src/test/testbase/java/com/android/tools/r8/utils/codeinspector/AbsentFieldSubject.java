@@ -50,6 +50,11 @@ public class AbsentFieldSubject extends FieldSubject {
   }
 
   @Override
+  public TypeSubject getType() {
+    throw new Unreachable("Cannot get the type of an absent field");
+  }
+
+  @Override
   public String getOriginalSignatureAttribute() {
     return null;
   }

@@ -109,6 +109,11 @@ public class FoundFieldSubject extends FieldSubject {
   }
 
   @Override
+  public TypeSubject getType() {
+    return new TypeSubject(codeInspector, dexField.getType());
+  }
+
+  @Override
   public String getOriginalSignatureAttribute() {
     return codeInspector.getOriginalSignatureAttribute(
         getFinalSignatureAttribute(), GenericSignatureParser::parseFieldSignature);
