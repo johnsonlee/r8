@@ -27,7 +27,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
-import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.PrimitiveTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
@@ -1020,34 +1019,24 @@ public class OutlinerImpl extends Outliner {
     @SuppressWarnings("ReferenceEquality")
     private DexType argumentTypeFromValue(Value value, InvokeMethod invoke, int argumentIndex) {
       assert supportedArgumentType(value);
-      DexItemFactory itemFactory = appView.options().itemFactory;
-      DexType objectType = itemFactory.objectType;
       TypeElement valueType = value.getType();
-      if (valueType.isClassType()) {
-        ClassTypeElement valueClassType = value.getType().asClassType();
+      if (valueType.isArrayType() || valueType.isClassType()) {
         // For values of lattice type java.lang.Object and only one interface use the interface as
         // the type of the outline argument. If there are several interfaces these interfaces don't
         // have a common super interface nor are they implemented by a common superclass so the
         // argument type of the outline will be java.lang.Object.
-        if (valueClassType.getClassType() == objectType
-            && valueClassType.getInterfaces().hasSingleKnownInterface()) {
-          return valueClassType.getInterfaces().getSingleKnownInterface();
-        } else {
-          return valueClassType.getClassType();
-        }
-      } else if (valueType.isArrayType()) {
-        return value.getType().asArrayType().toDexType(itemFactory);
+        return value.getType().asReferenceType().toDexType(dexItemFactory);
       } else if (valueType.isNullType()) {
         // For values which are always null use the actual type at the call site.
         return argumentTypeFromInvoke(invoke, argumentIndex);
       } else {
         assert valueType.isPrimitiveType();
         assert valueType.asPrimitiveType().hasDexType();
-        DexType type = valueType.asPrimitiveType().toDexType(itemFactory);
+        DexType type = valueType.asPrimitiveType().toDexType(dexItemFactory);
         if (valueType.isInt()) {
           // In the type lattice boolean, byte, short and char are all int. However, as the
           // outline argument type use the actual primitive type at the call site.
-          assert type == itemFactory.intType;
+          assert type == dexItemFactory.intType;
           type = argumentTypeFromInvoke(invoke, argumentIndex);
         } else {
           assert type == argumentTypeFromInvoke(invoke, argumentIndex);

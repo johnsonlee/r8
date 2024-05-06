@@ -154,9 +154,8 @@ public class ClassTypeElement extends ReferenceTypeElement {
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
   public DexType toDexType(DexItemFactory dexItemFactory) {
-    if (type == dexItemFactory.objectType) {
+    if (type.isIdenticalTo(dexItemFactory.objectType)) {
       DexType singleKnownInterface = getInterfaces().getSingleKnownInterface();
       if (singleKnownInterface != null) {
         return singleKnownInterface;

@@ -9,7 +9,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Argument;
@@ -189,15 +188,9 @@ public class TypeVerificationHelper {
       result = result.join(toTypeElement(iterator.next()), appView);
     }
     // All types are reference types so the join is either a class, an interface or an array.
-    if (result.isClassType()) {
-      ClassTypeElement classType = result.asClassType();
-      if (classType.getClassType().isIdenticalTo(appView.dexItemFactory().objectType)
-          && classType.getInterfaces().hasSingleKnownInterface()) {
-        return classType.getInterfaces().getSingleKnownInterface();
-      }
-      return classType.getClassType();
-    } else if (result.isArrayType()) {
-      return result.asArrayType().toDexType(appView.dexItemFactory());
+    if (result.isReferenceType()) {
+      assert !result.isNullType();
+      return result.asReferenceType().toDexType(appView.dexItemFactory());
     }
     throw new CompilationError("Unexpected join " + result + " of types: " +
         String.join(", ",

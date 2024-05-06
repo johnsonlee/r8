@@ -706,23 +706,8 @@ public class ArgumentPropagatorProgramOptimizer {
         return staticType;
       }
 
-      DexType newStaticFieldType;
-      if (dynamicUpperBoundType.isClassType()) {
-        ClassTypeElement dynamicUpperBoundClassType = dynamicUpperBoundType.asClassType();
-        if (dynamicUpperBoundClassType.getClassType() == dexItemFactory.objectType) {
-          if (dynamicUpperBoundClassType.getInterfaces().hasSingleKnownInterface()) {
-            newStaticFieldType =
-                dynamicUpperBoundClassType.getInterfaces().getSingleKnownInterface();
-          } else {
-            return staticType;
-          }
-        } else {
-          newStaticFieldType = dynamicUpperBoundClassType.getClassType();
-        }
-      } else {
-        newStaticFieldType = dynamicUpperBoundType.asArrayType().toDexType(dexItemFactory);
-      }
-
+      DexType newStaticFieldType =
+          dynamicUpperBoundType.asReferenceType().toDexType(dexItemFactory);
       if (newStaticFieldType == staticType) {
         return staticType;
       }

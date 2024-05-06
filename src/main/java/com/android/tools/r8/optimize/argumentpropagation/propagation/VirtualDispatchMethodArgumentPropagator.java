@@ -111,11 +111,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
               ClassTypeElement lowerBound = bounds.getDynamicLowerBoundType();
               TypeElement currentType = clazz.getType().toTypeElement(appView);
               if (lowerBound.lessThanOrEqual(currentType, appView)) {
-                DexType activeUntilLowerBoundType =
-                    lowerBound.getClassType().isIdenticalTo(appView.dexItemFactory().objectType)
-                            && lowerBound.getInterfaces().hasSingleKnownInterface()
-                        ? lowerBound.getInterfaces().getSingleKnownInterface()
-                        : lowerBound.getClassType();
+                DexType activeUntilLowerBoundType = lowerBound.toDexType(appView.dexItemFactory());
                 addActiveUntilLowerBound(activeUntilLowerBoundType, inactiveMethodStates);
               } else {
                 return;
@@ -351,12 +347,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                       //  class.
                       ClassTypeElement lowerBound = bounds.getDynamicLowerBoundType();
                       DexType activeUntilLowerBoundType =
-                          lowerBound
-                                      .getClassType()
-                                      .isIdenticalTo(appView.dexItemFactory().objectType)
-                                  && lowerBound.getInterfaces().hasSingleKnownInterface()
-                              ? lowerBound.getInterfaces().getSingleKnownInterface()
-                              : lowerBound.getClassType();
+                          lowerBound.toDexType(appView.dexItemFactory());
                       assert !bounds.isExactClassType()
                           || activeUntilLowerBoundType.isIdenticalTo(clazz.getType());
                       propagationState.addActiveUntilLowerBound(
@@ -381,11 +372,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
   }
 
   private boolean isUpperBoundSatisfied(ClassTypeElement upperBound, DexProgramClass currentClass) {
-    DexType upperBoundType =
-        upperBound.getClassType().isIdenticalTo(appView.dexItemFactory().objectType)
-                && upperBound.getInterfaces().hasSingleKnownInterface()
-            ? upperBound.getInterfaces().getSingleKnownInterface()
-            : upperBound.getClassType();
+    DexType upperBoundType = upperBound.toDexType(appView.dexItemFactory());
     DexProgramClass upperBoundClass = asProgramClassOrNull(appView.definitionFor(upperBoundType));
     if (upperBoundClass == null) {
       // We should generally never have a dynamic receiver upper bound for a program method which is

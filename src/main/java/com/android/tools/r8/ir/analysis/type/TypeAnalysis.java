@@ -265,14 +265,7 @@ public class TypeAnalysis {
     if (dynamicReceiverUpperBoundType.isClassType()) {
       ClassTypeElement dynamicReceiverUpperBoundClassType =
           dynamicReceiverUpperBoundType.asClassType();
-      DexType refinedType = dynamicReceiverUpperBoundClassType.getClassType();
-      if (refinedType == appView.dexItemFactory().objectType) {
-        DexType singleKnownInterface =
-            dynamicReceiverUpperBoundClassType.getInterfaces().getSingleKnownInterface();
-        if (singleKnownInterface != null) {
-          refinedType = singleKnownInterface;
-        }
-      }
+      DexType refinedType = dynamicReceiverUpperBoundClassType.toDexType(appView.dexItemFactory());
       if (appView.appInfo().isSubtype(refinedType, staticReceiverType)) {
         return refinedType;
       }

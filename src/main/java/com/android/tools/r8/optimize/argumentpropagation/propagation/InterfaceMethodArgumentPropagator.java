@@ -191,11 +191,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
               boolean shouldPropagateMethodStateForBounds;
               if (bounds.isExactClassType()) {
                 ClassTypeElement exactClassType = bounds.getExactClassType();
-                DexType exactType =
-                    exactClassType.getClassType().isIdenticalTo(appView.dexItemFactory().objectType)
-                            && exactClassType.getInterfaces().hasSingleKnownInterface()
-                        ? exactClassType.getInterfaces().getSingleKnownInterface()
-                        : exactClassType.getClassType();
+                DexType exactType = exactClassType.toDexType(appView.dexItemFactory());
                 shouldPropagateMethodStateForBounds =
                     exactType.isIdenticalTo(resolvedMethod.getHolderType());
               } else if (bounds.isUnknown()) {

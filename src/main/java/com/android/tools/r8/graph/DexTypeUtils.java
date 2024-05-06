@@ -5,7 +5,6 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.ir.analysis.type.ArrayTypeElement;
-import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.utils.AndroidApiLevelUtils;
 import com.google.common.collect.Iterables;
@@ -48,14 +47,7 @@ public class DexTypeUtils {
       return baseType.toArrayType(arrayType.getNesting(), dexItemFactory);
     }
     assert type.isClassType();
-    ClassTypeElement classType = type.asClassType();
-    if (classType.getClassType().isNotIdenticalTo(dexItemFactory.objectType)) {
-      return classType.getClassType();
-    }
-    if (classType.getInterfaces().hasSingleKnownInterface()) {
-      return classType.getInterfaces().getSingleKnownInterface();
-    }
-    return dexItemFactory.objectType;
+    return type.asClassType().toDexType(dexItemFactory);
   }
 
   public static DexType findApiSafeUpperBound(
