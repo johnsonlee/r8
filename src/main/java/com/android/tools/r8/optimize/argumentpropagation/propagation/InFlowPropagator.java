@@ -92,7 +92,8 @@ public class InFlowPropagator {
     // must be included in the argument information for p'.
     FlowGraph flowGraph =
         FlowGraph.builder(appView, converter, fieldStates, methodStates)
-            .addClasses(appView.appInfo().classes())
+            .addClasses()
+            .clearInFlow()
             .build();
     List<Set<FlowGraphNode>> stronglyConnectedComponents =
         flowGraph.computeStronglyConnectedComponents();

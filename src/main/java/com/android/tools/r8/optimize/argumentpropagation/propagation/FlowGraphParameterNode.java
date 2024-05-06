@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 
@@ -66,5 +67,10 @@ class FlowGraphParameterNode extends FlowGraphNode {
   @Override
   boolean isReceiverNode() {
     return !method.getAccessFlags().isStatic() && parameterIndex == 0;
+  }
+
+  @Override
+  public String toString() {
+    return new MethodParameter(method, parameterIndex).toString();
   }
 }

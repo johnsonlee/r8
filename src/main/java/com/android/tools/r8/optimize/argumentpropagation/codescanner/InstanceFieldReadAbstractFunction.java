@@ -71,4 +71,9 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   public InstanceFieldReadAbstractFunction asInstanceFieldReadAbstractFunction() {
     return this;
   }
+
+  @Override
+  public String toString() {
+    return "Read(" + receiver + ", " + field.toSourceString() + ")";
+  }
 }

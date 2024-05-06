@@ -45,4 +45,9 @@ public class FlowGraphFieldNode extends FlowGraphNode {
   FlowGraphFieldNode asFieldNode() {
     return this;
   }
+
+  @Override
+  public String toString() {
+    return field.toSourceString();
+  }
 }

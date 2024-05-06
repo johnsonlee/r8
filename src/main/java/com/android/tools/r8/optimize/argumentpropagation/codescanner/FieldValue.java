@@ -51,4 +51,9 @@ public class FieldValue implements BaseInFlow {
   public int hashCode() {
     return field.hashCode();
   }
+
+  @Override
+  public String toString() {
+    return field.toSourceString();
+  }
 }

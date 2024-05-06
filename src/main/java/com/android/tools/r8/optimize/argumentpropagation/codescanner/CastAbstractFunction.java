@@ -63,4 +63,9 @@ public class CastAbstractFunction implements AbstractFunction {
   public int hashCode() {
     return Objects.hash(inFlow, type);
   }
+
+  @Override
+  public String toString() {
+    return "Cast(" + inFlow + ", " + type.getTypeName() + ")";
+  }
 }
