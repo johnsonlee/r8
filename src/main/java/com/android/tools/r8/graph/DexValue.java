@@ -2118,6 +2118,10 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
       return DexValueKind.CONST_DYNAMIC;
     }
 
+    public ConstantDynamicReference getValue() {
+      return value;
+    }
+
     private CompilationError throwCannotConvertToDex() {
       throw new CompilationError("DexValueConstDynamic should be desugared");
     }

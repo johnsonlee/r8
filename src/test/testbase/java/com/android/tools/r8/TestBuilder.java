@@ -147,16 +147,19 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return addProgramFiles(getFilesForInnerClasses(classes));
   }
 
-  public T addInnerClassesAndStrippedOuter(Class<?> clazz) throws IOException {
+  public T addStrippedOuter(Class<?> clazz) throws IOException {
     return addProgramClassFileData(
-            TestBase.transformer(clazz)
-                .removeFields(FieldPredicate.all())
-                .removeMethods(MethodPredicate.all())
-                .removeAllAnnotations()
-                .setSuper(descriptor(Object.class))
-                .setImplements()
-                .transform())
-        .addInnerClasses(ImmutableList.of(clazz));
+        TestBase.transformer(clazz)
+            .removeFields(FieldPredicate.all())
+            .removeMethods(MethodPredicate.all())
+            .removeAllAnnotations()
+            .setSuper(descriptor(Object.class))
+            .setImplements()
+            .transform());
+  }
+
+  public T addInnerClassesAndStrippedOuter(Class<?> clazz) throws IOException {
+    return addStrippedOuter(clazz).addInnerClasses(ImmutableList.of(clazz));
   }
 
   public abstract T addLibraryFiles(Collection<Path> files);

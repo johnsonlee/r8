@@ -4,11 +4,10 @@
 package switchpatternmatching;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -16,11 +15,13 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import switchpatternmatching.StringSwitchTest.Main;
 
 @RunWith(Parameterized.class)
 public class EnumSwitchTest extends TestBase {
@@ -32,7 +33,8 @@ public class EnumSwitchTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public static String EXPECTED_OUTPUT = StringUtils.lines("null", "E1", "E2", "E3", "E4", "a C");
+  public static String EXPECTED_OUTPUT =
+      StringUtils.lines("null", "E1", "E2", "E3", "E4", "a C", "class %s");
 
   @Test
   public void testJvm() throws Exception {
@@ -68,35 +70,71 @@ public class EnumSwitchTest extends TestBase {
 
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addInnerClassesAndStrippedOuter(getClass())
+        .apply(this::addModifiedProgramClasses)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
+            r ->
+                r.assertSuccessWithOutput(
+                    String.format(EXPECTED_OUTPUT, "java.lang.MatchException")),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+  }
+
+  private <T extends TestBuilder<?, T>> void addModifiedProgramClasses(
+      TestBuilder<?, T> testBuilder) throws Exception {
+    testBuilder
+        .addStrippedOuter(getClass())
+        .addProgramClasses(FakeI.class, E.class, C.class)
+        .addProgramClassFileData(
+            transformer(I.class)
+                .setPermittedSubclasses(I.class, E.class, C.class, D.class)
+                .transform())
+        .addProgramClassFileData(transformer(D.class).setImplements(I.class).transform())
+        .addProgramClassFileData(
+            transformer(Main.class)
+                .transformTypeInsnInMethod(
+                    "getD",
+                    (opcode, type, visitor) ->
+                        visitor.visitTypeInsn(opcode, "switchpatternmatching/EnumSwitchTest$D"))
+                .transformMethodInsnInMethod(
+                    "getD",
+                    (opcode, owner, name, descriptor, isInterface, visitor) -> {
+                      assert name.equals("<init>");
+                      visitor.visitMethodInsn(
+                          opcode,
+                          "switchpatternmatching/EnumSwitchTest$D",
+                          name,
+                          descriptor,
+                          isInterface);
+                    })
+                .transform());
   }
 
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    assertThrows(
-        CompilationFailedException.class,
-        () -> testForD8().addInnerClasses(getClass()).setMinApi(parameters).compile());
+    testForD8()
+        .apply(this::addModifiedProgramClasses)
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, "java.lang.RuntimeException"));
   }
 
   @Test
   public void testR8() throws Exception {
-    assertThrows(
-        CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .setMinApi(parameters)
-                .addKeepMainRule(Main.class)
-                .compile());
+    Assume.assumeTrue("For Cf we should compile with Jdk 21 library", parameters.isDexRuntime());
+    testForR8(parameters.getBackend())
+        .apply(this::addModifiedProgramClasses)
+        .setMinApi(parameters)
+        .addKeepMainRule(Main.class)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, "java.lang.RuntimeException"));
   }
 
+  // D is added to the list of permitted subclasses to reproduce the MatchException.
   sealed interface I permits E, C {}
+
+  interface FakeI {}
 
   public enum E implements I {
     E1,
@@ -104,6 +142,9 @@ public class EnumSwitchTest extends TestBase {
     E3,
     E4
   }
+
+  // Replaced with I.
+  static final class D implements FakeI {}
 
   static final class C implements I {}
 
@@ -140,6 +181,16 @@ public class EnumSwitchTest extends TestBase {
       enumSwitch(E.E3);
       enumSwitch(E.E4);
       enumSwitch(new C());
+      try {
+        enumSwitch(getD());
+      } catch (Throwable t) {
+        System.out.println(t.getClass());
+      }
+    }
+
+    public static I getD() {
+      // Replaced by new D();
+      return new C();
     }
   }
 }
