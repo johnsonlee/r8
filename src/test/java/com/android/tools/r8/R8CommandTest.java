@@ -70,15 +70,11 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
   static class B {}
 
   private Path getJarWithA() throws Exception {
-    Path jar = temp.newFolder().toPath().resolve("out.jar");
-    writeClassesToJar(jar, A.class);
-    return jar;
+    return writeClassesToJar(A.class);
   }
 
   private Path getJarWithB() throws Exception {
-    Path jar = temp.newFolder().toPath().resolve("out.jar");
-    writeClassesToJar(jar, B.class);
-    return jar;
+    return writeClassesToJar(B.class);
   }
 
   private Path getTestResources() throws Exception {

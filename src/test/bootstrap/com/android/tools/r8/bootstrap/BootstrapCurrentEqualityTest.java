@@ -18,7 +18,6 @@ import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -66,13 +65,12 @@ public class BootstrapCurrentEqualityTest extends TestBase {
     "}",
     "-allowaccessmodification"
   };
-  private static String HELLO_EXPECTED = StringUtils.lines("Hello, world!");
+  private static final String HELLO_EXPECTED = StringUtils.lines("Hello, world!");
 
   private static Pair<Path, Path> r8R8Debug;
   private static Pair<Path, Path> r8R8Release;
 
   private final TestParameters parameters;
-  private static boolean testExternal = false;
 
   @ClassRule public static TemporaryFolder testFolder = new TemporaryFolder();
 
@@ -99,28 +97,17 @@ public class BootstrapCurrentEqualityTest extends TestBase {
     // Run R8 on r8.jar.
     final Path jar = testFolder.newFolder().toPath().resolve("out.jar");
     final Path map = testFolder.newFolder().toPath().resolve("out.map");
-    if (testExternal) {
-      testForExternalR8(newTempFolder(), Backend.CF)
-          .setMode(mode)
-          .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
-          .addLibraryFiles(TestRuntime.getSystemRuntime().getJavaHome())
-          .addKeepRuleFiles(MAIN_KEEP)
-          .compile()
-          .apply(c -> FileUtils.writeTextFile(map, c.getProguardMap()))
-          .writeToZip(jar);
-    } else {
-      testForR8(newTempFolder(), Backend.CF)
-          .setMode(mode)
-          .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
-          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
-          .addKeepRuleFiles(MAIN_KEEP)
-          .enableExperimentalKeepAnnotations()
-          // TODO(b/176783536, b/270105162): Get a hold of dependencies in new gradle setup.
-          .apply(R8TestBuilder::allowUnusedDontWarnPatterns)
-          .compile()
-          .apply(c -> FileUtils.writeTextFile(map, c.getProguardMap()))
-          .writeToZip(jar);
-    }
+    testForR8(newTempFolder(), Backend.CF)
+        .setMode(mode)
+        .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
+        .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
+        .addKeepRuleFiles(MAIN_KEEP)
+        .enableExperimentalKeepAnnotations()
+        // TODO(b/176783536, b/270105162): Get a hold of dependencies in new gradle setup.
+        .apply(R8TestBuilder::allowUnusedDontWarnPatterns)
+        .compile()
+        .apply(c -> FileUtils.writeTextFile(map, c.getProguardMap()))
+        .writeToZip(jar);
     return new Pair<>(jar, map);
   }
 
@@ -208,56 +195,58 @@ public class BootstrapCurrentEqualityTest extends TestBase {
   }
 
   @Test
-  public void test() throws Exception {
-    Path program = testFolder.newFolder().toPath().resolve("hello.jar");
-    writeClassesToJar(program, HELLO_CLASS);
+  public void testJvm() throws Exception {
+    Path program = writeClassesToJar(HELLO_CLASS);
     testForJvm(parameters)
         .addProgramFiles(program)
         .run(parameters.getRuntime(), HELLO_NAME)
-        .assertSuccessWithOutput(HELLO_EXPECTED)
-        .apply(r -> compareR8(program, HELLO_EXPECTED, KEEP_HELLO, HELLO_NAME));
+        .assertSuccessWithOutput(HELLO_EXPECTED);
   }
 
-  private void compareR8(Path program, String expectedOutput, String[] keep, String main)
-      throws Exception {
+  @Test
+  public void testR8() throws Exception {
+    Path program = writeClassesToJar(HELLO_CLASS);
+    compareR8(program);
+  }
+
+  private void compareR8(Path program) throws Exception {
     ExternalR8TestCompileResult runR8Debug =
         testForExternalR8(newTempFolder(), parameters.getBackend(), parameters.getRuntime())
             .addProgramFiles(program)
-            .addKeepRules(keep)
+            .addKeepRules(BootstrapCurrentEqualityTest.KEEP_HELLO)
             .setMode(CompilationMode.DEBUG)
             .compile();
     testForJvm(parameters)
         .addProgramFiles(runR8Debug.outputJar())
-        .run(parameters.getRuntime(), main)
-        .assertSuccessWithOutput(expectedOutput);
+        .run(parameters.getRuntime(), BootstrapCurrentEqualityTest.HELLO_NAME)
+        .assertSuccessWithOutput(HELLO_EXPECTED);
     ExternalR8TestCompileResult runR8Release =
         testForExternalR8(newTempFolder(), parameters.getBackend(), parameters.getRuntime())
             .addProgramFiles(program)
-            .addKeepRules(keep)
+            .addKeepRules(BootstrapCurrentEqualityTest.KEEP_HELLO)
             .setMode(CompilationMode.RELEASE)
             .compile();
     testForJvm(parameters)
         .addProgramFiles(runR8Release.outputJar())
-        .run(parameters.getRuntime(), main)
-        .assertSuccessWithOutput(expectedOutput);
-    RunR8AndCheck(r8R8Debug, program, runR8Debug, keep, CompilationMode.DEBUG);
-    RunR8AndCheck(r8R8Debug, program, runR8Release, keep, CompilationMode.RELEASE);
-    RunR8AndCheck(r8R8Release, program, runR8Debug, keep, CompilationMode.DEBUG);
-    RunR8AndCheck(r8R8Release, program, runR8Release, keep, CompilationMode.RELEASE);
+        .run(parameters.getRuntime(), BootstrapCurrentEqualityTest.HELLO_NAME)
+        .assertSuccessWithOutput(HELLO_EXPECTED);
+    RunR8AndCheck(r8R8Debug, program, runR8Debug, CompilationMode.DEBUG);
+    RunR8AndCheck(r8R8Debug, program, runR8Release, CompilationMode.RELEASE);
+    RunR8AndCheck(r8R8Release, program, runR8Debug, CompilationMode.DEBUG);
+    RunR8AndCheck(r8R8Release, program, runR8Release, CompilationMode.RELEASE);
   }
 
   private void RunR8AndCheck(
       Pair<Path, Path> r8,
       Path program,
       ExternalR8TestCompileResult result,
-      String[] keep,
       CompilationMode mode)
       throws Exception {
     ExternalR8TestCompileResult runR8R8 =
         testForExternalR8(newTempFolder(), parameters.getBackend(), parameters.getRuntime())
             .useProvidedR8(r8.getFirst())
             .addProgramFiles(program)
-            .addKeepRules(keep)
+            .addKeepRules(BootstrapCurrentEqualityTest.KEEP_HELLO)
             .setMode(mode)
             .compile();
     // Check that the process outputs (exit code, stdout, stderr) are the same.

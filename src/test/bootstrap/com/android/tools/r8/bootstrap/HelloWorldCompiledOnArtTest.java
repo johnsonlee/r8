@@ -73,9 +73,7 @@ public class HelloWorldCompiledOnArtTest extends DesugaredLibraryTestBase {
   }
 
   private Path writeHelloProgramJar() throws IOException {
-    Path jar = temp.newFolder().toPath().resolve("hello.jar");
-    writeClassesToJar(jar, HELLO_CLASS);
-    return jar;
+    return writeClassesToJar(HELLO_CLASS);
   }
 
   @Test

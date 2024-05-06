@@ -52,8 +52,7 @@ public class DexVersionTests extends TestBase {
 
   @Before
   public void compileVersions() throws Exception {
-    Path inputJar1 = getStaticTemp().newFolder().toPath().resolve("input1.jar");
-    writeClassesToJar(inputJar1, Input1.class);
+    Path inputJar1 = writeClassesToJar(Input1.class);
     D8Command.Builder arrayAccessBuilder = D8Command.builder().addProgramFiles(inputJar1);
     D8.run(
         arrayAccessBuilder
@@ -70,8 +69,7 @@ public class DexVersionTests extends TestBase {
             .setMinApiLevel(AndroidApiLevel.N.getLevel())
             .build());
 
-    Path inputJar2 = getStaticTemp().newFolder().toPath().resolve("input2.jar");
-    writeClassesToJar(inputJar2, Input2.class);
+    Path inputJar2 = writeClassesToJar(Input2.class);
     D8Command.Builder arithmeticBuilder = D8Command.builder().addProgramFiles(inputJar2);
     D8.run(
         arithmeticBuilder

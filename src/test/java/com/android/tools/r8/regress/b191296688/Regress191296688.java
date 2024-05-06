@@ -44,8 +44,7 @@ public class Regress191296688 extends KotlinTestBase {
 
   @Test
   public void testRegress191296688() throws Exception {
-    Path aLib = temp.newFolder().toPath().resolve("alib.jar");
-    writeClassesToJar(aLib, A.class);
+    Path aLib = writeClassesToJar(A.class);
     String folder = DescriptorUtils.getBinaryNameFromJavaType(PKG);
     CfRuntime cfRuntime = TestRuntime.getCheckedInJdk9();
     Path ktClasses =

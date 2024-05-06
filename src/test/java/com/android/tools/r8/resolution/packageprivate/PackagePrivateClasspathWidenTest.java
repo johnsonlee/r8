@@ -57,8 +57,7 @@ public class PackagePrivateClasspathWidenTest extends TestBase {
 
   @BeforeClass
   public static void createClassPathJar() throws IOException {
-    classPathJar = getStaticTemp().newFile("classpath.jar").toPath();
-    writeClassesToJar(classPathJar, CLASSPATH_CLASSES);
+    classPathJar = writeClassesToJar(CLASSPATH_CLASSES);
   }
 
   @Test

@@ -16,7 +16,7 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Collection;
 import org.junit.Test;
@@ -32,6 +32,7 @@ public class B148525512 extends KotlinTestBase {
   private static final String featureKtClassNamet = kotlinTestClassesPackage + ".FeatureKt";
   private static final String baseClassName = kotlinTestClassesPackage + ".Base";
 
+  private static Path featureApiPath;
   private static final KotlinCompileMemoizer kotlinBaseClasses =
       getCompileMemoizer(getKotlinFileInTestPackage(pkg, "base"))
           .configure(
@@ -62,16 +63,14 @@ public class B148525512 extends KotlinTestBase {
   }
 
   private static Path getFeatureApiPath() {
-    try {
-      Path featureApiJar = getStaticTemp().getRoot().toPath().resolve("feature_api.jar");
-      if (Files.exists(featureApiJar)) {
-        return featureApiJar;
+    if (featureApiPath == null) {
+      try {
+        return writeClassesToJar(FeatureAPI.class);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
       }
-      writeClassesToJar(featureApiJar, FeatureAPI.class);
-      return featureApiJar;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
+    return featureApiPath;
   }
 
   @Test

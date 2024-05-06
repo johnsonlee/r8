@@ -84,9 +84,7 @@ public class Java17R8BootstrapTest extends TestBase {
   }
 
   private Path writeHelloProgramJar() throws IOException {
-    Path jar = temp.newFolder().toPath().resolve("hello.jar");
-    writeClassesToJar(jar, HELLO_CLASS);
-    return jar;
+    return writeClassesToJar(HELLO_CLASS);
   }
 
   @Test
