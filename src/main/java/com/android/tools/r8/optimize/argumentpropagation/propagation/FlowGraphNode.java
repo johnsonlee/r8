@@ -30,11 +30,19 @@ public abstract class FlowGraphNode {
   private boolean inWorklist = true;
 
   void addState(
-      AppView<AppInfoWithLiveness> appView, ConcreteValueState stateToAdd, Action onChangedAction) {
+      AppView<AppInfoWithLiveness> appView,
+      ConcreteValueState inState,
+      DexType inStaticType,
+      Action onChangedAction) {
     ValueState oldState = getState();
     ValueState newState =
         oldState.mutableJoin(
-            appView, stateToAdd, getStaticType(), StateCloner.getCloner(), onChangedAction);
+            appView,
+            inState,
+            inStaticType,
+            getStaticType(),
+            StateCloner.getCloner(),
+            onChangedAction);
     if (newState != oldState) {
       setState(newState);
       onChangedAction.execute();

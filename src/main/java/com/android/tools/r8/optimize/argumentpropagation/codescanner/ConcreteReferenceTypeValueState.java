@@ -41,7 +41,9 @@ public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState
       if (typeElement.lessThanOrEqual(lowerBound, appView)) {
         return DynamicType.create(appView, typeElement, lowerBound);
       } else {
-        return DynamicType.bottom();
+        return dynamicType.getNullability().isMaybeNull()
+            ? DynamicType.definitelyNull()
+            : DynamicType.bottom();
       }
     }
     return DynamicType.create(appView, typeElement);
@@ -63,7 +65,8 @@ public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState
 
   public abstract NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ConcreteReferenceTypeValueState state,
-      DexType staticType,
+      ConcreteReferenceTypeValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       Action onChangedAction);
 }

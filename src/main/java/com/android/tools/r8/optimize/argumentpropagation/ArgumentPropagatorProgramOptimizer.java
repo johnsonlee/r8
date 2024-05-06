@@ -671,8 +671,10 @@ public class ArgumentPropagatorProgramOptimizer {
 
       KeepFieldInfo keepInfo = appView.getKeepInfo(field);
 
-      // We don't have dynamic type information for fields that are kept.
-      assert !keepInfo.isPinned(options);
+      // We don't have dynamic type information for fields that are kept, unless the static type of
+      // the field is guaranteed to be null.
+      assert !keepInfo.isPinned(options)
+          || (field.getType().isAlwaysNull(appView) && dynamicType.isNullType());
 
       if (!keepInfo.isFieldTypeStrengtheningAllowed(options)) {
         return staticType;

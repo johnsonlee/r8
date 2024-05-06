@@ -104,24 +104,30 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
   @Override
   public final NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType staticType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (state.isBottom()) {
+    if (inState.isBottom()) {
       return this;
     }
-    if (state.isUnknown()) {
+    if (inState.isUnknown()) {
       return unknown();
     }
-    ConcreteValueState concreteState = state.asConcrete();
+    ConcreteValueState concreteState = inState.asConcrete();
     if (isReferenceState()) {
       assert concreteState.isReferenceState();
       return asReferenceState()
-          .mutableJoin(appView, concreteState.asReferenceState(), staticType, onChangedAction);
+          .mutableJoin(
+              appView,
+              concreteState.asReferenceState(),
+              inStaticType,
+              outStaticType,
+              onChangedAction);
     }
     return asPrimitiveState()
-        .mutableJoin(appView, concreteState.asPrimitiveState(), staticType, onChangedAction);
+        .mutableJoin(appView, concreteState.asPrimitiveState(), outStaticType, onChangedAction);
   }
 
   boolean mutableJoinInFlow(ConcreteValueState state) {

@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming.applymapping.sourcelibrary;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -147,7 +147,7 @@ public class MemberResolutionTest extends TestBase {
     ClassSubject sub = inspector.clazz(ConcreteChecker.class);
     assertThat(sub, isPresent());
     FieldSubject q = sub.field("java.lang.String", "tag");
-    assertThat(q, isAbsent());
+    assertThat(q, isPresentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
     MethodSubject y = sub.method("void", "check", ImmutableList.of());
     assertThat(y, isPresentAndRenamed());
     assertEquals("y", y.getFinalName());

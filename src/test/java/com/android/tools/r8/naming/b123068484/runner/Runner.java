@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming.b123068484.runner;
 
-import com.android.tools.r8.naming.b123068484.data.PublicAbs;
 import com.android.tools.r8.naming.b123068484.data.Concrete1;
 import com.android.tools.r8.naming.b123068484.data.Concrete2;
+import com.android.tools.r8.naming.b123068484.data.PublicAbs;
 
 public class Runner {
   private static int counter = 0;
@@ -18,7 +18,7 @@ public class Runner {
   }
 
   public static void main(String[] args) {
-    PublicAbs instance = create("Runner");
+    PublicAbs instance = create(System.currentTimeMillis() > 0 ? "Runner" : null);
     if (instance instanceof Concrete1) {
       System.out.println(((Concrete1) instance).strField);
     } else {

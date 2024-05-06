@@ -155,25 +155,44 @@ public abstract class DynamicType {
     return false;
   }
 
-  public DynamicType join(AppView<AppInfoWithLiveness> appView, DynamicType dynamicType) {
-    if (isBottom()) {
-      return dynamicType;
-    }
-    if (dynamicType.isBottom() || equals(dynamicType)) {
+  public final DynamicType join(AppView<AppInfoWithLiveness> appView, DynamicType dynamicType) {
+    return join(appView, dynamicType, null, null);
+  }
+
+  public DynamicType join(
+      AppView<AppInfoWithLiveness> appView,
+      DynamicType inDynamicType,
+      DexType inStaticType,
+      DexType outStaticType) {
+    if (equals(inDynamicType)) {
       return this;
     }
-    if (isUnknown() || dynamicType.isUnknown()) {
+    if (isBottom()) {
+      // Account for the fact that the in-static-type may be more precise than the static type of
+      // the current dynamic type.
+      if (inDynamicType.isNotNullType() && inStaticType != null) {
+        return create(appView, inStaticType.toNonNullTypeElement(appView));
+      }
+      return inDynamicType;
+    }
+    if (inDynamicType.isBottom()) {
+      return this;
+    }
+    if (isUnknown() || inDynamicType.isUnknown()) {
       return unknown();
     }
-    if (isNotNullType() || dynamicType.isNotNullType()) {
-      if (getNullability().isNullable() || dynamicType.getNullability().isNullable()) {
-        return unknown();
+    if (isNotNullType()) {
+      return inDynamicType.getNullability().isNullable() ? unknown() : this;
+    }
+    if (inDynamicType.isNotNullType()) {
+      if (inStaticType == null || inStaticType.isIdenticalTo(outStaticType)) {
+        return getNullability().isNullable() ? unknown() : inDynamicType;
       }
-      return definitelyNotNull();
+      inDynamicType = create(appView, inStaticType.toNonNullTypeElement(appView));
     }
     assert isDynamicTypeWithUpperBound();
-    assert dynamicType.isDynamicTypeWithUpperBound();
-    return asDynamicTypeWithUpperBound().join(appView, dynamicType.asDynamicTypeWithUpperBound());
+    assert inDynamicType.isDynamicTypeWithUpperBound();
+    return asDynamicTypeWithUpperBound().join(appView, inDynamicType.asDynamicTypeWithUpperBound());
   }
 
   public abstract DynamicType rewrittenWithLens(

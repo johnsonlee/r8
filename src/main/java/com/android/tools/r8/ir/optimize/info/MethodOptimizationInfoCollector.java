@@ -756,7 +756,7 @@ public class MethodOptimizationInfoCollector {
 
   private void computeAbstractFunction(IRCode code, OptimizationFeedback feedback) {
     if (ComposeUtils.isUpdateChangedFlags(code, appView.dexItemFactory())) {
-      MethodParameter methodParameter = new MethodParameter(code.context().getReference(), 0);
+      MethodParameter methodParameter = new MethodParameter(code.context(), 0);
       UpdateChangedFlagsAbstractFunction updateChangedFlagsAbstractFunction =
           new UpdateChangedFlagsAbstractFunction(methodParameter);
       feedback.setAbstractFunction(

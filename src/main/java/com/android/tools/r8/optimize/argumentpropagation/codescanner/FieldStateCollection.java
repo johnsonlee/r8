@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
@@ -34,13 +35,16 @@ public class FieldStateCollection {
         field,
         fieldStateSupplier,
         timing,
-        (existingFieldState, fieldStateToAdd) ->
-            existingFieldState.mutableJoin(
-                appView,
-                fieldStateToAdd,
-                field.getType(),
-                StateCloner.getCloner(),
-                Action.empty()));
+        (existingFieldState, fieldStateToAdd) -> {
+          DexType inStaticType = null;
+          return existingFieldState.mutableJoin(
+              appView,
+              fieldStateToAdd,
+              inStaticType,
+              field.getType(),
+              StateCloner.getCloner(),
+              Action.empty());
+        });
   }
 
   /**

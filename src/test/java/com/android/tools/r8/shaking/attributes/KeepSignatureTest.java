@@ -161,7 +161,8 @@ public class KeepSignatureTest extends TestBase {
   public static class KeptClass<T> {
 
     private T keptField;
-    private T notKeptField;
+
+    @NoFieldTypeStrengthening private T notKeptField;
 
     @SuppressWarnings("unchecked")
     public <R> R keptMethod(T t) {

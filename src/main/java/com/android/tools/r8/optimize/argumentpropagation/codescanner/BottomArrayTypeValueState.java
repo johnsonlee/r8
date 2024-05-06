@@ -23,19 +23,20 @@ public class BottomArrayTypeValueState extends BottomValueState {
   @Override
   public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType staticType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (state.isBottom()) {
+    if (inState.isBottom()) {
       return this;
     }
-    if (state.isUnknown()) {
-      return state;
+    if (inState.isUnknown()) {
+      return inState;
     }
-    assert state.isConcrete();
-    assert state.asConcrete().isReferenceState();
-    ConcreteReferenceTypeValueState concreteState = state.asConcrete().asReferenceState();
+    assert inState.isConcrete();
+    assert inState.asConcrete().isReferenceState();
+    ConcreteReferenceTypeValueState concreteState = inState.asConcrete().asReferenceState();
     if (concreteState.isArrayState()) {
       return cloner.mutableCopy(concreteState);
     }

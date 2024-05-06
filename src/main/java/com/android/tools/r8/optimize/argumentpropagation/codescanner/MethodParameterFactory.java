@@ -15,6 +15,6 @@ public class MethodParameterFactory {
 
   public MethodParameter create(ProgramMethod method, int argumentIndex) {
     return methodParameters.computeIfAbsent(
-        new MethodParameter(method.getReference(), argumentIndex), Function.identity());
+        new MethodParameter(method, argumentIndex), Function.identity());
   }
 }

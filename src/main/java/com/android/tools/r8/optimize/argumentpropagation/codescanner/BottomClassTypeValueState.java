@@ -25,29 +25,43 @@ public class BottomClassTypeValueState extends BottomValueState {
   @Override
   public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType staticType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (state.isBottom()) {
+    if (inState.isBottom()) {
       return this;
     }
-    if (state.isUnknown()) {
-      return state;
+    if (inState.isUnknown()) {
+      return inState;
     }
-    assert state.isConcrete();
-    assert state.asConcrete().isReferenceState();
-    ConcreteReferenceTypeValueState concreteState = state.asConcrete().asReferenceState();
-    AbstractValue abstractValue = concreteState.getAbstractValue(appView);
-    DynamicType dynamicType = concreteState.getDynamicType();
-    DynamicType widenedDynamicType =
-        WideningUtils.widenDynamicNonReceiverType(appView, dynamicType, staticType);
-    if (concreteState.isClassState() && !widenedDynamicType.isUnknown()) {
+    assert inState.isConcrete();
+    assert inState.asConcrete().isReferenceState();
+    ConcreteReferenceTypeValueState concreteState = inState.asConcrete().asReferenceState();
+    DynamicType joinedDynamicType =
+        joinDynamicType(appView, concreteState.getDynamicType(), inStaticType, outStaticType);
+    if (concreteState.isClassState() && concreteState.getDynamicType().equals(joinedDynamicType)) {
       return cloner.mutableCopy(concreteState);
     }
-    return abstractValue.isUnknown() && widenedDynamicType.isUnknown()
-        ? unknown()
-        : new ConcreteClassTypeValueState(
-            abstractValue, widenedDynamicType, concreteState.copyInFlow());
+    AbstractValue abstractValue = concreteState.getAbstractValue(appView);
+    return ConcreteClassTypeValueState.create(
+        abstractValue, joinedDynamicType, concreteState.copyInFlow());
+  }
+
+  private DynamicType joinDynamicType(
+      AppView<AppInfoWithLiveness> appView,
+      DynamicType inDynamicType,
+      DexType inStaticType,
+      DexType outStaticType) {
+    DynamicType oldDynamicType = DynamicType.bottom();
+    DynamicType joinedDynamicType =
+        oldDynamicType.join(appView, inDynamicType, inStaticType, outStaticType);
+    if (outStaticType != null) {
+      return WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, outStaticType);
+    } else {
+      assert !joinedDynamicType.isUnknown();
+      return joinedDynamicType;
+    }
   }
 }

@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -101,9 +101,7 @@ public class UpwardsInterfacePropagationToLibraryOrClasspathMethodTest extends T
         .run(parameters.getRuntime(), TestClass.class)
         .inspect(
             inspector -> {
-              assertThat(
-                  inspector.clazz(Delegate.class).method("void", "libraryMethod", "boolean"),
-                  isPresent());
+              assertThat(inspector.clazz(Delegate.class), isAbsent());
               // Check that boolean argument to libraryMethod was removed for AnotherProgramClass.
               inspector
                   .clazz(AnotherProgramClass.class)

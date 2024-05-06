@@ -120,16 +120,18 @@ public abstract class ValueState {
 
   public final ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType parameterType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner) {
-    return mutableJoin(appView, state, parameterType, cloner, Action.empty());
+    return mutableJoin(appView, inState, inStaticType, outStaticType, cloner, Action.empty());
   }
 
   public abstract ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType staticType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction);
 }

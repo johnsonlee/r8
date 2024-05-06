@@ -39,8 +39,9 @@ public class UnknownValueState extends NonEmptyValueState {
   @Override
   public UnknownValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType staticType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction) {
     return this;

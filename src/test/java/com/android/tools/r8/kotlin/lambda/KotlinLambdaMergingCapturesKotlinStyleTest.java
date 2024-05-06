@@ -13,8 +13,6 @@ import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -76,7 +74,8 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
     testForR8(parameters.getBackend())
         .addProgramFiles(getProgramFiles())
         .addKeepMainRule(getMainClassName())
-        .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
+        .addHorizontallyMergedClassesInspector(
+            HorizontallyMergedClassesInspector::assertNoClassesMerged)
         .allowAccessModification(allowAccessModification)
         .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
@@ -88,43 +87,6 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
         .assertSuccessWithOutput(getExpectedOutput());
   }
 
-  private void inspect(
-      HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
-    if (parameters.isCfRuntime()) {
-      inspector.assertNoClassesMerged();
-      return;
-    }
-
-    if (kotlinParameters.getLambdaGeneration().isClass()) {
-      inspector
-          .assertIsCompleteMergeGroup(
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$1"),
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$2"),
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$3"),
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$4"))
-          .assertIsCompleteMergeGroup(
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$5"),
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$6"),
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$7"),
-              lambdasInInput.getKStyleLambdaReferenceFromTypeName(getTestName(), "MainKt$test2$8"))
-          .assertNoOtherClassesMerged();
-    } else {
-      ClassReference mainKt = Reference.classFromTypeName(getMainClassName());
-      inspector
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 2),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 3),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 4))
-          .assertIsCompleteMergeGroup(
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 5),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 6),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 7),
-              SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 8))
-          .assertNoOtherClassesMerged();
-    }
-  }
-
   private void inspect(CodeInspector inspector, KotlinLambdasInInput lambdasInInput) {
     List<ClassReference> presentKStyleLambdas = new ArrayList<>();
     for (ClassReference classReference : lambdasInInput.getKStyleLambdas()) {
@@ -132,11 +94,7 @@ public class KotlinLambdaMergingCapturesKotlinStyleTest extends KotlinTestBase {
         presentKStyleLambdas.add(classReference);
       }
     }
-    assertEquals(
-        parameters.isCfRuntime() || kotlinParameters.getLambdaGeneration().isInvokeDynamic()
-            ? 0
-            : 5,
-        presentKStyleLambdas.size());
+    assertEquals(0, presentKStyleLambdas.size());
   }
 
   private String getExpectedOutput() {

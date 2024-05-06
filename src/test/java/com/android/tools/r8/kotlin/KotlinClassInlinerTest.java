@@ -14,6 +14,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.cf.code.CfInstruction;
@@ -205,6 +206,16 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                                         "kotlin.sequences.TransformingSequence"),
                                     Reference.classFromTypeName(
                                         "kotlin.sequences.GeneratorSequence"))
+                                .applyIf(
+                                    kotlinParameters
+                                        .getCompiler()
+                                        .getCompilerVersion()
+                                        .isEqualTo(KotlinCompilerVersion.KOTLINC_1_9_21),
+                                    i ->
+                                        i.assertIsCompleteMergeGroup(
+                                            SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
+                                            SyntheticItemsTestUtils.syntheticLambdaClass(
+                                                mainKt, 1)))
                                 .assertNoOtherClassesMerged();
                           } else {
                             assert kotlinParameters.getLambdaGeneration().isInvokeDynamic()
@@ -228,7 +239,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                 assertThat(
                     inspector.clazz(
                         "class_inliner_lambda_k_style.MainKt$testKotlinSequencesStateful$1"),
-                    isPresent());
+                    isAbsent());
                 assertThat(
                     inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
                     isPresent());
@@ -258,7 +269,7 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
                     isAbsent());
                 assertThat(
                     inspector.clazz("class_inliner_lambda_k_style.MainKt$testBigExtraMethod$1"),
-                    isAbsentIf(testParameters.isDexRuntime()));
+                    isPresent());
               }
             });
   }

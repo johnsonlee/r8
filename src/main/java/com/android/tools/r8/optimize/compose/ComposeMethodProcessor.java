@@ -186,7 +186,9 @@ public class ComposeMethodProcessor extends MethodProcessor {
         .addTemporaryFieldState(
             appView,
             field,
-            () -> new ConcretePrimitiveTypeValueState(new MethodParameter(method, parameterIndex)),
+            () ->
+                new ConcretePrimitiveTypeValueState(
+                    MethodParameter.createStatic(method, parameterIndex)),
             Timing.empty());
   }
 

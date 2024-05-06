@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
@@ -229,9 +230,11 @@ public class DefaultFieldValueJoiner {
                   node -> {
                     ProgramField field = node.getField();
                     if (fieldsWithLiveDefaultValue.remove(field)) {
+                      DexType inStaticType = null;
                       node.addState(
                           appView,
                           getDefaultValueState(field),
+                          inStaticType,
                           () -> {
                             if (node.isUnknown()) {
                               node.clearPredecessors();

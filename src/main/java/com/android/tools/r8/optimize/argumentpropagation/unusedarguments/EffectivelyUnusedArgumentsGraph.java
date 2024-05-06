@@ -116,7 +116,7 @@ class EffectivelyUnusedArgumentsGraph {
     assert node.getSuccessors().isEmpty();
     assert node.getPredecessors().isEmpty();
     MethodParameter methodParameter =
-        new MethodParameter(node.getMethod().getReference(), node.getArgumentIndex());
+        new MethodParameter(node.getMethod(), node.getArgumentIndex());
     EffectivelyUnusedArgumentsGraphNode removed = nodes.remove(methodParameter);
     assert removed == node;
   }
@@ -168,7 +168,7 @@ class EffectivelyUnusedArgumentsGraph {
 
   boolean verifyContains(EffectivelyUnusedArgumentsGraphNode node) {
     MethodParameter methodParameter =
-        new MethodParameter(node.getMethod().getReference(), node.getArgumentIndex());
+        new MethodParameter(node.getMethod(), node.getArgumentIndex());
     return nodes.containsKey(methodParameter);
   }
 

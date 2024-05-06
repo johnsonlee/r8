@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.compose;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.InvokeMethod;
@@ -38,7 +39,7 @@ public class ArgumentPropagatorCodeScannerForComposableFunctions
 
   @Override
   protected boolean isMethodParameterAlreadyUnknown(
-      MethodParameter methodParameter, ProgramMethod method) {
+      DexType staticType, MethodParameter methodParameter, ProgramMethod method) {
     // We haven't defined the virtual root mapping, so we can't tell.
     return false;
   }

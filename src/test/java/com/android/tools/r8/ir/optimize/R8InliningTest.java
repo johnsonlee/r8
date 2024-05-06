@@ -321,7 +321,7 @@ public class R8InliningTest extends TestBase {
     // These constants describe the expected number of invoke instructions calling a possibly
     // inlined method.
     int ALWAYS_INLINABLE = 0;
-    int INLINABLE_WHEN_DISABLED = allowAccessModification ? 1 : 0;
+    int INLINABLE_WHEN_DISABLED = allowAccessModification && parameters.isDexRuntime() ? 1 : 0;
     int NEVER_INLINABLE = 1;
 
     ClassSubject clazz = inspector.clazz(nullabilityClass);

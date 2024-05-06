@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.analysis.type.Nullability.maybeNull;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
@@ -235,9 +236,10 @@ public class InFlowPropagator {
         successorNode.setStateToUnknown();
         successorNode.addToWorkList(worklist);
       } else {
-        ConcreteValueState concreteTransferState = transferState.asConcrete();
+        ConcreteValueState inState = transferState.asConcrete();
+        DexType inStaticType = transferFunction.isIdentity() ? node.getStaticType() : null;
         successorNode.addState(
-            appView, concreteTransferState, () -> successorNode.addToWorkList(worklist));
+            appView, inState, inStaticType, () -> successorNode.addToWorkList(worklist));
       }
       // If this successor has become unknown, there is no point in continuing to propagate
       // flow to it from any of its predecessors. We therefore clear the predecessors to

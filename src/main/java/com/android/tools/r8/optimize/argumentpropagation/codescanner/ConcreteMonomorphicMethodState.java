@@ -88,19 +88,24 @@ public class ConcreteMonomorphicMethodState extends ConcreteMethodState
       assert size() == methodSignature.getArity() + 1;
       ValueState parameterState = parameterStates.get(0);
       ValueState otherParameterState = methodState.parameterStates.get(0);
-      DexType parameterType = null;
+      DexType inStaticType = null;
+      DexType outStaticType = null;
       parameterStates.set(
-          0, parameterState.mutableJoin(appView, otherParameterState, parameterType, cloner));
+          0,
+          parameterState.mutableJoin(
+              appView, otherParameterState, inStaticType, outStaticType, cloner));
       argumentIndex++;
     }
 
     for (int parameterIndex = 0; argumentIndex < size(); argumentIndex++, parameterIndex++) {
       ValueState parameterState = parameterStates.get(argumentIndex);
       ValueState otherParameterState = methodState.parameterStates.get(argumentIndex);
-      DexType parameterType = methodSignature.getParameter(parameterIndex);
+      DexType inStaticType = null;
+      DexType outStaticType = methodSignature.getParameter(parameterIndex);
       parameterStates.set(
           argumentIndex,
-          parameterState.mutableJoin(appView, otherParameterState, parameterType, cloner));
+          parameterState.mutableJoin(
+              appView, otherParameterState, inStaticType, outStaticType, cloner));
       assert !parameterStates.get(argumentIndex).isConcrete()
           || !parameterStates.get(argumentIndex).asConcrete().isReceiverState();
     }

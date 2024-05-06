@@ -22,18 +22,19 @@ public class BottomPrimitiveTypeValueState extends BottomValueState {
   @Override
   public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
-      ValueState state,
-      DexType staticType,
+      ValueState inState,
+      DexType inStaticType,
+      DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (state.isBottom()) {
-      assert state == bottomPrimitiveTypeState();
+    if (inState.isBottom()) {
+      assert inState == bottomPrimitiveTypeState();
       return this;
     }
-    if (state.isUnknown()) {
-      return state;
+    if (inState.isUnknown()) {
+      return inState;
     }
-    assert state.isPrimitiveState();
-    return cloner.mutableCopy(state);
+    assert inState.isPrimitiveState();
+    return cloner.mutableCopy(inState);
   }
 }

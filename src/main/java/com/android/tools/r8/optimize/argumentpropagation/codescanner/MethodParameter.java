@@ -4,17 +4,29 @@
 
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import java.util.Objects;
 
 public class MethodParameter implements BaseInFlow {
 
   private final DexMethod method;
   private final int index;
+  private final boolean isMethodStatic;
 
-  public MethodParameter(DexMethod method, int index) {
+  public MethodParameter(DexClassAndMethod method, int index) {
+    this(method.getReference(), index, method.getAccessFlags().isStatic());
+  }
+
+  public MethodParameter(DexMethod method, int index, boolean isMethodStatic) {
     this.method = method;
     this.index = index;
+    this.isMethodStatic = isMethodStatic;
+  }
+
+  public static MethodParameter createStatic(DexMethod method, int index) {
+    return new MethodParameter(method, index, true);
   }
 
   public DexMethod getMethod() {
@@ -23,6 +35,10 @@ public class MethodParameter implements BaseInFlow {
 
   public int getIndex() {
     return index;
+  }
+
+  public DexType getType() {
+    return method.getArgumentType(index, isMethodStatic);
   }
 
   @Override

@@ -120,8 +120,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
       Set<MethodParameter> effectivelyUnusedConstraints =
           computeEffectivelyUnusedConstraints(method, argument, argumentValue);
       if (effectivelyUnusedConstraints != null && !effectivelyUnusedConstraints.isEmpty()) {
-        MethodParameter methodParameter =
-            new MethodParameter(method.getReference(), argument.getIndex());
+        MethodParameter methodParameter = new MethodParameter(method, argument.getIndex());
         assert !constraints.containsKey(methodParameter);
         constraints.put(methodParameter, effectivelyUnusedConstraints);
       }
@@ -161,7 +160,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
           return null;
         }
         effectivelyUnusedConstraints.add(
-            new MethodParameter(resolvedMethod.getReference(), dependentArgumentIndex));
+            new MethodParameter(resolvedMethod, dependentArgumentIndex));
       } else {
         return null;
       }
@@ -222,7 +221,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
     for (int argumentIndex = 0;
         argumentIndex < method.getDefinition().getNumberOfArguments();
         argumentIndex++) {
-      constraints.remove(new MethodParameter(method.getReference(), argumentIndex));
+      constraints.remove(new MethodParameter(method, argumentIndex));
     }
   }
 }

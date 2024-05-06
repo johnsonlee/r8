@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -154,6 +155,16 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
   }
 
   private void setDynamicType(ProgramField field, DynamicType dynamicType) {
+    if (dynamicType.hasDynamicUpperBoundType()) {
+      DynamicTypeWithUpperBound dynamicTypeWithUpperBound =
+          dynamicType.asDynamicTypeWithUpperBound();
+      if (!dynamicTypeWithUpperBound.strictlyLessThan(
+          field.getType().toTypeElement(appView), appView)) {
+        // TODO(b/296030319): Try to guarantee that the computed dynamic type is strictly more
+        //  precise than the static type.
+        return;
+      }
+    }
     getSimpleFeedback().markFieldHasDynamicType(field, dynamicType);
   }
 
@@ -298,14 +309,16 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
         continue;
       }
       DynamicType dynamicType = parameterState.asClassState().getDynamicType();
-      DexType staticType = method.getArgumentType(argumentIndex);
-      if (shouldWidenDynamicTypeToUnknown(dynamicType, staticType)) {
+      DexType outStaticType = method.getArgumentType(argumentIndex);
+      if (shouldWidenDynamicTypeToUnknown(dynamicType, outStaticType)) {
+        DexType inStaticType = null;
         methodState.setParameterState(
             argumentIndex,
             parameterState.mutableJoin(
                 appView,
                 new ConcreteClassTypeValueState(AbstractValue.bottom(), DynamicType.unknown()),
-                staticType,
+                inStaticType,
+                outStaticType,
                 StateCloner.getIdentity()));
       }
     }

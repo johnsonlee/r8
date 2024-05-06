@@ -203,7 +203,7 @@ public class FlowGraphBuilder {
     }
 
     ValueState fieldState = getFieldState(field, fieldStates);
-    if (fieldState.isUnknown()) {
+    if (fieldState.isUnknown() && field.getType().isIdenticalTo(node.getStaticType())) {
       // The current node depends on a field for which we don't know anything.
       node.clearPredecessors();
       node.setStateToUnknown();
@@ -237,19 +237,17 @@ public class FlowGraphBuilder {
       return TraversalContinuation.doContinue();
     }
 
-    if (enclosingMethodState.isUnknown()) {
+    assert enclosingMethodState.isMonomorphic() || enclosingMethodState.isUnknown();
+
+    if (enclosingMethodState.isUnknown() && inFlow.getType().isIdenticalTo(node.getStaticType())) {
       // The current node depends on a parameter for which we don't know anything.
       node.clearPredecessors();
       node.setStateToUnknown();
       return TraversalContinuation.doBreak();
     }
 
-    assert enclosingMethodState.isConcrete();
-    assert enclosingMethodState.asConcrete().isMonomorphic();
-
     FlowGraphParameterNode predecessor =
-        getOrCreateParameterNode(
-            enclosingMethod, inFlow.getIndex(), enclosingMethodState.asConcrete().asMonomorphic());
+        getOrCreateParameterNode(enclosingMethod, inFlow.getIndex(), enclosingMethodState);
     node.addPredecessor(predecessor, transferFunction);
     return TraversalContinuation.doContinue();
   }
@@ -260,7 +258,7 @@ public class FlowGraphBuilder {
   }
 
   private FlowGraphParameterNode getOrCreateParameterNode(
-      ProgramMethod method, int parameterIndex, ConcreteMonomorphicMethodState methodState) {
+      ProgramMethod method, int parameterIndex, MethodState methodState) {
     Int2ReferenceMap<FlowGraphParameterNode> parameterNodesForMethod =
         parameterNodes.computeIfAbsent(
             method.getReference(), ignoreKey(Int2ReferenceOpenHashMap::new));

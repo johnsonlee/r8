@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+// TODO(b/330674939): Remove legacy field optimizations.
 public class FieldAssignmentTracker {
 
   private final AbstractValueFactory abstractValueFactory;
@@ -240,8 +241,9 @@ public class FieldAssignmentTracker {
           assert fieldState.isClassState();
 
           ConcreteClassTypeValueState classFieldState = fieldState.asClassState();
+          DexType inStaticType = null;
           return classFieldState.mutableJoin(
-              appView, abstractValue, value.getDynamicType(appView), field);
+              appView, abstractValue, value.getDynamicType(appView), inStaticType, field);
         });
   }
 

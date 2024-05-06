@@ -12,6 +12,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -108,6 +109,12 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
         inspector
             .assertIsCompleteMergeGroup(
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testFirst$1"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testFirst$2"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testFirst$3"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$4"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$5"),
@@ -120,6 +127,12 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$9"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testSecond$1"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testSecond$2"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testSecond$3"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testSecond$4"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testSecond$5"),
@@ -130,20 +143,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testSecond$8"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$9"))
-            .assertIsCompleteMergeGroup(
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testFirst$1"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testFirst$2"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testFirst$3"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$1"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$2"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$3"),
+                    getTestName(), "MainKt$testSecond$9"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testThird$1"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
@@ -167,17 +167,6 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$3"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$1"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$2"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$3"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testThird$1"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testThird$2"))
-            .assertIsCompleteMergeGroup(
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$4"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$5"),
@@ -190,6 +179,12 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testFirst$9"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testSecond$1"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testSecond$2"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testSecond$3"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testSecond$4"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testSecond$5"),
@@ -200,12 +195,16 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
                     getTestName(), "MainKt$testSecond$8"),
                 lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testSecond$9"))
+                    getTestName(), "MainKt$testSecond$9"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testThird$1"),
+                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                    getTestName(), "MainKt$testThird$2"))
             .assertNoOtherClassesMerged();
       } else {
         ClassReference mainKt = Reference.classFromTypeName(getMainClassName());
-        inspector
-            .assertIsCompleteMergeGroup(
+        List<ClassReference> mergeGroup =
+            ImmutableList.of(
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 9),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 10),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 11),
@@ -217,8 +216,9 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 20),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 21),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 22),
-                SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 23))
-            .assertIsCompleteMergeGroup(
+                SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 23));
+        List<ClassReference> otherMergeGroup =
+            ImmutableList.of(
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 2),
@@ -230,7 +230,21 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 8),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 15),
                 SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 16),
-                SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 17))
+                SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 17));
+        inspector
+            .applyIf(
+                kotlinc.is(KotlinCompilerVersion.KOTLINC_1_9_21)
+                    && parameters.isDexRuntime()
+                    && lambdaGeneration.isInvokeDynamic(),
+                i ->
+                    i.assertIsCompleteMergeGroup(
+                        ImmutableList.<ClassReference>builder()
+                            .addAll(mergeGroup)
+                            .addAll(otherMergeGroup)
+                            .build()),
+                i ->
+                    i.assertIsCompleteMergeGroup(mergeGroup)
+                        .assertIsCompleteMergeGroup(otherMergeGroup))
             .assertNoOtherClassesMerged();
       }
     }
@@ -244,7 +258,7 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
       }
     }
     assertEquals(
-        kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 2, lambdasInOutput.size());
+        kotlinParameters.getLambdaGeneration().isInvokeDynamic() ? 0 : 1, lambdasInOutput.size());
   }
 
   private String getExpectedOutput() {

@@ -10,6 +10,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
+import com.android.tools.r8.NeverPropagateValue;
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -46,6 +47,7 @@ public class EquivalentConstructorsWithoutClassIdAfterUnusedArgumentRemovalMergi
             inspector ->
                 inspector.assertIsCompleteMergeGroup(A.class, B.class).assertNoOtherClassesMerged())
         .enableInliningAnnotations()
+        .enableMemberValuePropagationAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoHorizontalClassMergingAnnotations()
         .setMinApi(parameters)
@@ -72,7 +74,7 @@ public class EquivalentConstructorsWithoutClassIdAfterUnusedArgumentRemovalMergi
   @NeverClassInline
   static class A {
 
-    private final C c;
+    @NeverPropagateValue private final C c;
 
     A(Object unused, C c) {
       this.c = c;
@@ -87,7 +89,7 @@ public class EquivalentConstructorsWithoutClassIdAfterUnusedArgumentRemovalMergi
   @NeverClassInline
   static class B {
 
-    private final D d;
+    @NeverPropagateValue private final D d;
 
     B(Object unused, D d) {
       this.d = d;

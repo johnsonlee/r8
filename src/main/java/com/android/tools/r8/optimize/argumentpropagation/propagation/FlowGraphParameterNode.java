@@ -5,21 +5,19 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 
 class FlowGraphParameterNode extends FlowGraphNode {
 
   private final ProgramMethod method;
-  private final ConcreteMonomorphicMethodState methodState;
+  private final MethodState methodState;
   private final int parameterIndex;
   private final DexType parameterType;
 
   FlowGraphParameterNode(
-      ProgramMethod method,
-      ConcreteMonomorphicMethodState methodState,
-      int parameterIndex,
-      DexType parameterType) {
+      ProgramMethod method, MethodState methodState, int parameterIndex, DexType parameterType) {
+    assert methodState.isMonomorphic() || methodState.isUnknown();
     this.method = method;
     this.methodState = methodState;
     this.parameterIndex = parameterIndex;
@@ -41,12 +39,18 @@ class FlowGraphParameterNode extends FlowGraphNode {
 
   @Override
   ValueState getState() {
-    return methodState.getParameterState(parameterIndex);
+    return methodState.isMonomorphic()
+        ? methodState.asMonomorphic().getParameterState(parameterIndex)
+        : ValueState.unknown();
   }
 
   @Override
   void setState(ValueState parameterState) {
-    methodState.setParameterState(parameterIndex, parameterState);
+    if (methodState.isMonomorphic()) {
+      methodState.asMonomorphic().setParameterState(parameterIndex, parameterState);
+    } else {
+      assert parameterState.isUnknown();
+    }
   }
 
   @Override

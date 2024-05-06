@@ -5,7 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoVerticalClassMerging;
@@ -58,8 +58,7 @@ public class FieldWithUnknownDynamicTypeIntoParameterMaybeNullTest extends TestB
               MethodSubject testMethodSubject =
                   mainClassSubject.uniqueMethodWithOriginalName("test");
               assertThat(testMethodSubject, isPresent());
-              // TODO(b/296030319): Should be equals.
-              assertNotEquals(bClassSubject.asTypeSubject(), testMethodSubject.getParameter(0));
+              assertEquals(bClassSubject.asTypeSubject(), testMethodSubject.getParameter(0));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("B");
