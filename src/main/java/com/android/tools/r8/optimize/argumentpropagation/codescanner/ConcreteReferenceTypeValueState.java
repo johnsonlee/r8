@@ -25,8 +25,13 @@ public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState
 
   protected static DynamicType cast(
       AppView<AppInfoWithLiveness> appView, DexType type, DynamicType dynamicType) {
-    if (dynamicType.isBottom() || dynamicType.isNotNullType() || dynamicType.isUnknown()) {
+    if (dynamicType.isBottom()) {
       return dynamicType;
+    }
+    if (dynamicType.isNotNullType() || dynamicType.isUnknown()) {
+      Nullability nullability =
+          dynamicType.isNotNullType() ? Nullability.definitelyNotNull() : Nullability.maybeNull();
+      return DynamicType.create(appView, type.toTypeElement(appView, nullability));
     }
     assert dynamicType.isDynamicTypeWithUpperBound();
     DynamicTypeWithUpperBound dynamicTypeWithUpperBound = dynamicType.asDynamicTypeWithUpperBound();
