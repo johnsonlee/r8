@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -154,7 +155,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
 
                   MethodState transformedInterfaceMethodState =
                       transformInterfaceMethodStateForClassMethod(
-                          subclass, resolvedMethod, interfaceMethodState);
+                          appView, subclass, resolvedMethod, interfaceMethodState, methodStates);
                   if (!transformedInterfaceMethodState.isBottom()) {
                     methodStates.addMethodState(
                         appView, resolvedMethod, transformedInterfaceMethodState);
@@ -162,11 +163,22 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
                 }));
   }
 
-  private MethodState transformInterfaceMethodStateForClassMethod(
-      DexProgramClass clazz, ProgramMethod resolvedMethod, MethodState methodState) {
-    if (!methodState.isPolymorphic()) {
-      return methodState.mutableCopy();
+  public static MethodState transformInterfaceMethodStateForClassMethod(
+      AppView<AppInfoWithLiveness> appView,
+      DexProgramClass clazz,
+      ProgramMethod resolvedMethod,
+      MethodState methodState,
+      MethodStateCollectionByReference methodStates) {
+    if (methodState.isBottom() || methodState.isUnknown()) {
+      return methodState;
     }
+
+    if (methodState.isMonomorphic()) {
+      assert false;
+      return MethodState.bottom();
+    }
+
+    assert methodState.isPolymorphic();
 
     // Rewrite the bounds of the polymorphic method state. If a given piece of argument information
     // should be propagated to the resolved method, we replace the type bounds by the holder of the
@@ -177,7 +189,16 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
             appView,
             bounds -> {
               boolean shouldPropagateMethodStateForBounds;
-              if (bounds.isUnknown()) {
+              if (bounds.isExactClassType()) {
+                ClassTypeElement exactClassType = bounds.getExactClassType();
+                DexType exactType =
+                    exactClassType.getClassType().isIdenticalTo(appView.dexItemFactory().objectType)
+                            && exactClassType.getInterfaces().hasSingleKnownInterface()
+                        ? exactClassType.getInterfaces().getSingleKnownInterface()
+                        : exactClassType.getClassType();
+                shouldPropagateMethodStateForBounds =
+                    exactType.isIdenticalTo(resolvedMethod.getHolderType());
+              } else if (bounds.isUnknown()) {
                 shouldPropagateMethodStateForBounds = true;
               } else {
                 ClassTypeElement upperBound = bounds.getDynamicUpperBoundType().asClassType();

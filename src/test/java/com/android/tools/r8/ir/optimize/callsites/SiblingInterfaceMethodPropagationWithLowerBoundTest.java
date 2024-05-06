@@ -5,7 +5,7 @@ package com.android.tools.r8.ir.optimize.callsites;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
@@ -58,8 +58,7 @@ public class SiblingInterfaceMethodPropagationWithLowerBoundTest extends TestBas
 
               MethodSubject bMethodSubject = bClassSubject.uniqueMethodWithOriginalName("m");
               assertThat(bMethodSubject, isPresent());
-              // TODO(b/296030319): Should be true.
-              assertFalse(bMethodSubject.streamInstructions().anyMatch(i -> i.isConstNumber(2)));
+              assertTrue(bMethodSubject.streamInstructions().anyMatch(i -> i.isConstNumber(2)));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccess();

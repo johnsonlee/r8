@@ -175,6 +175,12 @@ public abstract class DexClassAndMethodSetBase<T extends DexClassAndMethod>
     return definitions;
   }
 
+  public Set<DexMethod> toReferenceSet(IntFunction<Set<DexMethod>> factory) {
+    Set<DexMethod> definitions = factory.apply(size());
+    forEach(method -> definitions.add(method.getReference()));
+    return definitions;
+  }
+
   public void trimCapacityIfSizeLessThan(int expectedSize) {
     if (size() < expectedSize) {
       Map<DexMethod, T> newBacking = createBacking(size());

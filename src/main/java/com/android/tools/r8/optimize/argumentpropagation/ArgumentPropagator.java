@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -243,14 +244,16 @@ public class ArgumentPropagator {
             stronglyConnectedProgramComponents,
             interfaceDispatchOutsideProgram)
         .propagateOptimizationInfo(executorService, timing);
+
     // TODO(b/296030319): Also publish the computed optimization information for fields.
-    new ArgumentPropagatorOptimizationInfoPopulator(
-            appView, converter, fieldStates, methodStates, postMethodProcessorBuilder)
-        .populateOptimizationInfo(executorService, timing);
+    PrunedItems prunedItems =
+        new ArgumentPropagatorOptimizationInfoPopulator(
+                appView, converter, fieldStates, methodStates, postMethodProcessorBuilder)
+            .populateOptimizationInfo(executorService, timing);
     timing.end();
 
     timing.begin("Compute unused arguments");
-    effectivelyUnusedArgumentsAnalysis.computeEffectivelyUnusedArguments();
+    effectivelyUnusedArgumentsAnalysis.computeEffectivelyUnusedArguments(prunedItems);
     effectivelyUnusedArgumentsAnalysis = null;
     timing.end();
   }

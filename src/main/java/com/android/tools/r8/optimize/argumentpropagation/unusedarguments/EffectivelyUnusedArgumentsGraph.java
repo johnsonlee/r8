@@ -8,6 +8,7 @@ import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -37,13 +38,14 @@ class EffectivelyUnusedArgumentsGraph {
 
   public static EffectivelyUnusedArgumentsGraph create(
       AppView<AppInfoWithLiveness> appView,
-      Map<MethodParameter, Set<MethodParameter>> constraints) {
+      Map<MethodParameter, Set<MethodParameter>> constraints,
+      PrunedItems prunedItems) {
     EffectivelyUnusedArgumentsGraph graph = new EffectivelyUnusedArgumentsGraph(appView);
     constraints.forEach(
         (methodParameter, constraintsForMethodParameter) -> {
           EffectivelyUnusedArgumentsGraphNode node = graph.getOrCreateNode(methodParameter);
           for (MethodParameter constraint : constraintsForMethodParameter) {
-            graph.addConstraintEdge(node, constraint, constraints);
+            graph.addConstraintEdge(node, constraint, constraints, prunedItems);
           }
         });
     return graph;
@@ -52,12 +54,19 @@ class EffectivelyUnusedArgumentsGraph {
   void addConstraintEdge(
       EffectivelyUnusedArgumentsGraphNode node,
       MethodParameter constraint,
-      Map<MethodParameter, Set<MethodParameter>> constraints) {
+      Map<MethodParameter, Set<MethodParameter>> constraints,
+      PrunedItems prunedItems) {
+    if (prunedItems.isRemoved(constraint.getMethod())) {
+      // The current parameter node is an argument to a method that has been removed by argument
+      // propagation. Therefore, this usage constraint is no longer blocking the removal of the
+      // parameter.
+      return;
+    }
+
     ProgramMethod dependencyMethod =
         asProgramMethodOrNull(appView.definitionFor(constraint.getMethod()));
     if (dependencyMethod == null) {
       assert false;
-      node.setUnoptimizable();
       return;
     }
 

@@ -6,7 +6,6 @@ package com.android.tools.r8.ir.optimize.callsites;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
@@ -65,8 +64,7 @@ public class ArgumentPropagationWithInexactUpperBoundTest extends TestBase {
 
               MethodSubject aMethodSubject = aClassSubject.uniqueMethodWithOriginalName("m");
               assertThat(aMethodSubject, isPresent());
-              // TODO(b/296030319): Should be true.
-              assertFalse(aMethodSubject.streamInstructions().anyMatch(i -> i.isConstNumber(0)));
+              assertTrue(aMethodSubject.streamInstructions().anyMatch(i -> i.isConstNumber(0)));
 
               ClassSubject cClassSubject = inspector.clazz(C.class);
               assertThat(cClassSubject, isPresent());

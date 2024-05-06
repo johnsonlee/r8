@@ -125,6 +125,10 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
     boolean isMayDispatchOutsideProgramSet() {
       return mayDispatchOutsideProgram;
     }
+
+    boolean isOverriddenBy(VirtualRootMethod other) {
+      return overrides.contains(other);
+    }
   }
 
   private final Map<DexProgramClass, DexMethodSignatureMap<VirtualRootMethod>>
@@ -167,9 +171,35 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
                         // forEachImmediateProgramSuperClass. Therefore, the current method is
                         // guaranteed to be an interface method when existing != null.
                         assert info.getMethod().getHolder().isInterface();
-                        if (!existing.getMethod().getHolder().isInterface()) {
+                        // Add the existing as a sibling of the current method (or vice versa).
+                        // Despite the fact that these two methods come from two different
+                        // extends/implements edges, the two methods may already be related by
+                        // overriding, as in the following example.
+                        //
+                        //   interface I { void m(); }
+                        //   interface J extends I { @Override default void m() { ... } }
+                        //   abstract class A implements I {}
+                        //   class B extends A implements J {}
+                        //
+                        // When processing the extends edge B->A, we will pull down the definition
+                        // of I.m(). Next, when processing the implements edge B->J we will pull
+                        // down the definition of J.m(). Since J.m() is an override of I.m() we
+                        // should avoid marking the two methods as siblings.
+                        if (info.isOverriddenBy(existing)) {
+                          return existing;
+                        }
+                        if (existing.isOverriddenBy(info)) {
+                          return info;
+                        }
+                        if (!existing.isAbstract()) {
                           existing.addSibling(info);
                           info.addOverride(existing);
+                          return existing;
+                        }
+                        if (existing.getMethod().getHolder().isInterface() && !info.isAbstract()) {
+                          info.addSibling(existing);
+                          existing.addOverride(info);
+                          return info;
                         }
                         return existing;
                       }
