@@ -58,7 +58,7 @@ tasks {
 
   // TODO(b/337801526): Enable for all runtimes
   fun runBootstrapTests() : Boolean {
-    val enabled = listOf("dex-default", "dex-8.1.0", "dex-13.0.0")
+    val enabled = listOf("dex-default", "dex-8.1.0", "dex-13.0.0", "dex-12.0.0")
     if (project.hasProperty("runtimes")) {
       for (doRun : String in enabled) {
         if (project.property("runtimes").toString().contains(doRun)) {
