@@ -31,6 +31,9 @@ public class StringBuilderEscapeTransferFunction
   @Override
   public TransferFunctionResult<StringBuilderEscapeState> applyBlock(
       BasicBlock block, StringBuilderEscapeState state) {
+    if (state.isBottom()) {
+      return state;
+    }
     StringBuilderEscapeState.Builder builder = state.builder();
     block
         .getPhis()
@@ -50,9 +53,11 @@ public class StringBuilderEscapeTransferFunction
   }
 
   @Override
-  @SuppressWarnings("UnnecessaryParentheses")
   public TransferFunctionResult<StringBuilderEscapeState> apply(
       Instruction instruction, StringBuilderEscapeState state) {
+    if (state.isBottom()) {
+      return state;
+    }
     StringBuilderEscapeState.Builder builder = state.builder();
     boolean isStringBuilderInstruction =
         oracle.isModeledStringBuilderInstruction(instruction, state::isLiveStringBuilder);
@@ -91,11 +96,17 @@ public class StringBuilderEscapeTransferFunction
       }
       if (!isStringBuilderInstruction
           && isLiveStringBuilder(builder, instruction.outValue())
-          && (isEscapingInstructionForOutValues(instruction))) {
+          && isEscapingInstructionForOutValues(instruction)) {
         builder.addEscaping(instruction.outValue());
       }
     }
     return builder.build();
+  }
+
+  @Override
+  public StringBuilderEscapeState computeInitialState(
+      BasicBlock entryBlock, StringBuilderEscapeState bottom) {
+    return StringBuilderEscapeState.empty();
   }
 
   private boolean isLiveStringBuilder(StringBuilderEscapeState.Builder builderState, Value value) {

@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractState;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.utils.MapUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
@@ -22,9 +23,14 @@ import java.util.Set;
 public class StringBuilderEscapeState extends AbstractState<StringBuilderEscapeState> {
 
   private static final StringBuilderEscapeState BOTTOM = new StringBuilderEscapeState();
+  private static final StringBuilderEscapeState EMPTY = new StringBuilderEscapeState();
 
   public static StringBuilderEscapeState bottom() {
     return BOTTOM;
+  }
+
+  public static StringBuilderEscapeState empty() {
+    return EMPTY;
   }
 
   private final Map<Value, Set<Value>> aliasesToDefinitions;
@@ -94,16 +100,27 @@ public class StringBuilderEscapeState extends AbstractState<StringBuilderEscapeS
     return newlyEscaped;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public boolean isBottom() {
-    return this == BOTTOM;
+    return ObjectUtils.identical(this, BOTTOM);
+  }
+
+  public boolean isEmpty() {
+    return ObjectUtils.identical(this, EMPTY);
+  }
+
+  public boolean isUnreachable() {
+    return isBottom();
   }
 
   @Override
   public StringBuilderEscapeState join(AppView<?> appView, StringBuilderEscapeState other) {
-    if (this.isBottom()) {
+    if (isBottom()) {
       return other;
     } else if (other.isBottom()) {
+      return this;
+    } else if (isEmpty()) {
+      return other;
+    } else if (other.isEmpty()) {
       return this;
     } else {
       Builder builder =
@@ -123,6 +140,12 @@ public class StringBuilderEscapeState extends AbstractState<StringBuilderEscapeS
       return false;
     }
     StringBuilderEscapeState that = (StringBuilderEscapeState) o;
+    if (isBottom()) {
+      return that.isBottom();
+    }
+    if (isEmpty()) {
+      return that.isEmpty();
+    }
     return MapUtils.equals(aliasesToDefinitions, that.aliasesToDefinitions)
         && MapUtils.equals(definitionsToAliases, that.definitionsToAliases)
         && escaping.equals(that.escaping)
@@ -131,7 +154,13 @@ public class StringBuilderEscapeState extends AbstractState<StringBuilderEscapeS
 
   @Override
   public int hashCode() {
-    return Objects.hash(aliasesToDefinitions, definitionsToAliases, escaping, liveStringBuilders);
+    return Objects.hash(
+        aliasesToDefinitions,
+        definitionsToAliases,
+        escaping,
+        liveStringBuilders,
+        isBottom(),
+        isEmpty());
   }
 
   @Override
@@ -140,6 +169,7 @@ public class StringBuilderEscapeState extends AbstractState<StringBuilderEscapeS
   }
 
   public Builder builder() {
+    assert !isBottom();
     return new Builder(this);
   }
 
@@ -244,14 +274,6 @@ public class StringBuilderEscapeState extends AbstractState<StringBuilderEscapeS
 
     public Set<Value> getLiveStringBuilders() {
       return liveStringBuilders;
-    }
-
-    public Map<Value, Set<Value>> getAliasesToDefinitions() {
-      return aliasesToDefinitions;
-    }
-
-    public Map<Value, Set<Value>> getDefinitionsToAliases() {
-      return definitionsToAliases;
     }
 
     public StringBuilderEscapeState build() {

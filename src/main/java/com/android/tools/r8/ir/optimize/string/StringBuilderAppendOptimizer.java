@@ -219,6 +219,7 @@ public class StringBuilderAppendOptimizer extends CodeRewriterPass<AppInfo> {
             }
             assert currentRoots.keySet().equals(currentTails.keySet());
             assert previousState.getLiveStringBuilders().containsAll(currentRoots.keySet())
+                    || previousState.isUnreachable()
                 : "Seen root that is not a live string builder";
             node.setState(new StringBuilderGraphState(currentRoots, currentTails));
             for (BasicBlock successor : block.getSuccessors()) {
@@ -399,6 +400,9 @@ public class StringBuilderAppendOptimizer extends CodeRewriterPass<AppInfo> {
               StringBuilderEscapeState state,
               Consumer<Value> actualConsumer,
               Consumer<Value> aliasAndEscapedConsumer) {
+            if (state.isUnreachable()) {
+              return;
+            }
             assert state.isLiveStringBuilder(value);
             boolean seenEscaped =
                 visitAllAliasing(value, state, actualConsumer, aliasAndEscapedConsumer);
