@@ -404,7 +404,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Optimization-related flags. These should conform to -dontoptimize and disableAllOptimizations.
   public boolean enableFieldBitAccessAnalysis =
       System.getProperty("com.android.tools.r8.fieldBitAccessAnalysis") != null;
-  public boolean enableFieldAssignmentTracker = true;
   public boolean enableFieldValueAnalysis = true;
   public boolean enableUnusedInterfaceRemoval = true;
   public boolean enableDevirtualization = true;

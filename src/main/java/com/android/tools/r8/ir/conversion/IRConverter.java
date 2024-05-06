@@ -596,6 +596,16 @@ public class IRConverter {
       previous = printMethod(code, "IR after identifier-name strings (SSA)", previous);
     }
 
+    timing.begin("Run proto shrinking tasks");
+    appView.withGeneratedExtensionRegistryShrinker(shrinker -> shrinker.rewriteCode(method, code));
+
+    previous = printMethod(code, "IR after generated extension registry shrinking (SSA)", previous);
+
+    appView.withGeneratedMessageLiteShrinker(shrinker -> shrinker.run(code));
+    timing.end();
+
+    previous = printMethod(code, "IR after generated message lite shrinking (SSA)", previous);
+
     if (memberValuePropagation != null) {
       timing.begin("Propagate member values");
       memberValuePropagation.run(code);
@@ -631,16 +641,6 @@ public class IRConverter {
     }
 
     previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
-
-    timing.begin("Run proto shrinking tasks");
-    appView.withGeneratedExtensionRegistryShrinker(shrinker -> shrinker.rewriteCode(method, code));
-
-    previous = printMethod(code, "IR after generated extension registry shrinking (SSA)", previous);
-
-    appView.withGeneratedMessageLiteShrinker(shrinker -> shrinker.run(code));
-    timing.end();
-
-    previous = printMethod(code, "IR after generated message lite shrinking (SSA)", previous);
 
     if (!isDebugMode && options.inlinerOptions().enableInlining && inliner != null) {
       timing.begin("Inlining");
@@ -899,9 +899,6 @@ public class IRConverter {
       timing.begin("Analyze field accesses");
       fieldAccessAnalysis.recordFieldAccesses(
           code, bytecodeMetadataProviderBuilder, feedback, methodProcessor);
-      if (classInitializerDefaultsResult != null) {
-        fieldAccessAnalysis.acceptClassInitializerDefaultsResult(classInitializerDefaultsResult);
-      }
       timing.end();
     }
 
@@ -1092,7 +1089,6 @@ public class IRConverter {
     assert method.getHolder().lookupMethod(method.getReference()) == null;
     appView.withArgumentPropagator(argumentPropagator -> argumentPropagator.onMethodPruned(method));
     enumUnboxer.onMethodPruned(method);
-    fieldAccessAnalysis.fieldAssignmentTracker().onMethodPruned(method);
     numberUnboxer.onMethodPruned(method);
     outliner.onMethodPruned(method);
     if (inliner != null) {
@@ -1110,7 +1106,6 @@ public class IRConverter {
     appView.withArgumentPropagator(
         argumentPropagator -> argumentPropagator.onMethodCodePruned(method));
     enumUnboxer.onMethodCodePruned(method);
-    fieldAccessAnalysis.fieldAssignmentTracker().onMethodCodePruned(method);
     numberUnboxer.onMethodCodePruned(method);
     outliner.onMethodCodePruned(method);
     if (inliner != null) {

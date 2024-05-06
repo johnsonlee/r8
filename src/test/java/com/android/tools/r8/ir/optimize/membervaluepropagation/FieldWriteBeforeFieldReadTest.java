@@ -4,14 +4,13 @@
 
 package com.android.tools.r8.ir.optimize.membervaluepropagation;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.NeverReprocessMethod;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -24,20 +23,18 @@ import java.util.function.Predicate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class FieldWriteBeforeFieldReadTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public FieldWriteBeforeFieldReadTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -46,27 +43,27 @@ public class FieldWriteBeforeFieldReadTest extends TestBase {
         .addInnerClasses(FieldWriteBeforeFieldReadTest.class)
         .addKeepMainRule(TestClass.class)
         .addOptionsModification(
-            options -> {
-              options.testing.waveModifier =
-                  (waves) -> {
-                    Function<String, Predicate<ProgramMethodSet>> wavePredicate =
-                        methodName ->
-                            wave ->
-                                wave.stream()
-                                    .anyMatch(
-                                        method -> method.toSourceString().contains(methodName));
-                    int readFieldsWaveIndex =
-                        IterableUtils.firstIndexMatching(waves, wavePredicate.apply("readFields"));
-                    assertTrue(readFieldsWaveIndex >= 0);
-                    int writeFieldsWaveIndex =
-                        IterableUtils.firstIndexMatching(waves, wavePredicate.apply("writeFields"));
-                    assertTrue(writeFieldsWaveIndex >= 0);
-                    assertTrue(writeFieldsWaveIndex < readFieldsWaveIndex);
-                  };
-            })
+            options ->
+                options.testing.waveModifier =
+                    (waves) -> {
+                      Function<String, Predicate<ProgramMethodSet>> wavePredicate =
+                          methodName ->
+                              wave ->
+                                  wave.stream()
+                                      .anyMatch(
+                                          method -> method.toSourceString().contains(methodName));
+                      int readFieldsWaveIndex =
+                          IterableUtils.firstIndexMatching(
+                              waves, wavePredicate.apply("readFields"));
+                      assertTrue(readFieldsWaveIndex >= 0);
+                      int writeFieldsWaveIndex =
+                          IterableUtils.firstIndexMatching(
+                              waves, wavePredicate.apply("writeFields"));
+                      assertTrue(writeFieldsWaveIndex >= 0);
+                      assertTrue(writeFieldsWaveIndex < readFieldsWaveIndex);
+                    })
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
-        .enableNeverReprocessMethodAnnotations()
         .setMinApi(parameters)
         .compile()
         .inspect(this::inspect)
@@ -78,7 +75,7 @@ public class FieldWriteBeforeFieldReadTest extends TestBase {
     ClassSubject testClassSubject = inspector.clazz(TestClass.class);
     assertThat(testClassSubject, isPresent());
     assertThat(testClassSubject.uniqueMethodWithOriginalName("live"), isPresent());
-    assertThat(testClassSubject.uniqueMethodWithOriginalName("dead"), not(isPresent()));
+    assertThat(testClassSubject.uniqueMethodWithOriginalName("dead"), isAbsent());
   }
 
   static class TestClass {
@@ -100,8 +97,10 @@ public class FieldWriteBeforeFieldReadTest extends TestBase {
 
     static void increaseDistanceToNearestLeaf() {}
 
+    // By processing writeFields() before readFields() and publishing the fact that alwaysFalse is
+    // the constant false after processing writeFields(), it would be possible to optimize
+    // readFields() in just a single optimization pass.
     @NeverInline
-    @NeverReprocessMethod
     static void readFields(A obj) {
       if (alwaysFalse || obj.alwaysFalse) {
         dead();

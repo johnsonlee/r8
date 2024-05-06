@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.optimize;
 
 import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
+import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimpleFeedback;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.android.tools.r8.utils.PredicateUtils.not;
 
@@ -686,6 +687,9 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       if (replacement != null) {
         if (isRedundantFieldLoadEliminationAllowed(field)) {
           replacement.eliminateRedundantRead(it, instanceGet);
+          if (field.isProgramField()) {
+            getSimpleFeedback().markFieldAsPropagated(field.getDefinition());
+          }
         }
         return;
       }
@@ -774,6 +778,9 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       FieldValue replacement = activeState.getStaticFieldValue(field.getReference());
       if (replacement != null) {
         replacement.eliminateRedundantRead(instructionIterator, staticGet);
+        if (field.isProgramField()) {
+          getSimpleFeedback().markFieldAsPropagated(field.getDefinition());
+        }
         return;
       }
 

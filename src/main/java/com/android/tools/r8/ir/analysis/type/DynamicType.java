@@ -206,6 +206,11 @@ public abstract class DynamicType {
   @Override
   public abstract int hashCode();
 
+  public DynamicType uncanonicalizeNotNullType(
+      AppView<AppInfoWithLiveness> appView, DexType staticType) {
+    return this;
+  }
+
   private static boolean verifyNotEffectivelyFinalClassType(
       AppView<AppInfoWithLiveness> appView, TypeElement type) {
     if (type.isClassType()) {

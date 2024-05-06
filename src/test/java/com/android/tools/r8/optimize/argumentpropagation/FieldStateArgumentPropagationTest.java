@@ -37,7 +37,6 @@ public class FieldStateArgumentPropagationTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addOptionsModification(
             options -> {
-              options.enableFieldAssignmentTracker = false;
               options.enableFieldValueAnalysis = false;
             })
         .enableInliningAnnotations()

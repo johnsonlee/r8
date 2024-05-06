@@ -967,14 +967,14 @@ public class EnumUnboxerImpl extends EnumUnboxer {
                 unboxedValues.put(field.getReference(), ordinalToUnboxedInt(ordinal));
                 ordinalToObjectState.put(ordinal, enumState);
                 if (isEnumWithSubtypes) {
-                  DynamicType dynamicType = field.getOptimizationInfo().getDynamicType();
-                  // If the dynamic type is a NotNull dynamic type, then de-canonicalize the dynamic
+                  // If the dynamic type is a NotNull dynamic type, then uncanonicalize the dynamic
                   // type. If the static type is an effectively final class then this yields an
                   // exact dynamic type.
-                  if (dynamicType.isNotNullType()) {
-                    dynamicType =
-                        DynamicType.create(appView, field.getType().toNonNullTypeElement(appView));
-                  }
+                  DynamicType dynamicType =
+                      field
+                          .getOptimizationInfo()
+                          .getDynamicType()
+                          .uncanonicalizeNotNullType(appView, field.getType());
                   if (dynamicType.isExactClassType()) {
                     valueTypes.put(ordinal, dynamicType.getExactClassType().getClassType());
                   } else {
