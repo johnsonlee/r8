@@ -805,7 +805,10 @@ public class EnumUnboxerImpl extends EnumUnboxer {
           public void fixup(DexEncodedField field, MutableFieldOptimizationInfo optimizationInfo) {
             optimizationInfo
                 .fixupAbstractValue(appView, field, graphLens, codeLens)
-                .fixupClassTypeReferences(appView, graphLens);
+                .applyIf(
+                    field.getType().isIntType(),
+                    MutableFieldOptimizationInfo::unsetDynamicType,
+                    o -> o.fixupClassTypeReferences(appView, graphLens));
           }
 
           @Override
@@ -825,10 +828,13 @@ public class EnumUnboxerImpl extends EnumUnboxer {
                             prototypeChanges);
                       }
                     })
-                .fixupClassTypeReferences(appView, graphLens)
                 .fixupAbstractReturnValue(appView, method, graphLens, codeLens)
                 .fixupInstanceInitializerInfo(
-                    appView, graphLens, codeLens, treeFixerResult.getPrunedItems());
+                    appView, graphLens, codeLens, treeFixerResult.getPrunedItems())
+                .applyIf(
+                    method.getReturnType().isIntType(),
+                    MutableMethodOptimizationInfo::unsetDynamicType,
+                    o -> o.fixupClassTypeReferences(appView, graphLens));
 
             // Clear the enum unboxer method classification for check-not-null methods (these
             // classifications are transferred to the synthesized check-not-zero methods by now).

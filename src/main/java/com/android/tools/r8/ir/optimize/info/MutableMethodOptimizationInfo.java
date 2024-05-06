@@ -35,6 +35,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import java.util.BitSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     implements MutableOptimizationInfo {
@@ -155,6 +156,18 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     classInlinerConstraint = template.classInlinerConstraint;
     enumUnboxerMethodClassification = template.enumUnboxerMethodClassification;
     maxRemovedAndroidLogLevel = template.maxRemovedAndroidLogLevel;
+  }
+
+  public MutableMethodOptimizationInfo applyIf(
+      boolean condition,
+      Consumer<MutableMethodOptimizationInfo> thenConsumer,
+      Consumer<MutableMethodOptimizationInfo> elseConsumer) {
+    if (condition) {
+      thenConsumer.accept(this);
+    } else {
+      elseConsumer.accept(this);
+    }
+    return this;
   }
 
   public MutableMethodOptimizationInfo fixup(
@@ -776,7 +789,7 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
     return true;
   }
 
-  MutableMethodOptimizationInfo unsetDynamicType() {
+  public MutableMethodOptimizationInfo unsetDynamicType() {
     return setDynamicType(DynamicType.unknown());
   }
 
