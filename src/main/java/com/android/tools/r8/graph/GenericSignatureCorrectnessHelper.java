@@ -135,9 +135,9 @@ public class GenericSignatureCorrectnessHelper {
       // Only report info messages for classes that are kept explicitly. This is to ensure we do not
       // spam the developer with messages they can do nothing about.
       KeepClassInfo classInfo = appView.getKeepInfo().getClassInfo(clazz);
-      if (appView.hasLiveness() && !classInfo.isShrinkingAllowed(appView.options())) {
-        // If/when this no longer holds it should be moved into the condition.
-        assert !classInfo.isSignatureRemovalAllowed(appView.options());
+      if (appView.hasLiveness()
+          && !classInfo.isShrinkingAllowed(appView.options())
+          && !classInfo.isSignatureRemovalAllowed(appView.options())) {
         appView
             .options()
             .reporter
@@ -163,9 +163,8 @@ public class GenericSignatureCorrectnessHelper {
                     // ensure we do not spam the developer with messages they can do nothing about.
                     KeepMethodInfo methodInfo = appView.getKeepInfo().getMethodInfo(method, clazz);
                     if (appView.hasLiveness()
-                        && !methodInfo.isShrinkingAllowed(appView.options())) {
-                      // If/when this no longer holds it should be moved into the condition.
-                      assert !methodInfo.isSignatureRemovalAllowed(appView.options());
+                        && !methodInfo.isShrinkingAllowed(appView.options())
+                        && !methodInfo.isSignatureRemovalAllowed(appView.options())) {
                       appView
                           .options()
                           .reporter
@@ -191,9 +190,9 @@ public class GenericSignatureCorrectnessHelper {
                     KeepFieldInfo fieldInfo = appView.getKeepInfo().getFieldInfo(field, clazz);
                     // Only report info messages for fields that are kept explicitly. This is to
                     // ensure we do not spam the developer with messages they can do nothing about.
-                    if (appView.hasLiveness() && !fieldInfo.isShrinkingAllowed(appView.options())) {
-                      // If/when this no longer holds it should be moved into the condition.
-                      assert !fieldInfo.isSignatureRemovalAllowed(appView.options());
+                    if (appView.hasLiveness()
+                        && !fieldInfo.isShrinkingAllowed(appView.options())
+                        && !fieldInfo.isSignatureRemovalAllowed(appView.options())) {
                       appView
                           .options()
                           .reporter
