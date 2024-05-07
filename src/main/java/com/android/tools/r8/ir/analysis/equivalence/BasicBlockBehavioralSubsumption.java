@@ -18,6 +18,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.utils.SetUtils;
@@ -43,8 +44,10 @@ public class BasicBlockBehavioralSubsumption {
     this.context = code.context();
   }
 
-  public boolean isSubsumedBy(Value conditionValue, BasicBlock block, BasicBlock other) {
-    return isSubsumedBy(conditionValue, block.iterator(), other.iterator(), null);
+  public boolean isSubsumedBy(
+      Value conditionValue, Position conditionPosition, BasicBlock block, BasicBlock other) {
+    return isSubsumedBy(
+        conditionValue, conditionPosition, block.iterator(), other.iterator(), null);
   }
 
   private boolean dependsOnConditionValue(Value conditionValue, Instruction instruction) {
@@ -81,13 +84,21 @@ public class BasicBlockBehavioralSubsumption {
   }
 
   private Instruction skipNonDependentInstructionsUntil(
-      InstructionIterator iterator, Value conditionValue, Predicate<Instruction> predicate) {
+      InstructionIterator iterator,
+      Value conditionValue,
+      Position position,
+      Predicate<Instruction> predicate) {
     return iterator.nextUntil(
-        predicate.or(i -> i.isJumpInstruction() || dependsOnConditionValue(conditionValue, i)));
+        predicate.or(
+            i ->
+                i.isJumpInstruction()
+                    || (i.isDebugPosition() && !i.getPosition().equals(position))
+                    || dependsOnConditionValue(conditionValue, i)));
   }
 
   private boolean isSubsumedBy(
       Value conditionValue,
+      Position conditionPosition,
       InstructionIterator iterator,
       InstructionIterator otherIterator,
       Set<BasicBlock> visited) {
@@ -95,7 +106,7 @@ public class BasicBlockBehavioralSubsumption {
     // outside the block itself) that do not have side effects.
     Instruction instruction =
         skipNonDependentInstructionsUntil(
-            iterator, conditionValue, this::isNonLocalDefinitionOrSideEffecting);
+            iterator, conditionValue, conditionPosition, this::isNonLocalDefinitionOrSideEffecting);
 
     // If the instruction defines a value with non-local usages, then we would need a dominator
     // analysis to verify that all these non-local usages can in fact be replaced by a value
@@ -107,7 +118,7 @@ public class BasicBlockBehavioralSubsumption {
     // Skip over non-throwing instructions in the other block.
     Instruction otherInstruction =
         skipNonDependentInstructionsUntil(
-            otherIterator, conditionValue, this::instructionMayHaveSideEffects);
+            otherIterator, conditionValue, conditionPosition, this::instructionMayHaveSideEffects);
     assert otherInstruction != null;
 
     if (instruction.isGoto()) {
@@ -139,7 +150,8 @@ public class BasicBlockBehavioralSubsumption {
         visited = SetUtils.newIdentityHashSet(instruction.getBlock());
       }
       if (visited.add(targetBlock)) {
-        return isSubsumedBy(conditionValue, targetBlock.iterator(), otherIterator, visited);
+        return isSubsumedBy(
+            conditionValue, conditionPosition, targetBlock.iterator(), otherIterator, visited);
       }
       // Guard against cycles in the control flow graph.
       return false;
@@ -164,7 +176,10 @@ public class BasicBlockBehavioralSubsumption {
       otherIterator = targetBlock.iterator();
       otherInstruction =
           skipNonDependentInstructionsUntil(
-              otherIterator, conditionValue, this::instructionMayHaveSideEffects);
+              otherIterator,
+              conditionValue,
+              conditionPosition,
+              this::instructionMayHaveSideEffects);
 
       // If following the first goto instruction leads to another goto instruction, then we need to
       // keep track of the set of visited blocks to guard against cycles in the control flow graph.
@@ -188,7 +203,7 @@ public class BasicBlockBehavioralSubsumption {
             || otherSingleTarget.getDefinition().getOptimizationInfo().mayHaveSideEffects()) {
           return false;
         }
-        return isSubsumedBy(conditionValue, iterator, otherIterator, visited);
+        return isSubsumedBy(conditionValue, conditionPosition, iterator, otherIterator, visited);
       }
       return false;
     }

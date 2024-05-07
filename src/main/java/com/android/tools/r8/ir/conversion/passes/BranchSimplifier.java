@@ -137,7 +137,8 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
         // Unable to determine which branch will be taken. Check if the true target can safely be
         // rewritten to the false target.
         if (behavioralSubsumption.isSubsumedBy(
-            theIf.inValues().get(0), theIf.getTrueTarget(), theIf.fallthroughBlock())) {
+            theIf.inValues().get(0), theIf.getPosition(),
+            theIf.getTrueTarget(), theIf.fallthroughBlock())) {
           simplifyIfWithKnownCondition(code, block, theIf, theIf.fallthroughBlock());
           simplified = true;
         }
@@ -837,7 +838,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       if (switchCaseAnalyzer.switchCaseIsUnreachable(theSwitch, switchAbstractValue, i)) {
         eliminator.markSwitchCaseForRemoval(i);
       } else if (behavioralSubsumption.isSubsumedBy(
-          theSwitch.value(), targetBlock, defaultTarget)) {
+          theSwitch.value(), theSwitch.getPosition(), targetBlock, defaultTarget)) {
         eliminator.markSwitchCaseForRemoval(i);
         hasSwitchCaseToDefaultRewrite = true;
       }
