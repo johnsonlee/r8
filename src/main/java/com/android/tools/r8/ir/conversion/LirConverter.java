@@ -30,6 +30,7 @@ import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.RecordInvokeDynamicInvokeCustomRewriter;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.utils.ObjectUtils;
+import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.verticalclassmerging.IncompleteVerticalClassMergerBridgeCode;
@@ -56,7 +57,8 @@ public class LirConverter {
               method -> {
                 assert !method.getDefinition().getCode().hasExplicitCodeLens();
                 IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
-                codeRewriterPassCollection.run(code, null, null, Timing.empty());
+                codeRewriterPassCollection.run(
+                    code, null, null, Timing.empty(), null, appView.options());
                 LirCode<Integer> lirCode =
                     IR2LirConverter.translate(
                         code,
@@ -186,7 +188,11 @@ public class LirConverter {
     IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
     assert irCode.verifyInvokeInterface(appView);
     String previous = IRConverter.printMethodIR(irCode, "IR from LIR", "", appView.options());
-    boolean changed = codeRewriterPassCollection.run(irCode, null, null, onThreadTiming);
+    Pair<Boolean, String> result =
+        codeRewriterPassCollection.run(
+            irCode, null, null, onThreadTiming, previous, appView.options());
+    boolean changed = result.getFirst();
+    previous = result.getSecond();
     if (appView.options().isGeneratingDex() && changed) {
       ConstantCanonicalizer constantCanonicalizer =
           new ConstantCanonicalizer(appView, method, irCode);

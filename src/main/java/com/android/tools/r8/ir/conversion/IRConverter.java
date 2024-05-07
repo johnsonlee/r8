@@ -691,7 +691,8 @@ public class IRConverter {
       timing.end();
     }
 
-    rewriterPassCollection.run(code, methodProcessor, methodProcessingContext, timing);
+    rewriterPassCollection.run(
+        code, methodProcessor, methodProcessingContext, timing, previous, options);
 
     timing.begin("Optimize class initializers");
     ClassInitializerDefaultsResult classInitializerDefaultsResult =
