@@ -59,13 +59,10 @@ public class ProcessKotlinReflectionLibTest extends KotlinTestBase {
         .allowUnusedDontWarnKotlinReflectJvmInternal(kotlinc.isNot(KOTLINC_1_3_72))
         .allowUnusedDontWarnJavaLangClassValue(
             kotlinc.getCompilerVersion().isGreaterThan(KOTLINC_1_7_0))
-        .allowUnusedProguardConfigurationRules(
-            kotlinc.getCompilerVersion().isGreaterThan(KOTLINC_1_3_72))
         .apply(testBuilderConsumer)
         .apply(configureForLibraryWithEmbeddedProguardRules())
         .compile()
-        .apply(compileResultBuilder)
-        .apply(assertUnusedKeepRuleForKotlinMetadata(kotlinc.isNot(KOTLINC_1_3_72)));
+        .apply(compileResultBuilder);
   }
 
   @Test
@@ -99,12 +96,21 @@ public class ProcessKotlinReflectionLibTest extends KotlinTestBase {
 
   @Test
   public void testDontOptimize() throws Exception {
-    test(TestShrinkerBuilder::addDontOptimize);
+    test(
+        b ->
+            b.addDontOptimize()
+                .allowUnusedProguardConfigurationRules(
+                    kotlinc.getCompilerVersion().isGreaterThan(KOTLINC_1_3_72)),
+        assertUnusedKeepRuleForKotlinMetadata(kotlinc.isNot(KOTLINC_1_3_72)));
   }
 
   @Test
   public void testDontObfuscate() throws Exception {
-    test(TestShrinkerBuilder::addDontObfuscate);
+    test(
+        b ->
+            b.addDontObfuscate()
+                .allowUnusedProguardConfigurationRules(
+                    kotlinc.getCompilerVersion().isGreaterThan(KOTLINC_1_3_72)),
+        assertUnusedKeepRuleForKotlinMetadata(kotlinc.isNot(KOTLINC_1_3_72)));
   }
-
 }
