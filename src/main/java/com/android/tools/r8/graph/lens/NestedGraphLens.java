@@ -295,6 +295,6 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
 
   @Override
   public String toString() {
-    return getClass().getTypeName();
+    return getClass().getName();
   }
 }

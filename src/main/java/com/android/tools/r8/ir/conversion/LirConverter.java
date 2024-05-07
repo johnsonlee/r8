@@ -98,7 +98,7 @@ public class LirConverter {
       return;
     }
 
-    timing.begin("LIR->LIR@" + graphLens.getClass().getTypeName());
+    timing.begin("LIR->LIR@" + graphLens.getClass().getName());
     rewriteLirWithUnappliedLens(appView, executorService);
     timing.end();
   }

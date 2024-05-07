@@ -150,7 +150,7 @@ public abstract class Code extends CachedHashValueDexItem {
 
   /** Compute estimatedSizeForInlining() <= threshold. */
   public int getEstimatedSizeForInliningIfLessThanOrEquals(int threshold) {
-    throw new Unreachable(getClass().getTypeName());
+    throw new Unreachable(getClass().getName());
   }
 
   public final boolean estimatedSizeForInliningAtMost(int threshold) {

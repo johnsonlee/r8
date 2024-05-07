@@ -52,7 +52,7 @@ public class ReferencedMembersCollector {
     } else if (code.isThrowNullCode()) {
       // Intentionally empty.
     } else {
-      assert false : code.getClass().getTypeName();
+      assert false : code.getClass().getName();
     }
   }
 
