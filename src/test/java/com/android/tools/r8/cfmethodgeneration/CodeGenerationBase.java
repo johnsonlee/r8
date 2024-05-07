@@ -40,6 +40,12 @@ public abstract class CodeGenerationBase extends TestBase {
         new ProcessBuilder(
             ImmutableList.of(
                 getJavaExecutable(),
+                "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
                 "-jar",
                 GOOGLE_FORMAT_JAR.toString(),
                 tempFile.toAbsolutePath().toString()));
@@ -47,17 +53,11 @@ public abstract class CodeGenerationBase extends TestBase {
     System.out.println(commandString);
     Process process = builder.start();
     ProcessResult result = ToolHelper.drainProcessOutputStreams(process, commandString);
-    String content;
-    if (result.exitCode != 0) {
-      // TODO(b/338309049): Fix the formatting and throw again here.
-      System.out.println("Google formatting failed");
-      System.out.println(result.stderr);
-      System.out.println("Falling back to unformatted code generation");
-      content = String.join("\n", Files.readAllLines(tempFile));
-    } else {
-      content = result.stdout;
+    if (result.exitCode != 0 || !result.stderr.isEmpty()) {
+      throw new IllegalStateException(result.toString());
     }
     // Fix line separators.
+    String content = result.stdout;
     if (!StringUtils.LINE_SEPARATOR.equals("\n")) {
       return content.replace(StringUtils.LINE_SEPARATOR, "\n");
     }
