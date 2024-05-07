@@ -87,6 +87,8 @@ public abstract class DebugTestBase extends TestBase {
   // Set to true to enable verbose logs
   private static final boolean DEBUG_TESTS = false;
 
+  private static final int TIMEOUT_MS = 20000;
+
   public static final StepFilter NO_FILTER = new StepFilter.NoStepFilter();
   public static final StepFilter INTELLIJ_FILTER = new StepFilter.IntelliJStepFilter();
   public static final StepFilter ANDROID_FILTER = new StepFilter.AndroidRuntimeStepFilter();
@@ -1091,6 +1093,10 @@ public abstract class DebugTestBase extends TestBase {
 
           // Set verbosity
           setProperty("jpda.settings.verbose", Boolean.toString(DEBUG_TESTS));
+
+          // Set timeout
+          setProperty("jpda.settings.timeout", Integer.toString(TIMEOUT_MS));
+          setProperty("jpda.settings.waitingTime", Integer.toString(TIMEOUT_MS));
         }
       }
       return new ArtTestOptions(
