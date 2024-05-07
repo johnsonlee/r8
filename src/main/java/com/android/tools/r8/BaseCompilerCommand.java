@@ -751,9 +751,9 @@ public abstract class BaseCompilerCommand extends BaseCommand {
      * rewritten to match the residual application.
      */
     public B addArtProfileForRewriting(
-        ArtProfileProvider artProfileProvider, ArtProfileConsumer residualArtProfileProvider) {
+        ArtProfileProvider artProfileProvider, ArtProfileConsumer residualArtProfileConsumer) {
       return addArtProfileForRewriting(
-          new ArtProfileForRewriting(artProfileProvider, residualArtProfileProvider));
+          new ArtProfileForRewriting(artProfileProvider, residualArtProfileConsumer));
     }
 
     B addArtProfileForRewriting(ArtProfileForRewriting artProfileForRewriting) {
