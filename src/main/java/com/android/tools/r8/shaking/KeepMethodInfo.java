@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 
 /** Immutable keep requirements for a method. */
 public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepMethodInfo> {
@@ -71,11 +73,17 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return this;
   }
 
-  public boolean isParameterAnnotationRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
-    assert internalParameterAnnotationsInfo().isTop()
-        || internalParameterAnnotationsInfo().isBottom();
-    return configuration.isAnnotationRemovalEnabled()
-        && internalParameterAnnotationsInfo().isBottom();
+  public boolean isParameterAnnotationRemovalAllowed(
+      GlobalKeepInfoConfiguration configuration,
+      DexAnnotation annotation,
+      boolean isAnnotationTypeLive) {
+    return internalIsAnnotationRemovalAllowed(
+        configuration,
+        annotation,
+        isAnnotationTypeLive,
+        internalParameterAnnotationsInfo(),
+        configuration.isKeepRuntimeVisibleParameterAnnotationsEnabled(),
+        configuration.isKeepRuntimeInvisibleParameterAnnotationsEnabled());
   }
 
   KeepAnnotationCollectionInfo internalParameterAnnotationsInfo() {
@@ -536,6 +544,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
+    public Builder disallowParameterAnnotationsRemoval(RetentionInfo retention) {
+      parameterAnnotationsInfo.joinAnyTypeInfo(retention);
+      return self();
+    }
+
     @Override
     public Builder self() {
       return this;
@@ -700,6 +713,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     public Joiner disallowParameterAnnotationsRemoval() {
       builder.disallowParameterAnnotationsRemoval();
+      return self();
+    }
+
+    public Joiner disallowParameterAnnotationsRemoval(RetentionInfo retention) {
+      builder.disallowParameterAnnotationsRemoval(retention);
       return self();
     }
 

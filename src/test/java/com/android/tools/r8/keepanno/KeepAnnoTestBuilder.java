@@ -203,12 +203,6 @@ public abstract class KeepAnnoTestBuilder {
         return this;
       }
       enableNative = true;
-      // TODO(b/323816623): The compiler assumes that this is known prior to tracing.
-      //   We should update the compiler to always read annotations and only remove them after
-      //   initial tracing regardless of -keepattributes.
-      builder.addKeepRuntimeVisibleAnnotations();
-      builder.addKeepRuntimeInvisibleAnnotations();
-
       // This enables native interpretation of all keep annotations.
       builder.addOptionsModification(
           o -> {

@@ -61,6 +61,7 @@ import com.android.tools.r8.shaking.DelayedRootSetActionItem.InterfaceMethodSynt
 import com.android.tools.r8.shaking.EnqueuerEvent.InstantiatedClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.UnconditionalKeepInfoEvent;
+import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -145,6 +146,12 @@ public class RootSetUtils {
     private final ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse =
         ProgramMethodMap.create();
 
+    // Pre-computed global configuration options.
+    private final ProguardKeepAttributes attributesConfig;
+    private final RetentionInfo annotationRetention;
+    private final RetentionInfo typeAnnotationRetention;
+    private final RetentionInfo methodAnnotationRetention;
+
     private RootSetBuilder(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         RootSetBuilderEventConsumer eventConsumer,
@@ -160,6 +167,22 @@ public class RootSetUtils {
           options.isInterfaceMethodDesugaringEnabled()
               ? new InterfaceDesugaringSyntheticHelper(appView)
               : null;
+      attributesConfig =
+          options.getProguardConfiguration() != null
+              ? options.getProguardConfiguration().getKeepAttributes()
+              : ProguardKeepAttributes.fromPatterns(ProguardKeepAttributes.KEEP_ALL);
+      annotationRetention =
+          getRetentionFromAttributeConfig(
+              attributesConfig.runtimeVisibleAnnotations,
+              attributesConfig.runtimeInvisibleAnnotations);
+      typeAnnotationRetention =
+          getRetentionFromAttributeConfig(
+              attributesConfig.runtimeVisibleTypeAnnotations,
+              attributesConfig.runtimeInvisibleTypeAnnotations);
+      methodAnnotationRetention =
+          getRetentionFromAttributeConfig(
+              attributesConfig.runtimeVisibleParameterAnnotations,
+              attributesConfig.runtimeInvisibleParameterAnnotations);
     }
 
     private RootSetBuilder(
@@ -1583,11 +1606,6 @@ public class RootSetUtils {
         preconditionEvent = UnconditionalKeepInfoEvent.get();
       }
 
-      ProguardKeepAttributes attributesConfig =
-          options.getProguardConfiguration() != null
-              ? options.getProguardConfiguration().getKeepAttributes()
-              : ProguardKeepAttributes.fromPatterns(ProguardKeepAttributes.KEEP_ALL);
-
       if (isInterfaceMethodNeedingDesugaring(item)) {
         ProgramMethod method = item.asMethod();
         ProgramMethod companion =
@@ -1622,15 +1640,25 @@ public class RootSetUtils {
         context.markAsUsed();
       }
 
-      if (appView.options().isAnnotationRemovalEnabled() && !modifiers.allowsAnnotationRemoval) {
-        Joiner<?, ?, ?> joiner =
-            dependentMinimumKeepInfo
-                .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-                .disallowAnnotationRemoval()
-                .disallowTypeAnnotationRemoval();
-        KeepMethodInfo.Joiner methodJoiner = joiner.asMethodJoiner();
-        if (methodJoiner != null) {
-          methodJoiner.disallowParameterAnnotationsRemoval();
+      // In compatibility mode the keep-info predicates will disable removal for keep attributes.
+      if (!options.isForceProguardCompatibilityEnabled()
+          && options.isShrinking()
+          && !modifiers.allowsAnnotationRemoval) {
+        if (!annotationRetention.isNone()
+            || !typeAnnotationRetention.isNone()
+            || (item.isMethod() && !methodAnnotationRetention.isNone())) {
+          Joiner<?, ?, ?> joiner =
+              dependentMinimumKeepInfo.getOrCreateMinimumKeepInfoFor(
+                  preconditionEvent, item.getReference());
+          if (!annotationRetention.isNone()) {
+            joiner.disallowAnnotationRemoval(annotationRetention);
+          }
+          if (!typeAnnotationRetention.isNone()) {
+            joiner.disallowTypeAnnotationRemoval(typeAnnotationRetention);
+          }
+          if (item.isMethod() && !methodAnnotationRetention.isNone()) {
+            joiner.asMethodJoiner().disallowParameterAnnotationsRemoval(methodAnnotationRetention);
+          }
         }
         context.markAsUsed();
       }
@@ -1649,10 +1677,13 @@ public class RootSetUtils {
         context.markAsUsed();
       }
 
-      if (appView.options().isRepackagingEnabled() && isRepackagingDisallowed(item, modifiers)) {
+      if (appView.options().isRepackagingEnabled()
+          && item.isProgramClass()
+          && isRepackagingDisallowed(item, modifiers)) {
         dependentMinimumKeepInfo
             .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .applyIf(item.isProgramClass(), joiner -> joiner.asClassJoiner().disallowRepackaging());
+            .asClassJoiner()
+            .disallowRepackaging();
         context.markAsUsed();
       }
 
@@ -1687,6 +1718,19 @@ public class RootSetUtils {
             .disallowPermittedSubclassesRemoval();
         context.markAsUsed();
       }
+    }
+
+    private RetentionInfo getRetentionFromAttributeConfig(boolean visible, boolean invisible) {
+      if (visible && invisible) {
+        return RetentionInfo.getRetainAll();
+      }
+      if (visible) {
+        return RetentionInfo.getRetainVisible();
+      }
+      if (invisible) {
+        return RetentionInfo.getRetainInvisible();
+      }
+      return RetentionInfo.getRetainNone();
     }
 
     private boolean isRepackagingDisallowed(
@@ -1874,6 +1918,9 @@ public class RootSetUtils {
     }
 
     public void checkAllRulesAreUsed(InternalOptions options) {
+      if (!options.isShrinking()) {
+        return;
+      }
       List<ProguardConfigurationRule> rules = options.getProguardConfiguration().getRules();
       if (rules == null) {
         return;

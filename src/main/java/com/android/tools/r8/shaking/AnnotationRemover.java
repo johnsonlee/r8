@@ -129,26 +129,8 @@ public class AnnotationRemover {
             && shouldRetainRetentionAnnotationOnAnnotationClass(annotation, dexItemFactory)) {
           return true;
         }
-
-        if (kind.isParameter()) {
-          KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
-          if (methodInfo == null || !options.isKeepRuntimeVisibleParameterAnnotationsEnabled()) {
-            return false;
-          }
-          return !methodInfo.isParameterAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
-        }
-
-        if (annotation.isTypeAnnotation()) {
-          if (!options.isKeepRuntimeVisibleTypeAnnotationsEnabled()) {
-            return false;
-          }
-          return !keepInfo.isTypeAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
-        }
-
-        if (!options.isKeepRuntimeVisibleAnnotationsEnabled()) {
-          return false;
-        }
-        return !keepInfo.isAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+        return shouldKeepNormalAnnotation(
+            annotation, isAnnotationTypeLive, kind, keepInfo, options);
 
       case DexAnnotation.VISIBILITY_BUILD:
         if (annotation
@@ -160,29 +142,30 @@ public class AnnotationRemover {
         if (isComposableAnnotationToRetain(appView, annotation, kind, mode, options)) {
           return true;
         }
-        if (kind.isParameter()) {
-          KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
-          if (methodInfo == null || !options.isKeepRuntimeInvisibleParameterAnnotationsEnabled()) {
-            return false;
-          }
-          return !methodInfo.isParameterAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
-        }
-
-        if (annotation.isTypeAnnotation()) {
-          if (!options.isKeepRuntimeInvisibleTypeAnnotationsEnabled()) {
-            return false;
-          }
-          return !keepInfo.isTypeAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
-        }
-
-        if (!options.isKeepRuntimeInvisibleAnnotationsEnabled()) {
-          return false;
-        }
-        return !keepInfo.isAnnotationRemovalAllowed(options) && isAnnotationTypeLive;
+        return shouldKeepNormalAnnotation(
+            annotation, isAnnotationTypeLive, kind, keepInfo, options);
 
       default:
         throw new Unreachable("Unexpected annotation visibility.");
     }
+  }
+
+  private static boolean shouldKeepNormalAnnotation(
+      DexAnnotation annotation,
+      boolean isAnnotationTypeLive,
+      AnnotatedKind kind,
+      KeepInfo<?, ?> keepInfo,
+      InternalOptions options) {
+    if (kind.isParameter()) {
+      KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
+      return methodInfo != null
+          && !methodInfo.isParameterAnnotationRemovalAllowed(
+              options, annotation, isAnnotationTypeLive);
+    }
+    if (annotation.isTypeAnnotation()) {
+      return !keepInfo.isTypeAnnotationRemovalAllowed(options, annotation, isAnnotationTypeLive);
+    }
+    return !keepInfo.isAnnotationRemovalAllowed(options, annotation, isAnnotationTypeLive);
   }
 
   private boolean isAnnotationTypeLive(DexAnnotation annotation) {

@@ -103,10 +103,13 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
 
   public boolean isKotlinMetadataRemovalAllowed(
       GlobalKeepInfoConfiguration configuration, boolean kotlinMetadataKept) {
+    // TODO(b/323816623): Refactor this predicate so that the PG attribute config does not
+    //  overrule keep info and also so that it specifically checks the kotlin metadata annotation.
     return !kotlinMetadataKept
         || !isPinned(configuration)
         || !configuration.isKeepRuntimeVisibleAnnotationsEnabled()
-        || isAnnotationRemovalAllowed(configuration);
+        || (!configuration.isForceProguardCompatibilityEnabled()
+            && internalAnnotationsInfo().isBottom());
   }
 
   public static boolean isKotlinMetadataClassKept(

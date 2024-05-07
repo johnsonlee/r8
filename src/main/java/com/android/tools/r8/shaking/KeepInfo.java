@@ -4,8 +4,10 @@
 package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Builder;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
 import com.android.tools.r8.utils.InternalOptions;
@@ -74,20 +76,57 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     return null;
   }
 
-  /**
-   * True if an item may have all of its annotations removed.
-   *
-   * <p>If this returns false, some annotations may still be removed if the configuration does not
-   * keep all annotation attributes.
-   */
-  public boolean isAnnotationRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
-    assert internalAnnotationsInfo().isTop() || internalAnnotationsInfo().isBottom();
-    return configuration.isAnnotationRemovalEnabled() && internalAnnotationsInfo().isBottom();
+  static boolean internalIsAnnotationRemovalAllowed(
+      GlobalKeepInfoConfiguration configuration,
+      DexAnnotation annotation,
+      boolean isAnnotationTypeLive,
+      KeepAnnotationCollectionInfo keepAnnotationInfo,
+      boolean compatKeepVisible,
+      boolean compatKeepInvisible) {
+    // In all cases the annotation type must be live for references to it to be kept.
+    if (!isAnnotationTypeLive) {
+      return true;
+    }
+    // If the keep info specifies the item as keeping its annotations then it must be kept.
+    if (!keepAnnotationInfo.isRemovalAllowed(annotation)) {
+      return false;
+    }
+    // In compatibility mode, annotations are globally kept if live and the attribute is kept.
+    if (configuration.isForceProguardCompatibilityEnabled()) {
+      if (annotation.getVisibility() == DexAnnotation.VISIBILITY_RUNTIME) {
+        return !compatKeepVisible;
+      }
+      if (annotation.getVisibility() == DexAnnotation.VISIBILITY_BUILD) {
+        return !compatKeepInvisible;
+      }
+    }
+    return true;
   }
 
-  public boolean isTypeAnnotationRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
-    assert internalTypeAnnotationsInfo().isTop() || internalTypeAnnotationsInfo().isBottom();
-    return configuration.isAnnotationRemovalEnabled() && internalTypeAnnotationsInfo().isBottom();
+  public boolean isAnnotationRemovalAllowed(
+      GlobalKeepInfoConfiguration configuration,
+      DexAnnotation annotation,
+      boolean isAnnotationTypeLive) {
+    return internalIsAnnotationRemovalAllowed(
+        configuration,
+        annotation,
+        isAnnotationTypeLive,
+        internalAnnotationsInfo(),
+        configuration.isKeepRuntimeVisibleAnnotationsEnabled(),
+        configuration.isKeepRuntimeInvisibleAnnotationsEnabled());
+  }
+
+  public boolean isTypeAnnotationRemovalAllowed(
+      GlobalKeepInfoConfiguration configuration,
+      DexAnnotation annotation,
+      boolean isAnnotationTypeLive) {
+    return internalIsAnnotationRemovalAllowed(
+        configuration,
+        annotation,
+        isAnnotationTypeLive,
+        internalTypeAnnotationsInfo(),
+        configuration.isKeepRuntimeVisibleTypeAnnotationsEnabled(),
+        configuration.isKeepRuntimeInvisibleTypeAnnotationsEnabled());
   }
 
   KeepAnnotationCollectionInfo internalAnnotationsInfo() {
@@ -248,8 +287,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && (allowShrinking || !other.internalIsShrinkingAllowed())
         && (allowSignatureRemoval || !other.internalIsSignatureRemovalAllowed())
         && (!checkDiscarded || other.internalIsCheckDiscardedEnabled())
-        && annotationsInfo.isLessThanOrEquals(other.internalAnnotationsInfo())
-        && typeAnnotationsInfo.isLessThanOrEquals(other.internalTypeAnnotationsInfo());
+        && annotationsInfo.isLessThanOrEqualTo(other.internalAnnotationsInfo())
+        && typeAnnotationsInfo.isLessThanOrEqualTo(other.internalTypeAnnotationsInfo());
   }
 
   /** Builder to construct an arbitrary keep info object. */
@@ -470,6 +509,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
     }
 
+    public B disallowAnnotationRemoval(RetentionInfo retention) {
+      annotationsInfo.joinAnyTypeInfo(retention);
+      return self();
+    }
+
     KeepAnnotationCollectionInfo.Builder getTypeAnnotationsInfo() {
       return typeAnnotationsInfo;
     }
@@ -485,6 +529,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
 
     public B disallowTypeAnnotationRemoval() {
       return setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
+    }
+
+    public B disallowTypeAnnotationRemoval(RetentionInfo retention) {
+      typeAnnotationsInfo.joinAnyTypeInfo(retention);
+      return self();
     }
 
     private B setAllowSignatureRemoval(boolean allowSignatureRemoval) {
@@ -613,13 +662,13 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
-    public J disallowAnnotationRemoval() {
-      builder.disallowAnnotationRemoval();
+    public J disallowAnnotationRemoval(RetentionInfo retention) {
+      builder.disallowAnnotationRemoval(retention);
       return self();
     }
 
-    public J disallowTypeAnnotationRemoval() {
-      builder.disallowTypeAnnotationRemoval();
+    public J disallowTypeAnnotationRemoval(RetentionInfo retention) {
+      builder.disallowTypeAnnotationRemoval(retention);
       return self();
     }
 

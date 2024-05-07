@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMember;
+import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
@@ -36,6 +37,7 @@ import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
+import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
 import com.android.tools.r8.threading.ThreadingModule;
@@ -182,7 +184,26 @@ public class KeepAnnotationMatcher {
 
           @Override
           public void onAnnotation(Annotation constraint) {
-            joiner.disallowAnnotationRemoval();
+            KeepAnnotationPattern pattern = constraint.asAnnotationPattern();
+            if (pattern.getNamePattern().isAny()) {
+              joiner.disallowAnnotationRemoval(toRetentionInfo(pattern));
+            } else {
+              // TODO(b/319474935): Add to the type specific keep info.
+              joiner.disallowAnnotationRemoval(toRetentionInfo(pattern));
+            }
+          }
+
+          private RetentionInfo toRetentionInfo(KeepAnnotationPattern pattern) {
+            if (pattern.includesRuntimeRetention() && pattern.includesClassRetention()) {
+              return RetentionInfo.getRetainAll();
+            }
+            if (pattern.includesRuntimeRetention()) {
+              return RetentionInfo.getRetainVisible();
+            }
+            if (pattern.includesClassRetention()) {
+              return RetentionInfo.getRetainInvisible();
+            }
+            return RetentionInfo.getRetainNone();
           }
         });
   }

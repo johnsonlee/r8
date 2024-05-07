@@ -2511,14 +2511,9 @@ public class Enqueuer {
       assert mode.isInitialTreeShaking();
       return true;
     }
+    KeepInfo<?, ?> itemKeepInfo = keepInfo.getInfo(annotatedItem);
     return AnnotationRemover.shouldKeepAnnotation(
-        appView,
-        annotatedItem,
-        annotation,
-        isLive,
-        annotatedKind,
-        mode,
-        keepInfo.getInfo(annotatedItem));
+        appView, annotatedItem, annotation, isLive, annotatedKind, mode, itemKeepInfo);
   }
 
   private DexClass resolveBaseType(DexType type, ProgramDefinition context) {
