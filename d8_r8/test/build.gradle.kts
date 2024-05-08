@@ -56,27 +56,11 @@ tasks {
     dependsOn(gradle.includedBuild("tests_java_22").task(":clean"))
   }
 
-  // TODO(b/337801526): Enable for all runtimes
-  fun runBootstrapTests() : Boolean {
-    val enabled = listOf("dex-default", "dex-8.1.0", "dex-13.0.0", "dex-12.0.0",
-                         "dex-10.0.0", "dex-9.0.0", "dex-7.0.0")
-    if (project.hasProperty("runtimes")) {
-      for (doRun : String in enabled) {
-        if (project.property("runtimes").toString().contains(doRun)) {
-          return true
-        }
-      }
-    }
-    return false
-  }
-
   val packageTests by registering(Jar::class) {
     dependsOn(java8TestJarTask)
     dependsOn(bootstrapTestJarTask)
     from(java8TestJarTask.outputs.files.map(::zipTree))
-    if (runBootstrapTests()) {
-      from(bootstrapTestJarTask.outputs.files.map(::zipTree))
-    }
+    from(bootstrapTestJarTask.outputs.files.map(::zipTree))
     exclude("META-INF/*.kotlin_module", "**/*.kotlin_metadata")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
     archiveFileName.set("r8tests.jar")
