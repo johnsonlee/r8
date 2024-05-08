@@ -196,11 +196,16 @@ public class ProtoReferences {
     return isDynamicMethodBridge(method.getReference());
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public boolean isFindLiteExtensionByNumberMethod(DexMethod method) {
-    return method.proto == findLiteExtensionByNumberProto
-        && method.name.startsWith(findLiteExtensionByNumberName)
-        && method.holder != extensionRegistryLiteType;
+    return method.getProto().isIdenticalTo(findLiteExtensionByNumberProto)
+        && method.getName().startsWith(findLiteExtensionByNumberName)
+        && method.getHolderType().isNotIdenticalTo(extensionRegistryLiteType);
+  }
+
+  public boolean isFindLiteExtensionByNumberBridgeMethod(DexMethod method) {
+    return method.getProto().isIdenticalTo(findLiteExtensionByNumberProto)
+        && method.getName().startsWith(findLiteExtensionByNumberName)
+        && method.getHolderType().isIdenticalTo(extensionRegistryLiteType);
   }
 
   public boolean isFindLiteExtensionByNumberMethod(ProgramMethod method) {

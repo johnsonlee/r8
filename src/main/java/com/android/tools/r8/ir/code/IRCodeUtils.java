@@ -6,14 +6,14 @@ package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.utils.DequeUtils;
+import com.android.tools.r8.utils.collections.ProgramFieldMap;
+import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.IdentityHashMap;
-import java.util.Map;
 import java.util.Set;
 
 public class IRCodeUtils {
@@ -44,15 +44,12 @@ public class IRCodeUtils {
    * Finds the single assignment to the fields in {@param fields} in {@param code}. Note that this
    * does not guarantee that the assignments found dominate all the normal exits.
    */
-  public static Map<DexEncodedField, StaticPut> findUniqueStaticPuts(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      IRCode code,
-      Set<DexEncodedField> fields) {
-    Set<DexEncodedField> writtenMoreThanOnce = Sets.newIdentityHashSet();
-    Map<DexEncodedField, StaticPut> uniqueStaticPuts = new IdentityHashMap<>();
+  public static ProgramFieldMap<StaticPut> findUniqueStaticPuts(
+      AppView<? extends AppInfoWithClassHierarchy> appView, IRCode code, ProgramFieldSet fields) {
+    ProgramFieldSet writtenMoreThanOnce = ProgramFieldSet.create();
+    ProgramFieldMap<StaticPut> uniqueStaticPuts = ProgramFieldMap.create();
     for (StaticPut staticPut : code.<StaticPut>instructions(Instruction::isStaticPut)) {
-      DexEncodedField field =
-          appView.appInfo().resolveField(staticPut.getField()).getResolvedField();
+      ProgramField field = appView.appInfo().resolveField(staticPut.getField()).getProgramField();
       if (field == null || !fields.contains(field) || writtenMoreThanOnce.contains(field)) {
         continue;
       }
