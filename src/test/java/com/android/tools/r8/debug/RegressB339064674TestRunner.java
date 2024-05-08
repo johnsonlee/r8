@@ -66,9 +66,6 @@ public class RegressB339064674TestRunner extends DebugTestBase {
   }
 
   public void runDebugger(DebugTestConfig config) throws Throwable {
-    // The test ensures that when breaking inside a function and changing a local in the parent
-    // frame, that the new value is passed to the second invocation of the function.
-    // This ensures that no peephole optimizations will optimize if there is any debug information.
     runDebugTest(
         config,
         NAME,
