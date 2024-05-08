@@ -66,6 +66,7 @@ import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.OriginWithPosition;
 import com.android.tools.r8.utils.PredicateSet;
@@ -1613,18 +1614,20 @@ public class RootSetUtils {
                 method, eventConsumer);
         // Add the method to the inverse map as tracing will now directly target the CC method.
         pendingMethodMoveInverse.put(companion, method);
+
+        LazyBox<Joiner<?, ?, ?>> companionJoiner =
+            new LazyBox<>(
+                () ->
+                    dependentMinimumKeepInfo.getOrCreateMinimumKeepInfoFor(
+                        preconditionEvent, companion.getReference()));
+
         // Only shrinking and optimization are transferred for interface companion methods.
         if (appView.options().isOptimizationEnabled() && !modifiers.allowsOptimization) {
-          dependentMinimumKeepInfo
-              .getOrCreateMinimumKeepInfoFor(preconditionEvent, companion.getReference())
-              .disallowOptimization();
+          companionJoiner.computeIfAbsent().disallowOptimization();
           context.markAsUsed();
         }
         if (appView.options().isShrinking() && !modifiers.allowsShrinking) {
-          dependentMinimumKeepInfo
-              .getOrCreateMinimumKeepInfoFor(preconditionEvent, companion.getReference())
-              .addRule(keepRule)
-              .disallowShrinking();
+          companionJoiner.computeIfAbsent().addRule(keepRule).disallowShrinking();
           context.markAsUsed();
         }
         if (!item.asMethod().isDefaultMethod()) {
@@ -1633,10 +1636,15 @@ public class RootSetUtils {
         }
       }
 
+      // Memoize the joiner to avoid repeated lookups and to validate it as non-bottom if set.
+      LazyBox<Joiner<?, ?, ?>> itemJoiner =
+          new LazyBox<>(
+              () ->
+                  dependentMinimumKeepInfo.getOrCreateMinimumKeepInfoFor(
+                      preconditionEvent, item.getReference()));
+
       if (appView.options().isAccessModificationEnabled() && !modifiers.allowsAccessModification) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .disallowAccessModification();
+        itemJoiner.computeIfAbsent().disallowAccessModification();
         context.markAsUsed();
       }
 
@@ -1644,63 +1652,47 @@ public class RootSetUtils {
       if (!options.isForceProguardCompatibilityEnabled()
           && options.isShrinking()
           && !modifiers.allowsAnnotationRemoval) {
-        if (!annotationRetention.isNone()
-            || !typeAnnotationRetention.isNone()
-            || (item.isMethod() && !methodAnnotationRetention.isNone())) {
-          Joiner<?, ?, ?> joiner =
-              dependentMinimumKeepInfo.getOrCreateMinimumKeepInfoFor(
-                  preconditionEvent, item.getReference());
-          if (!annotationRetention.isNone()) {
-            joiner.disallowAnnotationRemoval(annotationRetention);
-          }
-          if (!typeAnnotationRetention.isNone()) {
-            joiner.disallowTypeAnnotationRemoval(typeAnnotationRetention);
-          }
-          if (item.isMethod() && !methodAnnotationRetention.isNone()) {
-            joiner.asMethodJoiner().disallowParameterAnnotationsRemoval(methodAnnotationRetention);
-          }
+        if (!annotationRetention.isNone()) {
+          itemJoiner.computeIfAbsent().disallowAnnotationRemoval(annotationRetention);
         }
+        if (!typeAnnotationRetention.isNone()) {
+          itemJoiner.computeIfAbsent().disallowTypeAnnotationRemoval(typeAnnotationRetention);
+        }
+        if (item.isMethod() && !methodAnnotationRetention.isNone()) {
+          itemJoiner
+              .computeIfAbsent()
+              .asMethodJoiner()
+              .disallowParameterAnnotationsRemoval(methodAnnotationRetention);
+        }
+        // Mark used regardless of which retention attributes are kept.
         context.markAsUsed();
       }
 
       if (attributesConfig.signature) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .disallowSignatureRemoval();
+        itemJoiner.computeIfAbsent().disallowSignatureRemoval();
         context.markAsUsed();
       }
 
       if (appView.options().isMinificationEnabled() && !modifiers.allowsObfuscation) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .disallowMinification();
+        itemJoiner.computeIfAbsent().disallowMinification();
         context.markAsUsed();
       }
 
       if (appView.options().isRepackagingEnabled()
           && item.isProgramClass()
           && isRepackagingDisallowed(item, modifiers)) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .asClassJoiner()
-            .disallowRepackaging();
+        itemJoiner.computeIfAbsent().asClassJoiner().disallowRepackaging();
         context.markAsUsed();
       }
 
       if (appView.options().isOptimizationEnabled() && !modifiers.allowsOptimization) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .disallowOptimization();
+        itemJoiner.computeIfAbsent().disallowOptimization();
         context.markAsUsed();
       }
 
       if ((appView.options().isShrinking() || isMainDexRootSetBuilder())
           && !modifiers.allowsShrinking) {
-        KeepInfo.Joiner<?, ?, ?> minimumKeepInfoForItem =
-            dependentMinimumKeepInfo
-                .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-                .addRule(keepRule)
-                .disallowShrinking();
+        itemJoiner.computeIfAbsent().addRule(keepRule).disallowShrinking();
         context.markAsUsed();
       }
 
@@ -1712,12 +1704,11 @@ public class RootSetUtils {
       if (item.isProgramClass()
           && appView.options().isKeepPermittedSubclassesEnabled()
           && !modifiers.allowsPermittedSubclassesRemoval) {
-        dependentMinimumKeepInfo
-            .getOrCreateMinimumKeepInfoFor(preconditionEvent, item.getReference())
-            .asClassJoiner()
-            .disallowPermittedSubclassesRemoval();
+        itemJoiner.computeIfAbsent().asClassJoiner().disallowPermittedSubclassesRemoval();
         context.markAsUsed();
       }
+
+      assert !itemJoiner.isSet() || !itemJoiner.computeIfAbsent().isBottom();
     }
 
     private RetentionInfo getRetentionFromAttributeConfig(boolean visible, boolean invisible) {
