@@ -54,6 +54,7 @@ public class SyntheticNaming {
   // Locally generated synthetic classes.
   public final SyntheticKind LAMBDA = generator.forInstanceClass("Lambda");
   public final SyntheticKind THREAD_LOCAL = generator.forInstanceClass("ThreadLocal");
+  public final SyntheticKind TYPE_SWITCH_CLASS = generator.forInstanceClass("TypeSwitch");
 
   // Merging not permitted since this could defeat the purpose of the synthetic class.
   public final SyntheticKind SHARED_SUPER_CLASS =

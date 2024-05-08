@@ -4,9 +4,12 @@
 
 package com.android.tools.r8.ir.desugar.typeswitch;
 
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface TypeSwitchDesugaringEventConsumer {
 
   void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context);
+
+  void acceptTypeSwitchClass(DexProgramClass typeSwitchClass, ProgramMethod context);
 }

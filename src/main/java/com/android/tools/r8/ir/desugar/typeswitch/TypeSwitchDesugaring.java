@@ -22,10 +22,12 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
@@ -38,12 +40,14 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
+import com.android.tools.r8.ir.desugar.LocalStackAllocator;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicReference;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import org.objectweb.asm.Opcodes;
 
 public class TypeSwitchDesugaring implements CfInstructionDesugaring {
@@ -166,15 +170,14 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                   theContext,
                   methodProcessingContext,
                   desugaringCollection,
-                  dexItemFactory) -> {
-                // We add on stack (2) array, (3) dupped array, (4) index, (5) value.
-                localStackAllocator.allocateLocalStack(4);
-                List<CfInstruction> cfInstructions =
-                    generateTypeSwitchLoadArguments(callSite, context);
-                generateInvokeToDesugaredMethod(
-                    methodProcessingContext, cfInstructions, theContext, eventConsumer);
-                return cfInstructions;
-              })
+                  dexItemFactory) ->
+                  genSwitchMethod(
+                      localStackAllocator,
+                      eventConsumer,
+                      theContext,
+                      methodProcessingContext,
+                      cfInstructions ->
+                          generateTypeSwitchLoadArguments(cfInstructions, callSite, context)))
           .build();
     }
     if (callSite.methodName.isIdenticalTo(enumSwitchMethod.getName())
@@ -191,18 +194,43 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                   theContext,
                   methodProcessingContext,
                   desugaringCollection,
-                  dexItemFactory) -> {
-                // We add on stack (2) array, (3) dupped array, (4) index, (5) value.
-                localStackAllocator.allocateLocalStack(4);
-                List<CfInstruction> cfInstructions =
-                    generateEnumSwitchLoadArguments(callSite, context, enumType);
-                generateInvokeToDesugaredMethod(
-                    methodProcessingContext, cfInstructions, theContext, eventConsumer);
-                return cfInstructions;
-              })
+                  dexItemFactory) ->
+                  genSwitchMethod(
+                      localStackAllocator,
+                      eventConsumer,
+                      theContext,
+                      methodProcessingContext,
+                      cfInstructions ->
+                          generateEnumSwitchLoadArguments(
+                              cfInstructions, callSite, context, enumType)))
           .build();
     }
     return DesugarDescription.nothing();
+  }
+
+  private List<CfInstruction> genSwitchMethod(
+      LocalStackAllocator localStackAllocator,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramMethod theContext,
+      MethodProcessingContext methodProcessingContext,
+      Consumer<List<CfInstruction>> generator) {
+    localStackAllocator.allocateLocalStack(3);
+    DexProgramClass clazz =
+        appView
+            .getSyntheticItems()
+            .createClass(
+                kinds -> kinds.TYPE_SWITCH_CLASS,
+                methodProcessingContext.createUniqueContext(),
+                appView,
+                builder -> new SwitchHelperGenerator(builder, appView, generator));
+    eventConsumer.acceptTypeSwitchClass(clazz, theContext);
+    List<CfInstruction> cfInstructions = new ArrayList<>();
+    Iterator<DexEncodedMethod> iter = clazz.methods().iterator();
+    cfInstructions.add(new CfInvoke(Opcodes.INVOKESTATIC, iter.next().getReference(), false));
+    assert !iter.hasNext();
+    generateInvokeToDesugaredMethod(
+        cfInstructions, methodProcessingContext, theContext, eventConsumer);
+    return cfInstructions;
   }
 
   private boolean isEnumSwitchProto(DexProto methodProto) {
@@ -212,8 +240,8 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
   }
 
   private void generateInvokeToDesugaredMethod(
-      MethodProcessingContext methodProcessingContext,
       List<CfInstruction> cfInstructions,
+      MethodProcessingContext methodProcessingContext,
       ProgramMethod context,
       CfInstructionDesugaringEventConsumer eventConsumer) {
     ProgramMethod method =
@@ -244,10 +272,14 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
   }
 
   private List<CfInstruction> generateEnumSwitchLoadArguments(
-      DexCallSite callSite, ProgramMethod context, DexType enumType) {
+      List<CfInstruction> cfInstructions,
+      DexCallSite callSite,
+      ProgramMethod context,
+      DexType enumType) {
     return generateSwitchLoadArguments(
+        cfInstructions,
         callSite,
-        (bootstrapArg, cfInstructions) -> {
+        bootstrapArg -> {
           if (bootstrapArg.isDexValueType()) {
             cfInstructions.add(new CfConstClass(bootstrapArg.asDexValueType().getValue()));
           } else if (bootstrapArg.isDexValueString()) {
@@ -262,10 +294,11 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
   }
 
   private List<CfInstruction> generateTypeSwitchLoadArguments(
-      DexCallSite callSite, ProgramMethod context) {
+      List<CfInstruction> cfInstructions, DexCallSite callSite, ProgramMethod context) {
     return generateSwitchLoadArguments(
+        cfInstructions,
         callSite,
-        (bootstrapArg, cfInstructions) -> {
+        bootstrapArg -> {
           if (bootstrapArg.isDexValueType()) {
             cfInstructions.add(new CfConstClass(bootstrapArg.asDexValueType().getValue()));
           } else if (bootstrapArg.isDexValueInt()) {
@@ -286,18 +319,17 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
   }
 
   private List<CfInstruction> generateSwitchLoadArguments(
-      DexCallSite callSite, BiConsumer<DexValue, List<CfInstruction>> adder) {
+      List<CfInstruction> cfInstructions, DexCallSite callSite, Consumer<DexValue> adder) {
     // We need to call the method with the bootstrap args as parameters.
     // We need to convert the bootstrap args into a list of cf instructions.
     // The object and the int are already pushed on stack, we simply need to push the extra array.
-    List<CfInstruction> cfInstructions = new ArrayList<>();
     cfInstructions.add(new CfConstNumber(callSite.bootstrapArgs.size(), ValueType.INT));
     cfInstructions.add(new CfNewArray(factory.objectArrayType));
     for (int i = 0; i < callSite.bootstrapArgs.size(); i++) {
       DexValue bootstrapArg = callSite.bootstrapArgs.get(i);
       cfInstructions.add(new CfStackInstruction(Opcode.Dup));
       cfInstructions.add(new CfConstNumber(i, ValueType.INT));
-      adder.accept(bootstrapArg, cfInstructions);
+      adder.accept(bootstrapArg);
       cfInstructions.add(new CfArrayStore(MemberType.OBJECT));
     }
     return cfInstructions;

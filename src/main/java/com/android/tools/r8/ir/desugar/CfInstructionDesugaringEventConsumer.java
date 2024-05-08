@@ -187,6 +187,15 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptTypeSwitchClass(DexProgramClass typeSwitchClass, ProgramMethod context) {
+      typeSwitchClass
+          .programMethods()
+          .forEach(
+              method ->
+                  methodProcessor.scheduleMethodForProcessing(method, outermostEventConsumer));
+    }
+
+    @Override
     public void acceptBackportedClass(DexProgramClass backportedClass, ProgramMethod context) {
       backportedClass
           .programMethods()
@@ -652,6 +661,11 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context) {
+      // Intentionally empty. The method will be hit by tracing if required.
+    }
+
+    @Override
+    public void acceptTypeSwitchClass(DexProgramClass typeSwitchClass, ProgramMethod context) {
       // Intentionally empty. The method will be hit by tracing if required.
     }
 

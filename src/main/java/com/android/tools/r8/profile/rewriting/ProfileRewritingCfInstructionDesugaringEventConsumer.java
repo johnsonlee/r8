@@ -74,6 +74,17 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   }
 
   @Override
+  public void acceptTypeSwitchClass(DexProgramClass typeSwitchClass, ProgramMethod context) {
+    additionsCollection.applyIfContextIsInProfile(
+        context,
+        additionsBuilder -> {
+          additionsBuilder.addRule(typeSwitchClass);
+          typeSwitchClass.forEachProgramMethod(additionsBuilder::addRule);
+        });
+    parent.acceptTypeSwitchClass(typeSwitchClass, context);
+  }
+
+  @Override
   public void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context) {
     additionsCollection.addMethodAndHolderIfContextIsInProfile(typeSwitchMethod, context);
     parent.acceptBackportedMethod(typeSwitchMethod, context);
