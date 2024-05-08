@@ -1985,14 +1985,12 @@ public class RootSetUtils {
 
     public void pruneItems(PrunedItems prunedItems, Timing timing) {
       timing.begin("Prune RootSet");
-      MinimumKeepInfoCollection unconditionalMinimumKeepInfo =
-          getDependentMinimumKeepInfo().getUnconditionalMinimumKeepInfoOrDefault(null);
-      if (unconditionalMinimumKeepInfo != null) {
-        unconditionalMinimumKeepInfo.pruneItems(prunedItems);
-        if (unconditionalMinimumKeepInfo.isEmpty()) {
-          getDependentMinimumKeepInfo().remove(UnconditionalKeepInfoEvent.get());
-        }
-      }
+      getDependentMinimumKeepInfo()
+          .removeIf(
+              minimumKeepInfo -> {
+                minimumKeepInfo.pruneItems(prunedItems);
+                return minimumKeepInfo.isEmpty();
+              });
       timing.end();
     }
 

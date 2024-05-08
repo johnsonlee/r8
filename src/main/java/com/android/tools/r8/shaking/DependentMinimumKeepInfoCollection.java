@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public abstract class DependentMinimumKeepInfoCollection {
 
@@ -157,6 +158,10 @@ public abstract class DependentMinimumKeepInfoCollection {
 
   public KeepMethodInfo.Joiner remove(EnqueuerEvent preconditionEvent, DexMethod method) {
     return internalRemove(preconditionEvent, minimumKeepInfo -> minimumKeepInfo.remove(method));
+  }
+
+  public void removeIf(Predicate<? super MinimumKeepInfoCollection> predicate) {
+    dependentMinimumKeepInfo.values().removeIf(predicate);
   }
 
   private <J extends Joiner<?, ?, ?>> J internalRemove(
