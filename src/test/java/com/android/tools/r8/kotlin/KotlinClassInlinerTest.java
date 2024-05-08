@@ -151,7 +151,9 @@ public class KotlinClassInlinerTest extends AbstractR8KotlinTestBase {
 
               if (hasKotlinCGeneratedLambdaClasses) {
                 assertThat(
-                    inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful2$1"),
+                    testParameters.isCfRuntime()
+                        ? inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful2$1")
+                        : inspector.clazz("class_inliner_lambda_j_style.MainKt$testStateful$2"),
                     isPresent());
               } else {
                 assertThat(
