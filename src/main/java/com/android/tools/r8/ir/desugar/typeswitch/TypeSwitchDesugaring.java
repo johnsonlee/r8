@@ -4,6 +4,11 @@
 
 package com.android.tools.r8.ir.desugar.typeswitch;
 
+import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.extractEnumField;
+import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.getEnumField;
+import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isEnumSwitchCallSite;
+import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
+
 import com.android.tools.r8.cf.code.CfArrayStore;
 import com.android.tools.r8.cf.code.CfConstClass;
 import com.android.tools.r8.cf.code.CfConstNumber;
@@ -20,19 +25,14 @@ import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexCallSite;
-import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
-import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
-import com.android.tools.r8.graph.DexValue.DexValueConstDynamic;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.MemberType;
@@ -41,8 +41,6 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
-import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicReference;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -54,12 +52,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
 
   private final AppView<?> appView;
 
-  private final DexMethod typeSwitchMethod;
-  private final DexMethod enumSwitchMethod;
-  private final DexProto typeSwitchProto;
   private final DexProto switchHelperProto;
-  private final DexMethod enumDescMethod;
-  private final DexMethod classDescMethod;
   private final DexType matchException;
   private final DexMethod matchExceptionInit;
   private final DexItemFactory factory;
@@ -67,50 +60,13 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
   public TypeSwitchDesugaring(AppView<?> appView) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
-    DexType switchBootstrap = factory.createType("Ljava/lang/runtime/SwitchBootstraps;");
-    DexProto methodHandleSwitchProto =
-        factory.createProto(
-            factory.callSiteType,
-            factory.methodHandlesLookupType,
-            factory.stringType,
-            factory.methodTypeType,
-            factory.objectArrayType);
-    typeSwitchMethod =
-        factory.createMethod(
-            switchBootstrap, methodHandleSwitchProto, factory.createString("typeSwitch"));
-    enumSwitchMethod =
-        factory.createMethod(
-            switchBootstrap, methodHandleSwitchProto, factory.createString("enumSwitch"));
-    this.typeSwitchProto =
-        factory.createProto(factory.intType, factory.objectType, factory.intType);
     switchHelperProto =
         factory.createProto(
             factory.intType, factory.objectType, factory.intType, factory.objectArrayType);
-    enumDescMethod =
-        factory.createMethod(
-            factory.enumDescType,
-            factory.createProto(factory.enumDescType, factory.classDescType, factory.stringType),
-            "of");
-    classDescMethod =
-        factory.createMethod(
-            factory.classDescType,
-            factory.createProto(factory.classDescType, factory.stringType),
-            "of");
     matchException = factory.createType("Ljava/lang/MatchException;");
     matchExceptionInit =
         factory.createInstanceInitializer(
             matchException, factory.stringType, factory.throwableType);
-  }
-
-  private boolean methodHandleIsInvokeStaticTo(DexValue dexValue, DexMethod method) {
-    if (!dexValue.isDexValueMethodHandle()) {
-      return false;
-    }
-    return methodHandleIsInvokeStaticTo(dexValue.asDexValueMethodHandle().getValue(), method);
-  }
-
-  private boolean methodHandleIsInvokeStaticTo(DexMethodHandle methodHandle, DexMethod method) {
-    return methodHandle.type.isInvokeStatic() && methodHandle.asMethod().isIdenticalTo(method);
   }
 
   @Override
@@ -157,9 +113,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
       return DesugarDescription.nothing();
     }
     DexCallSite callSite = instruction.asInvokeDynamic().getCallSite();
-    if (callSite.methodName.isIdenticalTo(typeSwitchMethod.getName())
-        && callSite.methodProto.isIdenticalTo(typeSwitchProto)
-        && methodHandleIsInvokeStaticTo(callSite.bootstrapMethod, typeSwitchMethod)) {
+    if (isTypeSwitchCallSite(callSite, factory)) {
       return DesugarDescription.builder()
           .setDesugarRewrite(
               (position,
@@ -180,9 +134,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                           generateTypeSwitchLoadArguments(cfInstructions, callSite, context)))
           .build();
     }
-    if (callSite.methodName.isIdenticalTo(enumSwitchMethod.getName())
-        && isEnumSwitchProto(callSite.methodProto)
-        && methodHandleIsInvokeStaticTo(callSite.bootstrapMethod, enumSwitchMethod)) {
+    if (isEnumSwitchCallSite(callSite, factory)) {
       DexType enumType = callSite.methodProto.getParameter(0);
       return DesugarDescription.builder()
           .setDesugarRewrite(
@@ -233,12 +185,6 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
     return cfInstructions;
   }
 
-  private boolean isEnumSwitchProto(DexProto methodProto) {
-    return methodProto.getReturnType().isIdenticalTo(factory.intType)
-        && methodProto.getArity() == 2
-        && methodProto.getParameter(1).isIdenticalTo(factory.intType);
-  }
-
   private void generateInvokeToDesugaredMethod(
       List<CfInstruction> cfInstructions,
       MethodProcessingContext methodProcessingContext,
@@ -271,12 +217,12 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
     cfInstructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method.getReference(), false));
   }
 
-  private List<CfInstruction> generateEnumSwitchLoadArguments(
+  private void generateEnumSwitchLoadArguments(
       List<CfInstruction> cfInstructions,
       DexCallSite callSite,
       ProgramMethod context,
       DexType enumType) {
-    return generateSwitchLoadArguments(
+    generateSwitchLoadArguments(
         cfInstructions,
         callSite,
         bootstrapArg -> {
@@ -284,7 +230,8 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
             cfInstructions.add(new CfConstClass(bootstrapArg.asDexValueType().getValue()));
           } else if (bootstrapArg.isDexValueString()) {
             DexField enumField =
-                getEnumField(bootstrapArg.asDexValueString().getValue(), enumType, context);
+                getEnumField(
+                    bootstrapArg.asDexValueString().getValue(), enumType, context, appView);
             cfInstructions.add(new CfStaticFieldRead(enumField));
           } else {
             throw new CompilationError(
@@ -293,9 +240,9 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
         });
   }
 
-  private List<CfInstruction> generateTypeSwitchLoadArguments(
+  private void generateTypeSwitchLoadArguments(
       List<CfInstruction> cfInstructions, DexCallSite callSite, ProgramMethod context) {
-    return generateSwitchLoadArguments(
+    generateSwitchLoadArguments(
         cfInstructions,
         callSite,
         bootstrapArg -> {
@@ -309,7 +256,8 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
           } else if (bootstrapArg.isDexValueString()) {
             cfInstructions.add(new CfConstString(bootstrapArg.asDexValueString().getValue()));
           } else if (bootstrapArg.isDexValueConstDynamic()) {
-            DexField enumField = extractEnumField(bootstrapArg.asDexValueConstDynamic(), context);
+            DexField enumField =
+                extractEnumField(bootstrapArg.asDexValueConstDynamic(), context, appView);
             cfInstructions.add(new CfStaticFieldRead(enumField));
           } else {
             throw new CompilationError(
@@ -318,7 +266,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
         });
   }
 
-  private List<CfInstruction> generateSwitchLoadArguments(
+  private void generateSwitchLoadArguments(
       List<CfInstruction> cfInstructions, DexCallSite callSite, Consumer<DexValue> adder) {
     // We need to call the method with the bootstrap args as parameters.
     // We need to convert the bootstrap args into a list of cf instructions.
@@ -332,66 +280,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
       adder.accept(bootstrapArg);
       cfInstructions.add(new CfArrayStore(MemberType.OBJECT));
     }
-    return cfInstructions;
   }
 
-  private CompilationError throwEnumFieldConstantDynamic(String msg, ProgramMethod context) {
-    throw new CompilationError(
-        "Unexpected ConstantDynamic in TypeSwitch: " + msg, context.getOrigin());
-  }
 
-  private DexField extractEnumField(
-      DexValueConstDynamic dexValueConstDynamic, ProgramMethod context) {
-    ConstantDynamicReference enumCstDynamic = dexValueConstDynamic.getValue();
-    DexMethod bootstrapMethod = factory.constantDynamicBootstrapMethod;
-    if (!(enumCstDynamic.getType().isIdenticalTo(factory.enumDescType)
-        && enumCstDynamic.getName().isIdenticalTo(bootstrapMethod.getName())
-        && enumCstDynamic.getBootstrapMethod().asMethod().isIdenticalTo(bootstrapMethod)
-        && enumCstDynamic.getBootstrapMethodArguments().size() == 3
-        && methodHandleIsInvokeStaticTo(
-            enumCstDynamic.getBootstrapMethodArguments().get(0), enumDescMethod))) {
-      throw throwEnumFieldConstantDynamic("Invalid EnumDesc", context);
-    }
-    DexValue dexValueFieldName = enumCstDynamic.getBootstrapMethodArguments().get(2);
-    if (!dexValueFieldName.isDexValueString()) {
-      throw throwEnumFieldConstantDynamic("Field name " + dexValueFieldName, context);
-    }
-    DexString fieldName = dexValueFieldName.asDexValueString().getValue();
-
-    DexValue dexValueClassCstDynamic = enumCstDynamic.getBootstrapMethodArguments().get(1);
-    if (!dexValueClassCstDynamic.isDexValueConstDynamic()) {
-      throw throwEnumFieldConstantDynamic("Enum class " + dexValueClassCstDynamic, context);
-    }
-    ConstantDynamicReference classCstDynamic =
-        dexValueClassCstDynamic.asDexValueConstDynamic().getValue();
-    if (!(classCstDynamic.getType().isIdenticalTo(factory.classDescType)
-        && classCstDynamic.getName().isIdenticalTo(bootstrapMethod.getName())
-        && classCstDynamic.getBootstrapMethod().asMethod().isIdenticalTo(bootstrapMethod)
-        && classCstDynamic.getBootstrapMethodArguments().size() == 2
-        && methodHandleIsInvokeStaticTo(
-            classCstDynamic.getBootstrapMethodArguments().get(0), classDescMethod))) {
-      throw throwEnumFieldConstantDynamic("Class descriptor " + classCstDynamic, context);
-    }
-    DexValue dexValueClassName = classCstDynamic.getBootstrapMethodArguments().get(1);
-    if (!dexValueClassName.isDexValueString()) {
-      throw throwEnumFieldConstantDynamic("Class name " + dexValueClassName, context);
-    }
-    DexString className = dexValueClassName.asDexValueString().getValue();
-    DexType enumType =
-        factory.createType(DescriptorUtils.javaTypeToDescriptor(className.toString()));
-    return getEnumField(fieldName, enumType, context);
-  }
-
-  private DexField getEnumField(DexString fieldName, DexType enumType, ProgramMethod context) {
-    DexClass enumClass = appView.definitionFor(enumType);
-    if (enumClass == null) {
-      throw throwEnumFieldConstantDynamic("Missing enum class " + enumType, context);
-    }
-    DexEncodedField dexEncodedField = enumClass.lookupUniqueStaticFieldWithName(fieldName);
-    if (dexEncodedField == null) {
-      throw throwEnumFieldConstantDynamic(
-          "Missing enum field " + fieldName + " in " + enumType, context);
-    }
-    return dexEncodedField.getReference();
-  }
 }

@@ -819,6 +819,7 @@ public class DexItemFactory {
       createStaticallyKnownType("Ljava/lang/invoke/LambdaMetafactory;");
   public final DexType constantBootstrapsType =
       createStaticallyKnownType("Ljava/lang/invoke/ConstantBootstraps;");
+  public final DexType switchBootstrapType = createType("Ljava/lang/runtime/SwitchBootstraps;");
   public final DexType callSiteType = createStaticallyKnownType("Ljava/lang/invoke/CallSite;");
   public final DexType lookupType =
       createStaticallyKnownType("Ljava/lang/invoke/MethodHandles$Lookup;");
@@ -833,6 +834,18 @@ public class DexItemFactory {
               methodHandleType,
               objectArrayType),
           invokeMethodName);
+  public final DexProto switchBootstrapMethodProto =
+      createProto(
+          callSiteType, methodHandlesLookupType, stringType, methodTypeType, objectArrayType);
+  public final DexMethod typeSwitchMethod =
+      createMethod(switchBootstrapType, switchBootstrapMethodProto, createString("typeSwitch"));
+  public final DexMethod enumSwitchMethod =
+      createMethod(switchBootstrapType, switchBootstrapMethodProto, createString("enumSwitch"));
+  public final DexProto typeSwitchProto = createProto(intType, objectType, intType);
+  public final DexMethod enumDescMethod =
+      createMethod(enumDescType, createProto(enumDescType, classDescType, stringType), "of");
+  public final DexMethod classDescMethod =
+      createMethod(classDescType, createProto(classDescType, stringType), "of");
   public final DexType objectMethodsType =
       createStaticallyKnownType("Ljava/lang/runtime/ObjectMethods;");
   public final DexType typeDescriptorType =

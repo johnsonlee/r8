@@ -1804,12 +1804,15 @@ public class Enqueuer {
     private static final int DEFERRED_MASK = 1;
     private static final int FROM_METHOD_HANDLE_MASK = 2;
     private static final int FROM_RECORD_METHOD_HANDLE_MASK = 4;
+    private static final int FROM_SWITCH_METHOD_HANDLE_MASK = 8;
 
     static FieldAccessMetadata DEFAULT = new FieldAccessMetadata(0);
     static FieldAccessMetadata FROM_METHOD_HANDLE =
         new FieldAccessMetadata(FROM_METHOD_HANDLE_MASK);
     static FieldAccessMetadata FROM_RECORD_METHOD_HANDLE =
         new FieldAccessMetadata(FROM_RECORD_METHOD_HANDLE_MASK);
+    static FieldAccessMetadata FROM_SWITCH_METHOD_HANDLE =
+        new FieldAccessMetadata(FROM_SWITCH_METHOD_HANDLE_MASK);
 
     private final FieldAccessMetadata deferred;
     private final int flags;
@@ -1829,6 +1832,10 @@ public class Enqueuer {
 
     boolean isFromRecordMethodHandle() {
       return (flags & FROM_RECORD_METHOD_HANDLE_MASK) != 0;
+    }
+
+    boolean isFromSwitchMethodHandle() {
+      return (flags & FROM_SWITCH_METHOD_HANDLE_MASK) != 0;
     }
 
     public FieldAccessMetadata toDeferred() {
@@ -1980,6 +1987,10 @@ public class Enqueuer {
     traceStaticFieldRead(field, currentMethod, FieldAccessMetadata.FROM_METHOD_HANDLE);
   }
 
+  void traceStaticFieldReadFromSwitchMethodHandle(DexField field, ProgramMethod currentMethod) {
+    traceStaticFieldRead(field, currentMethod, FieldAccessMetadata.FROM_SWITCH_METHOD_HANDLE);
+  }
+
   @SuppressWarnings("ReferenceEquality")
   void traceStaticFieldRead(
       DexField fieldReference, ProgramMethod currentMethod, FieldAccessMetadata metadata) {
@@ -2030,6 +2041,15 @@ public class Enqueuer {
 
           if (metadata.isFromMethodHandle()) {
             fieldAccessInfoCollection.get(field.getReference()).setReadFromMethodHandle();
+          } else if (metadata.isFromSwitchMethodHandle()) {
+            // TODO(b/340187630): This disables any optimization on such enum fields. We could
+            //  support rewriting fields in switch method handles instead.
+            keepInfo.joinClass(
+                field.getHolder(),
+                joiner -> joiner.disallowMinification().disallowOptimization().disallowShrinking());
+            keepInfo.joinField(
+                field,
+                joiner -> joiner.disallowMinification().disallowOptimization().disallowShrinking());
           }
 
           if (field.getReference() != fieldReference) {

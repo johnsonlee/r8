@@ -138,7 +138,9 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
             reference.getBootstrapMethodArguments(), NOT_ARGUMENT_TO_LAMBDA_METAFACTORY, context);
     Object[] bsmArgs = new Object[rewrittenArguments.size()];
     for (int i = 0; i < rewrittenArguments.size(); i++) {
-      bsmArgs[i] = CfInvokeDynamic.decodeBootstrapArgument(rewrittenArguments.get(i), namingLens);
+      bsmArgs[i] =
+          CfInvokeDynamic.decodeBootstrapArgument(
+              rewrittenArguments.get(i), namingLens, dexItemFactory);
     }
     ConstantDynamic constantDynamic =
         new ConstantDynamic(

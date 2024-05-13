@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.conversion.CfSourceCode;
 import com.android.tools.r8.ir.conversion.CfState;
 import com.android.tools.r8.ir.conversion.IRBuilder;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicReference;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
@@ -31,6 +32,7 @@ import com.android.tools.r8.utils.structural.HashingVisitor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -86,7 +88,7 @@ public class CfInvokeDynamic extends CfInstruction {
     List<DexValue> bootstrapArgs = rewrittenCallSite.bootstrapArgs;
     Object[] bsmArgs = new Object[bootstrapArgs.size()];
     for (int i = 0; i < bootstrapArgs.size(); i++) {
-      bsmArgs[i] = decodeBootstrapArgument(bootstrapArgs.get(i), namingLens);
+      bsmArgs[i] = decodeBootstrapArgument(bootstrapArgs.get(i), namingLens, dexItemFactory);
     }
     Handle bsmHandle = bootstrapMethod.toAsmHandle(namingLens);
     DexString methodName = namingLens.lookupMethodName(rewrittenCallSite, appView);
@@ -102,7 +104,8 @@ public class CfInvokeDynamic extends CfInstruction {
     return 5;
   }
 
-  public static Object decodeBootstrapArgument(DexValue value, NamingLens lens) {
+  public static Object decodeBootstrapArgument(
+      DexValue value, NamingLens lens, DexItemFactory factory) {
     switch (value.getValueKind()) {
       case DOUBLE:
         return value.asDexValueDouble().getValue();
@@ -121,6 +124,18 @@ public class CfInvokeDynamic extends CfInstruction {
         return innerValue == null ? null : innerValue.toString();
       case TYPE:
         return Type.getType(lens.lookupDescriptor(value.asDexValueType().value).toString());
+      case CONST_DYNAMIC:
+        ConstantDynamicReference ref = value.asDexValueConstDynamic().getValue();
+        List<DexValue> bootstrapArgs = ref.getBootstrapMethodArguments();
+        Object[] bsmArgs = new Object[bootstrapArgs.size()];
+        for (int i = 0; i < bootstrapArgs.size(); i++) {
+          bsmArgs[i] = CfInvokeDynamic.decodeBootstrapArgument(bootstrapArgs.get(i), lens, factory);
+        }
+        return new ConstantDynamic(
+            ref.getName().toString(),
+            lens.lookupType(ref.getType(), factory).toDescriptorString(),
+            ref.getBootstrapMethod().toAsmHandle(lens),
+            bsmArgs);
       default:
         throw new Unreachable(
             "Unsupported bootstrap argument of type " + value.getClass().getSimpleName());

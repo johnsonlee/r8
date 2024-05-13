@@ -148,6 +148,7 @@ public class LibraryFilesHelper implements Opcodes {
     return createClass(
         ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT,
         "java/util/function/Supplier",
+        "java/lang/Object",
         methodAdder ->
             methodAdder.add(
                 ACC_PUBLIC | ACC_ABSTRACT, "get", methodDescriptor(false, Object.class)));
@@ -156,7 +157,18 @@ public class LibraryFilesHelper implements Opcodes {
   private static void addClassToZipBuilder(
       ZipBuilder builder, int access, String binaryName, Consumer<MethodAdder> consumer)
       throws Exception {
-    builder.addBytes(binaryName + ".class", createClass(access, binaryName, consumer));
+    addClassToZipBuilder(builder, access, binaryName, "java/lang/Object", consumer);
+  }
+
+  private static void addClassToZipBuilder(
+      ZipBuilder builder,
+      int access,
+      String binaryName,
+      String binarySuperName,
+      Consumer<MethodAdder> consumer)
+      throws Exception {
+    builder.addBytes(
+        binaryName + ".class", createClass(access, binaryName, binarySuperName, consumer));
   }
 
   @FunctionalInterface
@@ -181,9 +193,10 @@ public class LibraryFilesHelper implements Opcodes {
     return sb.toString();
   }
 
-  public static byte[] createClass(int access, String binaryName, Consumer<MethodAdder> consumer) {
+  public static byte[] createClass(
+      int access, String binaryName, String binarySuperName, Consumer<MethodAdder> consumer) {
     ClassWriter cw = new ClassWriter(0);
-    cw.visit(V1_8, access, binaryName, null, "java/lang/Object", null);
+    cw.visit(V1_8, access, binaryName, null, binarySuperName, null);
 
     consumer.accept(
         (access1, name, descriptor1) -> cw.visitMethod(access1, name, descriptor1, null, null));

@@ -3,13 +3,17 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
+
 import com.android.tools.r8.dex.code.CfOrDexInstanceFieldRead;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.dex.code.CfOrDexStaticFieldRead;
+import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.ListIterator;
 
@@ -255,6 +259,16 @@ public abstract class UseRegistry<T extends Definition> {
           break;
         case TYPE:
           registerTypeReference(arg.asDexValueType().value);
+          break;
+        case CONST_DYNAMIC:
+          if (!isTypeSwitchCallSite(callSite, appView.dexItemFactory())) {
+            throw new CompilationError(
+                "Unsupported const dynamic in call site " + arg, getContext().getOrigin());
+          }
+          DexField dexField =
+              TypeSwitchDesugaringHelper.extractEnumField(
+                  arg.asDexValueConstDynamic(), getMethodContext(), appView);
+          registerStaticFieldRead(dexField);
           break;
         default:
           assert arg.isDexValueInt()
