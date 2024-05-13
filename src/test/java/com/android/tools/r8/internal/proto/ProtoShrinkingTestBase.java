@@ -11,9 +11,10 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
@@ -27,43 +28,24 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public abstract class ProtoShrinkingTestBase extends TestBase {
-
-  public static final Path PROTOBUF_LITE_JAR =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "protobuf-lite/libprotobuf_lite.jar");
-
-  public static final Path PROTOBUF_LITE_PROGUARD_RULES =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "protobuf-lite/lite_proguard.pgcfg");
-
-  // Test classes for proto2. Use a checked in version of the built examples.
-  public static final Path PROTO2_EXAMPLES_JAR =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "proto", "examplesProto2.jar");
-
-  // Proto definitions used by test classes for proto2.
-  public static final Path PROTO2_PROTO_JAR =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "proto", "examplesGeneratedProto2.jar");
-
-  // Test classes for proto3.
-  public static final Path PROTO3_EXAMPLES_JAR =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "proto", "examplesProto3.jar");
-
-  // Proto definitions used by test classes for proto3.
-  public static final Path PROTO3_PROTO_JAR =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "proto", "examplesGeneratedProto3.jar");
 
   public static void assertRewrittenProtoSchemasMatch(
       CodeInspector expectedInspector, CodeInspector actualInspector) throws Exception {
     Map<String, IntList> actualInfos = getInfoValues(actualInspector);
 
     // Ensure that this cannot fail silently.
-    assertTrue(actualInfos.size() > 0);
+    assertFalse(actualInfos.isEmpty());
 
     Map<String, IntList> expectedInfos = getInfoValues(expectedInspector);
     for (Map.Entry<String, IntList> entry : actualInfos.entrySet()) {
@@ -73,6 +55,47 @@ public abstract class ProtoShrinkingTestBase extends TestBase {
       assertNotNull("Expected info value missing for class `" + className + "`", expectedInfo);
       assertEquals("Unexpected info value for class `" + className + "`", expectedInfo, actualInfo);
     }
+  }
+
+  void addLegacyRuntime(R8TestBuilder<?> testBuilder) {
+    Path runtimeDir = Paths.get(ToolHelper.PROTO_RUNTIME_DIR, "legacy");
+    addRuntime(testBuilder, runtimeDir);
+  }
+
+  private void addRuntime(R8TestBuilder<?> testBuilder, Path runtimeDir) {
+    testBuilder
+        .addProgramFiles(runtimeDir.resolve("libprotobuf_lite.jar"))
+        .addKeepRuleFiles(runtimeDir.resolve("lite_proguard.pgcfg"));
+  }
+
+  void addProto2TestSources(R8TestBuilder<?> testBuilder) {
+    testBuilder.addProgramFiles(getProto2TestSources());
+  }
+
+  void addProto3TestSources(R8TestBuilder<?> testBuilder) {
+    testBuilder.addProgramFiles(getProto3TestSources());
+  }
+
+  private Collection<Path> getProto2TestSources() {
+    Path testDir = Paths.get(ToolHelper.PROTO_TEST_DIR, "proto2");
+    return getTestSources(testDir);
+  }
+
+  private Collection<Path> getProto3TestSources() {
+    Path testDir = Paths.get(ToolHelper.PROTO_TEST_DIR, "proto3");
+    return getTestSources(testDir);
+  }
+
+  private Collection<Path> getTestSources(Path testDir) {
+    return ImmutableList.of(testDir.resolve("proto.jar"), testDir.resolve("test.jar"));
+  }
+
+  CodeInspector getProto2TestSourcesInspector() throws IOException {
+    return new CodeInspector(getProto2TestSources());
+  }
+
+  CodeInspector getProto3TestSourcesInspector() throws IOException {
+    return new CodeInspector(getProto3TestSources());
   }
 
   static String findLiteExtensionByNumberInDuplicateCalledRule() {

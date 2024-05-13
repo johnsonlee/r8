@@ -273,10 +273,12 @@ third_party/opensource-apps/android/nowinandroid.tar.gz
 third_party/proguard/*
 third_party/proguardsettings.tar.gz
 third_party/proguardsettings/
-third_party/proto.tar.gz
-third_party/proto/
-third_party/protobuf-lite.tar.gz
-third_party/protobuf-lite/
+third_party/proto/runtime/legacy
+third_party/proto/runtime/legacy.tar.gz
+third_party/proto/test/proto2
+third_party/proto/test/proto2.tar.gz
+third_party/proto/test/proto3
+third_party/proto/test/proto3.tar.gz
 third_party/r8
 third_party/r8.tar.gz
 third_party/r8-releases/2.0.74

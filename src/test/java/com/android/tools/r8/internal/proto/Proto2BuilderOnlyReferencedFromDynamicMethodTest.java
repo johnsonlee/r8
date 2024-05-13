@@ -14,38 +14,31 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class Proto2BuilderOnlyReferencedFromDynamicMethodTest extends ProtoShrinkingTestBase {
 
   private static final String MAIN = "proto2.BuilderOnlyReferencedFromDynamicMethodTestClass";
 
-  private static List<Path> PROGRAM_FILES =
-      ImmutableList.of(PROTO2_EXAMPLES_JAR, PROTO2_PROTO_JAR, PROTOBUF_LITE_JAR);
+  @Parameter(0)
+  public TestParameters parameters;
 
-  private final TestParameters parameters;
-
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
-  }
-
-  public Proto2BuilderOnlyReferencedFromDynamicMethodTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
   public void test() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(PROGRAM_FILES)
+        .apply(this::addProto2TestSources)
+        .apply(this::addLegacyRuntime)
         .addKeepMainRule(MAIN)
-        .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
         .allowAccessModification()
         .allowDiagnosticMessages()
         .allowUnusedDontWarnPatterns()

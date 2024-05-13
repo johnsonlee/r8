@@ -21,11 +21,12 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.analysis.ProtoApplicationStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
@@ -50,14 +51,16 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
   private static final String USES_ONLY_REPEATED_FIELDS =
       "com.android.tools.r8.proto2.Shrinking$UsesOnlyRepeatedFields";
 
-  private static List<Path> PROGRAM_FILES =
-      ImmutableList.of(PROTO2_EXAMPLES_JAR, PROTO2_PROTO_JAR, PROTOBUF_LITE_JAR);
+  @Parameter(0)
+  public boolean allowAccessModification;
 
-  private final boolean allowAccessModification;
-  private final boolean enableMinification;
-  private final TestParameters parameters;
+  @Parameter(1)
+  public boolean enableMinification;
 
-  @Parameterized.Parameters(name = "{2}, allow access modification: {0}, enable minification: {1}")
+  @Parameter(2)
+  public TestParameters parameters;
+
+  @Parameters(name = "{2}, allow access modification: {0}, enable minification: {1}")
   public static List<Object[]> data() {
     return buildParameters(
         BooleanUtils.values(),
@@ -65,21 +68,13 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
         getTestParameters().withDefaultDexRuntime().withAllApiLevels().build());
   }
 
-  public Proto2ShrinkingTest(
-      boolean allowAccessModification, boolean enableMinification, TestParameters parameters) {
-    this.allowAccessModification = allowAccessModification;
-    this.enableMinification = enableMinification;
-    this.parameters = parameters;
-  }
-
   @Test
   public void test() throws Exception {
-    CodeInspector inputInspector = new CodeInspector(PROGRAM_FILES);
     R8TestRunResult result =
         testForR8(parameters.getBackend())
-            .addProgramFiles(PROGRAM_FILES)
+            .apply(this::addProto2TestSources)
+            .apply(this::addLegacyRuntime)
             .addKeepMainRule("proto2.TestClass")
-            .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
             // TODO(b/173340579): This rule should not be needed to allow shrinking of
             //  PartiallyUsed$Enum.
             .addNoHorizontalClassMergingRule(PARTIALLY_USED + "$Enum$1")
@@ -97,6 +92,7 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
             .apply(this::inspectWarningMessages)
             .inspect(
                 outputInspector -> {
+                  CodeInspector inputInspector = getProto2TestSourcesInspector();
                   verifyMapAndRequiredFieldsAreKept(inputInspector, outputInspector);
                   verifyUnusedExtensionsAreRemoved(inputInspector, outputInspector);
                   verifyUnusedFieldsAreRemoved(inputInspector, outputInspector);
@@ -133,7 +129,8 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
                 "10");
 
     DexItemFactory dexItemFactory = new DexItemFactory();
-    ProtoApplicationStats original = new ProtoApplicationStats(dexItemFactory, inputInspector);
+    ProtoApplicationStats original =
+        new ProtoApplicationStats(dexItemFactory, getProto2TestSourcesInspector());
     ProtoApplicationStats actual =
         new ProtoApplicationStats(dexItemFactory, result.inspector(), original);
 
@@ -375,9 +372,9 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
   @Test
   public void testNoRewriting() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(PROGRAM_FILES)
+        .apply(this::addProto2TestSources)
+        .apply(this::addLegacyRuntime)
         .addKeepMainRule("proto2.TestClass")
-        .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
         // Retain all protos.
         .addKeepRules(keepAllProtosRule())
         // Retain the signature of dynamicMethod() and newMessageInfo().
@@ -395,16 +392,15 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
         .apply(this::inspectWarningMessages)
         .inspect(
             inspector ->
-                assertRewrittenProtoSchemasMatch(new CodeInspector(PROGRAM_FILES), inspector));
+                assertRewrittenProtoSchemasMatch(getProto2TestSourcesInspector(), inspector));
   }
 
   @Test
   public void testTwoExtensionRegistrys() throws Exception {
-    CodeInspector inputInspector = new CodeInspector(PROGRAM_FILES);
     testForR8(parameters.getBackend())
-        .addProgramFiles(PROGRAM_FILES)
+        .apply(this::addProto2TestSources)
+        .apply(this::addLegacyRuntime)
         .addKeepMainRule("proto2.TestClass")
-        .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
         .addKeepRules(findLiteExtensionByNumberInDuplicateCalledRule())
         // TODO(b/173340579): This rule should not be needed to allow shrinking of
         //  PartiallyUsed$Enum.
@@ -422,6 +418,7 @@ public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
         .apply(this::inspectWarningMessages)
         .inspect(
             outputInspector -> {
+              CodeInspector inputInspector = getProto2TestSourcesInspector();
               verifyUnusedExtensionsAreRemoved(inputInspector, outputInspector);
               verifyUnusedExtensionsAreRemoved(
                   inputInspector,

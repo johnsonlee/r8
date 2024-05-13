@@ -20,7 +20,6 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -71,9 +70,6 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
   private static final String METHOD_TO_INVOKE_ENUM =
       "com.google.protobuf.GeneratedMessageLite$MethodToInvoke";
 
-  private static List<Path> PROGRAM_FILES =
-      ImmutableList.of(PROTO2_EXAMPLES_JAR, PROTO2_PROTO_JAR, PROTOBUF_LITE_JAR);
-
   @Parameter(0)
   public MainClassesConfig config;
 
@@ -91,9 +87,9 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
   public void test() throws Exception {
     R8TestCompileResult result =
         testForR8(parameters.getBackend())
-            .addProgramFiles(PROGRAM_FILES)
+            .apply(this::addProto2TestSources)
+            .apply(this::addLegacyRuntime)
             .addKeepMainRules(config.getMainClasses())
-            .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
             .allowAccessModification()
             .allowDiagnosticMessages()
             .allowUnusedDontWarnPatterns()

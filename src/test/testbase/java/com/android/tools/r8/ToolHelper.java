@@ -186,6 +186,9 @@ public class ToolHelper {
   public static final String LIBS_DIR = BUILD_DIR + "libs/";
   public static final String THIRD_PARTY_DIR = getProjectRoot() + "third_party/";
   public static final String DEPENDENCIES = THIRD_PARTY_DIR + "dependencies/";
+  public static final String PROTO_DIR = THIRD_PARTY_DIR + "proto/";
+  public static final String PROTO_RUNTIME_DIR = PROTO_DIR + "runtime/";
+  public static final String PROTO_TEST_DIR = PROTO_DIR + "test/";
   public static final String TOOLS_DIR = getProjectRoot() + "tools/";
   public static final String TESTS_DIR = getProjectRoot() + "src/test/";
   public static final String ART_TESTS_ROOT = getProjectRoot() + "tests/";

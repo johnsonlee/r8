@@ -16,8 +16,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,9 +26,6 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
 
   private static final String PARTIALLY_USED =
       "com.android.tools.r8.proto3.Shrinking$PartiallyUsed";
-
-  private static List<Path> PROGRAM_FILES =
-      ImmutableList.of(PROTO3_EXAMPLES_JAR, PROTO3_PROTO_JAR, PROTOBUF_LITE_JAR);
 
   private final boolean allowAccessModification;
   private final boolean enableMinification;
@@ -53,11 +48,10 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
 
   @Test
   public void test() throws Exception {
-    CodeInspector inputInspector = new CodeInspector(PROGRAM_FILES);
     testForR8(parameters.getBackend())
-        .addProgramFiles(PROGRAM_FILES)
+        .apply(this::addProto3TestSources)
+        .apply(this::addLegacyRuntime)
         .addKeepMainRule("proto3.TestClass")
-        .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
         .allowAccessModification(allowAccessModification)
         .allowDiagnosticMessages()
         .allowUnusedDontWarnPatterns()
@@ -71,6 +65,7 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
         .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(
             outputInspector -> {
+              CodeInspector inputInspector = getProto3TestSourcesInspector();
               verifyUnusedFieldsAreRemoved(inputInspector, outputInspector);
             })
         .run(parameters.getRuntime(), "proto3.TestClass")
@@ -100,9 +95,9 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
   @Test
   public void testNoRewriting() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(PROGRAM_FILES)
+        .apply(this::addProto3TestSources)
+        .apply(this::addLegacyRuntime)
         .addKeepMainRule("proto3.TestClass")
-        .addKeepRuleFiles(PROTOBUF_LITE_PROGUARD_RULES)
         // Retain all protos.
         .addKeepRules(keepAllProtosRule())
         // Retain the signature of dynamicMethod() and newMessageInfo().
@@ -123,6 +118,6 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
                 containsString("required for default or static interface methods desugaring")))
         .inspect(
             inspector ->
-                assertRewrittenProtoSchemasMatch(new CodeInspector(PROGRAM_FILES), inspector));
+                assertRewrittenProtoSchemasMatch(getProto3TestSourcesInspector(), inspector));
   }
 }

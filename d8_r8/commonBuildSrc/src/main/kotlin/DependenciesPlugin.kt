@@ -614,15 +614,20 @@ object ThirdPartyDeps {
     Paths.get("third_party", "proguardsettings").toFile(),
     Paths.get("third_party", "proguardsettings.tar.gz.sha1").toFile(),
     DependencyType.X20)
-  val proto = ThirdPartyDependency(
-    "proto",
-    Paths.get("third_party", "proto").toFile(),
-    Paths.get("third_party", "proto.tar.gz.sha1").toFile(),
+  val protoRuntimeLegacy = ThirdPartyDependency(
+    "protoRuntimeLegacy",
+    Paths.get("third_party", "proto", "runtime", "legacy").toFile(),
+    Paths.get("third_party", "proto", "runtime", "legacy.tar.gz.sha1").toFile(),
     DependencyType.X20)
-  val protobufLite = ThirdPartyDependency(
-    "protobuf-lite",
-    Paths.get("third_party", "protobuf-lite").toFile(),
-    Paths.get("third_party", "protobuf-lite.tar.gz.sha1").toFile(),
+  val protoTestProto2 = ThirdPartyDependency(
+    "protoTestProto2",
+    Paths.get("third_party", "proto", "test", "proto2").toFile(),
+    Paths.get("third_party", "proto", "test", "proto2.tar.gz.sha1").toFile(),
+    DependencyType.X20)
+  val protoTestProto3 = ThirdPartyDependency(
+    "protoTestProto3",
+    Paths.get("third_party", "proto", "test", "proto3").toFile(),
+    Paths.get("third_party", "proto", "test", "proto3.tar.gz.sha1").toFile(),
     DependencyType.X20)
   val r8 = ThirdPartyDependency(
     "r8",
