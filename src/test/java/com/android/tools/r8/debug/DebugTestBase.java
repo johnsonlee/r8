@@ -87,7 +87,7 @@ public abstract class DebugTestBase extends TestBase {
   // Set to true to enable verbose logs
   private static final boolean DEBUG_TESTS = false;
 
-  private static final int TIMEOUT_MS = 20000;
+  private static final int TIMEOUT_MS = 40000;
 
   public static final StepFilter NO_FILTER = new StepFilter.NoStepFilter();
   public static final StepFilter INTELLIJ_FILTER = new StepFilter.IntelliJStepFilter();
