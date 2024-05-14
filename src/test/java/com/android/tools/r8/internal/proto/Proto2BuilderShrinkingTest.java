@@ -16,7 +16,6 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -147,8 +146,6 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
   private void checkRunResult(SingleTestRunResult<?> runResult, String main, boolean isR8) {
     if (main.equals("proto2.HasFlaggedOffExtensionBuilderTestClass")) {
       runResult.applyIf(
-          isR8 && protoRuntime.isEdition2023() && parameters.getApiLevel() == AndroidApiLevel.O,
-          rr -> rr.assertFailureWithErrorThatThrows(IllegalAccessException.class),
           !isR8 && protoRuntime.isEdition2023() && protoTestSources.isProto2(),
           rr -> rr.assertFailureWithErrorThatThrows(InvalidProtocolBufferException.class),
           rr -> rr.assertSuccessWithOutput(getExpectedOutput(main)));
