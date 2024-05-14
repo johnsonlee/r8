@@ -5,6 +5,8 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.annotations.AssumeNoSideEffects;
+import com.android.tools.r8.annotations.CheckDiscard;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
@@ -26,6 +28,8 @@ public abstract class FlowGraphNode {
 
   private final Set<FlowGraphNode> predecessors = Sets.newIdentityHashSet();
   private final Map<FlowGraphNode, Set<AbstractFunction>> successors = new IdentityHashMap<>();
+
+  @CheckDiscard private boolean debug = false;
 
   private boolean inWorklist = true;
 
@@ -49,9 +53,18 @@ public abstract class FlowGraphNode {
     }
   }
 
+  boolean getDebug() {
+    return debug;
+  }
+
   abstract ValueState getState();
 
   abstract DexType getStaticType();
+
+  @AssumeNoSideEffects
+  void setDebug(boolean debug) {
+    this.debug = debug;
+  }
 
   abstract void setState(ValueState valueState);
 

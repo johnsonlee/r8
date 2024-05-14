@@ -67,6 +67,12 @@ public class FlowGraph extends BidirectedGraph<FlowGraphNode> implements FlowGra
     fieldNodes.values().forEach(consumer);
   }
 
+  public void forEachParameterNode(Consumer<? super FlowGraphParameterNode> consumer) {
+    parameterNodes
+        .values()
+        .forEach(parameterNodesForMethod -> parameterNodesForMethod.values().forEach(consumer));
+  }
+
   @Override
   public void forEachNeighbor(FlowGraphNode node, Consumer<? super FlowGraphNode> consumer) {
     node.getPredecessors().forEach(consumer);

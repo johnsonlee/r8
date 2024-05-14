@@ -9,7 +9,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParam
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 
-class FlowGraphParameterNode extends FlowGraphNode {
+public class FlowGraphParameterNode extends FlowGraphNode {
 
   private final ProgramMethod method;
   private final MethodState methodState;

@@ -62,6 +62,7 @@ public class InFlowPropagator {
     // Compute strongly connected components so that we can compute the fixpoint of multiple flow
     // graphs in parallel.
     List<FlowGraph> flowGraphs = computeStronglyConnectedFlowGraphs();
+    assert InFlowPropagatorDebugUtils.setEnableLoggingBits(flowGraphs);
     processFlowGraphs(flowGraphs, executorService);
 
     // Account for the fact that fields that are read before they are written also needs to include
