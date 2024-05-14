@@ -260,8 +260,24 @@ public class ProtoBuilderShrinkingTest extends ProtoShrinkingTestBase {
         outputInspector.clazz("com.google.protobuf.GeneratedMessageLite");
     assertThat(generatedMessageLiteClassSubject, isPresent());
 
+    MethodSubject computeSerializedSizeMethodSubject =
+        generatedMessageLiteClassSubject.uniqueMethodWithOriginalName("computeSerializedSize");
+
+    MethodSubject equalsMethodSubject =
+        generatedMessageLiteClassSubject.uniqueMethodWithOriginalName("equals");
+
     MethodSubject isInitializedMethodSubject =
         generatedMessageLiteClassSubject.uniqueMethodWithOriginalName("isInitialized");
+
+    MethodSubject isMutableMethodSubject =
+        generatedMessageLiteClassSubject.uniqueMethodWithOriginalName("isMutable");
+
+    List<MethodSubject> allowList =
+        ImmutableList.of(
+            computeSerializedSizeMethodSubject,
+            equalsMethodSubject,
+            isInitializedMethodSubject,
+            isMutableMethodSubject);
 
     DexType methodToInvokeType =
         outputInspector.clazz(METHOD_TO_INVOKE_ENUM).getDexProgramClass().getType();
@@ -270,23 +286,21 @@ public class ProtoBuilderShrinkingTest extends ProtoShrinkingTestBase {
       assertThat(mainMethodSubject, isPresent());
 
       // Verify that the calls to GeneratedMessageLite.createBuilder() have been inlined.
-      // TODO(b/339100248): Investigate inadequate inlining with edition2023.
-      if (protoRuntime.isLegacy()) {
-        assertTrue(
-            mainMethodSubject
-                .streamInstructions()
-                .filter(InstructionSubject::isInvoke)
-                .map(InstructionSubject::getMethod)
-                .allMatch(
-                    method ->
-                        method.getHolderType()
-                                != generatedMessageLiteClassSubject.getDexProgramClass().getType()
-                            || (isInitializedMethodSubject.isPresent()
-                                && method
-                                    == isInitializedMethodSubject
-                                        .getProgramMethod()
-                                        .getReference())));
-      }
+      assertTrue(
+          mainMethodSubject
+              .streamInstructions()
+              .filter(InstructionSubject::isInvoke)
+              .map(InstructionSubject::getMethod)
+              .allMatch(
+                  method ->
+                      method.getHolderType()
+                              != generatedMessageLiteClassSubject.getDexProgramClass().getType()
+                          || allowList.stream()
+                              .anyMatch(
+                                  m ->
+                                      m.isPresent()
+                                          && method.isIdenticalTo(
+                                              m.getProgramMethod().getReference()))));
 
       // Verify that there are no accesses to MethodToInvoke after inlining createBuilder() -- and
       // specifically no accesses to MethodToInvoke.NEW_BUILDER.

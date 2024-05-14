@@ -493,6 +493,7 @@ public class GeneratedMessageLiteBuilderShrinker {
 
       // MessageLite and GeneratedMessageLite heuristics.
       alwaysInlineCreateBuilderFromGeneratedMessageLite();
+      alwaysInlineNewMutableInstanceFromGeneratedMessageLite();
       neverMergeMessageLite();
 
       // * extends GeneratedMessageLite heuristics.
@@ -532,6 +533,10 @@ public class GeneratedMessageLiteBuilderShrinker {
 
     private void alwaysInlineCreateBuilderFromGeneratedMessageLite() {
       alwaysInline.add(references.generatedMessageLiteMethods.createBuilderMethod);
+    }
+
+    private void alwaysInlineNewMutableInstanceFromGeneratedMessageLite() {
+      alwaysInline.add(references.generatedMessageLiteMethods.newMutableInstanceMethod);
     }
 
     private void neverMergeGeneratedMessageLiteBuilder() {

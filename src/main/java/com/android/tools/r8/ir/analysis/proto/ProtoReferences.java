@@ -283,6 +283,7 @@ public class ProtoReferences {
     public final DexMethod createBuilderMethod;
     public final DexMethod dynamicMethodBridgeMethod;
     public final DexMethod dynamicMethodBridgeMethodWithObject;
+    public final DexMethod newMutableInstanceMethod;
     public final DexMethod newRepeatedGeneratedExtension;
     public final DexMethod newSingularGeneratedExtension;
 
@@ -303,6 +304,11 @@ public class ProtoReferences {
               dexItemFactory.createProto(
                   dexItemFactory.objectType, methodToInvokeType, dexItemFactory.objectType),
               "dynamicMethod");
+      newMutableInstanceMethod =
+          dexItemFactory.createMethod(
+              generatedMessageLiteType,
+              dexItemFactory.createProto(generatedMessageLiteType),
+              "newMutableInstance");
       newRepeatedGeneratedExtension =
           dexItemFactory.createMethod(
               generatedMessageLiteType,
