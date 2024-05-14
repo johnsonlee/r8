@@ -24,14 +24,14 @@ public class ProtoFieldType {
   private static final int FIELD_IS_REQUIRED_MASK = 0x100;
   private static final int FIELD_ENFORCE_UTF8_MASK = 0x200;
   private static final int FIELD_NEEDS_IS_INITIALIZED_CHECK_MASK = 0x400;
-  private static final int FIELD_IS_MAP_FIELD_WITH_PROTO_2_ENUM_VALUE_MASK = 0x800;
+  private static final int FIELD_IS_LEGACY_ENUM_CLOSED_BIT_MASK = 0x800;
   private static final int FIELD_HAS_HAS_BIT_MASK = 0x1000;
 
   private final int id;
   private final boolean isRequired;
   private final boolean enforceUtf8Mask;
   private final boolean needsIsInitializedCheck;
-  private final boolean isMapFieldWithProto2EnumValue;
+  private final boolean isLegacyEnumClosedBit;
   private final boolean hasHasBit;
 
   ProtoFieldType(
@@ -39,13 +39,13 @@ public class ProtoFieldType {
       boolean isRequired,
       boolean enforceUtf8Mask,
       boolean needsIsInitializedCheck,
-      boolean isMapFieldWithProto2EnumValue,
+      boolean isLegacyEnumClosedBit,
       boolean hasHasBit) {
     this.id = id;
     this.isRequired = isRequired;
     this.enforceUtf8Mask = enforceUtf8Mask;
     this.needsIsInitializedCheck = needsIsInitializedCheck;
-    this.isMapFieldWithProto2EnumValue = isMapFieldWithProto2EnumValue;
+    this.isLegacyEnumClosedBit = isLegacyEnumClosedBit;
     this.hasHasBit = hasHasBit;
     assert isValid();
   }
@@ -58,7 +58,7 @@ public class ProtoFieldType {
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_IS_REQUIRED_MASK),
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_ENFORCE_UTF8_MASK),
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_NEEDS_IS_INITIALIZED_CHECK_MASK),
-          isBitInMaskSet(fieldTypeWithExtraBits, FIELD_IS_MAP_FIELD_WITH_PROTO_2_ENUM_VALUE_MASK),
+          isBitInMaskSet(fieldTypeWithExtraBits, FIELD_IS_LEGACY_ENUM_CLOSED_BIT_MASK),
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_HAS_HAS_BIT_MASK));
     } else {
       return new ProtoOneOfFieldType(
@@ -66,7 +66,7 @@ public class ProtoFieldType {
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_IS_REQUIRED_MASK),
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_ENFORCE_UTF8_MASK),
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_NEEDS_IS_INITIALIZED_CHECK_MASK),
-          isBitInMaskSet(fieldTypeWithExtraBits, FIELD_IS_MAP_FIELD_WITH_PROTO_2_ENUM_VALUE_MASK),
+          isBitInMaskSet(fieldTypeWithExtraBits, FIELD_IS_LEGACY_ENUM_CLOSED_BIT_MASK),
           isBitInMaskSet(fieldTypeWithExtraBits, FIELD_HAS_HAS_BIT_MASK));
     }
   }
@@ -98,8 +98,8 @@ public class ProtoFieldType {
     return id == MAP_ID;
   }
 
-  public boolean isMapFieldWithProto2EnumValue() {
-    return isMapFieldWithProto2EnumValue;
+  public boolean isLegacyEnumClosedBit() {
+    return isLegacyEnumClosedBit;
   }
 
   public boolean isMessage() {
@@ -147,9 +147,9 @@ public class ProtoFieldType {
       case ENUM_ID:
       case ENUM_LIST_ID:
       case ENUM_LIST_PACKAGED_ID:
-        return BooleanUtils.intValue(isProto2) + 1;
+        return BooleanUtils.intValue(isProto2 || isLegacyEnumClosedBit) + 1;
       case MAP_ID:
-        return BooleanUtils.intValue(isMapFieldWithProto2EnumValue) + 2;
+        return BooleanUtils.intValue(isLegacyEnumClosedBit) + 2;
       default:
         return 1;
     }
@@ -166,8 +166,8 @@ public class ProtoFieldType {
     if (needsIsInitializedCheck) {
       result |= FIELD_NEEDS_IS_INITIALIZED_CHECK_MASK;
     }
-    if (isMapFieldWithProto2EnumValue) {
-      result |= FIELD_IS_MAP_FIELD_WITH_PROTO_2_ENUM_VALUE_MASK;
+    if (isLegacyEnumClosedBit) {
+      result |= FIELD_IS_LEGACY_ENUM_CLOSED_BIT_MASK;
     }
     if (hasHasBit) {
       result |= FIELD_HAS_HAS_BIT_MASK;

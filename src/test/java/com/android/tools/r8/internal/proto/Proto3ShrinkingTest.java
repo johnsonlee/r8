@@ -16,10 +16,12 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
 public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
@@ -27,30 +29,39 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
   private static final String PARTIALLY_USED =
       "com.android.tools.r8.proto3.Shrinking$PartiallyUsed";
 
-  private final boolean allowAccessModification;
-  private final boolean enableMinification;
-  private final TestParameters parameters;
+  @Parameter(0)
+  public boolean allowAccessModification;
 
-  @Parameterized.Parameters(name = "{2}, allow access modification: {0}, enable minification: {1}")
+  @Parameter(1)
+  public boolean enableMinification;
+
+  @Parameter(2)
+  public TestParameters parameters;
+
+  @Parameter(3)
+  public ProtoRuntime protoRuntime;
+
+  @Parameter(4)
+  public ProtoTestSources protoTestSources;
+
+  @Parameterized.Parameters(
+      name = "{2}, {3}, {4}, allow access modification: {0}, enable minification: {1}")
   public static List<Object[]> data() {
     return buildParameters(
         BooleanUtils.values(),
         BooleanUtils.values(),
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build());
-  }
-
-  public Proto3ShrinkingTest(
-      boolean allowAccessModification, boolean enableMinification, TestParameters parameters) {
-    this.allowAccessModification = allowAccessModification;
-    this.enableMinification = enableMinification;
-    this.parameters = parameters;
+        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        ProtoRuntime.values(),
+        ImmutableList.of(ProtoTestSources.PROTO3));
   }
 
   @Test
-  public void test() throws Exception {
+  public void testR8() throws Exception {
+    protoRuntime.assumeIsNewerThanOrEqualToMinimumRequiredRuntime(protoTestSources);
     testForR8(parameters.getBackend())
-        .apply(this::addProto3TestSources)
-        .apply(this::addLegacyRuntime)
+        .apply(protoRuntime::addRuntime)
+        .apply(protoRuntime::workaroundProtoMessageRemoval)
+        .addProgramFiles(protoTestSources.getProgramFiles())
         .addKeepMainRule("proto3.TestClass")
         .allowAccessModification(allowAccessModification)
         .allowDiagnosticMessages()
@@ -65,7 +76,7 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
         .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(
             outputInspector -> {
-              CodeInspector inputInspector = getProto3TestSourcesInspector();
+              CodeInspector inputInspector = protoTestSources.getInspector();
               verifyUnusedFieldsAreRemoved(inputInspector, outputInspector);
             })
         .run(parameters.getRuntime(), "proto3.TestClass")
@@ -93,10 +104,12 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
   }
 
   @Test
-  public void testNoRewriting() throws Exception {
+  public void testR8NoRewriting() throws Exception {
+    protoRuntime.assumeIsNewerThanOrEqualToMinimumRequiredRuntime(protoTestSources);
     testForR8(parameters.getBackend())
-        .apply(this::addProto3TestSources)
-        .apply(this::addLegacyRuntime)
+        .apply(protoRuntime::addRuntime)
+        .apply(protoRuntime::workaroundProtoMessageRemoval)
+        .addProgramFiles(protoTestSources.getProgramFiles())
         .addKeepMainRule("proto3.TestClass")
         // Retain all protos.
         .addKeepRules(keepAllProtosRule())
@@ -118,6 +131,6 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
                 containsString("required for default or static interface methods desugaring")))
         .inspect(
             inspector ->
-                assertRewrittenProtoSchemasMatch(getProto3TestSourcesInspector(), inspector));
+                assertRewrittenProtoSchemasMatch(protoTestSources.getInspector(), inspector));
   }
 }

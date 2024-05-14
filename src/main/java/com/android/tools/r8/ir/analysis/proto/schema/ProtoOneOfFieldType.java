@@ -15,15 +15,10 @@ public class ProtoOneOfFieldType extends ProtoFieldType {
       boolean isRequired,
       boolean enforceUtf8Mask,
       boolean needsIsInitializedCheck,
-      boolean isMapFieldWithProto2EnumValue,
+      boolean isLegacyEnumClosedBit,
       boolean hasHasBit) {
     super(
-        id,
-        isRequired,
-        enforceUtf8Mask,
-        needsIsInitializedCheck,
-        isMapFieldWithProto2EnumValue,
-        hasHasBit);
+        id, isRequired, enforceUtf8Mask, needsIsInitializedCheck, isLegacyEnumClosedBit, hasHasBit);
   }
 
   public ProtoFieldType getActualFieldType(ProtoFieldTypeFactory factory) {
@@ -69,7 +64,7 @@ public class ProtoOneOfFieldType extends ProtoFieldType {
       case GROUP_ID:
         return 1;
       case ENUM_ID:
-        return BooleanUtils.intValue(isProto2);
+        return BooleanUtils.intValue(isProto2 || isLegacyEnumClosedBit());
       default:
         return 0;
     }

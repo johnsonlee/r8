@@ -14,10 +14,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
-import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
@@ -28,13 +26,8 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,47 +48,6 @@ public abstract class ProtoShrinkingTestBase extends TestBase {
       assertNotNull("Expected info value missing for class `" + className + "`", expectedInfo);
       assertEquals("Unexpected info value for class `" + className + "`", expectedInfo, actualInfo);
     }
-  }
-
-  void addLegacyRuntime(R8TestBuilder<?> testBuilder) {
-    Path runtimeDir = Paths.get(ToolHelper.PROTO_RUNTIME_DIR, "legacy");
-    addRuntime(testBuilder, runtimeDir);
-  }
-
-  private void addRuntime(R8TestBuilder<?> testBuilder, Path runtimeDir) {
-    testBuilder
-        .addProgramFiles(runtimeDir.resolve("libprotobuf_lite.jar"))
-        .addKeepRuleFiles(runtimeDir.resolve("lite_proguard.pgcfg"));
-  }
-
-  void addProto2TestSources(R8TestBuilder<?> testBuilder) {
-    testBuilder.addProgramFiles(getProto2TestSources());
-  }
-
-  void addProto3TestSources(R8TestBuilder<?> testBuilder) {
-    testBuilder.addProgramFiles(getProto3TestSources());
-  }
-
-  private Collection<Path> getProto2TestSources() {
-    Path testDir = Paths.get(ToolHelper.PROTO_TEST_DIR, "proto2");
-    return getTestSources(testDir);
-  }
-
-  private Collection<Path> getProto3TestSources() {
-    Path testDir = Paths.get(ToolHelper.PROTO_TEST_DIR, "proto3");
-    return getTestSources(testDir);
-  }
-
-  private Collection<Path> getTestSources(Path testDir) {
-    return ImmutableList.of(testDir.resolve("proto.jar"), testDir.resolve("test.jar"));
-  }
-
-  CodeInspector getProto2TestSourcesInspector() throws IOException {
-    return new CodeInspector(getProto2TestSources());
-  }
-
-  CodeInspector getProto3TestSourcesInspector() throws IOException {
-    return new CodeInspector(getProto3TestSources());
   }
 
   static String findLiteExtensionByNumberInDuplicateCalledRule() {

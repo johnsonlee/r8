@@ -54,16 +54,13 @@ public abstract class TestRunResult<RR extends TestRunResult<RR>> {
   }
 
   public <S extends Throwable, T extends Throwable> RR applyIf(
-      boolean condition, ThrowingConsumer<RR, S> thenConsumer, ThrowingConsumer<RR, T> elseConsumer)
+      boolean condition1,
+      ThrowingConsumer<RR, S> thenConsumer1,
+      ThrowingConsumer<RR, T> elseConsumer)
       throws S, T {
-    return applyIf(
-        condition,
-        thenConsumer,
-        true,
-        elseConsumer,
-        r -> {
-          assert false;
-        });
+    boolean condition2 = false;
+    ThrowingConsumer<RR, RuntimeException> thenConsumer2 = ThrowingConsumer.unreachable();
+    return applyIf(condition1, thenConsumer1, condition2, thenConsumer2, elseConsumer);
   }
 
   public <S extends Throwable, T extends Throwable, U extends Throwable> RR applyIf(
@@ -73,16 +70,16 @@ public abstract class TestRunResult<RR extends TestRunResult<RR>> {
       ThrowingConsumer<RR, T> thenConsumer2,
       ThrowingConsumer<RR, U> elseConsumer)
       throws S, T, U {
+    boolean condition3 = false;
+    ThrowingConsumer<RR, RuntimeException> thenConsumer3 = ThrowingConsumer.unreachable();
     return applyIf(
         condition1,
         thenConsumer1,
         condition2,
         thenConsumer2,
-        true,
-        elseConsumer,
-        r -> {
-          assert false;
-        });
+        condition3,
+        thenConsumer3,
+        elseConsumer);
   }
 
   public <S extends Throwable, T extends Throwable, U extends Throwable, V extends Throwable>
@@ -95,12 +92,45 @@ public abstract class TestRunResult<RR extends TestRunResult<RR>> {
           ThrowingConsumer<RR, U> thenConsumer3,
           ThrowingConsumer<RR, V> elseConsumer)
           throws S, T, U, V {
+    boolean condition4 = false;
+    ThrowingConsumer<RR, RuntimeException> thenConsumer4 = ThrowingConsumer.unreachable();
+    return applyIf(
+        condition1,
+        thenConsumer1,
+        condition2,
+        thenConsumer2,
+        condition3,
+        thenConsumer3,
+        condition4,
+        thenConsumer4,
+        elseConsumer);
+  }
+
+  public <
+          S extends Throwable,
+          T extends Throwable,
+          U extends Throwable,
+          V extends Throwable,
+          W extends Throwable>
+      RR applyIf(
+          boolean condition1,
+          ThrowingConsumer<RR, S> thenConsumer1,
+          boolean condition2,
+          ThrowingConsumer<RR, T> thenConsumer2,
+          boolean condition3,
+          ThrowingConsumer<RR, U> thenConsumer3,
+          boolean condition4,
+          ThrowingConsumer<RR, W> thenConsumer4,
+          ThrowingConsumer<RR, V> elseConsumer)
+          throws S, T, U, V, W {
     if (condition1) {
       thenConsumer1.accept(self());
     } else if (condition2) {
       thenConsumer2.accept(self());
     } else if (condition3) {
       thenConsumer3.accept(self());
+    } else if (condition4) {
+      thenConsumer4.accept(self());
     } else {
       elseConsumer.accept(self());
     }

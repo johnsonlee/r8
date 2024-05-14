@@ -4,22 +4,26 @@
 
 package com.android.tools.r8.internal.proto;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,6 +31,9 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+// TODO(b/339100248): Rename class to ProtoBuilderShrinkingTest.
+// TODO(b/339100248): Avoid creating edition2023 messages in proto2 package.
+//  Instead move proto2 and proto edition2023 messages to com.android.tools.r8.proto.
 @RunWith(Parameterized.class)
 public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
 
@@ -76,19 +83,46 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
   @Parameter(1)
   public TestParameters parameters;
 
-  @Parameters(name = "{1}, {0}")
+  @Parameter(2)
+  public ProtoRuntime protoRuntime;
+
+  @Parameter(3)
+  public ProtoTestSources protoTestSources;
+
+  @Parameters(name = "{1}, {2}, {3}, {0}")
   public static List<Object[]> data() {
     return buildParameters(
         MainClassesConfig.values(),
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build());
+        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        ProtoRuntime.values(),
+        ProtoTestSources.getEdition2023AndProto2());
   }
 
   @Test
-  public void test() throws Exception {
-    R8TestCompileResult result =
+  public void testD8() throws Exception {
+    protoRuntime.assumeIsNewerThanOrEqualToMinimumRequiredRuntime(protoTestSources);
+    D8TestCompileResult compileResult =
+        testForD8()
+            .addProgramFiles(protoRuntime.getProgramFiles())
+            .addProgramFiles(protoTestSources.getProgramFiles())
+            .setMinApi(parameters)
+            .compile();
+
+    for (String main : config.getMainClasses()) {
+      compileResult
+          .run(parameters.getRuntime(), main)
+          .apply(runResult -> checkRunResult(runResult, main, false));
+    }
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    protoRuntime.assumeIsNewerThanOrEqualToMinimumRequiredRuntime(protoTestSources);
+    R8TestCompileResult compileResult =
         testForR8(parameters.getBackend())
-            .apply(this::addProto2TestSources)
-            .apply(this::addLegacyRuntime)
+            .apply(protoRuntime::addRuntime)
+            .apply(protoRuntime::workaroundProtoMessageRemoval)
+            .addProgramFiles(protoTestSources.getProgramFiles())
             .addKeepMainRules(config.getMainClasses())
             .allowAccessModification()
             .allowDiagnosticMessages()
@@ -104,7 +138,28 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
             .inspect(this::inspect);
 
     for (String main : config.getMainClasses()) {
-      result.run(parameters.getRuntime(), main).assertSuccessWithOutput(getExpectedOutput(main));
+      compileResult
+          .run(parameters.getRuntime(), main)
+          .apply(runResult -> checkRunResult(runResult, main, true));
+    }
+  }
+
+  private void checkRunResult(SingleTestRunResult<?> runResult, String main, boolean isR8) {
+    if (main.equals("proto2.HasFlaggedOffExtensionBuilderTestClass")) {
+      runResult.applyIf(
+          isR8 && protoRuntime.isEdition2023() && parameters.getApiLevel() == AndroidApiLevel.O,
+          rr -> rr.assertFailureWithErrorThatThrows(IllegalAccessException.class),
+          !isR8 && protoRuntime.isEdition2023() && protoTestSources.isProto2(),
+          rr -> rr.assertFailureWithErrorThatThrows(InvalidProtocolBufferException.class),
+          rr -> rr.assertSuccessWithOutput(getExpectedOutput(main)));
+    } else {
+      runResult.applyIf(
+          protoTestSources.getCorrespondingRuntime() == protoRuntime,
+          rr -> rr.assertSuccessWithOutput(getExpectedOutput(main)),
+          main.equals("proto2.BuilderWithProtoBuilderSetterTestClass")
+              || main.equals("proto2.BuilderWithProtoSetterTestClass"),
+          rr -> rr.assertFailureWithErrorThatThrows(StringIndexOutOfBoundsException.class),
+          rr -> rr.assertFailureWithErrorThatThrows(ArrayIndexOutOfBoundsException.class));
     }
   }
 
@@ -193,16 +248,16 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
     assertThat(
         outputInspector.clazz(
             "com.android.tools.r8.proto2.Shrinking$HasFlaggedOffExtension$Builder"),
-        not(isPresent()));
+        isAbsent());
     assertThat(
         outputInspector.clazz("com.android.tools.r8.proto2.TestProto$Primitives$Builder"),
-        not(isPresent()));
+        isAbsent());
     assertThat(
         outputInspector.clazz("com.android.tools.r8.proto2.TestProto$OuterMessage$Builder"),
-        not(isPresent()));
+        isAbsent());
     assertThat(
         outputInspector.clazz("com.android.tools.r8.proto2.TestProto$NestedMessage$Builder"),
-        not(isPresent()));
+        isAbsent());
   }
 
   private void verifyMethodToInvokeValuesAreAbsent(CodeInspector outputInspector) {
@@ -220,20 +275,23 @@ public class Proto2BuilderShrinkingTest extends ProtoShrinkingTestBase {
       assertThat(mainMethodSubject, isPresent());
 
       // Verify that the calls to GeneratedMessageLite.createBuilder() have been inlined.
-      assertTrue(
-          mainMethodSubject
-              .streamInstructions()
-              .filter(InstructionSubject::isInvoke)
-              .map(InstructionSubject::getMethod)
-              .allMatch(
-                  method ->
-                      method.getHolderType()
-                              != generatedMessageLiteClassSubject.getDexProgramClass().getType()
-                          || (isInitializedMethodSubject.isPresent()
-                              && method
-                                  == isInitializedMethodSubject
-                                      .getProgramMethod()
-                                      .getReference())));
+      // TODO(b/339100248): Investigate inadequate inlining with edition2023.
+      if (protoRuntime.isLegacy()) {
+        assertTrue(
+            mainMethodSubject
+                .streamInstructions()
+                .filter(InstructionSubject::isInvoke)
+                .map(InstructionSubject::getMethod)
+                .allMatch(
+                    method ->
+                        method.getHolderType()
+                                != generatedMessageLiteClassSubject.getDexProgramClass().getType()
+                            || (isInitializedMethodSubject.isPresent()
+                                && method
+                                    == isInitializedMethodSubject
+                                        .getProgramMethod()
+                                        .getReference())));
+      }
 
       // Verify that there are no accesses to MethodToInvoke after inlining createBuilder() -- and
       // specifically no accesses to MethodToInvoke.NEW_BUILDER.

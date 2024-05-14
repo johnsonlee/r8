@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import com.android.tools.r8.errors.Unreachable;
 import java.util.function.Consumer;
 
 /**
@@ -25,5 +26,11 @@ public interface ThrowingConsumer<T, E extends Throwable> {
               : new RuntimeException(throwable);
       throw runtimeException;
     }
+  }
+
+  static <T, E extends Throwable> ThrowingConsumer<T, E> unreachable() {
+    return t -> {
+      throw new Unreachable();
+    };
   }
 }

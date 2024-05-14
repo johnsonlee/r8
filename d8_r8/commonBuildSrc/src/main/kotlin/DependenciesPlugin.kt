@@ -614,10 +614,20 @@ object ThirdPartyDeps {
     Paths.get("third_party", "proguardsettings").toFile(),
     Paths.get("third_party", "proguardsettings.tar.gz.sha1").toFile(),
     DependencyType.X20)
+  val protoRuntimeEdition2023 = ThirdPartyDependency(
+    "protoRuntimeEdition2023",
+    Paths.get("third_party", "proto", "runtime", "edition2023").toFile(),
+    Paths.get("third_party", "proto", "runtime", "edition2023.tar.gz.sha1").toFile(),
+    DependencyType.X20)
   val protoRuntimeLegacy = ThirdPartyDependency(
     "protoRuntimeLegacy",
     Paths.get("third_party", "proto", "runtime", "legacy").toFile(),
     Paths.get("third_party", "proto", "runtime", "legacy.tar.gz.sha1").toFile(),
+    DependencyType.X20)
+  val protoTestEdition2023 = ThirdPartyDependency(
+    "protoTestEdition2023",
+    Paths.get("third_party", "proto", "test", "edition2023").toFile(),
+    Paths.get("third_party", "proto", "test", "edition2023.tar.gz.sha1").toFile(),
     DependencyType.X20)
   val protoTestProto2 = ThirdPartyDependency(
     "protoTestProto2",

@@ -273,8 +273,12 @@ third_party/opensource-apps/android/nowinandroid.tar.gz
 third_party/proguard/*
 third_party/proguardsettings.tar.gz
 third_party/proguardsettings/
+third_party/proto/runtime/edition2023
+third_party/proto/runtime/edition2023.tar.gz
 third_party/proto/runtime/legacy
 third_party/proto/runtime/legacy.tar.gz
+third_party/proto/test/edition2023
+third_party/proto/test/edition2023.tar.gz
 third_party/proto/test/proto2
 third_party/proto/test/proto2.tar.gz
 third_party/proto/test/proto3
