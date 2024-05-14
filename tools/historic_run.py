@@ -8,6 +8,7 @@
 # commits that exists on cloud storage in the given range.  It will then run the
 # oldest and newest such commit, and gradually fill in the commits in between.
 
+import math
 import optparse
 import os
 import subprocess
@@ -53,9 +54,14 @@ class GitCommit(object):
 
 
 def git_commit_from_hash(hash):
-    commit_timestamp = subprocess.check_output(
-        ['git', 'show', '--no-patch', '--no-notes', '--pretty=\'%ct\'',
-         hash]).strip().strip('\'')
+    commit_timestamp = subprocess.check_output([
+        'git',
+        'show',
+        '--no-patch',
+        '--no-notes',
+        '--pretty=\'%ct\'',
+         hash
+    ]).decode().strip().strip('\'')
     destination_dir = '%s/%s/' % (MASTER_COMMITS, hash)
     destination = '%s%s' % (destination_dir, 'r8.jar')
     commit = GitCommit(hash, destination_dir, destination, commit_timestamp)
@@ -63,23 +69,20 @@ def git_commit_from_hash(hash):
 
 
 def enumerate_git_commits(top, bottom):
-    output = subprocess.check_output(['git', 'rev-list', '--first-parent', top])
-    found_bottom = False
+    if bottom is None:
+        output = subprocess.check_output(['git', 'rev-list', '--first-parent', '-n', 1000, top])
+    else:
+        output = subprocess.check_output(['git', 'rev-list', '--first-parent', '%s^..%s' % (bottom, top)])
     commits = []
-    for c in output.splitlines():
+    for c in output.decode().splitlines():
         commit_hash = c.strip()
         commits.append(git_commit_from_hash(commit_hash))
-        if commit_hash == bottom:
-            found_bottom = True
-            break
-    if not found_bottom:
-        raise Exception('Bottom not found, did you not use a merge commit')
     return commits
 
 
 def get_available_commits(commits):
-    cloud_commits = subprocess.check_output(['gsutil.py', 'ls',
-                                             MASTER_COMMITS]).splitlines()
+    cloud_commits = subprocess.check_output(
+        ['gsutil.py', 'ls', MASTER_COMMITS]).decode().splitlines()
     available_commits = []
     for commit in commits:
         if commit.destination_dir in cloud_commits:
@@ -99,7 +102,7 @@ def permutate_range(start, end):
         return [start, end]
     if diff == 0:
         return [start]
-    half = end - (diff / 2)
+    half = end - math.floor(diff / 2)
     numbers = [half]
     first_half = permutate_range(start, half - 1)
     second_half = permutate_range(half + 1, end)
