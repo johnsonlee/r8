@@ -64,4 +64,9 @@ public class BottomClassTypeValueState extends BottomValueState {
       return joinedDynamicType;
     }
   }
+
+  @Override
+  public String toString() {
+    return "⊥(CLASS)";
+  }
 }

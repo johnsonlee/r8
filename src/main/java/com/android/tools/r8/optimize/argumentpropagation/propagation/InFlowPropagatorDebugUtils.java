@@ -5,6 +5,9 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.utils.WorkList;
 import java.util.List;
 
@@ -58,5 +61,41 @@ public class InFlowPropagatorDebugUtils {
             worklist.addIfNotSeen(predecessor);
           }
         });
+  }
+
+  public static boolean logPropagateUnknown(FlowGraphNode node, FlowGraphNode successorNode) {
+    if (successorNode.getDebug()) {
+      log("PROPAGATE UNKNOWN", "FROM: " + node, "TO: " + successorNode);
+    }
+    return true;
+  }
+
+  public static boolean logPropagateConcrete(
+      FlowGraphNode node,
+      FlowGraphNode successorNode,
+      ConcreteValueState nodeStateAfterNarrowing,
+      AbstractFunction transferFunction,
+      ValueState transferState,
+      ValueState oldSuccessorState) {
+    if (successorNode.getDebug()) {
+      log(
+          "PROPAGATE CONCRETE",
+          "FROM: " + node,
+          "TO: " + successorNode,
+          "NODE STATE: " + node.getState(),
+          "NODE STATE (NARROWED): " + nodeStateAfterNarrowing,
+          "TRANSFER FN: " + transferFunction,
+          "TRANSFER STATE: " + transferState,
+          "SUCCESSOR STATE: " + oldSuccessorState,
+          "SUCCESSOR STATE (NEW): " + successorNode.getState());
+    }
+    return true;
+  }
+
+  private static synchronized void log(String... lines) {
+    System.out.println("====================================");
+    for (String line : lines) {
+      System.out.println(line);
+    }
   }
 }

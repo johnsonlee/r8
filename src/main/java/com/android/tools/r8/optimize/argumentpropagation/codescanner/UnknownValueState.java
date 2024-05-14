@@ -46,4 +46,9 @@ public class UnknownValueState extends NonEmptyValueState {
       Action onChangedAction) {
     return this;
   }
+
+  @Override
+  public String toString() {
+    return "⊤";
+  }
 }

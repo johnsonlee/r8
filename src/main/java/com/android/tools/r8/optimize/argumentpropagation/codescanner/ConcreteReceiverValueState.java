@@ -144,4 +144,10 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   public ConcreteReceiverValueState withDynamicType(DynamicType dynamicType) {
     return new ConcreteReceiverValueState(dynamicType, copyInFlow());
   }
+
+  @Override
+  public String toString() {
+    assert !hasInFlow();
+    return "ReceiverState(" + dynamicType + ")";
+  }
 }

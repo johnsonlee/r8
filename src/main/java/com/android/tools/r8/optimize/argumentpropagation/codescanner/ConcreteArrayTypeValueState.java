@@ -133,4 +133,10 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
     nullability = nullability.join(otherNullability);
     return nullability != oldNullability;
   }
+
+  @Override
+  public String toString() {
+    assert !hasInFlow();
+    return "ArrayState(" + nullability + ")";
+  }
 }

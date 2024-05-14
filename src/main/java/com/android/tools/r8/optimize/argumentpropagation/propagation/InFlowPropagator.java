@@ -173,6 +173,7 @@ public class InFlowPropagator {
     assert !successorNode.isUnknown();
     NonEmptyValueState stateToPropagate = narrowUnknownState(node, successorNode);
     if (stateToPropagate.isUnknown()) {
+      assert InFlowPropagatorDebugUtils.logPropagateUnknown(node, successorNode);
       successorNode.clearPredecessors(node);
       successorNode.setStateToUnknown();
       successorNode.addToWorkList(worklist);
@@ -235,6 +236,8 @@ public class InFlowPropagator {
           FlowGraphStateProvider.create(flowGraph, transferFunction);
       ValueState transferState =
           transferFunction.apply(appView, flowGraphStateProvider, stateToPropagate);
+      ValueState oldSuccessorStateForDebugging =
+          successorNode.getDebug() ? successorNode.getState().mutableCopy() : null;
       if (transferState.isBottom()) {
         // Nothing to propagate.
       } else if (transferState.isUnknown()) {
@@ -246,6 +249,15 @@ public class InFlowPropagator {
         successorNode.addState(
             appView, inState, inStaticType, () -> successorNode.addToWorkList(worklist));
       }
+
+      assert InFlowPropagatorDebugUtils.logPropagateConcrete(
+          node,
+          successorNode,
+          state,
+          transferFunction,
+          transferState,
+          oldSuccessorStateForDebugging);
+
       // If this successor has become unknown, there is no point in continuing to propagate
       // flow to it from any of its predecessors. We therefore clear the predecessors to
       // improve performance of the fixpoint computation.

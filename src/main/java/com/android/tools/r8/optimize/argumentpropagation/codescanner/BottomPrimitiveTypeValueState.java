@@ -37,4 +37,9 @@ public class BottomPrimitiveTypeValueState extends BottomValueState {
     assert inState.isPrimitiveState();
     return cloner.mutableCopy(inState);
   }
+
+  @Override
+  public String toString() {
+    return "⊥(PRIMITIVE)";
+  }
 }

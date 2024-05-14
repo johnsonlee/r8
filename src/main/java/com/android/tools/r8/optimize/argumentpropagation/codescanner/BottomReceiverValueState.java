@@ -46,4 +46,9 @@ public class BottomReceiverValueState extends BottomValueState {
     }
     return new ConcreteReceiverValueState(dynamicType, concreteState.copyInFlow());
   }
+
+  @Override
+  public String toString() {
+    return "⊥(RECEIVER)";
+  }
 }

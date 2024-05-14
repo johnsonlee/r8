@@ -46,4 +46,9 @@ public class BottomArrayTypeValueState extends BottomValueState {
     }
     return new ConcreteArrayTypeValueState(nullability, concreteState.copyInFlow());
   }
+
+  @Override
+  public String toString() {
+    return "⊥(ARRAY)";
+  }
 }

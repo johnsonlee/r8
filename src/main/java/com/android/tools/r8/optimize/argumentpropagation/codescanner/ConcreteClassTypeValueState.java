@@ -186,4 +186,10 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   public ConcreteClassTypeValueState withDynamicType(DynamicType dynamicType) {
     return new ConcreteClassTypeValueState(abstractValue, dynamicType, copyInFlow());
   }
+
+  @Override
+  public String toString() {
+    assert !hasInFlow();
+    return "ClassState(type: " + dynamicType + ", value: " + abstractValue + ")";
+  }
 }

@@ -126,4 +126,10 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   public ConcretePrimitiveTypeValueState asPrimitiveState() {
     return this;
   }
+
+  @Override
+  public String toString() {
+    assert !hasInFlow();
+    return "PrimitiveState(" + abstractValue + ")";
+  }
 }
