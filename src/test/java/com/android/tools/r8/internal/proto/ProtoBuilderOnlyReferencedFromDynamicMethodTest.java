@@ -1,7 +1,6 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.internal.proto;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
@@ -22,11 +21,10 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// TODO(b/339100248): Rename class to ProtoBuilderOnlyReferencedFromDynamicMethodTest.
 // TODO(b/339100248): Avoid creating edition2023 messages in proto2 package.
 //  Instead move proto2 and proto edition2023 messages to com.android.tools.r8.proto.
 @RunWith(Parameterized.class)
-public class Proto2BuilderOnlyReferencedFromDynamicMethodTest extends ProtoShrinkingTestBase {
+public class ProtoBuilderOnlyReferencedFromDynamicMethodTest extends ProtoShrinkingTestBase {
 
   private static final String MAIN = "proto2.BuilderOnlyReferencedFromDynamicMethodTestClass";
 

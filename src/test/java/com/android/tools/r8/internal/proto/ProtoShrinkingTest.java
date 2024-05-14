@@ -1,4 +1,4 @@
-// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.internal.proto;
@@ -29,11 +29,10 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// TODO(b/339100248): Rename class to ProtoShrinkingTest.
 // TODO(b/339100248): Avoid creating edition2023 messages in proto2 package.
 //  Instead move proto2 and proto edition2023 messages to com.android.tools.r8.proto.
 @RunWith(Parameterized.class)
-public class Proto2ShrinkingTest extends ProtoShrinkingTestBase {
+public class ProtoShrinkingTest extends ProtoShrinkingTestBase {
 
   private static final String CONTAINS_FLAGGED_OFF_FIELD =
       "com.android.tools.r8.proto2.Shrinking$ContainsFlaggedOffField";
