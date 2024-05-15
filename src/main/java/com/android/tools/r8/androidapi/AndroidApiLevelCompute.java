@@ -21,7 +21,7 @@ public abstract class AndroidApiLevelCompute {
   public AndroidApiLevelCompute() {
     knownApiLevelCache = new KnownApiLevel[AndroidApiLevel.API_DATABASE_LEVEL.getLevel() + 1];
     for (AndroidApiLevel value : AndroidApiLevel.values()) {
-      if (value != AndroidApiLevel.MAIN) {
+      if (value != AndroidApiLevel.MAIN && value != AndroidApiLevel.EXTENSION) {
         knownApiLevelCache[value.getLevel()] = new KnownApiLevel(value);
       }
     }
@@ -29,7 +29,10 @@ public abstract class AndroidApiLevelCompute {
 
   public KnownApiLevel of(AndroidApiLevel apiLevel) {
     if (apiLevel == AndroidApiLevel.MAIN) {
-      return ComputedApiLevel.master();
+      return ComputedApiLevel.main();
+    }
+    if (apiLevel == AndroidApiLevel.EXTENSION) {
+      return ComputedApiLevel.extension();
     }
     return knownApiLevelCache[apiLevel.getLevel()];
   }
@@ -74,7 +77,7 @@ public abstract class AndroidApiLevelCompute {
 
   public ComputedApiLevel computeInitialMinApiLevel(InternalOptions options) {
     if (options.getMinApiLevel() == AndroidApiLevel.MAIN) {
-      return ComputedApiLevel.master();
+      return ComputedApiLevel.main();
     }
     return new KnownApiLevel(options.getMinApiLevel());
   }

@@ -2002,6 +2002,16 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableLibraryApiModeling =
         System.getProperty("com.android.tools.r8.disableApiModeling") == null;
 
+    // Flag to specify packages for Android extension APIs (also known as OEM-implemented
+    // shared libraries or sidecars). The packages are specified as java package names
+    // separated by commas. All APIs within these packages are handled as having an API level
+    // higher than any existing API level as these APIs might not exist on any device independent
+    // of API level (the nature of an extension API).
+    // TODO(b/326252366): This mechanism should be extended to also specify the extension for
+    //  each package to prevent merging of API outline methods fron different extensions.
+    public String androidApiExtensionPackages =
+        System.getProperty("com.android.tools.r8.androidApiExtensionPackages");
+
     // The flag enableApiCallerIdentification controls if we can inline or merge targets with
     // different api levels. It is also the flag that specifies if we assign api levels to
     // references.

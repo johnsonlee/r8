@@ -23,8 +23,12 @@ public interface ComputedApiLevel extends Equatable<ComputedApiLevel> {
     return UnknownApiLevel.INSTANCE;
   }
 
-  static KnownApiLevel master() {
-    return KnownApiLevel.MASTER_INSTANCE;
+  static KnownApiLevel main() {
+    return KnownApiLevel.MAIN_INSTANCE;
+  }
+
+  static KnownApiLevel extension() {
+    return KnownApiLevel.EXTENSION_INSTANCE;
   }
 
   default boolean isNotSetApiLevel() {
@@ -161,7 +165,9 @@ public interface ComputedApiLevel extends Equatable<ComputedApiLevel> {
 
   class KnownApiLevel implements ComputedApiLevel {
 
-    private static final KnownApiLevel MASTER_INSTANCE = new KnownApiLevel(AndroidApiLevel.MAIN);
+    private static final KnownApiLevel MAIN_INSTANCE = new KnownApiLevel(AndroidApiLevel.MAIN);
+    private static final KnownApiLevel EXTENSION_INSTANCE =
+        new KnownApiLevel(AndroidApiLevel.EXTENSION);
 
     private final AndroidApiLevel apiLevel;
 

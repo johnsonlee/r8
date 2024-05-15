@@ -502,6 +502,14 @@ public abstract class ApiModelingTestHelper {
       }
     }
 
+    void isOutlinedFromIf(Executable method, boolean condition) {
+      if (condition) {
+        isOutlinedFrom(method);
+      } else {
+        isNotOutlinedFrom(method);
+      }
+    }
+
     void isOutlinedFrom(Executable method) {
       // Check that the call is in a synthetic class.
       List<FoundMethodSubject> outlinedMethod =

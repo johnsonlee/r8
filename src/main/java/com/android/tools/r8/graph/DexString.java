@@ -198,9 +198,13 @@ public class DexString extends IndexedDexItem
   }
 
   public ThrowingCharIterator<UTFDataFormatException> iterator() {
+    return iterator(0);
+  }
+
+  public ThrowingCharIterator<UTFDataFormatException> iterator(int startIndex) {
     return new ThrowingCharIterator<UTFDataFormatException>() {
 
-      private int i = 0;
+      private int i = startIndex;
 
       @Override
       public char nextChar() throws UTFDataFormatException {

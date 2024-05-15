@@ -44,7 +44,8 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
   Sv2(32),
   T(33),
   U(34),
-  MAIN(35); // API level for main is tentative.
+  MAIN(35), // API level for main is tentative.
+  EXTENSION(Integer.MAX_VALUE); // Used for API modeling of Android extension APIs.
 
   // When updating LATEST and a new version goes public, add a new api-versions.xml to third_party
   // and update the version and generated jar in AndroidApiDatabaseBuilderGeneratorTest. Together
