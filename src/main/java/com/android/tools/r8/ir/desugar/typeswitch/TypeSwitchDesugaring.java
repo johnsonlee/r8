@@ -11,6 +11,7 @@ import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHel
 
 import com.android.tools.r8.cf.code.CfArrayStore;
 import com.android.tools.r8.cf.code.CfConstClass;
+import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfConstString;
 import com.android.tools.r8.cf.code.CfInstruction;
@@ -73,6 +74,8 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
     if (!instruction.isInvokeDynamic()) {
       // We need to replace the new MatchException with RuntimeException.
+      // TODO(b/340800750): Consider using a more specific exception than RuntimeException, such
+      //  as com.android.tools.r8.DesugarMatchException.
       if (instruction.isNew() && instruction.asNew().getType().isIdenticalTo(matchException)) {
         return DesugarDescription.builder()
             .setDesugarRewrite(
@@ -232,7 +235,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
             DexField enumField =
                 getEnumField(
                     bootstrapArg.asDexValueString().getValue(), enumType, context, appView);
-            cfInstructions.add(new CfStaticFieldRead(enumField));
+            pushEnumField(cfInstructions, enumField);
           } else {
             throw new CompilationError(
                 "Invalid bootstrap arg for enum switch " + bootstrapArg, context.getOrigin());
@@ -258,12 +261,21 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
           } else if (bootstrapArg.isDexValueConstDynamic()) {
             DexField enumField =
                 extractEnumField(bootstrapArg.asDexValueConstDynamic(), context, appView);
-            cfInstructions.add(new CfStaticFieldRead(enumField));
+            pushEnumField(cfInstructions, enumField);
           } else {
             throw new CompilationError(
                 "Invalid bootstrap arg for type switch " + bootstrapArg, context.getOrigin());
           }
         });
+  }
+
+  private void pushEnumField(List<CfInstruction> cfInstructions, DexField enumField) {
+    if (enumField == null) {
+      // Extremely rare case where the compilation is invalid, the case is unreachable.
+      cfInstructions.add(new CfConstNull());
+    } else {
+      cfInstructions.add(new CfStaticFieldRead(enumField));
+    }
   }
 
   private void generateSwitchLoadArguments(
@@ -281,6 +293,4 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
       cfInstructions.add(new CfArrayStore(MemberType.OBJECT));
     }
   }
-
-
 }

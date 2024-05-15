@@ -3,8 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package switchpatternmatching;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
+import static switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
@@ -14,7 +15,6 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,33 +41,9 @@ public class StringSwitchTest extends TestBase {
   public void testJvm() throws Exception {
     assumeTrue(parameters.isCfRuntime());
     CodeInspector inspector = new CodeInspector(ToolHelper.getClassFileForTestClass(Main.class));
-    // javac generated an invokedynamic using bootstrap method
-    // java.lang.runtime.SwitchBootstraps.typeSwitch.
-    assertEquals(
-        1,
-        inspector
-            .clazz(Main.class)
-            .uniqueMethodWithOriginalName("stringSwitch")
-            .streamInstructions()
-            .filter(InstructionSubject::isInvokeDynamic)
-            .map(
-                instruction ->
-                    instruction
-                        .asCfInstruction()
-                        .getInstruction()
-                        .asInvokeDynamic()
-                        .getCallSite()
-                        .getBootstrapMethod()
-                        .member
-                        .asDexMethod())
-            .filter(
-                method ->
-                    method
-                        .getHolderType()
-                        .toString()
-                        .contains("java.lang.runtime.SwitchBootstraps"))
-            .filter(method -> method.toString().contains("typeSwitch"))
-            .count());
+    assertTrue(
+        hasJdk21TypeSwitch(
+            inspector.clazz(Main.class).uniqueMethodWithOriginalName("stringSwitch")));
 
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)

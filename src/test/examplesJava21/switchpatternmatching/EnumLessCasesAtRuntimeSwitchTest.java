@@ -5,9 +5,9 @@ package switchpatternmatching;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
+import static switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
 import static switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 
-import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
@@ -24,7 +24,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class EnumSwitchTest extends TestBase {
+public class EnumLessCasesAtRuntimeSwitchTest extends TestBase {
 
   @Parameter public TestParameters parameters;
 
@@ -34,14 +34,16 @@ public class EnumSwitchTest extends TestBase {
   }
 
   public static String EXPECTED_OUTPUT =
-      StringUtils.lines("null", "E1", "E2", "E3", "E4", "a C", "class %s");
+      StringUtils.lines("TYPE", "null", "E1", "E3", "E5", "a C", "ENUM", "null", "1", "3", "0");
 
   @Test
   public void testJvm() throws Exception {
     assumeTrue(parameters.isCfRuntime());
     CodeInspector inspector = new CodeInspector(ToolHelper.getClassFileForTestClass(Main.class));
     assertTrue(
-        hasJdk21TypeSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("enumSwitch")));
+        hasJdk21EnumSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("enumSwitch")));
+    assertTrue(
+        hasJdk21TypeSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("typeSwitch")));
 
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
@@ -49,9 +51,7 @@ public class EnumSwitchTest extends TestBase {
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
-            r ->
-                r.assertSuccessWithOutput(
-                    String.format(EXPECTED_OUTPUT, "java.lang.MatchException")),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
 
@@ -59,29 +59,16 @@ public class EnumSwitchTest extends TestBase {
       TestBuilder<?, T> testBuilder) throws Exception {
     testBuilder
         .addStrippedOuter(getClass())
-        .addProgramClasses(FakeI.class, E.class, C.class)
+        .addProgramClasses(FakeI.class, C.class, I.class, Main.class)
         .addProgramClassFileData(
-            transformer(I.class)
-                .setPermittedSubclasses(I.class, E.class, C.class, D.class)
+            transformer(CompileTimeE.class)
+                .setImplements(FakeI.class)
+                .setClassDescriptor(RuntimeE.class.descriptorString())
                 .transform())
-        .addProgramClassFileData(transformer(D.class).setImplements(I.class).transform())
         .addProgramClassFileData(
-            transformer(Main.class)
-                .transformTypeInsnInMethod(
-                    "getD",
-                    (opcode, type, visitor) ->
-                        visitor.visitTypeInsn(opcode, "switchpatternmatching/EnumSwitchTest$D"))
-                .transformMethodInsnInMethod(
-                    "getD",
-                    (opcode, owner, name, descriptor, isInterface, visitor) -> {
-                      assert name.equals("<init>");
-                      visitor.visitMethodInsn(
-                          opcode,
-                          "switchpatternmatching/EnumSwitchTest$D",
-                          name,
-                          descriptor,
-                          isInterface);
-                    })
+            transformer(RuntimeE.class)
+                .setImplements(I.class)
+                .setClassDescriptor(CompileTimeE.class.descriptorString())
                 .transform());
   }
 
@@ -92,63 +79,58 @@ public class EnumSwitchTest extends TestBase {
         .apply(this::addModifiedProgramClasses)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, "java.lang.RuntimeException"));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testR8() throws Exception {
-    Assume.assumeTrue(
-        parameters.isDexRuntime()
-            || (parameters.isCfRuntime()
-                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21)));
+    Assume.assumeTrue("For Cf we should compile with Jdk 21 library", parameters.isDexRuntime());
     testForR8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
-        .applyIf(
-            parameters.isCfRuntime(),
-            b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(
-            String.format(
-                EXPECTED_OUTPUT,
-                parameters.isCfRuntime()
-                    ? "java.lang.MatchException"
-                    : "java.lang.RuntimeException"));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  // D is added to the list of permitted subclasses to reproduce the MatchException.
-  sealed interface I permits E, C {}
+  sealed interface I permits CompileTimeE, C {}
+
+  public enum CompileTimeE implements I {
+    E1,
+    E2, // Case missing at runtime.
+    E3,
+    E4, // Case missing at runtime.
+    E5
+  }
 
   interface FakeI {}
 
-  public enum E implements I {
+  public enum RuntimeE implements FakeI {
     E1,
-    E2,
     E3,
-    E4
+    E5
   }
-
-  // Replaced with I.
-  static final class D implements FakeI {}
 
   static final class C implements I {}
 
   static class Main {
 
-    static void enumSwitch(I i) {
+    static void typeSwitch(I i) {
       switch (i) {
-        case E.E1 -> {
+        case CompileTimeE.E1 -> {
           System.out.println("E1");
         }
-        case E.E2 -> {
+        case CompileTimeE.E2 -> { // Case missing at runtime.
           System.out.println("E2");
         }
-        case E.E3 -> {
+        case CompileTimeE.E3 -> {
           System.out.println("E3");
         }
-        case E.E4 -> {
+        case CompileTimeE.E4 -> { // Case missing at runtime.
           System.out.println("E4");
+        }
+        case CompileTimeE.E5 -> {
+          System.out.println("E5");
         }
         case C c -> {
           System.out.println("a C");
@@ -156,27 +138,35 @@ public class EnumSwitchTest extends TestBase {
       }
     }
 
-    public static void main(String[] args) {
-      try {
-        enumSwitch(null);
-      } catch (NullPointerException e) {
-        System.out.println("null");
-      }
-      enumSwitch(E.E1);
-      enumSwitch(E.E2);
-      enumSwitch(E.E3);
-      enumSwitch(E.E4);
-      enumSwitch(new C());
-      try {
-        enumSwitch(getD());
-      } catch (Throwable t) {
-        System.out.println(t.getClass());
+    static void enumSwitch(CompileTimeE e) {
+      switch (e) {
+        case null -> System.out.println("null");
+        case CompileTimeE.E1 -> System.out.println("1");
+        case CompileTimeE.E2 -> System.out.println("2"); // Case missing at runtime.
+        case CompileTimeE t when t == CompileTimeE.E3 -> System.out.println("3");
+        case CompileTimeE t when t.name().equals("E4") ->
+            System.out.println("4"); // Case missing at runtime.
+        case CompileTimeE t -> System.out.println("0");
       }
     }
 
-    public static I getD() {
-      // Replaced by new D();
-      return new C();
+    public static void main(String[] args) {
+      System.out.println("TYPE");
+      try {
+        typeSwitch(null);
+      } catch (NullPointerException e) {
+        System.out.println("null");
+      }
+      typeSwitch(CompileTimeE.E1);
+      typeSwitch(CompileTimeE.E3);
+      typeSwitch(CompileTimeE.E5);
+      typeSwitch(new C());
+
+      System.out.println("ENUM");
+      enumSwitch(null);
+      enumSwitch(CompileTimeE.E1);
+      enumSwitch(CompileTimeE.E3);
+      enumSwitch(CompileTimeE.E5);
     }
   }
 }

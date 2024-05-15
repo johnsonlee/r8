@@ -1316,7 +1316,7 @@ public class ClassFileTransformer {
                   descriptor,
                   redirectVisitFieldInsn(this, super::visitFieldInsn));
             } else {
-              super.visitMethodInsn(opcode, owner, name, descriptor);
+              super.visitFieldInsn(opcode, owner, name, descriptor);
             }
           }
         });

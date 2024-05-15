@@ -110,8 +110,9 @@ public class TypeSwitchDesugaringHelper {
     }
     DexEncodedField dexEncodedField = enumClass.lookupUniqueStaticFieldWithName(fieldName);
     if (dexEncodedField == null) {
-      throw throwEnumFieldConstantDynamic(
-          "Missing enum field " + fieldName + " in " + enumType, context);
+      // If the field is missing, but the class is there, the case is considered unreachable and
+      // effectively removed from the switch.
+      return null;
     }
     return dexEncodedField.getReference();
   }
