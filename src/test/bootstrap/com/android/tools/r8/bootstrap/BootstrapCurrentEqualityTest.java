@@ -101,6 +101,8 @@ public class BootstrapCurrentEqualityTest extends TestBase {
         .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
         .addKeepRuleFiles(MAIN_KEEP)
+        .addOptionsModification(
+            options -> options.getTestingOptions().dontReportFailingCheckDiscarded = mode.isDebug())
         .enableExperimentalKeepAnnotations()
         // TODO(b/176783536, b/270105162): Get a hold of dependencies in new gradle setup.
         .apply(R8TestBuilder::allowUnusedDontWarnPatterns)
