@@ -9,6 +9,7 @@ import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThrowingBiConsumer;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -57,6 +58,11 @@ public class D8TestCompileResult extends TestCompileResult<D8TestCompileResult, 
   @Override
   public String getStderr() {
     return state.getStderr();
+  }
+
+  public ExternalArtProfile getResidualArtProfile() {
+    assertEquals(1, residualArtProfiles.size());
+    return ListUtils.first(residualArtProfiles);
   }
 
   public String getProguardMap() {
