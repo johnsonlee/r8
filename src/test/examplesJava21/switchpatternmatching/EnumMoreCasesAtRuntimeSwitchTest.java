@@ -5,9 +5,12 @@ package switchpatternmatching;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
+import static switchpatternmatching.SwitchTestHelper.desugarMatchException;
 import static switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
 import static switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
+import static switchpatternmatching.SwitchTestHelper.matchException;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
@@ -30,7 +33,7 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
   }
 
   public static String EXPECTED_OUTPUT =
@@ -68,8 +71,7 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
             parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
             r ->
                 r.assertSuccessWithOutput(
-                    String.format(
-                        EXPECTED_OUTPUT, "java.lang.MatchException", "java.lang.MatchException")),
+                    String.format(EXPECTED_OUTPUT, matchException(), matchException())),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
 
@@ -105,27 +107,31 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(
-            String.format(
-                EXPECTED_OUTPUT, "java.lang.RuntimeException", "java.lang.RuntimeException"));
+            String.format(EXPECTED_OUTPUT, desugarMatchException(), desugarMatchException()));
   }
 
   @Test
   public void testR8() throws Exception {
-    Assume.assumeTrue("For Cf we should compile with Jdk 21 library", parameters.isDexRuntime());
+    parameters.assumeR8TestParameters();
+    Assume.assumeTrue(
+        parameters.isDexRuntime()
+            || (parameters.isCfRuntime()
+                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21)));
     testForR8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
+        .applyIf(
+            parameters.isCfRuntime(),
+            b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(
-            String.format(
-                EXPECTED_OUTPUT, "java.lang.RuntimeException", "java.lang.RuntimeException"));
+            String.format(EXPECTED_OUTPUT, matchException(parameters), matchException(parameters)));
   }
 
   sealed interface I permits CompileTimeE, C {}

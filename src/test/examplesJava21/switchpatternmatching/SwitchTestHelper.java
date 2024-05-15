@@ -4,6 +4,7 @@
 
 package switchpatternmatching;
 
+import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 
@@ -38,5 +39,17 @@ public class SwitchTestHelper {
             method ->
                 method.getHolderType().toString().contains("java.lang.runtime.SwitchBootstraps"))
         .anyMatch(method -> method.toString().contains(switchMethod));
+  }
+
+  public static String matchException(TestParameters parameters) {
+    return parameters.isCfRuntime() ? matchException() : desugarMatchException();
+  }
+
+  public static String matchException() {
+    return "java.lang.MatchException";
+  }
+
+  public static String desugarMatchException() {
+    return "java.lang.RuntimeException";
   }
 }

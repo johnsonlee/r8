@@ -37,7 +37,7 @@ public class TypeSwitchMissingClassTest extends TestBase {
   @Parameters(name = "{0}, {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(),
+        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
         ImmutableList.of(new ClassHolder(C.class), new ClassHolder(Color.class)));
   }
 
@@ -92,8 +92,7 @@ public class TypeSwitchMissingClassTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
@@ -102,6 +101,7 @@ public class TypeSwitchMissingClassTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    parameters.assumeR8TestParameters();
     Assume.assumeTrue(
         parameters.isDexRuntime()
             || (parameters.isCfRuntime()

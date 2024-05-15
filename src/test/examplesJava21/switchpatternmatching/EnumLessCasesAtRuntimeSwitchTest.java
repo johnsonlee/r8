@@ -8,6 +8,7 @@ import static org.junit.Assume.assumeTrue;
 import static switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
 import static switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
@@ -30,7 +31,7 @@ public class EnumLessCasesAtRuntimeSwitchTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
   }
 
   public static String EXPECTED_OUTPUT =
@@ -74,8 +75,7 @@ public class EnumLessCasesAtRuntimeSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
@@ -84,9 +84,16 @@ public class EnumLessCasesAtRuntimeSwitchTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    Assume.assumeTrue("For Cf we should compile with Jdk 21 library", parameters.isDexRuntime());
+    parameters.assumeR8TestParameters();
+    Assume.assumeTrue(
+        parameters.isDexRuntime()
+            || (parameters.isCfRuntime()
+                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21)));
     testForR8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
+        .applyIf(
+            parameters.isCfRuntime(),
+            b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)

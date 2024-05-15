@@ -30,7 +30,7 @@ public class StringSwitchTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
   }
 
   public static String EXPECTED_OUTPUT =
@@ -57,8 +57,7 @@ public class StringSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
@@ -67,6 +66,7 @@ public class StringSwitchTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    parameters.assumeR8TestParameters();
     Assume.assumeTrue(
         parameters.isDexRuntime()
             || (parameters.isCfRuntime()

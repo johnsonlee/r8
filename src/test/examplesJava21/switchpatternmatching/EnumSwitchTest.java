@@ -5,7 +5,9 @@ package switchpatternmatching;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
+import static switchpatternmatching.SwitchTestHelper.desugarMatchException;
 import static switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
+import static switchpatternmatching.SwitchTestHelper.matchException;
 
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
@@ -30,7 +32,7 @@ public class EnumSwitchTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
   }
 
   public static String EXPECTED_OUTPUT =
@@ -49,9 +51,7 @@ public class EnumSwitchTest extends TestBase {
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
-            r ->
-                r.assertSuccessWithOutput(
-                    String.format(EXPECTED_OUTPUT, "java.lang.MatchException")),
+            r -> r.assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, matchException())),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
 
@@ -87,16 +87,16 @@ public class EnumSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, "java.lang.RuntimeException"));
+        .assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, desugarMatchException()));
   }
 
   @Test
   public void testR8() throws Exception {
+    parameters.assumeR8TestParameters();
     Assume.assumeTrue(
         parameters.isDexRuntime()
             || (parameters.isCfRuntime()
@@ -109,12 +109,7 @@ public class EnumSwitchTest extends TestBase {
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(
-            String.format(
-                EXPECTED_OUTPUT,
-                parameters.isCfRuntime()
-                    ? "java.lang.MatchException"
-                    : "java.lang.RuntimeException"));
+        .assertSuccessWithOutput(String.format(EXPECTED_OUTPUT, matchException(parameters)));
   }
 
   // D is added to the list of permitted subclasses to reproduce the MatchException.
