@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
@@ -31,6 +32,11 @@ public class FlowGraphParameterNode extends FlowGraphNode {
 
   int getParameterIndex() {
     return parameterIndex;
+  }
+
+  @Override
+  boolean equalsBaseInFlow(BaseInFlow inFlow) {
+    return inFlow.isMethodParameter(method.getReference(), parameterIndex);
   }
 
   @Override

@@ -63,6 +63,11 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
+  public boolean hasSingleInFlow() {
+    return false;
+  }
+
+  @Override
   public boolean isInstanceFieldReadAbstractFunction() {
     return true;
   }

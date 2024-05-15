@@ -60,4 +60,9 @@ public class KnownLengthArrayState extends ObjectState {
   public int hashCode() {
     return System.identityHashCode(this);
   }
+
+  @Override
+  public String toString() {
+    return "KnownLengthArrayState(" + length + ")";
+  }
 }

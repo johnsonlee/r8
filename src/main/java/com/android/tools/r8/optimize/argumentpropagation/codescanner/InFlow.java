@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.optimize.compose.UpdateChangedFlagsAbstractFunction;
 
 public interface InFlow {
@@ -53,6 +54,10 @@ public interface InFlow {
   }
 
   default boolean isMethodParameter() {
+    return false;
+  }
+
+  default boolean isMethodParameter(DexMethod method, int parameterIndex) {
     return false;
   }
 

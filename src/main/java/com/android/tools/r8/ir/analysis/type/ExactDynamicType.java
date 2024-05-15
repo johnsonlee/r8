@@ -77,6 +77,6 @@ public class ExactDynamicType extends DynamicTypeWithUpperBound {
 
   @Override
   public String toString() {
-    return "ExactDynamicType(type=" + getExactClassType() + ")";
+    return "ExactDynamicType(" + getExactClassType() + ")";
   }
 }

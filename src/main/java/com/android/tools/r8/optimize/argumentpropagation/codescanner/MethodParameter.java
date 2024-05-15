@@ -47,6 +47,11 @@ public class MethodParameter implements BaseInFlow {
   }
 
   @Override
+  public boolean isMethodParameter(DexMethod method, int parameterIndex) {
+    return this.method.isIdenticalTo(method) && this.index == parameterIndex;
+  }
+
+  @Override
   public MethodParameter asMethodParameter() {
     return this;
   }

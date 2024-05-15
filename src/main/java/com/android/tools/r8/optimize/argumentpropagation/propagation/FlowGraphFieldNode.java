@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 
 public class FlowGraphFieldNode extends FlowGraphNode {
@@ -19,6 +20,11 @@ public class FlowGraphFieldNode extends FlowGraphNode {
 
   public ProgramField getField() {
     return field;
+  }
+
+  @Override
+  boolean equalsBaseInFlow(BaseInFlow inFlow) {
+    return inFlow.isFieldValue(field.getReference());
   }
 
   @Override

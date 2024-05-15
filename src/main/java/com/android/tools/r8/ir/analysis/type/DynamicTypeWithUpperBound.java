@@ -269,7 +269,19 @@ public class DynamicTypeWithUpperBound extends DynamicType {
 
   @Override
   public String toString() {
-    return "DynamicTypeWithUpperBound(upperBound=" + getDynamicUpperBoundType() + ")";
+    if (isBottom()) {
+      return "BottomDynamicType";
+    }
+    if (isNotNullType()) {
+      return "NotNullDynamicType";
+    }
+    if (isNullType()) {
+      return "NullDynamicType";
+    }
+    if (isUnknown()) {
+      return "UnknownDynamicType";
+    }
+    return "DynamicTypeWithUpperBound(" + getDynamicUpperBoundType() + ")";
   }
 
   private static boolean verifyNotEffectivelyFinalClassType(

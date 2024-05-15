@@ -68,7 +68,7 @@ public class StatefulObjectValue extends AbstractValue {
 
   @Override
   public String toString() {
-    return "StatefulValue";
+    return "StatefulValue(" + state + ")";
   }
 
   @Override

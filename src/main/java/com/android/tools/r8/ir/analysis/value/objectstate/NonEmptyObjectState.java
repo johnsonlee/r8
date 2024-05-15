@@ -10,7 +10,11 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.StringUtils;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
@@ -77,5 +81,16 @@ public class NonEmptyObjectState extends ObjectState {
   @Override
   public int hashCode() {
     return state.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    List<DexField> sortedKeys = ListUtils.sort(state.keySet(), DexField::compareTo);
+    List<String> data = new ArrayList<>();
+    for (DexField key : sortedKeys) {
+      AbstractValue abstractValue = state.get(key);
+      data.add(key.toSourceString() + " -> " + abstractValue);
+    }
+    return "ObjectState(" + StringUtils.join(", ", data) + ")";
   }
 }

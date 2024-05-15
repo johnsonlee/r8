@@ -256,7 +256,8 @@ public class InFlowPropagator {
           state,
           transferFunction,
           transferState,
-          oldSuccessorStateForDebugging);
+          oldSuccessorStateForDebugging,
+          flowGraphStateProvider);
 
       // If this successor has become unknown, there is no point in continuing to propagate
       // flow to it from any of its predecessors. We therefore clear the predecessors to

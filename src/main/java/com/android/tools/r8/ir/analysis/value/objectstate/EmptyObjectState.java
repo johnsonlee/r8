@@ -52,4 +52,9 @@ public class EmptyObjectState extends ObjectState {
   public int hashCode() {
     return System.identityHashCode(this);
   }
+
+  @Override
+  public String toString() {
+    return "EmptyObjectState";
+  }
 }

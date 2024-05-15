@@ -10,6 +10,7 @@ import com.android.tools.r8.annotations.CheckDiscard;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
@@ -52,6 +53,8 @@ public abstract class FlowGraphNode {
       onChangedAction.execute();
     }
   }
+
+  abstract boolean equalsBaseInFlow(BaseInFlow inFlow);
 
   boolean getDebug() {
     return debug;

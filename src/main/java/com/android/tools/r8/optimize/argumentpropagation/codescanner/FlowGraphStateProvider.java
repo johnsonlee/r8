@@ -17,10 +17,11 @@ public interface FlowGraphStateProvider {
     }
     // If the abstract function is a canonical function, or the abstract function has a single
     // declared input, we should never perform any state lookups.
-    if (abstractFunction.isIdentity()
-        || abstractFunction.isCastAbstractFunction()
-        || abstractFunction.isUnknownAbstractFunction()
-        || abstractFunction.isUpdateChangedFlagsAbstractFunction()) {
+    if (abstractFunction.hasSingleInFlow()) {
+      assert abstractFunction.isIdentity()
+          || abstractFunction.isCastAbstractFunction()
+          || abstractFunction.isUnknownAbstractFunction()
+          || abstractFunction.isUpdateChangedFlagsAbstractFunction();
       return new FlowGraphStateProvider() {
 
         @Override
