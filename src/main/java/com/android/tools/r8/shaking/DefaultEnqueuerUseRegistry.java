@@ -311,8 +311,10 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
       } else if (bootstrapArg.isDexValueConstDynamic()) {
         DexField enumField =
             extractEnumField(bootstrapArg.asDexValueConstDynamic(), getContext(), appView);
-        registerStaticFieldReadFromSwitchMethodHandle(enumField);
-        registerEnumMethods(enumField.getHolderType());
+        if (enumField != null) {
+          registerStaticFieldReadFromSwitchMethodHandle(enumField);
+          registerEnumMethods(enumField.getHolderType());
+        }
       }
     }
   }
@@ -324,7 +326,7 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
         registerTypeReference(bootstrapArg.asDexValueType().value);
       } else if (bootstrapArg.isDexValueString()) {
         DexString fieldName = bootstrapArg.asDexValueString().value;
-        DexField enumField = getEnumField(fieldName, enumType, getContext(), appView);
+        DexField enumField = getEnumField(fieldName, enumType, appView);
         registerStaticFieldReadFromSwitchMethodHandle(enumField);
         registerEnumMethods(enumType);
       }

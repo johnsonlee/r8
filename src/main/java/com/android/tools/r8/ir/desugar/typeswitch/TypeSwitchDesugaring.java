@@ -233,8 +233,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
             cfInstructions.add(new CfConstClass(bootstrapArg.asDexValueType().getValue()));
           } else if (bootstrapArg.isDexValueString()) {
             DexField enumField =
-                getEnumField(
-                    bootstrapArg.asDexValueString().getValue(), enumType, context, appView);
+                getEnumField(bootstrapArg.asDexValueString().getValue(), enumType, appView);
             pushEnumField(cfInstructions, enumField);
           } else {
             throw new CompilationError(

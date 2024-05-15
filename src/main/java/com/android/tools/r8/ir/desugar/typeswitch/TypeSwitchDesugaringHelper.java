@@ -99,14 +99,15 @@ public class TypeSwitchDesugaringHelper {
     DexString className = dexValueClassName.asDexValueString().getValue();
     DexType enumType =
         factory.createType(DescriptorUtils.javaTypeToDescriptor(className.toString()));
-    return getEnumField(fieldName, enumType, context, appView);
+    return getEnumField(fieldName, enumType, appView);
   }
 
-  public static DexField getEnumField(
-      DexString fieldName, DexType enumType, DexClassAndMethod context, AppView<?> appView) {
-    DexClass enumClass = appView.definitionFor(enumType);
+  public static DexField getEnumField(DexString fieldName, DexType enumType, AppView<?> appView) {
+    DexClass enumClass = appView.appInfo().definitionForWithoutExistenceAssert(enumType);
     if (enumClass == null) {
-      throw throwEnumFieldConstantDynamic("Missing enum class " + enumType, context);
+      // If the enum class is missing, the case is (interestingly) considered unreachable and
+      // effectively removed from the switch (base on jdk 21 behavior).
+      return null;
     }
     DexEncodedField dexEncodedField = enumClass.lookupUniqueStaticFieldWithName(fieldName);
     if (dexEncodedField == null) {
