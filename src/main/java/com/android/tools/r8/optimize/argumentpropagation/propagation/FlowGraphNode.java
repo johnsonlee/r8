@@ -16,19 +16,18 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
-import com.google.common.collect.Sets;
 import java.util.Deque;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 
 public abstract class FlowGraphNode {
 
-  private final Set<FlowGraphNode> predecessors = Sets.newIdentityHashSet();
-  private final Map<FlowGraphNode, Set<AbstractFunction>> successors = new IdentityHashMap<>();
+  private final LinkedHashSet<FlowGraphNode> predecessors = new LinkedHashSet<>();
+  private final LinkedHashMap<FlowGraphNode, LinkedHashSet<AbstractFunction>> successors =
+      new LinkedHashMap<>();
 
   @CheckDiscard private boolean debug = false;
 
@@ -76,7 +75,10 @@ public abstract class FlowGraphNode {
   }
 
   void addPredecessor(FlowGraphNode predecessor, AbstractFunction abstractFunction) {
-    predecessor.successors.computeIfAbsent(this, ignoreKey(HashSet::new)).add(abstractFunction);
+    predecessor
+        .successors
+        .computeIfAbsent(this, ignoreKey(LinkedHashSet::new))
+        .add(abstractFunction);
     predecessors.add(predecessor);
   }
 

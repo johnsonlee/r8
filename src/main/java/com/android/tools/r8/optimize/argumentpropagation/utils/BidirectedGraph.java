@@ -37,11 +37,16 @@ public abstract class BidirectedGraph<T> {
   }
 
   public Set<T> computeStronglyConnectedComponent(T node) {
-    WorkList<T> worklist = WorkList.newEqualityWorkList(node);
+    return computeStronglyConnectedComponent(node, WorkList.newEqualityWorkList());
+  }
+
+  protected Set<T> computeStronglyConnectedComponent(T node, WorkList<T> worklist) {
+    assert worklist.isEmpty();
+    worklist.addIfNotSeen(node);
     while (worklist.hasNext()) {
       T current = worklist.next();
       forEachNeighbor(current, worklist::addIfNotSeen);
     }
-    return worklist.getSeenSet();
+    return worklist.getMutableSeenSet();
   }
 }

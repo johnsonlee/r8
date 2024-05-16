@@ -27,13 +27,14 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
-import java.util.IdentityHashMap;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class FlowGraphBuilder {
 
@@ -42,9 +43,9 @@ public class FlowGraphBuilder {
   private final FieldStateCollection fieldStates;
   private final MethodStateCollectionByReference methodStates;
 
-  private final Map<DexField, FlowGraphFieldNode> fieldNodes = new IdentityHashMap<>();
-  private final Map<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes =
-      new IdentityHashMap<>();
+  private final LinkedHashMap<DexField, FlowGraphFieldNode> fieldNodes = new LinkedHashMap<>();
+  private final LinkedHashMap<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes =
+      new LinkedHashMap<>();
 
   public FlowGraphBuilder(
       AppView<AppInfoWithLiveness> appView,
@@ -58,7 +59,7 @@ public class FlowGraphBuilder {
   }
 
   public FlowGraphBuilder addClasses() {
-    appView.appInfo().classes().forEach(this::add);
+    appView.appInfo().classesWithDeterministicOrder().forEach(this::add);
     return this;
   }
 
@@ -94,7 +95,9 @@ public class FlowGraphBuilder {
     }
 
     FlowGraphFieldNode node = getOrCreateFieldNode(field, concreteFieldState);
-    for (InFlow inFlow : concreteFieldState.getInFlow()) {
+    List<InFlow> inFlowWithDeterministicOrder =
+        ListUtils.sort(concreteFieldState.getInFlow(), Comparator.naturalOrder());
+    for (InFlow inFlow : inFlowWithDeterministicOrder) {
       if (addInFlow(inFlow, node).shouldBreak()) {
         assert node.isUnknown();
         break;

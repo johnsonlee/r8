@@ -63,8 +63,23 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
+  public InFlowKind getKind() {
+    return InFlowKind.ABSTRACT_FUNCTION_INSTANCE_FIELD_READ;
+  }
+
+  @Override
   public boolean hasSingleInFlow() {
     return false;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow other) {
+    InstanceFieldReadAbstractFunction fn = other.asInstanceFieldReadAbstractFunction();
+    int result = receiver.compareTo(fn.receiver);
+    if (result == 0) {
+      result = field.compareTo(fn.field);
+    }
+    return result;
   }
 
   @Override

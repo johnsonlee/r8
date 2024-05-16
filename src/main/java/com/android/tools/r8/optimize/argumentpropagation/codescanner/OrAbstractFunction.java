@@ -27,6 +27,11 @@ public class OrAbstractFunction implements AbstractFunction {
   }
 
   @Override
+  public OrAbstractFunction asOrAbstractFunction() {
+    return this;
+  }
+
+  @Override
   public ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
@@ -52,6 +57,21 @@ public class OrAbstractFunction implements AbstractFunction {
       return inFlow.asAbstractFunction().getBaseInFlow();
     }
     return IterableUtils.singleton(inFlow);
+  }
+
+  @Override
+  public InFlowKind getKind() {
+    return InFlowKind.ABSTRACT_FUNCTION_OR;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow other) {
+    OrAbstractFunction fn = other.asOrAbstractFunction();
+    int result = inFlow.compareTo(fn.inFlow);
+    if (result == 0) {
+      result = constant.getIntValue() - fn.constant.getIntValue();
+    }
+    return result;
   }
 
   @Override

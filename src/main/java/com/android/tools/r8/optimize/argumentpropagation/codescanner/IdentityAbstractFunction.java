@@ -36,6 +36,17 @@ public class IdentityAbstractFunction implements AbstractFunction {
   }
 
   @Override
+  public InFlowKind getKind() {
+    return InFlowKind.ABSTRACT_FUNCTION_IDENTITY;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow inFlow) {
+    assert this == inFlow;
+    return 0;
+  }
+
+  @Override
   public boolean isIdentity() {
     return true;
   }

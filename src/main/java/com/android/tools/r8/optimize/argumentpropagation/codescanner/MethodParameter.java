@@ -7,6 +7,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.BooleanUtils;
 import java.util.Objects;
 
 public class MethodParameter implements BaseInFlow {
@@ -29,6 +30,11 @@ public class MethodParameter implements BaseInFlow {
     return new MethodParameter(method, index, true);
   }
 
+  @Override
+  public InFlowKind getKind() {
+    return InFlowKind.METHOD_PARAMETER;
+  }
+
   public DexMethod getMethod() {
     return method;
   }
@@ -39,6 +45,21 @@ public class MethodParameter implements BaseInFlow {
 
   public DexType getType() {
     return method.getArgumentType(index, isMethodStatic);
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow other) {
+    MethodParameter methodParameter = other.asMethodParameter();
+    int result = method.compareTo(methodParameter.method);
+    if (result == 0) {
+      result = index - methodParameter.index;
+    }
+    if (result == 0) {
+      result =
+          BooleanUtils.intValue(isMethodStatic)
+              - BooleanUtils.intValue(methodParameter.isMethodStatic);
+    }
+    return result;
   }
 
   @Override

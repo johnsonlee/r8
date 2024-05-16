@@ -34,6 +34,7 @@ import com.android.tools.r8.utils.ThreadUtils;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -98,7 +99,12 @@ public class InFlowPropagator {
             .build();
     List<Set<FlowGraphNode>> stronglyConnectedComponents =
         flowGraph.computeStronglyConnectedComponents();
-    return ListUtils.map(stronglyConnectedComponents, FlowGraph::new);
+    List<LinkedHashSet<FlowGraphNode>> stronglyConnectedComponentsWithDeterministicOrder =
+        ListUtils.map(
+            stronglyConnectedComponents,
+            stronglyConnectedComponent ->
+                (LinkedHashSet<FlowGraphNode>) stronglyConnectedComponent);
+    return ListUtils.map(stronglyConnectedComponentsWithDeterministicOrder, FlowGraph::new);
   }
 
   private Map<FlowGraph, Deque<FlowGraphNode>> includeDefaultValuesInFieldStates(

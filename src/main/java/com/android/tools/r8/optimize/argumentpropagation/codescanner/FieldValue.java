@@ -20,6 +20,16 @@ public class FieldValue implements BaseInFlow {
   }
 
   @Override
+  public InFlowKind getKind() {
+    return InFlowKind.FIELD;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow other) {
+    return field.compareTo(other.asFieldValue().getField());
+  }
+
+  @Override
   public boolean isFieldValue() {
     return true;
   }

@@ -18,29 +18,30 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.optimize.argumentpropagation.utils.BidirectedGraph;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.WorkList;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
-import java.util.Collection;
-import java.util.IdentityHashMap;
-import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class FlowGraph extends BidirectedGraph<FlowGraphNode> implements FlowGraphStateProvider {
 
-  private final Map<DexField, FlowGraphFieldNode> fieldNodes;
-  private final Map<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes;
+  private final LinkedHashMap<DexField, FlowGraphFieldNode> fieldNodes;
+  private final LinkedHashMap<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes;
 
   public FlowGraph(
-      Map<DexField, FlowGraphFieldNode> fieldNodes,
-      Map<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes) {
+      LinkedHashMap<DexField, FlowGraphFieldNode> fieldNodes,
+      LinkedHashMap<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes) {
     this.fieldNodes = fieldNodes;
     this.parameterNodes = parameterNodes;
   }
 
-  public FlowGraph(Collection<FlowGraphNode> nodes) {
-    this(new IdentityHashMap<>(), new IdentityHashMap<>());
+  public FlowGraph(LinkedHashSet<FlowGraphNode> nodes) {
+    this(new LinkedHashMap<>(), new LinkedHashMap<>());
     for (FlowGraphNode node : nodes) {
       if (node.isFieldNode()) {
         FlowGraphFieldNode fieldNode = node.asFieldNode();
@@ -61,6 +62,11 @@ public class FlowGraph extends BidirectedGraph<FlowGraphNode> implements FlowGra
       FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates) {
     return new FlowGraphBuilder(appView, converter, fieldStates, methodStates);
+  }
+
+  @Override
+  public Set<FlowGraphNode> computeStronglyConnectedComponent(FlowGraphNode node) {
+    return computeStronglyConnectedComponent(node, WorkList.newWorkList(new LinkedHashSet<>()));
   }
 
   public void forEachFieldNode(Consumer<? super FlowGraphFieldNode> consumer) {

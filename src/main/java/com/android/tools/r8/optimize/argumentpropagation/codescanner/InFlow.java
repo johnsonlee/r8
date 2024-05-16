@@ -7,7 +7,19 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.optimize.compose.UpdateChangedFlagsAbstractFunction;
 
-public interface InFlow {
+public interface InFlow extends Comparable<InFlow> {
+
+  @Override
+  default int compareTo(InFlow inFlow) {
+    if (getKind() == inFlow.getKind()) {
+      return internalCompareToSameKind(inFlow);
+    }
+    return getKind().ordinal() - inFlow.getKind().ordinal();
+  }
+
+  int internalCompareToSameKind(InFlow inFlow);
+
+  InFlowKind getKind();
 
   default boolean isAbstractFunction() {
     return false;
@@ -62,6 +74,10 @@ public interface InFlow {
   }
 
   default MethodParameter asMethodParameter() {
+    return null;
+  }
+
+  default OrAbstractFunction asOrAbstractFunction() {
     return null;
   }
 

@@ -36,6 +36,17 @@ public class UnknownAbstractFunction implements AbstractFunction {
   }
 
   @Override
+  public InFlowKind getKind() {
+    return InFlowKind.ABSTRACT_FUNCTION_UNKNOWN;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow inFlow) {
+    assert this == inFlow;
+    return 0;
+  }
+
+  @Override
   public boolean isUnknownAbstractFunction() {
     return true;
   }

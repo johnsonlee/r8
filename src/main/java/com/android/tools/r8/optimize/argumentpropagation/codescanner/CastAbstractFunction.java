@@ -38,6 +38,20 @@ public class CastAbstractFunction implements AbstractFunction {
   }
 
   @Override
+  public InFlowKind getKind() {
+    return InFlowKind.ABSTRACT_FUNCTION_CAST;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow other) {
+    CastAbstractFunction fn = other.asCastAbstractFunction();
+    if (inFlow != fn.inFlow) {
+      return inFlow.compareTo(fn.inFlow);
+    }
+    return type.compareTo(fn.type);
+  }
+
+  @Override
   public boolean isCastAbstractFunction() {
     return true;
   }
