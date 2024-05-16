@@ -5,6 +5,7 @@ package com.android.tools.r8.bootstrap;
 
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -48,7 +49,8 @@ public class BootstrapDeterminismTest extends TestBase {
 
   private Path compile(int iteration, Path logDirectory) throws Exception {
     System.out.println("= compiling " + iteration + "/" + ITERATIONS + " ======================");
-    return testForR8(parameters.getBackend())
+    Path out = temp.newFolder().toPath().resolve("out.jar");
+    testForR8(parameters.getBackend())
         .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
         .addKeepRuleFiles(MAIN_KEEP)
@@ -61,7 +63,8 @@ public class BootstrapDeterminismTest extends TestBase {
         .allowStdoutMessages()
         .allowStderrMessages()
         .allowUnusedDontWarnPatterns()
-        .compile()
-        .writeToZip();
+        .setProgramConsumer(new ClassFileConsumer.ArchiveConsumer(out))
+        .compile();
+    return out;
   }
 }
