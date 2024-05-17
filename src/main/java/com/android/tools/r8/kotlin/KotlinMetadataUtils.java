@@ -24,14 +24,14 @@ import com.android.tools.r8.utils.TriFunction;
 import java.util.List;
 import java.util.function.Consumer;
 import kotlin.Metadata;
-import kotlinx.metadata.KmExtensionType;
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.KmPropertyExtensionVisitor;
-import kotlinx.metadata.KmPropertyVisitor;
-import kotlinx.metadata.jvm.JvmFieldSignature;
-import kotlinx.metadata.jvm.JvmMethodSignature;
-import kotlinx.metadata.jvm.JvmPropertyExtensionVisitor;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.KmExtensionType;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.KmPropertyExtensionVisitor;
+import kotlin.metadata.KmPropertyVisitor;
+import kotlin.metadata.jvm.JvmFieldSignature;
+import kotlin.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.JvmPropertyExtensionVisitor;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 
 public class KotlinMetadataUtils {
 

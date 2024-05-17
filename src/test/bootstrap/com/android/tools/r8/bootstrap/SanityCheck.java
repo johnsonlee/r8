@@ -38,7 +38,7 @@ public class SanityCheck extends TestBase {
 
   private static final String SRV_PREFIX = "META-INF/services/";
   private static final String METADATA_EXTENSION =
-      "com.android.tools.r8.jetbrains.kotlinx.metadata.internal.extensions.MetadataExtensions";
+      "com.android.tools.r8.jetbrains.kotlin.metadata.internal.extensions.MetadataExtensions";
   private static final String EXT_IN_SRV = SRV_PREFIX + METADATA_EXTENSION;
   private static final String THREADING_MODULE_SERVICE_FILE =
       "META-INF/services/com.android.tools.r8.threading.ThreadingModuleProvider";

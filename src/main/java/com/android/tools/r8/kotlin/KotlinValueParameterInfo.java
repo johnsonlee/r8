@@ -15,9 +15,9 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmValueParameter;
-import kotlinx.metadata.internal.metadata.deserialization.Flags;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmValueParameter;
+import kotlin.metadata.internal.metadata.deserialization.Flags;
 
 // Provides access to Kotlin information about value parameter.
 class KotlinValueParameterInfo implements EnqueuerMetadataTraceable {

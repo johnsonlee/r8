@@ -16,11 +16,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmAnnotationArgument;
-import kotlinx.metadata.KmAnnotationArgument.AnnotationValue;
-import kotlinx.metadata.KmAnnotationArgument.ArrayValue;
-import kotlinx.metadata.KmAnnotationArgument.EnumValue;
-import kotlinx.metadata.KmAnnotationArgument.KClassValue;
+import kotlin.metadata.KmAnnotationArgument;
+import kotlin.metadata.KmAnnotationArgument.AnnotationValue;
+import kotlin.metadata.KmAnnotationArgument.ArrayValue;
+import kotlin.metadata.KmAnnotationArgument.EnumValue;
+import kotlin.metadata.KmAnnotationArgument.KClassValue;
 
 abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable {
 

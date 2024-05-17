@@ -6,9 +6,9 @@ package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import kotlinx.metadata.KmConstructor;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmConstructor;
+import kotlin.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public class FoundKmConstructorSubject extends KmConstructorSubject {
 

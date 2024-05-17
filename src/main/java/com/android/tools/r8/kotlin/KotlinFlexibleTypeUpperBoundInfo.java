@@ -10,7 +10,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmFlexibleTypeUpperBound;
+import kotlin.metadata.KmFlexibleTypeUpperBound;
 
 public class KotlinFlexibleTypeUpperBoundInfo implements EnqueuerMetadataTraceable {
 

@@ -5,7 +5,7 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
-import kotlinx.metadata.KmVariance;
+import kotlin.metadata.KmVariance;
 
 public abstract class KmTypeParameterSubject extends Subject {
 

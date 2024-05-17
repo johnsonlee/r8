@@ -18,8 +18,8 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Holds information about KmProperty
 public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {

@@ -5,8 +5,8 @@ package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.errors.Unreachable;
 import java.util.List;
-import kotlinx.metadata.KmTypeParameter;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmTypeParameter;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public class AbsentKmFunctionSubject extends KmFunctionSubject {
 

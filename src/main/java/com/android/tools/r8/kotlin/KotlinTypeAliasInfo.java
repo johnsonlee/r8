@@ -15,7 +15,7 @@ import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmTypeAlias;
+import kotlin.metadata.KmTypeAlias;
 
 // Holds information about KmTypeAlias
 public class KotlinTypeAliasInfo implements EnqueuerMetadataTraceable {

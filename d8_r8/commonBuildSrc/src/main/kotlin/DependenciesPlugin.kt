@@ -399,7 +399,7 @@ object Versions {
   const val javassist = "3.29.2-GA"
   const val junitVersion = "4.13-beta-2"
   const val kotlinVersion = "1.9.0"
-  const val kotlinMetadataVersion = "0.9.0"
+  const val kotlinMetadataVersion = "2.0.0-Beta5"
   const val mockito = "2.10.0"
   const val smaliVersion = "3.0.3"
 }
@@ -415,7 +415,7 @@ object Deps {
   val javassist by lazy { "org.javassist:javassist:${Versions.javassist}"}
   val junit by lazy { "junit:junit:${Versions.junitVersion}"}
   val kotlinMetadata by lazy {
-    "org.jetbrains.kotlinx:kotlinx-metadata-jvm:${Versions.kotlinMetadataVersion}" }
+    "org.jetbrains.kotlin:kotlin-metadata-jvm:${Versions.kotlinMetadataVersion}" }
   val kotlinStdLib by lazy { "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlinVersion}" }
   val kotlinReflect by lazy { "org.jetbrains.kotlin:kotlin-reflect:${Versions.kotlinVersion}" }
   val mockito by lazy { "org.mockito:mockito-core:${Versions.mockito}" }

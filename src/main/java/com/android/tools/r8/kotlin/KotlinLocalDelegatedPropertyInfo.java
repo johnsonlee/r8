@@ -15,7 +15,7 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmProperty;
+import kotlin.metadata.KmProperty;
 
 public class KotlinLocalDelegatedPropertyInfo implements EnqueuerMetadataTraceable {
 

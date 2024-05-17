@@ -5,7 +5,7 @@
 package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getCompatibleKotlinInfo;
-import static kotlinx.metadata.jvm.KotlinClassMetadata.Companion;
+import static kotlin.metadata.jvm.KotlinClassMetadata.Companion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -14,8 +14,8 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.utils.Pair;
 import java.util.function.Consumer;
 import kotlin.Metadata;
-import kotlinx.metadata.KmPackage;
-import kotlinx.metadata.jvm.KotlinClassMetadata.MultiFileClassPart;
+import kotlin.metadata.KmPackage;
+import kotlin.metadata.jvm.KotlinClassMetadata.MultiFileClassPart;
 
 // Holds information about Metadata.MultiFileClassPartInfo
 public class KotlinMultiFileClassPartInfo implements KotlinClassLevelInfo {

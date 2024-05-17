@@ -4,7 +4,7 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public abstract class KmConstructorSubject extends Subject {
 

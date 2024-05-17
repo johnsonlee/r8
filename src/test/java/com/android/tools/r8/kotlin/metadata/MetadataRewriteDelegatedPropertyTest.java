@@ -22,7 +22,7 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
 import java.util.Collection;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;

@@ -7,7 +7,7 @@ package com.android.tools.r8.utils.codeinspector;
 import com.android.tools.r8.errors.Unreachable;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import kotlinx.metadata.KmAnnotation;
+import kotlin.metadata.KmAnnotation;
 
 public class AbsentKmTypeAliasSubject extends KmTypeAliasSubject {
 

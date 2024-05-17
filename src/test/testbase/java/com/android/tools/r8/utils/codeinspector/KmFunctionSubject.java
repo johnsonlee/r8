@@ -4,8 +4,8 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
-import kotlinx.metadata.KmFunction;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmFunction;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public abstract class KmFunctionSubject extends Subject implements KmTypeParameterSubjectMixin {
   // TODO(b/145824437): This is a dup of KotlinMetadataSynthesizer#isExtension

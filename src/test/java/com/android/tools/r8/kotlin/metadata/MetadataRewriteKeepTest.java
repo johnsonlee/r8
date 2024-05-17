@@ -15,7 +15,7 @@ import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.util.Collection;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;

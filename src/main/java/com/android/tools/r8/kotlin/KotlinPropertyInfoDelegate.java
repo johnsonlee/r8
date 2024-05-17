@@ -9,7 +9,7 @@ import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmProperty;
+import kotlin.metadata.KmProperty;
 
 public class KotlinPropertyInfoDelegate implements KotlinPropertyInfo {
 

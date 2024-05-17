@@ -9,20 +9,20 @@ import com.android.tools.r8.references.Reference;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import kotlinx.metadata.KmDeclarationContainer;
-import kotlinx.metadata.KmExtensionType;
-import kotlinx.metadata.KmFunction;
-import kotlinx.metadata.KmFunctionExtensionVisitor;
-import kotlinx.metadata.KmFunctionVisitor;
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.KmPropertyExtensionVisitor;
-import kotlinx.metadata.KmPropertyVisitor;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmTypeAlias;
-import kotlinx.metadata.jvm.JvmFieldSignature;
-import kotlinx.metadata.jvm.JvmFunctionExtensionVisitor;
-import kotlinx.metadata.jvm.JvmMethodSignature;
-import kotlinx.metadata.jvm.JvmPropertyExtensionVisitor;
+import kotlin.metadata.KmDeclarationContainer;
+import kotlin.metadata.KmExtensionType;
+import kotlin.metadata.KmFunction;
+import kotlin.metadata.KmFunctionExtensionVisitor;
+import kotlin.metadata.KmFunctionVisitor;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.KmPropertyExtensionVisitor;
+import kotlin.metadata.KmPropertyVisitor;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmTypeAlias;
+import kotlin.metadata.jvm.JvmFieldSignature;
+import kotlin.metadata.jvm.JvmFunctionExtensionVisitor;
+import kotlin.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.JvmPropertyExtensionVisitor;
 
 public interface FoundKmDeclarationContainerSubject extends KmDeclarationContainerSubject {
 

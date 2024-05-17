@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.kotlin;
 
-import kotlinx.metadata.jvm.JvmMetadataVersion;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 
 public class KotlinJvmMetadataVersionUtils {
 

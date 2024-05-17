@@ -68,8 +68,8 @@
   license: The Apache License, Version 2.0
   licenseUrl: http://www.apache.org/licenses/LICENSE-2.0.txt
   url: https://kotlinlang.org/
-- artifact: org.jetbrains.kotlinx:kotlinx-metadata-jvm:+
-  name: org.jetbrains.kotlinx:kotlinx-metadata-jvm
+- artifact: org.jetbrains.kotlin:kotlin-metadata-jvm:+
+  name: org.jetbrains.kotlin:kotlin-metadata-jvm
   copyrightHolder: JetBrains s.r.o.
   license: The Apache License, Version 2.0
   licenseUrl: http://www.apache.org/licenses/LICENSE-2.0.txt

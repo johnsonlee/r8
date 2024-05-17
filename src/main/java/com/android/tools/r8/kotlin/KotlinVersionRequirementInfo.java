@@ -7,7 +7,7 @@ package com.android.tools.r8.kotlin;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmVersionRequirement;
+import kotlin.metadata.KmVersionRequirement;
 
 class KotlinVersionRequirementInfo {
 

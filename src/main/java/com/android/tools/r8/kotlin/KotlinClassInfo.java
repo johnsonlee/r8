@@ -9,7 +9,7 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmFieldSignature;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmMethodSignature;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
-import static kotlinx.metadata.jvm.KotlinClassMetadata.Companion;
+import static kotlin.metadata.jvm.KotlinClassMetadata.Companion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -32,12 +32,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import kotlin.Metadata;
-import kotlinx.metadata.KmClass;
-import kotlinx.metadata.KmConstructor;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
-import kotlinx.metadata.jvm.JvmMethodSignature;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.KmClass;
+import kotlin.metadata.KmConstructor;
+import kotlin.metadata.KmType;
+import kotlin.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 
 public class KotlinClassInfo implements KotlinClassLevelInfo {
 

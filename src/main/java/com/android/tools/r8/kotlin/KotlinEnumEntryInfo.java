@@ -8,7 +8,7 @@ import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.naming.NamingLens;
-import kotlinx.metadata.KmClassVisitor;
+import kotlin.metadata.KmClassVisitor;
 
 // Structure around a kotlin enum value that can be assigned to a field.
 public class KotlinEnumEntryInfo implements KotlinFieldLevelInfo {

@@ -16,8 +16,8 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmContract;
-import kotlinx.metadata.KmEffect;
+import kotlin.metadata.KmContract;
+import kotlin.metadata.KmEffect;
 
 public class KotlinContractInfo implements EnqueuerMetadataTraceable {
 

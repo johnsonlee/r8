@@ -13,9 +13,9 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
-import kotlinx.metadata.KmClass;
-import kotlinx.metadata.KmConstructor;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmClass;
+import kotlin.metadata.KmConstructor;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Holds information about a KmConstructor object.
 public class KotlinConstructorInfo implements KotlinMethodLevelInfo {

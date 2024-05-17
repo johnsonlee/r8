@@ -10,8 +10,8 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmTypeProjection;
-import kotlinx.metadata.KmVariance;
+import kotlin.metadata.KmTypeProjection;
+import kotlin.metadata.KmVariance;
 
 // Provides access to Kotlin information about the type projection of a type (arguments).
 public class KotlinTypeProjectionInfo implements EnqueuerMetadataTraceable {

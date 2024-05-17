@@ -6,7 +6,7 @@ package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.errors.Unreachable;
 import java.util.List;
-import kotlinx.metadata.KmVariance;
+import kotlin.metadata.KmVariance;
 
 public class AbsentKmTypeParameterSubject extends KmTypeParameterSubject {
 

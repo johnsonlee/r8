@@ -30,7 +30,7 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;

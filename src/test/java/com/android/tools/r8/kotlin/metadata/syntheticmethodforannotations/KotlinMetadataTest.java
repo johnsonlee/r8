@@ -24,9 +24,9 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import kotlinx.metadata.internal.extensions.KmPropertyExtension;
-import kotlinx.metadata.jvm.JvmMethodSignature;
-import kotlinx.metadata.jvm.internal.JvmPropertyExtension;
+import kotlin.metadata.internal.extensions.KmPropertyExtension;
+import kotlin.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.internal.JvmPropertyExtension;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -151,7 +151,7 @@ public class KotlinMetadataTest extends KotlinTestBase {
       KmPropertySubject kmPropertySubject = properties.get(i1);
       assertTrue(kmPropertySubject.name().equals("All") || kmPropertySubject.name().equals("All2"));
       List<KmPropertyExtension> extensions =
-          kmPropertySubject.getKmProperty().getExtensions$kotlinx_metadata();
+          kmPropertySubject.getKmProperty().getExtensions$kotlin_metadata();
       assertEquals(1, extensions.size());
       JvmMethodSignature syntheticMethodForAnnotations =
           ((JvmPropertyExtension) extensions.get(0)).getSyntheticMethodForAnnotations();

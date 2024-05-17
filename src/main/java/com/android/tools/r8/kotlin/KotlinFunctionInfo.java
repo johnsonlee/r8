@@ -17,8 +17,8 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmFunction;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmFunction;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Holds information about KmFunction
 public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {

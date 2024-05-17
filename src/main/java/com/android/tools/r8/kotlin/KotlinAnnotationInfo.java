@@ -15,8 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmAnnotation;
-import kotlinx.metadata.KmAnnotationArgument;
+import kotlin.metadata.KmAnnotation;
+import kotlin.metadata.KmAnnotationArgument;
 
 // Holds information about a KmAnnotation
 public class KotlinAnnotationInfo implements EnqueuerMetadataTraceable {

@@ -25,12 +25,12 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import kotlin.Metadata;
-import kotlinx.metadata.jvm.JvmMetadataVersion;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
-import kotlinx.metadata.jvm.KotlinClassMetadata.FileFacade;
-import kotlinx.metadata.jvm.KotlinClassMetadata.MultiFileClassFacade;
-import kotlinx.metadata.jvm.KotlinClassMetadata.MultiFileClassPart;
-import kotlinx.metadata.jvm.KotlinClassMetadata.SyntheticClass;
+import kotlin.metadata.jvm.JvmMetadataVersion;
+import kotlin.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata.FileFacade;
+import kotlin.metadata.jvm.KotlinClassMetadata.MultiFileClassFacade;
+import kotlin.metadata.jvm.KotlinClassMetadata.MultiFileClassPart;
+import kotlin.metadata.jvm.KotlinClassMetadata.SyntheticClass;
 
 public final class KotlinClassMetadataReader {
 

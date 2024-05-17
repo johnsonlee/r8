@@ -16,10 +16,10 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmTypeParameter;
-import kotlinx.metadata.KmVariance;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmTypeParameter;
+import kotlin.metadata.KmVariance;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Provides access to Kotlin information about a type-parameter.
 public class KotlinTypeParameterInfo implements EnqueuerMetadataTraceable {

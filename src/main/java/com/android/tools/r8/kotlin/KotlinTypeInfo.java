@@ -19,9 +19,9 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmTypeProjection;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmTypeProjection;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Provides access to Kotlin information about a kotlin type.
 public class KotlinTypeInfo implements EnqueuerMetadataTraceable {

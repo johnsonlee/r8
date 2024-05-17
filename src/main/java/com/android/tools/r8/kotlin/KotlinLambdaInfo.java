@@ -15,9 +15,9 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmLambda;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmLambda;
+import kotlin.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 // Holds information about a KmLambda
 public class KotlinLambdaInfo implements EnqueuerMetadataTraceable {

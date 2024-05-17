@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.codeinspector;
 
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.jvm.JvmFieldSignature;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.jvm.JvmFieldSignature;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public abstract class KmPropertySubject extends Subject {
   // TODO(b/145824437): This is a dup of KotlinMetadataSynthesizer#isExtension

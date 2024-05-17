@@ -5,8 +5,8 @@ package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.kotlin.KotlinMetadataWriter;
-import kotlinx.metadata.KmDeclarationContainer;
-import kotlinx.metadata.KmPackage;
+import kotlin.metadata.KmDeclarationContainer;
+import kotlin.metadata.KmPackage;
 
 public class FoundKmPackageSubject extends KmPackageSubject
     implements FoundKmDeclarationContainerSubject {

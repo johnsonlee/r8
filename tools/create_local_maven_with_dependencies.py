@@ -24,7 +24,7 @@ ANDRDID_SUPPORT_VERSION = '25.4.0'
 ASM_VERSION = '9.7' # When updating update tools/asmifier.py and Toolhelper as well.
 ESPRESSO_VERSION = '3.0.0'
 FASTUTIL_VERSION = '7.2.1'
-KOTLIN_METADATA_VERSION = '0.9.0'
+KOTLIN_METADATA_VERSION = '2.0.0-Beta5'
 KOTLIN_VERSION = '1.9.20'
 GUAVA_VERSION = '32.1.2-jre'
 GSON_VERSION = '2.10.1'
@@ -80,7 +80,7 @@ BUILD_DEPENDENCIES = [
         version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-tooling-core:{version}'.format(
         version=KOTLIN_VERSION),
-    'org.jetbrains.kotlinx:kotlinx-metadata-jvm:{version}'.format(
+    'org.jetbrains.kotlin:kotlin-metadata-jvm:{version}'.format(
         version=KOTLIN_METADATA_VERSION),
 ]
 

@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Box;
 import java.util.function.Consumer;
-import kotlinx.metadata.jvm.JvmFieldSignature;
+import kotlin.metadata.jvm.JvmFieldSignature;
 
 /**
  * The JvmSignature for a method or property does not always correspond to the actual signature, see

@@ -6,10 +6,10 @@ package com.android.tools.r8.utils.codeinspector;
 import com.android.tools.r8.utils.codeinspector.FoundKmDeclarationContainerSubject.KmFunctionProcessor;
 import java.util.List;
 import java.util.stream.Collectors;
-import kotlinx.metadata.KmFunction;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmTypeParameter;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmFunction;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmTypeParameter;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public class FoundKmFunctionSubject extends KmFunctionSubject {
 

@@ -26,13 +26,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmDeclarationContainer;
-import kotlinx.metadata.KmFunction;
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.KmTypeAlias;
-import kotlinx.metadata.internal.metadata.deserialization.Flags;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmDeclarationContainer;
+import kotlin.metadata.KmFunction;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.KmTypeAlias;
+import kotlin.metadata.internal.metadata.deserialization.Flags;
+import kotlin.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 // Holds information about KmDeclarationContainer
 public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable {

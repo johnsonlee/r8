@@ -5,7 +5,7 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
-import kotlinx.metadata.KmAnnotation;
+import kotlin.metadata.KmAnnotation;
 
 public abstract class KmTypeAliasSubject extends Subject {
 

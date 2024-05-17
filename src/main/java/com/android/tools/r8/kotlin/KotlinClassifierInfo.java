@@ -15,10 +15,10 @@ import com.android.tools.r8.kotlin.Kotlin.ClassClassifiers;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Reporter;
-import kotlinx.metadata.KmClassifier;
-import kotlinx.metadata.KmClassifier.TypeAlias;
-import kotlinx.metadata.KmClassifier.TypeParameter;
-import kotlinx.metadata.KmTypeVisitor;
+import kotlin.metadata.KmClassifier;
+import kotlin.metadata.KmClassifier.TypeAlias;
+import kotlin.metadata.KmClassifier.TypeParameter;
+import kotlin.metadata.KmTypeVisitor;
 
 public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable {
 

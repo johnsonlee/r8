@@ -15,7 +15,7 @@ import com.android.tools.r8.retrace.RetraceClassResult;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 import org.junit.rules.TemporaryFolder;
 
 public class AbsentClassSubject extends ClassSubject {

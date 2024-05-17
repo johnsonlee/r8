@@ -11,11 +11,11 @@ import com.android.tools.r8.utils.Box;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import kotlinx.metadata.KmAnnotation;
-import kotlinx.metadata.KmFlexibleTypeUpperBound;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmTypeVisitor;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmAnnotation;
+import kotlin.metadata.KmFlexibleTypeUpperBound;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmTypeVisitor;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 public class KmTypeSubject extends Subject {
   private final CodeInspector codeInspector;

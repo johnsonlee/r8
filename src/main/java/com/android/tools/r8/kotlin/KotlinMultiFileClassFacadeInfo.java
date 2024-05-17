@@ -6,7 +6,7 @@ package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getCompatibleKotlinInfo;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
-import static kotlinx.metadata.jvm.KotlinClassMetadata.Companion;
+import static kotlin.metadata.jvm.KotlinClassMetadata.Companion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import kotlin.Metadata;
-import kotlinx.metadata.jvm.KotlinClassMetadata.MultiFileClassFacade;
+import kotlin.metadata.jvm.KotlinClassMetadata.MultiFileClassFacade;
 
 // Holds information about Metadata.MultiFileClassFace
 public class KotlinMultiFileClassFacadeInfo implements KotlinClassLevelInfo {

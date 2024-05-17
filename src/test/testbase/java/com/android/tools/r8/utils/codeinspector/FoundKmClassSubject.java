@@ -9,9 +9,9 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import kotlinx.metadata.KmClass;
-import kotlinx.metadata.KmDeclarationContainer;
-import kotlinx.metadata.KmTypeParameter;
+import kotlin.metadata.KmClass;
+import kotlin.metadata.KmDeclarationContainer;
+import kotlin.metadata.KmTypeParameter;
 
 public class FoundKmClassSubject extends KmClassSubject
     implements FoundKmDeclarationContainerSubject {

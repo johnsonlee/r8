@@ -18,31 +18,30 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import kotlinx.metadata.InconsistentKotlinMetadataException;
-import kotlinx.metadata.KmAnnotation;
-import kotlinx.metadata.KmAnnotationArgument;
-import kotlinx.metadata.KmAnnotationArgument.ArrayValue;
-import kotlinx.metadata.KmClass;
-import kotlinx.metadata.KmConstructor;
-import kotlinx.metadata.KmContract;
-import kotlinx.metadata.KmDeclarationContainer;
-import kotlinx.metadata.KmEffect;
-import kotlinx.metadata.KmEffectExpression;
-import kotlinx.metadata.KmFlexibleTypeUpperBound;
-import kotlinx.metadata.KmFunction;
-import kotlinx.metadata.KmLambda;
-import kotlinx.metadata.KmPackage;
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.KmType;
-import kotlinx.metadata.KmTypeAlias;
-import kotlinx.metadata.KmTypeParameter;
-import kotlinx.metadata.KmTypeProjection;
-import kotlinx.metadata.KmValueParameter;
-import kotlinx.metadata.KmVersionRequirement;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
-import kotlinx.metadata.jvm.JvmFieldSignature;
-import kotlinx.metadata.jvm.JvmMethodSignature;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.KmAnnotation;
+import kotlin.metadata.KmAnnotationArgument;
+import kotlin.metadata.KmAnnotationArgument.ArrayValue;
+import kotlin.metadata.KmClass;
+import kotlin.metadata.KmConstructor;
+import kotlin.metadata.KmContract;
+import kotlin.metadata.KmDeclarationContainer;
+import kotlin.metadata.KmEffect;
+import kotlin.metadata.KmEffectExpression;
+import kotlin.metadata.KmFlexibleTypeUpperBound;
+import kotlin.metadata.KmFunction;
+import kotlin.metadata.KmLambda;
+import kotlin.metadata.KmPackage;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.KmType;
+import kotlin.metadata.KmTypeAlias;
+import kotlin.metadata.KmTypeParameter;
+import kotlin.metadata.KmTypeProjection;
+import kotlin.metadata.KmValueParameter;
+import kotlin.metadata.KmVersionRequirement;
+import kotlin.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.jvm.JvmFieldSignature;
+import kotlin.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 
 public class KotlinMetadataWriter {
 
@@ -151,7 +150,7 @@ public class KotlinMetadataWriter {
             } else {
               KotlinMetadataWriter.appendKeyValue(newIndent, "function", sb, "null");
             }
-          } catch (InconsistentKotlinMetadataException ex) {
+          } catch (Exception ex) {
             appendKeyValue(newIndent, "function", sb, ex.getMessage());
           }
         });

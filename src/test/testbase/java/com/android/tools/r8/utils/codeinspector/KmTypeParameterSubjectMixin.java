@@ -6,7 +6,7 @@ package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import kotlinx.metadata.KmTypeParameter;
+import kotlin.metadata.KmTypeParameter;
 
 public interface KmTypeParameterSubjectMixin {
 

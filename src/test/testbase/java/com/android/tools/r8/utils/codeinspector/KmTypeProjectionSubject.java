@@ -4,8 +4,8 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.errors.Unreachable;
-import kotlinx.metadata.KmTypeProjection;
-import kotlinx.metadata.KmVariance;
+import kotlin.metadata.KmTypeProjection;
+import kotlin.metadata.KmVariance;
 
 public class KmTypeProjectionSubject extends Subject {
   private final CodeInspector codeInspector;

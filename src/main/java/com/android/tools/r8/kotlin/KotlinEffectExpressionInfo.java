@@ -17,8 +17,8 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmConstantValue;
-import kotlinx.metadata.KmEffectExpression;
+import kotlin.metadata.KmConstantValue;
+import kotlin.metadata.KmEffectExpression;
 
 public class KotlinEffectExpressionInfo implements EnqueuerMetadataTraceable {
 

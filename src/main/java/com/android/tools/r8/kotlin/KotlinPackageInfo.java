@@ -16,8 +16,8 @@ import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmPackage;
-import kotlinx.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.KmPackage;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Holds information about a KmPackage object.
 public class KotlinPackageInfo implements EnqueuerMetadataTraceable {

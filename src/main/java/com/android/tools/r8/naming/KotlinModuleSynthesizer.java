@@ -24,9 +24,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import kotlinx.metadata.jvm.JvmMetadataVersion;
-import kotlinx.metadata.jvm.KmModule;
-import kotlinx.metadata.jvm.KotlinModuleMetadata;
+import kotlin.metadata.jvm.JvmMetadataVersion;
+import kotlin.metadata.jvm.KmModule;
+import kotlin.metadata.jvm.KotlinModuleMetadata;
 
 /**
  * The kotlin module synthesizer will scan through all file facades and multiclass files to figure

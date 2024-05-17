@@ -6,7 +6,7 @@ package com.android.tools.r8.utils.codeinspector;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexClass;
 import java.util.List;
-import kotlinx.metadata.KmTypeParameter;
+import kotlin.metadata.KmTypeParameter;
 
 public class AbsentKmClassSubject extends KmClassSubject {
 

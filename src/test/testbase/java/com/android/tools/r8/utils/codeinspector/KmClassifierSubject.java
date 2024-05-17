@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.utils.codeinspector;
 
-import kotlinx.metadata.KmClassifier;
+import kotlin.metadata.KmClassifier;
 
 public class KmClassifierSubject extends Subject {
 

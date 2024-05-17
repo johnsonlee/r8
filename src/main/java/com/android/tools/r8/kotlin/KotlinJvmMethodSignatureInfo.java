@@ -15,7 +15,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 /**
  * The JvmSignature for a method or property does not always correspond to the actual signature, see

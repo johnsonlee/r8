@@ -5,7 +5,7 @@
 package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getCompatibleKotlinInfo;
-import static kotlinx.metadata.jvm.KotlinClassMetadata.Companion;
+import static kotlin.metadata.jvm.KotlinClassMetadata.Companion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -13,8 +13,8 @@ import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.Pair;
 import kotlin.Metadata;
-import kotlinx.metadata.KmLambda;
-import kotlinx.metadata.jvm.KotlinClassMetadata.SyntheticClass;
+import kotlin.metadata.KmLambda;
+import kotlin.metadata.jvm.KotlinClassMetadata.SyntheticClass;
 
 // Holds information about a Metadata.SyntheticClass object.
 public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {

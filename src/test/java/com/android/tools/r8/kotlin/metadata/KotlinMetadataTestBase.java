@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import junit.framework.TestCase;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 import org.junit.Assert;
 
 public abstract class KotlinMetadataTestBase extends KotlinTestBase {

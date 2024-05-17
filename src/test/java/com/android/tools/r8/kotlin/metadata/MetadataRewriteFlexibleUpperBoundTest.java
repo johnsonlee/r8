@@ -25,7 +25,7 @@ import com.android.tools.r8.utils.codeinspector.KmTypeSubject;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
-import kotlinx.metadata.KmFlexibleTypeUpperBound;
+import kotlin.metadata.KmFlexibleTypeUpperBound;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;

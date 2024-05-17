@@ -4,9 +4,9 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.utils.codeinspector.FoundKmDeclarationContainerSubject.KmPropertyProcessor;
-import kotlinx.metadata.KmProperty;
-import kotlinx.metadata.jvm.JvmFieldSignature;
-import kotlinx.metadata.jvm.JvmMethodSignature;
+import kotlin.metadata.KmProperty;
+import kotlin.metadata.jvm.JvmFieldSignature;
+import kotlin.metadata.jvm.JvmMethodSignature;
 
 public class FoundKmPropertySubject extends KmPropertySubject {
 

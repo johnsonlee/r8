@@ -3,10 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.codeinspector;
 
-import static kotlinx.metadata.Flag.ValueParameter.DECLARES_DEFAULT_VALUE;
+import static kotlin.metadata.Flag.ValueParameter.DECLARES_DEFAULT_VALUE;
 
 import com.android.tools.r8.errors.Unreachable;
-import kotlinx.metadata.KmValueParameter;
+import kotlin.metadata.KmValueParameter;
 
 public class KmValueParameterSubject extends Subject {
   private final CodeInspector codeInspector;

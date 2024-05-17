@@ -7,7 +7,7 @@ package com.android.tools.r8.kotlin;
 import com.android.tools.r8.errors.Unreachable;
 import java.lang.annotation.Annotation;
 import kotlin.Metadata;
-import kotlinx.metadata.jvm.KotlinClassMetadata;
+import kotlin.metadata.jvm.KotlinClassMetadata;
 
 /***
  * This is a wrapper around kotlin.Metadata needed for tests to access the internal data. The need

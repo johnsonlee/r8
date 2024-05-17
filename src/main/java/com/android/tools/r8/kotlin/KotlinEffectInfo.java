@@ -15,9 +15,9 @@ import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import java.util.function.Consumer;
-import kotlinx.metadata.KmEffect;
-import kotlinx.metadata.KmEffectInvocationKind;
-import kotlinx.metadata.KmEffectType;
+import kotlin.metadata.KmEffect;
+import kotlin.metadata.KmEffectInvocationKind;
+import kotlin.metadata.KmEffectType;
 
 public class KotlinEffectInfo implements EnqueuerMetadataTraceable {
 
