@@ -121,7 +121,7 @@ class TestConfigurationHelper {
         || project.hasProperty("update_test_timestamp")) {
         test.addTestListener(object : TestListener {
           val testTimes = mutableMapOf<TestDescriptor?,Long>()
-          val maxPrintTimesCount = 1000
+          val maxPrintTimesCount = 200
           override fun beforeSuite(desc: TestDescriptor?) {}
           override fun afterSuite(desc: TestDescriptor?, result: TestResult?) {
             if (project.hasProperty("print_times")) {
