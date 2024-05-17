@@ -1,0 +1,11 @@
+# Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+# Annotations for stripping debug code from r8lib.
+-assumenosideeffects class * {
+  @com.android.tools.r8.annotations.AssumeNoSideEffects <methods>;
+}
+-checkdiscard class * {
+  @com.android.tools.r8.annotations.CheckDiscard <fields>;
+}

@@ -27,6 +27,7 @@ import com.android.tools.r8.retrace.RetraceCommand;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -53,8 +54,10 @@ public class BootstrapCurrentEqualityTest extends TestBase {
     }
   }
 
-  private static final Path MAIN_KEEP =
-      Paths.get(ToolHelper.getProjectRoot(), "src", "main", "keep.txt");
+  private static final List<Path> KEEP_RULES_FILES =
+      ImmutableList.of(
+          Paths.get(ToolHelper.getProjectRoot(), "src", "main", "keep.txt"),
+          Paths.get(ToolHelper.getProjectRoot(), "src", "main", "discard.txt"));
 
   private static final Class<?> HELLO_CLASS = HelloWorldProgram.class;
   private static final String HELLO_NAME = typeName(HELLO_CLASS);
@@ -100,7 +103,7 @@ public class BootstrapCurrentEqualityTest extends TestBase {
         .setMode(mode)
         .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
-        .addKeepRuleFiles(MAIN_KEEP)
+        .addKeepRuleFiles(KEEP_RULES_FILES)
         .addOptionsModification(
             options -> options.getTestingOptions().dontReportFailingCheckDiscarded = mode.isDebug())
         .enableExperimentalKeepAnnotations()
@@ -173,7 +176,7 @@ public class BootstrapCurrentEqualityTest extends TestBase {
             .useProvidedR8(ToolHelper.R8LIB_JAR)
             .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
             .addLibraryFiles(parameters.asCfRuntime().getJavaHome())
-            .addKeepRuleFiles(MAIN_KEEP)
+            .addKeepRuleFiles(KEEP_RULES_FILES)
             .setMode(CompilationMode.RELEASE)
             .compile()
             .outputJar();
@@ -183,7 +186,7 @@ public class BootstrapCurrentEqualityTest extends TestBase {
             .addR8ExternalDepsToClasspath()
             .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
             .addLibraryFiles(parameters.asCfRuntime().getJavaHome())
-            .addKeepRuleFiles(MAIN_KEEP)
+            .addKeepRuleFiles(KEEP_RULES_FILES)
             .setMode(CompilationMode.RELEASE)
             .compile()
             .outputJar();

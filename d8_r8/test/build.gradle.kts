@@ -188,6 +188,7 @@ tasks {
     val r8WithRelocatedDepsJar = r8WithRelocatedDepsTask.getSingleOutputFile()
     val keepRuleFiles = listOf(
             getRoot().resolveAll("src", "main", "keep.txt"),
+            getRoot().resolveAll("src", "main", "discard.txt"),
             generatedKeepRulesProvider.getSingleOutputFile(),
             // TODO(b/294351878): Remove once enum issue is fixed
             getRoot().resolveAll("src", "main", "keep_r8resourceshrinker.txt"))

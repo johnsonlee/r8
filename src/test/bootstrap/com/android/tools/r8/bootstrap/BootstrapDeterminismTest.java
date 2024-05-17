@@ -12,9 +12,11 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.DeterminismChecker;
+import com.google.common.collect.ImmutableList;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -25,8 +27,10 @@ import org.junit.runners.Parameterized.Parameters;
 public class BootstrapDeterminismTest extends TestBase {
 
   private static final int ITERATIONS = 2;
-  private static final Path MAIN_KEEP =
-      Paths.get(ToolHelper.getProjectRoot(), "src", "main", "keep.txt");
+  private static final List<Path> KEEP_RULES_FILES =
+      ImmutableList.of(
+          Paths.get(ToolHelper.getProjectRoot(), "src", "main", "keep.txt"),
+          Paths.get(ToolHelper.getProjectRoot(), "src", "main", "discard.txt"));
 
   @Parameter public TestParameters parameters;
 
@@ -53,7 +57,7 @@ public class BootstrapDeterminismTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
-        .addKeepRuleFiles(MAIN_KEEP)
+        .addKeepRuleFiles(KEEP_RULES_FILES)
         .addOptionsModification(
             options ->
                 options

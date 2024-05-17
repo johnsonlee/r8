@@ -7,15 +7,21 @@ package com.android.tools.r8.bootstrap;
 import static junit.framework.TestCase.assertTrue;
 
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.google.common.collect.ImmutableList;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 public class JavaBootstrapUtils extends TestBase {
 
-  static final Path MAIN_KEEP = Paths.get("src/main/keep.txt");
+  static final List<Path> KEEP_RULE_FILES =
+      ImmutableList.of(
+          Paths.get(ToolHelper.getProjectRoot(), "src", "main", "keep.txt"),
+          Paths.get(ToolHelper.getProjectRoot(), "src", "main", "discard.txt"));
 
   static boolean exists(Path r8WithRelocatedDeps) {
     // This test runs only if the dependencies have been generated using:
@@ -32,7 +38,7 @@ public class JavaBootstrapUtils extends TestBase {
     return testForR8(getStaticTemp(), Backend.CF)
         .addProgramFiles(r8WithRelocatedDeps)
         .addLibraryFiles(libraryFiles)
-        .addKeepRuleFiles(MAIN_KEEP)
+        .addKeepRuleFiles(KEEP_RULE_FILES)
         .applyIf(
             desugar,
             builder ->

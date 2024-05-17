@@ -43,7 +43,10 @@ public class JavaR8CompilationTest extends TestBase {
         ImmutableList.of(ToolHelper.R8_WITH_RELOCATED_DEPS_17_JAR));
   }
 
-  private static final Path MAIN_KEEP = Paths.get(ToolHelper.getProjectRoot(), "src/main/keep.txt");
+  private static final List<Path> KEEP_RULE_FILES =
+      ImmutableList.of(
+          Paths.get(ToolHelper.getProjectRoot(), "src/main/keep.txt"),
+          Paths.get(ToolHelper.getProjectRoot(), "src/main/discard.txt"));
 
   private static void assertNoNests(CodeInspector inspector) {
     assertTrue(
@@ -56,7 +59,7 @@ public class JavaR8CompilationTest extends TestBase {
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramFiles(r8WithRelocatedDeps)
-        .addKeepRuleFiles(MAIN_KEEP)
+        .addKeepRuleFiles(KEEP_RULE_FILES)
         .compile()
         .inspect(this::assertNotEmpty)
         .inspect(JavaR8CompilationTest::assertNoNests);

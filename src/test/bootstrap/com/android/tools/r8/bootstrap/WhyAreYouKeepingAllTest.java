@@ -13,8 +13,10 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
+import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,7 +29,10 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class WhyAreYouKeepingAllTest extends TestBase {
 
-  private static final Path MAIN_KEEP = Paths.get(ToolHelper.SOURCE_DIR + "/main/keep.txt");
+  private static final List<Path> KEEP_RULE_FILES =
+      ImmutableList.of(
+          Paths.get(ToolHelper.SOURCE_DIR, "/main/keep.txt"),
+          Paths.get(ToolHelper.SOURCE_DIR, "/main/discard.txt"));
 
   private static final String WHY_ARE_YOU_KEEPING_ALL = StringUtils.lines(
       "-whyareyoukeeping class ** { *; }",
@@ -48,7 +53,7 @@ public class WhyAreYouKeepingAllTest extends TestBase {
     testForR8(Backend.CF)
         .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
-        .addKeepRuleFiles(MAIN_KEEP)
+        .addKeepRuleFiles(KEEP_RULE_FILES)
         .addKeepRules(WHY_ARE_YOU_KEEPING_ALL)
         // Do not forward standard out since running with gradle will cause an error writing the
         // results.

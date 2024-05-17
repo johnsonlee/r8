@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -83,8 +84,10 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
     return path.toAbsolutePath().toString();
   }
 
-  private static final String R8_KEEP =
-      Paths.get(ToolHelper.SOURCE_DIR + "main/keep.txt").toAbsolutePath().toString();
+  private static final Collection<Path> KEEP_RULE_FILES =
+      ImmutableList.of(
+          Paths.get(ToolHelper.SOURCE_DIR, "main/keep.txt"),
+          Paths.get(ToolHelper.SOURCE_DIR, "main/discard.txt"));
 
   private Pair<List<String>, Consumer<Builder>> buildArguments() {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
@@ -102,8 +105,10 @@ public class R8CompiledThroughDexTest extends DesugaredLibraryTestBase {
     arguments.add("--lib").add(commandLinePathFor(ToolHelper.getAndroidJar(AndroidApiLevel.R)));
     buildup.add(b -> b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.R)));
 
-    arguments.add("--pg-conf").add(commandLinePathFor(R8_KEEP));
-    buildup.add(b -> b.addProguardConfigurationFiles(Paths.get(R8_KEEP)));
+    for (Path keepRuleFile : KEEP_RULE_FILES) {
+      arguments.add("--pg-conf").add(commandLinePathFor(keepRuleFile));
+      buildup.add(b -> b.addProguardConfigurationFiles(keepRuleFile));
+    }
 
     arguments
         .add("--desugared-lib")

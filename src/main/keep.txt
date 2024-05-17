@@ -27,13 +27,5 @@
 # TODO(b/176783536): Avoid need to use -dontwarn.
 -include dontwarn.txt
 
-# Annotations for stripping debug code from r8lib.
--assumenosideeffects class * {
-  @com.android.tools.r8.annotations.AssumeNoSideEffects <methods>;
-}
--checkdiscard class * {
-  @com.android.tools.r8.annotations.CheckDiscard <fields>;
-}
-
 # Test in this class is using the class name to fing the original .java file.
 -keep class com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaringMethods

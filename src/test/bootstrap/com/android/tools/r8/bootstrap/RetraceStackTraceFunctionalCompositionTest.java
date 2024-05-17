@@ -29,6 +29,7 @@ import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StackTraceUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils;
+import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -242,14 +243,17 @@ public class RetraceStackTraceFunctionalCompositionTest extends TestBase {
   }
 
   private Pair<Path, Path> compileR8WithR8(Path r8Input) throws Exception {
-    Path MAIN_KEEP = Paths.get("src/main/keep.txt");
+    List<Path> KEEP_RULE_FILES =
+        ImmutableList.of(
+            Paths.get(ToolHelper.getProjectRoot(), "src/main/keep.txt"),
+            Paths.get(ToolHelper.getProjectRoot(), "src/main/discard.txt"));
     Path jar = temp.newFolder().toPath().resolve("out.jar");
     Path map = temp.newFolder().toPath().resolve("out.map");
     testForR8(Backend.CF)
         .setMode(CompilationMode.RELEASE)
         .addProgramFiles(r8Input)
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
-        .addKeepRuleFiles(MAIN_KEEP)
+        .addKeepRuleFiles(KEEP_RULE_FILES)
         .allowUnusedProguardConfigurationRules()
         .addDontObfuscate()
         .compile()

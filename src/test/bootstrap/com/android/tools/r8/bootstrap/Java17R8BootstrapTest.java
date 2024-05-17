@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.bootstrap;
 
-import static com.android.tools.r8.bootstrap.JavaBootstrapUtils.MAIN_KEEP;
+import static com.android.tools.r8.bootstrap.JavaBootstrapUtils.KEEP_RULE_FILES;
 import static junit.framework.TestCase.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -135,7 +135,7 @@ public class Java17R8BootstrapTest extends TestBase {
           testForExternalR8(Backend.CF, parameters.getRuntime())
               .useProvidedR8(jar)
               .addProgramFiles(helloJar)
-              .addKeepRuleFiles(MAIN_KEEP)
+              .addKeepRuleFiles(KEEP_RULE_FILES)
               .compile()
               .outputJar();
       if (prevGeneratedJar != null) {
