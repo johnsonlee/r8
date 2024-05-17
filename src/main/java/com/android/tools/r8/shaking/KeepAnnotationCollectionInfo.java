@@ -4,12 +4,15 @@
 
 package com.android.tools.r8.shaking;
 
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.ObjectUtils;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public abstract class KeepAnnotationCollectionInfo {
 
@@ -258,6 +261,7 @@ public abstract class KeepAnnotationCollectionInfo {
       assert anyTypeInfo != null;
       assert anyTypeInfo.isAnyType();
       assert !anyTypeInfo.isTop() || specificTypeInfo == null;
+      assert specificTypeInfo == null || !specificTypeInfo.isEmpty();
       this.anyTypeInfo = anyTypeInfo;
       this.specificTypeInfo = specificTypeInfo;
     }
@@ -273,21 +277,40 @@ public abstract class KeepAnnotationCollectionInfo {
         return false;
       }
       if (specificTypeInfo != null) {
-        throw new Unimplemented();
+        KeepAnnotationInfo info = specificTypeInfo.get(annotation.getAnnotationType());
+        if (info != null) {
+          assert info.type.isIdenticalTo(annotation.getAnnotationType());
+          return !info.retention.matches(annotation);
+        }
       }
       return true;
     }
 
     public boolean internalIsLessThanOrEqualTo(IntermediateKeepAnnotationCollectionInfo other) {
-      if (specificTypeInfo == null && other.specificTypeInfo == null) {
-        return anyTypeInfo.isLessThanOrEqualTo(other.anyTypeInfo);
+      if (!anyTypeInfo.isLessThanOrEqualTo(other.anyTypeInfo)) {
+        return false;
       }
-      throw new Unimplemented();
+      if (specificTypeInfo == null) {
+        // Our specific types are "bottom" so this is less than.
+        return true;
+      }
+      if (other.specificTypeInfo == null) {
+        // Other specific types are "bottom" and this is not bottom, so it is not less than.
+        return false;
+      }
+      // Check that each specific type is less than the content of the type in other.
+      for (DexType type : specificTypeInfo.keySet()) {
+        KeepAnnotationInfo otherInfo = other.specificTypeInfo.get(type);
+        if (otherInfo == null || !specificTypeInfo.get(type).isLessThanOrEqualTo(otherInfo)) {
+          return false;
+        }
+      }
+      return true;
     }
   }
 
   public static Builder builder() {
-    return Builder.makeBottom();
+    return Builder.createBottom();
   }
 
   public Builder toBuilder() {
@@ -323,12 +346,18 @@ public abstract class KeepAnnotationCollectionInfo {
 
   public static class Builder {
 
-    public static Builder makeTop() {
+    public static Builder createTop() {
       return new Builder(KeepAnnotationInfo.getTop());
     }
 
-    public static Builder makeBottom() {
+    public static Builder createBottom() {
       return new Builder(KeepAnnotationInfo.getBottom());
+    }
+
+    public void destructiveMakeTop() {
+      anyTypeInfo = KeepAnnotationInfo.getTop();
+      specificTypeInfo = null;
+      assert isTop();
     }
 
     // Info applicable to any type.
@@ -345,16 +374,16 @@ public abstract class KeepAnnotationCollectionInfo {
 
     private static Builder createFrom(KeepAnnotationCollectionInfo original) {
       if (original.isTop()) {
-        return makeTop();
+        return createTop();
       }
       if (original.isBottom()) {
-        return makeBottom();
+        return createBottom();
       }
       IntermediateKeepAnnotationCollectionInfo intermediate = original.asIntermediate();
-      Builder builder = makeBottom();
+      Builder builder = builder();
       builder.anyTypeInfo = intermediate.anyTypeInfo;
       if (intermediate.specificTypeInfo != null) {
-        throw new Unimplemented();
+        builder.specificTypeInfo = new IdentityHashMap<>(intermediate.specificTypeInfo);
       }
       return builder;
     }
@@ -368,42 +397,102 @@ public abstract class KeepAnnotationCollectionInfo {
     }
 
     public boolean isEqualTo(KeepAnnotationCollectionInfo other) {
-      // TODO(b/319474935): Consider checking directly on the builder and avoid the build.
-      KeepAnnotationCollectionInfo self = build();
-      return self.isLessThanOrEqualTo(other) && other.isLessThanOrEqualTo(self);
-    }
-
-    public Builder addItem(KeepAnnotationInfo item) {
-      if (item.isAnyType()) {
-        anyTypeInfo = anyTypeInfo.joinForSameType(item);
-        return this;
+      if (isBottom()) {
+        return other.isBottom();
       }
-      // TODO(b/319474935): Make sure to maintain the invariant that top => specific==null
-      throw new Unimplemented();
+      if (isTop()) {
+        return other.isTop();
+      }
+      IntermediateKeepAnnotationCollectionInfo intermediate = other.asIntermediate();
+      return anyTypeInfo.equals(intermediate.anyTypeInfo)
+          && Objects.equals(specificTypeInfo, intermediate.specificTypeInfo);
     }
 
-    public void join(Builder other) {
-      // Joining mutates 'this' with the join of settings from 'other'.
+    public void destructiveJoin(Builder other) {
       // The empty collection is bottom which joins as identity.
       if (other.isBottom()) {
         return;
       }
+      if (other.isTop()) {
+        destructiveMakeTop();
+        return;
+      }
+      // Always join the any-type info. If the any-type becomes top, then it applies to all
+      // specific types too, and we can simply update the info to top.
+      KeepAnnotationInfo oldAnyTypeInfo = anyTypeInfo;
       anyTypeInfo = anyTypeInfo.joinForSameType(other.anyTypeInfo);
-      if (specificTypeInfo != null || other.specificTypeInfo != null) {
-        throw new Unimplemented();
+      if (anyTypeInfo.isTop()) {
+        destructiveMakeTop();
+        return;
+      }
+      if (other.specificTypeInfo != null) {
+        if (specificTypeInfo == null) {
+          specificTypeInfo = new IdentityHashMap<>(other.specificTypeInfo);
+        } else {
+          other.specificTypeInfo.forEach(
+              (type, info) ->
+                  specificTypeInfo.compute(
+                      type,
+                      (t, existing) -> existing == null ? info : existing.joinForSameType(info)));
+        }
+        pruneSubsumedSpecificTypeInfos();
+      } else if (anyTypeInfo != oldAnyTypeInfo) {
+        pruneSubsumedSpecificTypeInfos();
       }
     }
 
-    public void joinAnyTypeInfo(RetentionInfo retention) {
-      // Joining mutates 'this' with the join of settings from 'retention'.
-      // The empty retention is bottom which joins as identity.
-      if (retention.isNone()) {
+    private void pruneSubsumedSpecificTypeInfos() {
+      if (specificTypeInfo == null) {
         return;
       }
-      anyTypeInfo = anyTypeInfo.joinForSameType(KeepAnnotationInfo.createForAnyType(retention));
-      if (specificTypeInfo != null) {
-        throw new Unimplemented();
+      assert !specificTypeInfo.isEmpty();
+      // If the any-type does not retain anything then nothing needs to be pruned.
+      if (anyTypeInfo.isBottom()) {
+        return;
       }
+      List<DexType> typesToPrune = null;
+      for (DexType type : specificTypeInfo.keySet()) {
+        KeepAnnotationInfo info = specificTypeInfo.get(type);
+        if (info.retention.isLessThanOrEqualTo(anyTypeInfo.retention)) {
+          if (typesToPrune == null) {
+            typesToPrune = new ArrayList<>(specificTypeInfo.size());
+          }
+          typesToPrune.add(type);
+        }
+      }
+      if (typesToPrune != null) {
+        if (typesToPrune.size() == specificTypeInfo.size()) {
+          specificTypeInfo = null;
+        } else {
+          typesToPrune.forEach(specificTypeInfo::remove);
+        }
+      }
+    }
+
+    public void destructiveJoinAnyTypeInfo(RetentionInfo retention) {
+      if (retention.isLessThanOrEqualTo(anyTypeInfo.retention)) {
+        return;
+      }
+      anyTypeInfo = KeepAnnotationInfo.createForAnyType(anyTypeInfo.retention.join(retention));
+      pruneSubsumedSpecificTypeInfos();
+    }
+
+    public void destructiveJoinTypeInfo(DexType type, RetentionInfo retention) {
+      assert type != null;
+      if (retention.isLessThanOrEqualTo(anyTypeInfo.retention)) {
+        return;
+      }
+      if (specificTypeInfo == null) {
+        // We expect the number of specific annotations to keep to be small, so we use a small
+        // initial capacity.
+        specificTypeInfo = new IdentityHashMap<>(3);
+      }
+      specificTypeInfo.compute(
+          type,
+          (t, prev) -> {
+            KeepAnnotationInfo info = new KeepAnnotationInfo(t, retention);
+            return prev == null ? info : info.joinForSameType(prev);
+          });
     }
 
     public KeepAnnotationCollectionInfo build() {

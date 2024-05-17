@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.keepanno.ast.AccessVisibility;
+import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepArrayTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
@@ -301,5 +302,20 @@ public class KeepAnnotationMatcherPredicates {
       return true;
     }
     return type.asPrimitiveTypeDescriptorChar() == pattern.getDescriptorChar();
+  }
+
+  public boolean matchesAnnotation(DexAnnotation annotation, KeepAnnotationPattern pattern) {
+    int visibility = annotation.getVisibility();
+    if (visibility != DexAnnotation.VISIBILITY_BUILD
+        && visibility != DexAnnotation.VISIBILITY_RUNTIME) {
+      return false;
+    }
+    if (visibility == DexAnnotation.VISIBILITY_BUILD && !pattern.includesClassRetention()) {
+      return false;
+    }
+    if (visibility == DexAnnotation.VISIBILITY_RUNTIME && !pattern.includesRuntimeRetention()) {
+      return false;
+    }
+    return matchesClassName(annotation.getAnnotationType(), pattern.getNamePattern());
   }
 }

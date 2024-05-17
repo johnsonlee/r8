@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexReference;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Builder;
@@ -492,25 +493,27 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return setAllowAccessModificationForTesting(false);
     }
 
-    private B setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder annotationsInfo) {
-      this.annotationsInfo = annotationsInfo;
-      return self();
-    }
-
     KeepAnnotationCollectionInfo.Builder getAnnotationsInfo() {
       return annotationsInfo;
     }
 
     public B allowAnnotationRemoval() {
-      return setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeBottom());
+      annotationsInfo = KeepAnnotationCollectionInfo.Builder.createBottom();
+      return self();
     }
 
     public B disallowAnnotationRemoval() {
-      return setAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
+      annotationsInfo = KeepAnnotationCollectionInfo.Builder.createTop();
+      return self();
     }
 
     public B disallowAnnotationRemoval(RetentionInfo retention) {
-      annotationsInfo.joinAnyTypeInfo(retention);
+      annotationsInfo.destructiveJoinAnyTypeInfo(retention);
+      return self();
+    }
+
+    public B disallowAnnotationRemoval(RetentionInfo retention, DexType type) {
+      annotationsInfo.destructiveJoinTypeInfo(type, retention);
       return self();
     }
 
@@ -518,21 +521,18 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return typeAnnotationsInfo;
     }
 
-    private B setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder typeAnnotationsInfo) {
-      this.typeAnnotationsInfo = typeAnnotationsInfo;
+    public B allowTypeAnnotationRemoval() {
+      typeAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createBottom();
       return self();
     }
 
-    public B allowTypeAnnotationRemoval() {
-      return setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeBottom());
-    }
-
     public B disallowTypeAnnotationRemoval() {
-      return setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.makeTop());
+      typeAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createTop();
+      return self();
     }
 
     public B disallowTypeAnnotationRemoval(RetentionInfo retention) {
-      typeAnnotationsInfo.joinAnyTypeInfo(retention);
+      typeAnnotationsInfo.destructiveJoinAnyTypeInfo(retention);
       return self();
     }
 
@@ -667,6 +667,11 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
+    public J disallowAnnotationRemoval(RetentionInfo retention, DexType type) {
+      builder.disallowAnnotationRemoval(retention, type);
+      return self();
+    }
+
     public J disallowTypeAnnotationRemoval(RetentionInfo retention) {
       builder.disallowTypeAnnotationRemoval(retention);
       return self();
@@ -708,8 +713,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       applyIf(!otherBuilder.isShrinkingAllowed(), Joiner::disallowShrinking);
       applyIf(!otherBuilder.isSignatureRemovalAllowed(), Joiner::disallowSignatureRemoval);
       applyIf(otherBuilder.isCheckDiscardedEnabled(), Joiner::setCheckDiscarded);
-      builder.getAnnotationsInfo().join(otherBuilder.getAnnotationsInfo());
-      builder.getTypeAnnotationsInfo().join(otherBuilder.getTypeAnnotationsInfo());
+      builder.getAnnotationsInfo().destructiveJoin(otherBuilder.getAnnotationsInfo());
+      builder.getTypeAnnotationsInfo().destructiveJoin(otherBuilder.getTypeAnnotationsInfo());
       reasons.addAll(joiner.reasons);
       rules.addAll(joiner.rules);
       return self();

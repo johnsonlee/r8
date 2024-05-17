@@ -535,17 +535,17 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     }
 
     public Builder allowParameterAnnotationsRemoval() {
-      parameterAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.makeBottom();
+      parameterAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createBottom();
       return self();
     }
 
     public Builder disallowParameterAnnotationsRemoval() {
-      parameterAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.makeTop();
+      parameterAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createTop();
       return self();
     }
 
     public Builder disallowParameterAnnotationsRemoval(RetentionInfo retention) {
-      parameterAnnotationsInfo.joinAnyTypeInfo(retention);
+      parameterAnnotationsInfo.destructiveJoinAnyTypeInfo(retention);
       return self();
     }
 
@@ -730,7 +730,9 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     public Joiner merge(Joiner joiner) {
       // Should be extended to merge the fields of this class in case any are added.
       super.merge(joiner);
-      builder.getParameterAnnotationsInfo().join(joiner.builder.getParameterAnnotationsInfo());
+      builder
+          .getParameterAnnotationsInfo()
+          .destructiveJoin(joiner.builder.getParameterAnnotationsInfo());
       return applyIf(!joiner.builder.isClassInliningAllowed(), Joiner::disallowClassInlining)
           .applyIf(
               !joiner.builder.isClosedWorldReasoningAllowed(), Joiner::disallowClosedWorldReasoning)

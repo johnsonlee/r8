@@ -88,12 +88,14 @@ public class KeepAnnotationMatcher {
                 result -> {
                   if (result.preconditions.isEmpty()) {
                     builder.addRootRule(
-                        keepInfoCollection -> createKeepInfo(result, keepInfoCollection));
+                        keepInfoCollection ->
+                            createKeepInfo(result, keepInfoCollection, predicates));
                   } else {
                     builder.addConditionalRule(
                         new PendingInitialConditionalRule(
                             result.preconditions,
-                            createKeepInfo(result, MinimumKeepInfoCollection.create())));
+                            createKeepInfo(
+                                result, MinimumKeepInfoCollection.create(), predicates)));
                   }
                 }),
         check -> {
@@ -102,19 +104,25 @@ public class KeepAnnotationMatcher {
   }
 
   private static MinimumKeepInfoCollection createKeepInfo(
-      MatchResult result, MinimumKeepInfoCollection minimumKeepInfoCollection) {
+      MatchResult result,
+      MinimumKeepInfoCollection minimumKeepInfoCollection,
+      KeepAnnotationMatcherPredicates predicates) {
     ListUtils.forEachWithIndex(
         result.consequences,
         (item, i) -> {
           Joiner<?, ?, ?> joiner =
               minimumKeepInfoCollection.getOrCreateMinimumKeepInfoFor(item.getReference());
-          updateWithConstraints(item, joiner, result.constraints.get(i), result.edge);
+          updateWithConstraints(item, joiner, result.constraints.get(i), result.edge, predicates);
         });
     return minimumKeepInfoCollection;
   }
 
   private static void updateWithConstraints(
-      ProgramDefinition item, Joiner<?, ?, ?> joiner, KeepConstraints constraints, KeepEdge edge) {
+      ProgramDefinition item,
+      Joiner<?, ?, ?> joiner,
+      KeepConstraints constraints,
+      KeepEdge edge,
+      KeepAnnotationMatcherPredicates predicates) {
     constraints.forEachAccept(
         new KeepConstraintVisitor() {
 
@@ -188,8 +196,15 @@ public class KeepAnnotationMatcher {
             if (pattern.getNamePattern().isAny()) {
               joiner.disallowAnnotationRemoval(toRetentionInfo(pattern));
             } else {
-              // TODO(b/319474935): Add to the type specific keep info.
-              joiner.disallowAnnotationRemoval(toRetentionInfo(pattern));
+              item.getDefinition()
+                  .annotations()
+                  .forEach(
+                      annotation -> {
+                        if (predicates.matchesAnnotation(annotation, pattern)) {
+                          joiner.disallowAnnotationRemoval(
+                              toRetentionInfo(pattern), annotation.getAnnotationType());
+                        }
+                      });
             }
           }
 
