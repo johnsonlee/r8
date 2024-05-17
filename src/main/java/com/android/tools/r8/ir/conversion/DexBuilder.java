@@ -50,11 +50,13 @@ import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.DebugPosition;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRCode.BasicBlockIteratorCallback;
 import com.android.tools.r8.ir.code.If;
+import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
@@ -222,6 +224,9 @@ public class DexBuilder {
       // Remove redundant debug position instructions. They would otherwise materialize as
       // unnecessary nops.
       removeRedundantDebugPositions(appView, ir);
+
+      // Add back debug positions to perserve step-out behavior compatible with pops on JVMs.
+      amendDebugPositionsForUnusedNonVoidMethods();
 
       // Reset the state of the builder to start from scratch.
       reset();
@@ -571,6 +576,39 @@ public class DexBuilder {
       }
       assert i == toRemove.size();
     }
+  }
+
+  private void amendDebugPositionsForUnusedNonVoidMethods() {
+    if (!appView.options().debug || !appView.options().ensureJvmCompatibleStepOutBehavior) {
+      return;
+    }
+    // Insert additional debug positions (materializing as nop) after all method calls that would
+    // require a pop on JVM. See b/340669208 for context.
+    ir.forEachBlockWithPreviousAndNext(
+        (currentBlock, unused, nextBlock) -> {
+          BasicBlockInstructionListIterator it = currentBlock.listIterator(ir);
+          while (it.hasNext()) {
+            Instruction instruction = it.next();
+            if (!instruction.isInvoke()
+                || instruction.getPosition().isNone()
+                || instruction.getPosition().isSyntheticPosition()
+                || instruction.asInvoke().hasReturnTypeVoid(appView.dexItemFactory())
+                || (instruction.hasOutValue() && instruction.outValue().needsRegister())) {
+              continue;
+            }
+            Position invokePosition = instruction.getPosition();
+            Instruction nextInstruction = it.next();
+            if (nextInstruction.isGoto() && nextInstruction.asGoto().getTarget() == nextBlock) {
+              nextInstruction = nextBlock.entry();
+            }
+            if (!invokePosition.equals(nextInstruction.getPosition())) {
+              it.previous();
+              DebugPosition debugPosition = new DebugPosition();
+              debugPosition.setPosition(invokePosition);
+              it.add(debugPosition);
+            }
+          }
+        });
   }
 
   // Rewrite ifs with offsets that are too large for the if encoding. The rewriting transforms:
