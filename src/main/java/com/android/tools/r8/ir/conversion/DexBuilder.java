@@ -53,6 +53,7 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.DebugPosition;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRCode.BasicBlockIteratorCallback;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -451,107 +452,113 @@ public class DexBuilder {
     // determining if a goto will materialize or not.
     removeTrivialGotoBlocks(code);
 
-    // Current position known to have a materializing instruction associated with it.
-    Position currentMaterializedPosition = Position.none();
-
-    // Current debug-position marker that is not yet known to have another instruction materializing
-    // to the same position.
-    DebugPosition unresolvedPosition = null;
-
-    // Locals live at the debug-position marker. These must also be the same at a possible
-    // materializing instruction with the same position for it to be sound to remove the marker.
-    Int2ReferenceMap<DebugLocalInfo> localsAtUnresolvedPosition = null;
-
     // Compute the set of all positions that can be removed.
     // (Delaying removal to avoid ConcurrentModificationException).
     List<DebugPosition> toRemove = new ArrayList<>();
 
-    for (int blockIndex = 0; blockIndex < code.blocks.size(); blockIndex++) {
-      BasicBlock currentBlock = code.blocks.get(blockIndex);
+    code.forEachBlockWithPreviousAndNext(
+        new BasicBlockIteratorCallback() {
 
-      // Current materialized position must be updated to the position we can guarantee is emitted
-      // in all predecessors. The position of a fallthrough predecessor is defined by
-      // currentMaterializedPosition and unresolvedPosition (and not by the position of its exit!)
-      // If this is the entry block or a trivial fall-through with no other predecessors the
-      // materialized and unresolved positions remain unchanged.
-      if (blockIndex != 0) {
-        BasicBlock previousBlock = code.blocks.get(blockIndex - 1);
-        if (!isTrivialFallthroughTarget(previousBlock, currentBlock)) {
-          Position positionAtAllPredecessors = null;
-          for (BasicBlock pred : currentBlock.getPredecessors()) {
-            Position predExit;
-            if (pred == previousBlock) {
-              predExit =
-                  unresolvedPosition != null
-                      ? unresolvedPosition.getPosition()
-                      : currentMaterializedPosition;
-            } else {
-              predExit = pred.exit().getPosition();
-            }
-            if (positionAtAllPredecessors == null) {
-              positionAtAllPredecessors = predExit;
-            } else if (!positionAtAllPredecessors.equals(predExit)) {
-              positionAtAllPredecessors = Position.none();
-              break;
-            }
-          }
-          unresolvedPosition = null;
-          currentMaterializedPosition = positionAtAllPredecessors;
-        }
-      }
+          // Current position known to have a materializing instruction associated with it.
+          Position currentMaterializedPosition = Position.none();
 
-      // Current locals.
-      Int2ReferenceMap<DebugLocalInfo> locals =
-          currentBlock.getLocalsAtEntry() != null
-              ? new Int2ReferenceOpenHashMap<>(currentBlock.getLocalsAtEntry())
-              : new Int2ReferenceOpenHashMap<>();
+          // Current debug-position marker that is not yet known to have another instruction
+          // materializing
+          // to the same position.
+          DebugPosition unresolvedPosition = null;
 
-      // Next block to decide which gotos are fall-throughs.
-      BasicBlock nextBlock =
-          blockIndex + 1 < code.blocks.size() ? code.blocks.get(blockIndex + 1) : null;
+          // Locals live at the debug-position marker. These must also be the same at a possible
+          // materializing instruction with the same position for it to be sound to remove the
+          // marker.
+          Int2ReferenceMap<DebugLocalInfo> localsAtUnresolvedPosition = null;
 
-      for (com.android.tools.r8.ir.code.Instruction instruction : currentBlock.getInstructions()) {
-        if (instruction.isDebugPosition()) {
-          if (unresolvedPosition == null
-              && currentMaterializedPosition == instruction.getPosition()) {
-            // Here we don't need to check locals state as the line is already active.
-            toRemove.add(instruction.asDebugPosition());
-            assert currentBlock.size() != 2
-                    || currentBlock.exit().getPosition() != currentMaterializedPosition
-                    || !currentBlock.exit().isGoto()
-                    || currentBlock.exit().asGoto().getTarget() != nextBlock
-                : "Unexpected trivial fallthrough block. This should be removed already.";
-          } else if (unresolvedPosition != null
-              && unresolvedPosition.getPosition() == instruction.getPosition()
-              && locals.equals(localsAtUnresolvedPosition)) {
-            // toRemove needs to be in instruction iteration order since the removal assumes that.
-            // Therefore, we have to remove unresolvedPosition here and record the current
-            // instruction as unresolved. Otherwise, if both of these instructions end up in
-            // toRemove they will be out of order.
-            toRemove.add(unresolvedPosition);
-            unresolvedPosition = instruction.asDebugPosition();
-          } else {
-            unresolvedPosition = instruction.asDebugPosition();
-            localsAtUnresolvedPosition = new Int2ReferenceOpenHashMap<>(locals);
-          }
-        } else {
-          assert instruction.getPosition().isSome();
-          if (instruction.isDebugLocalsChange()) {
-            instruction.asDebugLocalsChange().apply(locals);
-          } else if (!isNopInstruction(instruction, nextBlock)) {
-            if (unresolvedPosition != null) {
-              if (unresolvedPosition.getPosition() == instruction.getPosition()
-                  && locals.equals(localsAtUnresolvedPosition)) {
-                toRemove.add(unresolvedPosition);
+          @Override
+          public void accept(
+              BasicBlock currentBlock, BasicBlock previousBlock, BasicBlock nextBlock) {
+            // Current materialized position must be updated to the position we can guarantee is
+            // emitted
+            // in all predecessors. The position of a fallthrough predecessor is defined by
+            // currentMaterializedPosition and unresolvedPosition (and not by the position of its
+            // exit!)
+            // If this is the entry block or a trivial fall-through with no other predecessors the
+            // materialized and unresolved positions remain unchanged.
+            if (previousBlock != null) {
+              if (!isTrivialFallthroughTarget(previousBlock, currentBlock)) {
+                Position positionAtAllPredecessors = null;
+                for (BasicBlock pred : currentBlock.getPredecessors()) {
+                  Position predExit;
+                  if (pred == previousBlock) {
+                    predExit =
+                        unresolvedPosition != null
+                            ? unresolvedPosition.getPosition()
+                            : currentMaterializedPosition;
+                  } else {
+                    predExit = pred.exit().getPosition();
+                  }
+                  if (positionAtAllPredecessors == null) {
+                    positionAtAllPredecessors = predExit;
+                  } else if (!positionAtAllPredecessors.equals(predExit)) {
+                    positionAtAllPredecessors = Position.none();
+                    break;
+                  }
+                }
+                unresolvedPosition = null;
+                currentMaterializedPosition = positionAtAllPredecessors;
               }
-              unresolvedPosition = null;
-              localsAtUnresolvedPosition = null;
             }
-            currentMaterializedPosition = instruction.getPosition();
+
+            // Current locals.
+            Int2ReferenceMap<DebugLocalInfo> locals =
+                currentBlock.getLocalsAtEntry() != null
+                    ? new Int2ReferenceOpenHashMap<>(currentBlock.getLocalsAtEntry())
+                    : new Int2ReferenceOpenHashMap<>();
+
+            for (com.android.tools.r8.ir.code.Instruction instruction :
+                currentBlock.getInstructions()) {
+              if (instruction.isDebugPosition()) {
+                if (unresolvedPosition == null
+                    && currentMaterializedPosition == instruction.getPosition()) {
+                  // Here we don't need to check locals state as the line is already active.
+                  toRemove.add(instruction.asDebugPosition());
+                  assert currentBlock.size() != 2
+                          || currentBlock.exit().getPosition() != currentMaterializedPosition
+                          || !currentBlock.exit().isGoto()
+                          || currentBlock.exit().asGoto().getTarget() != nextBlock
+                      : "Unexpected trivial fallthrough block. This should be removed already.";
+                } else if (unresolvedPosition != null
+                    && unresolvedPosition.getPosition() == instruction.getPosition()
+                    && locals.equals(localsAtUnresolvedPosition)) {
+                  // toRemove needs to be in instruction iteration order since the removal assumes
+                  // that.
+                  // Therefore, we have to remove unresolvedPosition here and record the current
+                  // instruction as unresolved. Otherwise, if both of these instructions end up in
+                  // toRemove they will be out of order.
+                  toRemove.add(unresolvedPosition);
+                  unresolvedPosition = instruction.asDebugPosition();
+                } else {
+                  unresolvedPosition = instruction.asDebugPosition();
+                  localsAtUnresolvedPosition = new Int2ReferenceOpenHashMap<>(locals);
+                }
+              } else {
+                assert instruction.getPosition().isSome();
+                if (instruction.isDebugLocalsChange()) {
+                  instruction.asDebugLocalsChange().apply(locals);
+                } else if (!isNopInstruction(instruction, nextBlock)) {
+                  if (unresolvedPosition != null) {
+                    if (unresolvedPosition.getPosition() == instruction.getPosition()
+                        && locals.equals(localsAtUnresolvedPosition)) {
+                      toRemove.add(unresolvedPosition);
+                    }
+                    unresolvedPosition = null;
+                    localsAtUnresolvedPosition = null;
+                  }
+                  currentMaterializedPosition = instruction.getPosition();
+                }
+              }
+            }
           }
-        }
-      }
-    }
+        });
+
     // Remove all unneeded positions.
     if (!toRemove.isEmpty()) {
       InstructionListIterator it = code.instructionListIterator();

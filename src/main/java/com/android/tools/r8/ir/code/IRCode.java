@@ -529,6 +529,29 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     }
   }
 
+  public interface BasicBlockIteratorCallback {
+
+    /**
+     * @param current Current block. Always non-null.
+     * @param previous Null if current block is the entry block, otherwise previous in iteration.
+     * @param next Null if current block is the last block, otherwise next in iteration.
+     */
+    void accept(BasicBlock current, BasicBlock previous, BasicBlock next);
+  }
+
+  public void forEachBlockWithPreviousAndNext(BasicBlockIteratorCallback callback) {
+    assert !blocks.isEmpty();
+    BasicBlockIterator blockIterator = listIterator();
+    BasicBlock previousBlock = null;
+    BasicBlock currentBlock = blockIterator.next();
+    do {
+      BasicBlock nextBlock = blockIterator.hasNext() ? blockIterator.next() : null;
+      callback.accept(currentBlock, previousBlock, nextBlock);
+      previousBlock = currentBlock;
+      currentBlock = nextBlock;
+    } while (currentBlock != null);
+  }
+
   /**
    * Compute quasi topologically sorted list of the basic blocks using depth first search.
    *

@@ -33,6 +33,13 @@ public class BenchmarkCollection {
     variants.add(benchmark);
   }
 
+  public List<BenchmarkIdentifier> getBenchmarkIdentifiers() {
+    return benchmarks.values().stream()
+        .flatMap(cs -> cs.stream().map(BenchmarkConfig::getIdentifier))
+        .sorted()
+        .collect(Collectors.toList());
+  }
+
   public BenchmarkConfig getBenchmark(BenchmarkIdentifier identifier) {
     assert identifier != null;
     List<BenchmarkConfig> configs = benchmarks.getOrDefault(identifier.getName(), emptyList());

@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.stream.Collectors;
 import org.junit.rules.TemporaryFolder;
 
 public class BenchmarkMainEntryRunner {
@@ -28,7 +29,13 @@ public class BenchmarkMainEntryRunner {
     BenchmarkCollection collection = BenchmarkCollection.computeCollection();
     BenchmarkConfig config = collection.getBenchmark(identifier);
     if (config == null) {
-      throw new RuntimeException("Unknown identifier: " + identifier);
+      throw new RuntimeException(
+          "Unknown identifier: "
+              + identifier
+              + "\nPossible benchmarks:\n"
+              + collection.getBenchmarkIdentifiers().stream()
+                  .map(BenchmarkIdentifier::toString)
+                  .collect(Collectors.joining("\n")));
     }
 
     TemporaryFolder temp = new TemporaryFolder();
