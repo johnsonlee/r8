@@ -397,11 +397,11 @@ public abstract class KeepAnnotationCollectionInfo {
     }
 
     public boolean isEqualTo(KeepAnnotationCollectionInfo other) {
-      if (isBottom()) {
-        return other.isBottom();
+      if (other.isBottom()) {
+        return isBottom();
       }
-      if (isTop()) {
-        return other.isTop();
+      if (other.isTop()) {
+        return isTop();
       }
       IntermediateKeepAnnotationCollectionInfo intermediate = other.asIntermediate();
       return anyTypeInfo.equals(intermediate.anyTypeInfo)
