@@ -3,8 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import static org.junit.Assume.assumeFalse;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,6 +35,8 @@ public abstract class BenchmarkBase extends TestBase {
 
   @Test
   public void testBenchmarks() throws Exception {
+    // Slows down the windows bot considerably and does not add much extra value.
+    assumeFalse(ToolHelper.isWindows());
     config.run(new BenchmarkEnvironment(config, temp, false));
   }
 
