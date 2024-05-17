@@ -74,7 +74,7 @@ def extract_classes(input, output, options):
     extra_args = []
     if options.ignore_debug_info:
         extra_args.append('-Dcom.android.tools.r8.nullOutDebugInfo=1')
-    if toolhelper.run('d8', args, extra_args=extra_args) is not 0:
+    if toolhelper.run('d8', args, extra_args=extra_args) != 0:
         raise Exception('Failed running d8')
 
 
@@ -189,7 +189,7 @@ def compare(app1_classes_dir, app2_classes_dir, app1, app2, options):
 
 def Main():
     (options, args) = parse_options()
-    if len(args) is not 2:
+    if len(args) != 2:
         print(args)
         print('Takes exactly two arguments, the two apps to compare')
         return 1
