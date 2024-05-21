@@ -26,7 +26,7 @@ public class B341618078Test extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("0");
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("0", "0");
 
   @Test
   public void testJvm() throws Exception {
@@ -55,7 +55,7 @@ public class B341618078Test extends TestBase {
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         // TODO(b/341618078): Should be EXPECTED_OUTPUT.
-        .assertSuccessWithOutputLines("1");
+        .assertSuccessWithOutputLines("1", "1");
   }
 
   static class TestClass {
@@ -77,9 +77,21 @@ public class B341618078Test extends TestBase {
       System.out.println(b);
     }
 
+    static void cSimplified() {
+      int e = 1;
+      int f = 0;
+      int g = 1;
+      for (int h = 0; h < 1; h++) {
+        g = f;
+        f = e;
+      }
+      System.out.println(g);
+    }
+
     public static void main(String[] k) {
       TestClass m = new TestClass();
       m.i(k);
+      TestClass.cSimplified();
     }
   }
 }
