@@ -366,8 +366,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // To print memory one also have to enable printtimes.
   public boolean printMemory = System.getProperty("com.android.tools.r8.printmemory") != null;
 
+  // TODO(b/340669208): Figure out if this should be default behavior.
   public boolean ensureJvmCompatibleStepOutBehavior =
-      System.getProperty("com.android.tools.r8.enableJvmCompatibleStepOutBehavior") != null;
+      System.getProperty("com.android.tools.r8.enableJvmCompatibleStepOutBehavior") != null
+          || System.getenv("R8_ENABLE_JVM_COMPATIBLE_STEP_OUT_BEHAVIOR") != null;
 
   // Flag to toggle if DEX code objects should pass-through without IR processing.
   public boolean passthroughDexCode = false;
