@@ -1,7 +1,7 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.regress;
+package com.android.tools.r8.ir.optimize.loops;
 
 import static org.junit.Assume.assumeTrue;
 
@@ -54,8 +54,7 @@ public class B341618078Test extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/341618078): Should be EXPECTED_OUTPUT.
-        .assertSuccessWithOutputLines("1", "1");
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
