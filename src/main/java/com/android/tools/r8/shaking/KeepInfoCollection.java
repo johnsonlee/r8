@@ -348,6 +348,7 @@ public abstract class KeepInfoCollection {
       if (prunedItems.hasRemovedClasses() || prunedItems.hasRemovedMembers()) {
         keepMethodInfo.keySet().removeIf(prunedItems::isRemoved);
       }
+      materializedRules.pruneItems(prunedItems);
     }
 
     @Override

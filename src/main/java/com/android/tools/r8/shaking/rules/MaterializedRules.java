@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.shaking.rules;
 
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
 import com.android.tools.r8.utils.ListUtils;
@@ -44,5 +45,10 @@ public class MaterializedRules {
     return new ApplicableRulesEvaluatorImpl<>(
         rootConsequences,
         ListUtils.map(conditionalRules, MaterializedConditionalRule::asPendingRule));
+  }
+
+  public void pruneItems(PrunedItems prunedItems) {
+    rootConsequences.pruneItems(prunedItems);
+    conditionalRules.removeIf(c -> c.pruneItems(prunedItems));
   }
 }

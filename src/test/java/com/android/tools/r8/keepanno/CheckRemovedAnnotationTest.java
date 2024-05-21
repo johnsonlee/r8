@@ -46,6 +46,7 @@ public class CheckRemovedAnnotationTest extends KeepAnnoTestBase {
   public void test() throws Exception {
     assumeFalse(parameters.isR8());
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
@@ -57,6 +58,7 @@ public class CheckRemovedAnnotationTest extends KeepAnnoTestBase {
   public void testCurrentR8() throws Exception {
     assumeTrue(parameters.isR8() && parameters.isCurrentR8());
     testForKeepAnno(parameters)
+        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .applyIfR8Current(
@@ -95,6 +97,7 @@ public class CheckRemovedAnnotationTest extends KeepAnnoTestBase {
     assertTrue(parameters.isLegacyR8());
     try {
       testForKeepAnno(parameters)
+          .enableNativeInterpretation()
           .addProgramClasses(getInputClasses())
           .addKeepMainRule(TestClass.class)
           .run(TestClass.class);

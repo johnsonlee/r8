@@ -69,4 +69,9 @@ public class KeepCheck extends KeepDeclaration {
   public KeepItemPattern getItemPattern() {
     return itemPattern;
   }
+
+  @Override
+  public String toString() {
+    return "KeepCheck{kind=" + kind + ", item=" + itemPattern + "}";
+  }
 }

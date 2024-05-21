@@ -5,6 +5,7 @@
 package com.android.tools.r8.shaking.rules;
 
 import com.android.tools.r8.graph.DexReference;
+import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
 import java.util.List;
 
@@ -22,5 +23,27 @@ public class MaterializedConditionalRule {
 
   PendingConditionalRule asPendingRule() {
     return new PendingConditionalRule(preconditions, consequences);
+  }
+
+  public boolean pruneItems(PrunedItems prunedItems) {
+    for (DexReference precondition : preconditions) {
+      if (precondition.isDexType()) {
+        if (prunedItems.getRemovedClasses().contains(precondition.asDexType())) {
+          return true;
+        }
+      } else if (precondition.isDexField()) {
+        if (prunedItems.getRemovedFields().contains(precondition.asDexField())) {
+          return true;
+        }
+      } else {
+        assert precondition.isDexMethod();
+        if (prunedItems.getRemovedMethods().contains(precondition.asDexMethod())) {
+          return true;
+        }
+      }
+    }
+    // Preconditions are in place, so trim down consequences.
+    consequences.pruneItems(prunedItems);
+    return consequences.isEmpty();
   }
 }
