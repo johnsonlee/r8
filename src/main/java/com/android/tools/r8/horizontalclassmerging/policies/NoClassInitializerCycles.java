@@ -551,12 +551,15 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
                 .appInfo()
                 .resolveMethodOnClassHolderLegacy(rewrittenMethod)
                 .getResolutionPair();
-        if (resolvedMethod != null) {
-          if (!resolvedMethod.getHolder().isEffectivelyFinal(appView)) {
-            fail();
-          } else if (resolvedMethod.isProgramMethod()) {
-            enqueueMethod(resolvedMethod.asProgramMethod());
-          }
+        if (resolvedMethod == null) {
+          return;
+        }
+        if (!resolvedMethod.getHolder().isEffectivelyFinal(appView)) {
+          fail();
+          return;
+        }
+        if (resolvedMethod.isProgramMethod() && !resolvedMethod.getAccessFlags().isAbstract()) {
+          enqueueMethod(resolvedMethod.asProgramMethod());
         }
       }
 
