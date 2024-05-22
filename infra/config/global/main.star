@@ -317,6 +317,25 @@ r8_builder(
   expiration_timeout = time.hour * 35,
 )
 
+r8_builder(
+  "perf",
+  category = "perf",
+  dimensions = get_dimensions(),
+  triggering_policy = scheduler.policy(
+      kind = scheduler.GREEDY_BATCHING_KIND,
+      max_batch_size = 1,
+      max_concurrent_invocations = 3
+  ),
+  priority = 25,
+  properties = {
+      "test_wrapper" : "tools/perf.py",
+      "builder_group" : "internal.client.r8"
+  },
+  execution_timeout = time.hour * 3,
+  expiration_timeout = time.hour * 35,
+)
+
+
 r8_tester_with_default("linux-dex_default",
         ["--runtimes=dex-default", "--command_cache_dir=/tmp/ccache"],
         max_concurrent_invocations = 2)
@@ -474,6 +493,7 @@ order_of_categories = [
   "archive",
   "R8",
   "library_desugar",
+  "perf",
   "Release|archive",
   "Release|R8",
 ]
