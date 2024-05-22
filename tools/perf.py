@@ -4,19 +4,31 @@
 # BSD-style license that can be found in the LICENSE file.
 
 import argparse
+import subprocess
 import sys
 
+DEFAULT_ITERATIONS = 10
 
 def ParseOptions():
     result = argparse.ArgumentParser()
     result.add_argument('--app',
-                        help='Specific app to meassure, default all',
-                        default='all')
+                        help='Specific app to measure.',
+                        default='NowInAndroidApp')
+    result.add_argument('--iterations',
+                        help='How many iterations to run.',
+                        type=int,
+                        default=DEFAULT_ITERATIONS)
     return result.parse_known_args()
 
 def main():
     (options, args) = ParseOptions()
-    print('Running performance on app %s' % options.app)
+    cmd = ['tools/run_benchmark.py', '--target', 'r8-full', '--benchmark',
+           options.app]
+    # Build and warmup
+    subprocess.check_call(cmd)
+    cmd.append('--no-build')
+    for i in range(options.iterations):
+        subprocess.check_call(cmd)
 
 if __name__ == '__main__':
     sys.exit(main())
