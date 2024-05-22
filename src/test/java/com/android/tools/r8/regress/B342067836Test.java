@@ -28,7 +28,6 @@ public class B342067836Test extends TestBase {
   }
 
   private static final List<String> EXPECTED_OUTPUT = ImmutableList.of("50");
-  private static final List<String> NOT_EXPECTED_OUTPUT = ImmutableList.of("864691135031803904");
 
   @Test
   public void testJvm() throws Exception {
@@ -56,7 +55,7 @@ public class B342067836Test extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputLines(NOT_EXPECTED_OUTPUT);
+        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
 
   static class TestClass {

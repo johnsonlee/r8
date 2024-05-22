@@ -136,8 +136,8 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       } else if (binopDescriptor.isShift()) {
         // x shift: a shift: b => x shift: (a + b) where a + b is a constant.
         if (constBRight != null && constARight != null) {
-          rewriteIntoConstThenBinop(
-              iterator, ADD, binopDescriptor, constB, constA, input, false, code);
+          rewriteSuccessiveShift(
+              iterator, binop, binopDescriptor, constBRight, constARight, input, code);
           return true;
         }
       } else if (binop.isSub() && constBRight != null) {
@@ -172,6 +172,30 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       }
     }
     return false;
+  }
+
+  private void rewriteSuccessiveShift(
+      InstructionListIterator iterator,
+      Binop binop,
+      BinopDescriptor binopDescriptor,
+      ConstNumber constBRight,
+      ConstNumber constARight,
+      Value input,
+      IRCode code) {
+    int mask = input.outType().isWide() ? 63 : 31;
+    int intA = constARight.getIntValue() & mask;
+    int intB = constBRight.getIntValue() & mask;
+    if (intA + intB > mask) {
+      ConstNumber zero = code.createNumberConstant(0, binop.outValue().getType());
+      iterator.replaceCurrentInstruction(zero);
+    } else {
+      iterator.previous();
+      Value newConstantValue =
+          iterator.insertConstNumberInstruction(
+              code, appView.options(), intA + intB, TypeElement.getInt());
+      iterator.next();
+      replaceBinop(iterator, code, input, newConstantValue, binopDescriptor);
+    }
   }
 
   private boolean successiveLogicalSimplificationNoConstant(
@@ -402,7 +426,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     if (binop.leftValue() == binop.rightValue()) {
       if (binop.isXor() || binop.isSub()) {
         // a ^ a => 0, a - a => 0
-        ConstNumber zero = new ConstNumber(code.createValue(binop.outValue().getType()), 0);
+        ConstNumber zero = code.createNumberConstant(0, binop.outValue().getType());
         iterator.replaceCurrentInstruction(zero);
       } else if (binop.isAnd() || binop.isOr()) {
         // a & a => a, a | a => a.
