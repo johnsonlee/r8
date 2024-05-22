@@ -30,7 +30,6 @@ public class KeepInclusiveInstanceOfTest extends KeepAnnoTestBase {
   @Test
   public void test() throws Exception {
     testForKeepAnno(parameters)
-        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())

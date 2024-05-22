@@ -41,7 +41,6 @@ public class KeepUsedByReflectionAnnotationTest extends KeepAnnoTestBase {
   public void test() throws Exception {
     Class<?> mainClass = TestClass.class;
     testForKeepAnno(parameters)
-        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(mainClass)
         .setExcludedOuterClass(getClass())
@@ -54,7 +53,6 @@ public class KeepUsedByReflectionAnnotationTest extends KeepAnnoTestBase {
   public void testNoRef() throws Exception {
     Class<?> mainClass = TestClassNoRef.class;
     testForKeepAnno(parameters)
-        .enableNativeInterpretation()
         .addProgramClasses(getInputClasses())
         .addKeepMainRule(mainClass)
         .allowUnusedProguardConfigurationRules()

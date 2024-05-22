@@ -166,43 +166,26 @@ public abstract class KeepAnnoTestBuilder {
 
   private static class R8NativeBuilder extends KeepAnnoTestBuilder {
 
+    private KeepAnnoConfig config;
     private final R8FullTestBuilder builder;
     private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
-    private final boolean normalizeEdges;
-    private final boolean extractRules;
-    private boolean enableNative = false;
 
     private R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
       super(params, temp);
+      config = params.config();
       builder =
           TestBase.testForR8(temp, parameters().getBackend())
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
-      extractRules = params.config() == KeepAnnoConfig.R8_RULES;
-      normalizeEdges = params.config() == KeepAnnoConfig.R8_NORMALIZED;
-      if (normalizeEdges) {
-        builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
-        builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(true);
-      } else {
+
+      if (isExtractRules()) {
+        // TODO(b/323816623): Replace the internal rule extraction by extraction in this builder.
         builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
         builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
+        return;
       }
-    }
 
-    @Override
-    public KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
-      if (!enableNative) {
-        builder.allowUnusedProguardConfigurationRules();
-      }
-      return this;
-    }
-
-    @Override
-    public KeepAnnoTestBuilder enableNativeInterpretation() {
-      if (extractRules) {
-        return this;
-      }
-      enableNative = true;
+      // TODO(b/323816623): Replace the testing flag by the API call.
       // This enables native interpretation of all keep annotations.
       builder.addOptionsModification(
           o -> {
@@ -212,6 +195,21 @@ public abstract class KeepAnnoTestBuilder {
       // This disables all reading of annotations in the command reader.
       builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
       builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
+    }
+
+    private boolean isExtractRules() {
+      return config == KeepAnnoConfig.R8_RULES;
+    }
+
+    private boolean isNormalizeEdges() {
+      return config == KeepAnnoConfig.R8_NORMALIZED;
+    }
+
+    @Override
+    public KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
+      if (isExtractRules()) {
+        builder.allowUnusedProguardConfigurationRules();
+      }
       return this;
     }
 
@@ -255,7 +253,7 @@ public abstract class KeepAnnoTestBuilder {
 
     private void extractAndAdd(byte[] classFileData) {
       builder.addProgramClassFileData(classFileData);
-      if (normalizeEdges) {
+      if (isNormalizeEdges()) {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
         if (!declarations.isEmpty()) {
           String binaryName =
