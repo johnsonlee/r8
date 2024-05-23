@@ -182,12 +182,15 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       ConstNumber constARight,
       Value input,
       IRCode code) {
+    assert binop.isShl() || binop.isShr() || binop.isUshr();
     int mask = input.outType().isWide() ? 63 : 31;
     int intA = constARight.getIntValue() & mask;
     int intB = constBRight.getIntValue() & mask;
     if (intA + intB > mask) {
-      ConstNumber zero = code.createNumberConstant(0, binop.outValue().getType());
-      iterator.replaceCurrentInstruction(zero);
+      if (!binop.isShr()) {
+        ConstNumber zero = code.createNumberConstant(0, binop.outValue().getType());
+        iterator.replaceCurrentInstruction(zero);
+      }
     } else {
       iterator.previous();
       Value newConstantValue =

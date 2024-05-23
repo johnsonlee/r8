@@ -18,6 +18,13 @@ public class ShiftOppositeSignTest extends TestBase {
 
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
+          "=== 2147483647 ===",
+          "shl: 0 -134217728 0 -512",
+          "shr: 0 15 0 4194303",
+          "ushr: 0 15 0 4194303",
+          "shl: 0 -64 -268435456 0",
+          "shr: 0 33554431 7 0",
+          "ushr: 0 33554431 7 0",
           "=== 1 ===",
           "shl: 0 134217728 0 512",
           "shr: 0 0 0 0",
@@ -31,7 +38,21 @@ public class ShiftOppositeSignTest extends TestBase {
           "ushr: 0 0 0 241",
           "shl: 0 7901184 0 0",
           "shr: 0 1929 0 0",
-          "ushr: 0 1929 0 0");
+          "ushr: 0 1929 0 0",
+          "=== -1 ===",
+          "shl: 0 -134217728 0 -512",
+          "shr: -1 -1 -1 -1",
+          "ushr: 0 31 0 8388607",
+          "shl: 0 -64 -268435456 0",
+          "shr: -1 -1 -1 -1",
+          "ushr: 0 67108863 15 0",
+          "=== -2147483648 ===",
+          "shl: 0 0 0 0",
+          "shr: -1 -16 -1 -4194304",
+          "ushr: 0 16 0 4194304",
+          "shl: 0 0 0 0",
+          "shr: -1 -33554432 -8 -1",
+          "ushr: 0 33554432 8 0");
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -66,8 +87,11 @@ public class ShiftOppositeSignTest extends TestBase {
   public static class Main {
 
     public static void main(String[] args) {
+      test(Integer.MAX_VALUE);
       test(1);
       test(123456);
+      test(-1);
+      test(Integer.MIN_VALUE);
     }
 
     @NeverInline
