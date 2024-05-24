@@ -87,7 +87,7 @@ public class FieldBitAccessInfoTest extends TestBase {
     OptimizationFeedbackMock feedback = new OptimizationFeedbackMock();
     FieldBitAccessAnalysis fieldBitAccessAnalysis = new FieldBitAccessAnalysis();
     FieldAccessAnalysis fieldAccessAnalysis =
-        new FieldAccessAnalysis(appView, fieldBitAccessAnalysis, null, null);
+        new FieldAccessAnalysis(appView, null, fieldBitAccessAnalysis, null, null);
 
     DexProgramClass clazz = appView.appInfo().classes().iterator().next();
     assertEquals(TestClass.class.getTypeName(), clazz.type.toSourceString());

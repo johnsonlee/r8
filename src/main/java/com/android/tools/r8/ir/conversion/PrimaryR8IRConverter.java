@@ -73,6 +73,10 @@ public class PrimaryR8IRConverter extends IRConverter {
     numberUnboxer.prepareForPrimaryOptimizationPass(timing, executorService);
     outliner.prepareForPrimaryOptimizationPass(graphLensForPrimaryOptimizationPass);
 
+    if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
+      fieldAccessAnalysis.fieldAssignmentTracker().initialize();
+    }
+
     // Process the application identifying outlining candidates.
     OptimizationFeedbackDelayed feedback = delayedOptimizationFeedback;
     PostMethodProcessor.Builder postMethodProcessorBuilder =
@@ -251,6 +255,9 @@ public class PrimaryR8IRConverter extends IRConverter {
   public void waveDone(ProgramMethodSet wave, ExecutorService executorService) {
     delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
     delayedOptimizationFeedback.updateVisibleOptimizationInfo();
+    if (fieldAccessAnalysis.fieldAssignmentTracker() != null) {
+      fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
+    }
     appView.withArgumentPropagator(ArgumentPropagator::publishDelayedReprocessingCriteria);
     if (appView.options().protoShrinking().enableRemoveProtoEnumSwitchMap()) {
       appView.protoShrinker().protoEnumSwitchMapRemover.updateVisibleStaticFieldValues();

@@ -135,7 +135,7 @@ public final class TrivialFieldAccessReprocessor {
 
   private void computeFieldsWithNonTrivialValue() {
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      for (DexEncodedField field : clazz.fields()) {
+      for (DexEncodedField field : clazz.instanceFields()) {
         FieldClassification fieldClassification = classifyField(field, appView);
         switch (fieldClassification) {
           case CONSTANT:
@@ -143,12 +143,23 @@ public final class TrivialFieldAccessReprocessor {
             constantFields.add(field);
             break;
           case NON_CONSTANT:
-            // Reprocess reads to allow branch pruning and value propagation.
+            // Only reprocess writes, to allow branch pruning.
             nonConstantFields.add(field);
             break;
           default:
             assert fieldClassification == FieldClassification.UNKNOWN;
             break;
+        }
+      }
+      if (appView.canUseInitClass() || !clazz.classInitializationMayHaveSideEffects(appView)) {
+        for (DexEncodedField field : clazz.staticFields()) {
+          FieldClassification fieldClassification = classifyField(field, appView);
+          if (fieldClassification == FieldClassification.CONSTANT) {
+            constantFields.add(field);
+          } else {
+            assert fieldClassification == FieldClassification.NON_CONSTANT
+                || fieldClassification == FieldClassification.UNKNOWN;
+          }
         }
       }
     }
@@ -192,6 +203,7 @@ public final class TrivialFieldAccessReprocessor {
         });
   }
 
+  @SuppressWarnings("ReferenceEquality")
   private static FieldClassification classifyField(
       DexEncodedField field, AppView<AppInfoWithLiveness> appView) {
     FieldAccessInfo fieldAccessInfo =
@@ -214,12 +226,9 @@ public final class TrivialFieldAccessReprocessor {
       if (singleValue.isSingleFieldValue()) {
         SingleFieldValue singleFieldValue = singleValue.asSingleFieldValue();
         DexField singleField = singleFieldValue.getField();
-        if (singleField.isNotIdenticalTo(field.getReference())
+        if (singleField != field.getReference()
             && !singleFieldValue.mayHaveFinalizeMethodDirectlyOrIndirectly(appView)) {
           return FieldClassification.CONSTANT;
-        }
-        if (singleFieldValue.hasObjectState()) {
-          return FieldClassification.NON_CONSTANT;
         }
       }
       return FieldClassification.UNKNOWN;

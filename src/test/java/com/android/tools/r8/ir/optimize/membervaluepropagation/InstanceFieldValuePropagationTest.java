@@ -6,8 +6,6 @@ package com.android.tools.r8.ir.optimize.membervaluepropagation;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
@@ -76,12 +74,10 @@ public class InstanceFieldValuePropagationTest extends TestBase {
     MethodSubject testMaybeNullMethodSubject =
         testClassSubject.uniqueMethodWithOriginalName("testMaybeNull");
     assertThat(testMaybeNullMethodSubject, isPresent());
-    // TODO(b/330674939): Should not have any instance-gets.
-    assertEquals(
-        parameters.canInitNewInstanceUsingSuperclassConstructor(),
+    assertTrue(
         testMaybeNullMethodSubject
             .streamInstructions()
-            .anyMatch(InstructionSubject::isInstanceGet));
+            .noneMatch(InstructionSubject::isInstanceGet));
     // TODO(b/125282093): Should be able to remove the new-instance instruction since the instance
     //  ends up being unused.
     assertTrue(
@@ -91,10 +87,7 @@ public class InstanceFieldValuePropagationTest extends TestBase {
 
     ClassSubject aClassSubject = inspector.clazz(A.class);
     assertThat(aClassSubject, isPresent());
-    // TODO(b/330674939): Should never have any instance fields.
-    assertNotEquals(
-        parameters.canInitNewInstanceUsingSuperclassConstructor(),
-        aClassSubject.allInstanceFields().isEmpty());
+    assertTrue(aClassSubject.allInstanceFields().isEmpty());
   }
 
   static class TestClass {

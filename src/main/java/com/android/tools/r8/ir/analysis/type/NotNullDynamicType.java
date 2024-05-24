@@ -75,10 +75,4 @@ public class NotNullDynamicType extends DynamicType {
   public String toString() {
     return "NotNullDynamicType";
   }
-
-  @Override
-  public DynamicType uncanonicalizeNotNullType(
-      AppView<AppInfoWithLiveness> appView, DexType staticType) {
-    return DynamicType.create(appView, staticType.toNonNullTypeElement(appView));
-  }
 }
