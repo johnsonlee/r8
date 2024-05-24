@@ -3,11 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.classmerging.horizontal;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,14 +27,15 @@ public class ClinitCycleAnalysisWithNativeCallTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    // TODO(b/341537881): Account for the native call.
-    assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(Main.class)
-                .setMinApi(parameters)
-                .compile());
+    // Checks that compilation succeeds (as opposed to dereferencing the code object of a native
+    // method, as in b/341537881).
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(Main.class)
+        .addHorizontallyMergedClassesInspector(
+            HorizontallyMergedClassesInspector::assertNoClassesMerged)
+        .setMinApi(parameters)
+        .compile();
   }
 
   static class Main {

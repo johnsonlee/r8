@@ -17,7 +17,6 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.horizontalclassmerging.HorizontalMergeGroup;
@@ -333,6 +332,8 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
     }
 
     boolean enqueueMethod(ProgramMethod method) {
+      assert !method.getAccessFlags().isAbstract();
+      assert !method.getAccessFlags().isNative();
       if (seenMethods.add(method)) {
         worklist.addLast(method);
         return true;
@@ -341,6 +342,9 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
     }
 
     void enqueueTracingRoot(ProgramMethod tracingRoot) {
+      assert tracingRoot.getDefinition().isClassInitializer();
+      assert !tracingRoot.getAccessFlags().isAbstract();
+      assert !tracingRoot.getAccessFlags().isNative();
       boolean added = seenMethods.add(tracingRoot);
       assert added;
       worklist.add(tracingRoot);
@@ -490,12 +494,19 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
       public void registerInvokeDirect(DexMethod method) {
         DexMethod rewrittenMethod =
             appView.graphLens().lookupInvokeDirect(method, getContext(), codeLens).getReference();
-        MethodResolutionResult resolutionResult =
-            appView().appInfo().resolveMethodOnClassHolderLegacy(rewrittenMethod);
-        if (resolutionResult.isSingleResolution()
-            && resolutionResult.getResolvedHolder().isProgramClass()) {
-          enqueueMethod(resolutionResult.getResolvedProgramMethod());
+        ProgramMethod resolvedMethod =
+            appView()
+                .appInfo()
+                .resolveMethodOnClassHolderLegacy(rewrittenMethod)
+                .getResolvedProgramMethod();
+        if (resolvedMethod == null) {
+          return;
         }
+        if (resolvedMethod.getAccessFlags().isNative()) {
+          fail();
+          return;
+        }
+        enqueueMethod(resolvedMethod);
       }
 
       @Override
@@ -524,10 +535,15 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
                 .appInfo()
                 .unsafeResolveMethodDueToDexFormatLegacy(rewrittenMethod)
                 .getResolvedProgramMethod();
-        if (resolvedMethod != null) {
-          triggerClassInitializerIfNotAlreadyTriggeredInContext(resolvedMethod.getHolder());
-          enqueueMethod(resolvedMethod);
+        if (resolvedMethod == null) {
+          return;
         }
+        if (resolvedMethod.getAccessFlags().isNative()) {
+          fail();
+          return;
+        }
+        triggerClassInitializerIfNotAlreadyTriggeredInContext(resolvedMethod.getHolder());
+        enqueueMethod(resolvedMethod);
       }
 
       @Override
@@ -537,9 +553,14 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
         ProgramMethod superTarget =
             asProgramMethodOrNull(
                 appView().appInfo().lookupSuperTarget(rewrittenMethod, getContext(), appView()));
-        if (superTarget != null) {
-          enqueueMethod(superTarget);
+        if (superTarget == null) {
+          return;
         }
+        if (superTarget.getAccessFlags().isNative()) {
+          fail();
+          return;
+        }
+        enqueueMethod(superTarget);
       }
 
       @Override
@@ -554,7 +575,8 @@ public class NoClassInitializerCycles extends MultiClassPolicyWithPreprocessing<
         if (resolvedMethod == null) {
           return;
         }
-        if (!resolvedMethod.getHolder().isEffectivelyFinal(appView)) {
+        if (!resolvedMethod.getHolder().isEffectivelyFinal(appView)
+            || resolvedMethod.getAccessFlags().isNative()) {
           fail();
           return;
         }
