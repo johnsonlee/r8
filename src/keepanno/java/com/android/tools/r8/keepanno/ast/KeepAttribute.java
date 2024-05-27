@@ -5,6 +5,8 @@
 package com.android.tools.r8.keepanno.ast;
 
 public enum KeepAttribute {
+  GENERIC_SIGNATURES("Signature"),
+
   RUNTIME_VISIBLE_ANNOTATIONS("RuntimeVisibleAnnotations"),
   RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS("RuntimeVisibleParameterAnnotations"),
   RUNTIME_VISIBLE_TYPE_ANNOTATIONS("RuntimeVisibleTypeAnnotations"),

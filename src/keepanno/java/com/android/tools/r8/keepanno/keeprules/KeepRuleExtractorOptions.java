@@ -26,6 +26,11 @@ public abstract class KeepRuleExtractorOptions {
         }
 
         @Override
+        public boolean hasAllowSignatureRemovalOptionSupport() {
+          return false;
+        }
+
+        @Override
         public boolean hasFieldTypeBackReference() {
           return false;
         }
@@ -61,6 +66,12 @@ public abstract class KeepRuleExtractorOptions {
         @Override
         public boolean hasAllowAnnotationRemovalOptionSupport() {
           // Allow annotation removal is currently a testing only option.
+          return false;
+        }
+
+        @Override
+        public boolean hasAllowSignatureRemovalOptionSupport() {
+          // There is no allow option for signature removal.
           return false;
         }
 
@@ -103,6 +114,8 @@ public abstract class KeepRuleExtractorOptions {
 
   public abstract boolean hasAllowAnnotationRemovalOptionSupport();
 
+  public abstract boolean hasAllowSignatureRemovalOptionSupport();
+
   public abstract boolean hasFieldTypeBackReference();
 
   public abstract boolean hasMethodReturnTypeBackReference();
@@ -117,6 +130,8 @@ public abstract class KeepRuleExtractorOptions {
         return hasAllowAccessModificationOptionSupport();
       case ANNOTATION_REMOVAL:
         return hasAllowAnnotationRemovalOptionSupport();
+      case SIGNATURE_REMOVAL:
+        return hasAllowSignatureRemovalOptionSupport();
       default:
         return true;
     }

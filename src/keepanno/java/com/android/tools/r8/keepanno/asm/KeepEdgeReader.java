@@ -960,6 +960,10 @@ public class KeepEdgeReader implements Opcodes {
         v.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PROTECTED);
       }
       super.visitEnd();
+      // Currently there is no way of changing constraints on KeepForApi.
+      // Default constraints should retain the expected meta-data, such as signatures, annotations
+      // exception-throws etc.
+      KeepConstraints defaultForApiConstraints = KeepConstraints.all();
       Collection<KeepItemReference> items = getItemsWithoutBinding();
       for (KeepItemReference item : items) {
         if (item.isBindingReference()) {
@@ -981,7 +985,11 @@ public class KeepEdgeReader implements Opcodes {
         if (!classItemPattern.getInstanceOfPattern().isAny()) {
           throw parsingContext.error("cannot define an 'extends' pattern.");
         }
-        consequences.addTarget(KeepTarget.builder().setItemReference(item).build());
+        consequences.addTarget(
+            KeepTarget.builder()
+                .setItemReference(item)
+                .setConstraints(defaultForApiConstraints)
+                .build());
       }
       parent.accept(
           builder

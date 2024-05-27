@@ -23,7 +23,8 @@ public final class KeepOptions {
     OPTIMIZING,
     OBFUSCATING,
     ACCESS_MODIFICATION,
-    ANNOTATION_REMOVAL
+    ANNOTATION_REMOVAL,
+    SIGNATURE_REMOVAL,
   }
 
   public static KeepOptions keepAll() {

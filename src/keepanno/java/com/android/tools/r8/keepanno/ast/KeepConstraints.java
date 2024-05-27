@@ -16,6 +16,10 @@ import java.util.stream.Collectors;
 
 public abstract class KeepConstraints {
 
+  public static KeepConstraints all() {
+    return All.INSTANCE;
+  }
+
   public static KeepConstraints defaultConstraints() {
     return Defaults.INSTANCE;
   }
@@ -103,19 +107,66 @@ public abstract class KeepConstraints {
     return getConstraintsMatching(c -> c.validForMethod() || c.validForField());
   }
 
+  private static class All extends KeepConstraints {
+
+    private static final All INSTANCE = new All();
+
+    private final Set<KeepConstraint> constraints =
+        ImmutableSet.of(
+            KeepConstraint.lookup(),
+            KeepConstraint.name(),
+            KeepConstraint.visibilityRelax(),
+            KeepConstraint.visibilityRestrict(),
+            KeepConstraint.neverInline(),
+            KeepConstraint.classInstantiate(),
+            KeepConstraint.classOpenHierarchy(),
+            KeepConstraint.methodInvoke(),
+            KeepConstraint.methodReplace(),
+            KeepConstraint.fieldGet(),
+            KeepConstraint.fieldSet(),
+            KeepConstraint.fieldReplace(),
+            KeepConstraint.genericSignature(),
+            KeepConstraint.annotationsAll());
+
+    @Override
+    Set<KeepConstraint> getConstraints() {
+      return constraints;
+    }
+
+    @Override
+    public String toString() {
+      return "KeepConstraints.All{}";
+    }
+
+    @Override
+    public Set<KeepAttribute> getRequiredKeepAttributes() {
+      Set<KeepAttribute> attributes = new HashSet<>();
+      getConstraints().forEach(c -> c.addRequiredKeepAttributes(attributes));
+      return attributes;
+    }
+
+    @Override
+    public KeepOptions convertToKeepOptions(KeepOptions defaultOptions) {
+      return KeepOptions.keepAll();
+    }
+  }
+
   private static class Defaults extends KeepConstraints {
 
     private static final Defaults INSTANCE = new Defaults();
 
+    private final Set<KeepConstraint> constraints =
+        ImmutableSet.of(
+            KeepConstraint.lookup(),
+            KeepConstraint.name(),
+            KeepConstraint.classInstantiate(),
+            KeepConstraint.methodInvoke(),
+            KeepConstraint.fieldGet(),
+            KeepConstraint.fieldSet());
+
     @Override
     Set<KeepConstraint> getConstraints() {
-      return ImmutableSet.of(
-          KeepConstraint.lookup(),
-          KeepConstraint.name(),
-          KeepConstraint.classInstantiate(),
-          KeepConstraint.methodInvoke(),
-          KeepConstraint.fieldGet(),
-          KeepConstraint.fieldSet());
+      return constraints;
     }
 
     @Override

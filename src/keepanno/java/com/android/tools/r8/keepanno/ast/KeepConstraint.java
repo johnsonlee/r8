@@ -411,6 +411,37 @@ public abstract class KeepConstraint {
     }
   }
 
+  public static GenericSignature genericSignature() {
+    return GenericSignature.INSTANCE;
+  }
+
+  public static final class GenericSignature extends KeepConstraint {
+
+    private static final GenericSignature INSTANCE = new GenericSignature();
+
+    private GenericSignature() {}
+
+    @Override
+    public String getEnumValue() {
+      return Constraints.GENERIC_SIGNATURE;
+    }
+
+    @Override
+    public void accept(KeepConstraintVisitor visitor) {
+      visitor.onGenericSignature(this);
+    }
+
+    @Override
+    public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
+      builder.add(KeepOption.SIGNATURE_REMOVAL);
+    }
+
+    @Override
+    public void addRequiredKeepAttributes(Set<KeepAttribute> attributes) {
+      attributes.add(KeepAttribute.GENERIC_SIGNATURES);
+    }
+  }
+
   public static Annotation annotationsAll() {
     return Annotation.ALL_INSTANCE;
   }

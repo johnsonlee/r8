@@ -23,6 +23,7 @@ import com.android.tools.r8.keepanno.ast.KeepConstraint.ClassOpenHierarchy;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.FieldGet;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.FieldReplace;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.FieldSet;
+import com.android.tools.r8.keepanno.ast.KeepConstraint.GenericSignature;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.Lookup;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.MethodInvoke;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.MethodReplace;
@@ -225,6 +226,11 @@ public class KeepAnnotationMatcher {
           @Override
           public void onFieldReplace(FieldReplace constraint) {
             joiner.disallowOptimization();
+          }
+
+          @Override
+          public void onGenericSignature(GenericSignature constraint) {
+            joiner.disallowSignatureRemoval();
           }
 
           @Override

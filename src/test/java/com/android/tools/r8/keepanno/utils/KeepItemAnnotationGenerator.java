@@ -132,6 +132,8 @@ public class KeepItemAnnotationGenerator {
       enumRef(KEEP_CONSTRAINT, "NEVER_INLINE");
   private static final EnumReference CONSTRAINT_CLASS_OPEN_HIERARCHY =
       enumRef(KEEP_CONSTRAINT, "CLASS_OPEN_HIERARCHY");
+  private static final EnumReference CONSTRAINT_GENERIC_SIGNATURE =
+      enumRef(KEEP_CONSTRAINT, "GENERIC_SIGNATURE");
   static final List<EnumReference> KEEP_CONSTRAINT_VALUES =
       ImmutableList.of(
           CONSTRAINT_LOOKUP,
@@ -146,7 +148,8 @@ public class KeepItemAnnotationGenerator {
           CONSTRAINT_METHOD_REPLACE,
           CONSTRAINT_FIELD_REPLACE,
           CONSTRAINT_NEVER_INLINE,
-          CONSTRAINT_CLASS_OPEN_HIERARCHY);
+          CONSTRAINT_CLASS_OPEN_HIERARCHY,
+          CONSTRAINT_GENERIC_SIGNATURE);
 
   static final ClassReference MEMBER_ACCESS_FLAGS = annoClass("MemberAccessFlags");
   private static final EnumReference MEMBER_ACCESS_PUBLIC = enumRef(MEMBER_ACCESS_FLAGS, "PUBLIC");

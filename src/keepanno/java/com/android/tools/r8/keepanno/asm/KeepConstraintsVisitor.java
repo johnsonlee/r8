@@ -67,6 +67,9 @@ public class KeepConstraintsVisitor extends AnnotationVisitorBase {
       case Constraints.CLASS_OPEN_HIERARCHY:
         builder.add(KeepConstraint.classOpenHierarchy());
         break;
+      case Constraints.GENERIC_SIGNATURE:
+        builder.add(KeepConstraint.genericSignature());
+        break;
       default:
         super.visitEnum(ignore, descriptor, value);
     }

@@ -353,6 +353,8 @@ public abstract class RulePrintingUtils {
         return "accessmodification";
       case ANNOTATION_REMOVAL:
         return "annotationremoval";
+      case SIGNATURE_REMOVAL:
+        return "signatureremoval";
       default:
         throw new Unimplemented();
     }

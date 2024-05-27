@@ -10,6 +10,7 @@ import com.android.tools.r8.keepanno.ast.KeepConstraint.ClassOpenHierarchy;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.FieldGet;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.FieldReplace;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.FieldSet;
+import com.android.tools.r8.keepanno.ast.KeepConstraint.GenericSignature;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.Lookup;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.MethodInvoke;
 import com.android.tools.r8.keepanno.ast.KeepConstraint.MethodReplace;
@@ -43,6 +44,8 @@ public abstract class KeepConstraintVisitor {
   public abstract void onFieldSet(FieldSet constraint);
 
   public abstract void onFieldReplace(FieldReplace constraint);
+
+  public abstract void onGenericSignature(GenericSignature constraint);
 
   public abstract void onAnnotation(Annotation constraint);
 }

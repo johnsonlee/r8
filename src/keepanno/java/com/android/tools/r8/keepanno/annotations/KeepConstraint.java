@@ -209,4 +209,16 @@ public enum KeepConstraint {
    * non-visible uses requires the same annotations to preserve as for reflective uses.
    */
   CLASS_OPEN_HIERARCHY,
+
+  /**
+   * Indicates that the target item must retain its generic signature if present.
+   *
+   * <p>This ensures that the generic signature remains, but does not prohibit rewriting of the
+   * generic signature. For example, if a type present in the generic signature is renamed, the
+   * generic signature will also be updated to now refer to the type by its renamed name.
+   *
+   * <p>Note that this constraint does not otherwise restrict what can be done to the target, such
+   * as removing the target completely, inlining it, etc.
+   */
+  GENERIC_SIGNATURE,
 }
