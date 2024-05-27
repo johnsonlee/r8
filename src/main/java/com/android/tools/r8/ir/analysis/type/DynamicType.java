@@ -170,8 +170,8 @@ public abstract class DynamicType {
     if (isBottom()) {
       // Account for the fact that the in-static-type may be more precise than the static type of
       // the current dynamic type.
-      if (inDynamicType.isNotNullType() && inStaticType != null) {
-        return create(appView, inStaticType.toNonNullTypeElement(appView));
+      if (inStaticType != null) {
+        return inDynamicType.uncanonicalizeNotNullType(appView, inStaticType);
       }
       return inDynamicType;
     }
@@ -188,7 +188,7 @@ public abstract class DynamicType {
       if (inStaticType == null || inStaticType.isIdenticalTo(outStaticType)) {
         return getNullability().isNullable() ? unknown() : inDynamicType;
       }
-      inDynamicType = create(appView, inStaticType.toNonNullTypeElement(appView));
+      inDynamicType = inDynamicType.uncanonicalizeNotNullType(appView, inStaticType);
     }
     assert isDynamicTypeWithUpperBound();
     assert inDynamicType.isDynamicTypeWithUpperBound();
@@ -197,6 +197,11 @@ public abstract class DynamicType {
 
   public abstract DynamicType rewrittenWithLens(
       AppView<AppInfoWithLiveness> appView, GraphLens graphLens, Set<DexType> prunedTypes);
+
+  public DynamicType uncanonicalizeNotNullType(
+      AppView<AppInfoWithLiveness> appView, DexType staticType) {
+    return this;
+  }
 
   public abstract DynamicType withNullability(Nullability nullability);
 

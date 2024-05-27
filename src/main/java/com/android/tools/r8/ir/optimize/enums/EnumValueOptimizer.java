@@ -151,7 +151,11 @@ public class EnumValueOptimizer extends CodeRewriterPass<AppInfoWithLiveness> {
 
         // Since the value is a single field value, the type should be exact.
         assert abstractValue.isSingleFieldValue();
-        ClassTypeElement enumFieldType = optimizationInfo.getDynamicType().getExactClassType();
+        ClassTypeElement enumFieldType =
+            optimizationInfo
+                .getDynamicType()
+                .uncanonicalizeNotNullType(appView(), field.getType())
+                .getExactClassType();
         if (enumFieldType == null) {
           assert false : "Expected to have an exact dynamic type for enum instance";
           continue;
@@ -188,10 +192,9 @@ public class EnumValueOptimizer extends CodeRewriterPass<AppInfoWithLiveness> {
 
   @Override
   protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
-    if (!options.enableEnumValueOptimization || !appView.hasLiveness()) {
-      return false;
-    }
-    return code.metadata().mayHaveInvokeMethodWithReceiver();
+    return appView.hasLiveness()
+        && options.enableEnumValueOptimization
+        && code.metadata().mayHaveInvokeMethodWithReceiver();
   }
 
   /**

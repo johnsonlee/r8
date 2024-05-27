@@ -56,6 +56,12 @@ public class NotNullDynamicType extends DynamicType {
   }
 
   @Override
+  public DynamicType uncanonicalizeNotNullType(
+      AppView<AppInfoWithLiveness> appView, DexType staticType) {
+    return DynamicType.create(appView, staticType.toNonNullTypeElement(appView));
+  }
+
+  @Override
   public DynamicType withNullability(Nullability nullability) {
     assert !nullability.isBottom();
     return nullability.isDefinitelyNotNull() ? this : unknown();

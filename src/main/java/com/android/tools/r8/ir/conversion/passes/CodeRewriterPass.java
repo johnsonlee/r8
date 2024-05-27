@@ -29,8 +29,8 @@ public abstract class CodeRewriterPass<T extends AppInfo> {
   }
 
   @SuppressWarnings("unchecked")
-  protected AppView<? extends T> appView() {
-    return (AppView<? extends T>) appView;
+  protected AppView<T> appView() {
+    return (AppView<T>) appView;
   }
 
   public final CodeRewriterResult run(
