@@ -136,9 +136,8 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
       } else if (binopDescriptor.isShift()) {
         // x shift: a shift: b => x shift: (a + b) where a + b is a constant.
         if (constBRight != null && constARight != null) {
-          rewriteSuccessiveShift(
+          return rewriteSuccessiveShift(
               iterator, binop, binopDescriptor, constBRight, constARight, input, code);
-          return true;
         }
       } else if (binop.isSub() && constBRight != null) {
         // a - x - b => (a - b) - x where (a - b) is a constant.
@@ -174,7 +173,7 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     return false;
   }
 
-  private void rewriteSuccessiveShift(
+  private boolean rewriteSuccessiveShift(
       InstructionListIterator iterator,
       Binop binop,
       BinopDescriptor binopDescriptor,
@@ -187,18 +186,20 @@ public class BinopRewriter extends CodeRewriterPass<AppInfo> {
     int intA = constARight.getIntValue() & mask;
     int intB = constBRight.getIntValue() & mask;
     if (intA + intB > mask) {
-      if (!binop.isShr()) {
-        ConstNumber zero = code.createNumberConstant(0, binop.outValue().getType());
-        iterator.replaceCurrentInstruction(zero);
+      if (binop.isShr()) {
+        return false;
       }
-    } else {
-      iterator.previous();
-      Value newConstantValue =
-          iterator.insertConstNumberInstruction(
-              code, appView.options(), intA + intB, TypeElement.getInt());
-      iterator.next();
-      replaceBinop(iterator, code, input, newConstantValue, binopDescriptor);
+      ConstNumber zero = code.createNumberConstant(0, binop.outValue().getType());
+      iterator.replaceCurrentInstruction(zero);
+      return true;
     }
+    iterator.previous();
+    Value newConstantValue =
+        iterator.insertConstNumberInstruction(
+            code, appView.options(), intA + intB, TypeElement.getInt());
+    iterator.next();
+    replaceBinop(iterator, code, input, newConstantValue, binopDescriptor);
+    return true;
   }
 
   private boolean successiveLogicalSimplificationNoConstant(
