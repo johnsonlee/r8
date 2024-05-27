@@ -4473,6 +4473,10 @@ public class Enqueuer {
   @SuppressWarnings("ReferenceEquality")
   private EnqueuerResult createEnqueuerResult(AppInfoWithClassHierarchy appInfo, Timing timing)
       throws ExecutionException {
+    timing.begin("Rewrite with deferred results");
+    deferredTracing.rewriteApplication(executorService);
+    timing.end();
+
     timing.begin("Remove dead protos");
     // Compute the set of dead proto types.
     deadProtoTypeCandidates.removeIf(this::isTypeLive);
@@ -4552,9 +4556,6 @@ public class Enqueuer {
     amendKeepInfoWithCompanionMethods();
     keepInfo.setMaterializedRules(applicableRules.getMaterializedRules());
 
-    timing.begin("Rewrite with deferred results");
-    deferredTracing.rewriteApplication(executorService);
-    timing.end();
     timing.begin("Create app info with liveness");
     AppInfoWithLiveness appInfoWithLiveness =
         new AppInfoWithLiveness(
@@ -4663,7 +4664,8 @@ public class Enqueuer {
       assert !missingClassesBuilder.contains(type)
           : "Type with definition also in missing types: " + type;
       // Eager assert while the context is still present.
-      assert clazz.isProgramClass() || liveNonProgramTypes.contains(clazz)
+      assert clazz.isProgramClass()
+              || liveNonProgramTypes.contains(clazz.asClasspathOrLibraryClass())
           : "Expected type to be in live non-program types: " + clazz;
       worklist.addIfNotSeen(clazz);
     }
@@ -4675,12 +4677,12 @@ public class Enqueuer {
     for (DexType supertype : clazz.allImmediateSupertypes()) {
       assert verifyReferencedType(supertype, worklist, app);
     }
-    assert clazz.isProgramClass() || liveNonProgramTypes.contains(clazz)
+    assert clazz.isProgramClass() || liveNonProgramTypes.contains(clazz.asClasspathOrLibraryClass())
         : "Expected type to be in live non-program types: " + clazz;
     if (clazz.isProgramClass()) {
       for (DexEncodedField field : clazz.fields()) {
         if (isFieldReferenced(field)) {
-          assert verifyReferencedType(field.getReference().type, worklist, app);
+          assert verifyReferencedType(field.getType(), worklist, app);
         }
       }
       for (DexEncodedMethod method : clazz.methods()) {
@@ -4694,9 +4696,8 @@ public class Enqueuer {
 
   private boolean verifyReferencedMethod(
       DexEncodedMethod method, WorkList<DexClass> worklist, DexApplication app) {
-    assert verifyReferencedType(method.getReference().proto.returnType, worklist, app);
-    for (DexType param : method.getReference().proto.parameters.values) {
-      assert verifyReferencedType(param, worklist, app);
+    for (DexType type : method.getReference().getReferencedTypes()) {
+      assert verifyReferencedType(type, worklist, app);
     }
     return true;
   }
