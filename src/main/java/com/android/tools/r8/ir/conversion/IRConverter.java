@@ -109,7 +109,7 @@ public class IRConverter {
   private final CodeRewriterPassCollection rewriterPassCollection;
   private final ClassInitializerDefaultsOptimization classInitializerDefaultsOptimization;
   protected final CfInstructionDesugaringCollection instructionDesugaring;
-  protected final FieldAccessAnalysis fieldAccessAnalysis;
+  protected FieldAccessAnalysis fieldAccessAnalysis;
   protected final LibraryMethodOverrideAnalysis libraryMethodOverrideAnalysis;
   protected final IdempotentFunctionCallCanonicalizer idempotentFunctionCallCanonicalizer;
   private final ClassInliner classInliner;
@@ -286,6 +286,10 @@ public class IRConverter {
 
   public void unsetEnumUnboxer() {
     enumUnboxer = EnumUnboxer.empty();
+  }
+
+  public void unsetFieldAccessAnalysis() {
+    fieldAccessAnalysis = null;
   }
 
   private boolean needsIRConversion(ProgramMethod method) {
@@ -1136,7 +1140,9 @@ public class IRConverter {
     assert method.getHolder().lookupMethod(method.getReference()) == null;
     appView.withArgumentPropagator(argumentPropagator -> argumentPropagator.onMethodPruned(method));
     enumUnboxer.onMethodPruned(method);
-    fieldAccessAnalysis.fieldAssignmentTracker().onMethodPruned(method);
+    if (fieldAccessAnalysis != null) {
+      fieldAccessAnalysis.fieldAssignmentTracker().onMethodPruned(method);
+    }
     numberUnboxer.onMethodPruned(method);
     outliner.onMethodPruned(method);
     if (inliner != null) {
@@ -1154,7 +1160,9 @@ public class IRConverter {
     appView.withArgumentPropagator(
         argumentPropagator -> argumentPropagator.onMethodCodePruned(method));
     enumUnboxer.onMethodCodePruned(method);
-    fieldAccessAnalysis.fieldAssignmentTracker().onMethodCodePruned(method);
+    if (fieldAccessAnalysis != null) {
+      fieldAccessAnalysis.fieldAssignmentTracker().onMethodCodePruned(method);
+    }
     numberUnboxer.onMethodCodePruned(method);
     outliner.onMethodCodePruned(method);
     if (inliner != null) {

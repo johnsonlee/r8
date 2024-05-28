@@ -256,7 +256,7 @@ public class PrimaryR8IRConverter extends IRConverter {
   public void waveDone(ProgramMethodSet wave, ExecutorService executorService) {
     delayedOptimizationFeedback.refineAppInfoWithLiveness(appView.appInfo().withLiveness());
     delayedOptimizationFeedback.updateVisibleOptimizationInfo();
-    if (fieldAccessAnalysis.fieldAssignmentTracker() != null) {
+    if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
       fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
     }
     appView.withArgumentPropagator(ArgumentPropagator::publishDelayedReprocessingCriteria);
@@ -275,6 +275,7 @@ public class PrimaryR8IRConverter extends IRConverter {
       PostMethodProcessor.Builder postMethodProcessorBuilder, ExecutorService executorService)
       throws ExecutionException {
     pruneItems(executorService);
+    unsetFieldAccessAnalysis();
     if (inliner != null) {
       inliner.onLastWaveDone(postMethodProcessorBuilder, executorService, timing);
     }
