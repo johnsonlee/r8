@@ -25,6 +25,8 @@ import com.android.tools.r8.ir.conversion.IRFinalizer;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.MutableMethodConversionOptions;
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
+import com.android.tools.r8.ir.optimize.AssumeInserter;
+import com.android.tools.r8.ir.optimize.CodeRewriter;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
@@ -280,12 +282,15 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
 
     IRCode ir = method.buildIR(appView, conversionOptions);
 
+    new AssumeInserter(appView).insertAssumeInstructions(ir, Timing.empty());
+
     // Rewrite the IR according to the tracing that has been deferred.
     rewriter.rewriteCode(ir, initializedClassesWithContexts, prunedFields);
 
     // Run dead code elimination.
     new ThrowCatchOptimizer(appView).run(ir, Timing.empty());
     rewriter.getDeadCodeRemover().run(ir, Timing.empty());
+    CodeRewriter.removeAssumeInstructions(appView, ir);
 
     // Finalize out of IR.
     IRFinalizer<?> finalizer =
