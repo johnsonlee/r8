@@ -442,7 +442,7 @@ public class ClassInitializerDefaultsOptimization {
                     isWrittenBefore.remove(fieldReference);
                   }
                   continue;
-                } else if ((fieldReference.type.isPrimitiveType())
+                } else if ((fieldReference.type.isPrimitiveType() && !hasPutOfConstResource(put))
                     || fieldReference.type == dexItemFactory.stringType) {
                   finalFieldPuts.put(field, put);
                   unnecessaryStaticPuts.add(put);
