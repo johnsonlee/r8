@@ -87,15 +87,9 @@ public class NonDefaultInitClassWithMembersRuleTest extends TestBase {
 
   @Test
   public void testNoMembers() throws Exception {
-    // TODO(b/323136645): This is incorrect behavior for R8.
-    //  R8 implicitly replaces the member rule with a member rule for <init>() which does not match.
-    runTestAllowingUnusedRules("-keepclasseswithmembers class " + typeName(A.class) + " { }")
-        .assertSuccessWithOutput(shrinker.isPG() ? EXPECTED_KEPT : EXPECTED_RENAMED)
-        .inspect(
-            inspector ->
-                assertThat(
-                    inspector.clazz(A.class),
-                    shrinker.isPG() ? isPresentAndNotRenamed() : isPresentAndRenamed()));
+    runTest("-keepclasseswithmembers class " + typeName(A.class) + " { }")
+        .assertSuccessWithOutput(EXPECTED_KEPT)
+        .inspect(inspector -> assertThat(inspector.clazz(A.class), isPresentAndNotRenamed()));
   }
 
   @Test

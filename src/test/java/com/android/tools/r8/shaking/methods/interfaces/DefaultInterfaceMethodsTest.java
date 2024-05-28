@@ -78,7 +78,7 @@ public class DefaultInterfaceMethodsTest extends TestBase {
         .addClasspathClasses(I.class, J.class)
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
-        .addKeepClassRules(ImplJ.class)
+        .addKeepClassAndDefaultConstructor(ImplJ.class)
         .addRunClasspathFiles(compileResult.writeToZip())
         .run(parameters.getRuntime(), Main.class, ImplJ.class.getTypeName(), "foo")
         .assertFailureWithErrorThatMatches(

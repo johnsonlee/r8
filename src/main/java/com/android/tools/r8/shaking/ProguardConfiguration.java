@@ -273,8 +273,13 @@ public class ProguardConfiguration {
       keepDirectories.addPattern(pattern);
     }
 
-    public void setForceProguardCompatibility(boolean forceProguardCompatibility) {
+    public boolean isForceProguardCompatibility() {
+      return forceProguardCompatibility;
+    }
+
+    public Builder setForceProguardCompatibility(boolean forceProguardCompatibility) {
       this.forceProguardCompatibility = forceProguardCompatibility;
+      return this;
     }
 
     public void setConfigurationDebugging(boolean configurationDebugging) {

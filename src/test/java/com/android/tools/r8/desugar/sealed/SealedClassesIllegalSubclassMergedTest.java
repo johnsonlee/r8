@@ -34,7 +34,7 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
 
   static final Matcher<String> EXPECTED = containsString("cannot inherit from sealed class");
   static final String EXPECTED_WITHOUT_PERMITTED_SUBCLASSES_ATTRIBUTE_OR_FIXED_ATTRIBUTE =
-      StringUtils.lines("Success!");
+      StringUtils.lines("Sub1", "Sub2");
 
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static TestParametersCollection data() {
@@ -101,15 +101,26 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
   static class TestClass {
 
     public static void main(String[] args) {
-      new Sub1();
-      new Sub2();
-      System.out.println("Success!");
+      System.out.println(new Sub1());
+      System.out.println(new Sub2());
     }
   }
 
   abstract static class Super /* permits Sub1 */ {}
 
-  static class Sub1 extends Super {}
+  static class Sub1 extends Super {
 
-  static class Sub2 extends Super {}
+    @Override
+    public String toString() {
+      return "Sub1";
+    }
+  }
+
+  static class Sub2 extends Super {
+
+    @Override
+    public String toString() {
+      return "Sub2";
+    }
+  }
 }

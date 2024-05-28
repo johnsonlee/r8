@@ -92,7 +92,10 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(funLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
-            .addKeepRules("-keep class **.B")
+            .applyIf(
+                full,
+                b -> b.addKeepClassAndDefaultConstructor("**.B"),
+                b -> b.addKeepClassRules("**.B"))
             .addKeepRules("-keep class **.I { <methods>; }")
             // Keep the BKt method, which will be called from other kotlin code.
             .addKeepRules("-keep class **.BKt { <methods>; }")
@@ -154,7 +157,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(funLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
-            .addKeepRules("-keep class **.B")
+            .addKeepClassAndDefaultConstructor("**.B")
             .addKeepRules("-keep class **.I { <methods>; }")
             // Keep Super, but allow minification.
             .addKeepRules("-keep,allowobfuscation class **.Super { <methods>; }")

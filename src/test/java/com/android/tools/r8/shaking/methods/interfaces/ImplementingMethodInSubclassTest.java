@@ -38,7 +38,7 @@ public class ImplementingMethodInSubclassTest extends TestBase {
             .addProgramClasses(I.class, A.class, B.class)
             .setMinApi(parameters)
             .addKeepMethodRules(A.class, "void foo()")
-            .addKeepClassRules(B.class)
+            .addKeepClassAndDefaultConstructor(B.class)
             .compile();
     testForRuntime(parameters)
         .addProgramClasses(Main.class)

@@ -45,7 +45,7 @@ public class SubTypeOverridesInterfaceMethodTest extends TestBase {
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .addKeepMethodRules(A.class, "void <init>()", "void foo()")
-        .addKeepClassRules(B.class)
+        .addKeepClassAndDefaultConstructor(B.class)
         .run(parameters.getRuntime(), Main.class, B.class.getTypeName(), "foo")
         .assertSuccessWithOutputLines("Hello World!")
         .inspect(

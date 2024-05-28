@@ -50,7 +50,7 @@ public class IfOnStaticFinalFieldTest extends TestBase {
             "-keep class " + A.class.getTypeName())
         .addKeepRules(
             "-if class " + StaticNonFinalField.class.getTypeName() + " { int f; }",
-            "-keep class " + B.class.getTypeName())
+            "-keep class " + B.class.getTypeName() + " { void <init>(); }")
         .setMinApi(parameters)
         .allowDiagnosticMessages()
         .compileWithExpectedDiagnostics(
@@ -70,7 +70,9 @@ public class IfOnStaticFinalFieldTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
-        .addKeepRules("-if class * { int f; } -keep class " + B.class.getTypeName())
+        .addKeepRules(
+            "-if class * { int f; }",
+            "-keep class " + B.class.getTypeName() + " { void <init>(); }")
         .setMinApi(parameters)
         .allowDiagnosticMessages()
         .compileWithExpectedDiagnostics(

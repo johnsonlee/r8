@@ -9,10 +9,12 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRena
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.ProguardVersion;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestShrinkerBuilder;
+import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.transformers.ClassFileTransformer.FieldPredicate;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.StringUtils;
@@ -30,10 +32,15 @@ public class EmptyClassWithMembersRuleTest extends TestBase {
 
   public enum Shrinker {
     PG,
-    R8;
+    R8,
+    R8_COMPAT;
 
     public boolean isPG() {
       return this == PG;
+    }
+
+    public boolean isCompat() {
+      return this == R8_COMPAT;
     }
   }
 
@@ -48,12 +55,14 @@ public class EmptyClassWithMembersRuleTest extends TestBase {
     return buildParameters(getTestParameters().withDefaultCfRuntime().build(), Shrinker.values());
   }
 
-  private TestRunResult<?> runTest(String... keepRules) throws Exception {
+  private TestRunResult<?> runTest(
+      ThrowableConsumer<TestShrinkerBuilder<?, ?, ?, ?, ?>> configuration) throws Exception {
     TestShrinkerBuilder<?, ?, ?, ?, ?> builder;
     if (shrinker.isPG()) {
-      builder = testForProguard(ProguardVersion.getLatest()).addDontWarn(getClass());
+      builder =
+          testForProguard(ProguardVersion.getLatest()).addDontWarn(getClass()).apply(configuration);
     } else {
-      builder = testForR8(parameters.getBackend()).allowUnusedProguardConfigurationRules();
+      builder = testForR8Compat(parameters.getBackend(), shrinker.isCompat()).apply(configuration);
     }
     return builder
         .addProgramClassFileData(
@@ -63,48 +72,61 @@ public class EmptyClassWithMembersRuleTest extends TestBase {
                 .transform())
         .addProgramClasses(TestClass.class)
         .addKeepMainRule(TestClass.class)
-        .addKeepRules(keepRules)
         .run(parameters.getRuntime(), TestClass.class);
   }
 
   @Test
   public void testNoKeep() throws Exception {
-    runTest("-keep class missingClassToForceUnusedRuleDiagnostic")
+    runTest(
+            builder ->
+                builder
+                    .addKeepRules("-keep class missingClassToForceUnusedRuleDiagnostic")
+                    .applyIfR8(R8TestBuilder::allowUnusedProguardConfigurationRules))
         .assertSuccessWithOutput(EXPECTED_RENAMED)
         .inspect(inspector -> assertThat(inspector.clazz(A.class), isPresentAndRenamed()));
   }
 
   @Test
   public void testNoMembers() throws Exception {
-    // TODO(b/323136645): This is incorrect behavior for R8.
-    //  R8 implicitly replaces the member rule with a member rule for <init>() which does not match.
-    runTest("-keepclasseswithmembers class " + typeName(A.class) + " { }")
-        .assertSuccessWithOutput(shrinker.isPG() ? EXPECTED_KEPT : EXPECTED_RENAMED)
-        .inspect(
-            inspector ->
-                assertThat(
-                    inspector.clazz(A.class),
-                    shrinker.isPG() ? isPresentAndNotRenamed() : isPresentAndRenamed()));
+    runTest(
+            builder ->
+                builder.addKeepRules("-keepclasseswithmembers class " + typeName(A.class) + " {}"))
+        .assertSuccessWithOutput(EXPECTED_KEPT)
+        .inspect(inspector -> assertThat(inspector.clazz(A.class), isPresentAndNotRenamed()));
   }
 
   @Test
   public void testAllMembers() throws Exception {
     // Surprising, but consistent for PG and R8, "any member" pattern does not match an empty class.
-    runTest("-keepclasseswithmembers class " + typeName(A.class) + " { *; }")
+    runTest(
+            builder ->
+                builder
+                    .addKeepRules("-keepclasseswithmembers class " + typeName(A.class) + " { *; }")
+                    .applyIfR8(R8TestBuilder::allowUnusedProguardConfigurationRules))
         .assertSuccessWithOutput(EXPECTED_RENAMED)
         .inspect(inspector -> assertThat(inspector.clazz(A.class), isPresentAndRenamed()));
   }
 
   @Test
   public void testAllMethods() throws Exception {
-    runTest("-keepclasseswithmembers class " + typeName(A.class) + " { *** *(...); }")
+    runTest(
+            builder ->
+                builder
+                    .addKeepRules(
+                        "-keepclasseswithmembers class " + typeName(A.class) + " { *** *(...); }")
+                    .applyIfR8(R8TestBuilder::allowUnusedProguardConfigurationRules))
         .assertSuccessWithOutput(EXPECTED_RENAMED)
         .inspect(inspector -> assertThat(inspector.clazz(A.class), isPresentAndRenamed()));
   }
 
   @Test
   public void testAllMethods2() throws Exception {
-    runTest("-keepclasseswithmembers class " + typeName(A.class) + " { <methods>; }")
+    runTest(
+            builder ->
+                builder
+                    .addKeepRules(
+                        "-keepclasseswithmembers class " + typeName(A.class) + " { <methods>; }")
+                    .applyIfR8(R8TestBuilder::allowUnusedProguardConfigurationRules))
         .assertSuccessWithOutput(EXPECTED_RENAMED)
         .inspect(inspector -> assertThat(inspector.clazz(A.class), isPresentAndRenamed()));
   }

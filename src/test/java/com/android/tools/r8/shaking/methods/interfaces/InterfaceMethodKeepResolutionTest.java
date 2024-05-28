@@ -74,7 +74,7 @@ public class InterfaceMethodKeepResolutionTest extends TestBase {
             .setMinApi(parameters)
             .addKeepMethodRules(libraryClassWithMethod, "void foo()");
     if (!libraryClassWithMethod.isInterface()) {
-      libraryBuilder.addKeepClassRules(libraryClassWithMethod);
+      libraryBuilder.addKeepClassAndDefaultConstructor(libraryClassWithMethod);
     }
     testForRuntime(parameters)
         .addProgramClasses(programClasses)

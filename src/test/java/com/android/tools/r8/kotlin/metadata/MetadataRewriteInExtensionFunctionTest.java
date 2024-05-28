@@ -103,7 +103,10 @@ public class MetadataRewriteInExtensionFunctionTest extends KotlinMetadataTestBa
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
-            .addKeepRules("-keep class **.B")
+            .applyIf(
+                full,
+                b -> b.addKeepClassAndDefaultConstructor("**.B"),
+                b -> b.addKeepClassRules("**.B"))
             .addKeepRules("-keep class **.I { <methods>; }")
             // Keep the BKt extension function which requires metadata
             // to be called with Kotlin syntax from other kotlin code.
@@ -158,7 +161,7 @@ public class MetadataRewriteInExtensionFunctionTest extends KotlinMetadataTestBa
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
-            .addKeepRules("-keep class **.B")
+            .addKeepClassAndDefaultConstructor("**.B")
             .addKeepRules("-keep class **.I { <methods>; }")
             // Keep Super, but allow minification.
             .addKeepRules("-keep,allowobfuscation class **.Super")
@@ -198,7 +201,7 @@ public class MetadataRewriteInExtensionFunctionTest extends KotlinMetadataTestBa
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
-            .addKeepRules("-keep class **.B")
+            .addKeepClassAndDefaultConstructor("**.B")
             .addKeepRules("-keep class **.I { <methods>; }")
             // Keep Super, but allow minification.
             .addKeepRules("-keep,allowobfuscation class **.Super")

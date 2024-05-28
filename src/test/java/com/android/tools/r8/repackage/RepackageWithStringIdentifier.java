@@ -44,7 +44,7 @@ public class RepackageWithStringIdentifier extends RepackageTestBase {
             "-identifiernamestring class "
                 + Main.class.getTypeName()
                 + " { java.lang.String name; }")
-        .addKeepRules("-keepclassmembers,allowshrinking class **")
+        .addKeepRules("-keepclassmembers,allowshrinking class * { void <init>(); }")
         .addKeepMainRule(Main.class)
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()

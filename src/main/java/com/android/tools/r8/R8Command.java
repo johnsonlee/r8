@@ -669,11 +669,13 @@ public final class R8Command extends BaseCompilerCommand {
       ProguardConfigurationParser parser =
           new ProguardConfigurationParser(
               factory, reporter, parserOptionsBuilder.build(), inputDependencyGraphConsumer);
+      ProguardConfiguration.Builder configurationBuilder =
+          parser
+              .getConfigurationBuilder()
+              .setForceProguardCompatibility(forceProguardCompatibility);
       if (!proguardConfigs.isEmpty()) {
         parser.parse(proguardConfigs);
       }
-      ProguardConfiguration.Builder configurationBuilder = parser.getConfigurationBuilder();
-      configurationBuilder.setForceProguardCompatibility(forceProguardCompatibility);
 
       if (getMode() == CompilationMode.DEBUG) {
         disableMinification = true;

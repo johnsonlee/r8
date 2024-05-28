@@ -144,7 +144,7 @@ public class KeepAnnotatedMemberTest extends TestBase {
   public void testSatisfiedClassMembersPresentAnnotation() throws Exception {
     testForR8(Backend.CF)
         .addProgramFiles(R8_JAR)
-        .addKeepClassRules(CLASS_WITH_ANNOTATED_METHOD)
+        .addKeepClassAndDefaultConstructor(CLASS_WITH_ANNOTATED_METHOD)
         .addKeepRules("-keepclassmembers class * { @" + PRESENT_ANNOTATION + " *** *(...); }")
         .compile()
         .inspect(
@@ -182,7 +182,7 @@ public class KeepAnnotatedMemberTest extends TestBase {
   public void testSatisfiedConditionalPresentAnnotation() throws Exception {
     testForR8(Backend.CF)
         .addProgramFiles(R8_JAR)
-        .addKeepClassRules(CLASS_WITH_ANNOTATED_METHOD)
+        .addKeepClassAndDefaultConstructor(CLASS_WITH_ANNOTATED_METHOD)
         .addKeepRules("-if class * -keep class <1> { @" + PRESENT_ANNOTATION + " *** *(...); }")
         .compile()
         .inspect(

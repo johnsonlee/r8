@@ -68,11 +68,12 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "iput-object v0, p0, LExample;->aClassName:Ljava/lang/String;",
         "return-void");
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
-        "-keep class " + CLASS_NAME,
-        "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
-        "-dontoptimize");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
+            "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
@@ -101,11 +102,12 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "iput-object v1, p0, LExample;->aClassName:Ljava/lang/String;",
         "return-void");
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
-        "-keep class " + CLASS_NAME,
-        "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
-        "-dontoptimize");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
+            "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
@@ -140,12 +142,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "return-void");
     builder.addClass(BOO);
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
-        "-keep class " + CLASS_NAME,
-        "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
-        "-keep,allowobfuscation class " + BOO,
-        "-dontoptimize");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class " + CLASS_NAME + " { java.lang.String aClassName; }",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keepclassmembers,allowobfuscation class " + CLASS_NAME + " { !static <fields>; }",
+            "-keep,allowobfuscation class " + BOO,
+            "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
@@ -392,8 +395,8 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
                         .addKeepRules(
                             "-identifiernamestring class "
                                 + CLASS_NAME
-                                + " { static void foo(...); }",
-                            "-keep class " + CLASS_NAME)
+                                + " { static void foo(...); }")
+                        .addKeepClassAndDefaultConstructor(CLASS_NAME)
                         .allowDiagnosticWarningMessages())
             .assertAllWarningMessagesMatch(
                 containsString("Cannot determine what 'Mixed/form.Boo' refers to"))
@@ -439,7 +442,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     List<String> pgConfigs =
         ImmutableList.of(
             "-identifiernamestring class " + CLASS_NAME + " { static void foo(...); }",
-            "-keep class " + CLASS_NAME,
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
             "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
@@ -483,7 +486,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     List<String> pgConfigs =
         ImmutableList.of(
             "-identifiernamestring class " + CLASS_NAME + " { static void foo(...); }",
-            "-keep class " + CLASS_NAME,
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
             "-keep,allowobfuscation class " + BOO,
             "-dontoptimize");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
@@ -534,12 +537,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "move-result-object v0",
         "return-object v0");
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class * {\n"
-            + "  static java.lang.reflect.Field *(java.lang.Class,java.lang.String);\n"
-            + "}",
-        "-keep class " + CLASS_NAME,
-        "-keep class R { *; }");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class * {\n"
+                + "  static java.lang.reflect.Field *(java.lang.Class,java.lang.String);\n"
+                + "}",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keep class R { *; }");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
@@ -584,12 +588,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "move-result-object v0",
         "return-object v0");
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class * {\n"
-            + "  static java.lang.reflect.Field *(java.lang.Class,java.lang.String);\n"
-            + "}",
-        "-keep class " + CLASS_NAME,
-        "-keep,allowobfuscation class R { *; }");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class * {\n"
+                + "  static java.lang.reflect.Field *(java.lang.Class,java.lang.String);\n"
+                + "}",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keep,allowobfuscation class R { *; }");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
@@ -640,13 +645,14 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "move-result-object v0",
         "return-object v0");
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class * {\n"
-            + "  static java.lang.reflect.Method"
-            + "    *(java.lang.Class,java.lang.String,java.lang.Class[]);\n"
-            + "}",
-        "-keep class " + CLASS_NAME,
-        "-keep class R { *; }");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class * {\n"
+                + "  static java.lang.reflect.Method"
+                + "    *(java.lang.Class,java.lang.String,java.lang.Class[]);\n"
+                + "}",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keep class R { *; }");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);
@@ -715,13 +721,14 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
         "move-result-object v0",
         "return-object v0");
 
-    List<String> pgConfigs = ImmutableList.of(
-        "-identifiernamestring class * {\n"
-            + "  static java.lang.reflect.Method"
-            + "    *(java.lang.Class,java.lang.String,java.lang.Class[]);\n"
-            + "}",
-        "-keep class " + CLASS_NAME,
-        "-keep,allowobfuscation class R { *; }");
+    List<String> pgConfigs =
+        ImmutableList.of(
+            "-identifiernamestring class * {\n"
+                + "  static java.lang.reflect.Method"
+                + "    *(java.lang.Class,java.lang.String,java.lang.Class[]);\n"
+                + "}",
+            "-keep class " + CLASS_NAME + " { void <init>(); }",
+            "-keep,allowobfuscation class R { *; }");
     CodeInspector inspector = compileWithR8(builder, pgConfigs).inspector();
 
     ClassSubject clazz = inspector.clazz(CLASS_NAME);

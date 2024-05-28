@@ -42,7 +42,7 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return fn.applyWithRuntimeException(self());
   }
 
-  public T apply(ThrowableConsumer<T> fn) {
+  public T apply(ThrowableConsumer<? super T> fn) {
     if (fn != null) {
       fn.acceptWithRuntimeException(self());
     }
@@ -81,6 +81,14 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
       trueConsumer2.acceptWithRuntimeException(self);
     } else {
       falseConsumer.acceptWithRuntimeException(self);
+    }
+    return self;
+  }
+
+  public T applyIfR8(ThrowableConsumer<? super R8TestBuilder<?>> consumer) {
+    T self = self();
+    if (this instanceof R8TestBuilder<?>) {
+      consumer.acceptWithRuntimeException((R8TestBuilder<?>) self);
     }
     return self;
   }

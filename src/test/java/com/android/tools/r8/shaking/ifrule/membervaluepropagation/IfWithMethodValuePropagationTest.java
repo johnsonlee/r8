@@ -35,11 +35,8 @@ public class IfWithMethodValuePropagationTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramClasses(TestClass.class, R.class, Layout.class)
         .addKeepMainRule(TestClass.class)
-        .addKeepRules(
-            "-if class " + R.class.getTypeName() + " {",
-            "  static int id();",
-            "}",
-            "-keep class " + Layout.class.getTypeName())
+        .addKeepRules("-if class " + R.class.getTypeName() + " {", "  static int id();", "}")
+        .addKeepClassAndDefaultConstructor(Layout.class)
         .addLibraryClasses(Library.class)
         .addDefaultRuntimeLibrary(parameters)
         .setMinApi(parameters)

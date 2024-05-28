@@ -38,7 +38,7 @@ public class SealedClassesImplementsTest extends TestBase {
   @Parameter(1)
   public boolean keepPermittedSubclassesAttribute;
 
-  static final String EXPECTED = StringUtils.lines("Success!");
+  static final String EXPECTED = StringUtils.lines("Sub1", "Sub2");
 
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static List<Object[]> data() {
@@ -137,9 +137,8 @@ public class SealedClassesImplementsTest extends TestBase {
   static class TestClass {
 
     public static void main(String[] args) {
-      new Sub1();
-      new Sub2();
-      System.out.println("Success!");
+      System.out.println(new Sub1());
+      System.out.println(new Sub2());
     }
   }
 
@@ -147,7 +146,19 @@ public class SealedClassesImplementsTest extends TestBase {
 
   interface Iface2 /* permits Sub1, Sub2 */ {}
 
-  static class Sub1 implements Iface1, Iface2 {}
+  static class Sub1 implements Iface1, Iface2 {
 
-  static class Sub2 implements Iface1 {}
+    @Override
+    public String toString() {
+      return "Sub1";
+    }
+  }
+
+  static class Sub2 implements Iface1 {
+
+    @Override
+    public String toString() {
+      return "Sub2";
+    }
+  }
 }

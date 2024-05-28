@@ -120,7 +120,7 @@ public class MetadataRewriteInCompanionTest extends KotlinMetadataTestBase {
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(companionLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the B class and its interface (which has the doStuff method).
-            .addKeepRules("-keep class **.B")
+            .addKeepClassAndDefaultConstructor("**.B")
             // Property in companion with @JvmField is defined in the host class, without accessors.
             .addKeepRules("-keepclassmembers class **.B { *** elt2; }")
             .addKeepRules("-keep class **.I { <methods>; }")

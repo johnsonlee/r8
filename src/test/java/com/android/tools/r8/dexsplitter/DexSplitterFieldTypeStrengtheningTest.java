@@ -66,8 +66,8 @@ public class DexSplitterFieldTypeStrengtheningTest extends SplitterTestBase {
             testBuilder ->
                 testBuilder.addLibraryFiles(
                     parameters.getDefaultAndroidJarAbove(AndroidApiLevel.K)));
-    assertEquals(processResult.exitCode, 0);
-    assertEquals(processResult.stdout, EXPECTED);
+    assertEquals(processResult.stdout + processResult.stderr, 0, processResult.exitCode);
+    assertEquals(EXPECTED, processResult.stdout);
   }
 
   public abstract static class BaseSuperClass implements RunInterface {

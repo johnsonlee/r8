@@ -140,7 +140,7 @@ public class SplitterTestBase extends TestBase {
             .addInliningAnnotations()
             .setMinApi(parameters)
             .addKeepMainRule(SplitRunner.class)
-            .addKeepClassRules(toRun)
+            .addKeepClassAndDefaultConstructor(toRun)
             .apply(r8TestConfigurator)
             .compile()
             .apply(compileResultConsumer);

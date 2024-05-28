@@ -79,14 +79,19 @@ public class SealedClassesShrinkingTest extends TestBase {
   static class TestClass {
 
     public static void main(String[] args) {
-      new UsedSub();
-      System.out.println("Success!");
+      System.out.println(new UsedSub());
     }
   }
 
   abstract static class Super /* permits UsedSub, UnusedSub */ {}
 
-  static class UsedSub extends Super {}
+  static class UsedSub extends Super {
+
+    @Override
+    public String toString() {
+      return "Success!";
+    }
+  }
 
   static class UnusedSub extends Super {}
 }

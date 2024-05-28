@@ -846,15 +846,21 @@ public class ProguardConfigurationParser {
           .setStart(start);
       parseRuleTypeAndModifiers(keepRuleBuilder);
       parseClassSpec(keepRuleBuilder);
-      if (keepRuleBuilder.getMemberRules().isEmpty()) {
-        // If there are no member rules, a default rule for the parameterless constructor
-        // applies. So we add that here.
-        ProguardMemberRule.Builder defaultRuleBuilder = ProguardMemberRule.builder();
-        defaultRuleBuilder.setName(
-            IdentifierPatternWithWildcards.withoutWildcards(Constants.INSTANCE_INITIALIZER_NAME));
-        defaultRuleBuilder.setRuleType(ProguardMemberType.INIT);
-        defaultRuleBuilder.setArguments(Collections.emptyList());
-        keepRuleBuilder.getMemberRules().add(defaultRuleBuilder.build());
+      if (configurationBuilder.isForceProguardCompatibility()
+          && keepRuleBuilder.getMemberRules().isEmpty()
+          && keepRuleBuilder.getKeepRuleType() != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
+        // If there are no member rules, a default rule for the parameterless constructor applies in
+        // compatibility mode.
+        keepRuleBuilder
+            .getMemberRules()
+            .add(
+                ProguardMemberRule.builder()
+                    .setName(
+                        IdentifierPatternWithWildcards.withoutWildcards(
+                            Constants.INSTANCE_INITIALIZER_NAME))
+                    .setRuleType(ProguardMemberType.INIT)
+                    .setArguments(Collections.emptyList())
+                    .build());
       }
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));

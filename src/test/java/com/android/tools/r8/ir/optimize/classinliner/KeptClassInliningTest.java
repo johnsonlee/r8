@@ -57,7 +57,7 @@ public class KeptClassInliningTest extends TestBase {
             .enableInliningAnnotations()
             .addProgramClasses(KeptClass.class, Main.class)
             .addKeepMainRule(Main.class)
-            .addKeepClassRules(KeptClass.class)
+            .addKeepClassAndDefaultConstructor(KeptClass.class)
             .setMinApi(parameters)
             .run(parameters.getRuntime(), Main.class)
             .assertSuccessWithOutputLines("used()")

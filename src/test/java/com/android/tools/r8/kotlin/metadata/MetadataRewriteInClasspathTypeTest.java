@@ -92,7 +92,7 @@ public class MetadataRewriteInClasspathTypeTest extends KotlinMetadataTestBase {
                 baseLibJar, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(extLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the Extra class and its interface (which has the method).
-            .addKeepRules("-keep class **.Extra")
+            .addKeepClassAndDefaultConstructor("**.Extra")
             // Keep Super, but allow minification.
             .addKeepRules("-keep,allowobfuscation class **.Impl")
             // Keep the ImplKt extension method which requires metadata

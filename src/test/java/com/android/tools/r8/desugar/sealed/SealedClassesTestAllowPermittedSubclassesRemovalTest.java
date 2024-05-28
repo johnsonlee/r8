@@ -30,7 +30,7 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
   @Parameter(0)
   public TestParameters parameters;
 
-  static final String EXPECTED = StringUtils.lines("Success!");
+  static final String EXPECTED = StringUtils.lines("Sub1", "Sub2");
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -85,15 +85,26 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
   static class TestClass {
 
     public static void main(String[] args) {
-      new Sub1();
-      new Sub2();
-      System.out.println("Success!");
+      System.out.println(new Sub1());
+      System.out.println(new Sub2());
     }
   }
 
   abstract static class Super /* permits Sub1, Sub2 */ {}
 
-  static class Sub1 extends Super {}
+  static class Sub1 extends Super {
 
-  static class Sub2 extends Super {}
+    @Override
+    public String toString() {
+      return "Sub1";
+    }
+  }
+
+  static class Sub2 extends Super {
+
+    @Override
+    public String toString() {
+      return "Sub2";
+    }
+  }
 }

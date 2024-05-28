@@ -40,7 +40,7 @@ public class SealedClassesExtendsTest extends TestBase {
   @Parameter(2)
   public boolean repackage;
 
-  static final String EXPECTED = StringUtils.lines("Success!");
+  static final String EXPECTED = StringUtils.lines("Sub1", "Sub2");
 
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}, repackage = {2}")
   public static List<Object[]> data() {
@@ -131,15 +131,26 @@ public class SealedClassesExtendsTest extends TestBase {
   static class TestClass {
 
     public static void main(String[] args) {
-      new Sub1();
-      new Sub2();
-      System.out.println("Success!");
+      System.out.println(new Sub1());
+      System.out.println(new Sub2());
     }
   }
 
   public abstract static class Super /* permits Sub1, Sub2 */ {}
 
-  public static class Sub1 extends Super {}
+  public static class Sub1 extends Super {
 
-  public static class Sub2 extends Super {}
+    @Override
+    public String toString() {
+      return "Sub1";
+    }
+  }
+
+  public static class Sub2 extends Super {
+
+    @Override
+    public String toString() {
+      return "Sub2";
+    }
+  }
 }

@@ -35,11 +35,8 @@ public class IfWithFieldValuePropagationTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramClasses(TestClass.class, R.class, Layout.class)
         .addKeepMainRule(TestClass.class)
-        .addKeepRules(
-            "-if class " + R.class.getTypeName() + " {",
-            "  static int ID;",
-            "}",
-            "-keep class " + Layout.class.getTypeName())
+        .addKeepRules("-if class " + R.class.getTypeName() + " {", "  static int ID;", "}")
+        .addKeepClassAndDefaultConstructor(Layout.class)
         .addLibraryClasses(Library.class)
         .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
         .setMinApi(parameters)
