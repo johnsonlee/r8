@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize;
 import static com.android.tools.r8.ir.analysis.type.Nullability.definitelyNotNull;
 import static com.google.common.base.Predicates.alwaysTrue;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -37,7 +38,6 @@ import com.android.tools.r8.ir.optimize.info.FieldOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfoLookup;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TriFunction;
 import com.android.tools.r8.utils.TriPredicate;
@@ -60,14 +60,15 @@ import java.util.function.Predicate;
 
 public class AssumeInserter {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final boolean keepRedundantBlocks;
 
-  public AssumeInserter(AppView<AppInfoWithLiveness> appView) {
+  public AssumeInserter(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this(appView, false);
   }
 
-  public AssumeInserter(AppView<AppInfoWithLiveness> appView, boolean keepRedundantBlocks) {
+  public AssumeInserter(
+      AppView<? extends AppInfoWithClassHierarchy> appView, boolean keepRedundantBlocks) {
     this.appView = appView;
     this.keepRedundantBlocks = keepRedundantBlocks;
   }

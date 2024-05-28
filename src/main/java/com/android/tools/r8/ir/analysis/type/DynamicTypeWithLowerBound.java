@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.ir.analysis.type;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Objects;
 
 public class DynamicTypeWithLowerBound extends DynamicTypeWithUpperBound {
@@ -21,7 +21,7 @@ public class DynamicTypeWithLowerBound extends DynamicTypeWithUpperBound {
   }
 
   static DynamicTypeWithLowerBound create(
-      AppView<AppInfoWithLiveness> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       ClassTypeElement dynamicUpperBoundType,
       ClassTypeElement dynamicLowerBoundType) {
     assert dynamicUpperBoundType != null;

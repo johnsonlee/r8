@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.analysis.type;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
@@ -37,7 +38,7 @@ public class DynamicTypeWithUpperBound extends DynamicType {
   }
 
   public static DynamicTypeWithUpperBound create(
-      AppView<AppInfoWithLiveness> appView, TypeElement dynamicUpperBoundType) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, TypeElement dynamicUpperBoundType) {
     ClassTypeElement dynamicLowerBoundType =
         isEffectivelyFinal(appView, dynamicUpperBoundType)
             ? dynamicUpperBoundType.asClassType()
@@ -46,7 +47,7 @@ public class DynamicTypeWithUpperBound extends DynamicType {
   }
 
   public static DynamicTypeWithUpperBound create(
-      AppView<AppInfoWithLiveness> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       TypeElement dynamicUpperBoundType,
       ClassTypeElement dynamicLowerBoundType) {
     if (dynamicUpperBoundType.isBottom()) {
@@ -72,7 +73,7 @@ public class DynamicTypeWithUpperBound extends DynamicType {
   }
 
   public static DynamicTypeWithUpperBound create(
-      AppView<AppInfoWithLiveness> appView, Value value) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Value value) {
     assert value.getType().isReferenceType();
     TypeElement dynamicUpperBoundType = value.getDynamicUpperBoundType(appView);
     ClassTypeElement dynamicLowerBoundType =
@@ -285,7 +286,7 @@ public class DynamicTypeWithUpperBound extends DynamicType {
   }
 
   private static boolean verifyNotEffectivelyFinalClassType(
-      AppView<AppInfoWithLiveness> appView, TypeElement type) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, TypeElement type) {
     if (type.isClassType()) {
       ClassTypeElement classType = type.asClassType();
       DexClass clazz = appView.definitionFor(classType.getClassType());

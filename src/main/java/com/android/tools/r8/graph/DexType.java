@@ -81,7 +81,7 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
   }
 
   public DynamicTypeWithUpperBound toDynamicType(
-      AppView<AppInfoWithLiveness> appView, Nullability nullability) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Nullability nullability) {
     return DynamicType.create(appView, toTypeElement(appView, nullability));
   }
 

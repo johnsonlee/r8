@@ -1160,7 +1160,7 @@ public class Value implements Comparable<Value> {
   }
 
   public ClassTypeElement getDynamicLowerBoundType(
-      AppView<AppInfoWithLiveness> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       TypeElement dynamicUpperBoundType,
       Nullability maxNullability) {
     // If the dynamic upper bound type is a final or effectively-final class type, then we know the
