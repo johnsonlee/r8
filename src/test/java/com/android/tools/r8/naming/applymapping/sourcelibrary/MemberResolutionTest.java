@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.naming.applymapping.sourcelibrary;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -27,6 +27,8 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 // AbstractChecker -> X:
 @NoVerticalClassMerging
@@ -81,15 +83,26 @@ class MemberResolutionTestMain {
 @RunWith(Parameterized.class)
 public class MemberResolutionTest extends TestBase {
 
-  private final TestParameters parameters;
+  private static final String expectedOutput =
+      StringUtils.lines(
+          "AbstractChecker#check:PrivateInitialTag_AbstractChecker",
+          "ConcreteChecker#check:NewTag");
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public MemberResolutionTest(TestParameters parameters) {
-    this.parameters = parameters;
+  @Test
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    testForJvm(parameters)
+        .addTestClasspath()
+        .run(parameters.getRuntime(), MemberResolutionTestMain.class)
+        .assertSuccessWithOutput(expectedOutput);
   }
 
   @Test
@@ -107,18 +120,6 @@ public class MemberResolutionTest extends TestBase {
             "  void check() -> y",
             "  void foo() -> a");
     FileUtils.writeTextFile(mapPath, pgMap);
-
-    String expectedOutput =
-        StringUtils.lines(
-            "AbstractChecker#check:PrivateInitialTag_AbstractChecker",
-            "ConcreteChecker#check:NewTag");
-
-    if (parameters.isCfRuntime()) {
-      testForJvm(parameters)
-          .addTestClasspath()
-          .run(parameters.getRuntime(), MemberResolutionTestMain.class)
-          .assertSuccessWithOutput(expectedOutput);
-    }
 
     CodeInspector inspector =
         testForR8(parameters.getBackend())
@@ -147,7 +148,7 @@ public class MemberResolutionTest extends TestBase {
     ClassSubject sub = inspector.clazz(ConcreteChecker.class);
     assertThat(sub, isPresent());
     FieldSubject q = sub.field("java.lang.String", "tag");
-    assertThat(q, isPresentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
+    assertThat(q, isAbsent());
     MethodSubject y = sub.method("void", "check", ImmutableList.of());
     assertThat(y, isPresentAndRenamed());
     assertEquals("y", y.getFinalName());

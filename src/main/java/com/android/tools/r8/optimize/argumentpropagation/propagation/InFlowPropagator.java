@@ -44,16 +44,20 @@ import java.util.concurrent.ExecutorService;
 public class InFlowPropagator {
 
   final AppView<AppInfoWithLiveness> appView;
+  final Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers;
   final IRConverter converter;
   final FieldStateCollection fieldStates;
   final MethodStateCollectionByReference methodStates;
 
   public InFlowPropagator(
       AppView<AppInfoWithLiveness> appView,
+      Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers,
       IRConverter converter,
       FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates) {
     this.appView = appView;
+    this.classesWithSingleCallerInlinedInstanceInitializers =
+        classesWithSingleCallerInlinedInstanceInitializers;
     this.converter = converter;
     this.fieldStates = fieldStates;
     this.methodStates = methodStates;
@@ -72,9 +76,9 @@ public class InFlowPropagator {
     // perform this analysis after having computed the initial fixpoint(s). The hypothesis is that
     // many fields will have reached the unknown state after the initial fixpoint, meaning there is
     // fewer fields to analyze.
-    updateFieldStates(fieldStates, flowGraphs);
+    updateFieldStates(flowGraphs);
     Map<FlowGraph, Deque<FlowGraphNode>> worklists =
-        includeDefaultValuesInFieldStates(fieldStates, flowGraphs, executorService);
+        includeDefaultValuesInFieldStates(flowGraphs, executorService);
 
     // Since the inclusion of default values changes the flow graphs, we need to repeat the
     // fixpoint.
@@ -86,7 +90,7 @@ public class InFlowPropagator {
     postProcessMethodStates(executorService);
 
     // Copy the result of the flow graph propagation back to the field state collection.
-    updateFieldStates(fieldStates, flowGraphs);
+    updateFieldStates(flowGraphs);
   }
 
   private List<FlowGraph> computeStronglyConnectedFlowGraphs() {
@@ -108,9 +112,10 @@ public class InFlowPropagator {
   }
 
   private Map<FlowGraph, Deque<FlowGraphNode>> includeDefaultValuesInFieldStates(
-      FieldStateCollection fieldStates, List<FlowGraph> flowGraphs, ExecutorService executorService)
-      throws ExecutionException {
-    DefaultFieldValueJoiner joiner = new DefaultFieldValueJoiner(appView, fieldStates, flowGraphs);
+      List<FlowGraph> flowGraphs, ExecutorService executorService) throws ExecutionException {
+    DefaultFieldValueJoiner joiner =
+        new DefaultFieldValueJoiner(
+            appView, classesWithSingleCallerInlinedInstanceInitializers, fieldStates, flowGraphs);
     return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
   }
 
@@ -326,8 +331,7 @@ public class InFlowPropagator {
     }
   }
 
-  private void updateFieldStates(
-      FieldStateCollection fieldStates, Collection<FlowGraph> flowGraphs) {
+  private void updateFieldStates(Collection<FlowGraph> flowGraphs) {
     for (FlowGraph flowGraph : flowGraphs) {
       flowGraph.forEachFieldNode(
           node -> {

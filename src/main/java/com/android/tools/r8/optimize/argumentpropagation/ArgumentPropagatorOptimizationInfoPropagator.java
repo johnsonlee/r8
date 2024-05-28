@@ -59,7 +59,10 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
   }
 
   /** Computes an over-approximation of each parameter's value and type. */
-  void propagateOptimizationInfo(ExecutorService executorService, Timing timing)
+  void propagateOptimizationInfo(
+      Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers,
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException {
     timing.begin("Propagate argument information for virtual methods");
     ThreadUtils.processItems(
@@ -71,7 +74,13 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
 
     // Solve the parameter flow constraints.
     timing.begin("Solve flow constraints");
-    new InFlowPropagator(appView, converter, fieldStates, methodStates).run(executorService);
+    new InFlowPropagator(
+            appView,
+            classesWithSingleCallerInlinedInstanceInitializers,
+            converter,
+            fieldStates,
+            methodStates)
+        .run(executorService);
     timing.end();
   }
 

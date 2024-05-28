@@ -1106,6 +1106,10 @@ public class Inliner {
 
           if (methodProcessor.getCallSiteInformation().hasSingleCallSite(singleTarget, context)) {
             feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
+            appView.withArgumentPropagator(
+                argumentPropagator ->
+                    argumentPropagator.notifyMethodSingleCallerInlined(
+                        singleTarget, context, methodProcessor));
             if (!(methodProcessor instanceof OneTimeMethodProcessor)) {
               assert converter.isInWave();
               if (singleCallerInlinedMethodsInWave.isEmpty()) {

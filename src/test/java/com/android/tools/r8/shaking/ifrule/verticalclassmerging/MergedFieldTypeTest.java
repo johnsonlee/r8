@@ -118,7 +118,7 @@ public class MergedFieldTypeTest extends MergedTypeBaseTest {
       ClassSubject testClassSubject = inspector.clazz(TestClass.class);
       assertThat(testClassSubject, isPresent());
 
-      if (enableVerticalClassMerging) {
+      if (enableVerticalClassMerging && parameters.canInitNewInstanceUsingSuperclassConstructor()) {
         // Verify that TestClass.field has been removed.
         assertEquals(1, testClassSubject.allFields().size());
 
@@ -126,6 +126,8 @@ public class MergedFieldTypeTest extends MergedTypeBaseTest {
         // round of tree shaking, at which point TestClass.field has already been removed.
         // Therefore, we expect no collision to have happened.
         assertEquals("field", testClassSubject.allFields().get(0).getFinalName());
+      } else {
+        assertEquals(0, testClassSubject.allFields().size());
       }
     }
   }

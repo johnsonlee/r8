@@ -46,6 +46,10 @@ class FieldReadBeforeWriteAnalysis {
     this.returnBlocks = code.computeNormalExitBlocks();
   }
 
+  public boolean isInstanceFieldMaybeReadBeforeWrite(ProgramField field) {
+    return !isInstanceFieldNeverReadBeforeWrite(field);
+  }
+
   public boolean isInstanceFieldNeverReadBeforeWrite(ProgramField field) {
     assert field.getHolder() == context.getHolder();
     InstancePut instancePut = null;

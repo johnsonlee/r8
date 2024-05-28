@@ -92,7 +92,7 @@ public class ComposeMethodProcessor extends MethodProcessor {
 
     InFlowPropagator inFlowPropagator =
         new InFlowPropagator(
-            appView, converter, codeScanner.getFieldStates(), codeScanner.getMethodStates());
+            appView, null, converter, codeScanner.getFieldStates(), codeScanner.getMethodStates());
     inFlowPropagator.run(executorService);
 
     ArgumentPropagatorOptimizationInfoPopulator optimizationInfoPopulator =

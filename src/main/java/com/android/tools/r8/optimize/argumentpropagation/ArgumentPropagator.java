@@ -32,6 +32,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
@@ -40,6 +41,8 @@ import java.util.function.BiConsumer;
 public class ArgumentPropagator {
 
   private final AppView<AppInfoWithLiveness> appView;
+
+  private Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers;
 
   /**
    * Collects information about arguments from call sites, meanwhile pruning redundant information.
@@ -77,6 +80,7 @@ public class ArgumentPropagator {
     timing.begin("Initialize code scanner");
 
     reprocessingCriteriaCollection = new ArgumentPropagatorReprocessingCriteriaCollection(appView);
+    classesWithSingleCallerInlinedInstanceInitializers = ConcurrentHashMap.newKeySet();
     codeScanner = new ArgumentPropagatorCodeScanner(appView, reprocessingCriteriaCollection);
     effectivelyUnusedArgumentsAnalysis = new EffectivelyUnusedArgumentsAnalysis(appView);
 
@@ -135,6 +139,19 @@ public class ArgumentPropagator {
       assert effectivelyUnusedArgumentsAnalysis == null;
       assert !methodProcessor.isPostMethodProcessor() || reprocessingCriteriaCollection == null;
     }
+  }
+
+  public void notifyMethodSingleCallerInlined(
+      ProgramMethod method, ProgramMethod caller, MethodProcessor methodProcessor) {
+    assert methodProcessor.isPrimaryMethodProcessor();
+    if (!method.getDefinition().isInstanceInitializer()) {
+      return;
+    }
+    if (caller.getDefinition().isInstanceInitializer()
+        && caller.getHolder() == method.getHolder()) {
+      return;
+    }
+    classesWithSingleCallerInlinedInstanceInitializers.add(method.getHolder());
   }
 
   public void publishDelayedReprocessingCriteria() {
@@ -246,7 +263,9 @@ public class ArgumentPropagator {
             methodStates,
             stronglyConnectedProgramComponents,
             interfaceDispatchOutsideProgram)
-        .propagateOptimizationInfo(executorService, timing);
+        .propagateOptimizationInfo(
+            classesWithSingleCallerInlinedInstanceInitializers, executorService, timing);
+    classesWithSingleCallerInlinedInstanceInitializers = null;
 
     // TODO(b/296030319): Also publish the computed optimization information for fields.
     PrunedItems prunedItems =

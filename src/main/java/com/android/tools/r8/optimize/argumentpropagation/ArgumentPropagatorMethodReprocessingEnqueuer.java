@@ -209,11 +209,24 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
       InstructionListIterator instructionIterator = block.listIterator(irCode);
       while (instructionIterator.hasNext()) {
         FieldInstruction fieldInstruction = instructionIterator.next().asFieldInstruction();
-        if (fieldInstruction == null || !isDeadFieldAccess(fieldInstruction.getField(), method)) {
+        if (fieldInstruction == null) {
           continue;
         }
-        instructionIterator.replaceCurrentInstructionWithThrowNull(
-            appView, irCode, blocks, blocksToRemove, affectedValues);
+        ProgramField resolvedField =
+            fieldInstruction.resolveField(appView, method).getProgramField();
+        if (resolvedField == null || !isDeadFieldAccess(resolvedField)) {
+          continue;
+        }
+        if (fieldInstruction.isStaticFieldInstruction()
+            != resolvedField.getAccessFlags().isStatic()) {
+          // Preserve the ICCE.
+          instructionIterator.next();
+          instructionIterator.replaceCurrentInstructionWithThrowNull(
+              appView, irCode, blocks, blocksToRemove, affectedValues);
+        } else {
+          instructionIterator.replaceCurrentInstructionWithThrowNull(
+              appView, irCode, blocks, blocksToRemove, affectedValues);
+        }
       }
     }
     irCode.removeBlocks(blocksToRemove);
@@ -233,7 +246,11 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
 
   private boolean isDeadFieldAccess(DexField fieldReference, ProgramMethod context) {
     ProgramField field = appView.appInfo().resolveField(fieldReference, context).getProgramField();
-    return field != null && field.getOptimizationInfo().getAbstractValue().isBottom();
+    return field != null && isDeadFieldAccess(field);
+  }
+
+  private boolean isDeadFieldAccess(ProgramField field) {
+    return field.getOptimizationInfo().getAbstractValue().isBottom();
   }
 
   static class AffectedMethodUseRegistry

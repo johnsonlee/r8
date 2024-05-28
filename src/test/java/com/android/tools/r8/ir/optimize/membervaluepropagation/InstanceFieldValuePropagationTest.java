@@ -21,19 +21,18 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class InstanceFieldValuePropagationTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public InstanceFieldValuePropagationTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -78,8 +77,6 @@ public class InstanceFieldValuePropagationTest extends TestBase {
         testMaybeNullMethodSubject
             .streamInstructions()
             .noneMatch(InstructionSubject::isInstanceGet));
-    // TODO(b/125282093): Should be able to remove the new-instance instruction since the instance
-    //  ends up being unused.
     assertTrue(
         testMaybeNullMethodSubject
             .streamInstructions()

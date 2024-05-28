@@ -46,7 +46,7 @@ public abstract class MergedTypeBaseTest extends TestBase {
 
   static class Unused {}
 
-  private final TestParameters parameters;
+  protected final TestParameters parameters;
   final List<Class<?>> classes;
   final boolean enableVerticalClassMerging;
 
