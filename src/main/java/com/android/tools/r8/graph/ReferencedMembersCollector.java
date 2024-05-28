@@ -43,7 +43,7 @@ public class ReferencedMembersCollector {
   private void processMethod(ProgramMethod method) {
     Code code = method.getDefinition().getCode();
     if (code.isCfCode()) {
-      assert appView.isCfByteCodePassThrough(method.getDefinition());
+      assert appView.isCfByteCodePassThrough(method);
       processCfCode(method, code.asCfCode());
     } else if (code.isDefaultInstanceInitializerCode()) {
       processDefaultInstanceInitializerCode(method);

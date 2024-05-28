@@ -843,7 +843,7 @@ public class IRConverter {
   }
 
   private boolean shouldPassThrough(ProgramMethod method) {
-    if (appView.isCfByteCodePassThrough(method.getDefinition())) {
+    if (appView.isCfByteCodePassThrough(method)) {
       return true;
     }
     Code code = method.getDefinition().getCode();

@@ -276,7 +276,7 @@ public class MappedPositionToClassNameMapperBuilder {
         assert appView.options().lineNumberOptimization.isOff()
             || hasAtMostOnePosition(appView, definition)
             || !hasThrowingInstructions(definition)
-            || appView.isCfByteCodePassThrough(definition);
+            || appView.isCfByteCodePassThrough(method);
         return this;
       }
 

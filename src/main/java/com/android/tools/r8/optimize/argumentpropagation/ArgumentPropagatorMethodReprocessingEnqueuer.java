@@ -181,7 +181,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
   private void eliminateDeadFieldAccesses(ProgramMethod method) {
     Code code = method.getDefinition().getCode();
     if (!code.isLirCode()) {
-      assert appView.isCfByteCodePassThrough(method.getDefinition());
+      assert appView.isCfByteCodePassThrough(method);
       return;
     }
     LirCode<Integer> lirCode = code.asLirCode();

@@ -160,7 +160,7 @@ public class LineNumberOptimizer {
           boolean canUseDexPc = pcEncodingCutoff > 0;
           if (definition.getCode() != null
               && (definition.getCode().isCfCode() || definition.getCode().isDexCode())
-              && !appView.isCfByteCodePassThrough(definition)) {
+              && !appView.isCfByteCodePassThrough(method)) {
             mappedPositions =
                 positionToMappedRangeMapper.getMappedPositions(
                     method, positionRemapper, methods.size() > 1, canUseDexPc, pcEncodingCutoff);

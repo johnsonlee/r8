@@ -351,7 +351,7 @@ public final class TrivialFieldAccessReprocessor {
       InternalOptions options = appView.options();
       ProgramMethod context = getContext();
       if (definition.isStatic() != isStatic
-          || appView.isCfByteCodePassThrough(context.getDefinition())
+          || appView.isCfByteCodePassThrough(context)
           || !resolutionResult.isSingleProgramFieldResolutionResult()
           || resolutionResult.isAccessibleFrom(context, appView()).isPossiblyFalse()
           || !appView().getKeepInfo(context).isReprocessingAllowed(options, context)) {

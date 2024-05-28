@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public class LirCode<EV> extends Code
     implements StructuralItem<LirCode<EV>>, Iterable<LirInstructionView> {
@@ -485,6 +486,10 @@ public class LirCode<EV> extends Code
 
   public int getInstructionCount() {
     return instructionCount;
+  }
+
+  public boolean hasConstantItemThatMatches(Predicate<LirConstant> predicate) {
+    return ArrayUtils.any(constants, predicate);
   }
 
   public LirConstant getConstantItem(int index) {

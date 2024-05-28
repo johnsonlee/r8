@@ -975,6 +975,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return OptionalBool.unknown();
   }
 
+  public boolean isCfByteCodePassThrough(ProgramMethod method) {
+    return isCfByteCodePassThrough(method.getDefinition());
+  }
+
   public boolean isCfByteCodePassThrough(DexEncodedMethod method) {
     if (!options().enableCfByteCodePassThrough) {
       return false;
