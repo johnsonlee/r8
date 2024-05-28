@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.ir.optimize.membervaluepropagation.fields;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
@@ -18,19 +18,18 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class FieldInitializedByConstantArgumentMultipleConstructorsTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
-  }
-
-  public FieldInitializedByConstantArgumentMultipleConstructorsTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -51,10 +50,7 @@ public class FieldInitializedByConstantArgumentMultipleConstructorsTest extends 
     ClassSubject testClassSubject = inspector.clazz(TestClass.class);
     assertThat(testClassSubject, isPresent());
     assertThat(testClassSubject.uniqueMethodWithOriginalName("live"), isPresent());
-    // TODO(b/280275115): Constructor inlining regresses instance field value analysis.
-    assertThat(
-        testClassSubject.uniqueMethodWithOriginalName("dead"),
-        isPresentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
+    assertThat(testClassSubject.uniqueMethodWithOriginalName("dead"), isAbsent());
   }
 
   static class TestClass {
