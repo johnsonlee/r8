@@ -168,7 +168,19 @@ public class R8RunSmaliTestsTest extends TestBase {
                   StringUtils.lines(
                       "java.lang.NullPointerException: Attempt to read from field 'byte[]"
                           + " Test.a' on a null object reference in method 'int"
-                          + " TestObject.a(Test, Test)'")));
+                          + " TestObject.a(Test, Test)'")),
+          Version.V15_0_0,
+          ImmutableMap.of(
+              "bad-codegen",
+              StringUtils.lines(
+                  "java.lang.NullPointerException: Attempt to read from field 'Test Test.a'"
+                      + " on a null object reference in method 'Test TestObject.a(Test,"
+                      + " Test, Test, Test, boolean)'"),
+              "type-confusion-regression3",
+              StringUtils.lines(
+                  "java.lang.NullPointerException: Attempt to read from field 'byte[]"
+                      + " Test.a' on a null object reference in method 'int"
+                      + " TestObject.a(Test, Test)'")));
 
   // Tests where the input fails with a verification error on Dalvik instead of the
   // expected runtime exception.

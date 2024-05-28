@@ -27,12 +27,10 @@ public class TestCondition {
     ART_V12_0_0,
     ART_V13_0_0,
     ART_V14_0_0,
+    ART_V15_0_0,
     ART_DEFAULT,
     ART_MASTER,
     JAVA;
-
-    static final Runtime LOWEST_ART_VERSION = ART_V4_0_4;
-    static final Runtime HIGHEST_ART_VERSION = ART_DEFAULT;
 
     static Runtime fromDexVmVersion(DexVm.Version version) {
       switch (version) {
@@ -58,6 +56,8 @@ public class TestCondition {
           return ART_V13_0_0;
         case V14_0_0:
           return ART_V14_0_0;
+        case V15_0_0:
+          return ART_V15_0_0;
         case DEFAULT:
           return ART_DEFAULT;
         case MASTER:
@@ -187,6 +187,10 @@ public class TestCondition {
 
   public static RuntimeSet runtimesUpTo(DexVm.Version upto) {
     return RuntimeSet.fromDexVmVersionSet(EnumSet.range(DexVm.Version.first(), upto));
+  }
+
+  public static RuntimeSet runtimesFrom(DexVm.Version from) {
+    return RuntimeSet.fromDexVmVersionSet(EnumSet.range(from, DexVm.Version.last()));
   }
 
   public static RuntimeSet and(RuntimeSet... sets) {

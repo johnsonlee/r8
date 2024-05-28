@@ -132,6 +132,8 @@ public class InvokeSuperTest extends TestBase {
       result.assertFailureWithErrorThatThrows(VerifyError.class);
     } else if (version == Version.V5_1_1 || version == Version.V6_0_1) {
       result.assertFailure();
+    } else if (version == Version.V15_0_0) {
+      result.assertFailureWithErrorThatThrows(VerifyError.class);
     } else {
       result.assertSuccessWithOutputThatMatches(containsString(NoSuchMethodError.class.getName()));
     }

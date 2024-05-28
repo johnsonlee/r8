@@ -356,6 +356,8 @@ public class ToolHelper {
     ART_13_0_0_HOST(Version.V13_0_0, Kind.HOST),
     ART_14_0_0_TARGET(Version.V14_0_0, Kind.TARGET),
     ART_14_0_0_HOST(Version.V14_0_0, Kind.HOST),
+    ART_15_0_0_TARGET(Version.V15_0_0, Kind.TARGET),
+    ART_15_0_0_HOST(Version.V15_0_0, Kind.HOST),
     ART_MASTER_TARGET(Version.MASTER, Kind.TARGET),
     ART_MASTER_HOST(Version.MASTER, Kind.HOST);
 
@@ -377,6 +379,7 @@ public class ToolHelper {
       V12_0_0("12.0.0"),
       V13_0_0("13.0.0"),
       V14_0_0("14.0.0"),
+      V15_0_0("15.0.0"),
       MASTER("master");
 
       /** This should generally be the latest DEX VM fully supported. */
@@ -444,7 +447,7 @@ public class ToolHelper {
       }
 
       public static Version last() {
-        return V14_0_0;
+        return V15_0_0;
       }
 
       public static Version master() {
@@ -963,6 +966,7 @@ public class ToolHelper {
       ImmutableMap.<DexVm, String>builder()
           .put(DexVm.ART_DEFAULT, "art")
           .put(DexVm.ART_MASTER_HOST, "host/art-master")
+          .put(DexVm.ART_15_0_0_HOST, "host/art-15.0.0-beta2")
           .put(DexVm.ART_14_0_0_HOST, "host/art-14.0.0-beta3")
           .put(DexVm.ART_13_0_0_HOST, "host/art-13.0.0")
           .put(DexVm.ART_12_0_0_HOST, "host/art-12.0.0-beta4")
@@ -979,6 +983,7 @@ public class ToolHelper {
       ImmutableMap.<DexVm, String>builder()
           .put(DexVm.ART_DEFAULT, "bin/art")
           .put(DexVm.ART_MASTER_HOST, "bin/art")
+          .put(DexVm.ART_15_0_0_HOST, "bin/art")
           .put(DexVm.ART_14_0_0_HOST, "bin/art")
           .put(DexVm.ART_13_0_0_HOST, "bin/art")
           .put(DexVm.ART_12_0_0_HOST, "bin/art")
@@ -995,6 +1000,7 @@ public class ToolHelper {
   private static final Map<DexVm, String> ART_BINARY_VERSIONS_X64 =
       ImmutableMap.<DexVm, String>builder()
           .put(DexVm.ART_DEFAULT, "bin/art")
+          .put(DexVm.ART_15_0_0_HOST, "bin/art")
           .put(DexVm.ART_14_0_0_HOST, "bin/art")
           .put(DexVm.ART_13_0_0_HOST, "bin/art")
           .put(DexVm.ART_12_0_0_HOST, "bin/art")
@@ -1030,6 +1036,7 @@ public class ToolHelper {
     ImmutableMap.Builder<DexVm, List<String>> builder = ImmutableMap.builder();
     builder
         .put(DexVm.ART_DEFAULT, ART_7_TO_10_BOOT_LIBS)
+        .put(DexVm.ART_15_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
         .put(DexVm.ART_14_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
         .put(DexVm.ART_13_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
         .put(DexVm.ART_12_0_0_HOST, ART_12_PLUS_BOOT_LIBS)
@@ -1050,6 +1057,7 @@ public class ToolHelper {
     ImmutableMap.Builder<DexVm, String> builder = ImmutableMap.builder();
     builder
         .put(DexVm.ART_DEFAULT, "angler")
+        .put(DexVm.ART_15_0_0_HOST, "akita")
         .put(DexVm.ART_14_0_0_HOST, "redfin")
         .put(DexVm.ART_13_0_0_HOST, "redfin")
         .put(DexVm.ART_12_0_0_HOST, "redfin")
@@ -1083,6 +1091,7 @@ public class ToolHelper {
         return base.resolve("host").resolve("art-12.0.0-beta4");
       case V13_0_0:
       case V14_0_0:
+      case V15_0_0:
       case MASTER:
         return base.resolve("host").resolve("art-" + version);
       default:
@@ -1118,6 +1127,7 @@ public class ToolHelper {
       case V12_0_0:
       case V13_0_0:
       case V14_0_0:
+      case V15_0_0:
       case MASTER:
         return "x86_64";
       default:
@@ -1404,6 +1414,8 @@ public class ToolHelper {
     switch (dexVm.version) {
       case MASTER:
         return AndroidApiLevel.MAIN;
+      case V15_0_0:
+        return AndroidApiLevel.V;
       case V14_0_0:
         return AndroidApiLevel.U;
       case V13_0_0:
@@ -1437,6 +1449,8 @@ public class ToolHelper {
     switch (apiLevel) {
       case MAIN:
         return DexVm.Version.MASTER;
+      case V:
+        return DexVm.Version.V15_0_0;
       case U:
         return DexVm.Version.V14_0_0;
       case T:
@@ -2401,6 +2415,10 @@ public class ToolHelper {
   // Checked in VMs for which dex2oat should work specified in decreasing order.
   private static final List<DexVm> SUPPORTED_DEX2OAT_VMS =
       ImmutableList.of(DexVm.ART_12_0_0_HOST, DexVm.ART_6_0_1_HOST);
+
+  public static boolean isDex2OatSupportedForVM(DexVm vm) {
+    return SUPPORTED_DEX2OAT_VMS.contains(vm);
+  }
 
   public static ProcessResult runDex2OatRaw(Path file, Path outFile, DexVm targetVm)
       throws IOException {

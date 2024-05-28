@@ -56,6 +56,10 @@ public class AndroidApiVersionsXmlParser {
       removedTypeNames.add("com.android.internal.util.Predicate");
       removedTypeNames.add("android.adservices.AdServicesVersion");
     }
+    if (maxApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.V)) {
+      removedTypeNames.add("android.media.MediaDrm$HdcpLevel");
+      removedTypeNames.add("android.media.MediaDrm$SecurityLevel");
+    }
     return removedTypeNames;
   }
 
@@ -74,8 +78,9 @@ public class AndroidApiVersionsXmlParser {
       if (!clazz.isPresent()) {
         if (!clazz.getOriginalTypeName().startsWith("android.test")
             && !clazz.getOriginalTypeName().startsWith("junit")) {
-          assert exemptionList.contains(type) || hasRemoved(node);
-          assert exemptionList.contains(type) || getRemoved(node).isLessThanOrEqualTo(maxApiLevel);
+          assert exemptionList.contains(type) || hasRemoved(node) : type;
+          assert exemptionList.contains(type) || getRemoved(node).isLessThanOrEqualTo(maxApiLevel)
+              : type;
           if (!hasRemoved(node)) {
             exemptionList.remove(type);
           }

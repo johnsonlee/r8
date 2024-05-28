@@ -22,7 +22,11 @@ import com.android.tools.r8.apimodel.JavaSourceCodePrinter.ParameterizedType;
 import com.android.tools.r8.cfmethodgeneration.MethodGenerationBase;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
+import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.DexValue.DexValueAnnotation;
+import com.android.tools.r8.graph.DexValue.DexValueArray;
 import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.MethodReference;
@@ -68,7 +72,7 @@ public class GenerateCovariantReturnTypeMethodsTest extends TestBase {
       Paths.get(ToolHelper.MAIN_SOURCE_DIR)
           .resolve(PACKAGE_NAME.replace('.', '/'))
           .resolve(CLASS_NAME + ".java");
-  private static final AndroidApiLevel GENERATED_FOR_API_LEVEL = AndroidApiLevel.U;
+  private static final AndroidApiLevel GENERATED_FOR_API_LEVEL = AndroidApiLevel.V;
 
   @Parameter public TestParameters parameters;
 
@@ -207,15 +211,9 @@ public class GenerateCovariantReturnTypeMethodsTest extends TestBase {
                           isCovariantReturnTypeAnnotation(annotation.annotation, factory));
               if (!covariantAnnotations.isEmpty()) {
                 MethodReference methodReference = method.asMethodReference();
-                ClassReference holder = clazz.getOriginalReference();
                 for (DexAnnotation covariantAnnotation : covariantAnnotations) {
-                  if (covariantAnnotation.annotation.type
-                      == factory.annotationCovariantReturnType) {
-                    createCovariantMethodReference(
-                        methodReference, covariantAnnotation, methodReferenceMap);
-                  } else {
-                    fail("There are no such annotations present in libcore");
-                  }
+                  createCovariantMethodReference(
+                      factory, methodReference, covariantAnnotation.annotation, methodReferenceMap);
                 }
               }
             });
@@ -224,25 +222,51 @@ public class GenerateCovariantReturnTypeMethodsTest extends TestBase {
     }
 
     private static void createCovariantMethodReference(
+        DexItemFactory factory,
         MethodReference methodReference,
-        DexAnnotation covariantAnnotation,
+        DexEncodedAnnotation covariantAnnotation,
         Map<ClassReference, List<MethodReferenceWithApiLevel>> methodReferenceMap) {
-      DexValueType newReturnType =
-          covariantAnnotation.annotation.getElement(0).getValue().asDexValueType();
-      DexAnnotationElement element = covariantAnnotation.annotation.getElement(1);
-      assert element.name.toString().equals("presentAfter");
-      AndroidApiLevel apiLevel =
-          AndroidApiLevel.getAndroidApiLevel(element.getValue().asDexValueInt().value);
-      methodReferenceMap
-          .computeIfAbsent(methodReference.getHolderClass(), ignoreKey(ArrayList::new))
-          .add(
-              new MethodReferenceWithApiLevel(
-                  Reference.method(
-                      methodReference.getHolderClass(),
-                      methodReference.getMethodName(),
-                      methodReference.getFormalTypes(),
-                      newReturnType.value.asClassReference()),
-                  apiLevel));
+      if (covariantAnnotation.type == factory.annotationCovariantReturnType) {
+        DexAnnotationElement returnTypeElement = covariantAnnotation.getElement(0);
+        assert returnTypeElement.name.toString().equals("returnType");
+        DexValueType newReturnType = returnTypeElement.getValue().asDexValueType();
+        DexAnnotationElement presentAfterElement = covariantAnnotation.getElement(1);
+        assert presentAfterElement.name.toString().equals("presentAfter");
+        AndroidApiLevel apiLevel =
+            AndroidApiLevel.getAndroidApiLevel(
+                presentAfterElement.getValue().asDexValueInt().value);
+        methodReferenceMap
+            .computeIfAbsent(methodReference.getHolderClass(), ignoreKey(ArrayList::new))
+            .add(
+                new MethodReferenceWithApiLevel(
+                    Reference.method(
+                        methodReference.getHolderClass(),
+                        methodReference.getMethodName(),
+                        methodReference.getFormalTypes(),
+                        newReturnType.value.asClassReference()),
+                    apiLevel));
+      } else {
+        assert covariantAnnotation.type == factory.annotationCovariantReturnTypes;
+        DexAnnotationElement valuesElement = covariantAnnotation.getElement(0);
+        assert valuesElement.name.toString().equals("value");
+        DexValueArray array = valuesElement.value.asDexValueArray();
+        if (array == null) {
+          fail(
+              String.format(
+                  "Expected element \"value\" of CovariantReturnTypes annotation to "
+                      + "be an array (method: \"%s\", was: %s)",
+                  methodReference.toSourceString(),
+                  valuesElement.value.getClass().getCanonicalName()));
+        }
+
+        // Handle the inner dalvik.annotation.codegen.CovariantReturnType annotations recursively.
+        for (DexValue value : array.getValues()) {
+          assert value.isDexValueAnnotation();
+          DexValueAnnotation innerAnnotation = value.asDexValueAnnotation();
+          createCovariantMethodReference(
+              factory, methodReference, innerAnnotation.value, methodReferenceMap);
+        }
+      }
     }
 
     public void visitCovariantMethodsForHolder(

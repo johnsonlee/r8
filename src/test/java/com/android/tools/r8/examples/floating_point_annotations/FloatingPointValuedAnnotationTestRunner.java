@@ -70,9 +70,8 @@ public class FloatingPointValuedAnnotationTestRunner extends ExamplesTestBase {
   @Test
   public void testDebug() throws Exception {
     Assume.assumeFalse(
-        "VMs 13 and 14 step-out to the continuation (line 28) and not the call-site (line 25).",
-        parameters.isDexRuntimeVersion(Version.V13_0_0)
-            || parameters.isDexRuntimeVersion(Version.V14_0_0));
+        "VMs from 13 step-out to the continuation (line 28) and not the call-site (line 25).",
+        parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V13_0_0));
     runTestDebugComparator();
   }
 }

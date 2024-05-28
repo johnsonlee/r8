@@ -67,6 +67,36 @@ by the script for running Art.
 
 repo init -b udc-preview1-release
 
+
+art-15 (Android V)
+------------------
+Build branch 24Q3-release. Art at 5b498ae35e41f63dddb36d1c22c05165f4bb815d
+
+export BRANCH=24Q3-release
+mkdir ${BRANCH}
+cd ${BRANCH}
+export ANDROID_CHECKOUT=$(pwd)
+repo init -u https://android.googlesource.com/platform/manifest -b ${BRANCH}
+repo sync -cq -j48
+source build/envsetup.sh
+lunch aosp_akita-trunk_staging-userdebug
+m -j
+m -j build-art
+m -j test-art-host
+repo manifest -r -o build_spec.xml
+
+Collected into tools/linux/host/art-15.0.0-beta2. The "host" path element is checked
+by the script for running Art.
+
+  cd <r8 checkout>
+  scripts/update-host-art.sh \
+     --android-checkout $ANDROID_CHECKOUT \
+     --art-dir host/art-15.0.0-beta2 \
+     --android-product akita
+
+  (cd tools/linux/host; upload_to_google_storage.py -a --bucket r8-deps art-15.0.0-beta2)
+
+
 art-14 (Android U)
 ------------------
 Build branch udc-beta3-release. Art at 1f3514c28caf4537fe0fdf14559991ca23cf9e30.

@@ -13,6 +13,7 @@ import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -62,7 +63,10 @@ public class FilledNewArrayFromSubtypeWithMissingInterfaceWorkaroundTest extends
         .setMinApi(parameters)
         .compile()
         .applyIf(
-            parameters.isDexRuntime(),
+            // Only run dex2oat where the host build actually supports it to not get false negatives
+            // for fixes to b/283715197 and b/269228249.
+            parameters.isDexRuntime()
+                && ToolHelper.isDex2OatSupportedForVM(parameters.getRuntime().asDex().getVm()),
             compileResult ->
                 compileResult
                     .inspect(this::inspect)

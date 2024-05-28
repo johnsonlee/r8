@@ -104,7 +104,26 @@ public abstract class R8RunArtTestsTest extends TestBase {
           DexVm.Version.V10_0_0,
           DexVm.Version.V12_0_0,
           DexVm.Version.V13_0_0,
-          DexVm.Version.V14_0_0);
+          DexVm.Version.V14_0_0,
+          DexVm.Version.V15_0_0);
+
+  private static final TestCondition beforeAndroidN =
+      TestCondition.match(
+          TestCondition.runtimes(
+              DexVm.Version.V4_0_4,
+              DexVm.Version.V4_4_4,
+              DexVm.Version.V5_1_1,
+              DexVm.Version.V6_0_1));
+  // O is 8.0.0, but we don't have that for testing, only O_MR1 which is 8.1.0.
+  private static final TestCondition beforeAndroidO =
+      TestCondition.match(TestCondition.runtimesUpTo(DexVm.Version.V7_0_0));
+  // TODO(b/343124019): Change to V8_0_0 once we have a new art VM.
+  private static final TestCondition beforeAndroidP =
+      TestCondition.match(TestCondition.runtimesUpTo(DexVm.Version.V7_0_0));
+  private static final TestCondition fromAndroidS =
+      TestCondition.match(TestCondition.runtimesFrom(DexVm.Version.V12_0_0));
+  private static final TestCondition fromAndroidV =
+      TestCondition.match(TestCondition.runtimesFrom(DexVm.Version.V15_0_0));
 
   // Test that required to set min-api to a specific value.
   private static Map<String, AndroidApiLevel> needMinSdkVersion =
@@ -172,18 +191,10 @@ public abstract class R8RunArtTestsTest extends TestBase {
               TestCondition.match(TestCondition.runtimesUpTo(DexVm.Version.V4_4_4)))
           // TODO(b/197078746): Triage - fails with "java.lang.NoSuchMethodException:
           //  org.apache.harmony.dalvik.ddmc.DdmVmInternal.enableRecentAllocations [boolean]"
-          .put(
-              "098-ddmc",
-              TestCondition.match(
-                  TestCondition.runtimes(
-                      DexVm.Version.V12_0_0, DexVm.Version.V13_0_0, DexVm.Version.V14_0_0)))
+          .put("098-ddmc", fromAndroidS)
           // TODO(b/197079442): Triage - fails with "java.lang.NoSuchMethodException:
           //  org.apache.harmony.dalvik.ddmc.DdmVmInternal.enableRecentAllocations [boolean]"
-          .put(
-              "145-alloc-tracking-stress",
-              TestCondition.match(
-                  TestCondition.runtimes(
-                      DexVm.Version.V12_0_0, DexVm.Version.V13_0_0, DexVm.Version.V14_0_0)))
+          .put("145-alloc-tracking-stress", fromAndroidS)
           .build();
 
   // Tests that are flaky with the Art version we currently use.
@@ -490,6 +501,7 @@ public abstract class R8RunArtTestsTest extends TestBase {
   static {
     ImmutableMap.Builder<DexVm.Version, List<String>> builder = ImmutableMap.builder();
     builder
+        .put(DexVm.Version.V15_0_0, ImmutableList.of("543-env-long-ref", "518-null-array-get"))
         .put(DexVm.Version.V14_0_0, ImmutableList.of("543-env-long-ref", "518-null-array-get"))
         .put(DexVm.Version.V13_0_0, ImmutableList.of("543-env-long-ref", "518-null-array-get"))
         .put(DexVm.Version.V12_0_0, ImmutableList.of("543-env-long-ref", "518-null-array-get"))
@@ -799,18 +811,6 @@ public abstract class R8RunArtTestsTest extends TestBase {
               TestCondition.anyDexVm())
           .build();
 
-  private static final TestCondition beforeAndroidN =
-      TestCondition
-          .match(TestCondition
-              .runtimes(DexVm.Version.V4_0_4, DexVm.Version.V4_4_4, DexVm.Version.V5_1_1,
-                  DexVm.Version.V6_0_1));
-  // TODO(herhut): Change to V8_0_0 once we have a new art VM.
-  private static final TestCondition beforeAndroidO =
-      TestCondition.match(TestCondition.runtimesUpTo(DexVm.Version.V7_0_0));
-  // TODO(herhut): Change to V8_0_0 once we have a new art VM.
-  private static final TestCondition beforeAndroidP =
-      TestCondition.match(TestCondition.runtimesUpTo(DexVm.Version.V7_0_0));
-
   // TODO(ager): Could we test that these fail in the way that we expect?
   private static final Multimap<String, TestCondition> expectedToFailRunWithArt =
       new ImmutableListMultimap.Builder<String, TestCondition>()
@@ -845,7 +845,8 @@ public abstract class R8RunArtTestsTest extends TestBase {
                           DexVm.Version.V6_0_1,
                           DexVm.Version.V7_0_0,
                           DexVm.Version.V13_0_0,
-                          DexVm.Version.V14_0_0)),
+                          DexVm.Version.V14_0_0,
+                          DexVm.Version.V15_0_0)),
                   TestCondition.match(
                       compilers(
                           CompilerUnderTest.R8,
@@ -874,7 +875,8 @@ public abstract class R8RunArtTestsTest extends TestBase {
                       DexVm.Version.V10_0_0,
                       DexVm.Version.V12_0_0,
                       DexVm.Version.V13_0_0,
-                      DexVm.Version.V14_0_0)))
+                      DexVm.Version.V14_0_0,
+                      DexVm.Version.V15_0_0)))
           .put("454-get-vreg", TestCondition.match(TestCondition.R8DEX_COMPILER))
           // Fails: regs_jni.cc:42] Check failed: GetVReg(m, 0, kIntVReg, &value)
           // The R8/D8 code does not put values in the same registers as the tests expects.
@@ -892,7 +894,8 @@ public abstract class R8RunArtTestsTest extends TestBase {
                       DexVm.Version.V10_0_0,
                       DexVm.Version.V12_0_0,
                       DexVm.Version.V13_0_0,
-                      DexVm.Version.V14_0_0)))
+                      DexVm.Version.V14_0_0,
+                      DexVm.Version.V15_0_0)))
           .put("457-regs", TestCondition.match(TestCondition.R8DEX_COMPILER))
           // Class not found.
           .put("529-checker-unresolved", TestCondition.any())
@@ -951,6 +954,10 @@ public abstract class R8RunArtTestsTest extends TestBase {
           .put("974-verify-interface-super", beforeAndroidN) // --min-sdk = 24
           .put("975-iface-private", beforeAndroidN) // --min-sdk = 24
           .put("979-const-method-handle", beforeAndroidP)
+          .put(
+              "021-string2",
+              fromAndroidV) // Test use com.android.org.bouncycastle.util.Strings.fromUTF8ByteArray
+          // - no longer present.
           // Missing class junit.framework.Assert (see JunitAvailabilityInHostArtTest).
           // TODO(120884788): Add this again.
           /*

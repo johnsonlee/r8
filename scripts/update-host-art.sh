@@ -180,6 +180,7 @@ fi
 if [ -f $DEST/product/$ANDROID_PRODUCT/system/framework/boot.vdex ]; then
   for VDEXFILE in $DEST/product/$ANDROID_PRODUCT/system/framework/*.vdex; do
     VDEXNAME=$(basename ${VDEXFILE});
+    # Maybe remove arm here.
     for ARCH in arm arm64; do
       rm $DEST/product/$ANDROID_PRODUCT/system/framework/$ARCH/${VDEXNAME};
       # This relative link command will create a symbolic link of the form

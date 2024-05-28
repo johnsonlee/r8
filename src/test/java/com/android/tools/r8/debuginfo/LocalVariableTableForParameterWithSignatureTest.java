@@ -119,13 +119,14 @@ public class LocalVariableTableForParameterWithSignatureTest extends DebugTestBa
               assertTrue(hasParamValue);
               assertTrue(hasParamStringsWithSignature);
               if (parameters.isCfRuntime()
-                  || parameters.isDexRuntimeVersionOlderThanOrEqual(Version.V6_0_1)) {
-                // CF runtimes and the old DEX runtimes report the correct local variable table.
+                  || parameters.isDexRuntimeVersionOlderThanOrEqual(Version.V6_0_1)
+                  || parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V15_0_0)) {
+                // CF runtimes and some DEX runtimes report the correct local variable table.
                 // The variable table should be just the two parameters.
                 assertEquals(2, variableTable.size());
                 assertFalse(hasEmptyRange);
               } else {
-                // Newer ART runtimes report a variable with an empty range. That variable is the
+                // Some ART runtimes report a variable with an empty range. That variable is the
                 // parameter without a signature, e.g., List, and is ended immediately as a variable
                 // is started that also includes the signature, e.g., List<String>.
                 assertEquals(variableTable.toString(), 3, variableTable.size());

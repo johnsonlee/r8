@@ -91,6 +91,11 @@ public class CovariantReturnTypeMethods {
             "rewind"));
     consumer.accept(
         factory.createMethod(
+            factory.createType("Ljava/nio/DirectByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "compact"));
+    consumer.accept(
+        factory.createMethod(
             factory.createType("Ljava/nio/DoubleBuffer;"),
             factory.createProto(factory.createType("Ljava/nio/DoubleBuffer;")),
             "clear"));
@@ -237,6 +242,105 @@ public class CovariantReturnTypeMethods {
             factory.createType("Ljava/nio/LongBuffer;"),
             factory.createProto(factory.createType("Ljava/nio/LongBuffer;")),
             "rewind"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/ByteBuffer;")),
+            "clear"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "clear"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "compact"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "duplicate"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "duplicate"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/ByteBuffer;")),
+            "flip"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "flip"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(
+                factory.createType("Ljava/nio/ByteBuffer;"), factory.createType("I")),
+            "limit"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(
+                factory.createType("Ljava/nio/MappedByteBuffer;"), factory.createType("I")),
+            "limit"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/ByteBuffer;")),
+            "mark"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "mark"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(
+                factory.createType("Ljava/nio/ByteBuffer;"), factory.createType("I")),
+            "position"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(
+                factory.createType("Ljava/nio/MappedByteBuffer;"), factory.createType("I")),
+            "position"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/ByteBuffer;")),
+            "reset"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "reset"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/ByteBuffer;")),
+            "rewind"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "rewind"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "slice"));
+    consumer.accept(
+        factory.createMethod(
+            factory.createType("Ljava/nio/MappedByteBuffer;"),
+            factory.createProto(factory.createType("Ljava/nio/MappedByteBuffer;")),
+            "slice"));
     consumer.accept(
         factory.createMethod(
             factory.createType("Ljava/nio/ShortBuffer;"),
