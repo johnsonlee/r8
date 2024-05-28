@@ -190,6 +190,7 @@ public class PrimaryR8IRConverter extends IRConverter {
                     postMethodProcessor,
                     methodProcessingContext,
                     MethodConversionOptions.forLirPhase(appView)),
+            this,
             feedback,
             appView.options().getThreadingModule(),
             executorService,
@@ -248,7 +249,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     }
   }
 
-  private void waveStart(ProgramMethodSet wave) {
+  public void waveStart(ProgramMethodSet wave) {
     onWaveDoneActions = Collections.synchronizedList(new ArrayList<>());
   }
 

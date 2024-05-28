@@ -712,6 +712,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
 
     if (enumUnboxingCandidatesInfo.isEmpty()) {
       assert enumDataMap.isEmpty();
+      converter.unsetEnumUnboxer();
       timing.end();
       return;
     }
@@ -781,6 +782,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     appView.testing().checkDeterminism(postMethodProcessorBuilder::dump);
 
     appView.notifyOptimizationFinishedForTesting();
+    converter.unsetEnumUnboxer();
     timing.end();
   }
 

@@ -15,7 +15,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.PrimaryMethodProcessor.MethodAction;
 import com.android.tools.r8.ir.conversion.callgraph.CallGraph;
-import com.android.tools.r8.ir.conversion.callgraph.PartialCallGraphBuilder;
+import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.threading.ThreadingModule;
@@ -24,6 +24,7 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
 import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
+import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -35,18 +36,43 @@ import java.util.concurrent.ExecutorService;
 
 public class PostMethodProcessor extends MethodProcessorWithWave {
 
+  private CallSiteInformation callSiteInformation;
   private final MethodProcessorEventConsumer eventConsumer;
+  private final ProgramMethodSet methodsToProcess;
+  private final ProgramMethodSet processed = ProgramMethodSet.create();
   private final ProcessorContext processorContext;
   private final Deque<ProgramMethodSet> waves;
-  private final ProgramMethodSet processed = ProgramMethodSet.create();
+
+  // The set of callers for a given method according to the call graph. This might not be the
+  // complete set of callers.
+  private final ProgramMethodMap<ProgramMethodSet> callers = ProgramMethodMap.createConcurrent();
 
   private PostMethodProcessor(
       AppView<AppInfoWithLiveness> appView,
       CallGraph callGraph,
-      MethodProcessorEventConsumer eventConsumer) {
+      MethodProcessorEventConsumer eventConsumer,
+      ProgramMethodSet methodsToProcess) {
+    this.callSiteInformation = callGraph.createCallSiteInformation(appView, this);
     this.eventConsumer = eventConsumer;
+    this.methodsToProcess = methodsToProcess;
     this.processorContext = appView.createProcessorContext();
     this.waves = createWaves(callGraph);
+  }
+
+  public void markCallersForProcessing(ProgramMethod method) {
+    assert wave.contains(method);
+    synchronized (methodsToProcess) {
+      for (ProgramMethod caller : callers.removeOrDefault(method, ProgramMethodSet.empty())) {
+        if (!wave.contains(caller)) {
+          methodsToProcess.add(caller);
+        }
+      }
+    }
+  }
+
+  @Override
+  public CallSiteInformation getCallSiteInformation() {
+    return callSiteInformation;
   }
 
   @Override
@@ -57,6 +83,11 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
   @Override
   public boolean isPostMethodProcessor() {
     return true;
+  }
+
+  @Override
+  public PostMethodProcessor asPostMethodProcessor() {
+    return this;
   }
 
   @Override
@@ -152,9 +183,8 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
       assert !appView.options().debug
           || methodsToReprocess.stream()
               .allMatch(methodToReprocess -> methodToReprocess.getDefinition().isD8R8Synthesized());
-      CallGraph callGraph =
-          new PartialCallGraphBuilder(appView, methodsToReprocess).build(executorService, timing);
-      return new PostMethodProcessor(appView, callGraph, eventConsumer);
+      CallGraph callGraph = CallGraph.builder(appView).build(executorService, timing);
+      return new PostMethodProcessor(appView, callGraph, eventConsumer, methodsToReprocess);
     }
 
     public void dump(DeterminismChecker determinismChecker) throws IOException {
@@ -162,19 +192,28 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
     }
   }
 
-  @SuppressWarnings("UnusedVariable")
   private Deque<ProgramMethodSet> createWaves(CallGraph callGraph) {
     Deque<ProgramMethodSet> waves = new ArrayDeque<>();
-    int waveCount = 1;
     while (!callGraph.isEmpty()) {
-      ProgramMethodSet wave = callGraph.extractLeaves();
-      waves.addLast(wave);
+      waves.addLast(
+          callGraph.extractLeaves(
+              leaf -> {
+                if (!leaf.getCallers().isEmpty()) {
+                  callers.put(
+                      leaf.getProgramMethod(),
+                      ProgramMethodSet.create(
+                          builder ->
+                              leaf.getCallers()
+                                  .forEach(caller -> builder.accept(caller.getProgramMethod()))));
+                }
+              }));
     }
     return waves;
   }
 
   <E extends Exception> void forEachMethod(
       MethodAction<E> consumer,
+      PrimaryR8IRConverter converter,
       OptimizationFeedbackDelayed feedback,
       ThreadingModule threadingModule,
       ExecutorService executorService,
@@ -184,9 +223,14 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
     while (!waves.isEmpty()) {
       wave = waves.removeFirst();
       assert !wave.isEmpty();
+      wave.removeIf(method -> !methodsToProcess.contains(method));
+      if (wave.isEmpty()) {
+        continue;
+      }
       assert waveExtension.isEmpty();
       do {
         assert feedback.noUpdatesLeft();
+        converter.waveStart(wave);
         Collection<Timing> timings =
             ThreadUtils.processItemsWithResults(
                 wave,
@@ -200,11 +244,21 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
                 threadingModule,
                 executorService);
         merger.add(timings);
+        converter.waveDone(wave, executorService);
         feedback.updateVisibleOptimizationInfo();
         processed.addAll(wave);
         prepareForWaveExtensionProcessing();
       } while (!wave.isEmpty());
     }
+    clear();
     merger.end();
+  }
+
+  private void clear() {
+    assert waves.isEmpty();
+    callers.clear();
+    methodsToProcess.clear();
+    processed.clear();
+    callSiteInformation = CallSiteInformation.empty();
   }
 }

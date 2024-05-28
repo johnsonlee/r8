@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.kotlin.TestKotlinClass.Visibility;
@@ -130,16 +129,6 @@ public class R8KotlinDataClassTest extends AbstractR8KotlinTestBase {
                 testBuilder
                     .addKeepRules(keepClassMethod(mainClassName, testMethodSignature))
                     .addOptionsModification(disableClassInliner))
-        .inspect(
-            inspector -> {
-              // This changes depending on when we dead-code eliminate.
-              if (kotlinParameters.is(KotlinCompilerVersion.KOTLINC_1_5_0)
-                  || kotlinParameters.is(KotlinCompilerVersion.KOTLINC_1_6_0)
-                  || testParameters.isDexRuntime()) {
-                checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName());
-              } else {
-                checkClassIsKept(inspector, TEST_DATA_CLASS.getClassName());
-              }
-            });
+        .inspect(inspector -> checkClassIsRemoved(inspector, TEST_DATA_CLASS.getClassName()));
   }
 }

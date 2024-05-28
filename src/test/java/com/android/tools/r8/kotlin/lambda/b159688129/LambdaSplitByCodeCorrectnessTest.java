@@ -17,10 +17,6 @@ import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.TestRuntime.CfRuntime;
-import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -81,37 +77,15 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
             inspector ->
                 inspector
                     .applyIf(
-                        splitGroup,
-                        i -> {
-                          if (kotlinParameters.getLambdaGeneration().isClass()) {
+                        splitGroup && kotlinParameters.getLambdaGeneration().isClass(),
+                        i ->
                             i.assertIsCompleteMergeGroup(
-                                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1",
-                                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$2",
-                                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$3",
-                                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$4",
-                                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$5",
-                                    "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$6")
-                                .assertNoOtherClassesMerged();
-                          } else {
-                            if (parameters.getApiLevel().isEqualTo(AndroidApiLevel.B)
-                                && !splitGroup) {
-                              inspector.assertNoClassesMerged();
-                            } else {
-                              ClassReference simpleKt =
-                                  Reference.classFromTypeName(
-                                      "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt");
-                              inspector
-                                  .assertIsCompleteMergeGroup(
-                                      SyntheticItemsTestUtils.syntheticLambdaClass(simpleKt, 0),
-                                      SyntheticItemsTestUtils.syntheticLambdaClass(simpleKt, 1),
-                                      SyntheticItemsTestUtils.syntheticLambdaClass(simpleKt, 2),
-                                      SyntheticItemsTestUtils.syntheticLambdaClass(simpleKt, 3),
-                                      SyntheticItemsTestUtils.syntheticLambdaClass(simpleKt, 4),
-                                      SyntheticItemsTestUtils.syntheticLambdaClass(simpleKt, 5))
-                                  .assertNoOtherClassesMerged();
-                            }
-                          }
-                        })
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$1",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$2",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$3",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$4",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$5",
+                                "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$6"))
                     .assertNoOtherClassesMerged())
         .allowDiagnosticWarningMessages()
         .compile()

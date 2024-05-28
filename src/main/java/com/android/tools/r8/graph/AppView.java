@@ -136,7 +136,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private final LibraryMethodSideEffectModelCollection libraryMethodSideEffectModelCollection;
 
   // Optimizations.
-  private final ArgumentPropagator argumentPropagator;
+  private ArgumentPropagator argumentPropagator;
   private final LibraryMemberOptimizer libraryMemberOptimizer;
   private final ProtoShrinker protoShrinker;
 
@@ -562,6 +562,10 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
 
   public SyntheticItems getSyntheticItems() {
     return appInfo.getSyntheticItems();
+  }
+
+  public void unsetArgumentPropagator() {
+    argumentPropagator = null;
   }
 
   public <E extends Throwable> void withArgumentPropagator(

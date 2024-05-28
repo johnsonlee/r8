@@ -7,8 +7,10 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.conversion.MethodProcessorWithWave;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepMethodInfo;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.classhierarchy.MethodOverridesCollector;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -75,7 +77,10 @@ public abstract class CallSiteInformation {
     private final Map<DexMethod, DexMethod> singleCallerMethods = new IdentityHashMap<>();
     private final Set<DexMethod> multiCallerInlineCandidates = Sets.newIdentityHashSet();
 
-    CallGraphBasedCallSiteInformation(AppView<AppInfoWithLiveness> appView, CallGraph graph) {
+    CallGraphBasedCallSiteInformation(
+        AppView<AppInfoWithLiveness> appView,
+        CallGraph graph,
+        MethodProcessorWithWave methodProcessor) {
       InternalOptions options = appView.options();
       ProgramMethodSet pinned =
           MethodOverridesCollector.findAllMethodsAndOverridesThatMatches(
@@ -114,6 +119,14 @@ public abstract class CallSiteInformation {
           if (!appView.getKeepInfo(method).isSingleCallerInliningAllowed(options)) {
             continue;
           }
+          if (methodProcessor.isPostMethodProcessor()) {
+            SyntheticItems syntheticItems = appView.getSyntheticItems();
+            if (syntheticItems.hasKindThatMatches(
+                method.getHolderType(),
+                (kind, naming) -> !kind.isSingleCallerInlineableInPostMethodProcessor(naming))) {
+              continue;
+            }
+          }
           Set<Node> callersWithDeterministicOrder = node.getCallersWithDeterministicOrder();
           DexMethod caller = reference;
           // We can have recursive methods where the recursive call is the only call site. We do
@@ -124,7 +137,7 @@ public abstract class CallSiteInformation {
           }
           DexMethod existing = singleCallerMethods.put(reference, caller);
           assert existing == null;
-        } else if (numberOfCallSites > 1) {
+        } else if (numberOfCallSites > 1 && methodProcessor.isPrimaryMethodProcessor()) {
           multiCallerInlineCandidates.add(reference);
         }
       }

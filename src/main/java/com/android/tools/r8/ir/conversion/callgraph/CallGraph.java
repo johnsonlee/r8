@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.conversion.callgraph;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.ir.conversion.MethodProcessorWithWave;
 import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation.CallGraphBasedCallSiteInformation;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
@@ -56,15 +57,25 @@ public class CallGraph extends CallGraphBase<Node> {
                     node -> node.getProgramMethod().getReference(), Function.identity())));
   }
 
-  public CallSiteInformation createCallSiteInformation(AppView<AppInfoWithLiveness> appView) {
+  public CallSiteInformation createCallSiteInformation(
+      AppView<AppInfoWithLiveness> appView, MethodProcessorWithWave methodProcessor) {
     // Don't leverage single/dual call site information when we are not tree shaking.
     return appView.options().isShrinking()
-        ? new CallGraphBasedCallSiteInformation(appView, this)
+        ? new CallGraphBasedCallSiteInformation(appView, this, methodProcessor)
         : CallSiteInformation.empty();
   }
 
   public ProgramMethodSet extractLeaves() {
     return extractNodes(Node::isLeaf, Node::cleanCallersAndReadersForRemoval);
+  }
+
+  public ProgramMethodSet extractLeaves(Consumer<Node> nodeRemovalConsumer) {
+    return extractNodes(
+        Node::isLeaf,
+        node -> {
+          nodeRemovalConsumer.accept(node);
+          node.cleanCallersAndReadersForRemoval();
+        });
   }
 
   public ProgramMethodSet extractRoots() {

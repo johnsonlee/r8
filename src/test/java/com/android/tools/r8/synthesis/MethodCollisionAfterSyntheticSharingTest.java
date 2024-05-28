@@ -47,6 +47,7 @@ public class MethodCollisionAfterSyntheticSharingTest extends TestBase {
                 .addOptionsModification(
                     options -> options.testing.enableSyntheticSharing = enableSyntheticSharing)
                 .enableInliningAnnotations()
+                .noClassInliningOfSynthetics()
                 .noHorizontalClassMergingOfSynthetics()
                 .setMinApi(parameters)
                 .compile()

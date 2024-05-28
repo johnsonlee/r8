@@ -232,6 +232,14 @@ public class SyntheticNaming {
       return descriptor;
     }
 
+    public boolean isSingleCallerInlineableInPostMethodProcessor(SyntheticNaming naming) {
+      // Do not allow single caller inlining the enum utility classes in the second optimization
+      // pass. We rewrite code on-the-fly to call these method, so removing them as a result of
+      // single caller inlining would lead to compilation errors.
+      return !equals(naming.ENUM_UNBOXING_LOCAL_UTILITY_CLASS)
+          && !equals(naming.ENUM_UNBOXING_SHARED_UTILITY_CLASS);
+    }
+
     public boolean isSyntheticMethodKind() {
       return false;
     }

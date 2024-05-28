@@ -250,12 +250,12 @@ public class SingleCallerInliner {
 
     @Override
     public DefaultInliningOracle createDefaultOracle(
+        IRCode code,
         ProgramMethod method,
         MethodProcessor methodProcessor,
-        int inliningInstructionAllowance,
         InliningReasonStrategy inliningReasonStrategy) {
       return new DefaultInliningOracle(
-          appView, inliningReasonStrategy, method, methodProcessor, inliningInstructionAllowance) {
+          appView, method, methodProcessor, inliningReasonStrategy, code) {
 
         @Override
         public InlineResult computeInlining(

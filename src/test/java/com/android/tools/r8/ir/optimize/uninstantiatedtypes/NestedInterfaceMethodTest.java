@@ -22,34 +22,34 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 /** Reproduction for b/128917897. */
 @RunWith(Parameterized.class)
 public class NestedInterfaceMethodTest extends TestBase {
 
-  private final TestParameters parameters;
+  private static final String expectedOutput = StringUtils.lines("In A.m()", "In C.m()");
+
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection params() {
     return getTestParameters().withAllRuntimes().build();
   }
 
-  public NestedInterfaceMethodTest(TestParameters parameters) {
-    this.parameters = parameters;
+  @Test
+  public void testJvm() throws Exception {
+    parameters.assumeCfRuntime();
+    testForJvm(parameters)
+        .addTestClasspath()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(expectedOutput);
   }
 
   @Test
-  public void test() throws Exception {
-    String expectedOutput = StringUtils.lines("In A.m()", "In A.m()");
-
-    if (parameters.isCfRuntime()) {
-      testForJvm(parameters)
-          .addTestClasspath()
-          .run(parameters.getRuntime(), TestClass.class)
-          .assertSuccessWithOutput(expectedOutput);
-    }
-
+  public void testR8() throws Exception {
     CodeInspector inspector =
         testForR8(parameters.getBackend())
             .addInnerClasses(NestedInterfaceMethodTest.class)
@@ -127,7 +127,14 @@ public class NestedInterfaceMethodTest extends TestBase {
   // TestClass.test() gets devirtualized to an invoke-virtual instruction. Otherwise the method
   // I.m() would not be present in the output.
   @NeverClassInline
-  static class C extends A {}
+  static class C implements I {
+
+    @Override
+    public Uninstantiated m() {
+      System.out.println("In C.m()");
+      return null;
+    }
+  }
 
   @NoHorizontalClassMerging
   static class Uninstantiated {}

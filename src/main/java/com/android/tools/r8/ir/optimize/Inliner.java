@@ -879,7 +879,7 @@ public class Inliner {
     }
   }
 
-  static int numberOfInstructions(IRCode code) {
+  public static int numberOfInstructions(IRCode code) {
     int numberOfInstructions = 0;
     for (BasicBlock block : code.blocks) {
       for (Instruction instruction : block.getInstructions()) {
@@ -964,13 +964,8 @@ public class Inliner {
       MethodProcessor methodProcessor,
       Timing timing,
       InliningReasonStrategy inliningReasonStrategy) {
-    InlinerOptions options = appView.options().inlinerOptions();
     DefaultInliningOracle oracle =
-        createDefaultOracle(
-            method,
-            methodProcessor,
-            options.inliningInstructionAllowance - numberOfInstructions(code),
-            inliningReasonStrategy);
+        createDefaultOracle(code, method, methodProcessor, inliningReasonStrategy);
     InliningIRProvider inliningIRProvider =
         new InliningIRProvider(appView, method, code, lensCodeRewriter, methodProcessor);
     assert inliningIRProvider.verifyIRCacheIsEmpty();
@@ -988,27 +983,12 @@ public class Inliner {
   }
 
   public DefaultInliningOracle createDefaultOracle(
+      IRCode code,
       ProgramMethod method,
       MethodProcessor methodProcessor,
-      int inliningInstructionAllowance) {
-    return createDefaultOracle(
-        method,
-        methodProcessor,
-        inliningInstructionAllowance,
-        createDefaultInliningReasonStrategy(methodProcessor));
-  }
-
-  public DefaultInliningOracle createDefaultOracle(
-      ProgramMethod method,
-      MethodProcessor methodProcessor,
-      int inliningInstructionAllowance,
       InliningReasonStrategy inliningReasonStrategy) {
     return new DefaultInliningOracle(
-        appView,
-        inliningReasonStrategy,
-        method,
-        methodProcessor,
-        inliningInstructionAllowance);
+        appView, method, methodProcessor, inliningReasonStrategy, code);
   }
 
   private void performInliningImpl(

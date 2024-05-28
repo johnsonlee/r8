@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
 import com.android.tools.r8.ir.conversion.passes.TrivialCheckCastAndInstanceOfRemover;
 import com.android.tools.r8.ir.optimize.AffectedValues;
+import com.android.tools.r8.ir.optimize.DefaultInliningOracle;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.InliningOracle;
 import com.android.tools.r8.ir.optimize.classinliner.InlineCandidateProcessor.IllegalClassInlinerStateException;
@@ -133,8 +134,17 @@ public final class ClassInliner {
       IRCode code,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext,
-      LazyBox<InliningOracle> defaultOracle) {
+      MethodProcessingContext methodProcessingContext) {
+    LazyBox<InliningOracle> defaultOracle =
+        new LazyBox<>(
+            () ->
+                new DefaultInliningOracle(
+                    appView,
+                    method,
+                    methodProcessor,
+                    inliner.createDefaultInliningReasonStrategy(methodProcessor),
+                    code));
+
     // Collect all the new-instance and static-get instructions in the code before inlining.
     List<Instruction> roots =
         Lists.newArrayList(code.instructions(insn -> insn.isNewInstance() || insn.isStaticGet()));

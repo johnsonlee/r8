@@ -64,8 +64,12 @@ public class OptimizationFeedbackDelayed extends OptimizationFeedback {
     return info;
   }
 
-  private MutableMethodOptimizationInfo getMethodOptimizationInfoForUpdating(ProgramMethod method) {
+  public MutableMethodOptimizationInfo getMethodOptimizationInfoForUpdating(ProgramMethod method) {
     return getMethodOptimizationInfoForUpdating(method.getDefinition());
+  }
+
+  public synchronized boolean hasPendingOptimizationInfo(ProgramMethod method) {
+    return methodOptimizationInfos.containsKey(method.getDefinition());
   }
 
   @Override

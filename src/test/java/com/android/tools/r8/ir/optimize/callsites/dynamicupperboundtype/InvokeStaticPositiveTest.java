@@ -7,6 +7,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoParameterTypeStrengthening;
 import com.android.tools.r8.NoVerticalClassMerging;
@@ -43,6 +44,7 @@ public class InvokeStaticPositiveTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(InvokeStaticPositiveTest.class)
         .addKeepMainRule(MAIN)
+        .enableNeverClassInliningAnnotations()
         .enableNoParameterTypeStrengtheningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .enableInliningAnnotations()
@@ -89,7 +91,9 @@ public class InvokeStaticPositiveTest extends TestBase {
   @NoVerticalClassMerging
   static class Base {}
 
+  @NeverClassInline
   static class Sub1 extends Base {}
+
   static class Sub2 extends Base {}
 
   static class Main {

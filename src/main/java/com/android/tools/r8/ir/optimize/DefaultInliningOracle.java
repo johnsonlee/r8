@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.ir.optimize.Inliner.numberOfInstructions;
 import static com.android.tools.r8.ir.optimize.inliner.InlinerUtils.addMonitorEnterValue;
 import static com.android.tools.r8.ir.optimize.inliner.InlinerUtils.collectAllMonitorEnterValues;
 import static com.android.tools.r8.utils.AndroidApiLevelUtils.isApiSafeForInlining;
@@ -75,9 +76,24 @@ public class DefaultInliningOracle implements InliningOracle {
 
   public DefaultInliningOracle(
       AppView<AppInfoWithLiveness> appView,
-      InliningReasonStrategy inliningReasonStrategy,
       ProgramMethod method,
       MethodProcessor methodProcessor,
+      InliningReasonStrategy inliningReasonStrategy,
+      IRCode code) {
+    this(
+        appView,
+        method,
+        methodProcessor,
+        inliningReasonStrategy,
+        appView.options().inlinerOptions().inliningInstructionAllowance
+            - numberOfInstructions(code));
+  }
+
+  public DefaultInliningOracle(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod method,
+      MethodProcessor methodProcessor,
+      InliningReasonStrategy inliningReasonStrategy,
       int inliningInstructionAllowance) {
     this.appView = appView;
     this.options = appView.options();
@@ -776,8 +792,8 @@ public class DefaultInliningOracle implements InliningOracle {
 
   private boolean willExceedInstructionBudget(
       IRCode inlinee, WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
-    int numberOfInstructions = Inliner.numberOfInstructions(inlinee);
-    if (instructionAllowance < Inliner.numberOfInstructions(inlinee)) {
+    int numberOfInstructions = numberOfInstructions(inlinee);
+    if (instructionAllowance < numberOfInstructions(inlinee)) {
       whyAreYouNotInliningReporter.reportWillExceedInstructionBudget(
           numberOfInstructions, instructionAllowance);
       return true;
@@ -887,7 +903,7 @@ public class DefaultInliningOracle implements InliningOracle {
   @Override
   public void markInlined(IRCode inlinee) {
     // TODO(118734615): All inlining use from the budget - should that only be SIMPLE?
-    instructionAllowance -= Inliner.numberOfInstructions(inlinee);
+    instructionAllowance -= numberOfInstructions(inlinee);
   }
 
   @Override

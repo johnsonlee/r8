@@ -50,6 +50,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.Timing;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -64,9 +65,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.objectweb.asm.ClassWriter;
 
@@ -520,6 +521,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       assert !reference.getKind().isGlobal();
     }
     return true;
+  }
+
+  public boolean hasKindThatMatches(
+      DexType type, BiPredicate<? super SyntheticKind, ? super SyntheticNaming> predicate) {
+    return Iterables.any(getSyntheticKinds(type), kind -> predicate.test(kind, naming));
   }
 
   public boolean isSyntheticOfKind(DexType type, SyntheticKindSelector kindSelector) {

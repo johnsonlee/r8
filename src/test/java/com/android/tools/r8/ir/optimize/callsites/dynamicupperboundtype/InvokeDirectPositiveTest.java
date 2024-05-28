@@ -100,7 +100,9 @@ public class InvokeDirectPositiveTest extends TestBase {
   @NoVerticalClassMerging
   static class Base {}
 
+  @NeverClassInline
   static class Sub1 extends Base {}
+
   static class Sub2 extends Base {}
 
   @NeverClassInline

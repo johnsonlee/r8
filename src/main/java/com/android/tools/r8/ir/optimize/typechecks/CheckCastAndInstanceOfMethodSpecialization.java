@@ -58,7 +58,7 @@ public class CheckCastAndInstanceOfMethodSpecialization {
     if (!converter.isInWave()) {
       return;
     }
-    assert methodProcessor.isPrimaryMethodProcessor();
+    assert methodProcessor.isPrimaryMethodProcessor() || methodProcessor.isPostMethodProcessor();
     if (isCandidateForInstanceOfOptimization(method, abstractReturnValue)) {
       synchronized (this) {
         if (candidatesForInstanceOfOptimization.isEmpty()) {

@@ -33,6 +33,10 @@ public abstract class MethodProcessor {
     return false;
   }
 
+  public PostMethodProcessor asPostMethodProcessor() {
+    return null;
+  }
+
   public abstract MethodProcessorEventConsumer getEventConsumer();
 
   public abstract boolean isProcessedConcurrently(ProgramMethod method);

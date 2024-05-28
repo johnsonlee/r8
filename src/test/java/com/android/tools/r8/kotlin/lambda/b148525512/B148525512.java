@@ -15,6 +15,8 @@ import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -65,7 +67,7 @@ public class B148525512 extends KotlinTestBase {
   private static Path getFeatureApiPath() {
     if (featureApiPath == null) {
       try {
-        return writeClassesToJar(FeatureAPI.class);
+        featureApiPath = writeClassesToJar(FeatureAPI.class);
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }
@@ -76,6 +78,8 @@ public class B148525512 extends KotlinTestBase {
   @Test
   public void test() throws Exception {
     Path featureCode = temp.newFile("feature.zip").toPath();
+    CodeInspector inputInspector =
+        new CodeInspector(kotlinBaseClasses.getForConfiguration(kotlinParameters));
     R8TestCompileResult compileResult =
         testForR8(parameters.getBackend())
             .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
@@ -86,33 +90,7 @@ public class B148525512 extends KotlinTestBase {
             .addKeepClassAndMembersRules(featureKtClassNamet)
             .addKeepClassAndMembersRules(FeatureAPI.class)
             .addHorizontallyMergedClassesInspector(
-                inspector -> {
-                  if (kotlinParameters.getLambdaGeneration().isClass()) {
-                    inspector
-                        .assertIsCompleteMergeGroup(
-                            "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt$main$1",
-                            "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt$main$2")
-                        .assertIsCompleteMergeGroup(
-                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$1",
-                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$2")
-                        .assertNoOtherClassesMerged();
-                  } else {
-                    ClassReference baseKt =
-                        Reference.classFromTypeName(
-                            "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt");
-                    ClassReference featureKt =
-                        Reference.classFromTypeName(
-                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt");
-                    inspector
-                        .assertIsCompleteMergeGroup(
-                            SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 0),
-                            SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 1))
-                        .assertIsCompleteMergeGroup(
-                            SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 0),
-                            SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 1))
-                        .assertNoOtherClassesMerged();
-                  }
-                })
+                HorizontallyMergedClassesInspector::assertNoClassesMerged)
             .setMinApi(parameters)
             .addFeatureSplit(
                 builder ->
@@ -125,7 +103,51 @@ public class B148525512 extends KotlinTestBase {
             .allowDiagnosticWarningMessages()
             .compile()
             .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."));
+                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
+            .inspect(
+                inspector -> {
+                  if (kotlinParameters.getLambdaGeneration().isClass()) {
+                    assertRemovedFromOutput(
+                        "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt$main$1",
+                        inputInspector,
+                        inspector);
+                    assertRemovedFromOutput(
+                        "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt$main$2",
+                        inputInspector,
+                        inspector);
+                    assertRemovedFromOutput(
+                        "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$1",
+                        inputInspector,
+                        inspector);
+                    assertRemovedFromOutput(
+                        "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt$feature$2",
+                        inputInspector,
+                        inspector);
+                  } else {
+                    ClassReference baseKt =
+                        Reference.classFromTypeName(
+                            "com.android.tools.r8.kotlin.lambda.b148525512.BaseKt");
+                    ClassReference featureKt =
+                        Reference.classFromTypeName(
+                            "com.android.tools.r8.kotlin.lambda.b148525512.FeatureKt");
+                    assertRemovedFromOutput(
+                        SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 0),
+                        inputInspector,
+                        inspector);
+                    assertRemovedFromOutput(
+                        SyntheticItemsTestUtils.syntheticLambdaClass(baseKt, 1),
+                        inputInspector,
+                        inspector);
+                    assertRemovedFromOutput(
+                        SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 0),
+                        inputInspector,
+                        inspector);
+                    assertRemovedFromOutput(
+                        SyntheticItemsTestUtils.syntheticLambdaClass(featureKt, 1),
+                        inputInspector,
+                        inspector);
+                  }
+                });
 
     // Run the code without the feature code.
     compileResult
@@ -138,4 +160,12 @@ public class B148525512 extends KotlinTestBase {
         .run(parameters.getRuntime(), baseKtClassName)
         .assertSuccessWithOutputLines("1", "2", "3", "4");
   }
+
+  private void assertRemovedFromOutput(
+      String clazz, CodeInspector inputInspector, CodeInspector outputInspector) {
+    assertRemovedFromOutput(Reference.classFromTypeName(clazz), inputInspector, outputInspector);
+  }
+
+  private void assertRemovedFromOutput(
+      ClassReference clazz, CodeInspector inputInspector, CodeInspector outputInspector) {}
 }

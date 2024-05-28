@@ -169,6 +169,11 @@ public abstract class DexClassAndMemberMap<K extends DexClassAndMember<?, ?>, V>
         .removeIf(entry -> predicate.test(entry.getKey().get(), entry.getValue(), entry));
   }
 
+  public V removeOrDefault(K member, V defaultValue) {
+    V value = remove(member);
+    return value != null ? value : defaultValue;
+  }
+
   @Override
   public int size() {
     return backing.size();

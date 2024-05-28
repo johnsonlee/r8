@@ -74,9 +74,9 @@ public class MultiCallerInliner {
               int inliningInstructionAllowance = Integer.MAX_VALUE;
               return new DefaultInliningOracle(
                   appView,
-                  new FixedInliningReasonStrategy(Reason.ALWAYS),
                   method,
                   methodProcessor,
+                  new FixedInliningReasonStrategy(Reason.ALWAYS),
                   inliningInstructionAllowance);
             });
     for (InvokeMethod invoke : code.<InvokeMethod>instructions(Instruction::isInvokeMethod)) {

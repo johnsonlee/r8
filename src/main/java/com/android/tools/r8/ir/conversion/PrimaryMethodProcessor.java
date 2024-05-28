@@ -10,9 +10,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.callgraph.CallGraph;
 import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
-import com.android.tools.r8.ir.conversion.callgraph.Node;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
@@ -52,7 +50,7 @@ public class PrimaryMethodProcessor extends MethodProcessorWithWave {
       CallGraph callGraph,
       MethodProcessorEventConsumer eventConsumer) {
     this.appView = appView;
-    this.callSiteInformation = callGraph.createCallSiteInformation(appView);
+    this.callSiteInformation = callGraph.createCallSiteInformation(appView, this);
     this.eventConsumer = eventConsumer;
     this.waves = createWaves(appView, callGraph);
   }
@@ -93,16 +91,12 @@ public class PrimaryMethodProcessor extends MethodProcessorWithWave {
     return callSiteInformation;
   }
 
-  @SuppressWarnings("UnusedVariable")
   private Deque<ProgramMethodSet> createWaves(AppView<?> appView, CallGraph callGraph) {
-    InternalOptions options = appView.options();
     Deque<ProgramMethodSet> waves = new ArrayDeque<>();
-    Collection<Node> nodes = callGraph.getNodes();
-    while (!nodes.isEmpty()) {
-      ProgramMethodSet wave = callGraph.extractLeaves();
-      waves.addLast(wave);
+    while (!callGraph.isEmpty()) {
+      waves.addLast(callGraph.extractLeaves());
     }
-    options.testing.waveModifier.accept(waves);
+    appView.testing().waveModifier.accept(waves);
     return waves;
   }
 

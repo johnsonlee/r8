@@ -132,6 +132,10 @@ public class Node extends NodeBase<Node> implements Comparable<Node>, CycleElimi
     }
   }
 
+  public Set<Node> getCallers() {
+    return callers;
+  }
+
   public Set<Node> getCallersWithDeterministicOrder() {
     return callers;
   }

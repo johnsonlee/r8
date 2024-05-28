@@ -6,9 +6,8 @@ package com.android.tools.r8.repackage;
 
 import static com.android.tools.r8.shaking.ProguardConfigurationParser.FLATTEN_PACKAGE_HIERARCHY;
 import static com.android.tools.r8.shaking.ProguardConfigurationParser.REPACKAGE_CLASSES;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
@@ -28,7 +27,7 @@ public class RepackageWithSyntheticItemTest extends RepackageTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         ImmutableList.of(FLATTEN_PACKAGE_HIERARCHY, REPACKAGE_CLASSES),
-        getTestParameters().withDexRuntimes().withAllApiLevels().build());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build());
   }
 
   public RepackageWithSyntheticItemTest(
@@ -39,7 +38,7 @@ public class RepackageWithSyntheticItemTest extends RepackageTestBase {
   @Test
   public void testRuntime() throws Exception {
     testForRuntime(parameters)
-        .addInnerClasses(RepackageWithSyntheticItemTest.class)
+        .addInnerClasses(getClass())
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("0");
   }
@@ -47,13 +46,13 @@ public class RepackageWithSyntheticItemTest extends RepackageTestBase {
   @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
-        .addInnerClasses(RepackageWithSyntheticItemTest.class)
+        .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addKeepClassRules(I.class)
-        .setMinApi(parameters)
         .apply(this::configureRepackaging)
+        .enableInliningAnnotations()
         .noClassInlining()
-        .addInliningAnnotations()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("0")
         .inspect(
@@ -63,11 +62,13 @@ public class RepackageWithSyntheticItemTest extends RepackageTestBase {
                   inspector.allClasses().stream()
                       .filter(item -> item.getFinalName().startsWith("foo"))
                       .collect(Collectors.toList());
-              assertEquals(1, classesStartingWithfoo.size());
+              assertEquals(2, classesStartingWithfoo.size());
               String expectedOriginalNamePrefix = typeName(A.class) + "$$ExternalSyntheticLambda0";
-              assertThat(
-                  classesStartingWithfoo.get(0).getOriginalTypeName(),
-                  containsString(expectedOriginalNamePrefix));
+              assertTrue(
+                  classesStartingWithfoo.stream()
+                      .anyMatch(
+                          clazz ->
+                              clazz.getOriginalTypeName().contains(expectedOriginalNamePrefix)));
             });
   }
 

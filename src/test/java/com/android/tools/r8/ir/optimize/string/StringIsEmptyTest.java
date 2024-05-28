@@ -6,7 +6,6 @@ package com.android.tools.r8.ir.optimize.string;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.D8TestRunResult;
 import com.android.tools.r8.NeverInline;
@@ -15,7 +14,6 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -23,6 +21,8 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class StringIsEmptyTest extends TestBase {
@@ -34,16 +34,13 @@ public class StringIsEmptyTest extends TestBase {
   );
   private static final Class<?> MAIN = TestClass.class;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private final TestParameters parameters;
-
-  public StringIsEmptyTest(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Test
   public void testJVMOutput() throws Exception {
@@ -54,13 +51,8 @@ public class StringIsEmptyTest extends TestBase {
         .assertSuccessWithOutput(JAVA_OUTPUT);
   }
 
-  private void configure(InternalOptions options) {
-    // This test wants to check if compile-time computation is not applied to non-null,
-    // non-constant value. In a simple test setting, call-site optimization knows the argument is
-    // always a non-null, specific constant, but that is beyond the scope of this test.
-  }
-
-  private void test(SingleTestRunResult result, int expectedStringIsEmptyCount) throws Exception {
+  private void test(SingleTestRunResult<?> result, int expectedStringIsEmptyCount)
+      throws Exception {
     CodeInspector codeInspector = result.inspector();
     ClassSubject mainClass = codeInspector.clazz(MAIN);
     MethodSubject mainMethod = mainClass.mainMethod();
@@ -75,14 +67,13 @@ public class StringIsEmptyTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    assumeTrue("Only run D8 for Dex backend", parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
 
     D8TestRunResult result =
         testForD8()
             .debug()
             .addProgramClasses(MAIN)
             .setMinApi(parameters)
-            .addOptionsModification(this::configure)
             .run(parameters.getRuntime(), MAIN)
             .assertSuccessWithOutput(JAVA_OUTPUT);
     test(result, 3);
@@ -92,7 +83,6 @@ public class StringIsEmptyTest extends TestBase {
             .release()
             .addProgramClasses(MAIN)
             .setMinApi(parameters)
-            .addOptionsModification(this::configure)
             .run(parameters.getRuntime(), MAIN)
             .assertSuccessWithOutput(JAVA_OUTPUT);
     test(result, 1);
@@ -103,14 +93,12 @@ public class StringIsEmptyTest extends TestBase {
     R8TestRunResult result =
         testForR8(parameters.getBackend())
             .addProgramClasses(MAIN)
-            .enableProguardTestOptions()
-            .enableInliningAnnotations()
             .addKeepMainRule(MAIN)
+            .enableInliningAnnotations()
             .setMinApi(parameters)
-            .addOptionsModification(this::configure)
             .run(parameters.getRuntime(), MAIN)
             .assertSuccessWithOutput(JAVA_OUTPUT);
-    test(result, 1);
+    test(result, 0);
   }
 
   static class TestClass {
