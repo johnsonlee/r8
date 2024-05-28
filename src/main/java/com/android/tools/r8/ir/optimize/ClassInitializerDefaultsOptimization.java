@@ -28,6 +28,7 @@ import com.android.tools.r8.graph.DexValue.DexValueFloat;
 import com.android.tools.r8.graph.DexValue.DexValueInt;
 import com.android.tools.r8.graph.DexValue.DexValueLong;
 import com.android.tools.r8.graph.DexValue.DexValueNull;
+import com.android.tools.r8.graph.DexValue.DexValueResourceNumber;
 import com.android.tools.r8.graph.DexValue.DexValueShort;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.FieldResolutionResult;
@@ -188,6 +189,9 @@ public class ClassInitializerDefaultsOptimization {
               } else {
                 throw new Unreachable("Unexpected default value for field type " + fieldType + ".");
               }
+            } else if (value.isConstResourceNumber()) {
+              int resourceValue = value.getDefinition().asResourceConstNumber().getValue();
+              fieldsWithStaticValues.put(field, DexValueResourceNumber.create(resourceValue));
             } else {
               ConstNumber cnst = value.getConstInstruction().asConstNumber();
               if (fieldType == dexItemFactory.booleanType) {
@@ -442,7 +446,7 @@ public class ClassInitializerDefaultsOptimization {
                     isWrittenBefore.remove(fieldReference);
                   }
                   continue;
-                } else if ((fieldReference.type.isPrimitiveType() && !hasPutOfConstResource(put))
+                } else if (fieldReference.type.isPrimitiveType()
                     || fieldReference.type == dexItemFactory.stringType) {
                   finalFieldPuts.put(field, put);
                   unnecessaryStaticPuts.add(put);
@@ -507,10 +511,6 @@ public class ClassInitializerDefaultsOptimization {
       code.returnMarkingColor(color);
     }
     return validateFinalFieldPuts(finalFieldPuts, isWrittenBefore);
-  }
-
-  private boolean hasPutOfConstResource(StaticPut put) {
-    return put.value().isConstResourceNumber();
   }
 
   private Map<DexEncodedField, StaticPut> validateFinalFieldPuts(

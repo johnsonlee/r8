@@ -277,7 +277,9 @@ public abstract class UseRegistry<T extends Definition> {
               || arg.isDexValueLong()
               || arg.isDexValueFloat()
               || arg.isDexValueDouble()
-              || arg.isDexValueString();
+              || arg.isDexValueString()
+              || arg.isDexValueResourceNumber();
+          break;
       }
       if (continuation.shouldBreak()) {
         break;

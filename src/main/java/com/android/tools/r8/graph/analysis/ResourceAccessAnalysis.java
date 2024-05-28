@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
@@ -46,8 +47,25 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
-    if (enabled(appView, enqueuer)) {
+    if (fieldAccessAnalysisEnabled(appView, enqueuer)) {
       enqueuer.registerFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
+    }
+    if (liveFieldAnalysisEnabled(appView, enqueuer)) {
+      enqueuer.registerAnalysis(
+          new EnqueuerAnalysis() {
+            @Override
+            public void processNewlyLiveField(
+                ProgramField field, ProgramDefinition context, EnqueuerWorklist worklist) {
+              DexEncodedField definition = field.getDefinition();
+              if (field.getAccessFlags().isStatic()
+                  && definition.hasExplicitStaticValue()
+                  && definition.getStaticValue().isDexValueResourceNumber()) {
+                appView
+                    .getResourceShrinkerState()
+                    .trace(definition.getStaticValue().asDexValueResourceNumber().getValue());
+              }
+            }
+          });
     }
   }
 
@@ -56,7 +74,14 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
     EnqueuerFieldAccessAnalysis.super.done(enqueuer);
   }
 
-  private static boolean enabled(
+  private static boolean liveFieldAnalysisEnabled(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+    return appView.options().androidResourceProvider != null
+        && appView.options().isOptimizedResourceShrinking()
+        && enqueuer.getMode().isFinalTreeShaking();
+  }
+
+  private static boolean fieldAccessAnalysisEnabled(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     return appView.options().androidResourceProvider != null
         && appView.options().resourceShrinkerConfiguration.isOptimizedShrinking()

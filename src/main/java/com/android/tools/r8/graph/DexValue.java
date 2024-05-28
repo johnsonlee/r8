@@ -30,6 +30,7 @@ import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.objectweb.asm.ConstantDynamic;
@@ -57,7 +58,8 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
     ANNOTATION(0x1d),
     NULL(0x1e),
     BOOLEAN(0x1f),
-    CONST_DYNAMIC(-1);
+    CONST_DYNAMIC(-1),
+    RESOURCE_NUMBER(-2);
 
     public static DexValueKind fromId(int id) {
       switch (id) {
@@ -99,6 +101,8 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
           return BOOLEAN;
         case -1:
           return CONST_DYNAMIC;
+        case -2:
+          return RESOURCE_NUMBER;
         default:
           throw new Unreachable();
       }
@@ -263,6 +267,14 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
   }
 
   public DexValueInt asDexValueInt() {
+    return null;
+  }
+
+  public boolean isDexValueResourceNumber() {
+    return false;
+  }
+
+  public DexValueResourceNumber asDexValueResourceNumber() {
     return null;
   }
 
@@ -883,6 +895,96 @@ public abstract class DexValue extends DexItem implements StructuralItem<DexValu
     public ConstInstruction asConstInstruction(
         AppView<? extends AppInfoWithClassHierarchy> appView, IRCode code, DebugLocalInfo local) {
       return code.createIntConstant(value, local);
+    }
+  }
+
+  public static class DexValueResourceNumber extends DexValueNumber {
+    private final int value;
+
+    private DexValueResourceNumber(int value) {
+      this.value = value;
+    }
+
+    public static DexValueResourceNumber create(int value) {
+      return new DexValueResourceNumber(value);
+    }
+
+    public int getValue() {
+      return value;
+    }
+
+    @Override
+    public AbstractValue toAbstractValue(AbstractValueFactory factory) {
+      return factory.createSingleResourceNumberValue(getValue());
+    }
+
+    @Override
+    public void writeTo(DexOutputBuffer dest, ObjectToOffsetMapping mapping) {
+      writeIntegerTo(DexValueKind.INT, value, Integer.BYTES, dest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(value, getValueKind());
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == this) {
+        return true;
+      }
+      return other instanceof DexValueResourceNumber
+          && value == ((DexValueResourceNumber) other).value;
+    }
+
+    @Override
+    public String toString() {
+      return "ResourceNumber " + value;
+    }
+
+    @Override
+    public DexType getType(DexItemFactory factory) {
+      return factory.intType;
+    }
+
+    @Override
+    public long getRawValue() {
+      return value;
+    }
+
+    @Override
+    public Object getBoxedValue() {
+      return value;
+    }
+
+    @Override
+    public Object asAsmEncodedObject() {
+      return Integer.valueOf(value);
+    }
+
+    @Override
+    void internalAcceptHashing(HashingVisitor visitor) {
+      visitor.visitInt(value);
+    }
+
+    @Override
+    int internalAcceptCompareTo(DexValue other, CompareToVisitor visitor) {
+      return visitor.visitInt(value, other.asDexValueResourceNumber().value);
+    }
+
+    @Override
+    public DexValueKind getValueKind() {
+      return DexValueKind.RESOURCE_NUMBER;
+    }
+
+    @Override
+    public boolean isDexValueResourceNumber() {
+      return true;
+    }
+
+    @Override
+    public DexValueResourceNumber asDexValueResourceNumber() {
+      return this;
     }
   }
 
