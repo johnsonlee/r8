@@ -92,16 +92,15 @@ public class BackportedMethodListTest extends TestBase {
             && (mode == Mode.LIBRARY_DESUGAR || apiLevel >= AndroidApiLevel.N.getLevel()),
         backports.contains("java/util/OptionalLong#isEmpty()Z"));
 
-    // Java 9, 10 and 11 method added at API level S.
+    // Java 9, 10 and 11 methods added at API level S.
     assertEquals(
         apiLevel < AndroidApiLevel.S.getLevel(),
         backports.contains("java/lang/StrictMath#multiplyExact(JI)J"));
-    // Java 9, 10 and 11 method added at API level S.
     assertEquals(
         apiLevel < AndroidApiLevel.S.getLevel(),
         backports.contains("java/util/List#copyOf(Ljava/util/Collection;)Ljava/util/List;"));
 
-    // Java 9, 10 and 11 method added at API level T.
+    // Java 9, 10 and 11 methods added at API level T.
     assertEquals(
         apiLevel < AndroidApiLevel.T.getLevel(),
         backports.contains("java/lang/Integer#parseInt(Ljava/lang/CharSequence;III)I"));
@@ -109,8 +108,16 @@ public class BackportedMethodListTest extends TestBase {
         apiLevel < AndroidApiLevel.T.getLevel(),
         backports.contains("java/lang/String#repeat(I)Ljava/lang/String;"));
 
-    // Java 9, 10 and 11 methods not yet added.
-    assertTrue(backports.contains("java/lang/Character#toString(I)Ljava/lang/String;"));
+    // Java 9, 10 and 11 method added at API level U.
+    assertEquals(
+        apiLevel < AndroidApiLevel.U.getLevel(),
+        backports.contains(
+            "java/lang/CharSequence#compare(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)I"));
+
+    // Java 9, 10 and 11 method added at API level V.
+    assertEquals(
+        apiLevel < AndroidApiLevel.V.getLevel(),
+        backports.contains("java/lang/Character#toString(I)Ljava/lang/String;"));
   }
 
   private void addLibraryDesugaring(BackportedMethodListCommand.Builder builder) {

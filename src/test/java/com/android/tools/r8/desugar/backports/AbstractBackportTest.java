@@ -90,6 +90,11 @@ abstract class AbstractBackportTest extends TestBase {
   }
 
   AbstractBackportTest(
+      TestParameters parameters, Class<?> targetClass, List<byte[]> testClassFileData) {
+    this(parameters, new ClassInfo(targetClass), new ClassInfo(testClassFileData), null, null);
+  }
+
+  AbstractBackportTest(
       TestParameters parameters, String className, List<byte[]> testClassFileData) {
     this(parameters, new ClassInfo(className), new ClassInfo(testClassFileData), null, null);
   }
