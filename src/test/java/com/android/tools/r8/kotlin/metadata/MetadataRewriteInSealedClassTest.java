@@ -145,7 +145,12 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinParameters))
             // Keep the Expr class
-            .addKeepRules("-keep class **.Expr")
+            .applyIf(
+                kotlinc
+                    .getCompilerVersion()
+                    .isLessThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_4_20),
+                b -> b.addKeepClassAndDefaultConstructor("**.Expr"),
+                b -> b.addKeepClassRules("**.Expr"))
             // Keep the extension function
             .addKeepRules("-keep class **.LibKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
