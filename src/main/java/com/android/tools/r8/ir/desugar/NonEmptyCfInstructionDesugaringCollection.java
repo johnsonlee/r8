@@ -131,6 +131,8 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
                 lambdaDesugaring, stringConcatDesugaring, recordRewriter));
     if (interfaceMethodRewriter != null) {
       desugarings.add(interfaceMethodRewriter);
+    } else if (appView.options().canHaveArtArrayCloneFromInterfaceMethodBug()) {
+      desugarings.add(new OutlineArrayCloneFromInterfaceMethodDesugaring(appView));
     }
     desugaredLibraryAPIConverter =
         appView.typeRewriter.isRewriting()
@@ -186,6 +188,10 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     NonEmptyCfInstructionDesugaringCollection desugaringCollection =
         new NonEmptyCfInstructionDesugaringCollection(appView, apiLevelCompute);
     desugaringCollection.desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
+    if (appView.options().canHaveArtArrayCloneFromInterfaceMethodBug()) {
+      desugaringCollection.desugarings.add(
+          new OutlineArrayCloneFromInterfaceMethodDesugaring(appView));
+    }
     desugaringCollection.yieldingDesugarings.add(
         new UnrepresentableInDexInstructionRemover(appView));
     return desugaringCollection;

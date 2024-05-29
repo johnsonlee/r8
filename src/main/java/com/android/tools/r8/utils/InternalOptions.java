@@ -3066,6 +3066,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return true;
   }
 
+  // Art 7 and up can fail access check for array clone calls from within interface methods.
+  // See b/342802978.
+  public boolean canHaveArtArrayCloneFromInterfaceMethodBug() {
+    return true;
+  }
+
   // The dalvik verifier will crash the program if there is a try catch block with an exception
   // type that does not exist.
   // We don't do anything special about this, except that we don't inline methods that have a

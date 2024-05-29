@@ -76,6 +76,7 @@ public class SyntheticNaming {
       generator.forSingleMethod("BackportWithForwarding");
   public final SyntheticKind STATIC_INTERFACE_CALL =
       generator.forSingleMethod("StaticInterfaceCall");
+  public final SyntheticKind OBJECT_CLONE_OUTLINE = generator.forSingleMethod("ObjectCloneOutline");
   public final SyntheticKind TO_STRING_IF_NOT_NULL =
       generator.forSingleMethodWithGlobalMerging("ToStringIfNotNull");
   public final SyntheticKind THROW_CCE_IF_NOT_NULL =

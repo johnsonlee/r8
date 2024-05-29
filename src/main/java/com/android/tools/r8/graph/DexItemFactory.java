@@ -1691,6 +1691,17 @@ public class DexItemFactory {
             "bootstrap");
   }
 
+  public boolean isArrayClone(DexMethod method) {
+    return method.getHolderType().isArrayType()
+        && isObjectCloneWithoutHolderCheck(method.getProto(), method.getName());
+  }
+
+  public boolean isObjectCloneWithoutHolderCheck(DexProto proto, DexString name) {
+    return cloneMethodName.isIdenticalTo(name)
+        && proto.getParameters().isEmpty()
+        && objectType.isIdenticalTo(proto.getReturnType());
+  }
+
   public class ObjectMembers {
 
     /**

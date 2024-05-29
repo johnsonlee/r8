@@ -11,6 +11,8 @@ public interface InterfaceMethodDesugaringEventConsumer
 
   void acceptInvokeStaticInterfaceOutliningMethod(ProgramMethod method, ProgramMethod context);
 
+  void acceptInvokeObjectCloneOutliningMethod(ProgramMethod method, ProgramMethod context);
+
   static EmptyInterfaceMethodDesugaringEventConsumer emptyInterfaceMethodDesugaringEventConsumer() {
     return EmptyInterfaceMethodDesugaringEventConsumer.INSTANCE;
   }
@@ -36,6 +38,12 @@ public interface InterfaceMethodDesugaringEventConsumer
 
     @Override
     public void acceptInvokeStaticInterfaceOutliningMethod(
+        ProgramMethod method, ProgramMethod context) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptInvokeObjectCloneOutliningMethod(
         ProgramMethod method, ProgramMethod context) {
       // Intentionally empty.
     }

@@ -187,6 +187,12 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   }
 
   @Override
+  public void acceptInvokeObjectCloneOutliningMethod(ProgramMethod method, ProgramMethod context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
+    parent.acceptInvokeObjectCloneOutliningMethod(method, context);
+  }
+
+  @Override
   public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
     addLambdaClassAndInstanceInitializersIfSynthesizingContextIsInProfile(lambdaClass, context);
     addLambdaFactoryMethodIfSynthesizingContextIsInProfile(lambdaClass, context);

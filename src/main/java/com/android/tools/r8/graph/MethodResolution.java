@@ -108,11 +108,10 @@ public class MethodResolution {
    * 10.7 of the Java Language Specification</a>. All invokations will have target java.lang.Object
    * except clone which has no target.
    */
-  @SuppressWarnings("ReferenceEquality")
   private MethodResolutionResult resolveMethodOnArray(
       DexType holder, DexProto methodProto, DexString methodName) {
     assert holder.isArrayType();
-    if (methodName == factory.cloneMethodName) {
+    if (factory.isObjectCloneWithoutHolderCheck(methodProto, methodName)) {
       return ArrayCloneMethodResult.INSTANCE;
     } else {
       return resolveMethodOnClass(factory.objectType, methodProto, methodName);
