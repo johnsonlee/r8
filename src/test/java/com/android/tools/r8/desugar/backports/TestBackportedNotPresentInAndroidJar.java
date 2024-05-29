@@ -90,18 +90,12 @@ public class TestBackportedNotPresentInAndroidJar extends TestBase {
       if (apiLevel == AndroidApiLevel.MAIN) {
         continue;
       }
-      if (apiLevel == AndroidApiLevel.U) {
-        continue;
-      }
-      if (apiLevel == AndroidApiLevel.T) {
-        continue;
-      }
       if (!ToolHelper.hasAndroidJar(apiLevel)) {
         // Only check for the android jar versions present in third_party.
         System.out.println("Skipping check for " + apiLevel);
         continue;
       }
-      // Check that the backported methods for each API level are are not present in the
+      // Check that the backported methods for each API level are not present in the
       // android.jar for that level.
       CodeInspector inspector = new CodeInspector(ToolHelper.getAndroidJar(apiLevel));
       InternalOptions options = new InternalOptions();

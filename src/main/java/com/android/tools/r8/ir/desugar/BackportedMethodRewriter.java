@@ -295,6 +295,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         }
         initializeAndroidUMethodProviders(factory);
       }
+      if (options.getMinApiLevel().isLessThan(AndroidApiLevel.V)) {
+        initializeAndroidVMethodProviders(factory);
+      }
 
       initializeMethodProvidersUnimplementedOnAndroid(factory);
     }
@@ -1726,6 +1729,17 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       addProvider(
           new MethodGenerator(method, BackportedMethods::ObjectsMethods_checkFromIndexSizeLong));
 
+      // CharSequence
+      type = factory.charSequenceType;
+
+      // int CharSequence.compare(CharSequence, CharSequence)
+      name = factory.createString("compare");
+      proto =
+          factory.createProto(factory.intType, factory.charSequenceType, factory.charSequenceType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodGenerator(method, BackportedMethods::CharSequenceMethods_compare, "compare"));
+
       DexType[] mathTypes = {factory.mathType, factory.strictMathType};
       for (DexType mathType : mathTypes) {
         // int {StrictMath.Math}.absExact(int)
@@ -1743,7 +1757,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       initializeMathExactApis(factory, factory.strictMathType);
     }
 
-    private void initializeMethodProvidersUnimplementedOnAndroid(DexItemFactory factory) {
+    private void initializeAndroidVMethodProviders(DexItemFactory factory) {
       // Character
       DexType type = factory.boxedCharType;
 
@@ -1754,17 +1768,10 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       addProvider(
           new MethodGenerator(
               method, BackportedMethods::CharacterMethods_toStringCodepoint, "toStringCodepoint"));
+    }
 
-      // CharSequence
-      type = factory.charSequenceType;
-
-      // int CharSequence.compare(CharSequence, CharSequence)
-      name = factory.createString("compare");
-      proto =
-          factory.createProto(factory.intType, factory.charSequenceType, factory.charSequenceType);
-      method = factory.createMethod(type, proto, name);
-      addProvider(
-          new MethodGenerator(method, BackportedMethods::CharSequenceMethods_compare, "compare"));
+    private void initializeMethodProvidersUnimplementedOnAndroid(DexItemFactory factory) {
+      // None at the moment.
     }
 
     private void initializeAndroidUStreamMethodProviders(DexItemFactory factory) {
