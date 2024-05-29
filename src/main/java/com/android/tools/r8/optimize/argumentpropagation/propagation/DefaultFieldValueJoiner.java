@@ -263,7 +263,8 @@ public class DefaultFieldValueJoiner {
             // injected subclasses if it is pinned. However, none of the fields are pinned, so we
             // should be allowed to reason about the field assignments in the program.
             assert fields.stream()
-                .noneMatch(field -> appView.getKeepInfo(field).isPinned(appView.options()));
+                .allMatch(
+                    field -> appView.getKeepInfo(field).isValuePropagationAllowed(appView, field));
             return false;
           }
           fields.forEach(liveDefaultValueConsumer);
