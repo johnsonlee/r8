@@ -247,6 +247,8 @@ public class VirtualFile {
             indexedItems.callSites,
             indexedItems.methodHandles,
             lazyDexStringsCount,
+            startupProfile,
+            this,
             timing);
   }
 

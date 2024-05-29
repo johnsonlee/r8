@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
@@ -53,7 +54,7 @@ public class DebugByteCodeWriterTest {
         appView,
         null,
         new LensCodeRewriterUtils(appView),
-        Collections.emptyList(),
+        Collections.emptySet(),
         Collections.emptyMap(),
         Collections.emptyList(),
         Collections.emptyList(),
@@ -62,6 +63,8 @@ public class DebugByteCodeWriterTest {
         Collections.emptyList(),
         Collections.emptyList(),
         0,
+        StartupProfile.empty(),
+        null,
         Timing.empty());
   }
 
