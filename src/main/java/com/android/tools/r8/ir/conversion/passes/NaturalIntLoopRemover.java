@@ -19,6 +19,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.utils.WorkList;
+import com.google.common.collect.Sets;
 import java.util.Set;
 
 /**
@@ -109,7 +110,7 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
     if (!analyzeLoopExit(loopBody, comparison, builder)) {
       return false;
     }
-    if (!analyzePhiUses(loopBody, comparison)) {
+    if (!analyzePhiUses(loopBody, comparison, builder)) {
       return false;
     }
 
@@ -123,10 +124,25 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
   }
 
   /**
-   * The loop unroller removes phis corresponding to the loop backjump if they are not used outside
-   * the loop.
+   * The loop unroller removes phis corresponding to the loop backjump. There are three scenarios:
+   * (1) The loop has a single exit point analyzed, phis used outside the loop are replaced by the
+   *     value at the end of the loop body.
+   * (2) The phis are unused outside the loop, and they are simply removed.
+   * (3) The loop has multiple exits and the phis are used outside the loop, this would require
+   *     dealing with complex merge point and postponing phis after the loop, we bail out.
    */
-  private boolean analyzePhiUses(Set<BasicBlock> loopBody, If comparison) {
+  private boolean analyzePhiUses(
+      Set<BasicBlock> loopBody, If comparison, NaturalIntLoopWithKnowIterations.Builder builder) {
+    // Check for single exit scenario.
+    Set<BasicBlock> successors = Sets.newIdentityHashSet();
+    for (BasicBlock basicBlock : loopBody) {
+      successors.addAll(basicBlock.getSuccessors());
+    }
+    successors.removeAll(loopBody);
+    if (successors.size() == 1) {
+      assert successors.iterator().next() == builder.getLoopExit();
+      return true;
+    }
     // Check phis are unused outside the loop.
     for (Phi phi : comparison.getBlock().getPhis()) {
       for (Instruction use : phi.uniqueUsers()) {
@@ -411,6 +427,10 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
       for (Phi phi : comparisonBlock.getPhis()) {
         Value loopEntryValue = phi.getOperand(1 - backIndex);
         Value loopExitValue = phi.getOperand(backIndex);
+        if (loopExitValue.isPhi() && comparisonBlock.getPhis().contains(loopExitValue.asPhi())) {
+          loopExitValue = loopExitValue.asPhi().getOperand(1 - backIndex);
+        }
+        assert !loopExitValue.isPhi() || !comparisonBlock.getPhis().contains(loopExitValue.asPhi());
         for (Instruction uniqueUser : phi.uniqueUsers()) {
           if (loopBody.contains(uniqueUser.getBlock())) {
             uniqueUser.replaceValue(phi, loopEntryValue, affectedValues);

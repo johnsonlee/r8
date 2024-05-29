@@ -1,14 +1,16 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.ir.optimize.loops;
+package com.android.tools.r8.regress;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -26,7 +28,7 @@ public class B341618078Test extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("0", "0");
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("0", "0", "1");
 
   @Test
   public void testJvm() throws Exception {
@@ -53,8 +55,16 @@ public class B341618078Test extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
+        .compile()
+        .inspect(this::assertLoopUnrolled)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  private void assertLoopUnrolled(CodeInspector inspector) {
+    // All control flow has been removed.
+    inspector.clazz(TestClass.class).forAllMethods(m ->
+        assertTrue(m.streamInstructions().noneMatch(i -> i.isGoto() || i.isIf())));
   }
 
   static class TestClass {
@@ -87,10 +97,24 @@ public class B341618078Test extends TestBase {
       System.out.println(g);
     }
 
+    static void cChainedSimplified() {
+      int a = 1;
+      int b = 2;
+      int c = 3;
+      int d = 4;
+      for (int h = 0; h < 1; h++) {
+        b = a;
+        c = b;
+        d = c;
+      }
+      System.out.println(d);
+    }
+
     public static void main(String[] k) {
       TestClass m = new TestClass();
       m.i(k);
-      TestClass.cSimplified();
+      cSimplified();
+      cChainedSimplified();
     }
   }
 }
