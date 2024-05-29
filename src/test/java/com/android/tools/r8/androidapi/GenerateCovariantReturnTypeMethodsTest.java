@@ -90,9 +90,9 @@ public class GenerateCovariantReturnTypeMethodsTest extends TestBase {
   public void testCanFindAnnotatedMethodsInJar() throws Exception {
     CovariantMethodsInJarResult covariantMethodsInJar = CovariantMethodsInJarResult.create();
     // These assertions are here to ensure we produce a sane result.
-    assertEquals(9, covariantMethodsInJar.methodReferenceMap.keySet().size());
+    assertEquals(11, covariantMethodsInJar.methodReferenceMap.keySet().size());
     assertEquals(
-        51, covariantMethodsInJar.methodReferenceMap.values().stream().mapToLong(List::size).sum());
+        71, covariantMethodsInJar.methodReferenceMap.values().stream().mapToLong(List::size).sum());
   }
 
   @Test
