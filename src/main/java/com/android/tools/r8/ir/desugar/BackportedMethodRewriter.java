@@ -298,8 +298,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.V)) {
         initializeAndroidVMethodProviders(factory);
       }
-
-      initializeMethodProvidersUnimplementedOnAndroid(factory);
     }
 
     private Map<DexType, AndroidApiLevel> initializeTypeMinApi(DexItemFactory factory) {
@@ -1768,10 +1766,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       addProvider(
           new MethodGenerator(
               method, BackportedMethods::CharacterMethods_toStringCodepoint, "toStringCodepoint"));
-    }
-
-    private void initializeMethodProvidersUnimplementedOnAndroid(DexItemFactory factory) {
-      // None at the moment.
     }
 
     private void initializeAndroidUStreamMethodProviders(DexItemFactory factory) {
