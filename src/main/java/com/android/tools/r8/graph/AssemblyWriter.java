@@ -85,7 +85,8 @@ public class AssemblyWriter extends DexByteCodeWriter {
       }
       writeAnnotations(clazz, clazz.annotations(), ps);
       ps.println("# Flags: '" + clazz.accessFlags + "'");
-      if (clazz.superType != application.dexItemFactory.objectType) {
+      if (clazz.superType != application.dexItemFactory.objectType
+          && clazz.getType() != application.dexItemFactory.objectType) {
         ps.println("# Extends: '" + retracer.toSourceString(clazz.superType) + "'");
       }
       for (DexType value : clazz.interfaces.values) {
