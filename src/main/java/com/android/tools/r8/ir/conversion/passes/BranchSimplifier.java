@@ -240,6 +240,16 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
         simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromCondition(1));
         return true;
       }
+      if (!lhsRoot.isPhi() && lhsRoot.getDefinition().isXor()) {
+        Xor xor = lhsRoot.getDefinition().asXor();
+        Value input = extractXorTrueInput(xor);
+        if (input != null) {
+          // ifeqz !a => ifnez a
+          // ifnez !a => ifeqz a
+          block.replaceLastInstruction(new If(theIf.getType().inverted(), input), code);
+          return true;
+        }
+      }
     }
 
     if (lhs.hasValueRange()) {
@@ -284,6 +294,18 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       }
     }
     return false;
+  }
+
+  private Value extractXorTrueInput(Xor xor) {
+   if (xor.leftValue().knownToBeBoolean() && xor.rightValue().knownToBeBoolean()) {
+     if (xor.leftValue().isConstNumber(1)) {
+       return xor.rightValue();
+     }
+     if (xor.rightValue().isConstNumber(1)) {
+       return xor.leftValue();
+     }
+   }
+   return null;
   }
 
   @SuppressWarnings("ReferenceEquality")
