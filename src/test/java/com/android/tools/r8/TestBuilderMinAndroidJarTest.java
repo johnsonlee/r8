@@ -41,7 +41,7 @@ public class TestBuilderMinAndroidJarTest extends TestBase {
   @Test
   public void testSupplierD8NotSupported()
       throws ExecutionException, CompilationFailedException, IOException {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeTrue(parameters.getRuntime().asDex().getVm().isOlderThanOrEqual(DexVm.ART_6_0_1_HOST));
     testForD8()
         .addProgramClasses(Main.class)
@@ -79,7 +79,7 @@ public class TestBuilderMinAndroidJarTest extends TestBase {
   @Test
   public void testSupplierD8Supported()
       throws ExecutionException, CompilationFailedException, IOException {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeTrue(parameters.getRuntime().asDex().getVm().isNewerThan(DexVm.ART_6_0_1_HOST));
     testForD8()
         .addProgramClasses(Main.class)

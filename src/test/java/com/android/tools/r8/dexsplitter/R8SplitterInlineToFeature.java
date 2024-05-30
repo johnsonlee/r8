@@ -8,7 +8,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -48,7 +47,7 @@ public class R8SplitterInlineToFeature extends SplitterTestBase {
 
   @Test
   public void testInlining() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     ThrowableConsumer<R8FullTestBuilder> configurator =
         r8FullTestBuilder ->
             r8FullTestBuilder

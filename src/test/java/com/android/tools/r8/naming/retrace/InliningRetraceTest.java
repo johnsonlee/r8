@@ -60,7 +60,7 @@ public class InliningRetraceTest extends RetraceTestBase {
   @Test
   public void testLineNumberTableOnly() throws Exception {
     assumeTrue(compat);
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runTest(
         ImmutableList.of("-keepattributes LineNumberTable"),
         (StackTrace actualStackTrace, StackTrace retracedStackTrace) -> {
@@ -73,7 +73,7 @@ public class InliningRetraceTest extends RetraceTestBase {
   @Test
   public void testNoLineNumberTable() throws Exception {
     assumeTrue(compat);
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runTest(
         ImmutableList.of(),
         (StackTrace actualStackTrace, StackTrace retracedStackTrace) -> {

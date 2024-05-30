@@ -7,7 +7,6 @@ package com.android.tools.r8.dexsplitter;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -49,7 +48,7 @@ public class SyntheticDistributionTest extends SplitterTestBase {
 
   @Test
   public void testDistribution() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     ThrowableConsumer<R8TestCompileResult> ensureLambdaNotInBase =
         r8TestCompileResult ->
             r8TestCompileResult.inspect(

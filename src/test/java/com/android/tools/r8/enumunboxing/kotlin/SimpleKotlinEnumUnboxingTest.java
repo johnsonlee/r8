@@ -7,7 +7,6 @@ package com.android.tools.r8.enumunboxing.kotlin;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.KotlinTestBase.getCompileMemoizer;
 import static org.hamcrest.core.StringContains.containsString;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.KotlinTestBase.KotlinCompileMemoizer;
 import com.android.tools.r8.KotlinTestParameters;
@@ -62,7 +61,7 @@ public class SimpleKotlinEnumUnboxingTest extends EnumUnboxingTestBase {
 
   @Test
   public void testEnumUnboxing() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addProgramFiles(
             jars.getForConfiguration(kotlinParameters),

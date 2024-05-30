@@ -9,7 +9,6 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugari
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
@@ -76,7 +75,7 @@ public class WrapperPlacementTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testNoWrappers() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // No wrappers are made during program compilation.
     Path path1 = compileWithCoreLibraryDesugaring(MyArrays1.class);
     Path path2 = compileWithCoreLibraryDesugaring(MyArrays2.class);

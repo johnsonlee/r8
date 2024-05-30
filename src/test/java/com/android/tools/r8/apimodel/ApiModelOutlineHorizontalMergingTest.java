@@ -10,7 +10,6 @@ import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLeve
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithName;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.NeverInline;
@@ -87,7 +86,7 @@ public class ApiModelOutlineHorizontalMergingTest extends TestBase {
 
   @Test
   public void testD8Debug() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
@@ -120,7 +119,7 @@ public class ApiModelOutlineHorizontalMergingTest extends TestBase {
 
   @Test
   public void testD8Release() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)

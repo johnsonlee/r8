@@ -5,7 +5,6 @@
 package com.android.tools.r8.desugaring.interfacemethods;
 
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -71,7 +70,7 @@ public class InvokeSuperInDefaultMethodResolvingToLibraryTest extends TestBase {
 
   @Test
   public void testDesugaringWithApiLevelCheck() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))

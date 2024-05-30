@@ -89,7 +89,7 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getTransformedClasses())
         .setMinApi(parameters)
@@ -103,7 +103,7 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
 
   @Test
   public void testR8KeepBootstrapMethod() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getTransformedClasses())
         .setMinApi(parameters)

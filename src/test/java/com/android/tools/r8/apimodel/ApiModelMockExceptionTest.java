@@ -9,7 +9,6 @@ import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.OutputMode;
@@ -91,7 +90,7 @@ public class ApiModelMockExceptionTest extends TestBase {
 
   @Test
   public void testD8Debug() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
@@ -106,7 +105,7 @@ public class ApiModelMockExceptionTest extends TestBase {
 
   @Test
   public void testD8Release() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)
@@ -121,19 +120,19 @@ public class ApiModelMockExceptionTest extends TestBase {
 
   @Test
   public void testD8MergeIndexed() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testD8Merge(OutputMode.DexIndexed);
   }
 
   @Test
   public void testD8MergeFilePerClass() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testD8Merge(OutputMode.DexFilePerClass);
   }
 
   @Test
   public void testD8MergeFilePerClassFile() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testD8Merge(OutputMode.DexFilePerClassFile);
   }
 

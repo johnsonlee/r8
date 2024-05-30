@@ -100,7 +100,7 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
 
   @Test
   public void testD8WithClasspathAndMerge() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 
@@ -187,7 +187,7 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
 
   @Test
   public void testD8WithoutMembersOnClasspath() {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 
@@ -208,7 +208,7 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
 
   @Test
   public void testD8WithoutHostOnClasspath() {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 

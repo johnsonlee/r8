@@ -6,7 +6,6 @@ package com.android.tools.r8.ir.optimize.instanceofremoval;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -100,7 +99,7 @@ public class ZipFileInstanceOfAutoCloseableTest extends TestBase {
 
   @Test
   public void testTypeStructure() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // Set the min API and create the raw app.
     InternalOptions options = new InternalOptions();
     options.setMinApiLevel(parameters.getApiLevel());

@@ -41,7 +41,7 @@ public class B341618078Test extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addInnerClasses(getClass())
         .setMinApi(parameters.getApiLevel())

@@ -10,7 +10,6 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.R8TestCompileResult;
@@ -87,7 +86,7 @@ public class ClassNameMinifierOriginalClassNameTest extends TestBase {
 
   @Test()
   public void testR8WithReferenceToNotMapped() {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     R8TestCompileResult libraryCompileResult = compilationResults.apply(parameters);
     assertThrows(
         CompilationFailedException.class,

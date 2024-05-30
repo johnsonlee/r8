@@ -8,7 +8,6 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
@@ -110,7 +109,7 @@ public class NestAttributesInDexRewriteInvokeInterfaceTest extends TestBase impl
 
   @Test
   public void testD8WithClasspathAndMerge() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 
@@ -198,7 +197,7 @@ public class NestAttributesInDexRewriteInvokeInterfaceTest extends TestBase impl
 
   @Test
   public void testD8WithoutMembersOnClasspath() {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 
@@ -219,7 +218,7 @@ public class NestAttributesInDexRewriteInvokeInterfaceTest extends TestBase impl
 
   @Test
   public void testD8WithoutHostOnClasspath() {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 

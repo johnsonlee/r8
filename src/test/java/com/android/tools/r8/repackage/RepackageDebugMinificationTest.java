@@ -40,7 +40,7 @@ public class RepackageDebugMinificationTest extends RepackageTestBase {
 
   @Test
   public void testR8WithDebugDex() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addProgramClasses(A.class, Main.class)
         .setMode(CompilationMode.DEBUG)

@@ -9,7 +9,6 @@ import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLeve
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.SingleTestRunResult;
@@ -63,7 +62,7 @@ public class ApiModelMockDalvikVerifyErrorTest extends TestBase {
 
   @Test
   public void testD8Debug() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
@@ -76,7 +75,7 @@ public class ApiModelMockDalvikVerifyErrorTest extends TestBase {
 
   @Test
   public void testD8Release() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)

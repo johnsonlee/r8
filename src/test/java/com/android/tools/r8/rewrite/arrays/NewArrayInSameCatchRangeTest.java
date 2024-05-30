@@ -4,7 +4,6 @@
 package com.android.tools.r8.rewrite.arrays;
 
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -43,7 +42,7 @@ public class NewArrayInSameCatchRangeTest extends TestBase {
 
   @Test
   public void testReleaseD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .release()
         .setMinApi(parameters)

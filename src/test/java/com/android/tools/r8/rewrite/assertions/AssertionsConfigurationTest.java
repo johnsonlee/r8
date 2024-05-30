@@ -185,7 +185,7 @@ public class AssertionsConfigurationTest extends TestBase implements Opcodes {
 
   @Test
   public void testAssertionsForDex() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // Leaving assertions in or disabling them on Dalvik/Art means no assertions.
     runD8Test(
         builder ->
@@ -287,7 +287,7 @@ public class AssertionsConfigurationTest extends TestBase implements Opcodes {
 
   @Test
   public void testEnableForPackageForDex() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8Test(
         builder ->
             builder.addAssertionsConfiguration(
@@ -316,7 +316,7 @@ public class AssertionsConfigurationTest extends TestBase implements Opcodes {
 
   @Test
   public void testEnableForClassForDex() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8Test(
         builder ->
             builder
@@ -357,7 +357,7 @@ public class AssertionsConfigurationTest extends TestBase implements Opcodes {
 
   @Test
   public void testMixedForDex() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8Test(
         builder ->
             builder
@@ -406,7 +406,7 @@ public class AssertionsConfigurationTest extends TestBase implements Opcodes {
 
   @Test
   public void testUnnamedPackageForDex() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(class1, class2)
         .addProgramClassFileData(
@@ -457,7 +457,7 @@ public class AssertionsConfigurationTest extends TestBase implements Opcodes {
 
   @Test
   public void testInnerClassForDex() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(TestClassForInnerClass.class, TestClassForInnerClass.InnerClass.class)
         .setMinApi(parameters)

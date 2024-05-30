@@ -4,7 +4,6 @@
 package com.android.tools.r8.rewrite.arrays;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -46,7 +45,7 @@ public class NewArraySynchronizedBlockTest extends TestBase {
 
   @Test
   public void testReleaseD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .release()
         .setMinApi(parameters)

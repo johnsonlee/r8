@@ -11,7 +11,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.KeepUnusedReturnValue;
@@ -757,7 +756,7 @@ public class VerticalClassMergerTest extends TestBase {
   // merging, R8 should not rewrite the invoke-super instruction into invoke-direct.
   @Test
   public void testSuperCallNotRewrittenToDirect() throws Throwable {
-    assumeTrue(parameters.isDexRuntime()); // Due to smali input.
+    parameters.assumeDexRuntime(); // Due to smali input.
 
     String main = "classmerging.SuperCallRewritingTest";
     Path[] programFiles =
@@ -847,7 +846,7 @@ public class VerticalClassMergerTest extends TestBase {
   //   }
   @Test
   public void testSuperCallToMergedClassIsRewritten() throws Throwable {
-    assumeTrue(parameters.isDexRuntime()); // Due to smali input.
+    parameters.assumeDexRuntime(); // Due to smali input.
     assumeFalse(parameters.getRuntime().asDex().getVm().getVersion() == Version.V5_1_1);
     assumeFalse(parameters.getRuntime().asDex().getVm().getVersion() == Version.V6_0_1);
 

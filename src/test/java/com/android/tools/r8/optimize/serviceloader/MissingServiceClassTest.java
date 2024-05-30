@@ -8,7 +8,6 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.TestBase;
@@ -69,7 +68,7 @@ public class MissingServiceClassTest extends TestBase {
 
   @Test
   public void testMainDex() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForMainDexListGenerator()
         .addProgramClasses(TestClass.class)
         .addLibraryFiles(ToolHelper.getFirstSupportedAndroidJar(parameters.getApiLevel()))

@@ -8,7 +8,6 @@ import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static com.android.tools.r8.naming.retrace.StackTrace.isSameExceptForFileName;
 import static com.android.tools.r8.naming.retrace.StackTrace.isSameExceptForFileNameAndLineNumber;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -185,7 +184,7 @@ public class StackTraceTest extends TestBase {
 
   @Test
   public void testArtStackTraceFromRunning() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addInnerClasses(StackTraceTest.class)
         .setMinApi(parameters)

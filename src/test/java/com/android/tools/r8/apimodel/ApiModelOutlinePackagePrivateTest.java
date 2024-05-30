@@ -6,7 +6,6 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForClass;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLevelForMethod;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8TestCompileResult;
@@ -43,7 +42,7 @@ public class ApiModelOutlinePackagePrivateTest extends TestBase {
 
   @Test
   public void testD8BootClassPath() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     compileOnD8()
         .addBootClasspathClasses(LibraryClass.class)
         .run(parameters.getRuntime(), Main.class)
@@ -52,7 +51,7 @@ public class ApiModelOutlinePackagePrivateTest extends TestBase {
 
   @Test
   public void testD8RuntimeClasspath() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     compileOnD8()
         .addRunClasspathClasses(LibraryClass.class)
         .run(parameters.getRuntime(), Main.class)
@@ -88,7 +87,7 @@ public class ApiModelOutlinePackagePrivateTest extends TestBase {
 
   @Test
   public void testD8Debug() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
@@ -102,7 +101,7 @@ public class ApiModelOutlinePackagePrivateTest extends TestBase {
 
   @Test
   public void testD8Release() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .apply(this::setupTestBuilder)
         .compile()

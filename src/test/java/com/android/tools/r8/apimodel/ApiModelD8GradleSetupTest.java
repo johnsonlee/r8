@@ -116,7 +116,7 @@ public class ApiModelD8GradleSetupTest extends TestBase {
 
   @Test
   public void testD8DebugWithMerge() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testD8(
         CompilationMode.DEBUG,
         this::inspectNumberOfClassesFromOutput,
@@ -125,7 +125,7 @@ public class ApiModelD8GradleSetupTest extends TestBase {
 
   @Test
   public void testD8ReleaseForApiLevelWithOutlining() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeTrue(willHorizontallyMergeOutlines());
     testD8(
         CompilationMode.RELEASE,
@@ -135,7 +135,7 @@ public class ApiModelD8GradleSetupTest extends TestBase {
 
   @Test
   public void testD8ReleaseForApiLevelWithNoOutlining() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeFalse(willHorizontallyMergeOutlines());
     testD8(
         CompilationMode.RELEASE,

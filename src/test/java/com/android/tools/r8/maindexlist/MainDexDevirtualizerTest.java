@@ -82,7 +82,7 @@ public class MainDexDevirtualizerTest extends TestBase {
 
   @Test
   public void testMainDexTracing() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeTrue(parameters.getDexRuntimeVersion().isDalvik());
     runTest(
         r8FullTestBuilder -> r8FullTestBuilder.addMainDexKeepClassRules(Main.class, I.class),

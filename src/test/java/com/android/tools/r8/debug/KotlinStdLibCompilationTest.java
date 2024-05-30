@@ -4,7 +4,6 @@
 package com.android.tools.r8.debug;
 
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -49,7 +48,7 @@ public class KotlinStdLibCompilationTest extends TestBase {
 
   @Test
   public void testD8() throws CompilationFailedException {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramFiles(kotlinTestParameters.getCompiler().getKotlinStdlibJar())
         .setMinApi(parameters)

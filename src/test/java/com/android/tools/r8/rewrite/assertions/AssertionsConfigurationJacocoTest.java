@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -47,7 +46,7 @@ public class AssertionsConfigurationJacocoTest extends TestBase implements Opcod
 
   @Test
   public void testD8() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(TestClass.class, MockJacocoInit.class)
         .addProgramClassFileData(transformClassWithJacocoInstrumentation(A.class))

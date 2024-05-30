@@ -6,7 +6,6 @@ package com.android.tools.r8.dexsplitter;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.NeverInline;
@@ -43,7 +42,7 @@ public class DexSplitterMergeRegression extends SplitterTestBase {
 
   @Test
   public void testOnR8Splitter() throws IOException, CompilationFailedException {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     ThrowableConsumer<R8FullTestBuilder> configurator =
         r8FullTestBuilder ->
             r8FullTestBuilder

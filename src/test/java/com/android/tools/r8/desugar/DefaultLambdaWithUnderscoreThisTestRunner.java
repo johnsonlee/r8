@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar;
 
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -94,7 +93,7 @@ public class DefaultLambdaWithUnderscoreThisTestRunner extends DebugTestBase {
 
   @Test
   public void testD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClassesAndInnerClasses(CLASS)
         .setMinApiThreshold(AndroidApiLevel.K)

@@ -26,7 +26,6 @@ import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import java.nio.file.Path;
 import java.util.List;
 import org.hamcrest.Matcher;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -48,7 +47,7 @@ public class NestOnProgramAndClassPathTest extends TestBase {
 
   @Test
   public void testD8MethodBridgesPresent() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // 1 inner class.
     D8TestCompileResult singleInner =
         compileClassesWithD8ProgramClassesMatching(
@@ -67,7 +66,7 @@ public class NestOnProgramAndClassPathTest extends TestBase {
 
   @Test
   public void testD8ConstructorBridgesPresent() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     D8TestCompileResult inner =
         compileClassesWithD8ProgramClassesMatching(
             containsString("BasicNestHostWithInnerClassConstructors$BasicNestedClass"));
@@ -89,7 +88,7 @@ public class NestOnProgramAndClassPathTest extends TestBase {
   @Test
   public void testD8ConstructorNestMergeCorrect() throws Exception {
     // Multiple Nest Constructor classes have to be merged here.
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     D8TestCompileResult inner =
         compileClassesWithD8ProgramClassesMatching(
             containsString("BasicNestHostWithInnerClassConstructors$BasicNestedClass"));

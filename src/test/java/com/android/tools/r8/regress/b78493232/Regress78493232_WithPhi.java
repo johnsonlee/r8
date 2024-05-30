@@ -7,7 +7,6 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.startsWith;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.AsmTestBase;
 import com.android.tools.r8.D8TestRunResult;
@@ -83,7 +82,7 @@ public class Regress78493232_WithPhi extends AsmTestBase {
   }
 
   private void testR8(boolean treeShake) throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     R8TestRunResult result =
         testForR8(parameters.getBackend())
             .addProgramClasses(CLASSES)

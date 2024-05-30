@@ -5,7 +5,6 @@ package com.android.tools.r8.rewrite.arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.NeverInline;
@@ -60,7 +59,7 @@ public class ArrayLengthRewriteTest extends TestBase {
   };
 
   @Test public void d8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
 
     testForD8()
         .setMinApi(parameters)

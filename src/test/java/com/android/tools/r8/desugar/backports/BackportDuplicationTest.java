@@ -8,7 +8,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
@@ -80,7 +79,7 @@ public class BackportDuplicationTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     // R8 does not support desugaring with class file output so this test is only valid for DEX.
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runR8(false);
     runR8(true);
   }
@@ -183,13 +182,13 @@ public class BackportDuplicationTest extends TestBase {
 
   @Test
   public void testD8FilePerClassFile() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8FilePerMode(OutputMode.DexFilePerClassFile);
   }
 
   @Test
   public void testD8FilePerClass() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8FilePerMode(OutputMode.DexFilePerClass);
   }
 
@@ -231,7 +230,7 @@ public class BackportDuplicationTest extends TestBase {
 
   @Test
   public void testPerFileNonIntermediateDex() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     try {
       runDoublePerFileCompilation(Backend.DEX, false);
       fail("Should expect the compilation to fail.");
@@ -390,7 +389,7 @@ public class BackportDuplicationTest extends TestBase {
 
   @Test
   public void testDoubleCompileSyntheticInputsD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // This is a regression test for the pathological case of recompiling intermediates in
     // intermediate mode, but where the second round of compilation can share more than what was
     // originally shared. Such a case should never be hit by any reasonable compilation pipeline,

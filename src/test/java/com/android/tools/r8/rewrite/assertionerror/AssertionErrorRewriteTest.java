@@ -4,7 +4,6 @@
 package com.android.tools.r8.rewrite.assertionerror;
 
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
@@ -38,7 +37,7 @@ public class AssertionErrorRewriteTest extends TestBase {
 
   @Test
   public void d8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(Main.class)
         .setMinApi(parameters)
@@ -49,7 +48,7 @@ public class AssertionErrorRewriteTest extends TestBase {
 
   @Test
   public void d8NoDesugar() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(Main.class)
         .setMinApi(parameters)

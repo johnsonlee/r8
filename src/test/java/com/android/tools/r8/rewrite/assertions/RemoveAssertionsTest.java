@@ -294,7 +294,7 @@ public class RemoveAssertionsTest extends TestBase {
   @Test
   public void test() throws Exception {
     // TODO(mkroghj) Why does this fail on JDK?
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // Run with R8, but avoid inlining to really validate that the methods "condition"
     // and "<clinit>" are gone.
     CompilationResults results = compilationResults.apply(parameters.getBackend());
@@ -323,7 +323,7 @@ public class RemoveAssertionsTest extends TestBase {
 
   @Test
   public void regress110887293() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     CompilationResults results = compilationResults.apply(parameters.getBackend());
     // Assertions removed for default assertion code.
     checkResultWithAssertionsInactive(results.withoutAssertions);
@@ -387,14 +387,14 @@ public class RemoveAssertionsTest extends TestBase {
 
   @Test
   public void testD8Regress110887293() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     checkResultWithChromiumAssertions(
         compileD8Regress110887293(RemoveAssertionsTest::chromiumAssertionEnabler));
   }
 
   @Test
   public void testR8FollowedByD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     checkResultWithAssertionsInactive(
         compileR8FollowedByD8(builder -> builder.setCompileTimeDisable().setScopeAll().build()));
     checkResultWithAssertionsInactive(

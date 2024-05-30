@@ -86,7 +86,7 @@ public class VarHandleTest extends TestBase {
 
   @Test
   public void testD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeFalse(
         "TODO(b/204855476): The default VM throws unsupported. Ignore it and reconsider for 8.0.0",
         parameters.isDexRuntimeVersion(Version.DEFAULT));

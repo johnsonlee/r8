@@ -94,7 +94,7 @@ public class SimpleRecordTest extends TestBase {
 
   @Test
   public void testD8Intermediate() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeFalse(forceInvokeRangeForInvokeCustom);
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);
@@ -112,7 +112,7 @@ public class SimpleRecordTest extends TestBase {
 
   @Test
   public void testD8IntermediateNoDesugaringInStep2() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     assumeFalse(forceInvokeRangeForInvokeCustom);
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);

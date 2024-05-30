@@ -5,7 +5,6 @@
 package com.android.tools.r8.dexsplitter;
 
 import static junit.framework.TestCase.assertEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.NoVerticalClassMerging;
@@ -41,7 +40,7 @@ public class DexSplitterInlineRegression extends SplitterTestBase {
 
   @Test
   public void testOnR8Splitter() throws IOException, CompilationFailedException {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     ThrowableConsumer<R8FullTestBuilder> configurator =
         r8FullTestBuilder ->
             r8FullTestBuilder

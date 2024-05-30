@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Collection;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -66,7 +65,7 @@ public class LocalDateEpochTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testR8() throws Exception {
-    Assume.assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.R))
         .addProgramClasses(DesugarLocalDate.class)

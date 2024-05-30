@@ -6,7 +6,6 @@ package com.android.tools.r8.desugar;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.Disassemble;
@@ -114,7 +113,7 @@ public class DefaultLambdaWithSelfReferenceTestRunner extends DebugTestBase {
 
   @Test
   public void testD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     Path out1 = temp.newFolder().toPath().resolve("out1.zip");
     testForD8()
         .addProgramClassesAndInnerClasses(CLASS)

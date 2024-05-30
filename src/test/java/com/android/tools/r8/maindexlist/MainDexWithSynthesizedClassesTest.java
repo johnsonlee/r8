@@ -8,7 +8,6 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
@@ -75,7 +74,7 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
 
   @Test
   public void testIntermediate() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     D8TestCompileResult intermediateResult =
         testForD8()
             .addInnerClasses(MainDexWithSynthesizedClassesTest.class)
@@ -93,7 +92,7 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
 
   @Test
   public void testSupportedMainDexListD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // It remains a supported mode to first compile to DEX and then use tracing on the compiled
     // output. Neither the compilation, the trace or the merge should issue any diagnostics.
     Path dexed =
@@ -131,7 +130,7 @@ public class MainDexWithSynthesizedClassesTest extends TestBase {
    */
   @Test
   public void testDeprecatedSyntheticsFromMainDexListD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     Path mainDexFile = temp.newFile("maindex.list").toPath();
     FileUtils.writeTextFile(mainDexFile, binaryName(A.class) + ".class");
     assertThrows(

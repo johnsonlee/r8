@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.lambdas;
 
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBase;
@@ -51,7 +50,7 @@ public class LegacyLambdaMergeTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     // Merging legacy lambdas is only valid for DEX inputs, thus also not R8 applicable.
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     D8TestCompileResult lambda =
         testForD8().setMinApi(parameters).addProgramClassFileData(getTransformedLambda()).compile();
     testForD8()

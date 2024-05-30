@@ -69,7 +69,7 @@ public class ApiModelManualOutlineWithUnknownReturnTypeTest extends TestBase {
 
   @Test
   public void testD8WithModeling() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addProgramClasses(Main.class, ProgramClass.class, ManualOutline.class)
         .addDefaultRuntimeLibrary(parameters)
@@ -87,7 +87,7 @@ public class ApiModelManualOutlineWithUnknownReturnTypeTest extends TestBase {
 
   @Test
   public void testD8NoModeling() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     boolean willHaveVerifyError =
         (parameters.getDexRuntimeVersion().isDalvik()
                 || parameters.isDexRuntimeVersion(Version.V12_0_0))

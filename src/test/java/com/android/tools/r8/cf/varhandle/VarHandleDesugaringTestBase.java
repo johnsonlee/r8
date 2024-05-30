@@ -178,7 +178,7 @@ public abstract class VarHandleDesugaringTestBase extends TestBase {
   // TODO(b/247076137: Also turn on VarHandle desugaring for R8 tests.
   @Test
   public void testD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addProgramClassFileData(getProgramClassFileData())
         .setMinApi(parameters)

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.desugar.records;
 
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
@@ -95,7 +94,7 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
             .compile()
             .writeToZip();
     // TODO(b/288360309): Correctly deal with non-identity lenses in R8 record rewriting.
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addProgramFiles(desugared)
         .apply(this::configureR8)

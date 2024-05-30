@@ -101,7 +101,7 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
   @Test
   public void testLineNumberTableOnly() throws Exception {
     assumeTrue(compat);
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runTest(
         ImmutableList.of("-keepattributes LineNumberTable"),
         (StackTrace actualStackTrace, StackTrace retracedStackTrace) -> {
@@ -141,7 +141,7 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
     // at com.android.tools.r8.naming.retraceproguard.MainApp.main(MainApp.java:7)
     // since the synthetic bridge belongs to ResourceWrapper.foo.
     assumeTrue(compat);
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runTest(
         ImmutableList.of(),
         (StackTrace actualStackTrace, StackTrace retracedStackTrace) -> {

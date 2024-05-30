@@ -65,7 +65,7 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
 
   @Test
   public void testR8_includeKotlinStdlib() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
 
     String pkg = getClass().getPackage().getName();
     String folder = DescriptorUtils.getBinaryNameFromJavaType(pkg);

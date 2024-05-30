@@ -127,7 +127,7 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
 
   @Test
   public void testD8NoDesugar() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addProgramClassFileData(getTransformedClasses())
         .addProgramClasses(OtherHost.class)

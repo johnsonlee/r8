@@ -5,7 +5,6 @@
 package com.android.tools.r8.desugar.records;
 
 import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -74,7 +73,7 @@ public class EmptyRecordTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(PROGRAM_DATA)

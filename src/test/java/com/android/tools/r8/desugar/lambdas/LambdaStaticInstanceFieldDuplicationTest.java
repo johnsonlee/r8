@@ -60,7 +60,7 @@ public class LambdaStaticInstanceFieldDuplicationTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     // R8 does not support desugaring with class file output so this test is only valid for DEX.
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runR8(false);
     runR8(true);
   }
@@ -168,13 +168,13 @@ public class LambdaStaticInstanceFieldDuplicationTest extends TestBase {
 
   @Test
   public void testD8FilePerClassFile() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8FilePerMode(OutputMode.DexFilePerClassFile);
   }
 
   @Test
   public void testD8FilePerClass() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     runD8FilePerMode(OutputMode.DexFilePerClass);
   }
 

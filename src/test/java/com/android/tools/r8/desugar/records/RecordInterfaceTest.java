@@ -74,7 +74,7 @@ public class RecordInterfaceTest extends TestBase {
 
   @Test
   public void testD8Intermediate() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     DesugarGraphTestConsumer consumer = new DesugarGraphTestConsumer();
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);
@@ -98,7 +98,7 @@ public class RecordInterfaceTest extends TestBase {
 
   @Test
   public void testD8IntermediateNoDesugaringInStep2() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     DesugarGraphTestConsumer consumer = new DesugarGraphTestConsumer();
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);

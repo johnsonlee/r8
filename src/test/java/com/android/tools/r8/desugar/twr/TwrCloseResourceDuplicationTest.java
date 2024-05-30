@@ -4,7 +4,6 @@
 package com.android.tools.r8.desugar.twr;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -129,7 +128,7 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
         .addProgramFiles(getProgramInputs())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))

@@ -54,7 +54,7 @@ public class Regression127524985 extends TestBase {
 
   @Test
   public void testD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramFiles(JAR)
         .setMinApi(parameters)

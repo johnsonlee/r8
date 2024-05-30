@@ -91,7 +91,7 @@ public class ApiModelFieldAssignNewInstanceTest extends TestBase {
 
   @Test
   public void testD8WithoutModeling() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(Helper.class, Main.class)
         .addLibraryClasses(LibraryClass.class, SubLibraryClass.class)
@@ -106,7 +106,7 @@ public class ApiModelFieldAssignNewInstanceTest extends TestBase {
 
   @Test
   public void testD8Debug() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .setMode(CompilationMode.DEBUG)
         .apply(this::setupTestBuilder)
@@ -119,7 +119,7 @@ public class ApiModelFieldAssignNewInstanceTest extends TestBase {
 
   @Test
   public void testD8Release() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .setMode(CompilationMode.RELEASE)
         .apply(this::setupTestBuilder)

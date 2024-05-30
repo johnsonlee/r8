@@ -52,7 +52,7 @@ public class ExceptionTest extends DebugTestBase {
 
   @Test
   public void testStepOnCatchD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     // ART/Dalvik jumps to 'move-exception' which initializes the local variable with the pending
     // exception. Thus it is "attached" to the line declaring the exception in the catch handler.
     runDebugTest(

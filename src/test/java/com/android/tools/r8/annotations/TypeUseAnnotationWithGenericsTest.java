@@ -80,7 +80,7 @@ public class TypeUseAnnotationWithGenericsTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addProgramClasses(
             MainWithTypeAndGeneric.class,

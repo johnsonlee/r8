@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.resolution;
 
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
@@ -40,7 +39,7 @@ public class ArrayCloneInDefaultInterfaceMethodTest extends TestBase {
 
   @Test
   public void testDexNoDesugar() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addProgramClasses(I.class, A.class, B.class, TestClass.class)
         .setMinApi(parameters)

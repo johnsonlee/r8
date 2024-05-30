@@ -8,7 +8,6 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.references.Reference.classFromClass;
 import static com.android.tools.r8.references.Reference.methodFromMethod;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -61,7 +60,7 @@ public class InvokeMethodHandleRuntimeErrorTest extends TestBase {
 
   @Test
   public void testD8() throws Throwable {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     testForD8()
         .addProgramClasses(Main.class, I.class, Super.class)
         .addProgramClassFileData(getInvokeCustomTransform())

@@ -355,7 +355,7 @@ public class SynthesizedRulesFromApiLevelTest extends TestBase {
 
   @Test
   public void testUnknownApiLevelRule() throws Exception {
-    assumeTrue(parameters.isDexRuntime());
+    parameters.assumeDexRuntime();
     List<ProguardConfigurationRule> rules =
         testForR8(parameters.getBackend())
             .addProgramClasses(TestClass.class)
