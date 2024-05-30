@@ -92,7 +92,7 @@ public final class KeepQualifiedClassNamePattern {
     return 'L'
         + packagePattern.getExactPackageAsString().replace('.', '/')
         + (packagePattern.isTop() ? "" : "/")
-        + namePattern.asExact().getExactNameAsString()
+        + namePattern.asExactString()
         + ';';
   }
 

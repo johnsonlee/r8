@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import java.util.Objects;
+
 public class KeepStringPattern {
 
   private static final KeepStringPattern ANY = new KeepStringPattern(null, null, null);
@@ -61,6 +63,25 @@ public class KeepStringPattern {
     this.exact = exact;
     this.prefix = prefix;
     this.suffix = suffix;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof KeepStringPattern)) {
+      return false;
+    }
+    KeepStringPattern that = (KeepStringPattern) o;
+    return Objects.equals(exact, that.exact)
+        && Objects.equals(prefix, that.prefix)
+        && Objects.equals(suffix, that.suffix);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(exact, prefix, suffix);
   }
 
   public boolean isAny() {

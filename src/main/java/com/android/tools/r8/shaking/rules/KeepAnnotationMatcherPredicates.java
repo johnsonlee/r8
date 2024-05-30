@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.shaking.rules;
 
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.DexAnnotation;
@@ -59,6 +58,7 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   public boolean matchesClassName(DexType type, KeepQualifiedClassNamePattern pattern) {
+    assert type.isClassType();
     if (pattern.isAny()) {
       return true;
     }
@@ -80,10 +80,7 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   public boolean matchesSimpleName(String simpleName, KeepUnqualfiedClassNamePattern pattern) {
-    if (pattern.isAny()) {
-      return true;
-    }
-    return pattern.asExact().getExactNameAsString().equals(simpleName);
+    return matchesString(simpleName, pattern.asStringPattern());
   }
 
   private boolean matchesInstanceOfPattern(
@@ -248,6 +245,23 @@ public class KeepAnnotationMatcherPredicates {
     return true;
   }
 
+  // TODO(b/323816623): Avoid copy of matchesString if we can avoid the decoding.
+  public boolean matchesString(String string, KeepStringPattern pattern) {
+    if (pattern.isAny()) {
+      return true;
+    }
+    if (pattern.isExact()) {
+      return string.equals(pattern.asExactString());
+    }
+    if (pattern.hasPrefix() && !string.startsWith(pattern.getPrefixString())) {
+      return false;
+    }
+    if (pattern.hasSuffix() && !string.endsWith(pattern.getSuffixString())) {
+      return false;
+    }
+    return true;
+  }
+
   public boolean matchesReturnType(
       DexType returnType, KeepMethodReturnTypePattern returnTypePattern) {
     if (returnTypePattern.isAny()) {
@@ -268,16 +282,7 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   public boolean matchesClassType(DexType type, KeepQualifiedClassNamePattern pattern) {
-    if (!type.isClassType()) {
-      return false;
-    }
-    if (pattern.isAny()) {
-      return true;
-    }
-    if (pattern.isExact()) {
-      return pattern.getExactDescriptor().equals(type.toDescriptorString());
-    }
-    throw new Unimplemented();
+    return type.isClassType() && matchesClassName(type, pattern);
   }
 
   public boolean matchesArrayType(DexType type, KeepArrayTypePattern pattern) {

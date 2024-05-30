@@ -90,6 +90,9 @@ public class ClassNameParser
           fullNameParser.setProperty(ClassNamePattern.constant, ClassNameProperty.CONSTANT);
           packageParser.setProperty(ClassNamePattern.packageName, PackageNameProperty.NAME);
           simpleNameParser.setProperty(ClassNamePattern.simpleName, ClassSimpleNameProperty.NAME);
+          simpleNameParser.setProperty(
+              ClassNamePattern.simpleNamePattern, ClassSimpleNameProperty.PATTERN);
+
           return new ParserVisitor(
               parsingContext,
               ImmutableList.of(fullNameParser, packageParser, simpleNameParser),

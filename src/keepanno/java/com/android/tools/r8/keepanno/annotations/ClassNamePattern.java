@@ -30,6 +30,7 @@ public @interface ClassNamePattern {
    * <ul>
    *   <li>constant
    *   <li>simpleName
+   *   <li>simpleNamePattern
    *   <li>packageName
    * </ul>
    *
@@ -45,6 +46,7 @@ public @interface ClassNamePattern {
    * <ul>
    *   <li>name
    *   <li>simpleName
+   *   <li>simpleNamePattern
    *   <li>packageName
    * </ul>
    *
@@ -62,11 +64,29 @@ public @interface ClassNamePattern {
    * <p>Mutually exclusive with the following other properties defining class-simple-name:
    *
    * <ul>
+   *   <li>simpleNamePattern
    *   <li>name
    *   <li>constant
    * </ul>
    */
   String simpleName() default "";
+
+  /**
+   * Define the simple-name pattern by a string pattern.
+   *
+   * <p>The default matches any simple name.
+   *
+   * <p>Mutually exclusive with the following other properties defining class-simple-name:
+   *
+   * <ul>
+   *   <li>simpleName
+   *   <li>name
+   *   <li>constant
+   * </ul>
+   *
+   * @return The string pattern of the class simple name.
+   */
+  StringPattern simpleNamePattern() default @StringPattern(exact = "");
 
   /**
    * Exact package name of the class or interface.

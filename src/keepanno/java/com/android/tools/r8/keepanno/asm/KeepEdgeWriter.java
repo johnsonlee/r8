@@ -52,7 +52,6 @@ import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepStringPattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
-import com.android.tools.r8.keepanno.ast.KeepUnqualfiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.ModifierPattern;
 import com.android.tools.r8.keepanno.ast.OptionalPattern;
 import com.android.tools.r8.keepanno.utils.Unimplemented;
@@ -503,12 +502,8 @@ public class KeepEdgeWriter implements Opcodes {
             assert packagePattern.isExact();
             v.visit(ClassNamePattern.packageName, packagePattern.getExactPackageAsString());
           }
-          KeepUnqualfiedClassNamePattern simpleNamePattern = clazz.getNamePattern();
-          if (!simpleNamePattern.isAny()) {
-            assert simpleNamePattern.isExact();
-            v.visit(
-                ClassNamePattern.simpleName, simpleNamePattern.asExact().getExactNameAsString());
-          }
+          writeStringPattern(
+              clazz.getNamePattern().asStringPattern(), ClassNamePattern.simpleNamePattern, v);
         });
   }
 

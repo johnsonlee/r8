@@ -649,7 +649,13 @@ public class KeepItemAnnotationGenerator {
                       "For example, the simple name of {@code com.example.MyClass} is {@code"
                           + " MyClass}.")
                   .addParagraph("The default matches any simple name.")
-                  .defaultEmptyString());
+                  .defaultEmptyString())
+          .addMember(
+              new GroupMember("simpleNamePattern")
+                  .setDocTitle("Define the simple-name pattern by a string pattern.")
+                  .addParagraph("The default matches any simple name.")
+                  .setDocReturn("The string pattern of the class simple name.")
+                  .defaultValue(STRING_PATTERN, DEFAULT_INVALID_STRING_PATTERN));
     }
 
     private Group classNamePatternPackageGroup() {
