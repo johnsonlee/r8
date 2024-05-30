@@ -26,21 +26,32 @@ public class IncorrectTypeRefinementForThrowableTest extends TestBase {
   }
 
   @Test
-  public void testD8() throws Exception {
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    testForJvm(parameters)
+        .addInnerClasses(getClass())
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithEmptyOutput();
+  }
+
+  @Test
+  public void testD8Debug() throws Exception {
     parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addInnerClasses(getClass())
-        .release()
+        .debug()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithEmptyOutput();
   }
 
   @Test
-  public void testJvm() throws Exception {
-    parameters.assumeJvmTestParameters();
-    testForJvm(parameters)
+  public void testD8Release() throws Exception {
+    parameters.assumeDexRuntime();
+    testForD8(parameters.getBackend())
         .addInnerClasses(getClass())
+        .release()
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithEmptyOutput();
   }

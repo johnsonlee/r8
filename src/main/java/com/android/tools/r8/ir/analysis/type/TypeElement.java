@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.code.Value;
 import java.util.Collections;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /** The base abstraction of lattice elements for local type analysis. */
 public abstract class TypeElement {
@@ -289,6 +290,10 @@ public abstract class TypeElement {
   }
 
   public boolean isClassType() {
+    return false;
+  }
+
+  public boolean isClassType(Predicate<ClassTypeElement> predicate) {
     return false;
   }
 

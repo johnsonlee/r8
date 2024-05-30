@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ClassTypeElement extends ReferenceTypeElement {
@@ -126,6 +127,11 @@ public class ClassTypeElement extends ReferenceTypeElement {
   @Override
   public boolean isClassType() {
     return true;
+  }
+
+  @Override
+  public boolean isClassType(Predicate<ClassTypeElement> predicate) {
+    return predicate.test(this);
   }
 
   @Override

@@ -31,7 +31,7 @@ public class InvalidVerifierTypePropagationAfterInstanceOfTest extends TestBase 
     testForJvm(parameters)
         .addInnerClasses(getClass())
         .run(parameters.getRuntime(), Main.class)
-        .apply(this::checkRunResult);
+        .apply(runResult -> checkRunResult(runResult, false));
   }
 
   @Test
@@ -41,7 +41,7 @@ public class InvalidVerifierTypePropagationAfterInstanceOfTest extends TestBase 
         .applyIf(parameters.isDexRuntime(), b -> b.setMinApi(parameters))
         .debug()
         .run(parameters.getRuntime(), Main.class)
-        .apply(this::checkRunResult);
+        .apply(runResult -> checkRunResult(runResult, false));
   }
 
   @Test
@@ -51,7 +51,7 @@ public class InvalidVerifierTypePropagationAfterInstanceOfTest extends TestBase 
         .applyIf(parameters.isDexRuntime(), b -> b.setMinApi(parameters))
         .release()
         .run(parameters.getRuntime(), Main.class)
-        .apply(this::checkRunResult);
+        .apply(runResult -> checkRunResult(runResult, false));
   }
 
   @Test
@@ -62,14 +62,15 @@ public class InvalidVerifierTypePropagationAfterInstanceOfTest extends TestBase 
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .apply(this::checkRunResult);
+        .apply(runResult -> checkRunResult(runResult, true));
   }
 
-  private void checkRunResult(TestRunResult<?> runResult) {
+  private void checkRunResult(TestRunResult<?> runResult, boolean isR8) {
     runResult.applyIf(
         parameters.isCfRuntime()
             || parameters.getDexRuntimeVersion().isOlderThan(Version.V7_0_0)
-            || parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V15_0_0),
+            || parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V15_0_0)
+            || isR8,
         TestRunResult::assertSuccessWithEmptyOutput,
         rr -> runResult.assertFailureWithErrorThatThrows(VerifyError.class));
   }

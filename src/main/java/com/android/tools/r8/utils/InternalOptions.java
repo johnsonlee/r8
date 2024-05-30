@@ -3015,6 +3015,22 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return canHaveBugPresentUntilExclusive(AndroidApiLevel.Q);
   }
 
+  // The art verifier incorrectly propagates type information for instance-of instructions that
+  // always evaluate to false (b/288273207, b/335663487).
+  //
+  // Type t = new Type()
+  // Object o = t
+  // if (o instanceof UnrelatedToType) {
+  //   t.f <- VerifyError: Cannot read field f from object of type UnrelatedToType.
+  // }
+  //
+  // This can happen with D8, but is most likely to hit in R8 after inlining.
+  //
+  // Fixed in Android V.
+  public boolean canHaveArtFalsyInstanceOfVerifierBug() {
+    return canHaveBugPresentUntilInclusive(AndroidApiLevel.U);
+  }
+
   // Some Art Lollipop version do not deal correctly with long-to-int conversions.
   //
   // In particular, the following code performs an out of bounds array access when the

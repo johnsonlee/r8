@@ -81,13 +81,38 @@ public class RuntimeWorkaroundCodeRewriter {
   public static boolean workaroundInstanceOfTypeWeakeningInVerifier(
       AppView<?> appView, IRCode code) {
     boolean didReplaceInstructions = false;
+    if (!appView.options().canHaveArtFalsyInstanceOfVerifierBug()
+        || !code.metadata().mayHaveInstanceOf()) {
+      return didReplaceInstructions;
+    }
+    DexType objectType = appView.dexItemFactory().objectType;
     for (BasicBlock block : code.getBlocks()) {
       InstructionListIterator instructionIterator = block.listIterator(code);
       while (instructionIterator.hasNext()) {
         InstanceOf instanceOf = instructionIterator.nextUntil(Instruction::isInstanceOf);
-        if (instanceOf != null && instanceOf.value().getType().isNullType()) {
+        if (instanceOf == null) {
+          continue;
+        }
+        TypeElement valueType = instanceOf.value().getType();
+
+        // Workaround b/288273207.
+        if (valueType.isNullType()) {
           instructionIterator.replaceCurrentInstructionWithConstFalse(code);
           didReplaceInstructions = true;
+          continue;
+        }
+
+        // Workaround b/335663487.
+        if (appView.enableWholeProgramOptimizations()
+            && valueType.isClassType(t -> t.getClassType().isNotIdenticalTo(objectType))) {
+          TypeElement instanceOfType =
+              instanceOf.type().toTypeElement(appView, valueType.nullability());
+          if (instanceOfType.isClassType(t -> t.getClassType().isNotIdenticalTo(objectType))
+              && !instanceOfType.lessThanOrEqual(valueType, appView)
+              && !valueType.lessThanOrEqual(instanceOfType, appView)) {
+            instructionIterator.replaceCurrentInstructionWithConstFalse(code);
+            didReplaceInstructions = true;
+          }
         }
       }
     }
