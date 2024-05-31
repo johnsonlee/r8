@@ -336,7 +336,7 @@ r8_builder(
 )
 
 
-r8_tester_with_default("linux-dex_default",
+r8_tester_with_default("linux-default",
         ["--runtimes=dex-default", "--command_cache_dir=/tmp/ccache"],
         max_concurrent_invocations = 2)
 r8_tester_with_default("linux-none",
@@ -355,36 +355,36 @@ r8_tester_with_default("linux-jdk22",
         ["--runtimes=jdk22", "--command_cache_dir=/tmp/ccache"],
         release_trigger=["branch-gitiles-8.5-forward"])
 
-r8_tester_with_default("linux-android-4.0.4",
+r8_tester_with_default("linux-android-4.0",
     ["--dex_vm=4.0.4", "--all_tests", "--command_cache_dir=/tmp/ccache"],
     max_concurrent_invocations = 2)
-r8_tester_with_default("linux-android-4.4.4",
+r8_tester_with_default("linux-android-4.4",
     ["--dex_vm=4.4.4", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-5.1.1",
+r8_tester_with_default("linux-android-5",
     ["--dex_vm=5.1.1", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-6.0.1",
+r8_tester_with_default("linux-android-6",
     ["--dex_vm=6.0.1", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-7.0.0",
+r8_tester_with_default("linux-android-7",
     ["--dex_vm=7.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-8.1.0",
+r8_tester_with_default("linux-android-8",
     ["--dex_vm=8.1.0", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-9.0.0",
+r8_tester_with_default("linux-android-9",
     ["--dex_vm=9.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-10.0.0",
+r8_tester_with_default("linux-android-10",
     ["--dex_vm=10.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-12.0.0",
+r8_tester_with_default("linux-android-12",
     ["--dex_vm=12.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-13.0.0",
+r8_tester_with_default("linux-android-13",
     ["--dex_vm=13.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"])
-r8_tester_with_default("linux-android-14.0.0",
+r8_tester_with_default("linux-android-14",
     ["--dex_vm=14.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
     release_trigger=["branch-gitiles-8.1-forward"])
-r8_tester_with_default("linux-android-15.0.0",
+r8_tester_with_default("linux-android-15",
     ["--dex_vm=15.0.0", "--all_tests", "--command_cache_dir=/tmp/ccache"],
     release_trigger=["branch-gitiles-8.5-forward"])
 
 
-r8_tester_with_default("windows", ["--all_tests"],
+r8_tester_with_default("win", ["--all_tests"],
     dimensions=get_dimensions(windows=True),
     execution_timeout = time.hour * 8,
     max_concurrent_invocations = 2)
@@ -453,7 +453,8 @@ def desugared_library():
 desugared_library()
 
 r8_builder(
-    "linux-kotlin_dev",
+    "linux-dev",
+    category = "Kotlin",
     dimensions = get_dimensions(),
     execution_timeout = time.hour * 12,
     expiration_timeout = time.hour * 35,
@@ -464,7 +465,8 @@ r8_builder(
 )
 
 r8_builder(
-    "linux-kotlin_old",
+    "linux-old",
+    category = "Kotlin",
     dimensions = get_dimensions(),
     execution_timeout = time.hour * 12,
     expiration_timeout = time.hour * 35,
@@ -495,6 +497,7 @@ r8_builder(
 order_of_categories = [
   "archive",
   "R8",
+  "Kotlin",
   "library_desugar",
   "perf",
   "Release|archive",
