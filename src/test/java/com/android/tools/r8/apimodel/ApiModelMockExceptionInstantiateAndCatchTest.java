@@ -189,8 +189,7 @@ public class ApiModelMockExceptionInstantiateAndCatchTest extends TestBase {
       } else {
         // TODO(b/342961827): This should not happen.
         runResult.assertSuccessWithOutputLines(
-            "com.android.tools.r8.apimodel.ApiModelMockException2Test$LibraryException: Failed,"
-                + " true");
+            LibraryException.class.getTypeName() + ": Failed, true");
       }
     } else {
       runResult.assertSuccessWithOutputLines("java.lang.NoClassDefFoundError, false");
