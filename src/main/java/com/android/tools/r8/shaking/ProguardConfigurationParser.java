@@ -847,20 +847,23 @@ public class ProguardConfigurationParser {
       parseRuleTypeAndModifiers(keepRuleBuilder);
       parseClassSpec(keepRuleBuilder);
       if (configurationBuilder.isForceProguardCompatibility()
-          && keepRuleBuilder.getMemberRules().isEmpty()
-          && keepRuleBuilder.getKeepRuleType() != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
-        // If there are no member rules, a default rule for the parameterless constructor applies in
-        // compatibility mode.
-        keepRuleBuilder
-            .getMemberRules()
-            .add(
-                ProguardMemberRule.builder()
-                    .setName(
-                        IdentifierPatternWithWildcards.withoutWildcards(
-                            Constants.INSTANCE_INITIALIZER_NAME))
-                    .setRuleType(ProguardMemberType.INIT)
-                    .setArguments(Collections.emptyList())
-                    .build());
+          || options.isForceEmptyMemberRulesToDefaultInitRuleConversionEnabled()) {
+        if (keepRuleBuilder.getMemberRules().isEmpty()
+            && keepRuleBuilder.getKeepRuleType()
+                != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
+          // If there are no member rules, a default rule for the parameterless constructor applies
+          // in compatibility mode.
+          keepRuleBuilder
+              .getMemberRules()
+              .add(
+                  ProguardMemberRule.builder()
+                      .setName(
+                          IdentifierPatternWithWildcards.withoutWildcards(
+                              Constants.INSTANCE_INITIALIZER_NAME))
+                      .setRuleType(ProguardMemberType.INIT)
+                      .setArguments(Collections.emptyList())
+                      .build());
+        }
       }
       Position end = getPosition();
       keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
