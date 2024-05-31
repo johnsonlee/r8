@@ -76,7 +76,7 @@ def run(args):
             break
 
     new_version = 'unknown'
-    if old_version.find('.') > 0:
+    if old_version.find('.') > 0 and old_version.find('-') == -1:
         split_version = old_version.split('.')
         new_version = '.'.join(split_version[:-1] +
                                [str(int(split_version[-1]) + 1)])
@@ -90,10 +90,9 @@ def run(args):
             editor = os.environ.get('EDITOR')
         if not editor:
             editor = 'vi'
-        else:
-            print("Opening %s for version update with %s" %
-                  (VERSION_FILE, editor))
-            subprocess.run([editor, VERSION_FILE])
+        print("Opening %s for version update with %s" %
+              (VERSION_FILE, editor))
+        subprocess.run([editor, VERSION_FILE])
 
     message = ("Version %s\n\n" % new_version)
     for bug in sorted(bugs):
