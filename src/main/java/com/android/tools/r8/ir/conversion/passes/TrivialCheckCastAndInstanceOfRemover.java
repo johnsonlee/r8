@@ -154,16 +154,6 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     REMOVED_CAST_DO_PROPAGATE
   }
 
-  private enum InstanceOfResult {
-    UNKNOWN,
-    TRUE,
-    FALSE;
-
-    boolean isTrue() {
-      return this == TRUE;
-    }
-  }
-
   // Returns true if the given check-cast instruction was removed.
   private RemoveCheckCastInstructionIfTrivialResult removeCheckCastInstructionIfTrivial(
       AppView<AppInfoWithLiveness> appViewWithLiveness,
@@ -335,62 +325,81 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     TypeElement instanceOfType =
         TypeElement.fromDexType(instanceOf.type(), inType.nullability(), appView);
     Value aliasValue = inValue.getAliasedValue();
-
-    InstanceOfResult result = InstanceOfResult.UNKNOWN;
-    if (inType.isDefinitelyNull()) {
-      result = InstanceOfResult.FALSE;
-    } else if (inType.lessThanOrEqual(instanceOfType, appView) && !inType.isNullable()) {
-      result = InstanceOfResult.TRUE;
-    } else if (!aliasValue.isPhi()
-        && aliasValue.definition.isCreatingInstanceOrArray()
-        && instanceOfType.strictlyLessThan(inType, appView)) {
-      result = InstanceOfResult.FALSE;
-    } else if (appView.appInfo().hasLiveness()) {
-      if (instanceOf.type().isClassType()
-          && isNeverInstantiatedDirectlyOrIndirectly(instanceOf.type())) {
-        // The type of the instance-of instruction is a program class, and is never instantiated
-        // directly or indirectly. Thus, the in-value must be null, meaning that the instance-of
-        // instruction will always evaluate to false.
-        result = InstanceOfResult.FALSE;
+    if (inType.lessThanOrEqual(instanceOfType, appView)) {
+      if (inType.isDefinitelyNull()) {
+        return replaceInstanceOfByFalse(code, it);
       }
-
-      if (result == InstanceOfResult.UNKNOWN) {
-        if (inType.isClassType()
-            && isNeverInstantiatedDirectlyOrIndirectly(inType.asClassType().getClassType())) {
-          // The type of the in-value is a program class, and is never instantiated directly or
-          // indirectly. This, the in-value must be null, meaning that the instance-of instruction
-          // will always evaluate to false.
-          result = InstanceOfResult.FALSE;
-        }
+      if (inType.isDefinitelyNotNull()) {
+        return replaceInstanceOfByTrue(code, it);
       }
-
-      if (result == InstanceOfResult.UNKNOWN) {
-        Value aliasedValue =
-            inValue.getSpecificAliasedValue(
-                value ->
-                    value.isDefinedByInstructionSatisfying(
-                        Instruction::isAssumeWithDynamicTypeAssumption));
-        if (aliasedValue != null) {
-          Assume assumeInstruction = aliasedValue.getDefinition().asAssume();
-          DynamicType dynamicType = assumeInstruction.getDynamicType();
-          if (dynamicType.getNullability().isDefinitelyNull()) {
-            result = InstanceOfResult.FALSE;
-          } else if (dynamicType.isDynamicTypeWithUpperBound()
-              && dynamicType
-                  .asDynamicTypeWithUpperBound()
-                  .getDynamicUpperBoundType()
-                  .lessThanOrEqual(instanceOfType, appView)
-              && (!inType.isNullable() || dynamicType.getNullability().isDefinitelyNotNull())) {
-            result = InstanceOfResult.TRUE;
-          }
-        }
+      if (options.canUseJavaUtilObjectsNonNull()) {
+        return replaceInstanceOfByNonNull(it, instanceOf);
       }
     }
-    if (result != InstanceOfResult.UNKNOWN) {
-      it.replaceCurrentInstructionWithConstBoolean(code, result.isTrue());
-      return true;
+    if (aliasValue.isDefinedByInstructionSatisfying(Instruction::isCreatingInstanceOrArray)
+        && instanceOfType.strictlyLessThan(inType, appView)) {
+      return replaceInstanceOfByFalse(code, it);
+    }
+    if (instanceOf.type().isClassType()
+        && isNeverInstantiatedDirectlyOrIndirectly(instanceOf.type())) {
+      // The type of the instance-of instruction is a program class, and is never instantiated
+      // directly or indirectly. Thus, the in-value must be null, meaning that the instance-of
+      // instruction will always evaluate to false.
+      return replaceInstanceOfByFalse(code, it);
+    }
+
+    if (inType.isClassType()
+        && isNeverInstantiatedDirectlyOrIndirectly(inType.asClassType().getClassType())) {
+      // The type of the in-value is a program class, and is never instantiated directly or
+      // indirectly. This, the in-value must be null, meaning that the instance-of instruction
+      // will always evaluate to false.
+      return replaceInstanceOfByFalse(code, it);
+    }
+
+    Value aliasedValue =
+        inValue.getSpecificAliasedValue(
+            value ->
+                value.isDefinedByInstructionSatisfying(
+                    Instruction::isAssumeWithDynamicTypeAssumption));
+    if (aliasedValue != null) {
+      Assume assumeInstruction = aliasedValue.getDefinition().asAssume();
+      DynamicType dynamicType = assumeInstruction.getDynamicType();
+      if (dynamicType.getNullability().isDefinitelyNull()) {
+        return replaceInstanceOfByFalse(code, it);
+      } else if (dynamicType.isDynamicTypeWithUpperBound()
+          && dynamicType
+              .asDynamicTypeWithUpperBound()
+              .getDynamicUpperBoundType()
+              .lessThanOrEqual(instanceOfType, appView)
+          && (!inType.isNullable() || dynamicType.getNullability().isDefinitelyNotNull())) {
+        return replaceInstanceOfByTrue(code, it);
+      }
     }
     return false;
+  }
+
+  private boolean replaceInstanceOfByFalse(
+      IRCode code, InstructionListIterator instructionIterator) {
+    instructionIterator.replaceCurrentInstructionWithConstBoolean(code, false);
+    return true;
+  }
+
+  private boolean replaceInstanceOfByTrue(
+      IRCode code, InstructionListIterator instructionIterator) {
+    instructionIterator.replaceCurrentInstructionWithConstBoolean(code, true);
+    return true;
+  }
+
+  private boolean replaceInstanceOfByNonNull(
+      InstructionListIterator instructionIterator, InstanceOf instanceOf) {
+    InvokeStatic replacement =
+        InvokeStatic.builder()
+            .setMethod(dexItemFactory.objectsMethods.nonNull)
+            .setSingleArgument(instanceOf.value())
+            .setOutValue(instanceOf.outValue())
+            .build();
+    instructionIterator.replaceCurrentInstruction(replacement);
+    return true;
   }
 
   private boolean isNeverInstantiatedDirectlyOrIndirectly(DexType type) {

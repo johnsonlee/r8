@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.equivalence.BasicBlockBehavioralSubsumption;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -29,6 +30,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
+import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
@@ -110,6 +112,9 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       if (block.exit().isIf()) {
         flipIfBranchesIfNeeded(code, block);
         if (rewriteIfWithConstZero(code, block)) {
+          simplified = true;
+        }
+        if (rewriteIfWithObjectsIsNullOrNonNull(code, block)) {
           simplified = true;
         }
 
@@ -599,6 +604,29 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       }
     }
 
+    return false;
+  }
+
+  private boolean rewriteIfWithObjectsIsNullOrNonNull(IRCode code, BasicBlock block) {
+    If theIf = block.exit().asIf();
+    if (!theIf.isZeroTest() || !theIf.getType().isEqualsOrNotEquals()) {
+      return false;
+    }
+
+    Value value = theIf.lhs();
+    if (value.isDefinedByInstructionSatisfying(Instruction::isInvokeStatic)) {
+      InvokeStatic invoke = value.getDefinition().asInvokeStatic();
+      DexMethod invokedMethod = invoke.getInvokedMethod();
+      if (invokedMethod.isIdenticalTo(dexItemFactory.objectsMethods.isNull)) {
+        If ifz = new If(theIf.getType().inverted(), invoke.getFirstArgument());
+        block.replaceLastInstruction(ifz, code);
+        return true;
+      } else if (invokedMethod.isIdenticalTo(dexItemFactory.objectsMethods.nonNull)) {
+        If ifz = new If(theIf.getType(), invoke.getFirstArgument());
+        block.replaceLastInstruction(ifz, code);
+        return true;
+      }
+    }
     return false;
   }
 

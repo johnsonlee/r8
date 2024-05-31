@@ -4,13 +4,14 @@
 
 package com.android.tools.r8.ir.optimize.instanceofremoval;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -36,7 +37,13 @@ public class InstanceOfToNullCheckRewritingTest extends TestBase {
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
-        .inspect(inspector -> assertThat(inspector.clazz(I.class), isPresent()))
+        .inspect(
+            inspector ->
+                assertThat(
+                    inspector.clazz(I.class),
+                    isPresentIf(
+                        parameters.isCfRuntime()
+                            || parameters.getApiLevel().isLessThan(AndroidApiLevel.N))))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("true", "false");
   }

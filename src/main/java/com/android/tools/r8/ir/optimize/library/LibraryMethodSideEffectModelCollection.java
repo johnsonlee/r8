@@ -97,6 +97,8 @@ public class LibraryMethodSideEffectModelCollection {
         .add(dexItemFactory.recordMembers.constructor)
         .add(dexItemFactory.objectMembers.constructor)
         .add(dexItemFactory.objectMembers.getClass)
+        .add(dexItemFactory.objectsMethods.isNull)
+        .add(dexItemFactory.objectsMethods.nonNull)
         .add(dexItemFactory.shortMembers.shortValue)
         .add(dexItemFactory.shortMembers.toString)
         .add(dexItemFactory.shortMembers.valueOf)
