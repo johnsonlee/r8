@@ -1122,6 +1122,8 @@ public class Inliner {
             }
           }
 
+          methodProcessor.getCallSiteInformation().notifyMethodInlined(context, singleTarget);
+
           classInitializationAnalysis.notifyCodeHasChanged();
           postProcessInlineeBlocks(
               code, blockIterator, block, affectedValues, blocksToRemove, timing);

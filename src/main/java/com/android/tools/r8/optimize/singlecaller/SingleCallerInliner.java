@@ -181,6 +181,9 @@ public class SingleCallerInliner {
       }
 
       @Override
+      public void notifyMethodInlined(ProgramMethod caller, ProgramMethod callee) {}
+
+      @Override
       public void unsetCallSiteInformation(ProgramMethod method) {
         throw new Unreachable();
       }
