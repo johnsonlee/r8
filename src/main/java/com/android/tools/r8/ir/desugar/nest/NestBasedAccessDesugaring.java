@@ -407,7 +407,7 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
   RuntimeException reportIncompleteNest(LibraryMember<?, ?> member) {
     Nest nest = Nest.create(appView, member.getHolder());
     assert nest != null : "Should be a compilation error if missing nest host on library class.";
-    throw appView.options().errorMissingNestMember(nest);
+    throw appView.options().fatalErrorMissingNestMember(nest);
   }
 
   DexMethod getFieldAccessBridgeReference(DexClassAndField field, boolean isGet) {

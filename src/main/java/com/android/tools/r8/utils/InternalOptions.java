@@ -1303,10 +1303,17 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         + " to be on program or class path.";
   }
 
-  public RuntimeException errorMissingNestMember(Nest nest) {
-    throw reporter.fatalError(
-        new IncompleteNestNestDesugarDiagnosic(
-            nest.getHostClass().getOrigin(), Position.UNKNOWN, messageErrorIncompleteNest(nest)));
+  public RuntimeException fatalErrorMissingNestMember(Nest nest) {
+    throw reporter.fatalError(createIncompleteNestNestDesugarDiagnosic(nest));
+  }
+
+  public void errorMissingNestMember(Nest nest) {
+    reporter.error(createIncompleteNestNestDesugarDiagnosic(nest));
+  }
+
+  public IncompleteNestNestDesugarDiagnosic createIncompleteNestNestDesugarDiagnosic(Nest nest) {
+    return new IncompleteNestNestDesugarDiagnosic(
+        nest.getHostClass().getOrigin(), Position.UNKNOWN, messageErrorIncompleteNest(nest));
   }
 
   private static String messageErrorIncompleteNest(Nest nest) {

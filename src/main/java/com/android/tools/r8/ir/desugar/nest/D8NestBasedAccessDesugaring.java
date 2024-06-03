@@ -39,11 +39,18 @@ public class D8NestBasedAccessDesugaring extends NestBasedAccessDesugaring {
     forEachNest(
         nest -> {
           if (nest.hasMissingMembers()) {
-            throw appView.options().errorMissingNestMember(nest);
+            throw appView.options().fatalErrorMissingNestMember(nest);
+          }
+          if (nest.hasHostOrLibraryMember()) {
+            appView.options().errorMissingNestMember(nest);
           }
           DexClass hostClass = nest.getHostClass();
+          if (hostClass.isLibraryClass()) {
+            return;
+          }
           for (DexClass memberClass : nest.getMembers()) {
-            if (hostClass.isProgramClass() || memberClass.isProgramClass()) {
+            if (!memberClass.isLibraryClass()
+                && (hostClass.isProgramClass() || memberClass.isProgramClass())) {
               appView.appInfo().reportDependencyEdge(hostClass, memberClass);
               appView.appInfo().reportDependencyEdge(memberClass, hostClass);
             }
@@ -58,7 +65,10 @@ public class D8NestBasedAccessDesugaring extends NestBasedAccessDesugaring {
     forEachNest(
         nest -> {
           if (nest.hasMissingMembers()) {
-            throw appView.options().errorMissingNestMember(nest);
+            throw appView.options().fatalErrorMissingNestMember(nest);
+          }
+          if (nest.hasHostOrLibraryMember()) {
+            appView.options().errorMissingNestMember(nest);
           }
         },
         classWithoutHost -> {

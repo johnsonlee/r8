@@ -73,8 +73,8 @@ public class Nest {
     return missingMembers;
   }
 
-  public boolean hasLibraryMember() {
-    return Iterables.any(members, DexClass::isLibraryClass);
+  public boolean hasHostOrLibraryMember() {
+    return hostClass.isLibraryClass() || Iterables.any(members, DexClass::isLibraryClass);
   }
 
   public boolean hasMissingMembers() {
