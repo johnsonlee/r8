@@ -16,7 +16,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AssertionUtils;
 import com.google.common.collect.Sets;
@@ -25,7 +24,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,13 +65,9 @@ public class GMSCoreLatestTest extends GMSCoreCompilationTestBase {
         compileWithR8(
             builder ->
                 builder.addOptionsModification(
-                    options -> {
-                      options.testing.processingContextsConsumer =
-                          id -> assertNull(idsRoundOne.put(id, id));
-                      options
-                          .getOpenClosedInterfacesOptions()
-                          .suppressSingleOpenInterface(Reference.classFromClass(Lock.class));
-                    }));
+                    options ->
+                        options.testing.processingContextsConsumer =
+                            id -> assertNull(idsRoundOne.put(id, id))));
     compileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors();
 
     Map<String, String> idsRoundTwo = new ConcurrentHashMap<>();
@@ -81,16 +75,12 @@ public class GMSCoreLatestTest extends GMSCoreCompilationTestBase {
         compileWithR8(
             builder ->
                 builder.addOptionsModification(
-                    options -> {
-                      options.testing.processingContextsConsumer =
-                          id -> {
-                            AssertionUtils.assertNotNull(idsRoundOne.get(id));
-                            assertNull(idsRoundTwo.put(id, id));
-                          };
-                      options
-                          .getOpenClosedInterfacesOptions()
-                          .suppressSingleOpenInterface(Reference.classFromClass(Lock.class));
-                    }));
+                    options ->
+                        options.testing.processingContextsConsumer =
+                            id -> {
+                              AssertionUtils.assertNotNull(idsRoundOne.get(id));
+                              assertNull(idsRoundTwo.put(id, id));
+                            }));
 
     // Verify that the result of the two compilations was the same.
     assertEquals(
