@@ -15,11 +15,9 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.locks.Lock;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,43 +57,28 @@ public class GMSCoreV10Test extends GMSCoreCompilationTestBase {
     compileWithR8(
             builder ->
                 builder.addOptionsModification(
-                    options -> {
-                      options.testing.forceJumboStringProcessing = true;
-                      options
-                          .getOpenClosedInterfacesOptions()
-                          .suppressSingleOpenInterface(Reference.classFromClass(Lock.class));
-                    }))
+                    options -> options.testing.forceJumboStringProcessing = true))
         .runDex2Oat(parameters.getRuntime())
         .assertNoVerificationErrors();
   }
 
   @Test
   public void testD8Debug() throws Exception {
-    compileWithD8Debug(ThrowableConsumer.empty());
+    compileWithD8(TestCompilerBuilder::debug);
   }
 
   @Test
   public void testD8Release() throws Exception {
-    compileWithD8Release(ThrowableConsumer.empty())
+    compileWithD8(TestCompilerBuilder::release)
         .runDex2Oat(parameters.getRuntime())
         .assertNoVerificationErrors();
-  }
-
-  private D8TestCompileResult compileWithD8Debug(ThrowableConsumer<D8TestBuilder> configuration)
-      throws Exception {
-    return compileWithD8(configuration.andThen(TestCompilerBuilder::debug));
-  }
-
-  private D8TestCompileResult compileWithD8Release(ThrowableConsumer<D8TestBuilder> configuration)
-      throws Exception {
-    return compileWithD8(configuration.andThen(TestCompilerBuilder::release));
   }
 
   private D8TestCompileResult compileWithD8(ThrowableConsumer<D8TestBuilder> configuration)
       throws Exception {
     return testForD8()
         .addProgramFiles(base.resolve(DEPLOY_JAR))
-        .setMinApi(AndroidApiLevel.L)
+        .setMinApi(parameters)
         .apply(configuration)
         .compile();
   }

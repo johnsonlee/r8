@@ -25,8 +25,10 @@ public abstract class EnqueuerDeferredTracing {
     if (!options.isShrinking() || !options.enableEnqueuerDeferredTracing) {
       return empty();
     }
-    if (!options.isOptimizing() && !options.isOptimizedResourceShrinking()) {
-      return empty();
+    if (!options.isOptimizedResourceShrinking()) {
+      if (!options.isOptimizing() || mode.isInitialTreeShaking()) {
+        return empty();
+      }
     }
     return new EnqueuerDeferredTracingImpl(appView, enqueuer, mode);
   }
