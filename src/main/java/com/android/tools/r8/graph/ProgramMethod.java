@@ -180,8 +180,8 @@ public final class ProgramMethod extends DexClassAndMethod
     return getDefinition().getKotlinInfo();
   }
 
-  public boolean isReachabilitySensitive() {
-    return getHolder().isReachabilitySensitive();
+  public boolean getOrComputeReachabilitySensitive(AppView<?> appView) {
+    return getHolder().getOrComputeReachabilitySensitive(appView);
   }
 
   public void setCode(Code newCode, AppView<?> appView) {
@@ -202,7 +202,7 @@ public final class ProgramMethod extends DexClassAndMethod
     if (appView.testing().noLocalsTableOnInput) {
       return false;
     }
-    return appView.options().debug || isReachabilitySensitive();
+    return appView.options().debug || getOrComputeReachabilitySensitive(appView);
   }
 
   public ProgramMethod rewrittenWithLens(

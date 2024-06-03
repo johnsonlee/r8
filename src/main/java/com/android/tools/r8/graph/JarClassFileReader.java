@@ -51,6 +51,7 @@ import com.android.tools.r8.utils.MethodSignatureEquivalence;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -257,7 +258,7 @@ public class JarClassFileReader<T extends DexClass> {
     private final List<DexEncodedMethod> directMethods = new ArrayList<>();
     private final List<DexEncodedMethod> virtualMethods = new ArrayList<>();
     private final Set<Wrapper<DexMethod>> methodSignatures = new HashSet<>();
-    private boolean hasReachabilitySensitiveMember = false;
+    private boolean hasReachabilitySensitiveMethod = false;
     private SyntheticMarker syntheticMarker = null;
 
     public CreateDexClassVisitor(
@@ -491,6 +492,7 @@ public class JarClassFileReader<T extends DexClass> {
         addAnnotation(DexAnnotation.createAnnotationDefaultAnnotation(
             type, defaultAnnotations, application.getFactory()));
       }
+      checkReachabilitySensitivity();
       checkRecord();
       T clazz =
           classKind.create(
@@ -552,7 +554,6 @@ public class JarClassFileReader<T extends DexClass> {
       if (clazz.isProgramClass()) {
         DexProgramClass programClass = clazz.asProgramClass();
         programClass.setInitialClassFileVersion(version);
-        programClass.setReachabilitySensitive(hasReachabilitySensitiveMember);
         if (deprecated) {
           programClass.setDeprecated();
         }
@@ -596,6 +597,33 @@ public class JarClassFileReader<T extends DexClass> {
         throw new CompilationError("Space characters in SimpleName '"
           + name + "' are not allowed prior to DEX version 040");
       }
+    }
+
+    // If anything is marked reachability sensitive, all methods need to be parsed including
+    // locals information. This propagates the reachability sensitivity bit so that if any field
+    // or method is annotated, all methods get parsed with locals information.
+    private void checkReachabilitySensitivity() {
+      if (hasReachabilitySensitiveMethod || hasReachabilitySensitiveField()) {
+        for (DexEncodedMethod method : Iterables.concat(directMethods, virtualMethods)) {
+          Code code = method.getCode();
+          if (code != null && code.isCfCode()) {
+            code.asLazyCfCode().markReachabilitySensitive();
+          }
+        }
+      }
+    }
+
+    @SuppressWarnings("ReferenceEquality")
+    private boolean hasReachabilitySensitiveField() {
+      DexType reachabilitySensitive = application.getFactory().annotationReachabilitySensitive;
+      for (DexEncodedField field : Iterables.concat(instanceFields, staticFields)) {
+        for (DexAnnotation annotation : field.annotations().annotations) {
+          if (annotation.annotation.type == reachabilitySensitive) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
     private void addDefaultAnnotation(String name, DexValue value) {
@@ -690,11 +718,6 @@ public class JarClassFileReader<T extends DexClass> {
             parsingContext,
             parent.application::addKeepDeclaration);
       }
-
-      // Check for reachability sensitive annotation.
-      parent.hasReachabilitySensitiveMember |=
-          parent.application.getFactory().annotationReachabilitySensitiveDesc.equals(desc);
-
       return createAnnotationVisitor(
           desc, visible, getAnnotations(), parent.application, DexAnnotation::new);
     }
@@ -858,11 +881,6 @@ public class JarClassFileReader<T extends DexClass> {
             parsingContext,
             parent.application::addKeepDeclaration);
       }
-
-      // Check for reachability sensitive annotation.
-      parent.hasReachabilitySensitiveMember |=
-          parent.application.getFactory().annotationReachabilitySensitiveDesc.equals(desc);
-
       return createAnnotationVisitor(
           desc, visible, getAnnotations(), parent.application, DexAnnotation::new);
     }
@@ -1012,6 +1030,7 @@ public class JarClassFileReader<T extends DexClass> {
               .build();
       Wrapper<DexMethod> signature = MethodSignatureEquivalence.get().wrap(method);
       if (parent.methodSignatures.add(signature)) {
+        parent.hasReachabilitySensitiveMethod |= isReachabilitySensitive();
         if (flags.isStatic() || flags.isConstructor() || flags.isPrivate()) {
           parent.directMethods.add(dexMethod);
         } else {
@@ -1028,6 +1047,18 @@ public class JarClassFileReader<T extends DexClass> {
       if (defaultAnnotation != null) {
         parent.addDefaultAnnotation(name, defaultAnnotation);
       }
+    }
+
+    @SuppressWarnings("ReferenceEquality")
+    private boolean isReachabilitySensitive() {
+      DexType reachabilitySensitive =
+          parent.application.getFactory().annotationReachabilitySensitive;
+      for (DexAnnotation annotation : getAnnotations()) {
+        if (annotation.annotation.type == reachabilitySensitive) {
+          return true;
+        }
+      }
+      return false;
     }
 
     private List<DexAnnotation> getAnnotations() {

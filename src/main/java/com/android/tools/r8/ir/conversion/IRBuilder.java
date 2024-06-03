@@ -502,7 +502,7 @@ public class IRBuilder {
   }
 
   public boolean isDebugMode() {
-    return appView.options().debug || getProgramMethod().isReachabilitySensitive();
+    return appView.options().debug || getProgramMethod().getOrComputeReachabilitySensitive(appView);
   }
 
   public Int2ReferenceSortedMap<BlockInfo> getCFG() {

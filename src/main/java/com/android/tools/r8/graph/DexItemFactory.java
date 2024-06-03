@@ -809,11 +809,8 @@ public class DexItemFactory {
   public final DexType annotationCovariantReturnTypes =
       createStaticallyKnownType(
           "Ldalvik/annotation/codegen/CovariantReturnType$CovariantReturnTypes;");
-
-  public final String annotationReachabilitySensitiveDesc =
-      "Ldalvik/annotation/optimization/ReachabilitySensitive;";
   public final DexType annotationReachabilitySensitive =
-      createStaticallyKnownType(annotationReachabilitySensitiveDesc);
+      createStaticallyKnownType("Ldalvik/annotation/optimization/ReachabilitySensitive;");
 
   private static final String METAFACTORY_METHOD_NAME = "metafactory";
   private static final String METAFACTORY_ALT_METHOD_NAME = "altMetafactory";

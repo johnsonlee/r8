@@ -76,7 +76,7 @@ public abstract class CodeRewriterPass<T extends AppInfo> {
   }
 
   protected boolean isDebugMode(ProgramMethod context) {
-    return options.debug || context.isReachabilitySensitive();
+    return options.debug || context.getOrComputeReachabilitySensitive(appView);
   }
 
   protected abstract String getRewriterId();

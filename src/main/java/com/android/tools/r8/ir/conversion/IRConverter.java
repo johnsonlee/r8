@@ -522,7 +522,7 @@ public class IRConverter {
       previous = printMethod(code, "IR after disable assertions (SSA)", previous);
     }
 
-    boolean isDebugMode = options.debug || context.isReachabilitySensitive();
+    boolean isDebugMode = options.debug || context.getOrComputeReachabilitySensitive(appView);
     assert !method.isProcessed() || !isDebugMode
         : "Method already processed: "
             + context.toSourceString()

@@ -233,7 +233,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // and we do not actually want locals information in the output.
     if (options().debug) {
       computeDebugInfo(code, blocks, liveIntervals, this, liveAtEntrySets);
-    } else if (code.context().isReachabilitySensitive()) {
+    } else if (code.context().getOrComputeReachabilitySensitive(appView)) {
       InstructionListIterator it = code.instructionListIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
@@ -1661,7 +1661,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // Set all free positions for possible registers to max integer.
     RegisterPositions freePositions = new RegisterPositionsImpl(registerConstraint + 1);
 
-    if ((options().debug || code.context().isReachabilitySensitive())
+    if ((options().debug || code.context().getOrComputeReachabilitySensitive(appView))
         && !code.method().accessFlags.isStatic()) {
       // If we are generating debug information or if the method is reachability sensitive,
       // we pin the this value register. The debugger expects to always be able to find it in
@@ -2712,7 +2712,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             }
           }
         }
-        if (appView.options().debug || code.context().isReachabilitySensitive()) {
+        if (appView.options().debug || code.context().getOrComputeReachabilitySensitive(appView)) {
           // In debug mode, or if the method is reachability sensitive, extend the live range
           // to cover the full scope of a local variable (encoded as debug values).
           int number = instruction.getNumber();

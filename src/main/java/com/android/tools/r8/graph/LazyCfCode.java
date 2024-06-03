@@ -119,6 +119,12 @@ public class LazyCfCode extends Code {
   private JarApplicationReader application;
   private CfCode code;
   private ReparseContext context;
+  private boolean reachabilitySensitive = false;
+
+  public void markReachabilitySensitive() {
+    assert code == null;
+    reachabilitySensitive = true;
+  }
 
   @Override
   public boolean isCfCode() {
@@ -152,13 +158,11 @@ public class LazyCfCode extends Code {
   private void internalParseCode() {
     ReparseContext context = this.context;
     JarApplicationReader application = this.application;
-    assert context != null;
     assert application != null;
-    boolean reachabilitySensitive = context.owner.asProgramClass().isReachabilitySensitive();
-    DebugParsingOptions parsingOptions = getParsingOptions(application, reachabilitySensitive);
+    assert context != null;
     // The ClassCodeVisitor is in charge of setting this.context to null.
     try {
-      parseCode(context, false, parsingOptions);
+      parseCode(context, false);
     } catch (JsrEncountered e) {
       for (Code code : context.codeList) {
         code.asLazyCfCode().code = null;
@@ -166,7 +170,7 @@ public class LazyCfCode extends Code {
         code.asLazyCfCode().application = application;
       }
       try {
-        parseCode(context, true, parsingOptions);
+        parseCode(context, true);
       } catch (JsrEncountered e1) {
         throw new Unreachable(e1);
       }
@@ -200,8 +204,9 @@ public class LazyCfCode extends Code {
     }
   }
 
-  private void parseCode(
-      ReparseContext context, boolean useJsrInliner, DebugParsingOptions parsingOptions) {
+  public void parseCode(ReparseContext context, boolean useJsrInliner) {
+    DebugParsingOptions parsingOptions = getParsingOptions(application, reachabilitySensitive);
+
     ClassCodeVisitor classVisitor =
         new ClassCodeVisitor(
             context.owner,
@@ -296,8 +301,7 @@ public class LazyCfCode extends Code {
 
   @Override
   public String toString() {
-    // Don't force parsing in toString as it causes unexpected behavior when debugging.
-    return code != null ? code.toString() : "<lazy-code>";
+    return asCfCode().toString();
   }
 
   @Override

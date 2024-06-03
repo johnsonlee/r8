@@ -632,7 +632,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
 
   public boolean isConsistentSSABeforeTypesAreCorrectAllowingRedundantBlocks(AppView<?> appView) {
     assert isConsistentGraph(appView, true);
-    assert consistentBlockInstructions(true);
+    assert consistentBlockInstructions(appView, true);
     assert consistentDefUseChains();
     assert validThrowingInstructions();
     assert noCriticalEdges();
@@ -689,7 +689,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     assert consistentBlockNumbering();
     assert consistentPredecessorSuccessors();
     assert consistentCatchHandlers();
-    assert consistentBlockInstructions(ssa);
+    assert consistentBlockInstructions(appView, ssa);
     assert consistentMetadata();
     assert verifyAllThrowingInstructionsHavePositions();
     return true;
@@ -889,11 +889,13 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     return true;
   }
 
-  private boolean consistentBlockInstructions(boolean ssa) {
+  private boolean consistentBlockInstructions(AppView<?> appView, boolean ssa) {
     boolean argumentsAllowed = true;
     for (BasicBlock block : blocks) {
       assert block.consistentBlockInstructions(
-          argumentsAllowed, options.debug || context().isReachabilitySensitive(), ssa);
+          argumentsAllowed,
+          options.debug || context().getOrComputeReachabilitySensitive(appView),
+          ssa);
       argumentsAllowed = false;
     }
     return true;
