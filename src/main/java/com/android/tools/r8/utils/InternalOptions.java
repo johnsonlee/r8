@@ -3030,9 +3030,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   //
   // This can happen with D8, but is most likely to hit in R8 after inlining.
   //
-  // Fixed in Android V.
+  // Not known when/if Art will fix this.
   public boolean canHaveArtFalsyInstanceOfVerifierBug() {
-    return canHaveBugPresentUntilInclusive(AndroidApiLevel.U);
+    return true;
   }
 
   // Some Art Lollipop version do not deal correctly with long-to-int conversions.
