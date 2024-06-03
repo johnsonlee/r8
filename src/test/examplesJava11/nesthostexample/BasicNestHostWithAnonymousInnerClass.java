@@ -4,6 +4,8 @@
 
 package nesthostexample;
 
+import java.util.List;
+
 public class BasicNestHostWithAnonymousInnerClass {
 
   private String method() {
@@ -39,5 +41,9 @@ public class BasicNestHostWithAnonymousInnerClass {
     InterfaceForAnonymousClass anonymousInner =
         BasicNestHostWithAnonymousInnerClass.createAnonymousNestedInstance();
     System.out.println(anonymousInner.accessOuter(outer));
+  }
+
+  public static List<String> getExpectedResult() {
+    return List.of("fieldstaticFieldstaticFieldhostMethodstaticHostMethodstaticHostMethod");
   }
 }

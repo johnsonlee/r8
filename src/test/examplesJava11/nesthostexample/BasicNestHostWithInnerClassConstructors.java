@@ -4,6 +4,8 @@
 
 package nesthostexample;
 
+import java.util.List;
+
 public class BasicNestHostWithInnerClassConstructors {
 
   public String field;
@@ -58,5 +60,9 @@ public class BasicNestHostWithInnerClassConstructors {
     System.out.println(noBridge.field);
     System.out.println(unusedParamConstructor.field);
     System.out.println(uninstantiatedParamConstructor.field);
+  }
+
+  public static List<String> getExpectedResult() {
+    return List.of("field", "nest1SField", "1", "innerFieldUnusedConstructor", "nothing");
   }
 }

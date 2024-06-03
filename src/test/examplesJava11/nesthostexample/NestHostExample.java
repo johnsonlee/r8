@@ -4,8 +4,8 @@
 
 package nesthostexample;
 
+import java.util.List;
 
-// Warning: This requires Java 9+ to be compiled (private interface methods)
 // This file builds all the possible combinations of private members:
 // - static VS non-static
 // - fields VS methods
@@ -16,6 +16,34 @@ package nesthostexample;
 // Each instance is created through a private constructor to test them too.
 @SuppressWarnings("WeakerAccess")
 public class NestHostExample {
+
+  public static final String ALL_RESULT_LINE =
+      String.join(
+          ", ",
+          new String[] {
+            "field",
+            "staticField",
+            "staticField",
+            "hostMethod",
+            "staticHostMethod",
+            "staticHostMethod",
+            "nest1SField",
+            "staticNest1SField",
+            "staticNest1SField",
+            "nest1SMethod",
+            "staticNest1SMethod",
+            "staticNest1SMethod",
+            "nest2SField",
+            "staticNest2SField",
+            "staticNest2SField",
+            "nest2SMethod",
+            "staticNest2SMethod",
+            "staticNest2SMethod",
+            "nest1Field",
+            "nest1Method",
+            "nest2Field",
+            "nest2Method"
+          });
 
   private String method() {
     return "hostMethod";
@@ -320,5 +348,18 @@ public class NestHostExample {
     System.out.println(i1.accessPrivateInterface(i1));
 
     System.out.println(ExampleEnumCompilation.values().length);
+  }
+
+  public static List<String> getExpectedResult() {
+    return List.of(
+        ALL_RESULT_LINE,
+        ALL_RESULT_LINE,
+        ALL_RESULT_LINE,
+        ALL_RESULT_LINE,
+        "staticInterfaceMethodstaticStaticInterfaceMethod",
+        "staticInterfaceMethodstaticStaticInterfaceMethod",
+        "staticInterfaceMethodstaticStaticInterfaceMethod",
+        "staticInterfaceMethodstaticStaticInterfaceMethod",
+        "3");
   }
 }

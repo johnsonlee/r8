@@ -4,6 +4,8 @@
 
 package nesthostexample;
 
+import java.util.List;
+
 public class BasicNestHostWithInnerClassFields {
 
   private String fieldWithoutBridge = "noBridge";
@@ -36,5 +38,10 @@ public class BasicNestHostWithInnerClassFields {
 
     System.out.println(outer.accessNested(inner));
     System.out.println(inner.accessOuter(outer));
+  }
+
+  public static List<String> getExpectedResult() {
+    return List.of(
+        "RWnestFieldRWRWnestFieldRWRWnestFieldnoBridge", "RWfieldRWRWfieldRWRWnestField");
   }
 }

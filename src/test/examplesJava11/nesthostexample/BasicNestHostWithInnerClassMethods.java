@@ -4,6 +4,8 @@
 
 package nesthostexample;
 
+import java.util.List;
+
 public class BasicNestHostWithInnerClassMethods {
 
   private String methodWithoutBridge() {
@@ -44,5 +46,11 @@ public class BasicNestHostWithInnerClassMethods {
 
     System.out.println(outer.accessNested(inner));
     System.out.println(inner.accessOuter(outer));
+  }
+
+  public static List<String> getExpectedResult() {
+    return List.of(
+        "nestMethodstaticNestMethodstaticNestMethodnoBridge",
+        "hostMethodstaticHostMethodstaticNestMethod");
   }
 }
