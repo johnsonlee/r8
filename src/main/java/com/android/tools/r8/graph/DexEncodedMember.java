@@ -4,6 +4,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.graph.GenericSignature.DexDefinitionSignature;
 import com.android.tools.r8.ir.optimize.info.MemberOptimizationInfo;
 import com.android.tools.r8.kotlin.KotlinMemberLevelInfo;
 import java.util.function.Consumer;
@@ -39,6 +40,8 @@ public abstract class DexEncodedMember<D extends DexEncodedMember<D, R>, R exten
   public abstract KotlinMemberLevelInfo getKotlinInfo();
 
   public abstract void clearKotlinInfo();
+
+  public abstract DexDefinitionSignature<?> getGenericSignature();
 
   public abstract void clearGenericSignature();
 

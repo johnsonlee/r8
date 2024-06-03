@@ -302,6 +302,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     return true;
   }
 
+  @Override
   public FieldTypeSignature getGenericSignature() {
     return genericSignature;
   }

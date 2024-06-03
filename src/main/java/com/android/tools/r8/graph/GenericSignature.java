@@ -122,7 +122,7 @@ public class GenericSignature {
     return EMPTY_TYPE_SIGNATURES;
   }
 
-  interface DexDefinitionSignature<T extends DexDefinition> {
+  public interface DexDefinitionSignature<T extends DexDefinition> {
 
     default boolean isClassSignature() {
       return false;

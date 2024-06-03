@@ -1372,6 +1372,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     }
   }
 
+  @Override
   public MethodTypeSignature getGenericSignature() {
     return genericSignature;
   }

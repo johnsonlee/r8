@@ -9,7 +9,9 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.GenericSignature.DexDefinitionSignature;
 import com.android.tools.r8.horizontalclassmerging.SingleClassPolicy;
+import com.android.tools.r8.shaking.KeepInfo;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Iterables;
@@ -33,9 +35,9 @@ public class NoKeepRules extends SingleClassPolicy {
 
   private void processClass(DexProgramClass clazz) {
     DexType type = clazz.getType();
-    boolean pinHolder = keepInfo.getClassInfo(clazz).isPinned(options);
+    boolean pinHolder = isPinned(keepInfo.getClassInfo(clazz), clazz.getClassSignature());
     for (DexEncodedMember<?, ?> member : clazz.members()) {
-      if (keepInfo.getMemberInfo(member, clazz).isPinned(options)) {
+      if (isPinned(keepInfo.getMemberInfo(member, clazz), member.getGenericSignature())) {
         pinHolder = true;
         Iterables.addAll(
             dontMergeTypes,
@@ -47,6 +49,13 @@ public class NoKeepRules extends SingleClassPolicy {
     if (pinHolder) {
       dontMergeTypes.add(type);
     }
+  }
+
+  private boolean isPinned(KeepInfo<?, ?> keepInfo, DexDefinitionSignature<?> genericSignature) {
+    return keepInfo.isPinned(options)
+        || (genericSignature.hasSignature()
+            && !options.isForceProguardCompatibilityEnabled()
+            && !keepInfo.isSignatureRemovalAllowed(options));
   }
 
   @Override
