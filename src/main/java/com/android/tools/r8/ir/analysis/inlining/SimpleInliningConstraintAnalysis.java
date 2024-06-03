@@ -88,8 +88,8 @@ public class SimpleInliningConstraintAnalysis {
 
   private SimpleInliningConstraintWithDepth analyzeInstructionsInBlock(
       BasicBlock block, int instructionDepth, InstructionIterator instructionIterator) {
-    // If we reach a block that has already been seen, give up.
-    if (!seen.add(block)) {
+    // If we reach a block that has already been seen, or one that has catch handlers, then give up.
+    if (!seen.add(block) || block.hasCatchHandlers()) {
       return SimpleInliningConstraintWithDepth.getNever();
     }
 
