@@ -90,6 +90,7 @@ public final class EmulatedInterfaceApplicationRewriter {
             MethodCollectionFactory.fromMethods(newDirectMethods, newVirtualMethods),
             false,
             emulatedInterface.getChecksumSupplier());
+    newEmulatedInterface.setReachabilitySensitive(false);
     newEmulatedInterface.addExtraInterfaces(
         getRewrittenInterfacesOfEmulatedInterface(emulatedInterface), appView.dexItemFactory());
     return newEmulatedInterface;

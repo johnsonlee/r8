@@ -220,6 +220,9 @@ public abstract class SyntheticClassBuilder<
     }
     clazz.setDirectMethods(directMethods.toArray(DexEncodedMethod.EMPTY_ARRAY));
     clazz.setVirtualMethods(virtualMethods.toArray(DexEncodedMethod.EMPTY_ARRAY));
+    if (clazz.isProgramClass()) {
+      clazz.asProgramClass().setReachabilitySensitive(false);
+    }
     return clazz;
   }
 }

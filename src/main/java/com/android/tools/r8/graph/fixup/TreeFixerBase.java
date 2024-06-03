@@ -113,7 +113,6 @@ public abstract class TreeFixerBase {
     return newProgramClasses;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   // Should remain private as the correctness of the fixup requires the lazy 'newProgramClasses'.
   private DexProgramClass fixupClass(DexProgramClass clazz) {
     DexProgramClass newClass =
@@ -141,6 +140,7 @@ public abstract class TreeFixerBase {
     newClass.setInstanceFields(fixupFields(clazz.instanceFields()));
     newClass.setStaticFields(fixupFields(clazz.staticFields()));
     // Transfer properties that are not passed to the constructor.
+    newClass.setReachabilitySensitive(clazz.isReachabilitySensitive());
     if (clazz.hasClassFileVersion()) {
       newClass.setInitialClassFileVersion(clazz.getInitialClassFileVersion());
     }
@@ -151,7 +151,7 @@ public abstract class TreeFixerBase {
       newClass.setKotlinInfo(clazz.getKotlinInfo());
     }
     // If the class type changed, record the move in the lens.
-    if (newClass.getType() != clazz.getType()) {
+    if (newClass.getType().isNotIdenticalTo(clazz.getType())) {
       return recordClassChange(clazz, newClass);
     }
     return newClass;

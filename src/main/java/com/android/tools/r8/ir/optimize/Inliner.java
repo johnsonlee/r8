@@ -160,7 +160,7 @@ public class Inliner {
     }
     ProgramMethod method = code.context();
     DexEncodedMethod definition = method.getDefinition();
-    if (definition.isClassInitializer() || method.getOrComputeReachabilitySensitive(appView)) {
+    if (definition.isClassInitializer() || method.isReachabilitySensitive()) {
       return ConstraintWithTarget.NEVER;
     }
     KeepMethodInfo keepInfo = appView.getKeepInfo(method);

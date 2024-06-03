@@ -204,24 +204,14 @@ public class DexProgramClass extends DexClass
    * that is the case, dead reference elimination is disabled and locals are kept alive for their
    * entire scope.
    */
-  public boolean getOrComputeReachabilitySensitive(AppView<?> appView) {
-    if (reachabilitySensitive.isUnknown()) {
-      reachabilitySensitive = OptionalBool.of(internalComputeReachabilitySensitive(appView));
-    }
+  public boolean isReachabilitySensitive() {
+    assert !reachabilitySensitive.isUnknown();
     return reachabilitySensitive.isTrue();
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private boolean internalComputeReachabilitySensitive(AppView<?> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    for (DexEncodedMember<?, ?> member : members()) {
-      for (DexAnnotation annotation : member.annotations().annotations) {
-        if (annotation.annotation.type == dexItemFactory.annotationReachabilitySensitive) {
-          return true;
-        }
-      }
-    }
-    return false;
+  public void setReachabilitySensitive(boolean isReachabilitySensitive) {
+    assert reachabilitySensitive.isUnknown();
+    reachabilitySensitive = OptionalBool.of(isReachabilitySensitive);
   }
 
   @Override
