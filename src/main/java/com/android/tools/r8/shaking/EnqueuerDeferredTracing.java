@@ -22,7 +22,7 @@ public abstract class EnqueuerDeferredTracing {
   public static EnqueuerDeferredTracing create(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer, Mode mode) {
     InternalOptions options = appView.options();
-    if (!options.isShrinking() || !options.enableEnqueuerDeferredTracing) {
+    if (!options.isShrinking()) {
       return empty();
     }
     if (!options.isOptimizedResourceShrinking()) {

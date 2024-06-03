@@ -737,9 +737,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // @dalvik.annotation.codegen.CovariantReturnType$CovariantReturnTypes.
   public boolean processCovariantReturnTypeAnnotations = true;
 
-  public boolean enableEnqueuerDeferredTracing =
-      System.getProperty("com.android.tools.r8.disableEnqueuerDeferredTracing") == null;
-
   public boolean loadAllClassDefinitions = false;
 
   // Whether or not to check for valid multi-dex builds.
@@ -2367,6 +2364,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableBridgeHoistingToSharedSyntheticSuperclass = false;
     public boolean enableCheckCastAndInstanceOfRemoval = true;
     public boolean enableDeadSwitchCaseElimination = true;
+    public boolean enableEnqueuerDeferredTracingForReferenceFields =
+        System.getProperty("com.android.tools.r8.disableEnqueuerDeferredTracing") == null;
     public boolean enableInvokeSuperToInvokeVirtualRewriting = true;
     public boolean enableLegacyClassDefOrdering =
         System.getProperty("com.android.tools.r8.enableLegacyClassDefOrdering") != null;
