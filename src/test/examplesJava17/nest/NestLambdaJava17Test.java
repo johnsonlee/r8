@@ -2,18 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.nestaccesscontrol;
+package nest;
 
-import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
-
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -23,9 +19,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class NestLambdaJava17Test extends TestBase {
 
-  private static final Path JDK17_JAR =
-      Paths.get(ToolHelper.TESTS_BUILD_DIR, "examplesJava17").resolve("nest" + JAR_EXTENSION);
-  private static final String MAIN = "nest.NestLambda";
+  private static final Class<?> NEST_LAMBDA_CLASS = NestLambda.class;
   private static final String EXPECTED_RESULT =
       StringUtils.lines("printed: inner", "printed from itf: here");
 
@@ -45,17 +39,17 @@ public class NestLambdaJava17Test extends TestBase {
   public void testReference() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramFiles(JDK17_JAR)
-        .run(parameters.getRuntime(), MAIN)
+        .addProgramClassesAndInnerClasses(NEST_LAMBDA_CLASS)
+        .run(parameters.getRuntime(), NEST_LAMBDA_CLASS)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   @Test
   public void testJavaD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramFiles(JDK17_JAR)
+        .addProgramClassesAndInnerClasses(NEST_LAMBDA_CLASS)
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), MAIN)
+        .run(parameters.getRuntime(), NEST_LAMBDA_CLASS)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
@@ -63,14 +57,13 @@ public class NestLambdaJava17Test extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addProgramFiles(JDK17_JAR)
+        .addProgramClassesAndInnerClasses(NestLambda.class)
         .applyIf(
             parameters.isCfRuntime(),
-            // Alternatively we need to pass Jdk17 as library.
-            b -> b.addKeepRules("-dontwarn java.lang.invoke.StringConcatFactory"))
+            b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .setMinApi(parameters)
-        .addKeepMainRule(MAIN)
-        .run(parameters.getRuntime(), MAIN)
+        .addKeepMainRule(NEST_LAMBDA_CLASS)
+        .run(parameters.getRuntime(), NEST_LAMBDA_CLASS)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 }
