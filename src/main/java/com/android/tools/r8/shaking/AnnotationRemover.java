@@ -103,22 +103,26 @@ public class AnnotationRemover {
         assert !DexAnnotation.isEnclosingClassAnnotation(annotation, dexItemFactory);
         assert options.passthroughDexCode
             || !DexAnnotation.isSignatureAnnotation(annotation, dexItemFactory);
-        if (config.exceptions && DexAnnotation.isThrowingAnnotation(annotation, dexItemFactory)) {
-          return true;
+        if (DexAnnotation.isThrowingAnnotation(annotation, dexItemFactory)) {
+          KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
+          return methodInfo != null && !methodInfo.isThrowsRemovalAllowed(options);
         }
         if (DexAnnotation.isSourceDebugExtension(annotation, dexItemFactory)) {
           assert holder.isProgramClass();
           appView.setSourceDebugExtensionForType(
               holder.asProgramClass(), annotation.annotation.elements[0].value.asDexValueString());
+          // TODO(b/343909250): Is this supposed to be kept on all live items?
           return config.sourceDebugExtension;
         }
         if (config.methodParameters
             && DexAnnotation.isParameterNameAnnotation(annotation, dexItemFactory)) {
+          // TODO(b/343907109): This should be conditional on its own keep info bit.
           return true;
         }
         if (isAnnotationOnAnnotationClass
             && DexAnnotation.isAnnotationDefaultAnnotation(annotation, dexItemFactory)
             && shouldRetainAnnotationDefaultAnnotationOnAnnotationClass(annotation)) {
+          // TODO(b/343909250): Is this supposed to be kept on all live items?
           return true;
         }
         return false;

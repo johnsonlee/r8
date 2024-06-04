@@ -676,6 +676,10 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
 
   }
 
+  public static boolean isThrowsAnnotation(DexAnnotation annotation, DexItemFactory factory) {
+    return factory.annotationThrows.isIdenticalTo(annotation.annotation.type);
+  }
+
   @SuppressWarnings("ReferenceEquality")
   public static boolean isAnnotationDefaultAnnotation(
       DexAnnotation annotation, DexItemFactory factory) {

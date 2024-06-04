@@ -825,6 +825,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   @Override
+  public boolean isForceKeepExceptionsAttributeEnabled() {
+    return proguardConfiguration == null
+        || (isForceProguardCompatibilityEnabled()
+            && proguardConfiguration.getKeepAttributes().exceptions);
+  }
+
+  @Override
   public boolean isKeepEnclosingMethodAttributeEnabled() {
     return proguardConfiguration.getKeepAttributes().enclosingMethod;
   }

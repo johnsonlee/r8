@@ -67,4 +67,9 @@ public class FoundAnnotationSubject extends AnnotationSubject {
   public DexTypeAnnotation asDexTypeAnnotation() {
     return annotation.asTypeAnnotation();
   }
+
+  @Override
+  public String toString() {
+    return annotation.toString();
+  }
 }

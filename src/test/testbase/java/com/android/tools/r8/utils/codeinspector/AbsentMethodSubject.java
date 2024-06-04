@@ -108,6 +108,11 @@ public class AbsentMethodSubject extends MethodSubject {
   }
 
   @Override
+  public AnnotationSubject getThrowsAnnotation(Class<?> clazz) {
+    throw new Unreachable("Cannot get the exceptions attribute/annotation for an absent method");
+  }
+
+  @Override
   public ProgramMethod getProgramMethod() {
     return null;
   }

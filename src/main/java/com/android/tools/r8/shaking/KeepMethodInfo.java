@@ -28,6 +28,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return bottom().joiner();
   }
 
+  private final boolean allowThrowsRemoval;
   private final boolean allowClassInlining;
   private final boolean allowClosedWorldReasoning;
   private final boolean allowConstantArgumentOptimization;
@@ -45,6 +46,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
   protected KeepMethodInfo(Builder builder) {
     super(builder);
+    this.allowThrowsRemoval = builder.isThrowsRemovalAllowed();
     this.allowClassInlining = builder.isClassInliningAllowed();
     this.allowClosedWorldReasoning = builder.isClosedWorldReasoningAllowed();
     this.allowConstantArgumentOptimization = builder.isConstantArgumentOptimizationAllowed();
@@ -84,6 +86,21 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
         internalParameterAnnotationsInfo(),
         configuration.isKeepRuntimeVisibleParameterAnnotationsEnabled(),
         configuration.isKeepRuntimeInvisibleParameterAnnotationsEnabled());
+  }
+
+  /**
+   * True if an item may have its exception throws clause removed.
+   *
+   * <p>This method requires knowledge of the global configuration as that can override the concrete
+   * value on a given item.
+   */
+  public boolean isThrowsRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
+    return !configuration.isForceKeepExceptionsAttributeEnabled()
+        && internalIsThrowsRemovalAllowed();
+  }
+
+  boolean internalIsThrowsRemovalAllowed() {
+    return allowThrowsRemoval;
   }
 
   KeepAnnotationCollectionInfo internalParameterAnnotationsInfo() {
@@ -242,6 +259,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
   public static class Builder extends KeepMemberInfo.Builder<Builder, KeepMethodInfo> {
 
+    private boolean allowThrowsRemoval;
     private boolean allowClassInlining;
     private boolean allowClosedWorldReasoning;
     private boolean allowConstantArgumentOptimization;
@@ -263,6 +281,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     protected Builder(KeepMethodInfo original) {
       super(original);
+      allowThrowsRemoval = original.internalIsThrowsRemovalAllowed();
       allowClassInlining = original.internalIsClassInliningAllowed();
       allowClosedWorldReasoning = original.internalIsClosedWorldReasoningAllowed();
       allowConstantArgumentOptimization = original.internalIsConstantArgumentOptimizationAllowed();
@@ -278,6 +297,23 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       allowUnusedReturnValueOptimization =
           original.internalIsUnusedReturnValueOptimizationAllowed();
       parameterAnnotationsInfo = original.internalParameterAnnotationsInfo().toBuilder();
+    }
+
+    public boolean isThrowsRemovalAllowed() {
+      return allowThrowsRemoval;
+    }
+
+    private Builder setAllowThrowsRemoval(boolean allowThrowsRemoval) {
+      this.allowThrowsRemoval = allowThrowsRemoval;
+      return self();
+    }
+
+    public Builder allowThrowsRemoval() {
+      return setAllowThrowsRemoval(true);
+    }
+
+    public Builder disallowThrowsRemoval() {
+      return setAllowThrowsRemoval(false);
     }
 
     // Class inlining.
@@ -572,6 +608,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     @Override
     boolean internalIsEqualTo(KeepMethodInfo other) {
       return super.internalIsEqualTo(other)
+          && isThrowsRemovalAllowed() == other.internalIsThrowsRemovalAllowed()
           && isClassInliningAllowed() == other.internalIsClassInliningAllowed()
           && isClosedWorldReasoningAllowed() == other.internalIsClosedWorldReasoningAllowed()
           && isConstantArgumentOptimizationAllowed()
@@ -600,6 +637,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     @Override
     public Builder makeTop() {
       return super.makeTop()
+          .disallowThrowsRemoval()
           .disallowClassInlining()
           .disallowClosedWorldReasoning()
           .disallowConstantArgumentOptimization()
@@ -619,6 +657,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     @Override
     public Builder makeBottom() {
       return super.makeBottom()
+          .allowThrowsRemoval()
           .allowClassInlining()
           .allowClosedWorldReasoning()
           .allowConstantArgumentOptimization()
@@ -644,6 +683,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     protected Joiner(Builder builder) {
       super(builder);
+    }
+
+    public Joiner disallowThrowsRemoval() {
+      builder.disallowThrowsRemoval();
+      return self();
     }
 
     public Joiner disallowClassInlining() {
@@ -733,7 +777,8 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       builder
           .getParameterAnnotationsInfo()
           .destructiveJoin(joiner.builder.getParameterAnnotationsInfo());
-      return applyIf(!joiner.builder.isClassInliningAllowed(), Joiner::disallowClassInlining)
+      return applyIf(!joiner.builder.isThrowsRemovalAllowed(), Joiner::disallowThrowsRemoval)
+          .applyIf(!joiner.builder.isClassInliningAllowed(), Joiner::disallowClassInlining)
           .applyIf(
               !joiner.builder.isClosedWorldReasoningAllowed(), Joiner::disallowClosedWorldReasoning)
           .applyIf(

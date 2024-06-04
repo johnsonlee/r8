@@ -1673,6 +1673,11 @@ public class RootSetUtils {
         context.markAsUsed();
       }
 
+      if (attributesConfig.exceptions && item.isMethod()) {
+        itemJoiner.computeIfAbsent().asMethodJoiner().disallowThrowsRemoval();
+        context.markAsUsed();
+      }
+
       if (appView.options().isMinificationEnabled() && !modifiers.allowsObfuscation) {
         itemJoiner.computeIfAbsent().disallowMinification();
         context.markAsUsed();

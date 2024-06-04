@@ -22,6 +22,8 @@ public interface GlobalKeepInfoConfiguration {
 
   boolean isForceKeepSignatureAttributeEnabled();
 
+  boolean isForceKeepExceptionsAttributeEnabled();
+
   boolean isKeepEnclosingMethodAttributeEnabled();
 
   boolean isKeepInnerClassesAttributeEnabled();

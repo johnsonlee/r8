@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCode.LocalVariableInfo;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexAnnotation;
+import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexDebugEvent;
 import com.android.tools.r8.graph.DexDebugInfo;
@@ -27,6 +28,8 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.IRCode;
@@ -172,6 +175,29 @@ public class FoundMethodSubject extends MethodSubject {
       parameterAnnotations.add(getParameterAnnotations(parameterIndex));
     }
     return parameterAnnotations;
+  }
+
+  @Override
+  public AnnotationSubject getThrowsAnnotation(Class<?> clazz) {
+    ClassSubject exceptionClass = codeInspector.clazz(clazz);
+    if (exceptionClass.isAbsent() || !getMethod().hasAnyAnnotations()) {
+      return new AbsentAnnotationSubject();
+    }
+    for (DexAnnotation annotation : getMethod().annotations().getAnnotations()) {
+      if (DexAnnotation.isThrowsAnnotation(annotation, codeInspector.dexItemFactory)) {
+        for (DexAnnotationElement element : annotation.annotation.elements) {
+          for (DexValue value : element.value.asDexValueArray().getValues()) {
+            DexValueType type = value.asDexValueType();
+            String desc = type.value.toDescriptorString();
+            if (desc.equals(exceptionClass.getOriginalDescriptor())
+                || desc.equals(exceptionClass.getFinalDescriptor())) {
+              return new FoundAnnotationSubject(annotation, codeInspector);
+            }
+          }
+        }
+      }
+    }
+    return new AbsentAnnotationSubject();
   }
 
   @Override
