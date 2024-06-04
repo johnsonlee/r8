@@ -127,4 +127,6 @@ public abstract class WhyAreYouNotInliningReporter {
       int numberOfMonitorEnterValuesAfterInlining, int threshold);
 
   public abstract boolean unsetReasonHasBeenReportedFlag();
+
+  public abstract void reportUnsafeDueToArrayCloneCall();
 }

@@ -297,4 +297,10 @@ class WhyAreYouNotInliningReporterImpl extends WhyAreYouNotInliningReporter {
     reasonHasBeenReported = false;
     return true;
   }
+
+  @Override
+  public void reportUnsafeDueToArrayCloneCall() {
+    report(
+        "would lead to unsupported resolution of array clone() from within an interface method.");
+  }
 }

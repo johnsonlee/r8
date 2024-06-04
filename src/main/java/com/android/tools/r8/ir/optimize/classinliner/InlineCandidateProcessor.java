@@ -57,6 +57,7 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.optimize.AffectedValues;
+import com.android.tools.r8.ir.optimize.DefaultInliningOracle;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.Inliner.InliningInfo;
 import com.android.tools.r8.ir.optimize.InliningOracle;
@@ -1338,6 +1339,9 @@ final class InlineCandidateProcessor {
       // with arguments after inlining. We should try and improve it later.
       //
       // Using -allowaccessmodification mitigates this.
+      return false;
+    }
+    if (DefaultInliningOracle.isInliningBlockedDueToArrayClone(method, singleTarget, appView)) {
       return false;
     }
     return true;
