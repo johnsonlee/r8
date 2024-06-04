@@ -28,6 +28,7 @@ dependencies {
   implementation(files(testbaseDepsJarTask.outputs.files.getSingleFile()))
   implementation(testbaseJavaCompileTask.outputs.files)
   implementation(mainCompileTask.outputs.files)
+  implementation(projectTask("main", "processResources").outputs.files)
 }
 
 // We just need to register the examples jars for it to be referenced by other modules.
