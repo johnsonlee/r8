@@ -68,13 +68,6 @@ public class NestAccessControlTestUtils {
           "NestHostExample$StaticNestMemberInner$StaticNestMemberInnerInner",
           "NestHostExample$StaticNestInterfaceInner",
           "NestHostExample$ExampleEnumCompilation");
-  public static final int NUMBER_OF_TEST_CLASSES = CLASS_NAMES.size();
-
-  // The following map use ids, i.e., strings which represents respectively
-  // a nest with only field, method, constructor, anonymous class and
-  // all at once nest based private accesses.
-  public static final ImmutableList<String> NEST_IDS =
-      ImmutableList.of("fields", "methods", "constructors", "anonymous", "all");
   public static final ImmutableMap<String, String> MAIN_CLASSES =
       ImmutableMap.<String, String>builder()
           .put("fields", "BasicNestHostWithInnerClassFields")
@@ -167,10 +160,6 @@ public class NestAccessControlTestUtils {
 
   public static String getExpectedResult(String id) {
     return EXPECTED_RESULTS.get(id);
-  }
-
-  public static List<Path> classesOfNest(String nestID) {
-    return classesMatching(MAIN_CLASSES.get(nestID));
   }
 
   public static List<Path> classesMatching(String matcher) {
