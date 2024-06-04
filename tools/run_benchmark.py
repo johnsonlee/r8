@@ -92,7 +92,9 @@ def main(argv, temp):
 
     if options.nolib:
         testBuildTargets = [
-            utils.GRADLE_TASK_TEST_JAR, utils.GRADLE_TASK_TEST_DEPS_JAR
+            utils.GRADLE_TASK_TEST_JAR,
+            utils.GRADLE_TASK_TEST_DEPS_JAR,
+            utils.GRADLE_TASK_TEST_UNZIP_TESTBASE
         ]
         buildTargets = [utils.GRADLE_TASK_R8] + testBuildTargets
         r8jar = utils.R8_JAR
