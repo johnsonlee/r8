@@ -40,7 +40,7 @@ public abstract class BenchmarkBase extends TestBase {
     config.run(new BenchmarkEnvironment(config, temp, false));
   }
 
-  public static BenchmarkRunner runner(BenchmarkConfig config) {
-    return BenchmarkRunner.runner(config);
+  public static BenchmarkRunner runner(BenchmarkEnvironment environment) {
+    return BenchmarkRunner.runner(environment);
   }
 }

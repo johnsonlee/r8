@@ -65,7 +65,7 @@ public class L8Benchmark extends BenchmarkBase {
             ImmutableSet.of(ANDROID_JAR.getRoot(environment).resolve("android.jar")),
             LibraryDesugaringSpecification.JDK11_DESCRIPTOR,
             "");
-    runner(environment.getConfig())
+    runner(environment)
         .setWarmupIterations(1)
         .setBenchmarkIterations(10)
         .reportResultSum()

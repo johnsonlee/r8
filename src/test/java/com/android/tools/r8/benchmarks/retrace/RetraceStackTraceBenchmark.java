@@ -59,7 +59,7 @@ public class RetraceStackTraceBenchmark extends BenchmarkBase {
 
   public static BenchmarkMethod benchmarkRetrace() {
     return environment ->
-        runner(environment.getConfig())
+        runner(environment)
             .setWarmupIterations(1)
             .setBenchmarkIterations(4)
             .reportResultSum()

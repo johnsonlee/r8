@@ -4,6 +4,9 @@
 package com.android.tools.r8.benchmarks;
 
 import com.android.tools.r8.benchmarks.BenchmarkResults.ResultMode;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Files;
 
 public class BenchmarkRunner {
 
@@ -11,22 +14,28 @@ public class BenchmarkRunner {
     void run(BenchmarkResults results) throws Exception;
   }
 
-  private final BenchmarkConfig config;
+  private final BenchmarkEnvironment environment;
   private int warmups = 0;
   private int iterations = 1;
   private ResultMode resultMode = BenchmarkResults.ResultMode.AVERAGE;
 
-  private BenchmarkRunner(BenchmarkConfig config) {
-    this.config = config;
+  private BenchmarkRunner(BenchmarkEnvironment environment) {
+    this.environment = environment;
   }
 
-  public static BenchmarkRunner runner(BenchmarkConfig config) {
-    return new BenchmarkRunner(config);
+  public static BenchmarkRunner runner(BenchmarkEnvironment environment) {
+    return new BenchmarkRunner(environment);
   }
 
   public BenchmarkRunner setWarmupIterations(int iterations) {
     this.warmups = iterations;
     return this;
+  }
+
+  public int getBenchmarkIterations() {
+    return environment.hasBenchmarkIterationsOverride()
+        ? environment.getBenchmarkIterationsOverride()
+        : iterations;
   }
 
   public BenchmarkRunner setBenchmarkIterations(int iterations) {
@@ -46,6 +55,7 @@ public class BenchmarkRunner {
 
   public void run(BenchmarkRunnerFunction fn) throws Exception {
     long warmupTotalTime = 0;
+    BenchmarkConfig config = environment.getConfig();
     BenchmarkResults warmupResults = new BenchmarkResultsWarmup(config.getName());
     if (warmups > 0) {
       long start = System.nanoTime();
@@ -59,7 +69,7 @@ public class BenchmarkRunner {
             ? new BenchmarkResultsSingle(config.getName(), config.getMetrics())
             : new BenchmarkResultsCollection(config.getSubBenchmarks());
     long start = System.nanoTime();
-    for (int i = 0; i < iterations; i++) {
+    for (int i = 0; i < getBenchmarkIterations(); i++) {
       fn.run(results);
     }
     long benchmarkTotalTime = System.nanoTime() - start;
@@ -74,8 +84,11 @@ public class BenchmarkRunner {
         warmupResults.printResults(resultMode);
       }
     }
-    printMetaInfo("benchmark", iterations, benchmarkTotalTime);
+    printMetaInfo("benchmark", getBenchmarkIterations(), benchmarkTotalTime);
     results.printResults(resultMode);
+    if (environment.hasOutputPath()) {
+      writeResults(results);
+    }
     System.out.println();
   }
 
@@ -83,5 +96,12 @@ public class BenchmarkRunner {
     System.out.println("  " + kind + " reporting mode: " + resultMode);
     System.out.println("  " + kind + " iterations: " + iterations);
     System.out.println("  " + kind + " total time: " + BenchmarkResults.prettyTime(totalTime));
+  }
+
+  private void writeResults(BenchmarkResults results) throws IOException {
+    try (PrintStream printStream =
+        new PrintStream(Files.newOutputStream(environment.getOutputPath()))) {
+      results.writeResults(printStream);
+    }
   }
 }

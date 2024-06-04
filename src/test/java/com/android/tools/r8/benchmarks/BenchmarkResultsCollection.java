@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import com.android.tools.r8.errors.Unimplemented;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -53,5 +55,10 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
       BenchmarkResultsSingle singleResults = results.get(name);
       singleResults.printResults(mode);
     }
+  }
+
+  @Override
+  public void writeResults(PrintStream out) {
+    throw new Unimplemented();
   }
 }

@@ -101,7 +101,7 @@ public class HelloWorldBenchmark extends BenchmarkBase {
 
   public static BenchmarkMethod benchmarkD8(Options options) {
     return environment ->
-        runner(environment.getConfig())
+        runner(environment)
             .setWarmupIterations(1)
             .setBenchmarkIterations(100)
             .reportResultSum()
@@ -119,7 +119,7 @@ public class HelloWorldBenchmark extends BenchmarkBase {
 
   public static BenchmarkMethod benchmarkR8(Options options) {
     return environment ->
-        runner(environment.getConfig())
+        runner(environment)
             .setWarmupIterations(1)
             .setBenchmarkIterations(4)
             .reportResultSum()

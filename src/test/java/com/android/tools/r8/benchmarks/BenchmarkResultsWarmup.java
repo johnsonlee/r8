@@ -3,8 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import com.android.tools.r8.errors.Unimplemented;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
+import java.io.PrintStream;
 
 public class BenchmarkResultsWarmup implements BenchmarkResults {
 
@@ -60,5 +62,10 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
     System.out.println(
         BenchmarkResults.prettyMetric(
             name, BenchmarkMetric.StartupTime, BenchmarkResults.prettyTime(result)));
+  }
+
+  @Override
+  public void writeResults(PrintStream out) {
+    throw new Unimplemented();
   }
 }

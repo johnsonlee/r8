@@ -3,8 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
+import java.io.PrintStream;
 import java.util.Set;
 
 public class BenchmarkResultsSingle implements BenchmarkResults {
@@ -17,6 +20,18 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   public BenchmarkResultsSingle(String name, Set<BenchmarkMetric> metrics) {
     this.name = name;
     this.metrics = metrics;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public LongList getCodeSizeResults() {
+    return codeSizeResults;
+  }
+
+  public LongList getRuntimeResults() {
+    return runtimeResults;
   }
 
   @Override
@@ -92,5 +107,14 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
       }
       printCodeSize(size);
     }
+  }
+
+  @Override
+  public void writeResults(PrintStream out) {
+    Gson gson =
+        new GsonBuilder()
+            .registerTypeAdapter(BenchmarkResultsSingle.class, new BenchmarkResultsSingleAdapter())
+            .create();
+    out.print(gson.toJson(this));
   }
 }

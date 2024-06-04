@@ -63,6 +63,12 @@ def parse_options(argv):
                         help='Enable assertions when running',
                         default=False,
                         action='store_true')
+    result.add_argument('--iterations',
+                        '-i',
+                        help='Number of iterations to run',
+                        type=int)
+    result.add_argument('--output',
+                        help='Output path where to write the result')
     result.add_argument('--print-times',
                         help='Print timing information from r8',
                         default=False,
@@ -81,8 +87,12 @@ def parse_options(argv):
 def main(argv, temp):
     (options, args) = parse_options(argv)
 
+    if options.output:
+        options.output = os.path.abspath(options.output)
+
     if options.temp:
         temp = options.temp
+        os.makedirs(temp, exist_ok=True)
 
     if options.golem:
         options.no_build = True
@@ -139,6 +149,10 @@ def run(options, r8jar, testjars):
             f'-DTEST_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/tests_java_8/build/classes/java/test',
             f'-DTESTBASE_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/testbase/build/classes/java/main',
         ])
+    if options.iterations:
+        cmd.append(f'-DBENCHMARK_ITERATIONS={options.iterations}')
+    if options.output:
+        cmd.append(f'-DBENCHMARK_OUTPUT={options.output}')
     cmd.extend(['-cp', ':'.join([r8jar] + testjars)])
     cmd.extend([
         'com.android.tools.r8.benchmarks.BenchmarkMainEntryRunner',

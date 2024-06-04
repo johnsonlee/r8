@@ -203,7 +203,7 @@ public class AppDumpBenchmarkBuilder {
   private static BenchmarkMethod internalRunR8(
       AppDumpBenchmarkBuilder builder, boolean enableResourceShrinking) {
     return environment ->
-        BenchmarkBase.runner(environment.getConfig())
+        BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
             .run(
                 results -> {
@@ -244,7 +244,7 @@ public class AppDumpBenchmarkBuilder {
 
   private static BenchmarkMethod runBatchD8(AppDumpBenchmarkBuilder builder) {
     return environment ->
-        BenchmarkBase.runner(environment.getConfig())
+        BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
             .run(
                 results -> {
@@ -262,7 +262,7 @@ public class AppDumpBenchmarkBuilder {
 
   private static BenchmarkMethod runIncrementalD8(AppDumpBenchmarkBuilder builder) {
     return environment ->
-        BenchmarkBase.runner(environment.getConfig())
+        BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
             .reportResultSum()
             .run(

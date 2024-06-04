@@ -54,7 +54,7 @@ public class LegacyDesugaredLibraryBenchmark extends BenchmarkBase {
   }
 
   public static void run(BenchmarkEnvironment environment) throws Exception {
-    runner(environment.getConfig())
+    runner(environment)
         .setWarmupIterations(1)
         .setBenchmarkIterations(10)
         .reportResultSum()
