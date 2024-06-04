@@ -25,6 +25,7 @@ import com.android.tools.r8.graph.PermittedSubclassAttribute;
 import com.android.tools.r8.graph.RecordComponentInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -214,7 +215,8 @@ public abstract class SyntheticClassBuilder<
                 DexEncodedMethod.EMPTY_ARRAY,
                 factory.getSkipNameValidationForTesting(),
                 c -> checksum,
-                null);
+                null,
+                ReachabilitySensitiveValue.DISABLED);
     if (useSortedMethodBacking) {
       clazz.getMethodCollection().useSortedBacking();
     }

@@ -21,7 +21,7 @@ import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticMarker;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.android.tools.r8.utils.structural.StructuralItem;
@@ -54,7 +54,7 @@ public class DexProgramClass extends DexClass
   private CfVersion initialClassFileVersion = null;
   private boolean deprecated = false;
   private KotlinClassLevelInfo kotlinInfo = getNoKotlinInfo();
-  private OptionalBool reachabilitySensitive = OptionalBool.unknown();
+  private final ReachabilitySensitiveValue reachabilitySensitive;
 
   private final ChecksumSupplier checksumSupplier;
 
@@ -81,6 +81,7 @@ public class DexProgramClass extends DexClass
       MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting,
       ChecksumSupplier checksumSupplier,
+      ReachabilitySensitiveValue reachabilitySensitive,
       SyntheticMarker syntheticMarker) {
     super(
         sourceFile,
@@ -106,6 +107,7 @@ public class DexProgramClass extends DexClass
     this.originKind = originKind;
     this.checksumSupplier = checksumSupplier;
     this.syntheticMarker = syntheticMarker;
+    this.reachabilitySensitive = reachabilitySensitive;
   }
 
   public DexProgramClass(
@@ -128,7 +130,8 @@ public class DexProgramClass extends DexClass
       DexEncodedField[] instanceFields,
       MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting,
-      ChecksumSupplier checksumSupplier) {
+      ChecksumSupplier checksumSupplier,
+      ReachabilitySensitiveValue reachabilitySensitive) {
     this(
         type,
         originKind,
@@ -150,6 +153,7 @@ public class DexProgramClass extends DexClass
         methodCollectionFactory,
         skipNameValidationForTesting,
         checksumSupplier,
+        reachabilitySensitive,
         null);
   }
 
@@ -174,7 +178,8 @@ public class DexProgramClass extends DexClass
         DexEncodedField.EMPTY_ARRAY,
         MethodCollectionFactory.empty(),
         false,
-        DexProgramClass::invalidChecksumRequest);
+        DexProgramClass::invalidChecksumRequest,
+        ReachabilitySensitiveValue.DISABLED);
   }
 
   @Override
@@ -204,24 +209,12 @@ public class DexProgramClass extends DexClass
    * that is the case, dead reference elimination is disabled and locals are kept alive for their
    * entire scope.
    */
-  public boolean getOrComputeReachabilitySensitive(AppView<?> appView) {
-    if (reachabilitySensitive.isUnknown()) {
-      reachabilitySensitive = OptionalBool.of(internalComputeReachabilitySensitive(appView));
-    }
-    return reachabilitySensitive.isTrue();
+  public boolean isReachabilitySensitive() {
+    return getReachabilitySensitiveValue().isEnabled();
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  private boolean internalComputeReachabilitySensitive(AppView<?> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    for (DexEncodedMember<?, ?> member : members()) {
-      for (DexAnnotation annotation : member.annotations().annotations) {
-        if (annotation.annotation.type == dexItemFactory.annotationReachabilitySensitive) {
-          return true;
-        }
-      }
-    }
-    return false;
+  public ReachabilitySensitiveValue getReachabilitySensitiveValue() {
+    return reachabilitySensitive;
   }
 
   @Override

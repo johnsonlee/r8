@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -89,7 +90,8 @@ public final class EmulatedInterfaceApplicationRewriter {
             DexEncodedField.EMPTY_ARRAY,
             MethodCollectionFactory.fromMethods(newDirectMethods, newVirtualMethods),
             false,
-            emulatedInterface.getChecksumSupplier());
+            emulatedInterface.getChecksumSupplier(),
+            ReachabilitySensitiveValue.DISABLED);
     newEmulatedInterface.addExtraInterfaces(
         getRewrittenInterfacesOfEmulatedInterface(emulatedInterface), appView.dexItemFactory());
     return newEmulatedInterface;

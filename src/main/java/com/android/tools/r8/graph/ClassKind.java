@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticMarker;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -38,7 +39,8 @@ public class ClassKind<C extends DexClass> {
               virtualMethods,
               skipNameValidationForTesting,
               checksumSupplier,
-              syntheticMarker) ->
+              syntheticMarker,
+              reachabilitySensitive) ->
               new DexProgramClass(
                   type,
                   originKind,
@@ -60,6 +62,7 @@ public class ClassKind<C extends DexClass> {
                   MethodCollectionFactory.fromMethods(directMethods, virtualMethods),
                   skipNameValidationForTesting,
                   checksumSupplier,
+                  reachabilitySensitive,
                   syntheticMarker),
           DexClass::isProgramClass);
   public static ClassKind<DexClasspathClass> CLASSPATH =
@@ -85,7 +88,8 @@ public class ClassKind<C extends DexClass> {
               virtualMethods,
               skipNameValidationForTesting,
               checksumSupplier,
-              syntheticMarker) ->
+              syntheticMarker,
+              unusedReachabilitySensitive) ->
               new DexClasspathClass(
                   type,
                   kind,
@@ -130,7 +134,8 @@ public class ClassKind<C extends DexClass> {
               virtualMethods,
               skipNameValidationForTesting,
               checksumSupplier,
-              syntheticMarker) ->
+              syntheticMarker,
+              unusedReachabilitySensitive) ->
               new DexLibraryClass(
                   type,
                   kind,
@@ -176,7 +181,8 @@ public class ClassKind<C extends DexClass> {
         DexEncodedMethod[] virtualMethods,
         boolean skipNameValidationForTesting,
         ChecksumSupplier checksumSupplier,
-        SyntheticMarker syntheticMarker);
+        SyntheticMarker syntheticMarker,
+        ReachabilitySensitiveValue reachabilitySensitive);
   }
 
   private final Factory<C> factory;
@@ -209,7 +215,8 @@ public class ClassKind<C extends DexClass> {
       DexEncodedMethod[] virtualMethods,
       boolean skipNameValidationForTesting,
       ChecksumSupplier checksumSupplier,
-      SyntheticMarker syntheticMarker) {
+      SyntheticMarker syntheticMarker,
+      ReachabilitySensitiveValue reachabilitySensitive) {
     return factory.create(
         type,
         kind,
@@ -232,7 +239,8 @@ public class ClassKind<C extends DexClass> {
         virtualMethods,
         skipNameValidationForTesting,
         checksumSupplier,
-        syntheticMarker);
+        syntheticMarker,
+        reachabilitySensitive);
   }
 
   public boolean isOfKind(DexClass clazz) {

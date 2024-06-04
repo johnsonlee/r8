@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.callgraph.Node;
 import com.android.tools.r8.origin.SynthesizedOrigin;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import java.util.Collections;
 
 class CallGraphTestBase extends TestBase {
@@ -44,7 +45,8 @@ class CallGraphTestBase extends TestBase {
           DexEncodedField.EMPTY_ARRAY,
           MethodCollectionFactory.empty(),
           false,
-          DexProgramClass::invalidChecksumRequest);
+          DexProgramClass::invalidChecksumRequest,
+          ReachabilitySensitiveValue.DISABLED);
 
   Node createNode(String methodName) {
     DexMethod signature =

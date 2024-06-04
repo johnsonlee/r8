@@ -73,6 +73,7 @@ import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -119,12 +120,6 @@ public class LazyCfCode extends Code {
   private JarApplicationReader application;
   private CfCode code;
   private ReparseContext context;
-  private boolean reachabilitySensitive = false;
-
-  public void markReachabilitySensitive() {
-    assert code == null;
-    reachabilitySensitive = true;
-  }
 
   @Override
   public boolean isCfCode() {
@@ -158,11 +153,17 @@ public class LazyCfCode extends Code {
   private void internalParseCode() {
     ReparseContext context = this.context;
     JarApplicationReader application = this.application;
-    assert application != null;
     assert context != null;
+    assert application != null;
+    DexProgramClass programOwner = context.owner.asProgramClass();
+    ReachabilitySensitiveValue reachabilitySensitive =
+        programOwner != null
+            ? programOwner.getReachabilitySensitiveValue()
+            : ReachabilitySensitiveValue.DISABLED;
+    DebugParsingOptions parsingOptions = getParsingOptions(application, reachabilitySensitive);
     // The ClassCodeVisitor is in charge of setting this.context to null.
     try {
-      parseCode(context, false);
+      parseCode(context, false, parsingOptions);
     } catch (JsrEncountered e) {
       for (Code code : context.codeList) {
         code.asLazyCfCode().code = null;
@@ -170,7 +171,7 @@ public class LazyCfCode extends Code {
         code.asLazyCfCode().application = application;
       }
       try {
-        parseCode(context, true);
+        parseCode(context, true, parsingOptions);
       } catch (JsrEncountered e1) {
         throw new Unreachable(e1);
       }
@@ -204,9 +205,8 @@ public class LazyCfCode extends Code {
     }
   }
 
-  public void parseCode(ReparseContext context, boolean useJsrInliner) {
-    DebugParsingOptions parsingOptions = getParsingOptions(application, reachabilitySensitive);
-
+  private void parseCode(
+      ReparseContext context, boolean useJsrInliner, DebugParsingOptions parsingOptions) {
     ClassCodeVisitor classVisitor =
         new ClassCodeVisitor(
             context.owner,
@@ -301,7 +301,8 @@ public class LazyCfCode extends Code {
 
   @Override
   public String toString() {
-    return asCfCode().toString();
+    // Don't force parsing in toString as it causes unexpected behavior when debugging.
+    return code != null ? code.toString() : "<lazy-code>";
   }
 
   @Override
@@ -1177,7 +1178,7 @@ public class LazyCfCode extends Code {
   }
 
   private static DebugParsingOptions getParsingOptions(
-      JarApplicationReader application, boolean reachabilitySensitive) {
+      JarApplicationReader application, ReachabilitySensitiveValue reachabilitySensitive) {
     // TODO(b/166841731): We should compute our own from the compressed format.
     int parsingOptions =
         application.options.canUseInputStackMaps()
@@ -1194,7 +1195,7 @@ public class LazyCfCode extends Code {
         configuration.isKeepParameterNames()
             || keep.localVariableTable
             || keep.localVariableTypeTable
-            || reachabilitySensitive;
+            || reachabilitySensitive.isEnabled();
     boolean lineInfo =
         (keep.lineNumberTable || application.options.canUseNativeDexPcInsteadOfDebugInfo());
     boolean methodParaeters = keep.methodParameters;

@@ -53,6 +53,7 @@ import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.android.tools.r8.utils.SelfRetraceTest;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -266,7 +267,8 @@ public class GlobalSyntheticsGenerator {
         DexEncodedField.EMPTY_ARRAY,
         MethodCollectionFactory.empty(),
         factory.getSkipNameValidationForTesting(),
-        DexProgramClass::invalidChecksumRequest);
+        DexProgramClass::invalidChecksumRequest,
+        ReachabilitySensitiveValue.DISABLED);
   }
 
   private static void createAllApiStubs(

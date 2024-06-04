@@ -73,6 +73,7 @@ import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.google.common.io.ByteStreams;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
@@ -900,7 +901,10 @@ public class DexParser<T extends DexClass> {
               virtualMethods,
               dexItemFactory.getSkipNameValidationForTesting(),
               checksumSupplier,
-              null);
+              null,
+              // Interpreting reachability sensitivity from DEX inputs is not supported.
+              // The compiler does not support building IR from DEX with debug information.
+              ReachabilitySensitiveValue.DISABLED);
       classCollection.accept(clazz); // Update the application object.
     }
   }

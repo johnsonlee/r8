@@ -32,6 +32,7 @@ import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.NestHostClassAttribute;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 
@@ -58,7 +59,8 @@ public final class InstrumentationServerFactory {
         MethodCollectionFactory.fromMethods(
             createDirectMethods(dexItemFactory), createVirtualMethods(dexItemFactory)),
         dexItemFactory.getSkipNameValidationForTesting(),
-        DexProgramClass::invalidChecksumRequest);
+        DexProgramClass::invalidChecksumRequest,
+        ReachabilitySensitiveValue.DISABLED);
   }
 
   private static DexEncodedField[] createInstanceFields() {

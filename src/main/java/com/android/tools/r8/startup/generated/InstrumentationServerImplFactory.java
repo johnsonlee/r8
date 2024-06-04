@@ -51,6 +51,7 @@ import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MonitorType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
 import java.util.ArrayDeque;
@@ -80,7 +81,8 @@ public final class InstrumentationServerImplFactory {
         MethodCollectionFactory.fromMethods(
             createDirectMethods(dexItemFactory), createVirtualMethods(dexItemFactory)),
         dexItemFactory.getSkipNameValidationForTesting(),
-        DexProgramClass::invalidChecksumRequest);
+        DexProgramClass::invalidChecksumRequest,
+        ReachabilitySensitiveValue.DISABLED);
   }
 
   private static DexEncodedField[] createInstanceFields(DexItemFactory dexItemFactory) {

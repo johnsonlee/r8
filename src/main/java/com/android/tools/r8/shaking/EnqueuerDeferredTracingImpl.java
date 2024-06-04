@@ -97,7 +97,7 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
     }
 
     // If the access is from a reachability sensitive method, then bail out.
-    if (context.getHolder().getOrComputeReachabilitySensitive(appView)) {
+    if (context.getHolder().isReachabilitySensitive()) {
       return enqueueDeferredEnqueuerActions(field);
     }
 
