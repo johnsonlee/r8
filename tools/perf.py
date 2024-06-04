@@ -11,7 +11,7 @@ import sys
 import utils
 
 DEFAULT_ITERATIONS = 10
-BUCKET = "r8-test-results"
+BUCKET = "r8-perf-results"
 
 # Result structure on cloud storage
 # gs://bucket/benchmark_results/APP/TARGET/GIT_HASH/results
