@@ -69,7 +69,7 @@ public @interface AnnotationPattern {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern namePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern namePattern() default @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Specify which retention policies must be set for the annotations.

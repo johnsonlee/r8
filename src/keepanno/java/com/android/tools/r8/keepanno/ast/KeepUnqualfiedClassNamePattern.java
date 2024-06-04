@@ -24,26 +24,26 @@ public class KeepUnqualfiedClassNamePattern {
     return new Builder();
   }
 
-  private final KeepStringPattern simpleNamePattern;
+  private final KeepStringPattern unqualifiedNamePattern;
 
-  private KeepUnqualfiedClassNamePattern(KeepStringPattern simpleNamePattern) {
-    this.simpleNamePattern = simpleNamePattern;
+  private KeepUnqualfiedClassNamePattern(KeepStringPattern unqualifiedNamePattern) {
+    this.unqualifiedNamePattern = unqualifiedNamePattern;
   }
 
   public boolean isAny() {
-    return simpleNamePattern.isAny();
+    return unqualifiedNamePattern.isAny();
   }
 
   public boolean isExact() {
-    return simpleNamePattern.isExact();
+    return unqualifiedNamePattern.isExact();
   }
 
   public String asExactString() {
-    return simpleNamePattern.asExactString();
+    return unqualifiedNamePattern.asExactString();
   }
 
   public KeepStringPattern asStringPattern() {
-    return simpleNamePattern;
+    return unqualifiedNamePattern;
   }
 
   @Override
@@ -55,17 +55,17 @@ public class KeepUnqualfiedClassNamePattern {
       return false;
     }
     KeepUnqualfiedClassNamePattern that = (KeepUnqualfiedClassNamePattern) o;
-    return simpleNamePattern.equals(that.simpleNamePattern);
+    return unqualifiedNamePattern.equals(that.unqualifiedNamePattern);
   }
 
   @Override
   public int hashCode() {
-    return simpleNamePattern.hashCode();
+    return unqualifiedNamePattern.hashCode();
   }
 
   @Override
   public String toString() {
-    return simpleNamePattern.toString();
+    return unqualifiedNamePattern.toString();
   }
 
   public static class Builder {

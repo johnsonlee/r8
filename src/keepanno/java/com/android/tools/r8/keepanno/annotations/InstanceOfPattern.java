@@ -31,5 +31,5 @@ public @interface InstanceOfPattern {
   boolean inclusive() default true;
 
   /** Instances of classes matching the class-name pattern. */
-  ClassNamePattern classNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern classNamePattern() default @ClassNamePattern(unqualifiedName = "");
 }

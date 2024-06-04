@@ -62,5 +62,5 @@ public @interface TypePattern {
    *   <li>constant
    * </ul>
    */
-  ClassNamePattern classNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern classNamePattern() default @ClassNamePattern(unqualifiedName = "");
 }

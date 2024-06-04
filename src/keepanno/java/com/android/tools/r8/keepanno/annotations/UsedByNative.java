@@ -205,7 +205,8 @@ public @interface UsedByNative {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern memberAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern memberAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the member-access pattern by matching on access flags.
@@ -272,7 +273,8 @@ public @interface UsedByNative {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern methodAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern methodAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the method-access pattern by matching on access flags.
@@ -454,7 +456,8 @@ public @interface UsedByNative {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern fieldAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern fieldAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the field-access pattern by matching on access flags.

@@ -195,7 +195,7 @@ public class ClassNamePatternsTest extends TestBase {
     @UsesReflection({
       @KeepTarget(
           kind = KeepItemKind.CLASS_AND_METHODS,
-          classNamePattern = @ClassNamePattern(simpleName = "B"),
+          classNamePattern = @ClassNamePattern(unqualifiedName = "B"),
           methodName = "foo",
           methodReturnTypeConstant = String.class)
     })
@@ -216,13 +216,13 @@ public class ClassNamePatternsTest extends TestBase {
             kind = KeepItemKind.CLASS_AND_METHODS,
             classNamePattern =
                 @ClassNamePattern(
-                    simpleName = "A",
+                    unqualifiedName = "A",
                     packageName = "com.android.tools.r8.keepanno.classpatterns.pkg2"),
             methodName = "foo",
             methodReturnTypePattern =
                 @TypePattern(
                     classNamePattern =
-                        @ClassNamePattern(packageName = "java.lang", simpleName = "String"))))
+                        @ClassNamePattern(packageName = "java.lang", unqualifiedName = "String"))))
     public void foo() throws Exception {
       Util.lookupClassesAndInvokeMethods();
     }
@@ -240,11 +240,11 @@ public class ClassNamePatternsTest extends TestBase {
             kind = KeepItemKind.CLASS_AND_METHODS,
             classNamePattern =
                 @ClassNamePattern(
-                    simpleName = "A",
+                    unqualifiedName = "A",
                     packageName = "com.android.tools.r8.keepanno.classpatterns.pkg2"),
             methodName = "foo",
             methodReturnTypePattern =
-                @TypePattern(classNamePattern = @ClassNamePattern(simpleName = "String"))))
+                @TypePattern(classNamePattern = @ClassNamePattern(unqualifiedName = "String"))))
     public void foo() throws Exception {
       Util.lookupClassesAndInvokeMethods();
     }

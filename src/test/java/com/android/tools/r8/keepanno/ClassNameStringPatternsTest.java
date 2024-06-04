@@ -80,7 +80,7 @@ public class ClassNameStringPatternsTest extends KeepAnnoTestBase {
             @TypePattern(
                 classNamePattern =
                     @ClassNamePattern(
-                        simpleNamePattern =
+                        unqualifiedNamePattern =
                             @StringPattern(startsWith = "ClassNameStringPatternsTest$Foo")))
           }),
       @KeepTarget(
@@ -89,7 +89,7 @@ public class ClassNameStringPatternsTest extends KeepAnnoTestBase {
           methodParameterTypePatterns = {
             @TypePattern(
                 classNamePattern =
-                    @ClassNamePattern(simpleNamePattern = @StringPattern(endsWith = "Bar")))
+                    @ClassNamePattern(unqualifiedNamePattern = @StringPattern(endsWith = "Bar")))
           }),
     })
     public void foo() throws Exception {

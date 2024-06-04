@@ -199,20 +199,20 @@ public class KeepItemAnnotationGenerator {
       ImmutableList.of(FIELD_ACCESS_VOLATILE, FIELD_ACCESS_TRANSIENT);
 
   private static final String DEFAULT_INVALID_STRING_PATTERN =
-      "@" + simpleName(STRING_PATTERN) + "(exact = \"\")";
+      "@" + getUnqualifiedName(STRING_PATTERN) + "(exact = \"\")";
   private static final String DEFAULT_INVALID_TYPE_PATTERN =
-      "@" + simpleName(TYPE_PATTERN) + "(name = \"\")";
+      "@" + getUnqualifiedName(TYPE_PATTERN) + "(name = \"\")";
   private static final String DEFAULT_INVALID_CLASS_NAME_PATTERN =
-      "@" + simpleName(CLASS_NAME_PATTERN) + "(simpleName = \"\")";
+      "@" + getUnqualifiedName(CLASS_NAME_PATTERN) + "(unqualifiedName = \"\")";
   private static final String DEFAULT_ANY_INSTANCE_OF_PATTERN =
-      "@" + simpleName(INSTANCE_OF_PATTERN) + "()";
+      "@" + getUnqualifiedName(INSTANCE_OF_PATTERN) + "()";
 
-  private static ClassReference astClass(String simpleName) {
-    return classFromTypeName(AST_PKG + simpleName);
+  private static ClassReference astClass(String unqualifiedName) {
+    return classFromTypeName(AST_PKG + unqualifiedName);
   }
 
-  private static ClassReference annoClass(String simpleName) {
-    return classFromTypeName(ANNO_PKG + simpleName);
+  private static ClassReference annoClass(String unqualifiedName) {
+    return classFromTypeName(ANNO_PKG + unqualifiedName);
   }
 
   private static EnumReference enumRef(ClassReference enumClass, String valueName) {
@@ -223,7 +223,7 @@ public class KeepItemAnnotationGenerator {
     return "\"" + str + "\"";
   }
 
-  public static String simpleName(ClassReference clazz) {
+  public static String getUnqualifiedName(ClassReference clazz) {
     String binaryName = clazz.getBinaryName();
     return binaryName.substring(binaryName.lastIndexOf('/') + 1);
   }
@@ -271,12 +271,12 @@ public class KeepItemAnnotationGenerator {
 
     public GroupMember requiredValue(ClassReference type) {
       assert valueDefault == null;
-      return setType(simpleName(type));
+      return setType(getUnqualifiedName(type));
     }
 
     public GroupMember requiredArrayValue(ClassReference type) {
       assert valueDefault == null;
-      return setType(simpleName(type) + "[]");
+      return setType(getUnqualifiedName(type) + "[]");
     }
 
     public GroupMember requiredStringValue() {
@@ -289,12 +289,12 @@ public class KeepItemAnnotationGenerator {
     }
 
     public GroupMember defaultValue(ClassReference type, String value) {
-      setType(simpleName(type));
+      setType(getUnqualifiedName(type));
       return setValue(value);
     }
 
     public GroupMember defaultArrayValue(ClassReference type, String value) {
-      setType(simpleName(type) + "[]");
+      setType(getUnqualifiedName(type) + "[]");
       return setValue("{" + value + "}");
     }
 
@@ -640,21 +640,23 @@ public class KeepItemAnnotationGenerator {
                   .defaultObjectClass());
     }
 
-    private Group classNamePatternSimpleNameGroup() {
-      return new Group("class-simple-name")
+    private Group classNamePatternUnqualifiedNameGroup() {
+      return new Group("class-unqualified-name")
           .addMember(
-              new GroupMember("simpleName")
-                  .setDocTitle("Exact simple name of the class or interface.")
+              new GroupMember("unqualifiedName")
+                  .setDocTitle("Exact and unqualified name of the class or interface.")
                   .addParagraph(
-                      "For example, the simple name of {@code com.example.MyClass} is {@code"
-                          + " MyClass}.")
-                  .addParagraph("The default matches any simple name.")
+                      "For example, the unqualified name of {@code com.example.MyClass} is {@code"
+                          + " MyClass}.",
+                      "Note that for inner classes a `$` will appear in the unqualified name,"
+                          + "such as, {@code MyClass$MyInnerClass}.")
+                  .addParagraph("The default matches any unqualified name.")
                   .defaultEmptyString())
           .addMember(
-              new GroupMember("simpleNamePattern")
-                  .setDocTitle("Define the simple-name pattern by a string pattern.")
-                  .addParagraph("The default matches any simple name.")
-                  .setDocReturn("The string pattern of the class simple name.")
+              new GroupMember("unqualifiedNamePattern")
+                  .setDocTitle("Define the unqualified class-name pattern by a string pattern.")
+                  .setDocReturn("The string pattern of the unqualified class name.")
+                  .addParagraph("The default matches any unqualified name.")
                   .defaultValue(STRING_PATTERN, DEFAULT_INVALID_STRING_PATTERN));
     }
 
@@ -1246,7 +1248,7 @@ public class KeepItemAnnotationGenerator {
           .printDoc(this::println);
       println("@Target(ElementType.ANNOTATION_TYPE)");
       println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + simpleName(STRING_PATTERN) + " {");
+      println("public @interface " + getUnqualifiedName(STRING_PATTERN) + " {");
       println();
       withIndent(
           () -> {
@@ -1275,7 +1277,7 @@ public class KeepItemAnnotationGenerator {
           .printDoc(this::println);
       println("@Target(ElementType.ANNOTATION_TYPE)");
       println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + simpleName(TYPE_PATTERN) + " {");
+      println("public @interface " + getUnqualifiedName(TYPE_PATTERN) + " {");
       println();
       withIndent(() -> typePatternGroup().generate(this));
       println();
@@ -1294,18 +1296,18 @@ public class KeepItemAnnotationGenerator {
           .printDoc(this::println);
       println("@Target(ElementType.ANNOTATION_TYPE)");
       println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + simpleName(CLASS_NAME_PATTERN) + " {");
+      println("public @interface " + getUnqualifiedName(CLASS_NAME_PATTERN) + " {");
       println();
       withIndent(
           () -> {
             Group exactNameGroup = classNamePatternFullNameGroup();
-            Group simpleNameGroup = classNamePatternSimpleNameGroup();
+            Group unqualifiedNameGroup = classNamePatternUnqualifiedNameGroup();
             Group packageGroup = classNamePatternPackageGroup();
-            exactNameGroup.addMutuallyExclusiveGroups(simpleNameGroup, packageGroup);
+            exactNameGroup.addMutuallyExclusiveGroups(unqualifiedNameGroup, packageGroup);
 
             exactNameGroup.generate(this);
             println();
-            simpleNameGroup.generate(this);
+            unqualifiedNameGroup.generate(this);
             println();
             packageGroup.generate(this);
           });
@@ -1323,7 +1325,7 @@ public class KeepItemAnnotationGenerator {
           .printDoc(this::println);
       println("@Target(ElementType.ANNOTATION_TYPE)");
       println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + simpleName(INSTANCE_OF_PATTERN) + " {");
+      println("public @interface " + getUnqualifiedName(INSTANCE_OF_PATTERN) + " {");
       println();
       withIndent(
           () -> {
@@ -1347,7 +1349,7 @@ public class KeepItemAnnotationGenerator {
           .printDoc(this::println);
       println("@Target(ElementType.ANNOTATION_TYPE)");
       println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + simpleName(ANNOTATION_PATTERN) + " {");
+      println("public @interface " + getUnqualifiedName(ANNOTATION_PATTERN) + " {");
       println();
       withIndent(
           () -> {
@@ -1522,10 +1524,10 @@ public class KeepItemAnnotationGenerator {
               "Assume the item of the annotation is denoted by 'CTX' and referred to as its"
                   + " context.")
           .addCodeBlock(
-              annoSimpleName(USES_REFLECTION)
+              annoUnqualifiedName(USES_REFLECTION)
                   + "(value = targets, [additionalPreconditions = preconditions])",
               "==>",
-              annoSimpleName(KEEP_EDGE) + "(",
+              annoUnqualifiedName(KEEP_EDGE) + "(",
               "  consequences = targets,",
               "  preconditions = {createConditionFromContext(CTX)} + preconditions",
               ")",
@@ -1555,7 +1557,7 @@ public class KeepItemAnnotationGenerator {
           "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
               + " ElementType.CONSTRUCTOR})");
       println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + simpleName(USES_REFLECTION) + " {");
+      println("public @interface " + getUnqualifiedName(USES_REFLECTION) + " {");
       println();
       withIndent(
           () -> {
@@ -1642,12 +1644,12 @@ public class KeepItemAnnotationGenerator {
       println("}");
     }
 
-    private static String annoSimpleName(ClassReference clazz) {
-      return "@" + simpleName(clazz);
+    private static String annoUnqualifiedName(ClassReference clazz) {
+      return "@" + getUnqualifiedName(clazz);
     }
 
     private static String docLink(ClassReference clazz) {
-      return "{@link " + simpleName(clazz) + "}";
+      return "{@link " + getUnqualifiedName(clazz) + "}";
     }
 
     private static String docLink(GroupMember member) {
@@ -1655,7 +1657,7 @@ public class KeepItemAnnotationGenerator {
     }
 
     private static String docEnumLink(EnumReference enumRef) {
-      return "{@link " + simpleName(enumRef.enumClass) + "#" + enumRef.enumValue + "}";
+      return "{@link " + getUnqualifiedName(enumRef.enumClass) + "#" + enumRef.enumValue + "}";
     }
 
     private static String docEnumLinkList(EnumReference... values) {
@@ -1835,7 +1837,7 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             generateAnnotationConstants(USED_BY_NATIVE);
-            println("// Content is the same as " + simpleName(USED_BY_REFLECTION) + ".");
+            println("// Content is the same as " + getUnqualifiedName(USED_BY_REFLECTION) + ".");
           });
       println("}");
       println();
@@ -2088,7 +2090,7 @@ public class KeepItemAnnotationGenerator {
           () -> {
             generateAnnotationConstants(CLASS_NAME_PATTERN);
             classNamePatternFullNameGroup().generateConstants(this);
-            classNamePatternSimpleNameGroup().generateConstants(this);
+            classNamePatternUnqualifiedNameGroup().generateConstants(this);
             classNamePatternPackageGroup().generateConstants(this);
           });
       println("}");

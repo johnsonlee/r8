@@ -121,10 +121,11 @@ public class MembersAnnotatedByPatternsTest extends KeepAnnoTestBase {
           classConstant = OnMethods.class,
           kind = KeepItemKind.CLASS_AND_METHODS,
           methodAnnotatedByClassNamePattern =
-              @ClassNamePattern(simpleName = "MembersAnnotatedByPatternsTest$C"),
+              @ClassNamePattern(unqualifiedName = "MembersAnnotatedByPatternsTest$C"),
           constrainAnnotations =
               @AnnotationPattern(
-                  namePattern = @ClassNamePattern(simpleName = "MembersAnnotatedByPatternsTest$C")))
+                  namePattern =
+                      @ClassNamePattern(unqualifiedName = "MembersAnnotatedByPatternsTest$C")))
     })
     public void foo(Class<?> clazz) throws Exception {
       for (Field field : clazz.getDeclaredFields()) {

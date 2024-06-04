@@ -102,7 +102,7 @@ public @interface KeepCondition {
    *
    * @return The class-name pattern that defines the class.
    */
-  ClassNamePattern classNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern classNamePattern() default @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the instance-of pattern as classes that are instances of the fully qualified class name.
@@ -257,7 +257,8 @@ public @interface KeepCondition {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern classAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern classAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the member pattern in full by a reference to a binding.
@@ -330,7 +331,8 @@ public @interface KeepCondition {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern memberAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern memberAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the member-access pattern by matching on access flags.
@@ -402,7 +404,8 @@ public @interface KeepCondition {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern methodAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern methodAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the method-access pattern by matching on access flags.
@@ -612,7 +615,8 @@ public @interface KeepCondition {
    *
    * @return The class-name pattern that defines the annotation.
    */
-  ClassNamePattern fieldAnnotatedByClassNamePattern() default @ClassNamePattern(simpleName = "");
+  ClassNamePattern fieldAnnotatedByClassNamePattern() default
+      @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Define the field-access pattern by matching on access flags.

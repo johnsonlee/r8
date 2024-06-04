@@ -245,9 +245,9 @@ public final class AnnotationConstants {
     public static final String classNameGroup = "class-name";
     public static final String name = "name";
     public static final String constant = "constant";
-    public static final String classSimpleNameGroup = "class-simple-name";
-    public static final String simpleName = "simpleName";
-    public static final String simpleNamePattern = "simpleNamePattern";
+    public static final String classUnqualifiedNameGroup = "class-unqualified-name";
+    public static final String unqualifiedName = "unqualifiedName";
+    public static final String unqualifiedNamePattern = "unqualifiedNamePattern";
     public static final String packageName = "packageName";
   }
 

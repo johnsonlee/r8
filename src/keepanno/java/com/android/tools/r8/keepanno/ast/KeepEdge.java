@@ -81,7 +81,7 @@ package com.android.tools.r8.keepanno.ast;
  *     ::= any
  *       | PACKAGE_PATTERN UNQUALIFIED_CLASS_NAME_PATTERN
  *
- *   UNQUALIFIED_CLASS_NAME_PATTERN ::= any | exact simple-class-name
+ *   UNQUALIFIED_CLASS_NAME_PATTERN ::= STRING_PATTERN
  *
  *   INSTANCE_OF_PATTERN ::= INSTANCE_OF_PATTERN_INCLUSIVE | INSTANCE_OF_PATTERN_EXCLUSIVE
  *   INSTANCE_OF_PATTERN_INCLUSIVE ::= QUALIFIED_CLASS_NAME_PATTERN
@@ -128,6 +128,10 @@ package com.android.tools.r8.keepanno.ast;
  *
  *   RETENTION_POLICY
  *     ::= RUNTIME | CLASS
+ *
+ *   STRING_PATTERN
+ *     ::= exact string-content
+ *       | [prefix string-content] any [suffix string-content]
  * </pre>
  */
 public final class KeepEdge extends KeepDeclaration {

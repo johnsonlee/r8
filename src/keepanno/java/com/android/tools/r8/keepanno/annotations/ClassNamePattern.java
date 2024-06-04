@@ -29,8 +29,8 @@ public @interface ClassNamePattern {
    *
    * <ul>
    *   <li>constant
-   *   <li>simpleName
-   *   <li>simpleNamePattern
+   *   <li>unqualifiedName
+   *   <li>unqualifiedNamePattern
    *   <li>packageName
    * </ul>
    *
@@ -45,8 +45,8 @@ public @interface ClassNamePattern {
    *
    * <ul>
    *   <li>name
-   *   <li>simpleName
-   *   <li>simpleNamePattern
+   *   <li>unqualifiedName
+   *   <li>unqualifiedNamePattern
    *   <li>packageName
    * </ul>
    *
@@ -55,38 +55,40 @@ public @interface ClassNamePattern {
   Class<?> constant() default Object.class;
 
   /**
-   * Exact simple name of the class or interface.
+   * Exact and unqualified name of the class or interface.
    *
-   * <p>For example, the simple name of {@code com.example.MyClass} is {@code MyClass}.
+   * <p>For example, the unqualified name of {@code com.example.MyClass} is {@code MyClass}. Note
+   * that for inner classes a `$` will appear in the unqualified name,such as, {@code
+   * MyClass$MyInnerClass}.
    *
-   * <p>The default matches any simple name.
+   * <p>The default matches any unqualified name.
    *
-   * <p>Mutually exclusive with the following other properties defining class-simple-name:
+   * <p>Mutually exclusive with the following other properties defining class-unqualified-name:
    *
    * <ul>
-   *   <li>simpleNamePattern
+   *   <li>unqualifiedNamePattern
    *   <li>name
    *   <li>constant
    * </ul>
    */
-  String simpleName() default "";
+  String unqualifiedName() default "";
 
   /**
-   * Define the simple-name pattern by a string pattern.
+   * Define the unqualified class-name pattern by a string pattern.
    *
-   * <p>The default matches any simple name.
+   * <p>The default matches any unqualified name.
    *
-   * <p>Mutually exclusive with the following other properties defining class-simple-name:
+   * <p>Mutually exclusive with the following other properties defining class-unqualified-name:
    *
    * <ul>
-   *   <li>simpleName
+   *   <li>unqualifiedName
    *   <li>name
    *   <li>constant
    * </ul>
    *
-   * @return The string pattern of the class simple name.
+   * @return The string pattern of the unqualified class name.
    */
-  StringPattern simpleNamePattern() default @StringPattern(exact = "");
+  StringPattern unqualifiedNamePattern() default @StringPattern(exact = "");
 
   /**
    * Exact package name of the class or interface.

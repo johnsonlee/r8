@@ -25,8 +25,8 @@ import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.TY
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USED_BY_NATIVE;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USED_BY_REFLECTION;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USES_REFLECTION;
+import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.getUnqualifiedName;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.quote;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.simpleName;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.doctests.ForApiDocumentationTest;
@@ -116,7 +116,7 @@ public class KeepAnnoMarkdownGenerator {
   }
 
   private static String getPrefix(ClassReference annoType) {
-    return "`@" + simpleName(annoType);
+    return "`@" + getUnqualifiedName(annoType);
   }
 
   private static String getSuffix() {
@@ -196,24 +196,24 @@ public class KeepAnnoMarkdownGenerator {
   }
 
   private String getMdAnnotationLink(ClassReference clazz) {
-    return "[@" + simpleName(clazz) + "](" + getClassJavaDocUrl(clazz) + ")";
+    return "[@" + getUnqualifiedName(clazz) + "](" + getClassJavaDocUrl(clazz) + ")";
   }
 
   private String getMdAnnotationPropertyLink(ClassReference clazz, GroupMember method) {
     String methodName = method.name;
     String url = getClassJavaDocUrl(clazz) + "#" + methodName + "()";
-    return "[@" + simpleName(clazz) + "." + methodName + "](" + url + ")";
+    return "[@" + getUnqualifiedName(clazz) + "." + methodName + "](" + url + ")";
   }
 
   private String getMdEnumLink(ClassReference clazz) {
-    return "[" + simpleName(clazz) + "](" + getClassJavaDocUrl(clazz) + ")";
+    return "[" + getUnqualifiedName(clazz) + "](" + getClassJavaDocUrl(clazz) + ")";
   }
 
   private String getMdEnumMemberLink(EnumReference enumMember) {
     ClassReference clazz = enumMember.enumClass;
     String enumName = enumMember.name();
     String url = getClassJavaDocUrl(clazz) + "#" + enumName;
-    return "[" + simpleName(clazz) + "." + enumName + "](" + url + ")";
+    return "[" + getUnqualifiedName(clazz) + "." + enumName + "](" + url + ")";
   }
 
   private void println() {

@@ -503,7 +503,7 @@ public class KeepEdgeWriter implements Opcodes {
             v.visit(ClassNamePattern.packageName, packagePattern.getExactPackageAsString());
           }
           writeStringPattern(
-              clazz.getNamePattern().asStringPattern(), ClassNamePattern.simpleNamePattern, v);
+              clazz.getNamePattern().asStringPattern(), ClassNamePattern.unqualifiedNamePattern, v);
         });
   }
 

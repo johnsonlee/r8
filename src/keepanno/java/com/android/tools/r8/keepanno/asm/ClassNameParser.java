@@ -5,7 +5,7 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
-import com.android.tools.r8.keepanno.asm.ClassSimpleNameParser.ClassSimpleNameProperty;
+import com.android.tools.r8.keepanno.asm.ClassUnqualifiedNameParser.ClassUnqualifiedNameProperty;
 import com.android.tools.r8.keepanno.asm.PackageNameParser.PackageNameProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
@@ -85,23 +85,27 @@ public class ClassNameParser
               getParsingContext().property(name).annotation(descriptor);
           ClassNameParser fullNameParser = new ClassNameParser(parsingContext);
           PackageNameParser packageParser = new PackageNameParser(parsingContext);
-          ClassSimpleNameParser simpleNameParser = new ClassSimpleNameParser(parsingContext);
+          ClassUnqualifiedNameParser unqualifiedNameParser =
+              new ClassUnqualifiedNameParser(parsingContext);
           fullNameParser.setProperty(ClassNamePattern.name, ClassNameProperty.NAME);
           fullNameParser.setProperty(ClassNamePattern.constant, ClassNameProperty.CONSTANT);
           packageParser.setProperty(ClassNamePattern.packageName, PackageNameProperty.NAME);
-          simpleNameParser.setProperty(ClassNamePattern.simpleName, ClassSimpleNameProperty.NAME);
-          simpleNameParser.setProperty(
-              ClassNamePattern.simpleNamePattern, ClassSimpleNameProperty.PATTERN);
+          unqualifiedNameParser.setProperty(
+              ClassNamePattern.unqualifiedName, ClassUnqualifiedNameProperty.NAME);
+          unqualifiedNameParser.setProperty(
+              ClassNamePattern.unqualifiedNamePattern, ClassUnqualifiedNameProperty.PATTERN);
 
           return new ParserVisitor(
               parsingContext,
-              ImmutableList.of(fullNameParser, packageParser, simpleNameParser),
+              ImmutableList.of(fullNameParser, packageParser, unqualifiedNameParser),
               () -> {
                 if (fullNameParser.isDeclared()) {
-                  if (simpleNameParser.isDeclared() || packageParser.isDeclared()) {
+                  if (unqualifiedNameParser.isDeclared() || packageParser.isDeclared()) {
                     throw parsingContext.error(
                         "Cannot specify both the full class name and its "
-                            + (simpleNameParser.isDeclared() ? "simple name" : "package"));
+                            + (unqualifiedNameParser.isDeclared()
+                                ? "unqualified name"
+                                : "package"));
                   }
                   setValue.accept(fullNameParser.getValue());
                   return;
@@ -111,7 +115,7 @@ public class ClassNameParser
                         .setPackagePattern(
                             packageParser.getValueOrDefault(KeepPackagePattern.any()))
                         .setNamePattern(
-                            simpleNameParser.getValueOrDefault(
+                            unqualifiedNameParser.getValueOrDefault(
                                 KeepUnqualfiedClassNamePattern.any()))
                         .build());
               });
