@@ -2,11 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.nestaccesscontrol;
+package nesthostexample;
 
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.classesMatching;
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.getExpectedResult;
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.getMainClass;
 import static junit.framework.TestCase.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -15,8 +12,6 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
-import java.nio.file.Path;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -24,6 +19,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestMemberPropagatedTest extends TestBase {
+
+  private static final Class<?> MAIN_CLASS = NestPvtFieldPropagated.class;
 
   public NestMemberPropagatedTest(TestParameters parameters) {
     this.parameters = parameters;
@@ -38,19 +35,15 @@ public class NestMemberPropagatedTest extends TestBase {
 
   @Test
   public void testPvtMemberPropagated() throws Exception {
-    List<Path> toCompile = classesMatching("NestPvtFieldPropagated");
     testForR8(parameters.getBackend())
-        .addKeepMainRule(getMainClass("memberPropagated"))
+        .addKeepMainRule(MAIN_CLASS)
         .addDontObfuscate()
-        .addOptionsModification(
-            options -> {
-              options.enableClassInlining = false;
-            })
-        .addProgramFiles(toCompile)
+        .addOptionsModification(options -> options.enableClassInlining = false)
+        .addProgramClassesAndInnerClasses(MAIN_CLASS)
         .compile()
         .inspect(this::assertMemberPropagated)
-        .run(parameters.getRuntime(), getMainClass("memberPropagated"))
-        .assertSuccessWithOutput(getExpectedResult("memberPropagated"));
+        .run(parameters.getRuntime(), MAIN_CLASS)
+        .assertSuccessWithOutputLines("toPropagateStatic");
   }
 
   private void assertMemberPropagated(CodeInspector inspector) {
