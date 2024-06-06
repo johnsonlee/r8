@@ -396,6 +396,8 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
     if (globalsOutputPath != null) {
       builder.setGlobalSyntheticsOutput(globalsOutputPath);
     }
-    return builder.setOutput(outputPath, outputMode);
+    builder.setOutput(outputPath, outputMode);
+    builder.setEnableExperimentalMissingLibraryApiModeling(true);
+    return builder;
   }
 }
