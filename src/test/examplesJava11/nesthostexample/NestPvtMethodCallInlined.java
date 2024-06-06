@@ -4,6 +4,7 @@
 
 package nesthostexample;
 
+import com.android.tools.r8.AlwaysInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NeverPropagateValue;
 
@@ -11,6 +12,7 @@ public class NestPvtMethodCallInlined {
 
   public static class Inner {
 
+    @AlwaysInline
     public String methodWithPvtCallToInline() {
       return notInlinedPvtCall();
     }
@@ -21,6 +23,7 @@ public class NestPvtMethodCallInlined {
       return "notInlinedPvtCallInner";
     }
 
+    @AlwaysInline
     private String nestPvtCallToInline() {
       return "nestPvtCallToInlineInner";
     }
@@ -28,6 +31,7 @@ public class NestPvtMethodCallInlined {
 
   public interface InnerInterface {
 
+    @AlwaysInline
     default String methodWithPvtCallToInline() {
       return notInlinedPvtCall();
     }
@@ -38,6 +42,7 @@ public class NestPvtMethodCallInlined {
       return "notInlinedPvtCallInnerInterface";
     }
 
+    @AlwaysInline
     private String nestPvtCallToInline() {
       return "nestPvtCallToInlineInnerInterface";
     }
@@ -84,22 +89,22 @@ public class NestPvtMethodCallInlined {
     InnerInterface impl = new InnerInterfaceImpl();
 
     // Inlining through nest access (invoke virtual/interface).
-    System.out.println(i.nestPvtCallToInline());
-    System.out.println(impl.nestPvtCallToInline());
+    System.out.println((Object) i.nestPvtCallToInline());
+    System.out.println((Object) impl.nestPvtCallToInline());
 
     // Inlining transformations.
     // Invoke direct -> invoke virtual.
-    System.out.println(i.methodWithPvtCallToInline());
+    System.out.println((Object) i.methodWithPvtCallToInline());
     // Invoke interface -> invoke virtual.
-    System.out.println(impl.methodWithPvtCallToInline());
+    System.out.println((Object) impl.methodWithPvtCallToInline());
     // Invoke virtual -> invoke direct.
-    System.out.println(iSub.dispatchInlining(impl));
+    System.out.println((Object) iSub.dispatchInlining(impl));
     // Invoke interface -> invoke direct.
-    System.out.println(impl.dispatchInlining(iSub));
+    System.out.println((Object) impl.dispatchInlining(iSub));
 
     // Inheritance + invoke virtual and nest access.
     // This may mess up lookup logic.
-    System.out.println(iSub.nestPvtCallToInline());
-    System.out.println(((Inner) iSub).nestPvtCallToInline());
+    System.out.println((Object) iSub.nestPvtCallToInline());
+    System.out.println((Object) ((Inner) iSub).nestPvtCallToInline());
   }
 }

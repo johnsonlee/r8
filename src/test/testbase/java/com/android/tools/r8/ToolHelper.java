@@ -17,6 +17,7 @@ import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper.DexVm.Kind;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.CustomConversionVersion;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.Marker.Tool;
@@ -26,6 +27,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.AssemblyWriter;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
@@ -1601,6 +1603,11 @@ public class ToolHelper {
           "Unexpected configuration with identical test and test-base path" + resolveTestPath);
     }
     if (foundTestPath && foundBasePath) {
+      if (identicalClassesIgnoringClassFileVersion(resolveTestPath, resolveBasePath)) {
+        System.out.println(
+            "Ambiguous yet identical test file: " + resolveTestPath + " and " + resolveBasePath);
+        return resolveBasePath;
+      }
       throw new RuntimeException(
           "Ambiguous test file: " + resolveTestPath + " and " + resolveBasePath);
     }
@@ -1615,6 +1622,27 @@ public class ToolHelper {
             + resolveTestPath
             + " and\n"
             + resolveBasePath);
+  }
+
+  private static boolean identicalClassesIgnoringClassFileVersion(
+      Path resolveBasePath, Path resolveTestPath) {
+    InternalOptions options = new InternalOptions();
+
+    try {
+      AndroidApp input1 = AndroidApp.builder().addProgramFiles(resolveBasePath).build();
+      DexApplication app1 = new ApplicationReader(input1, options, Timing.empty()).read();
+      DexProgramClass clazz1 = app1.classes().iterator().next();
+      clazz1.downgradeInitialClassFileVersion(CfVersion.V1_8);
+
+      AndroidApp input2 = AndroidApp.builder().addProgramFiles(resolveTestPath).build();
+      DexApplication app2 = new ApplicationReader(input2, options, Timing.empty()).read();
+      DexProgramClass clazz2 = app2.classes().iterator().next();
+      clazz2.downgradeInitialClassFileVersion(CfVersion.V1_8);
+
+      return clazz1.compareTo(clazz2) == 0;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   public static Collection<Path> getClassFilesForInnerClasses(Collection<Class<?>> classes)

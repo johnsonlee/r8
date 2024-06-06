@@ -1,17 +1,16 @@
-package com.android.tools.r8.desugar.nestaccesscontrol;
+// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
 
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.PACKAGE_NAME;
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.classesMatching;
+package nesthostexample;
 
 import com.android.tools.r8.Jdk9TestUtils;
-import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,10 +24,10 @@ public class NestClassMergingTest extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  private final String NEST_MAIN_CLASS = PACKAGE_NAME + "NestHostInlining";
-  private final String NEST_SUBCLASS_MAIN_CLASS = PACKAGE_NAME + "NestHostInliningSubclasses";
-  private final String OUTSIDE_WITH_ACCESS_MAIN_CLASS = PACKAGE_NAME + "OutsideInliningWithAccess";
-  private final String OUTSIDE_NO_ACCESS_MAIN_CLASS = PACKAGE_NAME + "OutsideInliningNoAccess";
+  private final Class<?> NEST_MAIN_CLASS = NestHostInlining.class;
+  private final Class<?> NEST_SUBCLASS_MAIN_CLASS = NestHostInliningSubclasses.class;
+  private final Class<?> OUTSIDE_WITH_ACCESS_MAIN_CLASS = OutsideInliningWithAccess.class;
+  private final Class<?> OUTSIDE_NO_ACCESS_MAIN_CLASS = OutsideInliningNoAccess.class;
   private final String NEST_MAIN_EXPECTED_RESULT =
       StringUtils.lines("inlining", "InnerNoPrivAccess");
   private final String NEST_SUBCLASS_MAIN_EXPECTED_RESULT =
@@ -40,20 +39,19 @@ public class NestClassMergingTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK11)
-        .build();
+    return getTestParameters().withCfRuntimesStartingFromIncluding(CfVm.JDK11).build();
   }
 
   @Test
   public void testClassMergeAcrossTwoNests() throws Exception {
     // Potentially merge classes from one nest with classes from another nest.
     testClassMergeAcrossNest(
-        new String[] {NEST_MAIN_CLASS}, new String[] {NEST_MAIN_EXPECTED_RESULT});
+        new Class<?>[] {NEST_MAIN_CLASS}, new String[] {NEST_MAIN_EXPECTED_RESULT});
     testClassMergeAcrossNest(
-        new String[] {NEST_SUBCLASS_MAIN_CLASS}, new String[] {NEST_SUBCLASS_MAIN_EXPECTED_RESULT});
+        new Class<?>[] {NEST_SUBCLASS_MAIN_CLASS},
+        new String[] {NEST_SUBCLASS_MAIN_EXPECTED_RESULT});
     testClassMergeAcrossNest(
-        new String[] {NEST_MAIN_CLASS, NEST_SUBCLASS_MAIN_CLASS},
+        new Class<?>[] {NEST_MAIN_CLASS, NEST_SUBCLASS_MAIN_CLASS},
         new String[] {NEST_MAIN_EXPECTED_RESULT, NEST_SUBCLASS_MAIN_EXPECTED_RESULT});
   }
 
@@ -61,7 +59,7 @@ public class NestClassMergingTest extends TestBase {
   public void testClassMergeAcrossNestAndNonNest() throws Exception {
     // Potentially merge classes from a nest with non nest classes.
     testClassMergeAcrossNest(
-        new String[] {
+        new Class<?>[] {
           NEST_MAIN_CLASS, OUTSIDE_NO_ACCESS_MAIN_CLASS, OUTSIDE_WITH_ACCESS_MAIN_CLASS
         },
         new String[] {
@@ -70,22 +68,23 @@ public class NestClassMergingTest extends TestBase {
           OUTSIDE_WITH_ACCESS_MAIN_EXPECTED_RESULT
         });
     testClassMergeAcrossNest(
-        new String[] {OUTSIDE_NO_ACCESS_MAIN_CLASS},
+        new Class<?>[] {OUTSIDE_NO_ACCESS_MAIN_CLASS},
         new String[] {OUTSIDE_NO_ACCESS_MAIN_EXPECTED_RESULT});
     testClassMergeAcrossNest(
-        new String[] {OUTSIDE_WITH_ACCESS_MAIN_CLASS},
+        new Class<?>[] {OUTSIDE_WITH_ACCESS_MAIN_CLASS},
         new String[] {OUTSIDE_WITH_ACCESS_MAIN_EXPECTED_RESULT});
   }
 
-  public void testClassMergeAcrossNest(String[] mainClasses, String[] expectedResults)
+  public void testClassMergeAcrossNest(Class<?>[] mainClasses, String[] expectedResults)
       throws Exception {
-    List<Path> bothNestsAndOutsideClassToCompile = classesMatching("Inlining");
-    R8FullTestBuilder r8FullTestBuilder = testForR8(parameters.getBackend());
-    for (String clazz : mainClasses) {
-      r8FullTestBuilder.addKeepMainRule(clazz);
-    }
     R8TestCompileResult compileResult =
-        r8FullTestBuilder
+        testForR8(parameters.getBackend())
+            .apply(
+                b -> {
+                  for (Class<?> clazz : mainClasses) {
+                    b.addKeepMainRule(clazz);
+                  }
+                })
             .addOptionsModification(
                 options -> {
                   // Disable optimizations else additional classes are removed since they become
@@ -94,7 +93,12 @@ public class NestClassMergingTest extends TestBase {
                   options.enableNestReduction = false;
                 })
             .enableInliningAnnotations()
-            .addProgramFiles(bothNestsAndOutsideClassToCompile)
+            .addProgramClassesAndInnerClasses(
+                List.of(
+                    NEST_MAIN_CLASS,
+                    NEST_SUBCLASS_MAIN_CLASS,
+                    OUTSIDE_WITH_ACCESS_MAIN_CLASS,
+                    OUTSIDE_NO_ACCESS_MAIN_CLASS))
             .applyIf(parameters.isCfRuntime(), Jdk9TestUtils.addJdk9LibraryFiles(temp))
             .addKeepPackageNamesRule("nesthostexample")
             .compile()

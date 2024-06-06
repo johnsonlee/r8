@@ -2,10 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.nestaccesscontrol;
+package nesthostexample;
 
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.PACKAGE_NAME;
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.classesMatching;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertNotNull;
@@ -33,20 +31,19 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestAttributesUpdateTest extends TestBase {
+  private static final String PACKAGE_NAME = "nesthostexample.";
+
+  private static final Class<?> MERGING_OUTER_CLASS = BasicNestHostClassMerging.class;
+  private static final Class<?> PRUNING_OUTER_CLASS = BasicNestHostTreePruning.class;
+  private static final String MERGING_EXPECTED_RESULT = StringUtils.lines("OuterMiddleInner");
+  private static final String PRUNING_EXPECTED_RESULT = StringUtils.lines("NotPruned");
 
   @Parameter(0)
   public TestParameters parameters;
 
-  private final String MERGING_OUTER_CLASS = "BasicNestHostClassMerging";
-  private final String PRUNING_OUTER_CLASS = "BasicNestHostTreePruning";
-  private final String MERGING_EXPECTED_RESULT = StringUtils.lines("OuterMiddleInner");
-  private final String PRUNING_EXPECTED_RESULT = StringUtils.lines("NotPruned");
-
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK11)
-        .build();
+    return getTestParameters().withCfRuntimesStartingFromIncluding(CfVm.JDK11).build();
   }
 
   @Test
@@ -62,18 +59,17 @@ public class NestAttributesUpdateTest extends TestBase {
   @Test
   public void testClassMergingNestHostRemoval() throws Exception {
     testNestAttributesCorrect(
-        MERGING_OUTER_CLASS + "$MiddleOuter",
+        BasicNestHostClassMerging.MiddleOuter.class,
         MERGING_OUTER_CLASS,
         MERGING_EXPECTED_RESULT,
         2,
-        builder -> {
-          builder.addOptionsModification(
-              internalOptions -> {
-                // The test makes an invoke to StringConcatFactory which is not known to DEX and
-                // we therefore fail to merge the classes.
-                internalOptions.apiModelingOptions().enableApiCallerIdentification = false;
-              });
-        });
+        builder ->
+            builder.addOptionsModification(
+                internalOptions -> {
+                  // The test makes an invoke to StringConcatFactory which is not known to DEX and
+                  // we therefore fail to merge the classes.
+                  internalOptions.apiModelingOptions().enableApiCallerIdentification = false;
+                }));
   }
 
   @Test
@@ -89,7 +85,7 @@ public class NestAttributesUpdateTest extends TestBase {
   @Test
   public void testTreePruningNestHostRemoval() throws Exception {
     testNestAttributesCorrect(
-        PRUNING_OUTER_CLASS + "$Pruned",
+        BasicNestHostTreePruning.Pruned.class,
         PRUNING_OUTER_CLASS,
         PRUNING_EXPECTED_RESULT,
         1,
@@ -97,22 +93,22 @@ public class NestAttributesUpdateTest extends TestBase {
   }
 
   public void testNestAttributesCorrect(
-      String mainClassName,
-      String outerNestName,
+      Class<?> mainClass,
+      Class<?> outerNestClass,
       String expectedResult,
       int expectedNumClassesLeft,
       ThrowableConsumer<R8FullTestBuilder> testBuilderConsumer)
       throws Exception {
     testNestAttributesCorrect(
-        mainClassName,
-        outerNestName,
+        mainClass,
+        outerNestClass,
         expectedResult,
         true,
         expectedNumClassesLeft,
         testBuilderConsumer);
     testNestAttributesCorrect(
-        mainClassName,
-        outerNestName,
+        mainClass,
+        outerNestClass,
         expectedResult,
         false,
         expectedNumClassesLeft,
@@ -120,23 +116,22 @@ public class NestAttributesUpdateTest extends TestBase {
   }
 
   public void testNestAttributesCorrect(
-      String mainClassName,
-      String outerNestName,
+      Class<?> mainClass,
+      Class<?> outerNestClass,
       String expectedResult,
       boolean minification,
       int expectedNumClassesLeft,
       ThrowableConsumer<R8FullTestBuilder> testBuilderConsumer)
       throws Exception {
-    String actualMainClassName = PACKAGE_NAME + mainClassName;
     testForR8(parameters.getBackend())
-        .addKeepMainRule(actualMainClassName)
+        .addKeepMainRule(mainClass)
         .minification(minification)
         .addOptionsModification(
             options -> {
               // Disable optimizations else additional classes are removed since they become unused.
               options.enableClassInlining = false;
             })
-        .addProgramFiles(classesMatching(outerNestName))
+        .addProgramClassesAndInnerClasses(outerNestClass)
         .applyIf(parameters.isCfRuntime(), Jdk9TestUtils.addJdk9LibraryFiles(temp))
         .addKeepPackageNamesRule("nesthostexample")
         .addInliningAnnotations()
@@ -147,7 +142,7 @@ public class NestAttributesUpdateTest extends TestBase {
               assertEquals(expectedNumClassesLeft, inspector.allClasses().size());
               assertNestAttributesCorrect(inspector);
             })
-        .run(parameters.getRuntime(), actualMainClassName)
+        .run(parameters.getRuntime(), mainClass)
         .assertSuccessWithOutput(expectedResult);
   }
 

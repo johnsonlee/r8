@@ -2,11 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.nestaccesscontrol;
+package nesthostexample;
 
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.classesMatching;
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.getExpectedResult;
-import static com.android.tools.r8.desugar.nestaccesscontrol.NestAccessControlTestUtils.getMainClass;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 
@@ -14,12 +11,11 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
-import java.nio.file.Path;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,6 +23,19 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestMethodInlinedTest extends TestBase {
+
+  private static final Class<?> MAIN_CLASS = NestPvtMethodCallInlined.class;
+
+  private static final String EXPECTED_RESULT =
+      StringUtils.lines(
+          "nestPvtCallToInlineInner",
+          "nestPvtCallToInlineInnerInterface",
+          "notInlinedPvtCallInner",
+          "notInlinedPvtCallInnerInterface",
+          "notInlinedPvtCallInnerSub",
+          "notInlinedPvtCallInnerInterface",
+          "nestPvtCallToInlineInnerSub",
+          "nestPvtCallToInlineInner");
 
   public NestMethodInlinedTest(TestParameters parameters) {
     this.parameters = parameters;
@@ -45,17 +54,16 @@ public class NestMethodInlinedTest extends TestBase {
   @Test
   public void testReference() throws Exception {
     testForRuntime(parameters)
-        .addProgramFiles(classesMatching("NestPvtMethodCallInlined"))
-        .run(parameters.getRuntime(), getMainClass("pvtCallInlined"))
-        .assertSuccessWithOutput(getExpectedResult("pvtCallInlined"));
+        .addProgramClassesAndInnerClasses(MAIN_CLASS)
+        .run(parameters.getRuntime(), MAIN_CLASS)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   @Test
   public void testPvtMethodCallInlined() throws Exception {
     parameters.assumeR8TestParameters();
-    List<Path> toCompile = classesMatching("NestPvtMethodCallInlined");
     testForR8(parameters.getBackend())
-        .addKeepMainRule(getMainClass("pvtCallInlined"))
+        .addKeepMainRule(MAIN_CLASS)
         .addDontObfuscate()
         .addOptionsModification(
             options -> {
@@ -63,13 +71,14 @@ public class NestMethodInlinedTest extends TestBase {
               options.getVerticalClassMergerOptions().disable();
             })
         .enableInliningAnnotations()
+        .enableAlwaysInliningAnnotations()
         .enableMemberValuePropagationAnnotations()
-        .addProgramFiles(toCompile)
+        .addProgramClassesAndInnerClasses(MAIN_CLASS)
         .compile()
         .inspect(this::assertMethodsInlined)
         .inspect(NestAttributesUpdateTest::assertNestAttributesCorrect)
-        .run(parameters.getRuntime(), getMainClass("pvtCallInlined"))
-        .assertSuccessWithOutput(getExpectedResult("pvtCallInlined"));
+        .run(parameters.getRuntime(), MAIN_CLASS)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   private void assertMethodsInlined(CodeInspector inspector) {
