@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
-import static com.android.tools.r8.R8CommandParser.ISOLATED_SPLITS_FLAG;
-
 import com.android.tools.r8.CompatProguardCommandBuilder;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -36,6 +34,8 @@ import java.util.concurrent.Executors;
  * we want to support for reading dumps.
  */
 public class CompileDumpCompatR8 extends CompileDumpBase {
+
+  private static final String ISOLATED_SPLITS_FLAG = "--isolated-splits";
 
   private static final List<String> VALID_OPTIONS =
       Arrays.asList(
