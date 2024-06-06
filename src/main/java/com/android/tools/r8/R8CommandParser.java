@@ -33,7 +33,7 @@ import java.util.Set;
 
 public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Command.Builder> {
 
-  static final String ISOLATED_SPLITS_FLAG = "--isolated-splits";
+  public static final String ISOLATED_SPLITS_FLAG = "--isolated-splits";
 
   // Note: this must be a super-set of OPTIONS_WITH_TWO_PARAMETERS.
   private static final Set<String> OPTIONS_WITH_ONE_PARAMETER =

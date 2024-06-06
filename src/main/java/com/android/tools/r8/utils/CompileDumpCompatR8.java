@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import static com.android.tools.r8.R8CommandParser.ISOLATED_SPLITS_FLAG;
+
 import com.android.tools.r8.CompatProguardCommandBuilder;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -42,7 +44,8 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           "--debug",
           "--release",
           "--enable-missing-library-api-modeling",
-          "--android-platform-build");
+          "--android-platform-build",
+          ISOLATED_SPLITS_FLAG);
 
   private static final List<String> VALID_OPTIONS_WITH_SINGLE_OPERAND =
       Arrays.asList(
@@ -92,6 +95,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     int threads = -1;
     boolean enableMissingLibraryApiModeling = false;
     boolean androidPlatformBuild = false;
+    boolean isolatedSplits = false;
     for (int i = 0; i < args.length; i++) {
       String option = args[i];
       if (VALID_OPTIONS.contains(option)) {
@@ -121,6 +125,9 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
             break;
           case "--android-platform-build":
             androidPlatformBuild = true;
+            break;
+          case ISOLATED_SPLITS_FLAG:
+            isolatedSplits = true;
             break;
           default:
             throw new IllegalArgumentException("Unimplemented option: " + option);
@@ -225,6 +232,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     addArtProfilesForRewriting(commandBuilder, artProfileFiles);
     addStartupProfileProviders(commandBuilder, startupProfileFiles);
     setAndroidPlatformBuild(commandBuilder, androidPlatformBuild);
+    setIsolatedSplits(commandBuilder, isolatedSplits);
     setEnableExperimentalMissingLibraryApiModeling(commandBuilder, enableMissingLibraryApiModeling);
     if (desugaredLibJson != null) {
       commandBuilder.addDesugaredLibraryConfiguration(readAllBytesJava7(desugaredLibJson));

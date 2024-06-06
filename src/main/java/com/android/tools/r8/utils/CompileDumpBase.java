@@ -29,6 +29,11 @@ public class CompileDumpBase {
         .accept(new Object[] {androidPlatformBuild});
   }
 
+  static void setIsolatedSplits(Object builder, boolean isolatedSplits) {
+    getReflectiveBuilderMethod(builder, "setEnableIsolatedSplits", boolean.class)
+        .accept(new Object[] {isolatedSplits});
+  }
+
   static void addArtProfilesForRewriting(Object builder, Map<Path, Path> artProfileFiles) {
     try {
       Class<?> artProfileProviderClass =
