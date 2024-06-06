@@ -31,6 +31,9 @@ java {
   }
   sourceCompatibility = JvmCompatibility.sourceCompatibility
   targetCompatibility = JvmCompatibility.targetCompatibility
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(JvmCompatibility.release)
+  }
   withSourcesJar()
 }
 

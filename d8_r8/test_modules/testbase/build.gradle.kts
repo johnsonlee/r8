@@ -24,6 +24,9 @@ java {
   // compatible with java toolchains.
   sourceCompatibility = JavaVersion.VERSION_1_8
   targetCompatibility = JavaVersion.VERSION_1_8
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(JvmCompatibility.release)
+  }
 }
 
 // If we depend on keepanno by referencing the project source outputs we get an error regarding

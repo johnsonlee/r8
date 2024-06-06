@@ -16,6 +16,9 @@ java {
   }
   sourceCompatibility = JvmCompatibility.sourceCompatibility
   targetCompatibility = JvmCompatibility.targetCompatibility
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(JvmCompatibility.release)
+  }
   withSourcesJar()
 }
 
@@ -47,7 +50,7 @@ tasks {
     kotlinOptions {
       // We cannot use languageVersion.set(JavaLanguageVersion.of(8)) because gradle cannot figure
       // out that the jdk is 1_8 and will try to download it.
-      jvmTarget = "11"
+      jvmTarget = "${JvmCompatibility.release}"
     }
   }
 

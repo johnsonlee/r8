@@ -21,11 +21,13 @@ java {
       srcDir(root.resolveAll("build", "generated", "test", "java"))
     }
   }
-
   // We are using a new JDK to compile to an older language version, which is not directly
   // compatible with java toolchains.
   sourceCompatibility = JavaVersion.VERSION_1_8
   targetCompatibility = JavaVersion.VERSION_1_8
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(JvmCompatibility.release)
+  }
 }
 
 

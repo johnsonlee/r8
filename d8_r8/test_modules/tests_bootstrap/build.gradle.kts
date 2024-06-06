@@ -23,6 +23,9 @@ java {
   // compatible with java toolchains.
   sourceCompatibility = JavaVersion.VERSION_1_8
   targetCompatibility = JavaVersion.VERSION_1_8
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(JvmCompatibility.release)
+  }
 }
 
 val testbaseJavaCompileTask = projectTask("testbase", "compileJava")

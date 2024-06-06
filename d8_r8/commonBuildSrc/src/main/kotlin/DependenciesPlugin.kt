@@ -388,6 +388,7 @@ fun Project.createR8LibCommandLine(
 object JvmCompatibility {
   val sourceCompatibility = JavaVersion.VERSION_11
   val targetCompatibility = JavaVersion.VERSION_11
+  val release = 11
 }
 
 object Versions {
