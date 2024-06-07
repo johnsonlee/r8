@@ -160,12 +160,11 @@ public class ApiModelMockExceptionInstantiateAndCatchTest extends TestBase {
     testForR8(parameters.getBackend())
         .apply(this::setupTestBuilder)
         .addKeepMainRule(Main.class)
-        .addDontObfuscate()
         .compile()
         .applyIf(
             exceptionPresentAtRuntime(), b -> b.addBootClasspathClasses(LibraryException.class))
         .run(parameters.getRuntime(), Main.class)
-        .apply(this::checkUnexpectedOutput)
+        .apply(this::checkOutput)
         .inspect(this::inspect);
   }
 
@@ -176,21 +175,6 @@ public class ApiModelMockExceptionInstantiateAndCatchTest extends TestBase {
   private void checkOutput(SingleTestRunResult<?> runResult) {
     if (exceptionPresentAtRuntime()) {
       runResult.assertSuccessWithOutputLines("Valid behaviour");
-    } else {
-      runResult.assertSuccessWithOutputLines("java.lang.NoClassDefFoundError, false");
-    }
-  }
-
-  private void checkUnexpectedOutput(SingleTestRunResult<?> runResult) {
-    if (exceptionPresentAtRuntime()) {
-      if (parameters.isCfRuntime()
-          || parameters.getApiLevel().isGreaterThanOrEqualTo(mockExceptionLevel)) {
-        runResult.assertSuccessWithOutputLines("Valid behaviour");
-      } else {
-        // TODO(b/342961827): This should not happen.
-        runResult.assertSuccessWithOutputLines(
-            LibraryException.class.getTypeName() + ": Failed, true");
-      }
     } else {
       runResult.assertSuccessWithOutputLines("java.lang.NoClassDefFoundError, false");
     }

@@ -238,7 +238,11 @@ public class DirectMappedDexApplication extends DexApplication {
     public void addProgramClassPotentiallyOverridingNonProgramClass(DexProgramClass clazz) {
       addProgramClass(clazz);
       pendingClasspathRemovalIfPresent.add(clazz.type);
-      if (libraryClasses.containsKey(clazz.type)) {
+      // When java.lang.Record is added remove the library class, as this program class will
+      // eventually be renamed to com.android.tools.r8.RecordTag so there should not be a
+      // multi-resolution result when looking up java.lang.Record.
+      if (clazz.type.isIdenticalTo(options.dexItemFactory().recordType)
+          && libraryClasses.containsKey(clazz.type)) {
         ensureMutableLibraryClassesMap();
         libraryClasses.remove(clazz.type);
       }

@@ -18,6 +18,7 @@ import com.android.tools.r8.lightir.LirConstant;
 import com.android.tools.r8.lightir.LirInstructionView;
 import com.android.tools.r8.lightir.LirOpcodeUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -47,7 +48,8 @@ public class SingleCallerScanner {
     singleCallerMethodCandidates.removeIf(
         (callee, caller) ->
             callee.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
-                || !appView.getKeepInfo(callee).isSingleCallerInliningAllowed(options));
+                || !appView.getKeepInfo(callee).isSingleCallerInliningAllowed(options)
+                || !AndroidApiLevelUtils.isApiSafeForInlining(caller, callee, appView.options()));
     return traceInstructions(singleCallerMethodCandidates, executorService);
   }
 

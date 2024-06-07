@@ -3,11 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ClassResolutionResult;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
@@ -224,7 +224,8 @@ public class DeadCodeRemover {
       if (block.hasCatchHandlers()) {
         if (block.canThrow()) {
           if (appView.enableWholeProgramOptimizations()) {
-            Collection<CatchHandler<BasicBlock>> deadCatchHandlers = getDeadCatchHandlers(block);
+            Collection<CatchHandler<BasicBlock>> deadCatchHandlers =
+                getDeadCatchHandlers(code, block);
             if (!deadCatchHandlers.isEmpty()) {
               for (CatchHandler<BasicBlock> catchHandler : deadCatchHandlers) {
                 catchHandler.target.unlinkCatchHandlerForGuard(catchHandler.guard);
@@ -249,10 +250,8 @@ public class DeadCodeRemover {
     return mayHaveIntroducedUnreachableBlocks;
   }
 
-  /**
-   * Returns the catch handlers of the given block that are dead, if any.
-   */
-  private Collection<CatchHandler<BasicBlock>> getDeadCatchHandlers(BasicBlock block) {
+  /** Returns the catch handlers of the given block that are dead, if any. */
+  private Collection<CatchHandler<BasicBlock>> getDeadCatchHandlers(IRCode code, BasicBlock block) {
     AppInfoWithLiveness appInfoWithLiveness = appView.appInfo().withLiveness();
     ImmutableList.Builder<CatchHandler<BasicBlock>> builder = ImmutableList.builder();
     CatchHandlers<BasicBlock> catchHandlers = block.getCatchHandlers();
@@ -275,11 +274,19 @@ public class DeadCodeRemover {
         continue;
       }
 
-      // We can exploit that a catch handler must be dead if its guard is never instantiated
-      // directly or indirectly.
       if (appInfoWithLiveness != null) {
-        DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(guard));
-        if (clazz != null && !appInfoWithLiveness.isInstantiatedDirectlyOrIndirectly(clazz)) {
+        ClassResolutionResult result =
+            appView.definitionForWithResolutionResult(guard, code.context().getContextClass());
+        if (!result.hasClassResolutionResult() || result.isMultipleClassResolutionResult()) {
+          // With a multi resolution result one of the results is a library class, so the guard
+          // cannot be removed.
+          continue;
+        }
+        // We can exploit that a catch handler must be dead if its guard is never instantiated
+        // directly or indirectly.
+        DexClass clazz = result.toSingleClassWithProgramOverLibrary();
+        if (clazz.isProgramClass()
+            && !appInfoWithLiveness.isInstantiatedDirectlyOrIndirectly(clazz.asProgramClass())) {
           builder.add(new CatchHandler<>(guard, target));
           continue;
         }

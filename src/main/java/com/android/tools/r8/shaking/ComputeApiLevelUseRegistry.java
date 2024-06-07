@@ -131,7 +131,7 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
 
   @Override
   public void registerTypeReference(DexType type) {
-    // Type references are OK as long as we do not have a use on them
+    // Type references are OK as long as we do not have a use on them.
   }
 
   @Override
@@ -141,7 +141,9 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
 
   @Override
   public void registerExceptionGuard(DexType guard) {
-    setMaxApiReferenceLevel(guard);
+    // Type references as exception guard are OK unless unknown. Library exception guards will be
+    // stubbed.
+    setMaxApiReferenceLevelIfUnknown(guard);
   }
 
   @Override
@@ -166,6 +168,15 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
                   .getSecond();
         }
         maxApiReferenceLevel = maxApiReferenceLevel.max(referenceApiLevel);
+      }
+    }
+  }
+
+  private void setMaxApiReferenceLevelIfUnknown(DexType type) {
+    if (isEnabled) {
+      ComputedApiLevel computedApiLevel = apiLevelCompute.computeApiLevelForLibraryReference(type);
+      if (computedApiLevel.isUnknownApiLevel()) {
+        maxApiReferenceLevel = maxApiReferenceLevel.max(computedApiLevel);
       }
     }
   }

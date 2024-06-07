@@ -50,24 +50,16 @@ public class ApiModelNoInliningOfTryCatchReferenceTest extends TestBase {
         .apply(ApiModelingTestHelper::disableOutliningAndStubbing)
         .enableInliningAnnotations()
         .addHorizontallyMergedClassesInspector(
-            horizontallyMergedClassesInspector -> {
-              if (parameters.isDexRuntime()
-                  && parameters.getApiLevel().isGreaterThanOrEqualTo(exceptionApiLevel)) {
+            horizontallyMergedClassesInspector ->
                 horizontallyMergedClassesInspector.assertIsCompleteMergeGroup(
-                    TestClass.class, Caller.class);
-              } else {
-                horizontallyMergedClassesInspector.assertNoClassesMerged();
-              }
-            })
+                    TestClass.class, Caller.class))
         .apply(
             ApiModelingTestHelper.addTracedApiReferenceLevelCallBack(
                 (reference, apiLevel) -> {
                   if (reference.equals(Reference.methodFromMethod(tryCatch))) {
+                    // The exception catch guard does not contribute to the modelled API level.
                     assertEquals(
-                        exceptionApiLevel.max(
-                            parameters.isCfRuntime()
-                                ? AndroidApiLevel.B
-                                : parameters.getApiLevel()),
+                        parameters.isCfRuntime() ? AndroidApiLevel.B : parameters.getApiLevel(),
                         apiLevel);
                   }
                 }))
