@@ -4,13 +4,9 @@
 
 package com.android.tools.r8.desugar.nestaccesscontrol;
 
-import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
-import static java.util.stream.Collectors.toList;
-import static org.hamcrest.core.StringContains.containsString;
 
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
@@ -23,7 +19,6 @@ public class NestAccessControlTestUtils {
       Paths.get(ToolHelper.EXAMPLES_JAVA11_JAR_DIR).resolve("nesthostexample" + JAR_EXTENSION);
   public static final Path CLASSES_PATH =
       Paths.get(ToolHelper.getExamplesJava11BuildDir()).resolve("nesthostexample/");
-  public static final String PACKAGE_NAME = "nesthostexample.";
 
   public static final List<String> CLASS_NAMES =
       ImmutableList.of(
@@ -82,90 +77,10 @@ public class NestAccessControlTestUtils {
           .put("pvtCallInlined", "NestPvtMethodCallInlined")
           .put("memberPropagated", "NestPvtFieldPropagated")
           .build();
-  public static final String ALL_RESULT_LINE =
-      String.join(
-          ", ",
-          new String[] {
-            "field",
-            "staticField",
-            "staticField",
-            "hostMethod",
-            "staticHostMethod",
-            "staticHostMethod",
-            "nest1SField",
-            "staticNest1SField",
-            "staticNest1SField",
-            "nest1SMethod",
-            "staticNest1SMethod",
-            "staticNest1SMethod",
-            "nest2SField",
-            "staticNest2SField",
-            "staticNest2SField",
-            "nest2SMethod",
-            "staticNest2SMethod",
-            "staticNest2SMethod",
-            "nest1Field",
-            "nest1Method",
-            "nest2Field",
-            "nest2Method"
-          });
-  public static final ImmutableMap<String, String> EXPECTED_RESULTS =
-      ImmutableMap.<String, String>builder()
-          .put(
-              "fields",
-              StringUtils.lines(
-                  "RWnestFieldRWRWnestFieldRWRWnestFieldnoBridge", "RWfieldRWRWfieldRWRWnestField"))
-          .put(
-              "methods",
-              StringUtils.lines(
-                  "nestMethodstaticNestMethodstaticNestMethodnoBridge",
-                  "hostMethodstaticHostMethodstaticNestMethod"))
-          .put(
-              "constructors",
-              StringUtils.lines(
-                  "field", "nest1SField", "1", "innerFieldUnusedConstructor", "nothing"))
-          .put(
-              "anonymous",
-              StringUtils.lines(
-                  "fieldstaticFieldstaticFieldhostMethodstaticHostMethodstaticHostMethod"))
-          .put(
-              "all",
-              StringUtils.lines(
-                  ALL_RESULT_LINE,
-                  ALL_RESULT_LINE,
-                  ALL_RESULT_LINE,
-                  ALL_RESULT_LINE,
-                  "staticInterfaceMethodstaticStaticInterfaceMethod",
-                  "staticInterfaceMethodstaticStaticInterfaceMethod",
-                  "staticInterfaceMethodstaticStaticInterfaceMethod",
-                  "staticInterfaceMethodstaticStaticInterfaceMethod",
-                  "3"))
-          .put(
-              "pvtCallInlined",
-              StringUtils.lines(
-                  "nestPvtCallToInlineInner",
-                  "nestPvtCallToInlineInnerInterface",
-                  "notInlinedPvtCallInner",
-                  "notInlinedPvtCallInnerInterface",
-                  "notInlinedPvtCallInnerSub",
-                  "notInlinedPvtCallInnerInterface",
-                  "nestPvtCallToInlineInnerSub",
-                  "nestPvtCallToInlineInner"))
-          .put("memberPropagated", StringUtils.lines("toPropagateStatic"))
-          .build();
 
   public static String getMainClass(String id) {
-    return PACKAGE_NAME + MAIN_CLASSES.get(id);
+    return "nesthostexample." + MAIN_CLASSES.get(id);
   }
 
-  public static String getExpectedResult(String id) {
-    return EXPECTED_RESULTS.get(id);
-  }
 
-  public static List<Path> classesMatching(String matcher) {
-    return CLASS_NAMES.stream()
-        .filter(name -> containsString(matcher).matches(name))
-        .map(name -> CLASSES_PATH.resolve(name + CLASS_EXTENSION))
-        .collect(toList());
-  }
 }
