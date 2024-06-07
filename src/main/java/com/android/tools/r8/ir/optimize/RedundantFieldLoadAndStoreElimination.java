@@ -432,9 +432,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
               // instruction has side-effects that can change the value of fields. If so, it must be
               // handled above. If not, it can be safely added to the assert.
               assert instruction.isArgument()
-                      || instruction.isArrayGet()
                       || instruction.isArrayLength()
-                      || instruction.isArrayPut()
                       || instruction.isAssume()
                       || instruction.isBinop()
                       || instruction.isCheckCast()
@@ -627,6 +625,10 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     }
 
     private void handleArrayGet(InstructionListIterator it, ArrayGet arrayGet) {
+      if (arrayGet.instructionInstanceCanThrow(appView, method)) {
+        // The read might not happen if the array get can throw.
+        activeState.clearMostRecentFieldWrites();
+      }
       if (arrayGet.array().hasLocalInfo()) {
         // The array may be modified through the debugger. Therefore subsequent reads of the same
         // array slot may not read this local.
@@ -655,6 +657,12 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     private void handleArrayPut(ArrayPut arrayPut) {
       int index = arrayPut.indexOrDefault(-1);
       MemberType memberType = arrayPut.getMemberType();
+
+      // If the instruction can throw, we can't use any previous field stores for store-after-store
+      // elimination.
+      if (arrayPut.instructionInstanceCanThrow(appView, method)) {
+        activeState.clearMostRecentFieldWrites();
+      }
 
       // An array-put instruction can potentially write the given array slot on all arrays because
       // of
