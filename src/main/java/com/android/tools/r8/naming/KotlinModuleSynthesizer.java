@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.KmModule;
+import kotlin.metadata.jvm.KmPackageParts;
 import kotlin.metadata.jvm.KotlinModuleMetadata;
 
 /**
@@ -171,15 +172,14 @@ public class KotlinModuleSynthesizer {
                   String rewrittenName = pair.getSecond();
                   multiClassPartToOriginal
                       .getOrDefault(originalName, Collections.emptyList())
-                      .forEach(
-                          classPart -> {
-                            newMultiFiles.put(classPart, rewrittenName);
-                          });
+                      .forEach(classPart -> newMultiFiles.put(classPart, rewrittenName));
                 });
-        kmModule.visitPackageParts(
-            newPackage,
-            newFacades.getOrDefault(newPackage, Collections.emptyList()),
-            newMultiFiles);
+        kmModule
+            .getPackageParts()
+            .put(
+                newPackage,
+                new KmPackageParts(
+                    newFacades.getOrDefault(newPackage, Collections.emptyList()), newMultiFiles));
       }
       return Optional.of(
           DataEntryResource.fromBytes(
