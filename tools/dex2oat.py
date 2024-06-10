@@ -152,9 +152,10 @@ def run_device_dex2oat(options, args):
     append_dex2oat_verbose_flags(options, cmd)
     utils.PrintCmd(cmd)
     subprocess.check_call(cmd)
-    cmd = adb_cmd(serial, 'logcat', '-d', '-s', 'dex2oat')
+    cmd = adb_cmd(serial, 'logcat', '-d', '-s', 'dex2oat', 'dex2oat_original')
     utils.PrintCmd(cmd)
     subprocess.check_call(cmd)
+
     return 0
 
 
