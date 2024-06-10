@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -197,15 +198,17 @@ public abstract class FieldInstruction extends Instruction {
       if (clazz == null) {
         return true;
       }
-      if (clazz.superType == null) {
-        return false;
-      }
       DexItemFactory dexItemFactory = appView.dexItemFactory();
       DexEncodedMethod resolutionResult =
           appInfo
               .resolveMethodOnClassLegacy(clazz, dexItemFactory.objectMembers.finalize)
               .getSingleTarget();
-      return resolutionResult != null && resolutionResult.isProgramMethod(appView);
+      if (resolutionResult == null) {
+        return false;
+      }
+      DexType holderType = resolutionResult.getHolderType();
+      return holderType.isNotIdenticalTo(dexItemFactory.objectType)
+          && holderType.isNotIdenticalTo(dexItemFactory.enumType);
     }
 
     return mayHaveFinalizeMethodDirectlyOrIndirectly(appView, baseType.asClassType());

@@ -67,8 +67,12 @@ public class ObjectAllocationInfoCollectionUtils {
                         .resolveMethodOnLegacy(
                             clazz, appView.dexItemFactory().objectMembers.finalize)
                         .asSingleResolution();
-                if (resolution != null && resolution.getResolvedHolder().isProgramClass()) {
-                  return TraversalContinuation.doBreak();
+                if (resolution != null) {
+                  DexType resolvedType = resolution.getResolvedHolder().getType();
+                  if (resolvedType.isNotIdenticalTo(appView.dexItemFactory().objectType)
+                      && resolvedType.isNotIdenticalTo(appView.dexItemFactory().enumType)) {
+                    return TraversalContinuation.doBreak();
+                  }
                 }
               }
               return TraversalContinuation.doContinue();
