@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>R8 perf</title>
+</head>
+<body>
+  <select id="benchmark-selector"></select>
+  <div>
+      <canvas id="myChart"></canvas>
+  </div>
+  <div>
+    <div style="float: left; width: 50%">
+      <button type="button" id="show-more-left" disabled>⇐</button>
+      <button type="button" id="show-less-left">⇒</button>
+    </div>
+    <div style="float: left; text-align: right; width: 50%">
+      <button type="button" id="show-less-right">⇐</button>
+      <button type="button" id="show-more-right" disabled>⇒</button>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script type="module">
+    import commits from "./benchmark_data.json" with { type: "json" };
+
+    // Amend the commits with their unique index.
+    for (var i = 0; i < commits.length; i++) {
+      commits[i].index = i;
+    }
+
+    // Utility methods.
+    Array.prototype.first = function() {
+        return this[0];
+    };
+    Array.prototype.avg = function() {
+        return this.reduce(function(x, y) { return x + y; }, 0) / this.length;
+    };
+    Array.prototype.min = function() {
+        return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null) / this.length;
+    };
+
+    // DOM references.
+    const benchmarkSelector = document.getElementById('benchmark-selector')
+    const canvas = document.getElementById('myChart');
+    const showMoreLeft = document.getElementById('show-more-left');
+    const showLessLeft = document.getElementById('show-less-left');
+    const showLessRight = document.getElementById('show-less-right');
+    const showMoreRight = document.getElementById('show-more-right');
+
+    // Initialize benchmark selector.
+    const benchmarks = new Set();
+    for (const commit of commits.values()) {
+      for (const benchmark in commit.benchmarks) {
+          benchmarks.add(benchmark)
+      }
+    }
+    var selectedBenchmark = window.location.hash.substring(1)
+    if (!benchmarks.has(selectedBenchmark)) {
+      selectedBenchmark = benchmarks.values().next().value;
+    }
+    for (const benchmark of benchmarks.values()) {
+      const opt = document.createElement('option');
+      opt.value = benchmark;
+      opt.innerHTML = benchmark;
+      benchmarkSelector.appendChild(opt);
+      if (benchmark == selectedBenchmark) {
+        benchmarkSelector.selectedIndex = benchmarkSelector.options.length - 1
+      }
+    }
+    benchmarkSelector.onchange = function(event) {
+      selectedBenchmark =
+          benchmarkSelector.options[benchmarkSelector.selectedIndex].value;
+      updateChart();
+      window.location.hash = selectedBenchmark;
+    };
+
+    // Chart data provider.
+    function getData(start = 0, end = commits.length) {
+      const filteredCommits =
+          commits
+              .slice(start, end)
+              .filter(
+                  commit =>
+                      selectedBenchmark in commit.benchmarks
+                          && commit.benchmarks[selectedBenchmark].results.length > 0);
+      const labels = filteredCommits.map((c, i) => c.index);
+      const codeSizeData =
+          filteredCommits.map(
+              (c, i) =>
+                  filteredCommits[i]
+                      .benchmarks[selectedBenchmark]
+                      .results
+                      .first()
+                      .code_size);
+      const runtimeData =
+          filteredCommits.map(
+              (c, i) =>
+                  filteredCommits[i]
+                      .benchmarks[selectedBenchmark]
+                      .results
+                      .map(result => result.runtime)
+                      .min());
+      const runtimeScatterData = [];
+      for (const commit of filteredCommits.values()) {
+        const runtimes =
+            commit.benchmarks[selectedBenchmark].results.map(result => result.runtime)
+        for (const runtime of runtimes.values()) {
+          runtimeScatterData.push({ x: commit.index, y: runtime });
+        }
+      }
+
+      return {
+        labels: labels,
+        datasets: [{
+            type: 'line',
+            label: 'Code size',
+            data: codeSizeData,
+            tension: 0.1
+          },
+          {
+            type: 'line',
+            label: 'Runtime',
+            data: runtimeData,
+            tension: 0.1,
+            yAxisID: 'y2'
+          },
+          {
+            type: 'scatter',
+            label: 'Runtime',
+            data: runtimeScatterData,
+            yAxisID: 'y2'
+          }
+        ],
+      };
+    }
+
+    // Chart options.
+    const options = {
+      onHover: (event, chartElement) =>
+          event.native.target.style.cursor =
+              chartElement[0] ? 'pointer' : 'default',
+      plugins: {
+        tooltip: {
+          callbacks: {
+            title: (context) => {
+              const elementInfo = context[0];
+              var commit;
+              if (elementInfo.dataset.type == 'line') {
+                commit = commits[elementInfo.dataIndex];
+              } else {
+                console.assert(elementInfo.dataset.type == 'scatter');
+                commit = commits[elementInfo.raw.x];
+              }
+              return commit.title;
+            },
+            footer: (context) => {
+              const elementInfo = context[0];
+              var commit;
+              if (elementInfo.dataset.type == 'line') {
+                commit = commits[elementInfo.dataIndex];
+              } else {
+                console.assert(elementInfo.dataset.type == 'scatter');
+                commit = commits[elementInfo.raw.x];
+              }
+              return `Author: ${commit.author}\n`
+                  + `Submitted: ${commit.submitted}\n`
+                  + `Hash: ${commit.hash}`;
+            }
+          }
+        }
+      },
+      responsive: true,
+      scales: {
+        x: {},
+        y: {
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Code size (bytes)'
+          }
+        },
+        y2: {
+          position: 'right',
+          title: {
+            display: true,
+            text: 'Runtime (ms)'
+          }
+        }
+      }
+    };
+
+    // Create chart.
+    const myChart = new Chart(canvas, {
+      data: getData(),
+      options: options
+    });
+
+    // Setup click handler.
+    canvas.onclick = function (event) {
+      const points =
+          myChart.getElementsAtEventForMode(
+              event, 'nearest', { intersect: true }, true);
+      if (points.length > 0) {
+        const point = points[0];
+        const commit = commits[point.index];
+        window.open('https://r8.googlesource.com/r8/+/' + commit.hash, '_blank');
+      }
+    };
+
+    // Setup chart navigation.
+    var left = 0;
+    var right = commits.length;
+
+    showMoreLeft.onclick = function (event) {
+      if (left == 0) {
+        return;
+      }
+      const currentSize = right - left;
+      left = left - currentSize;
+      if (left < 0) {
+        left = 0;
+      }
+      updateChart();
+    };
+
+    showLessLeft.onclick = function (event) {
+      const currentSize = right - left;
+      left = left + Math.floor(currentSize / 2);
+      if (left >= right) {
+        left = right - 1;
+      }
+      updateChart();
+    };
+
+    showLessRight.onclick = function (event) {
+      if (right == 0) {
+        return;
+      }
+      const currentSize = right - left;
+      right = right - Math.floor(currentSize / 2);
+      if (right < left) {
+        right = left;
+      }
+      updateChart();
+    };
+
+    showMoreRight.onclick = function (event) {
+      const currentSize = right - left;
+      right = right + currentSize;
+      if (right > commits.length) {
+        right = commits.length;
+      }
+      updateChart();
+    };
+
+    function updateChart() {
+      console.assert(left <= right);
+      const newData = getData(left, right);
+      Object.assign(myChart.data, newData);
+      myChart.update();
+      showMoreLeft.disabled = left == 0;
+      showLessLeft.disabled = left == right - 1;
+      showLessRight.disabled = left == right - 1;
+      showMoreRight.disabled = right == commits.length;
+    }
+  </script>
+</body>
+</html>
