@@ -5,6 +5,7 @@
 package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
+import com.android.tools.r8.androidapi.ApiReferenceStubber;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -141,9 +142,9 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
 
   @Override
   public void registerExceptionGuard(DexType guard) {
-    // Type references as exception guard are OK unless unknown. Library exception guards will be
-    // stubbed.
-    setMaxApiReferenceLevelIfUnknown(guard);
+    // Type references as exception guard are OK for stubbed exception guards as they are always
+    // present at runtime.
+    setMaxApiReferenceLevelIfNeverStubbedOrUnknown(guard);
   }
 
   @Override
@@ -172,10 +173,15 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
     }
   }
 
-  private void setMaxApiReferenceLevelIfUnknown(DexType type) {
+  private void setMaxApiReferenceLevelIfNeverStubbedOrUnknown(DexType type) {
     if (isEnabled) {
+      if (ApiReferenceStubber.isAlwaysStubbedType(
+          type, appInfoWithClassHierarchy.dexItemFactory())) {
+        return;
+      }
       ComputedApiLevel computedApiLevel = apiLevelCompute.computeApiLevelForLibraryReference(type);
-      if (computedApiLevel.isUnknownApiLevel()) {
+      if (ApiReferenceStubber.isNeverStubbedType(type, appInfoWithClassHierarchy.dexItemFactory())
+          || computedApiLevel.isUnknownApiLevel()) {
         maxApiReferenceLevel = maxApiReferenceLevel.max(computedApiLevel);
       }
     }

@@ -87,10 +87,17 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
         .transform();
   }
 
+  private static boolean isNeverStubbed(String exception) {
+    // Note: this is a simplified version of ApiReferenceStubber.isNeverStubbedType only testing
+    // the types relevant for this test.
+    return exception.startsWith("java.");
+  }
+
   private boolean compilationTargetIsMissingExceptionType() {
     // A CF target could target any API in the end.
     return parameters.isCfRuntime()
-        || parameters.getApiLevel().getLevel() < EXCEPTIONS.get(exception);
+        || (parameters.getApiLevel().getLevel() < EXCEPTIONS.get(exception)
+            && isNeverStubbed(exception));
   }
 
   @Test

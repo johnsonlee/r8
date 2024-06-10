@@ -159,7 +159,7 @@ public class ApiReferenceStubber {
   }
 
   private void findReferencedLibraryClasses(DexType type, DexProgramClass context) {
-    if (!type.isClassType() || isJavaType(type, appView.dexItemFactory())) {
+    if (!type.isClassType() || isNeverStubbedType(type, appView.dexItemFactory())) {
       return;
     }
     DexClass clazz = appView.definitionFor(type);
@@ -182,10 +182,17 @@ public class ApiReferenceStubber {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  public static boolean isJavaType(DexType type, DexItemFactory factory) {
+  public static boolean isAlwaysStubbedType(DexType type, DexItemFactory factory) {
+    return !isNeverStubbedType(type, factory);
+  }
+
+  public static boolean isNeverStubbedType(DexType type, DexItemFactory factory) {
+    return isJavaType(type, factory);
+  }
+
+  private static boolean isJavaType(DexType type, DexItemFactory factory) {
     DexString typeDescriptor = type.getDescriptor();
-    return type == factory.objectType
+    return type.isIdenticalTo(factory.objectType)
         || typeDescriptor.startsWith(factory.comSunDescriptorPrefix)
         || typeDescriptor.startsWith(factory.javaDescriptorPrefix)
         || typeDescriptor.startsWith(factory.javaxDescriptorPrefix)
@@ -201,7 +208,7 @@ public class ApiReferenceStubber {
       ApiReferenceStubberEventConsumer eventConsumer) {
     DexItemFactory factory = appView.dexItemFactory();
     // Do not stub the anything starting with java (including the object type).
-    if (isJavaType(libraryClass.getType(), factory)) {
+    if (isNeverStubbedType(libraryClass.getType(), factory)) {
       return;
     }
     // Check if desugared library will bridge the type.

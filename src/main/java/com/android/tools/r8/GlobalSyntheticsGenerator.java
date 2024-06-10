@@ -289,7 +289,7 @@ public class GlobalSyntheticsGenerator {
           if (notModeledTypes.contains(libraryClass.getClassReference().getTypeName())) {
             return;
           }
-          if (ApiReferenceStubber.isJavaType(libraryClass.getType(), factory)) {
+          if (ApiReferenceStubber.isNeverStubbedType(libraryClass.getType(), factory)) {
             return;
           }
           KnownApiLevel knownApiLevel =
