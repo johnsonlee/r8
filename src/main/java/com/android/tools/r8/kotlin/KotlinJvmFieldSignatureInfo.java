@@ -34,7 +34,7 @@ public class KotlinJvmFieldSignatureInfo implements EnqueuerMetadataTraceable {
     }
     return new KotlinJvmFieldSignatureInfo(
         fieldSignature.getName(),
-        KotlinTypeReference.fromDescriptor(fieldSignature.getDesc(), factory));
+        KotlinTypeReference.fromDescriptor(fieldSignature.getDescriptor(), factory));
   }
 
   boolean rewrite(Consumer<JvmFieldSignature> consumer, DexEncodedField field, AppView<?> appView) {

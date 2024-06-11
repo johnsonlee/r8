@@ -70,10 +70,10 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       }
       KotlinFunctionInfo kotlinFunctionInfo =
           KotlinFunctionInfo.create(kmFunction, factory, reporter);
-      DexEncodedMethod method = methodSignatureMap.get(signature.asString());
+      DexEncodedMethod method = methodSignatureMap.get(signature.toString());
       if (method == null) {
         notBackedFunctions.add(kotlinFunctionInfo);
-        if (!isValidMethodDescriptor(signature.getDesc())) {
+        if (!isValidMethodDescriptor(signature.getDescriptor())) {
           // TODO(b/155536535): Enable this assert.
           // appView
           //     .options()
@@ -98,7 +98,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       boolean hasBacking = false;
       if (propertyProcessor.fieldSignature() != null) {
         DexEncodedField field =
-            fieldSignatureMap.get(propertyProcessor.fieldSignature().asString());
+            fieldSignatureMap.get(propertyProcessor.fieldSignature().toString());
         if (field != null) {
           hasBacking = true;
           field.setKotlinMemberInfo(kotlinPropertyInfo);
@@ -107,7 +107,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       }
       if (propertyProcessor.getterSignature() != null) {
         DexEncodedMethod method =
-            methodSignatureMap.get(propertyProcessor.getterSignature().asString());
+            methodSignatureMap.get(propertyProcessor.getterSignature().toString());
         if (method != null) {
           hasBacking = true;
           keepIfAccessorInline(kmProperty.getGetterFlags(), method, keepByteCode);
@@ -118,7 +118,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       }
       if (propertyProcessor.setterSignature() != null) {
         DexEncodedMethod method =
-            methodSignatureMap.get(propertyProcessor.setterSignature().asString());
+            methodSignatureMap.get(propertyProcessor.setterSignature().toString());
         if (method != null) {
           hasBacking = true;
           keepIfAccessorInline(kmProperty.getGetterFlags(), method, keepByteCode);
@@ -130,7 +130,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       if (propertyProcessor.syntheticMethodForAnnotationsSignature() != null) {
         DexEncodedMethod method =
             methodSignatureMap.get(
-                propertyProcessor.syntheticMethodForAnnotationsSignature().asString());
+                propertyProcessor.syntheticMethodForAnnotationsSignature().toString());
         if (method != null) {
           hasBacking = true;
           method.setKotlinMemberInfo(

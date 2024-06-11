@@ -51,7 +51,7 @@ public class KotlinJvmMethodSignatureInfo implements EnqueuerMetadataTraceable {
       return null;
     }
     String name = methodSignature.getName();
-    String descriptor = methodSignature.getDesc();
+    String descriptor = methodSignature.getDescriptor();
     if (!KotlinMetadataUtils.isValidMethodDescriptor(descriptor)) {
       // If the method descriptor is invalid, keep it as invalid.
       return new KotlinJvmMethodSignatureInfo(methodSignature.getName(), descriptor);

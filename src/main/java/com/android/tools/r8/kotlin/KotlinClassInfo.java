@@ -129,11 +129,11 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     KmClass kmClass = metadata.getKmClass();
     Map<String, DexEncodedField> fieldMap = new HashMap<>();
     for (DexEncodedField field : hostClass.fields()) {
-      fieldMap.put(toJvmFieldSignature(field.getReference()).asString(), field);
+      fieldMap.put(toJvmFieldSignature(field.getReference()).toString(), field);
     }
     Map<String, DexEncodedMethod> methodMap = new HashMap<>();
     for (DexEncodedMethod method : hostClass.methods()) {
-      methodMap.put(toJvmMethodSignature(method.getReference()).asString(), method);
+      methodMap.put(toJvmMethodSignature(method.getReference()).toString(), method);
     }
     ImmutableList.Builder<KotlinConstructorInfo> notBackedConstructors = ImmutableList.builder();
     KotlinMetadataMembersTracker originalMembersWithKotlinInfo =
@@ -143,7 +143,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
           KotlinConstructorInfo.create(kmConstructor, factory, reporter);
       JvmMethodSignature signature = JvmExtensionsKt.getSignature(kmConstructor);
       if (signature != null) {
-        DexEncodedMethod method = methodMap.get(signature.asString());
+        DexEncodedMethod method = methodMap.get(signature.toString());
         if (method != null) {
           method.setKotlinMemberInfo(constructorInfo);
           originalMembersWithKotlinInfo.add(method.getReference());

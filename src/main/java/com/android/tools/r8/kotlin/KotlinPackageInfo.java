@@ -45,11 +45,11 @@ public class KotlinPackageInfo implements EnqueuerMetadataTraceable {
       Consumer<DexEncodedMethod> keepByteCode) {
     Map<String, DexEncodedField> fieldMap = new HashMap<>();
     for (DexEncodedField field : clazz.fields()) {
-      fieldMap.put(toJvmFieldSignature(field.getReference()).asString(), field);
+      fieldMap.put(toJvmFieldSignature(field.getReference()).toString(), field);
     }
     Map<String, DexEncodedMethod> methodMap = new HashMap<>();
     for (DexEncodedMethod method : clazz.methods()) {
-      methodMap.put(toJvmMethodSignature(method.getReference()).asString(), method);
+      methodMap.put(toJvmMethodSignature(method.getReference()).toString(), method);
     }
     KotlinMetadataMembersTracker originalMembersWithKotlinInfo =
         new KotlinMetadataMembersTracker(appView);
