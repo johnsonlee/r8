@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.ir.optimize.inliner;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.R8TestRunResult;
@@ -87,17 +87,16 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
         .transform();
   }
 
-  private static boolean isNeverStubbed(String exception) {
-    // Note: this is a simplified version of ApiReferenceStubber.isNeverStubbedType only testing
+  private boolean isStubbed() {
+    // Note: this is a simplified version of ApiReferenceStubber.isAlwaysStubbedType only testing
     // the types relevant for this test.
-    return exception.startsWith("java.");
+    return !exception.startsWith("java.") && !exception.startsWith("javax.");
   }
 
-  private boolean compilationTargetIsMissingExceptionType() {
+  private boolean isPresentInRuntime() {
     // A CF target could target any API in the end.
-    return parameters.isCfRuntime()
-        || (parameters.getApiLevel().getLevel() < EXCEPTIONS.get(exception)
-            && isNeverStubbed(exception));
+    return parameters.isDexRuntime()
+        && parameters.getApiLevel().getLevel() >= EXCEPTIONS.get(exception);
   }
 
   @Test
@@ -108,7 +107,7 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
         .addProgramClassFileData(getClassWithCatchHandler())
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
-        // Use the latest library so that all of the exceptions are defined.
+        // Use the latest library so that all the exceptions are defined.
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .compile()
         .inspect(this::checkInlined)
@@ -118,7 +117,7 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
 
   private void checkResult(R8TestRunResult runResult) {
     // The bootclasspath for our build of 4.4.4 does not contain various bits. Allow verify error.
-    if (!compilationTargetIsMissingExceptionType()
+    if (isPresentInRuntime()
         && parameters.getRuntime().asDex().getVm().getVersion().equals(Version.V4_4_4)
         && (exception.startsWith("android.media") || exception.startsWith("android.view"))) {
       runResult.assertFailureWithErrorThatThrows(VerifyError.class);
@@ -133,10 +132,14 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
     boolean mainHasInlinedCatchHandler =
         Streams.stream(classSubject.mainMethod().iterateTryCatches())
             .anyMatch(tryCatch -> tryCatch.isCatching(exception));
-    if (compilationTargetIsMissingExceptionType()) {
+    if (parameters.isCfRuntime()) {
       assertFalse(mainHasInlinedCatchHandler);
     } else {
-      assertTrue(mainHasInlinedCatchHandler);
+      assertEquals(
+          parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.L)
+              ? parameters.getApiLevel().getLevel() >= EXCEPTIONS.get(exception)
+              : isPresentInRuntime() || isStubbed(),
+          mainHasInlinedCatchHandler);
     }
   }
 
@@ -144,7 +147,7 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
 
     public static void main(String[] args) {
       if (args.length == 200) {
-        // Never called
+        // Never called.
         ClassWithCatchHandler.methodWithCatch();
       }
       System.out.println("Done...");

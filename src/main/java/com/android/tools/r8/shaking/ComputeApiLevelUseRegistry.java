@@ -144,7 +144,7 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
   public void registerExceptionGuard(DexType guard) {
     // Type references as exception guard are OK for stubbed exception guards as they are always
     // present at runtime.
-    setMaxApiReferenceLevelIfNeverStubbedOrUnknown(guard);
+    setMaxApiReferenceLevelForGuard(guard);
   }
 
   @Override
@@ -173,10 +173,10 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
     }
   }
 
-  private void setMaxApiReferenceLevelIfNeverStubbedOrUnknown(DexType type) {
+  private void setMaxApiReferenceLevelForGuard(DexType type) {
     if (isEnabled) {
-      if (ApiReferenceStubber.isAlwaysStubbedType(
-          type, appInfoWithClassHierarchy.dexItemFactory())) {
+      if (ApiReferenceStubber.isAlwaysStubbedType(type, appInfoWithClassHierarchy.dexItemFactory())
+          && !appInfoWithClassHierarchy.options().canHaveDalvikCatchHandlerVerificationBug()) {
         return;
       }
       ComputedApiLevel computedApiLevel = apiLevelCompute.computeApiLevelForLibraryReference(type);
