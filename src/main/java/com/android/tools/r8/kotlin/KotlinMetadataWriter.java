@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -87,9 +88,7 @@ public class KotlinMetadataWriter {
         indent,
         "Metadata.Class",
         sb,
-        newIndent -> {
-          KotlinMetadataWriter.appendKmClass(newIndent, sb, kMetadata.getKmClass());
-        });
+        newIndent -> KotlinMetadataWriter.appendKmClass(newIndent, sb, kMetadata.getKmClass()));
     return sb.toString();
   }
 
@@ -100,9 +99,7 @@ public class KotlinMetadataWriter {
         indent,
         "Metadata.FileFacade",
         sb,
-        newIndent -> {
-          KotlinMetadataWriter.appendKmPackage(newIndent, sb, kMetadata.getKmPackage());
-        });
+        newIndent -> KotlinMetadataWriter.appendKmPackage(newIndent, sb, kMetadata.getKmPackage()));
     return sb.toString();
   }
 
@@ -144,9 +141,8 @@ public class KotlinMetadataWriter {
                   newIndent,
                   "function",
                   sb,
-                  nextIndent -> {
-                    KotlinMetadataWriter.appendKmFunction(nextIndent, sb, kmLambda.function);
-                  });
+                  nextIndent ->
+                      KotlinMetadataWriter.appendKmFunction(nextIndent, sb, kmLambda.function));
             } else {
               KotlinMetadataWriter.appendKeyValue(newIndent, "function", sb, "null");
             }
@@ -216,70 +212,62 @@ public class KotlinMetadataWriter {
         indent,
         "functions",
         sb,
-        newIndent -> {
-          appendKmList(
-              newIndent,
-              "KmFunction",
-              sb,
-              container.getFunctions().stream()
-                  .sorted(
-                      Comparator.comparing(
-                          kmFunction -> JvmExtensionsKt.getSignature(kmFunction).asString()))
-                  .collect(Collectors.toList()),
-              (nextIndent, kmFunction) -> {
-                appendKmFunction(nextIndent, sb, kmFunction);
-              });
-        });
+        newIndent ->
+            appendKmList(
+                newIndent,
+                "KmFunction",
+                sb,
+                container.getFunctions().stream()
+                    .sorted(
+                        Comparator.comparing(
+                            kmFunction ->
+                                Objects.toString(JvmExtensionsKt.getSignature(kmFunction))))
+                    .collect(Collectors.toList()),
+                (nextIndent, kmFunction) -> appendKmFunction(nextIndent, sb, kmFunction)));
     appendKeyValue(
         indent,
         "properties",
         sb,
-        newIndent -> {
-          appendKmList(
-              newIndent,
-              "KmProperty",
-              sb,
-              container.getProperties().stream()
-                  .sorted(
-                      Comparator.comparing(
-                          kmProperty -> {
-                            JvmMethodSignature signature =
-                                JvmExtensionsKt.getGetterSignature(kmProperty);
-                            if (signature != null) {
-                              return signature.asString();
-                            }
-                            signature = JvmExtensionsKt.getSetterSignature(kmProperty);
-                            if (signature != null) {
-                              return signature.asString();
-                            }
-                            JvmFieldSignature fieldSignature =
-                                JvmExtensionsKt.getFieldSignature(kmProperty);
-                            if (fieldSignature != null) {
-                              return fieldSignature.asString();
-                            }
-                            return kmProperty.getName();
-                          }))
-                  .collect(Collectors.toList()),
-              (nextIndent, kmProperty) -> {
-                appendKmProperty(nextIndent, sb, kmProperty);
-              });
-        });
+        newIndent ->
+            appendKmList(
+                newIndent,
+                "KmProperty",
+                sb,
+                container.getProperties().stream()
+                    .sorted(
+                        Comparator.comparing(
+                            kmProperty -> {
+                              JvmMethodSignature signature =
+                                  JvmExtensionsKt.getGetterSignature(kmProperty);
+                              if (signature != null) {
+                                return signature.toString();
+                              }
+                              signature = JvmExtensionsKt.getSetterSignature(kmProperty);
+                              if (signature != null) {
+                                return signature.toString();
+                              }
+                              JvmFieldSignature fieldSignature =
+                                  JvmExtensionsKt.getFieldSignature(kmProperty);
+                              if (fieldSignature != null) {
+                                return fieldSignature.toString();
+                              }
+                              return kmProperty.getName();
+                            }))
+                    .collect(Collectors.toList()),
+                (nextIndent, kmProperty) -> appendKmProperty(nextIndent, sb, kmProperty)));
     appendKeyValue(
         indent,
         "typeAliases",
         sb,
-        newIndent -> {
-          appendKmList(
-              newIndent,
-              "KmTypeAlias",
-              sb,
-              container.getTypeAliases().stream()
-                  .sorted(Comparator.comparing(KmTypeAlias::getName))
-                  .collect(Collectors.toList()),
-              (nextIndent, kmTypeAlias) -> {
-                appendTypeAlias(nextIndent, sb, kmTypeAlias);
-              });
-        });
+        newIndent ->
+            appendKmList(
+                newIndent,
+                "KmTypeAlias",
+                sb,
+                container.getTypeAliases().stream()
+                    .sorted(Comparator.comparing(KmTypeAlias::getName))
+                    .collect(Collectors.toList()),
+                (nextIndent, kmTypeAlias) -> appendTypeAlias(nextIndent, sb, kmTypeAlias)));
   }
 
   public static void appendKmPackage(String indent, StringBuilder sb, KmPackage kmPackage) {
@@ -289,16 +277,13 @@ public class KotlinMetadataWriter {
         indent,
         "localDelegatedProperties",
         sb,
-        nextIndent -> {
-          appendKmList(
-              nextIndent,
-              "KmProperty",
-              sb,
-              JvmExtensionsKt.getLocalDelegatedProperties(kmPackage),
-              (nextNextIndent, kmProperty) -> {
-                appendKmProperty(nextNextIndent, sb, kmProperty);
-              });
-        });
+        nextIndent ->
+            appendKmList(
+                nextIndent,
+                "KmProperty",
+                sb,
+                JvmExtensionsKt.getLocalDelegatedProperties(kmPackage),
+                (nextNextIndent, kmProperty) -> appendKmProperty(nextNextIndent, sb, kmProperty)));
   }
 
   public static void appendKmClass(String indent, StringBuilder sb, KmClass kmClass) {
@@ -309,23 +294,18 @@ public class KotlinMetadataWriter {
         indent,
         "typeParameters",
         sb,
-        newIndent -> {
-          appendTypeParameters(newIndent, sb, kmClass.getTypeParameters());
-        });
+        newIndent -> appendTypeParameters(newIndent, sb, kmClass.getTypeParameters()));
     appendKeyValue(
         indent,
         "superTypes",
         sb,
-        newIndent -> {
-          appendKmList(
-              newIndent,
-              "KmType",
-              sb,
-              kmClass.getSupertypes(),
-              (nextIndent, kmType) -> {
-                appendKmType(nextIndent, sb, kmType);
-              });
-        });
+        newIndent ->
+            appendKmList(
+                newIndent,
+                "KmType",
+                sb,
+                kmClass.getSupertypes(),
+                (nextIndent, kmType) -> appendKmType(nextIndent, sb, kmType)));
     if (kmClass.getInlineClassUnderlyingPropertyName() != null) {
       appendKeyValue(
           indent,
@@ -338,9 +318,7 @@ public class KotlinMetadataWriter {
           indent,
           "inlineClassUnderlyingType",
           sb,
-          nextIndent -> {
-            appendKmType(nextIndent, sb, kmClass.getInlineClassUnderlyingType());
-          });
+          nextIndent -> appendKmType(nextIndent, sb, kmClass.getInlineClassUnderlyingType()));
     }
     String companionObject = kmClass.getCompanionObject();
     appendKeyValue(
@@ -364,16 +342,13 @@ public class KotlinMetadataWriter {
         indent,
         "localDelegatedProperties",
         sb,
-        nextIndent -> {
-          appendKmList(
-              nextIndent,
-              "KmProperty",
-              sb,
-              JvmExtensionsKt.getLocalDelegatedProperties(kmClass),
-              (nextNextIndent, kmProperty) -> {
-                appendKmProperty(nextNextIndent, sb, kmProperty);
-              });
-        });
+        nextIndent ->
+            appendKmList(
+                nextIndent,
+                "KmProperty",
+                sb,
+                JvmExtensionsKt.getLocalDelegatedProperties(kmClass),
+                (nextNextIndent, kmProperty) -> appendKmProperty(nextNextIndent, sb, kmProperty)));
     appendKmVersionRequirement(indent, sb, kmClass.getVersionRequirements());
     appendKeyValue(
         indent,
@@ -388,11 +363,9 @@ public class KotlinMetadataWriter {
                     .sorted(
                         Comparator.comparing(
                             kmConstructor ->
-                                JvmExtensionsKt.getSignature(kmConstructor).asString()))
+                                Objects.toString(JvmExtensionsKt.getSignature(kmConstructor))))
                     .collect(Collectors.toList()),
-                (nextIndent, constructor) -> {
-                  appendKmConstructor(nextIndent, sb, constructor);
-                }));
+                (nextIndent, constructor) -> appendKmConstructor(nextIndent, sb, constructor)));
     appendKeyValue(
         indent,
         "contextReceiverTypes",
@@ -422,8 +395,7 @@ public class KotlinMetadataWriter {
               nextIndent ->
                   appendValueParameters(nextIndent, sb, constructor.getValueParameters()));
           JvmMethodSignature signature = JvmExtensionsKt.getSignature(constructor);
-          appendKeyValue(
-              newIndent, "signature", sb, signature != null ? signature.asString() : "null");
+          appendKeyValue(newIndent, "signature", sb, Objects.toString(signature));
           appendKmVersionRequirement(newIndent, sb, constructor.getVersionRequirements());
         });
   }
@@ -465,9 +437,7 @@ public class KotlinMetadataWriter {
                 newIndent,
                 "contract",
                 sb,
-                nextIndent -> {
-                  appendKmContract(nextIndent, sb, contract);
-                });
+                nextIndent -> appendKmContract(nextIndent, sb, contract));
           }
           appendKeyValue(
               newIndent,
@@ -481,8 +451,7 @@ public class KotlinMetadataWriter {
                       function.getContextReceiverTypes(),
                       (nextIndent, kmType) -> appendKmType(nextIndent, sb, kmType)));
           JvmMethodSignature signature = JvmExtensionsKt.getSignature(function);
-          appendKeyValue(
-              newIndent, "signature", sb, signature != null ? signature.asString() : "null");
+          appendKeyValue(newIndent, "signature", sb, Objects.toString(signature));
           appendKeyValue(
               newIndent,
               "lambdaClassOriginName",
@@ -535,39 +504,25 @@ public class KotlinMetadataWriter {
                       (nextIndent, kmType) -> appendKmType(nextIndent, sb, kmType)));
           appendKeyValue(newIndent, "jvmFlags", sb, JvmExtensionsKt.getJvmFlags(kmProperty) + "");
           JvmFieldSignature fieldSignature = JvmExtensionsKt.getFieldSignature(kmProperty);
-          appendKeyValue(
-              newIndent,
-              "fieldSignature",
-              sb,
-              fieldSignature != null ? fieldSignature.asString() : "null");
+          appendKeyValue(newIndent, "fieldSignature", sb, Objects.toString(fieldSignature));
           JvmMethodSignature getterSignature = JvmExtensionsKt.getGetterSignature(kmProperty);
-          appendKeyValue(
-              newIndent,
-              "getterSignature",
-              sb,
-              getterSignature != null ? getterSignature.asString() : "null");
+          appendKeyValue(newIndent, "getterSignature", sb, Objects.toString(getterSignature));
           JvmMethodSignature setterSignature = JvmExtensionsKt.getSetterSignature(kmProperty);
-          appendKeyValue(
-              newIndent,
-              "setterSignature",
-              sb,
-              setterSignature != null ? setterSignature.asString() : "null");
+          appendKeyValue(newIndent, "setterSignature", sb, Objects.toString(setterSignature));
           JvmMethodSignature syntheticMethodForAnnotations =
               JvmExtensionsKt.getSyntheticMethodForAnnotations(kmProperty);
           appendKeyValue(
               newIndent,
               "syntheticMethodForAnnotations",
               sb,
-              syntheticMethodForAnnotations != null
-                  ? syntheticMethodForAnnotations.asString()
-                  : "null");
+              Objects.toString(syntheticMethodForAnnotations));
           JvmMethodSignature syntheticMethodForDelegate =
               JvmExtensionsKt.getSyntheticMethodForAnnotations(kmProperty);
           appendKeyValue(
               newIndent,
               "syntheticMethodForDelegate",
               sb,
-              syntheticMethodForDelegate != null ? syntheticMethodForDelegate.asString() : "null");
+              Objects.toString(syntheticMethodForDelegate));
         });
   }
 
@@ -587,16 +542,14 @@ public class KotlinMetadataWriter {
               newIndent,
               "arguments",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmTypeProjection",
-                    sb,
-                    kmType.getArguments(),
-                    (nextNextIndent, kmTypeProjection) -> {
-                      appendKmTypeProjection(nextNextIndent, sb, kmTypeProjection);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmTypeProjection",
+                      sb,
+                      kmType.getArguments(),
+                      (nextNextIndent, kmTypeProjection) ->
+                          appendKmTypeProjection(nextNextIndent, sb, kmTypeProjection)));
           appendKeyValue(
               newIndent,
               "abbreviatedType",
@@ -613,42 +566,39 @@ public class KotlinMetadataWriter {
                 newIndent,
                 "flexibleTypeUpperBound",
                 sb,
-                nextIndent -> {
-                  appendKmSection(
-                      newIndent,
-                      "FlexibleTypeUpperBound",
-                      sb,
-                      nextNextIndent -> {
-                        appendKeyValue(
-                            nextNextIndent,
-                            "typeFlexibilityId",
-                            sb,
-                            flexibleTypeUpperBound.getTypeFlexibilityId());
-                        appendKeyValue(
-                            nextNextIndent,
-                            "type",
-                            sb,
-                            nextNextNextIndent ->
-                                appendKmType(
-                                    nextNextNextIndent, sb, flexibleTypeUpperBound.getType()));
-                      });
-                });
+                nextIndent ->
+                    appendKmSection(
+                        newIndent,
+                        "FlexibleTypeUpperBound",
+                        sb,
+                        nextNextIndent -> {
+                          appendKeyValue(
+                              nextNextIndent,
+                              "typeFlexibilityId",
+                              sb,
+                              flexibleTypeUpperBound.getTypeFlexibilityId());
+                          appendKeyValue(
+                              nextNextIndent,
+                              "type",
+                              sb,
+                              nextNextNextIndent ->
+                                  appendKmType(
+                                      nextNextNextIndent, sb, flexibleTypeUpperBound.getType()));
+                        }));
           }
           appendKeyValue(newIndent, "raw", sb, JvmExtensionsKt.isRaw(kmType) + "");
           appendKeyValue(
               newIndent,
               "annotations",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmAnnotion",
-                    sb,
-                    JvmExtensionsKt.getAnnotations(kmType),
-                    (nextNextIndent, kmAnnotation) -> {
-                      appendKmAnnotation(nextNextIndent, sb, kmAnnotation);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmAnnotion",
+                      sb,
+                      JvmExtensionsKt.getAnnotations(kmType),
+                      (nextNextIndent, kmAnnotation) ->
+                          appendKmAnnotation(nextNextIndent, sb, kmAnnotation)));
         });
   }
 
@@ -663,9 +613,7 @@ public class KotlinMetadataWriter {
               newIndent,
               "type",
               sb,
-              nextIndent -> {
-                appendKmType(nextIndent, sb, projection.getType());
-              });
+              nextIndent -> appendKmType(nextIndent, sb, projection.getType()));
           if (projection.getVariance() != null) {
             appendKeyValue(newIndent, "variance", sb, projection.getVariance().name());
           }
@@ -679,9 +627,7 @@ public class KotlinMetadataWriter {
         "KmValueParameter",
         sb,
         valueParameters,
-        (newIndent, parameter) -> {
-          appendValueParameter(newIndent, sb, parameter);
-        });
+        (newIndent, parameter) -> appendValueParameter(newIndent, sb, parameter));
   }
 
   private static void appendValueParameter(
@@ -701,16 +647,12 @@ public class KotlinMetadataWriter {
               newIndent,
               "type",
               sb,
-              nextIndent -> {
-                appendKmType(nextIndent, sb, valueParameter.getType());
-              });
+              nextIndent -> appendKmType(nextIndent, sb, valueParameter.getType()));
           appendKeyValue(
               newIndent,
               "varargElementType",
               sb,
-              nextIndent -> {
-                appendKmType(nextIndent, sb, valueParameter.getVarargElementType());
-              });
+              nextIndent -> appendKmType(nextIndent, sb, valueParameter.getVarargElementType()));
         });
   }
 
@@ -721,9 +663,7 @@ public class KotlinMetadataWriter {
         "KmTypeParameter",
         sb,
         typeParameters,
-        (newIndent, parameter) -> {
-          appendTypeParameter(newIndent, sb, parameter);
-        });
+        (newIndent, parameter) -> appendTypeParameter(newIndent, sb, parameter));
   }
 
   private static void appendTypeParameter(
@@ -741,30 +681,25 @@ public class KotlinMetadataWriter {
               newIndent,
               "upperBounds",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmType",
-                    sb,
-                    typeParameter.getUpperBounds(),
-                    (nextNextIndent, kmType) -> {
-                      appendKmType(nextNextIndent, sb, kmType);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmType",
+                      sb,
+                      typeParameter.getUpperBounds(),
+                      (nextNextIndent, kmType) -> appendKmType(nextNextIndent, sb, kmType)));
           appendKeyValue(
               newIndent,
               "extensions",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmAnnotion",
-                    sb,
-                    JvmExtensionsKt.getAnnotations(typeParameter),
-                    (nextNextIndent, kmAnnotation) -> {
-                      appendKmAnnotation(nextNextIndent, sb, kmAnnotation);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmAnnotion",
+                      sb,
+                      JvmExtensionsKt.getAnnotations(typeParameter),
+                      (nextNextIndent, kmAnnotation) ->
+                          appendKmAnnotation(nextNextIndent, sb, kmAnnotation)));
         });
   }
 
@@ -778,39 +713,31 @@ public class KotlinMetadataWriter {
               newIndent,
               "annotations",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmAnnotation",
-                    sb,
-                    kmTypeAlias.getAnnotations(),
-                    (nextNextIndent, kmAnnotation) -> {
-                      appendKmAnnotation(nextNextIndent, sb, kmAnnotation);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmAnnotation",
+                      sb,
+                      kmTypeAlias.getAnnotations(),
+                      (nextNextIndent, kmAnnotation) ->
+                          appendKmAnnotation(nextNextIndent, sb, kmAnnotation)));
           appendKeyValue(
               newIndent,
               "expandedType",
               sb,
-              nextIndent -> {
-                appendKmType(nextIndent, sb, kmTypeAlias.expandedType);
-              });
+              nextIndent -> appendKmType(nextIndent, sb, kmTypeAlias.expandedType));
           appendKeyValue(newIndent, "flags", sb, kmTypeAlias.getFlags() + "");
           appendKeyValue(newIndent, "name", sb, kmTypeAlias.getName());
           appendKeyValue(
               newIndent,
               "typeParameters",
               sb,
-              nextIndent -> {
-                appendTypeParameters(nextIndent, sb, kmTypeAlias.getTypeParameters());
-              });
+              nextIndent -> appendTypeParameters(nextIndent, sb, kmTypeAlias.getTypeParameters()));
           appendKeyValue(
               newIndent,
               "underlyingType",
               sb,
-              nextIndent -> {
-                appendKmType(nextIndent, sb, kmTypeAlias.underlyingType);
-              });
+              nextIndent -> appendKmType(nextIndent, sb, kmTypeAlias.underlyingType));
           appendKmVersionRequirement(newIndent, sb, kmTypeAlias.getVersionRequirements());
         });
   }
@@ -834,21 +761,19 @@ public class KotlinMetadataWriter {
                     "{ key: String, value: KmAnnotationArgument<?> }",
                     sb,
                     arguments.keySet(),
-                    (nextNextIndent, key) -> {
-                      appendKmSection(
-                          nextNextIndent,
-                          "",
-                          sb,
-                          nextNextNextIndent -> {
-                            appendKeyValue(
-                                nextNextNextIndent,
-                                key,
-                                sb,
-                                nextNextNextNextIndent -> {
-                                  appendKmArgument(nextNextNextIndent, sb, arguments.get(key));
-                                });
-                          });
-                    });
+                    (nextNextIndent, key) ->
+                        appendKmSection(
+                            nextNextIndent,
+                            "",
+                            sb,
+                            nextNextNextIndent ->
+                                appendKeyValue(
+                                    nextNextNextIndent,
+                                    key,
+                                    sb,
+                                    nextNextNextNextIndent ->
+                                        appendKmArgument(
+                                            nextNextNextIndent, sb, arguments.get(key)))));
               });
         });
   }
@@ -862,9 +787,7 @@ public class KotlinMetadataWriter {
           "ArrayValue",
           sb,
           value,
-          (newIndent, annoArg) -> {
-            appendKmArgument(newIndent, sb, annoArg);
-          });
+          (newIndent, annoArg) -> appendKmArgument(newIndent, sb, annoArg));
     } else {
       sb.append(annotationArgument.toString());
     }
@@ -876,38 +799,37 @@ public class KotlinMetadataWriter {
         indent,
         "versionRequirements",
         sb,
-        newIndent -> {
-          appendKmList(
-              newIndent,
-              "KmVersionRequirement",
-              sb,
-              kmVersionRequirements,
-              (nextIndent, kmVersionRequirement) -> {
-                appendKmSection(
-                    nextIndent,
-                    "KmVersionRequirement",
-                    sb,
-                    nextNextIndent -> {
-                      appendKeyValue(nextNextIndent, "kind", sb, kmVersionRequirement.kind.name());
-                      appendKeyValue(
-                          nextNextIndent, "level", sb, kmVersionRequirement.level.name());
-                      appendKeyValue(
-                          nextNextIndent,
-                          "errorCode",
-                          sb,
-                          kmVersionRequirement.getErrorCode() == null
-                              ? "null"
-                              : kmVersionRequirement.getErrorCode().toString());
-                      appendKeyValue(
-                          nextNextIndent, "message", sb, kmVersionRequirement.getMessage());
-                      appendKeyValue(
-                          nextNextIndent,
-                          "version",
-                          sb,
-                          kmVersionRequirement.getVersion().toString());
-                    });
-              });
-        });
+        newIndent ->
+            appendKmList(
+                newIndent,
+                "KmVersionRequirement",
+                sb,
+                kmVersionRequirements,
+                (nextIndent, kmVersionRequirement) ->
+                    appendKmSection(
+                        nextIndent,
+                        "KmVersionRequirement",
+                        sb,
+                        nextNextIndent -> {
+                          appendKeyValue(
+                              nextNextIndent, "kind", sb, kmVersionRequirement.kind.name());
+                          appendKeyValue(
+                              nextNextIndent, "level", sb, kmVersionRequirement.level.name());
+                          appendKeyValue(
+                              nextNextIndent,
+                              "errorCode",
+                              sb,
+                              kmVersionRequirement.getErrorCode() == null
+                                  ? "null"
+                                  : kmVersionRequirement.getErrorCode().toString());
+                          appendKeyValue(
+                              nextNextIndent, "message", sb, kmVersionRequirement.getMessage());
+                          appendKeyValue(
+                              nextNextIndent,
+                              "version",
+                              sb,
+                              kmVersionRequirement.getVersion().toString());
+                        })));
   }
 
   private static void appendKmContract(String indent, StringBuilder sb, KmContract contract) {
@@ -915,19 +837,18 @@ public class KotlinMetadataWriter {
         indent,
         "KmContract",
         sb,
-        newIndent -> {
-          appendKeyValue(
-              newIndent,
-              "effects",
-              sb,
-              nextIndent ->
-                  appendKmList(
-                      nextIndent,
-                      "KmEffect",
-                      sb,
-                      contract.getEffects(),
-                      (nextNextIndent, effect) -> appendKmEffect(nextNextIndent, sb, effect)));
-        });
+        newIndent ->
+            appendKeyValue(
+                newIndent,
+                "effects",
+                sb,
+                nextIndent ->
+                    appendKmList(
+                        nextIndent,
+                        "KmEffect",
+                        sb,
+                        contract.getEffects(),
+                        (nextNextIndent, effect) -> appendKmEffect(nextNextIndent, sb, effect))));
   }
 
   private static void appendKmEffect(String indent, StringBuilder sb, KmEffect effect) {
@@ -946,16 +867,14 @@ public class KotlinMetadataWriter {
               newIndent,
               "constructorArguments",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmEffectExpression",
-                    sb,
-                    effect.getConstructorArguments(),
-                    (nextNextIndent, expression) -> {
-                      appendKmEffectExpression(nextNextIndent, sb, expression);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmEffectExpression",
+                      sb,
+                      effect.getConstructorArguments(),
+                      (nextNextIndent, expression) ->
+                          appendKmEffectExpression(nextNextIndent, sb, expression)));
           KmEffectExpression conclusion = effect.getConclusion();
           if (conclusion == null) {
             appendKeyValue(newIndent, "conclusion", sb, "null");
@@ -995,37 +914,31 @@ public class KotlinMetadataWriter {
               newIndent,
               "isInstanceType",
               sb,
-              nextIndent -> {
-                appendKmType(nextIndent, sb, expression.isInstanceType());
-              });
+              nextIndent -> appendKmType(nextIndent, sb, expression.isInstanceType()));
           appendKeyValue(
               newIndent,
               "andArguments",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmEffectExpression",
-                    sb,
-                    expression.getAndArguments(),
-                    (nextNextIndent, expr) -> {
-                      appendKmEffectExpression(nextNextIndent, sb, expr);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmEffectExpression",
+                      sb,
+                      expression.getAndArguments(),
+                      (nextNextIndent, expr) ->
+                          appendKmEffectExpression(nextNextIndent, sb, expr)));
           appendKeyValue(
               newIndent,
               "orArguments",
               sb,
-              nextIndent -> {
-                appendKmList(
-                    nextIndent,
-                    "KmEffectExpression",
-                    sb,
-                    expression.getOrArguments(),
-                    (nextNextIndent, expr) -> {
-                      appendKmEffectExpression(nextNextIndent, sb, expr);
-                    });
-              });
+              nextIndent ->
+                  appendKmList(
+                      nextIndent,
+                      "KmEffectExpression",
+                      sb,
+                      expression.getOrArguments(),
+                      (nextNextIndent, expr) ->
+                          appendKmEffectExpression(nextNextIndent, sb, expr)));
         });
   }
 }
