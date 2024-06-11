@@ -9,6 +9,7 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.inferMemberO
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isClassNameComparison;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 
+import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
@@ -23,7 +24,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstString;
 import com.android.tools.r8.ir.code.DexItemBasedConstString;
-import com.android.tools.r8.ir.code.FieldInstruction;
+import com.android.tools.r8.ir.code.FieldPut;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
@@ -32,16 +33,19 @@ import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
+import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.google.common.collect.Streams;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
-import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Objects;
@@ -50,14 +54,31 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-public class IdentifierNameStringMarker {
+public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLiveness> {
 
-  private final AppView<AppInfoWithLiveness> appView;
   private final Object2BooleanMap<DexMember<?, ?>> identifierNameStrings;
 
   public IdentifierNameStringMarker(AppView<AppInfoWithLiveness> appView) {
-    this.appView = appView;
+    super(appView);
     this.identifierNameStrings = appView.appInfo().identifierNameStrings;
+  }
+
+  @Override
+  protected CodeRewriterResult rewriteCode(
+      IRCode code,
+      MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext) {
+    return decoupleIdentifierNameStringsInBlocks(code, null);
+  }
+
+  @Override
+  protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
+    return code.metadata().mayHaveConstString();
+  }
+
+  @Override
+  protected String getRewriterId() {
+    return "IdentifierNameStringMarker";
   }
 
   public void decoupleIdentifierNameStringsInFields(
@@ -83,21 +104,18 @@ public class IdentifierNameStringMarker {
       return;
     }
     DexString original = staticValue.getValue();
-    DexReference itemBasedString = inferMemberOrTypeFromNameString(appView, original);
+    DexReference itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
     if (itemBasedString != null) {
       encodedField.setStaticValue(
           new DexItemBasedValueString(itemBasedString, ClassNameComputationInfo.none()));
     }
   }
 
-  public void decoupleIdentifierNameStringsInMethod(IRCode code) {
-    decoupleIdentifierNameStringsInBlocks(code, null);
-    assert code.isConsistentSSA(appView);
-  }
-
-  public void decoupleIdentifierNameStringsInBlocks(IRCode code, Set<BasicBlock> blocks) {
+  public CodeRewriterResult decoupleIdentifierNameStringsInBlocks(
+      IRCode code, Set<BasicBlock> blocks) {
+    CodeRewriterResult result = CodeRewriterResult.NO_CHANGE;
     if (!code.metadata().mayHaveConstString()) {
-      return;
+      return result;
     }
     ListIterator<BasicBlock> blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
@@ -119,56 +137,69 @@ public class IdentifierNameStringMarker {
         // ...
         // v_n' <- DexItemBasedString("Lx/y/z;") // decoupled
         // this.fld <- v_n' // fieldPut
-        if (instruction.isStaticPut() || instruction.isInstancePut()) {
-          iterator =
-              decoupleIdentifierNameStringForFieldPutInstruction(
-                  code, blockIterator, iterator, instruction.asFieldInstruction());
+        if (instruction.isFieldPut()) {
+          FieldPut fieldPut = instruction.asFieldPut();
+          DexReference itemBasedString = getItemBasedStringForFieldPut(code, fieldPut);
+          if (itemBasedString != null) {
+            iterator =
+                decoupleIdentifierNameStringForFieldPutInstruction(
+                    code, blockIterator, iterator, fieldPut, itemBasedString);
+            result = CodeRewriterResult.HAS_CHANGED;
+          }
         } else if (instruction.isInvokeMethod()) {
+          InvokeMethod invoke = instruction.asInvokeMethod();
           iterator =
               decoupleIdentifierNameStringForInvokeInstruction(
-                  code, blockIterator, iterator, instruction.asInvokeMethod());
+                  code, blockIterator, iterator, invoke);
+          result = CodeRewriterResult.HAS_CHANGED;
         }
       }
     }
+    return result;
+  }
+
+  private DexReference getItemBasedStringForFieldPut(IRCode code, FieldPut fieldPut) {
+    DexField field = fieldPut.getField();
+    if (!identifierNameStrings.containsKey(field)) {
+      return null;
+    }
+    Value in = fieldPut.value();
+    if (in.isDexItemBasedConstString()) {
+      return null;
+    }
+    if (!in.isConstString()) {
+      warnUndeterminedIdentifierIfNecessary(
+          field, code.context(), fieldPut.asFieldInstruction(), null);
+      return null;
+    }
+    DexString original = in.getConstInstruction().asConstString().getValue();
+    DexReference itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
+    if (itemBasedString == null) {
+      warnUndeterminedIdentifierIfNecessary(
+          field, code.context(), fieldPut.asFieldInstruction(), original);
+      return null;
+    }
+    return itemBasedString;
   }
 
   private InstructionListIterator decoupleIdentifierNameStringForFieldPutInstruction(
       IRCode code,
       ListIterator<BasicBlock> blocks,
       InstructionListIterator iterator,
-      FieldInstruction instruction) {
-    assert instruction.isInstancePut() || instruction.isStaticPut();
-    FieldInstruction fieldPut = instruction.asFieldInstruction();
-    DexField field = fieldPut.getField();
-    if (!identifierNameStrings.containsKey(field)) {
-      return iterator;
-    }
-    Value in = instruction.value();
-    if (in.isDexItemBasedConstString()) {
-      return iterator;
-    }
-    if (!in.isConstString()) {
-      warnUndeterminedIdentifierIfNecessary(field, code.context(), instruction, null);
-      return iterator;
-    }
-    DexString original = in.getConstInstruction().asConstString().getValue();
-    DexReference itemBasedString = inferMemberOrTypeFromNameString(appView, original);
-    if (itemBasedString == null) {
-      warnUndeterminedIdentifierIfNecessary(field, code.context(), instruction, original);
-      return iterator;
-    }
+      FieldPut fieldPut,
+      DexReference itemBasedString) {
     // Move the cursor back to $fieldPut
     assert iterator.peekPrevious() == fieldPut;
     iterator.previous();
     // Prepare $decoupled just before $fieldPut
-    Value newIn = code.createValue(in.getType(), in.getLocalInfo());
+    Value newIn = code.createValue(fieldPut.value().getType(), fieldPut.value().getLocalInfo());
     DexItemBasedConstString decoupled =
         new DexItemBasedConstString(newIn, itemBasedString, ClassNameComputationInfo.none());
     decoupled.setPosition(fieldPut.getPosition());
     // If the current block has catch handler, split into two blocks.
     // Because const-string we're about to add is also a throwing instr, we need to split
     // before adding it.
-    BasicBlock block = instruction.getBlock();
+    BasicBlock block = fieldPut.getBlock();
     BasicBlock blockWithFieldInstruction =
         block.hasCatchHandlers() ? iterator.split(code, blocks) : block;
     if (blockWithFieldInstruction != block) {
@@ -186,12 +217,13 @@ public class IdentifierNameStringMarker {
       assert iterator.peekNext() == fieldPut;
       iterator.next();
     }
-    if (instruction.isStaticPut()) {
-      iterator.replaceCurrentInstruction(new StaticPut(newIn, field));
+    if (fieldPut.isStaticPut()) {
+      iterator.replaceCurrentInstruction(new StaticPut(newIn, fieldPut.getField()));
     } else {
-      assert instruction.isInstancePut();
-      InstancePut instancePut = instruction.asInstancePut();
-      iterator.replaceCurrentInstruction(new InstancePut(field, instancePut.object(), newIn));
+      assert fieldPut.isInstancePut();
+      InstancePut instancePut = fieldPut.asInstancePut();
+      iterator.replaceCurrentInstruction(
+          new InstancePut(fieldPut.getField(), instancePut.object(), newIn));
     }
     return iterator;
   }
@@ -282,7 +314,7 @@ public class IdentifierNameStringMarker {
           continue;
         }
         DexString original = in.getConstInstruction().asConstString().getValue();
-        DexReference itemBasedString = inferMemberOrTypeFromNameString(appView, original);
+        DexReference itemBasedString = inferMemberOrTypeFromNameString(appView(), original);
         if (itemBasedString == null) {
           warnUndeterminedIdentifierIfNecessary(invokedMethod, code.context(), invoke, original);
           continue;
@@ -320,16 +352,17 @@ public class IdentifierNameStringMarker {
         }
       }
     }
-    if (!Arrays.stream(changes).allMatch(Objects::isNull)) {
-      List<Value> newIns =
-          Streams.mapWithIndex(
-                  ins.stream(),
-                  (in, index) -> changes[(int) index] != null ? changes[(int) index] : in)
-              .collect(Collectors.toList());
-      iterator.replaceCurrentInstruction(
-          Invoke.create(
-              invoke.getType(), invokedMethod, invokedMethod.proto, invoke.outValue(), newIns));
+    if (ArrayUtils.none(changes, Objects::nonNull)) {
+      return iterator;
     }
+    List<Value> newIns =
+        Streams.mapWithIndex(
+                ins.stream(),
+                (in, index) -> changes[(int) index] != null ? changes[(int) index] : in)
+            .collect(Collectors.toList());
+    iterator.replaceCurrentInstruction(
+        Invoke.create(
+            invoke.getType(), invokedMethod, invokedMethod.proto, invoke.outValue(), newIns));
     return iterator;
   }
 
@@ -372,8 +405,10 @@ public class IdentifierNameStringMarker {
     }
     Origin origin = method.getOrigin();
     String kind = member.isDexField() ? "field" : "method";
-    String originalMessage = original == null ? "what identifier string flows to "
-        : "what '" + original.toString() + "' refers to, which flows to ";
+    String originalMessage =
+        original == null
+            ? "what identifier string flows to "
+            : "what '" + original + "' refers to, which flows to ";
     String message =
         "Cannot determine " + originalMessage + member.toSourceString()
             + " that is specified in -identifiernamestring rules."

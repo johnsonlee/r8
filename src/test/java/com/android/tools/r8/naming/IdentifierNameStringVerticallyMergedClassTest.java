@@ -39,8 +39,7 @@ public class IdentifierNameStringVerticallyMergedClassTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/344939647): Should be "A".
-        .assertSuccessWithOutputLines("null");
+        .assertSuccessWithOutputLines("A");
   }
 
   static class Main {

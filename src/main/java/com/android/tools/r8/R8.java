@@ -465,7 +465,7 @@ public class R8 {
       new CfOpenClosedInterfacesAnalysis(appViewWithLiveness).run(executorService);
 
       // TODO(b/225838009): Move higher up.
-      LirConverter.enterLirSupportedPhase(appView, executorService);
+      LirConverter.enterLirSupportedPhase(appViewWithLiveness, executorService);
 
       assert verifyNoJarApplicationReaders(appView.appInfo().classes());
       assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));

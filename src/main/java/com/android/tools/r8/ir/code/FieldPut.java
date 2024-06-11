@@ -12,6 +12,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 
 public interface FieldPut {
 
+  BasicBlock getBlock();
+
   DexField getField();
 
   Position getPosition();

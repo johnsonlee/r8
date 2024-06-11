@@ -27,8 +27,10 @@ import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
+import com.android.tools.r8.naming.IdentifierNameStringMarker;
 import com.android.tools.r8.naming.RecordInvokeDynamicInvokeCustomRewriter;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -40,14 +42,16 @@ import java.util.concurrent.ExecutorService;
 public class LirConverter {
 
   public static void enterLirSupportedPhase(
-      AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService)
+      AppView<AppInfoWithLiveness> appView, ExecutorService executorService)
       throws ExecutionException {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isPreLirPhase();
     appView.testing().enterLirSupportedPhase();
     CodeRewriterPassCollection codeRewriterPassCollection =
         new CodeRewriterPassCollection(
-            new ConstResourceNumberRewriter(appView), new StringSwitchConverter(appView));
+            new ConstResourceNumberRewriter(appView),
+            new IdentifierNameStringMarker(appView),
+            new StringSwitchConverter(appView));
     // Convert code objects to LIR.
     ThreadUtils.processItems(
         appView.appInfo().classes(),
