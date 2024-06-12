@@ -34,6 +34,10 @@ def ParseOptions(argv):
     result.add_option('--output',
                       default='build',
                       help='Directory where to output results')
+    result.add_option('--timeout',
+                      default=1000,
+                      help='Timeout in seconds (-1 for no timeout)',
+                      type=int)
     return result.parse_args(argv)
 
 
@@ -54,14 +58,9 @@ class GitCommit(object):
 
 
 def git_commit_from_hash(hash):
-    commit_timestamp = subprocess.check_output([
-        'git',
-        'show',
-        '--no-patch',
-        '--no-notes',
-        '--pretty=\'%ct\'',
-         hash
-    ]).decode().strip().strip('\'')
+    commit_timestamp = subprocess.check_output(
+        ['git', 'show', '--no-patch', '--no-notes', '--pretty=\'%ct\'',
+         hash]).decode().strip().strip('\'')
     destination_dir = '%s/%s/' % (MASTER_COMMITS, hash)
     destination = '%s%s' % (destination_dir, 'r8.jar')
     commit = GitCommit(hash, destination_dir, destination, commit_timestamp)
@@ -70,9 +69,12 @@ def git_commit_from_hash(hash):
 
 def enumerate_git_commits(top, bottom):
     if bottom is None:
-        output = subprocess.check_output(['git', 'rev-list', '--first-parent', '-n', 1000, top])
+        output = subprocess.check_output(
+            ['git', 'rev-list', '--first-parent', '-n', 1000, top])
     else:
-        output = subprocess.check_output(['git', 'rev-list', '--first-parent', '%s^..%s' % (bottom, top)])
+        output = subprocess.check_output(
+            ['git', 'rev-list', '--first-parent',
+             '%s^..%s' % (bottom, top)])
     commits = []
     for c in output.decode().splitlines():
         commit_hash = c.strip()
@@ -81,8 +83,8 @@ def enumerate_git_commits(top, bottom):
 
 
 def get_available_commits(commits):
-    cloud_commits = subprocess.check_output(
-        ['gsutil.py', 'ls', MASTER_COMMITS]).decode().splitlines()
+    cloud_commits = subprocess.check_output(['gsutil.py', 'ls', MASTER_COMMITS
+                                            ]).decode().splitlines()
     available_commits = []
     for commit in commits:
         if commit.destination_dir in cloud_commits:
@@ -164,7 +166,8 @@ def make_cmd(options):
 
 
 def run_cmd(options, commit):
-    cmd = [options.cmd, commit.git_hash]
+    cmd = options.cmd.split(' ')
+    cmd.append(commit.git_hash)
     output_path = options.output or 'build'
     time_commit = '%s_%s' % (commit.timestamp, commit.git_hash)
     time_commit_path = os.path.join(output_path, time_commit)
@@ -177,8 +180,8 @@ def run_cmd(options, commit):
         with open(stdout_path, 'w') as stdout:
             with open(stderr_path, 'w') as stderr:
                 process = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-                timeout = 1000
-                while process.poll() is None and timeout > 0:
+                timeout = options.timeout
+                while process.poll() is None and timeout != 0:
                     time.sleep(1)
                     timeout -= 1
                 if process.poll() is None:

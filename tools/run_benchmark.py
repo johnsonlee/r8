@@ -102,13 +102,14 @@ def main(argv, temp):
 
     if options.nolib:
         testBuildTargets = [
-            utils.GRADLE_TASK_TEST_JAR,
-            utils.GRADLE_TASK_TEST_DEPS_JAR,
+            utils.GRADLE_TASK_TEST_JAR, utils.GRADLE_TASK_TEST_DEPS_JAR,
             utils.GRADLE_TASK_TEST_UNZIP_TESTBASE
         ]
         buildTargets = [utils.GRADLE_TASK_R8] + testBuildTargets
         r8jar = utils.R8_JAR
-        testjars = [utils.R8_TESTS_JAR, utils.R8_TESTS_DEPS_JAR, utils.R8_TESTBASE_JAR]
+        testjars = [
+            utils.R8_TESTS_JAR, utils.R8_TESTS_DEPS_JAR, utils.R8_TESTBASE_JAR
+        ]
     else:
         testBuildTargets = GOLEM_BUILD_TARGETS_TESTS
         buildTargets = GOLEM_BUILD_TARGETS
@@ -122,8 +123,8 @@ def main(argv, temp):
     if options.version:
         # r8 is downloaded so only test jar needs to be built.
         buildTargets = testBuildTargets
-        r8jar = compiledump.download_distribution(options.version,
-                                                  options.nolib, temp)
+        r8jar = compiledump.download_distribution(options.version, options,
+                                                  temp)
 
     if not options.no_build:
         gradle.RunGradle(buildTargets + ['-Pno_internal'])

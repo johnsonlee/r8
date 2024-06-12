@@ -39,6 +39,10 @@ def ParseOptions():
                         default=10)
     result.add_argument('--outdir',
                         help='Output directory for running locally.')
+    result.add_argument('--skip-if-output-exists',
+                        help='Skip if output exists.',
+                        action='store_true',
+                        default=False)
     result.add_argument('--target',
                         help='Specific target to run on.',
                         default='r8-full',
@@ -47,6 +51,10 @@ def ParseOptions():
                         help='To enable verbose logging.',
                         action='store_true',
                         default=False)
+    result.add_argument('--version',
+                        '-v',
+                        help='Use R8 hash for the run (default local build)',
+                        default=None)
     options, args = result.parse_known_args()
     options.apps = options.app or ['NowInAndroidApp', 'TiviApp']
     options.quiet = not options.verbose
@@ -82,8 +90,9 @@ def ParseBenchmarkResultJsonFile(result_json_file):
         return json.loads(''.join(lines))
 
 
-def GetArtifactLocation(app, target, filename):
-    return f'{app}/{target}/{utils.get_HEAD_sha1()}/{filename}'
+def GetArtifactLocation(app, filename, options):
+    version = options.version or utils.get_HEAD_sha1()
+    return f'{app}/{options.target}/{version}/{filename}'
 
 
 def GetGSLocation(filename):
@@ -99,14 +108,31 @@ def ArchiveOutputFile(file, dest, options):
         utils.upload_file_to_cloud_storage(file, GetGSLocation(dest))
 
 
+# Usage with historic_run.py:
+# ./tools/historic_run.py
+#     --cmd "perf.py --skip-if-output-exists --version"
+#     --timeout -1
+#     --top 3373fd18453835bf49bff9f02523a507a2ebf317
+#     --bottom 7486f01e0622cb5935b77a92b59ddf1ca8dbd2e2
 def main():
     options, args = ParseOptions()
     with utils.TempDir() as temp:
         for app in options.apps:
+            if options.skip_if_output_exists:
+                if options.outdir:
+                    raise NotImplementedError
+                output = GetGSLocation(
+                    GetArtifactLocation(app, 'result.json', options))
+                if utils.cloud_storage_exists(output):
+                    print(f'Skipping run, {output} already exists.')
+                    continue
+
             cmd = [
                 'tools/run_benchmark.py', '--benchmark', app, '--iterations',
                 '1', '--target', options.target
             ]
+            if options.version:
+                cmd.extend(['--version', options.version])
 
             # Build and warmup
             utils.Print(f'Preparing {app}', quiet=options.quiet)
@@ -117,7 +143,7 @@ def main():
             for i in range(options.iterations):
                 utils.Print(f'Benchmarking {app} ({i+1}/{options.iterations})',
                             quiet=options.quiet)
-                benchhmark_result_file = os.path.join(temp, f"result_file_{i}")
+                benchhmark_result_file = os.path.join(temp, f'result_file_{i}')
                 iteration_cmd = cmd + [
                     '--output', benchhmark_result_file, '--no-build'
                 ]
@@ -130,18 +156,18 @@ def main():
                 json.dump(
                     MergeBenchmarkResultJsonFiles(benchmark_result_json_files),
                     f)
-            ArchiveOutputFile(
-                result_file, GetArtifactLocation(app, options.target,
-                                                 'results'), options)
+            ArchiveOutputFile(result_file,
+                              GetArtifactLocation(app, 'result.json', options),
+                              options)
 
             # Write metadata.
             if os.environ.get('SWARMING_BOT_ID'):
                 meta_file = os.path.join(temp, "meta")
                 with open(meta_file, 'w') as f:
                     f.write("Produced by: " + os.environ.get('SWARMING_BOT_ID'))
-                ArchiveOutputFile(
-                    meta_file, GetArtifactLocation(app, options.target, 'meta'),
-                    options)
+                ArchiveOutputFile(meta_file,
+                                  GetArtifactLocation(app, 'meta', options),
+                                  options)
 
 
 if __name__ == '__main__':
