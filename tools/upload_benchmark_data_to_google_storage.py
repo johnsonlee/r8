@@ -67,7 +67,7 @@ def main():
                         filename, local_bucket)
                     if app_benchmark_data:
                         benchmarks[app] = app_benchmark_data
-            if len(benchmarks):
+            if benchmarks or benchmark_data:
                 benchmark_data.append({
                     'author': commit.author_name(),
                     'hash': commit.hash(),
@@ -75,6 +75,16 @@ def main():
                     'title': commit.title(),
                     'benchmarks': benchmarks
                 })
+
+        # Trim data.
+        new_benchmark_data_len = len(benchmark_data)
+        while new_benchmark_data_len > 0:
+            candidate_len = new_benchmark_data_len - 1
+            if not benchmark_data[candidate_len]['benchmarks']:
+                new_benchmark_data_len = candidate_len
+            else:
+                break
+        benchmark_data = benchmark_data[0:new_benchmark_data_len]
 
         # Serialize JSON to temp file.
         benchmark_data_file = os.path.join(temp, 'benchmark_data.json')

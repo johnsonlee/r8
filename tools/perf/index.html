@@ -46,6 +46,11 @@
     Array.prototype.min = function() {
       return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null);
     };
+    Number.prototype.ns_to_s = function() {
+      const seconds = this/10E8;
+      const seconds_with_one_decimal = Math.round(seconds*10)/10;
+      return seconds;
+    };
 
     // DOM references.
     const benchmarkSelector = document.getElementById('benchmark-selector')
@@ -86,22 +91,27 @@
     function getData(start = 0, end = commits.length) {
       const filteredCommits =
           commits
-              .slice(start, end)
-              .filter(
-                  commit =>
-                      selectedBenchmark in commit.benchmarks
-                          && commit.benchmarks[selectedBenchmark].results.length > 0);
+              .slice(start, end);
+              //.filter(
+              //    commit =>
+              //        selectedBenchmark in commit.benchmarks
+              //            && commit.benchmarks[selectedBenchmark].results.length > 0);
       const labels = filteredCommits.map((c, i) => c.index);
       const codeSizeData =
           filteredCommits.map(
               (c, i) =>
-                  filteredCommits[i]
-                      .benchmarks[selectedBenchmark]
-                      .results
-                      .first()
-                      .code_size);
+                  selectedBenchmark in filteredCommits[i].benchmarks
+                      ? filteredCommits[i]
+                          .benchmarks[selectedBenchmark]
+                          .results
+                          .first()
+                          .code_size
+                      : NaN);
       const codeSizeScatterData = [];
       for (const commit of filteredCommits.values()) {
+        if (!(selectedBenchmark in commit.benchmarks)) {
+          continue;
+        }
         const codeSizes =
             commit.benchmarks[selectedBenchmark].results.map(result => result.code_size)
         const expectedCodeSize = codeSizes.first();
@@ -119,27 +129,40 @@
       const runtimeData =
           filteredCommits.map(
               (c, i) =>
-                  filteredCommits[i]
-                      .benchmarks[selectedBenchmark]
-                      .results
-                      .map(result => result.runtime)
-                      .min());
+                  selectedBenchmark in filteredCommits[i].benchmarks
+                      ? filteredCommits[i]
+                          .benchmarks[selectedBenchmark]
+                          .results
+                          .map(result => result.runtime)
+                          .min()
+                          .ns_to_s()
+                      : NaN);
       const runtimeScatterData = [];
       for (const commit of filteredCommits.values()) {
+        if (!(selectedBenchmark in commit.benchmarks)) {
+          continue;
+        }
         const runtimes =
             commit.benchmarks[selectedBenchmark].results.map(result => result.runtime)
         for (const runtime of runtimes.values()) {
-          runtimeScatterData.push({ x: commit.index, y: runtime });
+          runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
         }
       }
 
+      const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
       return {
         labels: labels,
         datasets: [{
             type: 'line',
             label: 'Code size',
             data: codeSizeData,
-            tension: 0.1
+            tension: 0.1,
+            segment: {
+              borderColor: ctx =>
+                  skipped(ctx, 'rgba(54, 162, 235, 0.5)'),
+              borderDash: ctx => skipped(ctx, [6, 6]),
+            },
+            spanGaps: true
           },
           {
             type: 'scatter',
@@ -152,11 +175,17 @@
             label: 'Runtime',
             data: runtimeData,
             tension: 0.1,
-            yAxisID: 'y2'
+            yAxisID: 'y2',
+            segment: {
+              borderColor: ctx =>
+                  skipped(ctx, 'rgba(255, 160, 64, 0.5)'),
+              borderDash: ctx => skipped(ctx, [6, 6]),
+            },
+            spanGaps: true
           },
           {
             type: 'scatter',
-            label: 'Runtime',
+            label: 'Runtime variance',
             data: runtimeScatterData,
             yAxisID: 'y2'
           }
@@ -213,7 +242,7 @@
           position: 'right',
           title: {
             display: true,
-            text: 'Runtime (ms)'
+            text: 'Runtime (seconds)'
           }
         }
       }
