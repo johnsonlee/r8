@@ -149,7 +149,7 @@ def benchmark(commits, command, dryrun=False):
     count = 0
     for index in commit_permutations:
         count += 1
-        print('Running commit %s out of %s' % (count, len(commits)))
+        print('\nRunning commit %s out of %s' % (count, len(commits)))
         commit = commits[index]
         if not utils.cloud_storage_exists(commit.destination):
             # We may have a directory, but no r8.jar
@@ -190,6 +190,7 @@ def run_cmd(options, commit):
     time_commit = '%s_%s' % (commit.timestamp, commit.git_hash)
     time_commit_path = os.path.join(output_path, time_commit)
     print(' '.join(cmd))
+    status = None
     if not options.dry_run:
         if not os.path.exists(time_commit_path):
             os.makedirs(time_commit_path)
@@ -206,7 +207,12 @@ def run_cmd(options, commit):
                     process.kill()
                     print("Task timed out")
                     stderr.write("timeout\n")
-    print('Wrote outputs to: %s' % time_commit_path)
+                    status = 'TIMED OUT'
+                else:
+                    returncode = process.returncode
+                    status = 'SUCCESS' if returncode == 0 else f'FAILED ({returncode})'
+    print(f'Wrote outputs to: {time_commit_path}')
+    print(status)
 
 
 def main(argv):

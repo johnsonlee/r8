@@ -4,6 +4,7 @@
 # BSD-style license that can be found in the LICENSE file.
 
 import argparse
+import compiledump
 import json
 import os
 import shutil
@@ -121,6 +122,12 @@ def ArchiveOutputFile(file, dest, outdir=None):
 def main():
     options, args = ParseOptions()
     with utils.TempDir() as temp:
+        if options.version:
+            # Download r8.jar once instead of once per run_benchmark.py invocation.
+            download_options = argparse.Namespace(no_build=True, nolib=True)
+            r8jar = compiledump.download_distribution(options.version,
+                                                      download_options, temp)
+
         for app in options.apps:
             if options.skip_if_output_exists:
                 if options.outdir:
@@ -139,7 +146,10 @@ def main():
             if options.verbose:
                 base_cmd.append('--verbose')
             if options.version:
-                base_cmd.extend(['--version', options.version, '--nolib'])
+                base_cmd.extend([
+                    '--version', options.version, '--version-jar', r8jar,
+                    '--nolib'
+                ])
 
             # Build
             utils.Print(f'Preparing {app}', quiet=options.quiet)

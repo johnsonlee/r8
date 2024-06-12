@@ -78,6 +78,10 @@ def parse_options(argv):
         '-v',
         help='Use R8 version/hash for the run (default local build)',
         default=None)
+    result.add_argument(
+        '--version-jar',
+        help='The r8.jar corresponding to the version given at --version.',
+        default=None)
     result.add_argument('--temp',
                         help='A directory to use for temporaries and outputs.',
                         default=None)
@@ -130,11 +134,11 @@ def main(argv, temp):
             os.path.join(utils.R8LIB_TESTBASE_JAR)
         ]
 
-    if options.version:
+    if options.version or options.version_jar:
         # r8 is downloaded so only test jar needs to be built.
         buildTargets = testBuildTargets
-        r8jar = compiledump.download_distribution(options.version, options,
-                                                  temp)
+        r8jar = options.version_jar or compiledump.download_distribution(
+            options.version, options, temp)
 
     if not options.no_build:
         gradle.RunGradle(buildTargets + ['-Pno_internal'])
