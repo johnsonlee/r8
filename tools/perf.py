@@ -34,7 +34,11 @@ def ParseOptions():
                         help='Specific app(s) to measure.',
                         action='append')
     result.add_argument('--iterations',
-                        help='How many iterations to run.',
+                        help='How many times run_benchmark is run.',
+                        type=int,
+                        default=1)
+    result.add_argument('--iterations-inner',
+                        help='How many iterations to run inside run_benchmark.',
                         type=int,
                         default=10)
     result.add_argument('--outdir',
@@ -127,16 +131,19 @@ def main():
                     print(f'Skipping run, {output} already exists.')
                     continue
 
-            cmd = [
-                'tools/run_benchmark.py', '--benchmark', app, '--iterations',
-                '1', '--target', options.target
+            base_cmd = [
+                'tools/run_benchmark.py', '--benchmark', app, '--target',
+                options.target
             ]
+            if options.verbose:
+                base_cmd.append('--verbose')
             if options.version:
-                cmd.extend(['--version', options.version])
+                base_cmd.extend(['--version', options.version])
 
-            # Build and warmup
+            # Build
             utils.Print(f'Preparing {app}', quiet=options.quiet)
-            subprocess.check_output(cmd)
+            build_cmd = base_cmd + ['--iterations', '0']
+            subprocess.check_output(build_cmd)
 
             # Run benchmark.
             benchmark_result_json_files = []
@@ -144,8 +151,10 @@ def main():
                 utils.Print(f'Benchmarking {app} ({i+1}/{options.iterations})',
                             quiet=options.quiet)
                 benchhmark_result_file = os.path.join(temp, f'result_file_{i}')
-                iteration_cmd = cmd + [
-                    '--output', benchhmark_result_file, '--no-build'
+                iteration_cmd = base_cmd + [
+                    '--iterations',
+                    str(options.iterations_inner), '--output',
+                    benchhmark_result_file, '--no-build'
                 ]
                 subprocess.check_output(iteration_cmd)
                 benchmark_result_json_files.append(benchhmark_result_file)

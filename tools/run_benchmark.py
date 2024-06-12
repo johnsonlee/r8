@@ -81,11 +81,17 @@ def parse_options(argv):
     result.add_argument('--temp',
                         help='A directory to use for temporaries and outputs.',
                         default=None)
-    return result.parse_known_args(argv)
+    result.add_argument('--verbose',
+                        help='To enable verbose logging.',
+                        action='store_true',
+                        default=False)
+    options, args = result.parse_known_args(argv)
+    options.quiet = not options.verbose
+    return options, args
 
 
 def main(argv, temp):
-    (options, args) = parse_options(argv)
+    options, args = parse_options(argv)
 
     if options.output:
         options.output = os.path.abspath(options.output)
@@ -140,7 +146,10 @@ def main(argv, temp):
 
 def run(options, r8jar, testjars):
     jdkhome = get_jdk_home(options, options.benchmark)
-    cmd = [jdk.GetJavaExecutable(jdkhome)]
+    cmd = [
+        jdk.GetJavaExecutable(jdkhome), '-Xms8g', '-Xmx8g',
+        '-XX:+TieredCompilation', '-XX:TieredStopAtLevel=4'
+    ]
     if options.enable_assertions:
         cmd.append('-ea')
     if options.print_times:
@@ -150,7 +159,9 @@ def run(options, r8jar, testjars):
             f'-DTEST_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/tests_java_8/build/classes/java/test',
             f'-DTESTBASE_DATA_LOCATION={utils.REPO_ROOT}/d8_r8/test_modules/testbase/build/classes/java/main',
         ])
-    if options.iterations:
+    if options.iterations is not None:
+        if options.iterations == 0:
+            return
         cmd.append(f'-DBENCHMARK_ITERATIONS={options.iterations}')
     if options.output:
         cmd.append(f'-DBENCHMARK_OUTPUT={options.output}')
@@ -163,6 +174,7 @@ def run(options, r8jar, testjars):
         # repository root as an argument. The runner can then setup dependencies.
         'golem' if options.golem else utils.REPO_ROOT,
     ])
+    utils.PrintCmd(cmd, quiet=options.quiet)
     return subprocess.check_call(cmd)
 
 
