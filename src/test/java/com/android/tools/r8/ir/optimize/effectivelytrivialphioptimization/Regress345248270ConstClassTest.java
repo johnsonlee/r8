@@ -3,10 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.effectivelytrivialphioptimization;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -30,7 +26,7 @@ public class Regress345248270ConstClassTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("Hello, world!");
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("true");
 
   @Test
   public void testD8() throws Exception {
@@ -46,24 +42,16 @@ public class Regress345248270ConstClassTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    try {
-      testForR8(parameters.getBackend())
-          .addInnerClasses(getClass())
-          .addProgramClasses(
-              I.class, PublicAccessor.class, PublicAccessor.getPackagePrivateImplementationClass())
-          .addKeepMainRule(TestClass.class)
-          .setMinApi(parameters.getApiLevel())
-          .enableNeverClassInliningAnnotations()
-          .enableNoAccessModificationAnnotationsForMembers()
-          .run(parameters.getRuntime(), TestClass.class)
-          .assertSuccessWithOutput(EXPECTED_OUTPUT);
-      fail("Expected exception");
-    } catch (CompilationFailedException e) {
-      // TODO(b/345248270): Should not hit an assertion.
-      assertTrue(e.getCause() instanceof AssertionError);
-      return;
-    }
-    fail("Expected CompilationFailedException");
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addProgramClasses(
+            I.class, PublicAccessor.class, PublicAccessor.getPackagePrivateImplementationClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters.getApiLevel())
+        .enableNeverClassInliningAnnotations()
+        .enableNoAccessModificationAnnotationsForMembers()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
@@ -78,9 +66,15 @@ public class Regress345248270ConstClassTest extends TestBase {
       return r;
     }
 
+    public static Class<?> test2() {
+      return System.currentTimeMillis() > 0
+          ? PublicAccessor.getPackagePrivateImplementationClass()
+          : null;
+    }
+
     public static void main(String[] args) {
-      test();
-      System.out.println("Hello, world!");
+      Class<?> c = test();
+      System.out.println(c == test2());
     }
   }
 }
