@@ -350,6 +350,13 @@ def DownloadFromGoogleCloudStorage(sha1_file,
         subprocess.check_output(cmd)
 
 
+def get_nth_sha1_from_HEAD(n):
+    result = subprocess.check_output(
+        ['git', 'log', f'--skip={n}', '--max-count=1',
+         '--pretty=format:%H']).decode('utf-8')
+    return result.strip()
+
+
 def get_sha1(filename):
     sha1 = hashlib.sha1()
     with open(filename, 'rb') as f:

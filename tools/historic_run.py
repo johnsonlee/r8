@@ -56,11 +56,29 @@ class GitCommit(object):
     def __repr__(self):
         return self.__str__()
 
+    def hash(self):
+        return self.git_hash
+
+    def title(self):
+        result = subprocess.check_output(
+            ['git', 'show-branch', '--no-name', self.git_hash]).decode('utf-8')
+        return result.strip()
+
+    def author_name(self):
+        result = subprocess.check_output([
+            'git', 'show', '--no-notes', '--no-patch', '--pretty=%an',
+            self.git_hash
+        ]).decode('utf-8')
+        return result.strip()
+
+    def committer_timestamp(self):
+        return self.timestamp
+
 
 def git_commit_from_hash(hash):
     commit_timestamp = subprocess.check_output(
-        ['git', 'show', '--no-patch', '--no-notes', '--pretty=\'%ct\'',
-         hash]).decode().strip().strip('\'')
+        ['git', 'show', '--no-patch', '--no-notes', '--pretty=%ct',
+         hash]).decode('utf-8').strip()
     destination_dir = '%s/%s/' % (MASTER_COMMITS, hash)
     destination = '%s%s' % (destination_dir, 'r8.jar')
     commit = GitCommit(hash, destination_dir, destination, commit_timestamp)

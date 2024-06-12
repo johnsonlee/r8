@@ -94,18 +94,18 @@ def ParseBenchmarkResultJsonFile(result_json_file):
         return json.loads(''.join(lines))
 
 
-def GetArtifactLocation(app, filename, options):
-    version = options.version or utils.get_HEAD_sha1()
-    return f'{app}/{options.target}/{version}/{filename}'
+def GetArtifactLocation(app, target, version, filename):
+    version_or_head = version or utils.get_HEAD_sha1()
+    return f'{app}/{target}/{version_or_head}/{filename}'
 
 
 def GetGSLocation(filename):
     return f'gs://{BUCKET}/{filename}'
 
 
-def ArchiveOutputFile(file, dest, options):
-    if options.outdir:
-        dest_in_outdir = os.path.join(options.outdir, dest)
+def ArchiveOutputFile(file, dest, outdir=None):
+    if outdir:
+        dest_in_outdir = os.path.join(outdir, dest)
         os.makedirs(os.path.dirname(dest_in_outdir), exist_ok=True)
         shutil.copyfile(file, dest_in_outdir)
     else:
@@ -126,7 +126,8 @@ def main():
                 if options.outdir:
                     raise NotImplementedError
                 output = GetGSLocation(
-                    GetArtifactLocation(app, 'result.json', options))
+                    GetArtifactLocation(app, options.target, options.version,
+                                        'result.json'))
                 if utils.cloud_storage_exists(output):
                     print(f'Skipping run, {output} already exists.')
                     continue
@@ -165,18 +166,20 @@ def main():
                 json.dump(
                     MergeBenchmarkResultJsonFiles(benchmark_result_json_files),
                     f)
-            ArchiveOutputFile(result_file,
-                              GetArtifactLocation(app, 'result.json', options),
-                              options)
+            ArchiveOutputFile(
+                result_file,
+                GetArtifactLocation(app, options.target, options.version,
+                                    'result.json'), options.outdir)
 
             # Write metadata.
             if os.environ.get('SWARMING_BOT_ID'):
                 meta_file = os.path.join(temp, "meta")
                 with open(meta_file, 'w') as f:
                     f.write("Produced by: " + os.environ.get('SWARMING_BOT_ID'))
-                ArchiveOutputFile(meta_file,
-                                  GetArtifactLocation(app, 'meta', options),
-                                  options)
+                ArchiveOutputFile(
+                    meta_file,
+                    GetArtifactLocation(app, options.target, options.version,
+                                        'meta'), options.outdir)
 
 
 if __name__ == '__main__':
