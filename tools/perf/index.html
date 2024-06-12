@@ -29,14 +29,22 @@
     }
 
     // Utility methods.
+    Array.prototype.any = function(predicate) {
+      for (const element of this.values()) {
+        if (predicate(element)) {
+          return true;
+        }
+      }
+      return false;
+    };
     Array.prototype.first = function() {
-        return this[0];
+      return this[0];
     };
     Array.prototype.avg = function() {
-        return this.reduce(function(x, y) { return x + y; }, 0) / this.length;
+      return this.reduce(function(x, y) { return x + y; }, 0) / this.length;
     };
     Array.prototype.min = function() {
-        return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null);
+      return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null);
     };
 
     // DOM references.
@@ -92,6 +100,22 @@
                       .results
                       .first()
                       .code_size);
+      const codeSizeScatterData = [];
+      for (const commit of filteredCommits.values()) {
+        const codeSizes =
+            commit.benchmarks[selectedBenchmark].results.map(result => result.code_size)
+        const expectedCodeSize = codeSizes.first();
+        if (codeSizes.any(codeSize => codeSize != expectedCodeSize)) {
+          const seen = new Set();
+          seen.add(expectedCodeSize);
+          for (const codeSize of codeSizes.values()) {
+            if (!seen.has(codeSize)) {
+              codeSizeScatterData.push({ x: commit.index, y: codeSize });
+              seen.add(codeSize);
+            }
+          }
+        }
+      }
       const runtimeData =
           filteredCommits.map(
               (c, i) =>
@@ -116,6 +140,12 @@
             label: 'Code size',
             data: codeSizeData,
             tension: 0.1
+          },
+          {
+            type: 'scatter',
+            label: 'Nondeterminism',
+            data: codeSizeScatterData,
+            pointBackgroundColor: 'red'
           },
           {
             type: 'line',
