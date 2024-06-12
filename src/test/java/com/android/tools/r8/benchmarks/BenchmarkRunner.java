@@ -81,11 +81,11 @@ public class BenchmarkRunner {
     if (warmups > 0) {
       printMetaInfo("warmup", warmups, warmupTotalTime);
       if (config.hasTimeWarmupRuns()) {
-        warmupResults.printResults(resultMode);
+        warmupResults.printResults(resultMode, environment.failOnCodeSizeDifferences());
       }
     }
     printMetaInfo("benchmark", getBenchmarkIterations(), benchmarkTotalTime);
-    results.printResults(resultMode);
+    results.printResults(resultMode, environment.failOnCodeSizeDifferences());
     if (environment.hasOutputPath()) {
       writeResults(results);
     }

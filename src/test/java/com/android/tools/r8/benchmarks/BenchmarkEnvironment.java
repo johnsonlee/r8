@@ -19,6 +19,10 @@ public class BenchmarkEnvironment {
     this.isGolem = isGolem;
   }
 
+  public boolean failOnCodeSizeDifferences() {
+    return System.getProperty("BENCHMARK_IGNORE_CODE_SIZE_DIFFERENCES") == null;
+  }
+
   public BenchmarkConfig getConfig() {
     return config;
   }

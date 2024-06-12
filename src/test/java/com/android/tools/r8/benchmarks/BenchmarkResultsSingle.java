@@ -90,7 +90,7 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   }
 
   @Override
-  public void printResults(ResultMode mode) {
+  public void printResults(ResultMode mode, boolean failOnCodeSizeDifferences) {
     verifyConfigAndResults();
     if (!runtimeResults.isEmpty()) {
       long sum = runtimeResults.stream().mapToLong(l -> l).sum();
@@ -99,10 +99,12 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     }
     if (!codeSizeResults.isEmpty()) {
       long size = codeSizeResults.getLong(0);
-      for (int i = 1; i < codeSizeResults.size(); i++) {
-        if (size != codeSizeResults.getLong(i)) {
-          throw new RuntimeException(
-              "Unexpected code size difference: " + size + " and " + codeSizeResults.getLong(i));
+      if (failOnCodeSizeDifferences) {
+        for (int i = 1; i < codeSizeResults.size(); i++) {
+          if (size != codeSizeResults.getLong(i)) {
+            throw new RuntimeException(
+                "Unexpected code size difference: " + size + " and " + codeSizeResults.getLong(i));
+          }
         }
       }
       printCodeSize(size);

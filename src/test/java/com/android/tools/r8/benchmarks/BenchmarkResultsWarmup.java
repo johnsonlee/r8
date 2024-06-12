@@ -53,7 +53,7 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   }
 
   @Override
-  public void printResults(ResultMode mode) {
+  public void printResults(ResultMode mode, boolean failOnCodeSizeDifferences) {
     if (runtimeResults.isEmpty()) {
       throw new BenchmarkConfigError("Expected runtime results for warmup run");
     }

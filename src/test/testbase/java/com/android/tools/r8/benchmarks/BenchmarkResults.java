@@ -20,7 +20,7 @@ public interface BenchmarkResults {
   // This will throw if called on a benchmark without sub-benchmarks.
   BenchmarkResults getSubResults(String name);
 
-  void printResults(ResultMode resultMode);
+  void printResults(ResultMode resultMode, boolean failOnCodeSizeDifferences);
 
   void writeResults(PrintStream out);
 

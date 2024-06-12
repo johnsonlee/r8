@@ -48,12 +48,12 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
   }
 
   @Override
-  public void printResults(ResultMode mode) {
+  public void printResults(ResultMode mode, boolean failOnCodeSizeDifferences) {
     List<String> sorted = new ArrayList<>(results.keySet());
     sorted.sort(String::compareTo);
     for (String name : sorted) {
       BenchmarkResultsSingle singleResults = results.get(name);
-      singleResults.printResults(mode);
+      singleResults.printResults(mode, failOnCodeSizeDifferences);
     }
   }
 

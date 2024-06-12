@@ -152,7 +152,8 @@ def run(options, r8jar, testjars):
     jdkhome = get_jdk_home(options, options.benchmark)
     cmd = [
         jdk.GetJavaExecutable(jdkhome), '-Xms8g', '-Xmx8g',
-        '-XX:+TieredCompilation', '-XX:TieredStopAtLevel=4'
+        '-XX:+TieredCompilation', '-XX:TieredStopAtLevel=4',
+        '-DBENCHMARK_IGNORE_CODE_SIZE_DIFFERENCES'
     ]
     if options.enable_assertions:
         cmd.append('-ea')
