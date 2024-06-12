@@ -350,10 +350,11 @@ def DownloadFromGoogleCloudStorage(sha1_file,
         subprocess.check_output(cmd)
 
 
-def get_nth_sha1_from_HEAD(n):
-    result = subprocess.check_output(
-        ['git', 'log', f'--skip={n}', '--max-count=1',
-         '--pretty=format:%H']).decode('utf-8')
+def get_nth_sha1_from_revision(n, revision):
+    result = subprocess.check_output([
+        'git', 'log', revision, f'--skip={n}', '--max-count=1',
+        '--pretty=format:%H'
+    ]).decode('utf-8')
     return result.strip()
 
 
@@ -368,6 +369,13 @@ def get_sha1(filename):
     return sha1.hexdigest()
 
 
+def get_sha1_from_revision(revision):
+    cmd = ['git', 'rev-parse', revision]
+    PrintCmd(cmd)
+    with ChangedWorkingDirectory(REPO_ROOT):
+        return subprocess.check_output(cmd).decode('utf-8').strip()
+
+
 def get_HEAD_branch():
     result = subprocess.check_output(
         ['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode('utf-8')
@@ -375,18 +383,11 @@ def get_HEAD_branch():
 
 
 def get_HEAD_sha1():
-    return get_HEAD_sha1_for_checkout(REPO_ROOT)
+    return get_sha1_from_revision('HEAD')
 
 
 def get_HEAD_diff_stat():
     return subprocess.check_output(['git', 'diff', '--stat']).decode('utf-8')
-
-
-def get_HEAD_sha1_for_checkout(checkout):
-    cmd = ['git', 'rev-parse', 'HEAD']
-    PrintCmd(cmd)
-    with ChangedWorkingDirectory(checkout):
-        return subprocess.check_output(cmd).decode('utf-8').strip()
 
 
 def makedirs_if_needed(path):
@@ -475,8 +476,18 @@ def file_exists_on_cloud_storage(destination):
     return subprocess.call(cmd) == 0
 
 
-def download_file_from_cloud_storage(source, destination, quiet=False):
-    cmd = [get_gsutil(), 'cp', source, destination]
+def download_file_from_cloud_storage(source,
+                                     destination,
+                                     concurrent=False,
+                                     flags=None,
+                                     quiet=False):
+    cmd = [get_gsutil()]
+    if concurrent:
+        cmd.append('-m')
+    cmd.append('cp')
+    if flags:
+        cmd.extend(flags)
+    cmd.extend([source, destination])
     PrintCmd(cmd, quiet=quiet)
     subprocess.check_call(cmd)
 
