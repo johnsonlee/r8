@@ -139,7 +139,7 @@ def main():
             if options.verbose:
                 base_cmd.append('--verbose')
             if options.version:
-                base_cmd.extend(['--version', options.version])
+                base_cmd.extend(['--version', options.version, '--nolib'])
 
             # Build
             utils.Print(f'Preparing {app}', quiet=options.quiet)

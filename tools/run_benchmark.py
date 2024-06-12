@@ -87,6 +87,10 @@ def parse_options(argv):
                         default=False)
     options, args = result.parse_known_args(argv)
     options.quiet = not options.verbose
+    # We must download the non-lib distribution when running with a specific
+    # version, since BenchmarkMainEntryRunner is using R8 internals.
+    # TODO(b/346477461): Look into removing this limitation.
+    assert options.version is None or options.nolib
     return options, args
 
 
