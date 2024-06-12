@@ -68,8 +68,10 @@ R8LIB_MAP = '%s.map' % R8LIB_JAR
 R8_SRC_JAR = os.path.join(LIBS, 'r8-src.jar')
 R8LIB_EXCLUDE_DEPS_JAR = os.path.join(LIBS, 'r8lib-exclude-deps.jar')
 R8_FULL_EXCLUDE_DEPS_JAR = os.path.join(LIBS, 'r8-full-exclude-deps.jar')
-THREADING_MODULE_BLOCKING_JAR = os.path.join(LIBS, 'threading-module-blocking.jar')
-THREADING_MODULE_SINGLE_THREADED_JAR = os.path.join(LIBS, 'threading-module-single-threaded.jar')
+THREADING_MODULE_BLOCKING_JAR = os.path.join(LIBS,
+                                             'threading-module-blocking.jar')
+THREADING_MODULE_SINGLE_THREADED_JAR = os.path.join(
+    LIBS, 'threading-module-single-threaded.jar')
 R8_TESTS_JAR = os.path.join(LIBS, 'r8tests.jar')
 R8_TESTBASE_JAR = os.path.join(LIBS, 'r8test_base.jar')
 R8LIB_TESTBASE_JAR = os.path.join(LIBS, 'r8libtestbase-cf.jar')
@@ -82,7 +84,8 @@ LIBRARY_DESUGAR_CONVERSIONS_LEGACY_ZIP = os.path.join(
 LIBRARY_DESUGAR_CONVERSIONS_ZIP = os.path.join(
     CUSTOM_CONVERSION_DIR, 'library_desugar_conversions.jar')
 KEEPANNO_ANNOTATIONS_JAR = os.path.join(LIBS, 'keepanno-annotations.jar')
-KEEPANNO_ANNOTATIONS_DOC = os.path.join('d8_r8', 'keepanno', 'build', 'docs', 'javadoc')
+KEEPANNO_ANNOTATIONS_DOC = os.path.join('d8_r8', 'keepanno', 'build', 'docs',
+                                        'javadoc')
 
 DESUGAR_CONFIGURATION = os.path.join('src', 'library_desugar',
                                      'desugar_jdk_libs.json')
@@ -397,6 +400,7 @@ def upload_file_to_cloud_storage(source, destination):
     PrintCmd(cmd)
     subprocess.check_call(cmd)
 
+
 def check_dir_args(source, destination):
     # We require that the dirname of the paths coincide, e.g., src/dirname and dst/dirname
     # The target is then stripped so the upload command will be: cp -R src/dirname dst/
@@ -407,9 +411,10 @@ def check_dir_args(source, destination):
             f'{source} and {destination}')
     if len(destination_parent.strip()) == 0:
         raise Exception(
-            'Attempt to upload directory to empty destination directory: '
-            + destination)
+            'Attempt to upload directory to empty destination directory: ' +
+            destination)
     return destination_parent
+
 
 def upload_directory_to_cloud_storage(source, destination, parallel=True):
     destination_parent = check_dir_args(source, destination)
@@ -421,6 +426,7 @@ def upload_directory_to_cloud_storage(source, destination, parallel=True):
     PrintCmd(cmd)
     subprocess.check_call(cmd)
 
+
 def rsync_directory_to_cloud_storage(source, destination, parallel=True):
     check_dir_args(source, destination)
     cmd = [get_gsutil()]
@@ -430,6 +436,7 @@ def rsync_directory_to_cloud_storage(source, destination, parallel=True):
     cmd += [source, destination]
     PrintCmd(cmd)
     subprocess.check_call(cmd)
+
 
 def delete_file_from_cloud_storage(destination):
     cmd = [get_gsutil(), 'rm', destination]
