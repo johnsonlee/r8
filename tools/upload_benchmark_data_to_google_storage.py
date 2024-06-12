@@ -16,6 +16,9 @@ APPS = ['NowInAndroidApp', 'TiviApp']
 TARGETS = ['r8-full']
 NUM_COMMITS = 250
 
+BUCKET_PUBLIC = 'r8-test-results'
+INDEX_HTML = os.path.join(utils.TOOLS_DIR, 'perf/index.html')
+
 
 def DownloadCloudBucket(dest):
     os.makedirs(dest)
@@ -73,10 +76,19 @@ def main():
                     'benchmarks': benchmarks
                 })
 
+        # Serialize JSON to temp file.
         benchmark_data_file = os.path.join(temp, 'benchmark_data.json')
         with open(benchmark_data_file, 'w') as f:
             json.dump(benchmark_data, f)
-        perf.ArchiveOutputFile(benchmark_data_file, 'benchmark_data.json')
+
+        # Write output files to public bucket.
+        perf.ArchiveOutputFile(benchmark_data_file,
+                               'perf/benchmark_data.json',
+                               bucket=BUCKET_PUBLIC,
+                               header='Cache-Control:no-store')
+        perf.ArchiveOutputFile(INDEX_HTML,
+                               'perf/index.html',
+                               bucket=BUCKET_PUBLIC)
 
 
 if __name__ == '__main__':

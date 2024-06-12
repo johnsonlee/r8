@@ -402,9 +402,11 @@ def get_gsutil():
     return 'gsutil.py' if os.name != 'nt' else 'gsutil.py.bat'
 
 
-def upload_file_to_cloud_storage(source, destination):
-    cmd = [get_gsutil(), 'cp']
-    cmd += [source, destination]
+def upload_file_to_cloud_storage(source, destination, header=None):
+    cmd = [get_gsutil()]
+    if header:
+        cmd.extend(['-h', header])
+    cmd.extend(['cp', source, destination])
     PrintCmd(cmd)
     subprocess.check_call(cmd)
 

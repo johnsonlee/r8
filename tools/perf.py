@@ -100,17 +100,19 @@ def GetArtifactLocation(app, target, version, filename):
     return f'{app}/{target}/{version_or_head}/{filename}'
 
 
-def GetGSLocation(filename):
-    return f'gs://{BUCKET}/{filename}'
+def GetGSLocation(filename, bucket=BUCKET):
+    return f'gs://{bucket}/{filename}'
 
 
-def ArchiveOutputFile(file, dest, outdir=None):
+def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None):
     if outdir:
         dest_in_outdir = os.path.join(outdir, dest)
         os.makedirs(os.path.dirname(dest_in_outdir), exist_ok=True)
         shutil.copyfile(file, dest_in_outdir)
     else:
-        utils.upload_file_to_cloud_storage(file, GetGSLocation(dest))
+        utils.upload_file_to_cloud_storage(file,
+                                           GetGSLocation(dest, bucket=bucket),
+                                           header=header)
 
 
 # Usage with historic_run.py:
