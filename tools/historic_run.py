@@ -76,9 +76,10 @@ class GitCommit(object):
 
 
 def git_commit_from_hash(hash):
-    commit_timestamp = subprocess.check_output(
+    commit_timestamp_str = subprocess.check_output(
         ['git', 'show', '--no-patch', '--no-notes', '--pretty=%ct',
          hash]).decode('utf-8').strip()
+    commit_timestamp = int(commit_timestamp_str)
     destination_dir = '%s/%s/' % (MASTER_COMMITS, hash)
     destination = '%s%s' % (destination_dir, 'r8.jar')
     commit = GitCommit(hash, destination_dir, destination, commit_timestamp)

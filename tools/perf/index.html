@@ -21,13 +21,6 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script type="module">
-    import commits from "./benchmark_data.json" with { type: "json" };
-
-    // Amend the commits with their unique index.
-    for (var i = 0; i < commits.length; i++) {
-      commits[i].index = i;
-    }
-
     // Utility methods.
     Array.prototype.any = function(predicate) {
       for (const element of this.values()) {
@@ -46,11 +39,27 @@
     Array.prototype.min = function() {
       return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null);
     };
+    Array.prototype.reverseInPlace = function() {
+      for (var i = 0; i < Math.floor(this.length / 2); i++) {
+        var temp = this[i];
+        this[i] = this[this.length - i - 1];
+        this[this.length - i - 1] = temp;
+      }
+    };
     Number.prototype.ns_to_s = function() {
       const seconds = this/10E8;
       const seconds_with_one_decimal = Math.round(seconds*10)/10;
       return seconds;
     };
+
+    // Import and reverse commits so that newest are last.
+    import commits from "./benchmark_data.json" with { type: "json" };
+    commits.reverseInPlace()
+
+    // Amend the commits with their unique index.
+    for (var i = 0; i < commits.length; i++) {
+      commits[i].index = i;
+    }
 
     // DOM references.
     const benchmarkSelector = document.getElementById('benchmark-selector')
@@ -96,7 +105,7 @@
               //    commit =>
               //        selectedBenchmark in commit.benchmarks
               //            && commit.benchmarks[selectedBenchmark].results.length > 0);
-      const labels = filteredCommits.map((c, i) => c.index);
+      const labels = filteredCommits.map((c, i) => i);
       const codeSizeData =
           filteredCommits.map(
               (c, i) =>
@@ -152,7 +161,8 @@
       const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
       return {
         labels: labels,
-        datasets: [{
+        datasets: [
+          {
             type: 'line',
             label: 'Code size',
             data: codeSizeData,
@@ -222,7 +232,7 @@
                 commit = commits[elementInfo.raw.x];
               }
               return `Author: ${commit.author}\n`
-                  + `Submitted: ${commit.submitted}\n`
+                  + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
                   + `Hash: ${commit.hash}`;
             }
           }
