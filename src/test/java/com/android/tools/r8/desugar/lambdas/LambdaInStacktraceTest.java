@@ -44,7 +44,6 @@ public class LambdaInStacktraceTest extends TestBase {
           "main(" + fileName + ")");
 
   private final TestParameters parameters;
-  private final boolean isAndroidOOrLater;
   private final boolean isDalvik;
 
   @Parameterized.Parameters(name = "{0}")
@@ -55,9 +54,6 @@ public class LambdaInStacktraceTest extends TestBase {
   public LambdaInStacktraceTest(TestParameters parameters) {
     this.parameters = parameters;
     isDalvik = parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik();
-    isAndroidOOrLater =
-        parameters.isDexRuntime()
-            && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V8_1_0);
   }
 
   @Test
@@ -102,11 +98,6 @@ public class LambdaInStacktraceTest extends TestBase {
                       .getApiLevel()
                       .isGreaterThanOrEqualTo(apiLevelWithPcAsLineNumberSupport())) {
                     return s.contains("(NULL)");
-                  } else if (isAndroidOOrLater) {
-                    // On VMs with native support, no line info results in no source file printing.
-                    // TODO(b/260384637): Create debug info for such methods to avoid this.
-                    return s.equals("main(NULL)")
-                        || (!s.startsWith("main") && s.contains("(SourceFile)"));
                   } else {
                     return s.contains("(SourceFile)");
                   }

@@ -47,18 +47,11 @@ public class NoKeepLineAttributeTest extends TestBase {
               List<StackTraceLine> stackTraceLines = stacktrace.getStackTraceLines();
               assertEquals(1, stackTraceLines.size());
               StackTraceLine stackTraceLine = stackTraceLines.get(0);
-              // The frame will always have a line as the VM is reporting the PC.
+              // The frame will always have a line, either real or a PC.
               assertTrue(stackTraceLine.hasLineNumber());
-              if (parameters.getApiLevel().isLessThan(apiLevelWithPcAsLineNumberSupport())) {
-                // If the compile-time API is before native support then no line info is present.
-                // The "line" will be the PC and thus small.
-                assertTrue(stackTraceLine.lineNumber < 10);
-              } else {
-                // If the compile-time API is after native support then the compiler will retain and
-                // emit the mapping from PC to original line. Here line 50 is to ensure it is not a
-                // low PC value.
-                assertTrue(stackTraceLine.lineNumber > 50);
-              }
+              // The line should always map back to the original line.
+              // Here line 50 is to ensure it is not a low PC value.
+              assertTrue(stackTraceLine.lineNumber > 50);
             });
   }
 

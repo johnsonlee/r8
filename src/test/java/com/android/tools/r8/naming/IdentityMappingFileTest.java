@@ -18,6 +18,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.FileUtils;
@@ -52,6 +53,7 @@ public class IdentityMappingFileTest extends TestBase {
     assertThat(mapping, containsString("# pg_map_id: "));
     assertThat(mapping, containsString("# pg_map_hash: SHA-256 "));
     // Check the mapping is the identity, e.g., only comments and identity entries are defined.
+    int numberOfIdentityMappings = 0;
     for (String line : StringUtils.splitLines(mapping)) {
       if (line.startsWith("#")) {
         continue;
@@ -61,18 +63,21 @@ public class IdentityMappingFileTest extends TestBase {
         String left = parts[0];
         String right = parts[1];
         if (left.equals(right.substring(0, right.length() - 1))) {
+          numberOfIdentityMappings++;
           continue;
         }
       }
       fail("Expected comment or identity, got: " + line);
     }
+    // It may be ok to not actually include any identity mapping, but currently we do.
+    assertTrue(numberOfIdentityMappings > 0);
   }
 
   @Test
   public void testTheTestBuilder() throws Exception {
     String mapping =
         testForR8(Backend.DEX)
-            .addProgramClasses(Main.class)
+            .addProgramClassFileData(getMainWithoutLineTable())
             .setMinApi(AndroidApiLevel.B)
             .addKeepMainRule(Main.class)
             .compile()
@@ -85,7 +90,7 @@ public class IdentityMappingFileTest extends TestBase {
     Path mappingPath = temp.newFolder().toPath().resolve("mapping.map");
     R8.run(
         R8Command.builder()
-            .addProgramFiles(ToolHelper.getClassFileForTestClass(Main.class))
+            .addClassProgramData(getMainWithoutLineTable(), Origin.unknown())
             .addProguardConfiguration(
                 ImmutableList.of(keepMainProguardConfiguration(Main.class)), Origin.unknown())
             .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
@@ -102,7 +107,7 @@ public class IdentityMappingFileTest extends TestBase {
     StringBuilder mappingContent = new StringBuilder();
     R8.run(
         R8Command.builder()
-            .addProgramFiles(ToolHelper.getClassFileForTestClass(Main.class))
+            .addClassProgramData(getMainWithoutLineTable(), Origin.unknown())
             .addProguardConfiguration(
                 ImmutableList.of(keepMainProguardConfiguration(Main.class)), Origin.unknown())
             .addLibraryFiles(ToolHelper.getJava8RuntimeJar())
@@ -122,6 +127,10 @@ public class IdentityMappingFileTest extends TestBase {
             .build());
     assertTrue(consumerWasCalled.get());
     checkIdentityMappingContent(mappingContent.toString());
+  }
+
+  private byte[] getMainWithoutLineTable() throws Exception {
+    return transformer(Main.class).removeLineNumberTable(MethodPredicate.all()).transform();
   }
 
   // Compiling this program with a keep main will result in an identity mapping for the residual

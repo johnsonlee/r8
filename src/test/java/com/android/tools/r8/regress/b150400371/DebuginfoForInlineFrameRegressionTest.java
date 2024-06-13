@@ -10,6 +10,7 @@ import static org.junit.Assert.assertNull;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
@@ -35,7 +36,9 @@ public class DebuginfoForInlineFrameRegressionTest extends TestBase {
   @Test
   public void testNoLinesForNonInline() throws Exception {
     testForR8(parameters.getBackend())
-        .addInnerClasses(DebuginfoForInlineFrameRegressionTest.class)
+        .addProgramClassFileData(
+            transformer(InlineInto.class).removeLineNumberTable(MethodPredicate.all()).transform(),
+            transformer(InlineFrom.class).removeLineNumberTable(MethodPredicate.all()).transform())
         .addKeepMainRule(InlineInto.class)
         .addKeepRules("-keepparameternames")
         .setMinApi(parameters)

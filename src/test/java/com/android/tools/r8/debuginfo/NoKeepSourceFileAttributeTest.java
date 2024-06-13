@@ -29,14 +29,6 @@ public class NoKeepSourceFileAttributeTest extends TestBase {
     this.parameters = parameters;
   }
 
-  public boolean isRuntimeWithPcAsLineNumberSupport() {
-    return parameters.isDexRuntime()
-        && parameters
-            .getRuntime()
-            .maxSupportedApiLevel()
-            .isGreaterThanOrEqualTo(apiLevelWithPcAsLineNumberSupport());
-  }
-
   @Test
   public void test() throws Exception {
     testForR8(parameters.getBackend())
@@ -50,13 +42,7 @@ public class NoKeepSourceFileAttributeTest extends TestBase {
               List<StackTraceLine> stackTraceLines = stacktrace.getStackTraceLines();
               assertEquals(1, stackTraceLines.size());
               StackTraceLine stackTraceLine = stackTraceLines.get(0);
-              if (!isRuntimeWithPcAsLineNumberSupport()) {
-                assertEquals("SourceFile", stackTraceLine.fileName);
-              } else {
-                // VMs with native PC support and no debug info print "Unknown Source".
-                // TODO(b/146565491): This will need a check for new VMs once fixed.
-                assertEquals("Unknown Source", stackTraceLine.fileName);
-              }
+              assertEquals("SourceFile", stackTraceLine.fileName);
             })
         .inspectStackTrace(
             stacktrace -> {

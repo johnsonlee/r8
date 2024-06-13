@@ -68,12 +68,9 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.position.TextPosition;
 import com.android.tools.r8.position.TextRange;
-import com.android.tools.r8.shaking.ProguardConfiguration;
-import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -155,12 +152,7 @@ public class LazyCfCode extends Code {
     JarApplicationReader application = this.application;
     assert context != null;
     assert application != null;
-    DexProgramClass programOwner = context.owner.asProgramClass();
-    ReachabilitySensitiveValue reachabilitySensitive =
-        programOwner != null
-            ? programOwner.getReachabilitySensitiveValue()
-            : ReachabilitySensitiveValue.DISABLED;
-    DebugParsingOptions parsingOptions = getParsingOptions(application, reachabilitySensitive);
+    DebugParsingOptions parsingOptions = getParsingOptions(application);
     // The ClassCodeVisitor is in charge of setting this.context to null.
     try {
       parseCode(context, false, parsingOptions);
@@ -1177,34 +1169,13 @@ public class LazyCfCode extends Code {
     }
   }
 
-  private static DebugParsingOptions getParsingOptions(
-      JarApplicationReader application, ReachabilitySensitiveValue reachabilitySensitive) {
+  private static DebugParsingOptions getParsingOptions(JarApplicationReader application) {
     // TODO(b/166841731): We should compute our own from the compressed format.
     int parsingOptions =
         application.options.canUseInputStackMaps()
             ? ClassReader.EXPAND_FRAMES
             : ClassReader.SKIP_FRAMES;
-    ProguardConfiguration configuration = application.options.getProguardConfiguration();
-    if (configuration == null) {
-      return new DebugParsingOptions(true, true, parsingOptions);
-    }
-    ProguardKeepAttributes keep =
-        application.options.getProguardConfiguration().getKeepAttributes();
-
-    boolean localsInfo =
-        configuration.isKeepParameterNames()
-            || keep.localVariableTable
-            || keep.localVariableTypeTable
-            || reachabilitySensitive.isEnabled();
-    boolean lineInfo =
-        (keep.lineNumberTable || application.options.canUseNativeDexPcInsteadOfDebugInfo());
-    boolean methodParaeters = keep.methodParameters;
-
-    if (!localsInfo && !lineInfo && !methodParaeters) {
-      parsingOptions |= ClassReader.SKIP_DEBUG;
-    }
-
-    return new DebugParsingOptions(lineInfo, localsInfo, parsingOptions);
+    return new DebugParsingOptions(true, true, parsingOptions);
   }
 
   @Override

@@ -6,7 +6,6 @@ package com.android.tools.r8.shaking.attributes;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -59,7 +58,8 @@ public class KeepAttributesTest extends TestBase {
         "-keep class ** { *; }"
     );
     MethodSubject mainMethod = compileRunAndGetMain(keepRules, CompilationMode.RELEASE);
-    assertFalse(mainMethod.hasLineNumberTable());
+    // R8 now defaults to retain the line number table regardless of -keepattributes.
+    assertEquals(doesNotHavePcSupport(), mainMethod.hasLineNumberTable());
     assertFalse(mainMethod.hasLocalVariableTable());
   }
 
@@ -95,19 +95,12 @@ public class KeepAttributesTest extends TestBase {
   }
 
   @Test
-  public void keepLocalVariableTable() throws IOException, ExecutionException {
+  public void keepLocalVariableTable() throws Exception {
     List<String> keepRules = ImmutableList.of(
         "-keepattributes " + ProguardKeepAttributes.LOCAL_VARIABLE_TABLE
     );
-    // Compiling with a keep rule for locals but no line results in an error in R8.
-    try {
-      compileRunAndGetMain(keepRules, CompilationMode.RELEASE);
-    } catch (CompilationFailedException e) {
-      assertTrue(e.getCause().getMessage().contains(ProguardKeepAttributes.LOCAL_VARIABLE_TABLE));
-      assertTrue(e.getCause().getMessage().contains(ProguardKeepAttributes.LINE_NUMBER_TABLE));
-      return;
-    }
-    fail("Expected error");
+    // Compiling with a keep rule for locals but no line table no longer results in an error in R8.
+    compileRunAndGetMain(keepRules, CompilationMode.RELEASE);
   }
 
   private MethodSubject compileRunAndGetMain(List<String> keepRules, CompilationMode mode)

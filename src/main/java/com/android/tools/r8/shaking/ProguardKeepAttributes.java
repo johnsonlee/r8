@@ -42,7 +42,6 @@ public class ProguardKeepAttributes {
   public boolean enclosingMethod = false;
   public boolean signature = false;
   public boolean exceptions = false;
-  public boolean lineNumberTable = false;
   public boolean localVariableTable = false;
   public boolean localVariableTypeTable = false;
   public boolean methodParameters = false;
@@ -119,8 +118,6 @@ public class ProguardKeepAttributes {
     sourceDir = update(sourceDir, SOURCE_DIR, patterns);
     innerClasses = update(innerClasses, INNER_CLASSES, patterns);
     enclosingMethod = update(enclosingMethod, ENCLOSING_METHOD, patterns);
-    lineNumberTable = update(lineNumberTable, LINE_NUMBER_TABLE, patterns);
-    localVariableTable = update(localVariableTable, LOCAL_VARIABLE_TABLE, patterns);
     localVariableTypeTable = update(localVariableTypeTable, LOCAL_VARIABLE_TYPE_TABLE, patterns);
     exceptions = update(exceptions, EXCEPTIONS, patterns);
     methodParameters = update(methodParameters, METHOD_PARAMETERS, patterns);
@@ -155,16 +152,6 @@ public class ProguardKeepAttributes {
     } else if (!innerClasses && enclosingMethod) {
       throw new CompilationError("Attribute EnclosingMethod requires InnerClasses attribute. "
           + "Check -keepattributes directive.");
-    }
-    if (forceProguardCompatibility && localVariableTable && !lineNumberTable) {
-      // If locals are kept, assume line numbers should be kept too.
-      lineNumberTable = true;
-    }
-    if (localVariableTable && !lineNumberTable) {
-      throw new CompilationError(
-          "Attribute " + LOCAL_VARIABLE_TABLE
-              + " requires " + LINE_NUMBER_TABLE
-              + ". Check -keepattributes directive.");
     }
   }
 
