@@ -114,10 +114,9 @@ public class AnnotationRemover {
           // TODO(b/343909250): Is this supposed to be kept on all live items?
           return config.sourceDebugExtension;
         }
-        if (config.methodParameters
-            && DexAnnotation.isParameterNameAnnotation(annotation, dexItemFactory)) {
-          // TODO(b/343907109): This should be conditional on its own keep info bit.
-          return true;
+        if (DexAnnotation.isParameterNameAnnotation(annotation, dexItemFactory)) {
+          KeepMethodInfo methodInfo = keepInfo.asMethodInfo();
+          return methodInfo != null && !methodInfo.isParameterNamesRemovalAllowed(options);
         }
         if (isAnnotationOnAnnotationClass
             && DexAnnotation.isAnnotationDefaultAnnotation(annotation, dexItemFactory)

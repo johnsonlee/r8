@@ -24,6 +24,8 @@ public interface GlobalKeepInfoConfiguration {
 
   boolean isForceKeepExceptionsAttributeEnabled();
 
+  boolean isForceKeepMethodParametersAttributeEnabled();
+
   boolean isKeepEnclosingMethodAttributeEnabled();
 
   boolean isKeepInnerClassesAttributeEnabled();

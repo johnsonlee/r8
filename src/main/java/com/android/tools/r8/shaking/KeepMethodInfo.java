@@ -42,6 +42,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
   private final boolean allowSingleCallerInlining;
   private final boolean allowUnusedArgumentOptimization;
   private final boolean allowUnusedReturnValueOptimization;
+  private final boolean allowParameterNamesRemoval;
   private final KeepAnnotationCollectionInfo parameterAnnotationsInfo;
 
   protected KeepMethodInfo(Builder builder) {
@@ -60,6 +61,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     this.allowSingleCallerInlining = builder.isSingleCallerInliningAllowed();
     this.allowUnusedArgumentOptimization = builder.isUnusedArgumentOptimizationAllowed();
     this.allowUnusedReturnValueOptimization = builder.isUnusedReturnValueOptimizationAllowed();
+    this.allowParameterNamesRemoval = builder.isParameterNamesRemovalAllowed();
     this.parameterAnnotationsInfo = builder.getParameterAnnotationsInfo().build();
   }
 
@@ -242,6 +244,15 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return allowUnusedReturnValueOptimization;
   }
 
+  public boolean isParameterNamesRemovalAllowed(GlobalKeepInfoConfiguration configuration) {
+    return !configuration.isForceKeepMethodParametersAttributeEnabled()
+        && internalIsParameterNamesRemovalAllowed();
+  }
+
+  boolean internalIsParameterNamesRemovalAllowed() {
+    return allowParameterNamesRemoval;
+  }
+
   public Joiner joiner() {
     assert !isTop();
     return new Joiner(this);
@@ -273,6 +284,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     private boolean allowSingleCallerInlining;
     private boolean allowUnusedArgumentOptimization;
     private boolean allowUnusedReturnValueOptimization;
+    private boolean allowParameterNamesRemoval;
     private KeepAnnotationCollectionInfo.Builder parameterAnnotationsInfo;
 
     public Builder() {
@@ -296,6 +308,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       allowUnusedArgumentOptimization = original.internalIsUnusedArgumentOptimizationAllowed();
       allowUnusedReturnValueOptimization =
           original.internalIsUnusedReturnValueOptimizationAllowed();
+      allowParameterNamesRemoval = original.internalIsParameterNamesRemovalAllowed();
       parameterAnnotationsInfo = original.internalParameterAnnotationsInfo().toBuilder();
     }
 
@@ -426,7 +439,16 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    KeepAnnotationCollectionInfo.Builder getParameterAnnotationsInfo() {
+    public boolean isParameterNamesRemovalAllowed() {
+      return allowParameterNamesRemoval;
+    }
+
+    public Builder setAllowParameterNamesRemoval(boolean allowParameterNamesRemoval) {
+      this.allowParameterNamesRemoval = allowParameterNamesRemoval;
+      return self();
+    }
+
+    public KeepAnnotationCollectionInfo.Builder getParameterAnnotationsInfo() {
       return parameterAnnotationsInfo;
     }
 
@@ -476,6 +498,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
               == other.internalIsUnusedArgumentOptimizationAllowed()
           && isUnusedReturnValueOptimizationAllowed()
               == other.internalIsUnusedReturnValueOptimizationAllowed()
+          && isParameterNamesRemovalAllowed() == other.internalIsParameterNamesRemovalAllowed()
           && parameterAnnotationsInfo.isEqualTo(other.parameterAnnotationsInfo);
     }
 
@@ -501,6 +524,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .setAllowSingleCallerInlining(false)
           .setAllowUnusedArgumentOptimization(false)
           .setAllowUnusedReturnValueOptimization(false)
+          .setAllowParameterNamesRemoval(false)
           .setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createTop());
     }
 
@@ -521,6 +545,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .setAllowSingleCallerInlining(true)
           .setAllowUnusedArgumentOptimization(true)
           .setAllowUnusedReturnValueOptimization(true)
+          .setAllowParameterNamesRemoval(true)
           .setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createBottom());
     }
   }
@@ -605,6 +630,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
+    public Joiner disallowParameterNamesRemoval() {
+      builder.setAllowParameterNamesRemoval(false);
+      return self();
+    }
+
     public Joiner disallowParameterAnnotationsRemoval() {
       builder.setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createTop());
       return self();
@@ -654,7 +684,10 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
               Joiner::disallowUnusedArgumentOptimization)
           .applyIf(
               !joiner.builder.isUnusedReturnValueOptimizationAllowed(),
-              Joiner::disallowUnusedReturnValueOptimization);
+              Joiner::disallowUnusedReturnValueOptimization)
+          .applyIf(
+              !joiner.builder.isParameterNamesRemovalAllowed(),
+              Joiner::disallowParameterNamesRemoval);
     }
 
     @Override
