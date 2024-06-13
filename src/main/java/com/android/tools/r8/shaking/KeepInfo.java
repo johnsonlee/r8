@@ -334,28 +334,28 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     }
 
     B makeTop() {
-      disallowAccessModification();
-      disallowAccessModificationForTesting();
-      disallowAnnotationRemoval();
-      disallowTypeAnnotationRemoval();
-      disallowMinification();
-      disallowOptimization();
-      disallowShrinking();
-      disallowSignatureRemoval();
-      unsetCheckDiscarded();
+      setAllowAccessModification(false);
+      setAllowAccessModificationForTesting(false);
+      setAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createTop());
+      setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.createTop());
+      setAllowMinification(false);
+      setAllowOptimization(false);
+      setAllowShrinking(false);
+      setAllowSignatureRemoval(false);
+      setCheckDiscarded(false);
       return self();
     }
 
     B makeBottom() {
-      allowAccessModification();
-      allowAccessModificationForTesting();
-      allowAnnotationRemoval();
-      allowTypeAnnotationRemoval();
-      allowMinification();
-      allowOptimization();
-      allowShrinking();
-      allowSignatureRemoval();
-      unsetCheckDiscarded();
+      setAllowAccessModification(true);
+      setAllowAccessModificationForTesting(true);
+      setAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createBottom());
+      setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder.createBottom());
+      setAllowMinification(true);
+      setAllowOptimization(true);
+      setAllowShrinking(true);
+      setAllowSignatureRemoval(true);
+      setCheckDiscarded(false);
       return self();
     }
 
@@ -387,71 +387,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
           && typeAnnotationsInfo.isEqualTo(other.internalTypeAnnotationsInfo());
     }
 
-    public boolean isAccessModificationAllowed() {
-      return allowAccessModification;
-    }
-
-    public boolean isAccessModificationAllowedForTesting() {
-      return allowAccessModificationForTesting;
-    }
-
     public boolean isCheckDiscardedEnabled() {
       return checkDiscarded;
-    }
-
-    public boolean isMinificationAllowed() {
-      return allowMinification;
-    }
-
-    public boolean isOptimizationAllowed() {
-      return allowOptimization;
-    }
-
-    public boolean isShrinkingAllowed() {
-      return allowShrinking;
-    }
-
-    public boolean isSignatureRemovalAllowed() {
-      return allowSignatureRemoval;
-    }
-
-    public B setAllowMinification(boolean allowMinification) {
-      this.allowMinification = allowMinification;
-      return self();
-    }
-
-    public B allowMinification() {
-      return setAllowMinification(true);
-    }
-
-    public B disallowMinification() {
-      return setAllowMinification(false);
-    }
-
-    public B setAllowOptimization(boolean allowOptimization) {
-      this.allowOptimization = allowOptimization;
-      return self();
-    }
-
-    public B allowOptimization() {
-      return setAllowOptimization(true);
-    }
-
-    public B disallowOptimization() {
-      return setAllowOptimization(false);
-    }
-
-    public B setAllowShrinking(boolean allowShrinking) {
-      this.allowShrinking = allowShrinking;
-      return self();
-    }
-
-    public B allowShrinking() {
-      return setAllowShrinking(true);
-    }
-
-    public B disallowShrinking() {
-      return setAllowShrinking(false);
     }
 
     public B setCheckDiscarded(boolean checkDiscarded) {
@@ -459,12 +396,35 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
-    public B setCheckDiscarded() {
-      return setCheckDiscarded(true);
+    public boolean isMinificationAllowed() {
+      return allowMinification;
     }
 
-    public B unsetCheckDiscarded() {
-      return setCheckDiscarded(false);
+    public B setAllowMinification(boolean allowMinification) {
+      this.allowMinification = allowMinification;
+      return self();
+    }
+
+    public boolean isOptimizationAllowed() {
+      return allowOptimization;
+    }
+
+    public B setAllowOptimization(boolean allowOptimization) {
+      this.allowOptimization = allowOptimization;
+      return self();
+    }
+
+    public boolean isShrinkingAllowed() {
+      return allowShrinking;
+    }
+
+    public B setAllowShrinking(boolean allowShrinking) {
+      this.allowShrinking = allowShrinking;
+      return self();
+    }
+
+    public boolean isAccessModificationAllowed() {
+      return allowAccessModification;
     }
 
     public B setAllowAccessModification(boolean allowAccessModification) {
@@ -472,12 +432,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
-    public B allowAccessModification() {
-      return setAllowAccessModification(true);
-    }
-
-    public B disallowAccessModification() {
-      return setAllowAccessModification(false);
+    public boolean isAccessModificationAllowedForTesting() {
+      return allowAccessModificationForTesting;
     }
 
     public B setAllowAccessModificationForTesting(boolean allowAccessModificationForTesting) {
@@ -485,68 +441,31 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
-    public B allowAccessModificationForTesting() {
-      return setAllowAccessModificationForTesting(true);
-    }
-
-    public B disallowAccessModificationForTesting() {
-      return setAllowAccessModificationForTesting(false);
-    }
-
-    KeepAnnotationCollectionInfo.Builder getAnnotationsInfo() {
+    public KeepAnnotationCollectionInfo.Builder getAnnotationsInfo() {
       return annotationsInfo;
     }
 
-    public B allowAnnotationRemoval() {
-      annotationsInfo = KeepAnnotationCollectionInfo.Builder.createBottom();
+    public B setAnnotationInfo(KeepAnnotationCollectionInfo.Builder infoBuilder) {
+      annotationsInfo = infoBuilder;
       return self();
     }
 
-    public B disallowAnnotationRemoval() {
-      annotationsInfo = KeepAnnotationCollectionInfo.Builder.createTop();
-      return self();
-    }
-
-    public B disallowAnnotationRemoval(RetentionInfo retention) {
-      annotationsInfo.destructiveJoinAnyTypeInfo(retention);
-      return self();
-    }
-
-    public B disallowAnnotationRemoval(RetentionInfo retention, DexType type) {
-      annotationsInfo.destructiveJoinTypeInfo(type, retention);
-      return self();
-    }
-
-    KeepAnnotationCollectionInfo.Builder getTypeAnnotationsInfo() {
+    public KeepAnnotationCollectionInfo.Builder getTypeAnnotationsInfo() {
       return typeAnnotationsInfo;
     }
 
-    public B allowTypeAnnotationRemoval() {
-      typeAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createBottom();
+    public B setTypeAnnotationsInfo(KeepAnnotationCollectionInfo.Builder infoBuilder) {
+      typeAnnotationsInfo = infoBuilder;
       return self();
     }
 
-    public B disallowTypeAnnotationRemoval() {
-      typeAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createTop();
-      return self();
+    public boolean isSignatureRemovalAllowed() {
+      return allowSignatureRemoval;
     }
 
-    public B disallowTypeAnnotationRemoval(RetentionInfo retention) {
-      typeAnnotationsInfo.destructiveJoinAnyTypeInfo(retention);
-      return self();
-    }
-
-    private B setAllowSignatureRemoval(boolean allowSignatureRemoval) {
+    public B setAllowSignatureRemoval(boolean allowSignatureRemoval) {
       this.allowSignatureRemoval = allowSignatureRemoval;
       return self();
-    }
-
-    public B allowSignatureRemoval() {
-      return setAllowSignatureRemoval(true);
-    }
-
-    public B disallowSignatureRemoval() {
-      return setAllowSignatureRemoval(false);
     }
   }
 
@@ -653,52 +572,52 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     }
 
     public J disallowAccessModification() {
-      builder.disallowAccessModification();
+      builder.setAllowAccessModification(false);
       return self();
     }
 
     public J disallowAccessModificationForTesting() {
-      builder.disallowAccessModificationForTesting();
+      builder.setAllowAccessModificationForTesting(false);
       return self();
     }
 
     public J disallowAnnotationRemoval(RetentionInfo retention) {
-      builder.disallowAnnotationRemoval(retention);
+      builder.getAnnotationsInfo().destructiveJoinAnyTypeInfo(retention);
       return self();
     }
 
     public J disallowAnnotationRemoval(RetentionInfo retention, DexType type) {
-      builder.disallowAnnotationRemoval(retention, type);
+      builder.getAnnotationsInfo().destructiveJoinTypeInfo(type, retention);
       return self();
     }
 
     public J disallowTypeAnnotationRemoval(RetentionInfo retention) {
-      builder.disallowTypeAnnotationRemoval(retention);
+      builder.getTypeAnnotationsInfo().destructiveJoinAnyTypeInfo(retention);
       return self();
     }
 
     public J disallowMinification() {
-      builder.disallowMinification();
+      builder.setAllowMinification(false);
       return self();
     }
 
     public J disallowOptimization() {
-      builder.disallowOptimization();
+      builder.setAllowOptimization(false);
       return self();
     }
 
     public J disallowShrinking() {
-      builder.disallowShrinking();
+      builder.setAllowShrinking(false);
       return self();
     }
 
     public J disallowSignatureRemoval() {
-      builder.disallowSignatureRemoval();
+      builder.setAllowSignatureRemoval(false);
       return self();
     }
 
     public J setCheckDiscarded() {
-      builder.setCheckDiscarded();
+      builder.setCheckDiscarded(true);
       return self();
     }
 

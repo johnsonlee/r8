@@ -74,14 +74,6 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
       return self();
     }
 
-    public B allowValuePropagation() {
-      return setAllowValuePropagation(true);
-    }
-
-    public B disallowValuePropagation() {
-      return setAllowValuePropagation(false);
-    }
-
     @Override
     boolean internalIsEqualTo(K other) {
       return super.internalIsEqualTo(other)
@@ -90,12 +82,12 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
 
     @Override
     public B makeTop() {
-      return super.makeTop().disallowValuePropagation();
+      return super.makeTop().setAllowValuePropagation(false);
     }
 
     @Override
     public B makeBottom() {
-      return super.makeBottom().allowValuePropagation();
+      return super.makeBottom().setAllowValuePropagation(true);
     }
   }
 
@@ -108,7 +100,7 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     }
 
     public J disallowValuePropagation() {
-      builder.disallowValuePropagation();
+      builder.setAllowValuePropagation(false);
       return self();
     }
 

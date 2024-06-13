@@ -90,13 +90,15 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     @Override
     public Builder makeTop() {
       return super.makeTop()
-          .disallowFieldTypeStrengthening()
-          .disallowRedundantFieldLoadElimination();
+          .setAllowFieldTypeStrengthening(false)
+          .setAllowRedundantFieldLoadElimination(false);
     }
 
     @Override
     public Builder makeBottom() {
-      return super.makeBottom().allowFieldTypeStrengthening().allowRedundantFieldLoadElimination();
+      return super.makeBottom()
+          .setAllowFieldTypeStrengthening(true)
+          .setAllowRedundantFieldLoadElimination(true);
     }
 
     public boolean isFieldTypeStrengtheningAllowed() {
@@ -108,14 +110,6 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
       return self();
     }
 
-    public Builder allowFieldTypeStrengthening() {
-      return setAllowFieldTypeStrengthening(true);
-    }
-
-    public Builder disallowFieldTypeStrengthening() {
-      return setAllowFieldTypeStrengthening(false);
-    }
-
     public boolean isRedundantFieldLoadEliminationAllowed() {
       return allowRedundantFieldLoadElimination;
     }
@@ -124,14 +118,6 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
         boolean allowRedundantFieldLoadElimination) {
       this.allowRedundantFieldLoadElimination = allowRedundantFieldLoadElimination;
       return self();
-    }
-
-    public Builder allowRedundantFieldLoadElimination() {
-      return setAllowRedundantFieldLoadElimination(true);
-    }
-
-    public Builder disallowRedundantFieldLoadElimination() {
-      return setAllowRedundantFieldLoadElimination(false);
     }
 
     @Override
@@ -175,12 +161,12 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     }
 
     public Joiner disallowFieldTypeStrengthening() {
-      builder.disallowFieldTypeStrengthening();
+      builder.setAllowFieldTypeStrengthening(false);
       return self();
     }
 
     public Joiner disallowRedundantFieldLoadElimination() {
-      builder.disallowRedundantFieldLoadElimination();
+      builder.setAllowRedundantFieldLoadElimination(false);
       return self();
     }
 

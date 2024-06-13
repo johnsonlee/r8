@@ -303,20 +303,10 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return allowThrowsRemoval;
     }
 
-    private Builder setAllowThrowsRemoval(boolean allowThrowsRemoval) {
+    public Builder setAllowThrowsRemoval(boolean allowThrowsRemoval) {
       this.allowThrowsRemoval = allowThrowsRemoval;
       return self();
     }
-
-    public Builder allowThrowsRemoval() {
-      return setAllowThrowsRemoval(true);
-    }
-
-    public Builder disallowThrowsRemoval() {
-      return setAllowThrowsRemoval(false);
-    }
-
-    // Class inlining.
 
     public boolean isClassInliningAllowed() {
       return allowClassInlining;
@@ -327,16 +317,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowClassInlining() {
-      return setAllowClassInlining(true);
-    }
-
-    public Builder disallowClassInlining() {
-      return setAllowClassInlining(false);
-    }
-
-    // Closed world reasoning.
-
     public boolean isClosedWorldReasoningAllowed() {
       return allowClosedWorldReasoning;
     }
@@ -345,16 +325,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       this.allowClosedWorldReasoning = allowClosedWorldReasoning;
       return self();
     }
-
-    public Builder allowClosedWorldReasoning() {
-      return setAllowClosedWorldReasoning(true);
-    }
-
-    public Builder disallowClosedWorldReasoning() {
-      return setAllowClosedWorldReasoning(false);
-    }
-
-    // Constant argument optimization.
 
     public boolean isConstantArgumentOptimizationAllowed() {
       return allowConstantArgumentOptimization;
@@ -365,16 +335,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowConstantArgumentOptimization() {
-      return setAllowConstantArgumentOptimization(true);
-    }
-
-    public Builder disallowConstantArgumentOptimization() {
-      return setAllowConstantArgumentOptimization(false);
-    }
-
-    // Inlining.
-
     public boolean isInliningAllowed() {
       return allowInlining;
     }
@@ -383,16 +343,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       this.allowInlining = allowInlining;
       return self();
     }
-
-    public Builder allowInlining() {
-      return setAllowInlining(true);
-    }
-
-    public Builder disallowInlining() {
-      return setAllowInlining(false);
-    }
-
-    // Method staticizing.
 
     public boolean isMethodStaticizingAllowed() {
       return allowMethodStaticizing;
@@ -403,16 +353,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowMethodStaticizing() {
-      return setAllowMethodStaticizing(true);
-    }
-
-    public Builder disallowMethodStaticizing() {
-      return setAllowMethodStaticizing(false);
-    }
-
-    // Parameter removal.
-
     public boolean isParameterRemovalAllowed() {
       return allowParameterRemoval;
     }
@@ -421,16 +361,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       this.allowParameterRemoval = allowParameterRemoval;
       return self();
     }
-
-    public Builder allowParameterRemoval() {
-      return setAllowParameterRemoval(true);
-    }
-
-    public Builder disallowParameterRemoval() {
-      return setAllowParameterRemoval(false);
-    }
-
-    // Parameter reordering.
 
     public boolean isParameterReorderingAllowed() {
       return allowParameterReordering;
@@ -441,16 +371,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowParameterReordering() {
-      return setAllowParameterReordering(true);
-    }
-
-    public Builder disallowParameterReordering() {
-      return setAllowParameterReordering(false);
-    }
-
-    // Parameter type strengthening.
-
     public boolean isParameterTypeStrengtheningAllowed() {
       return allowParameterTypeStrengthening;
     }
@@ -459,16 +379,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       this.allowParameterTypeStrengthening = allowParameterTypeStrengthening;
       return self();
     }
-
-    public Builder allowParameterTypeStrengthening() {
-      return setAllowParameterTypeStrengthening(true);
-    }
-
-    public Builder disallowParameterTypeStrengthening() {
-      return setAllowParameterTypeStrengthening(false);
-    }
-
-    // Reprocessing.
 
     public boolean isReprocessingAllowed() {
       return allowReprocessing;
@@ -479,16 +389,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowReprocessing() {
-      return setAllowReprocessing(true);
-    }
-
-    public Builder disallowReprocessing() {
-      return setAllowReprocessing(false);
-    }
-
-    // Return type strengthening.
-
     public boolean isReturnTypeStrengtheningAllowed() {
       return allowReturnTypeStrengthening;
     }
@@ -497,16 +397,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       this.allowReturnTypeStrengthening = allowReturnTypeStrengthening;
       return self();
     }
-
-    public Builder allowReturnTypeStrengthening() {
-      return setAllowReturnTypeStrengthening(true);
-    }
-
-    public Builder disallowReturnTypeStrengthening() {
-      return setAllowReturnTypeStrengthening(false);
-    }
-
-    // Single caller inlining.
 
     public boolean isSingleCallerInliningAllowed() {
       return allowSingleCallerInlining;
@@ -517,16 +407,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowSingleCallerInlining() {
-      return setAllowSingleCallerInlining(true);
-    }
-
-    public Builder disallowSingleCallerInlining() {
-      return setAllowSingleCallerInlining(false);
-    }
-
-    // Unused argument optimization.
-
     public boolean isUnusedArgumentOptimizationAllowed() {
       return allowUnusedArgumentOptimization;
     }
@@ -535,16 +415,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       this.allowUnusedArgumentOptimization = allowUnusedArgumentOptimization;
       return self();
     }
-
-    public Builder allowUnusedArgumentOptimization() {
-      return setAllowUnusedArgumentOptimization(true);
-    }
-
-    public Builder disallowUnusedArgumentOptimization() {
-      return setAllowUnusedArgumentOptimization(false);
-    }
-
-    // Unused return value optimization.
 
     public boolean isUnusedReturnValueOptimizationAllowed() {
       return allowUnusedReturnValueOptimization;
@@ -556,32 +426,12 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       return self();
     }
 
-    public Builder allowUnusedReturnValueOptimization() {
-      return setAllowUnusedReturnValueOptimization(true);
-    }
-
-    public Builder disallowUnusedReturnValueOptimization() {
-      return setAllowUnusedReturnValueOptimization(false);
-    }
-
-    // Parameter annotations
-
     KeepAnnotationCollectionInfo.Builder getParameterAnnotationsInfo() {
       return parameterAnnotationsInfo;
     }
 
-    public Builder allowParameterAnnotationsRemoval() {
-      parameterAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createBottom();
-      return self();
-    }
-
-    public Builder disallowParameterAnnotationsRemoval() {
-      parameterAnnotationsInfo = KeepAnnotationCollectionInfo.Builder.createTop();
-      return self();
-    }
-
-    public Builder disallowParameterAnnotationsRemoval(RetentionInfo retention) {
-      parameterAnnotationsInfo.destructiveJoinAnyTypeInfo(retention);
+    public Builder setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder infoBuilder) {
+      parameterAnnotationsInfo = infoBuilder;
       return self();
     }
 
@@ -637,41 +487,41 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     @Override
     public Builder makeTop() {
       return super.makeTop()
-          .disallowThrowsRemoval()
-          .disallowClassInlining()
-          .disallowClosedWorldReasoning()
-          .disallowConstantArgumentOptimization()
-          .disallowInlining()
-          .disallowMethodStaticizing()
-          .disallowParameterRemoval()
-          .disallowParameterReordering()
-          .disallowParameterTypeStrengthening()
-          .disallowReprocessing()
-          .disallowReturnTypeStrengthening()
-          .disallowSingleCallerInlining()
-          .disallowUnusedArgumentOptimization()
-          .disallowUnusedReturnValueOptimization()
-          .disallowParameterAnnotationsRemoval();
+          .setAllowThrowsRemoval(false)
+          .setAllowClassInlining(false)
+          .setAllowClosedWorldReasoning(false)
+          .setAllowConstantArgumentOptimization(false)
+          .setAllowInlining(false)
+          .setAllowMethodStaticizing(false)
+          .setAllowParameterRemoval(false)
+          .setAllowParameterReordering(false)
+          .setAllowParameterTypeStrengthening(false)
+          .setAllowReprocessing(false)
+          .setAllowReturnTypeStrengthening(false)
+          .setAllowSingleCallerInlining(false)
+          .setAllowUnusedArgumentOptimization(false)
+          .setAllowUnusedReturnValueOptimization(false)
+          .setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createTop());
     }
 
     @Override
     public Builder makeBottom() {
       return super.makeBottom()
-          .allowThrowsRemoval()
-          .allowClassInlining()
-          .allowClosedWorldReasoning()
-          .allowConstantArgumentOptimization()
-          .allowInlining()
-          .allowMethodStaticizing()
-          .allowParameterRemoval()
-          .allowParameterReordering()
-          .allowParameterTypeStrengthening()
-          .allowReprocessing()
-          .allowReturnTypeStrengthening()
-          .allowSingleCallerInlining()
-          .allowUnusedArgumentOptimization()
-          .allowUnusedReturnValueOptimization()
-          .allowParameterAnnotationsRemoval();
+          .setAllowThrowsRemoval(true)
+          .setAllowClassInlining(true)
+          .setAllowClosedWorldReasoning(true)
+          .setAllowConstantArgumentOptimization(true)
+          .setAllowInlining(true)
+          .setAllowMethodStaticizing(true)
+          .setAllowParameterRemoval(true)
+          .setAllowParameterReordering(true)
+          .setAllowParameterTypeStrengthening(true)
+          .setAllowReprocessing(true)
+          .setAllowReturnTypeStrengthening(true)
+          .setAllowSingleCallerInlining(true)
+          .setAllowUnusedArgumentOptimization(true)
+          .setAllowUnusedReturnValueOptimization(true)
+          .setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createBottom());
     }
   }
 
@@ -686,82 +536,83 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     }
 
     public Joiner disallowThrowsRemoval() {
-      builder.disallowThrowsRemoval();
+      builder.setAllowThrowsRemoval(false);
       return self();
     }
 
     public Joiner disallowClassInlining() {
-      builder.disallowClassInlining();
+      builder.setAllowClassInlining(false);
       return self();
     }
 
     public Joiner disallowClosedWorldReasoning() {
-      builder.disallowClosedWorldReasoning();
+      builder.setAllowClosedWorldReasoning(false);
       return self();
     }
 
     public Joiner disallowConstantArgumentOptimization() {
-      builder.disallowConstantArgumentOptimization();
+      builder.setAllowConstantArgumentOptimization(false);
       return self();
     }
 
     public Joiner disallowInlining() {
-      builder.disallowInlining();
+      builder.setAllowInlining(false);
       return self();
     }
 
     public Joiner disallowMethodStaticizing() {
-      builder.disallowMethodStaticizing();
+      builder.setAllowMethodStaticizing(false);
       return self();
     }
 
     public Joiner disallowParameterRemoval() {
-      builder.disallowParameterRemoval();
+      builder.setAllowParameterRemoval(false);
       return self();
     }
 
     public Joiner disallowParameterReordering() {
-      builder.disallowParameterReordering();
+      builder.setAllowParameterReordering(false);
       return self();
     }
 
     public Joiner disallowParameterTypeStrengthening() {
-      builder.disallowParameterTypeStrengthening();
+      builder.setAllowParameterTypeStrengthening(false);
       return self();
     }
 
     public Joiner disallowReprocessing() {
-      builder.disallowReprocessing();
+      builder.setAllowReprocessing(false);
       return self();
     }
 
     public Joiner disallowReturnTypeStrengthening() {
-      builder.disallowReturnTypeStrengthening();
+      builder.setAllowReturnTypeStrengthening(false);
       return self();
     }
 
     public Joiner disallowSingleCallerInlining() {
-      builder.disallowSingleCallerInlining();
+      builder.setAllowSingleCallerInlining(false);
       return self();
     }
 
     public Joiner disallowUnusedArgumentOptimization() {
-      builder.disallowUnusedArgumentOptimization();
+      builder.setAllowUnusedArgumentOptimization(false);
       return self();
     }
 
     public Joiner disallowUnusedReturnValueOptimization() {
-      builder.disallowUnusedReturnValueOptimization();
+      builder.setAllowUnusedReturnValueOptimization(false);
       return self();
     }
 
     public Joiner disallowParameterAnnotationsRemoval() {
-      builder.disallowParameterAnnotationsRemoval();
+      builder.setParameterAnnotationInfo(KeepAnnotationCollectionInfo.Builder.createTop());
       return self();
     }
 
     public Joiner disallowParameterAnnotationsRemoval(RetentionInfo retention) {
-      builder.disallowParameterAnnotationsRemoval(retention);
+      builder.getParameterAnnotationsInfo().destructiveJoinAnyTypeInfo(retention);
+      builder.self();
       return self();
     }
 

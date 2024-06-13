@@ -32,21 +32,21 @@ public class SyntheticKeepMethodInfo extends KeepMethodInfo {
     }
 
     @Override
-    public Builder disallowMinification() {
-      // Ignore as synthetic items can always be minified.
-      return self();
+    public boolean isMinificationAllowed() {
+      // Synthetic items can always be minified.
+      return true;
     }
 
     @Override
-    public Builder disallowOptimization() {
-      // Ignore as synthetic items can always be optimized.
-      return self();
+    public boolean isOptimizationAllowed() {
+      // Synthetic items can always be optimized.
+      return true;
     }
 
     @Override
-    public Builder disallowShrinking() {
-      // Ignore as synthetic items can always be removed.
-      return self();
+    public boolean isShrinkingAllowed() {
+      // Synthetic items can always be removed.
+      return true;
     }
 
     @Override
@@ -77,7 +77,7 @@ public class SyntheticKeepMethodInfo extends KeepMethodInfo {
     }
 
     @Override
-    public KeepMethodInfo.Joiner disallowMinification() {
+    public Joiner disallowMinification() {
       // Ignore as synthetic items can always be minified.
       return self();
     }
