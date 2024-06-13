@@ -8,7 +8,7 @@ import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.naming.NamingLens;
-import kotlin.metadata.KmClassVisitor;
+import kotlin.metadata.KmClass;
 
 // Structure around a kotlin companion object that can be assigned to a field.
 public class KotlinCompanionInfo implements KotlinFieldLevelInfo {
@@ -29,10 +29,10 @@ public class KotlinCompanionInfo implements KotlinFieldLevelInfo {
     return this;
   }
 
-  boolean rewrite(KmClassVisitor visitor, DexField field, NamingLens lens) {
+  boolean rewrite(KmClass clazz, DexField field, NamingLens lens) {
     DexString dexString = lens.lookupName(field);
     String finalName = dexString.toString();
-    visitor.visitCompanionObject(finalName);
+    clazz.setCompanionObject(finalName);
     return !finalName.equals(companionObjectFieldName);
   }
 
