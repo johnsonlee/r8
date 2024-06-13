@@ -136,6 +136,7 @@ public class InlineCatchHandlerWithLibraryTypeTest extends TestBase {
       assertFalse(mainHasInlinedCatchHandler);
     } else {
       assertEquals(
+          // Dalvik verifier error present up to and not including L.
           parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.L)
               ? parameters.getApiLevel().getLevel() >= EXCEPTIONS.get(exception)
               : isPresentInRuntime() || isStubbed(),

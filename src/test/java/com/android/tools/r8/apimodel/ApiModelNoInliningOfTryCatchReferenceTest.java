@@ -24,7 +24,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class ApiModelNoInliningOfTryCatchReferenceTest extends TestBase {
 
-  private final AndroidApiLevel exceptionApiLevel = AndroidApiLevel.L_MR1;
+  private final AndroidApiLevel exceptionApiLevel = AndroidApiLevel.M;
 
   @Parameter() public TestParameters parameters;
 
@@ -50,16 +50,28 @@ public class ApiModelNoInliningOfTryCatchReferenceTest extends TestBase {
         .apply(ApiModelingTestHelper::disableOutliningAndStubbing)
         .enableInliningAnnotations()
         .addHorizontallyMergedClassesInspector(
-            horizontallyMergedClassesInspector ->
+            horizontallyMergedClassesInspector -> {
+              // Dalvik verifier error present up to and not including L.
+              if (parameters.isDexRuntime()
+                  && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)) {
                 horizontallyMergedClassesInspector.assertIsCompleteMergeGroup(
-                    TestClass.class, Caller.class))
+                    TestClass.class, Caller.class);
+              } else {
+                horizontallyMergedClassesInspector.assertNoClassesMerged();
+              }
+            })
         .apply(
             ApiModelingTestHelper.addTracedApiReferenceLevelCallBack(
                 (reference, apiLevel) -> {
                   if (reference.equals(Reference.methodFromMethod(tryCatch))) {
-                    // The exception catch guard does not contribute to the modelled API level.
+                    // Dalvik verifier error present up to and not including L.
                     assertEquals(
-                        parameters.isCfRuntime() ? AndroidApiLevel.B : parameters.getApiLevel(),
+                        parameters.isDexRuntime()
+                                && parameters
+                                    .getApiLevel()
+                                    .isGreaterThanOrEqualTo(AndroidApiLevel.L)
+                            ? parameters.getApiLevel()
+                            : exceptionApiLevel,
                         apiLevel);
                   }
                 }))

@@ -175,12 +175,9 @@ public class ComputeApiLevelUseRegistry extends UseRegistry<ProgramMethod> {
 
   private void setMaxApiReferenceLevelForGuard(DexType type) {
     if (isEnabled) {
-      if (ApiReferenceStubber.isAlwaysStubbedType(type, appInfoWithClassHierarchy.dexItemFactory())
-          && !appInfoWithClassHierarchy.options().canHaveDalvikCatchHandlerVerificationBug()) {
-        return;
-      }
       ComputedApiLevel computedApiLevel = apiLevelCompute.computeApiLevelForLibraryReference(type);
       if (ApiReferenceStubber.isNeverStubbedType(type, appInfoWithClassHierarchy.dexItemFactory())
+          || appInfoWithClassHierarchy.options().canHaveDalvikCatchHandlerVerificationBug()
           || computedApiLevel.isUnknownApiLevel()) {
         maxApiReferenceLevel = maxApiReferenceLevel.max(computedApiLevel);
       }

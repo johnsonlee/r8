@@ -182,10 +182,6 @@ public class ApiReferenceStubber {
     }
   }
 
-  public static boolean isAlwaysStubbedType(DexType type, DexItemFactory factory) {
-    return !isNeverStubbedType(type, factory);
-  }
-
   public static boolean isNeverStubbedType(DexType type, DexItemFactory factory) {
     return isJavaType(type, factory);
   }
