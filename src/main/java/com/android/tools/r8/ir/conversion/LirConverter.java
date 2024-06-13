@@ -50,8 +50,8 @@ public class LirConverter {
     CodeRewriterPassCollection codeRewriterPassCollection =
         new CodeRewriterPassCollection(
             new ConstResourceNumberRewriter(appView),
-            new IdentifierNameStringMarker(appView),
-            new StringSwitchConverter(appView));
+            new StringSwitchConverter(appView),
+            new IdentifierNameStringMarker(appView));
     // Convert code objects to LIR.
     ThreadUtils.processItems(
         appView.appInfo().classes(),
