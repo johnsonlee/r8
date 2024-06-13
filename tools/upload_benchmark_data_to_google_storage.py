@@ -40,7 +40,7 @@ def ParseJsonFromCloudStorage(filename, local_bucket):
             return None
 
 
-def main():
+def run():
     # Get the N most recent commits sorted by newest first.
     top = utils.get_sha1_from_revision('origin/main')
     bottom = utils.get_nth_sha1_from_revision(NUM_COMMITS - 1, 'origin/main')
@@ -95,6 +95,10 @@ def main():
                                'perf/benchmark_data.json',
                                header='Cache-Control:no-store')
         perf.ArchiveOutputFile(INDEX_HTML, 'perf/index.html')
+
+
+def main():
+    run()
 
 
 if __name__ == '__main__':

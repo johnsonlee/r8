@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 
+import upload_benchmark_data_to_google_storage
 import utils
 
 BUCKET = "r8-perf-results"
@@ -185,7 +186,7 @@ def main():
                               outdir=options.outdir)
 
             # Write metadata.
-            if os.environ.get('SWARMING_BOT_ID'):
+            if utils.is_bot():
                 meta_file = os.path.join(temp, "meta")
                 with open(meta_file, 'w') as f:
                     f.write("Produced by: " + os.environ.get('SWARMING_BOT_ID'))
@@ -193,6 +194,9 @@ def main():
                                   GetArtifactLocation(app, options.target,
                                                       options.version, 'meta'),
                                   outdir=options.outdir)
+
+    if utils.is_bot():
+        upload_benchmark_data_to_google_storage.run()
 
 
 if __name__ == '__main__':
