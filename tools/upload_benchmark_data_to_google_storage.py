@@ -16,7 +16,6 @@ APPS = ['NowInAndroidApp', 'TiviApp']
 TARGETS = ['r8-full']
 NUM_COMMITS = 250
 
-BUCKET_PUBLIC = 'r8-test-results'
 INDEX_HTML = os.path.join(utils.TOOLS_DIR, 'perf/index.html')
 
 
@@ -94,11 +93,8 @@ def main():
         # Write output files to public bucket.
         perf.ArchiveOutputFile(benchmark_data_file,
                                'perf/benchmark_data.json',
-                               bucket=BUCKET_PUBLIC,
                                header='Cache-Control:no-store')
-        perf.ArchiveOutputFile(INDEX_HTML,
-                               'perf/index.html',
-                               bucket=BUCKET_PUBLIC)
+        perf.ArchiveOutputFile(INDEX_HTML, 'perf/index.html')
 
 
 if __name__ == '__main__':
