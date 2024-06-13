@@ -178,20 +178,21 @@ def main():
                 json.dump(
                     MergeBenchmarkResultJsonFiles(benchmark_result_json_files),
                     f)
-            ArchiveOutputFile(
-                result_file,
-                GetArtifactLocation(app, options.target, options.version,
-                                    'result.json'), options.outdir)
+            ArchiveOutputFile(result_file,
+                              GetArtifactLocation(app, options.target,
+                                                  options.version,
+                                                  'result.json'),
+                              outdir=options.outdir)
 
             # Write metadata.
             if os.environ.get('SWARMING_BOT_ID'):
                 meta_file = os.path.join(temp, "meta")
                 with open(meta_file, 'w') as f:
                     f.write("Produced by: " + os.environ.get('SWARMING_BOT_ID'))
-                ArchiveOutputFile(
-                    meta_file,
-                    GetArtifactLocation(app, options.target, options.version,
-                                        'meta'), options.outdir)
+                ArchiveOutputFile(meta_file,
+                                  GetArtifactLocation(app, options.target,
+                                                      options.version, 'meta'),
+                                  outdir=options.outdir)
 
 
 if __name__ == '__main__':
