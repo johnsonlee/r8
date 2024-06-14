@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteIfNotNull;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
@@ -19,22 +18,14 @@ import com.android.tools.r8.utils.Reporter;
 import java.util.List;
 import java.util.function.Consumer;
 import kotlin.metadata.KmProperty;
+import kotlin.metadata.KmPropertyAccessorAttributes;
 import kotlin.metadata.jvm.JvmExtensionsKt;
 
 // Holds information about KmProperty
 public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
 
-  // Original flags.
-  private final int flags;
-
-  // Original getter flags. E.g., for property getter.
-  private final int getterFlags;
-
-  // Original setter flags. E.g., for property setter.
-  private final int setterFlags;
-
-  // Original property name for (extension) property. Otherwise, null.
-  private final String name;
+  // Original property.
+  private final KmProperty kmProperty;
 
   // Original return type information. This should never be NULL (even for setters without field).
   private final KotlinTypeInfo returnType;
@@ -44,10 +35,6 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
   private final KotlinValueParameterInfo setterParameter;
 
   private final List<KotlinTypeParameterInfo> typeParameters;
-
-  private final KotlinVersionRequirementInfo versionRequirements;
-
-  private final int jvmFlags;
 
   private final KotlinJvmFieldSignatureInfo fieldSignature;
 
@@ -62,33 +49,23 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
   private final List<KotlinTypeInfo> contextReceiverTypes;
 
   private ConcreteKotlinPropertyInfo(
-      int flags,
-      int getterFlags,
-      int setterFlags,
-      String name,
+      KmProperty kmProperty,
       KotlinTypeInfo returnType,
       KotlinTypeInfo receiverParameterType,
       KotlinValueParameterInfo setterParameter,
       List<KotlinTypeParameterInfo> typeParameters,
-      KotlinVersionRequirementInfo versionRequirements,
-      int jvmFlags,
       KotlinJvmFieldSignatureInfo fieldSignature,
       KotlinJvmMethodSignatureInfo getterSignature,
       KotlinJvmMethodSignatureInfo setterSignature,
       KotlinJvmMethodSignatureInfo syntheticMethodForAnnotations,
       KotlinJvmMethodSignatureInfo syntheticMethodForDelegate,
       List<KotlinTypeInfo> contextReceiverTypes) {
-    this.flags = flags;
-    this.getterFlags = getterFlags;
-    this.setterFlags = setterFlags;
-    this.name = name;
     assert returnType != null;
+    this.kmProperty = kmProperty;
     this.returnType = returnType;
     this.receiverParameterType = receiverParameterType;
     this.setterParameter = setterParameter;
     this.typeParameters = typeParameters;
-    this.versionRequirements = versionRequirements;
-    this.jvmFlags = jvmFlags;
     this.fieldSignature = fieldSignature;
     this.getterSignature = getterSignature;
     this.setterSignature = setterSignature;
@@ -100,16 +77,11 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
   public static ConcreteKotlinPropertyInfo create(
       KmProperty kmProperty, DexItemFactory factory, Reporter reporter) {
     return new ConcreteKotlinPropertyInfo(
-        kmProperty.getFlags(),
-        kmProperty.getGetterFlags(),
-        kmProperty.getSetterFlags(),
-        kmProperty.getName(),
+        kmProperty,
         KotlinTypeInfo.create(kmProperty.getReturnType(), factory, reporter),
         KotlinTypeInfo.create(kmProperty.getReceiverParameterType(), factory, reporter),
         KotlinValueParameterInfo.create(kmProperty.getSetterParameter(), factory, reporter),
         KotlinTypeParameterInfo.create(kmProperty.getTypeParameters(), factory, reporter),
-        KotlinVersionRequirementInfo.create(kmProperty.getVersionRequirements()),
-        JvmExtensionsKt.getJvmFlags(kmProperty),
         KotlinJvmFieldSignatureInfo.create(JvmExtensionsKt.getFieldSignature(kmProperty), factory),
         KotlinJvmMethodSignatureInfo.create(
             JvmExtensionsKt.getGetterSignature(kmProperty), factory),
@@ -152,54 +124,60 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
       DexEncodedMethod setter,
       DexEncodedMethod syntheticMethodForAnnotationsMethod,
       AppView<?> appView) {
-    KmProperty kmProperty =
-        consume(new KmProperty(flags, name, getterFlags, setterFlags), consumer);
+    KmProperty rewrittenKmProperty = new KmProperty(kmProperty.getName());
+    consumer.accept(rewrittenKmProperty);
+    KotlinFlagUtils.copyAllFlags(kmProperty, rewrittenKmProperty);
+    KotlinFlagUtils.copyAllFlags(kmProperty.getGetter(), rewrittenKmProperty.getGetter());
+    if (kmProperty.getSetter() != null) {
+      rewrittenKmProperty.setSetter(new KmPropertyAccessorAttributes());
+      KotlinFlagUtils.copyAllFlags(kmProperty.getSetter(), rewrittenKmProperty.getSetter());
+    }
     boolean rewritten =
-        rewriteIfNotNull(appView, returnType, kmProperty::setReturnType, KotlinTypeInfo::rewrite);
-    assert returnType != null;
+        rewriteIfNotNull(
+            appView, returnType, rewrittenKmProperty::setReturnType, KotlinTypeInfo::rewrite);
     rewritten |=
         rewriteIfNotNull(
             appView,
             receiverParameterType,
-            kmProperty::setReceiverParameterType,
+            rewrittenKmProperty::setReceiverParameterType,
             KotlinTypeInfo::rewrite);
     rewritten |=
         rewriteIfNotNull(
             appView,
             setterParameter,
-            kmProperty::setSetterParameter,
+            rewrittenKmProperty::setSetterParameter,
             KotlinValueParameterInfo::rewrite);
     rewritten |=
         rewriteList(
             appView,
             typeParameters,
-            kmProperty.getTypeParameters(),
+            rewrittenKmProperty.getTypeParameters(),
             KotlinTypeParameterInfo::rewrite);
     rewritten |=
         rewriteList(
             appView,
             contextReceiverTypes,
-            kmProperty.getContextReceiverTypes(),
+            rewrittenKmProperty.getContextReceiverTypes(),
             KotlinTypeInfo::rewrite);
-    rewritten |= versionRequirements.rewrite(kmProperty.getVersionRequirements()::addAll);
+    rewrittenKmProperty.getVersionRequirements().addAll(kmProperty.getVersionRequirements());
     if (fieldSignature != null) {
       rewritten |=
           fieldSignature.rewrite(
-              newSignature -> JvmExtensionsKt.setFieldSignature(kmProperty, newSignature),
+              newSignature -> JvmExtensionsKt.setFieldSignature(rewrittenKmProperty, newSignature),
               field,
               appView);
     }
     if (getterSignature != null) {
       rewritten |=
           getterSignature.rewrite(
-              newSignature -> JvmExtensionsKt.setGetterSignature(kmProperty, newSignature),
+              newSignature -> JvmExtensionsKt.setGetterSignature(rewrittenKmProperty, newSignature),
               getter,
               appView);
     }
     if (setterSignature != null) {
       rewritten |=
           setterSignature.rewrite(
-              newSignature -> JvmExtensionsKt.setSetterSignature(kmProperty, newSignature),
+              newSignature -> JvmExtensionsKt.setSetterSignature(rewrittenKmProperty, newSignature),
               setter,
               appView);
     }
@@ -207,23 +185,23 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
       rewritten |=
           syntheticMethodForAnnotations.rewrite(
               newSignature ->
-                  JvmExtensionsKt.setSyntheticMethodForAnnotations(kmProperty, newSignature),
+                  JvmExtensionsKt.setSyntheticMethodForAnnotations(
+                      rewrittenKmProperty, newSignature),
               syntheticMethodForAnnotationsMethod,
               appView);
     }
-    JvmExtensionsKt.setJvmFlags(kmProperty, jvmFlags);
     rewritten |=
         rewriteIfNotNull(
             appView,
             syntheticMethodForDelegate,
-            newMethod -> JvmExtensionsKt.setSyntheticMethodForDelegate(kmProperty, newMethod),
+            newMethod ->
+                JvmExtensionsKt.setSyntheticMethodForDelegate(rewrittenKmProperty, newMethod),
             KotlinJvmMethodSignatureInfo::rewriteNoBacking);
     return rewritten;
   }
 
   @Override
   public void trace(DexDefinitionSupplier definitionSupplier) {
-    assert returnType != null;
     returnType.trace(definitionSupplier);
     if (receiverParameterType != null) {
       receiverParameterType.trace(definitionSupplier);
@@ -252,6 +230,6 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
 
   @Override
   public String toString() {
-    return "KotlinPropertyInfo(" + name + ")";
+    return "KotlinPropertyInfo(" + kmProperty.getName() + ")";
   }
 }
