@@ -7,6 +7,7 @@ package com.android.tools.r8.kotlin;
 import kotlin.metadata.Attributes;
 import kotlin.metadata.KmClass;
 import kotlin.metadata.KmConstructor;
+import kotlin.metadata.KmEffectExpression;
 import kotlin.metadata.KmProperty;
 import kotlin.metadata.KmPropertyAccessorAttributes;
 import kotlin.metadata.jvm.JvmAttributes;
@@ -63,5 +64,10 @@ public class KotlinFlagUtils {
     Attributes.setVisibility(dest, Attributes.getVisibility(src));
     Attributes.setSecondary(dest, Attributes.isSecondary(src));
     Attributes.setHasNonStableParameterNames(dest, Attributes.getHasNonStableParameterNames(src));
+  }
+
+  static void copyAllFlags(KmEffectExpression src, KmEffectExpression dest) {
+    Attributes.setNegated(dest, Attributes.isNegated(src));
+    Attributes.setNullCheckPredicate(dest, Attributes.isNullCheckPredicate(src));
   }
 }

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteIfNotNull;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
@@ -24,42 +23,35 @@ public class KotlinEffectExpressionInfo implements EnqueuerMetadataTraceable {
 
   private static final List<KotlinEffectExpressionInfo> NO_EXPRESSIONS = ImmutableList.of();
   private static final KotlinEffectExpressionInfo NO_EXPRESSION =
-      new KotlinEffectExpressionInfo(0, 0, null, null, NO_EXPRESSIONS, NO_EXPRESSIONS);
+      new KotlinEffectExpressionInfo(
+          new KmEffectExpression(), null, NO_EXPRESSIONS, NO_EXPRESSIONS);
 
-  private final int flags;
-  private final Integer parameterIndex;
-  private final KmConstantValue constantValue;
+  private final KmEffectExpression kmEffectExpression;
   private final KotlinTypeInfo isInstanceType;
   private final List<KotlinEffectExpressionInfo> andArguments;
   private final List<KotlinEffectExpressionInfo> orArguments;
 
   private KotlinEffectExpressionInfo(
-      int flags,
-      Integer parameterIndex,
-      KmConstantValue constantValue,
+      KmEffectExpression kmEffectExpression,
       KotlinTypeInfo isInstanceType,
       List<KotlinEffectExpressionInfo> andArguments,
       List<KotlinEffectExpressionInfo> orArguments) {
-    this.flags = flags;
-    this.parameterIndex = parameterIndex;
-    this.constantValue = constantValue;
+    this.kmEffectExpression = kmEffectExpression;
     this.isInstanceType = isInstanceType;
     this.andArguments = andArguments;
     this.orArguments = orArguments;
   }
 
   static KotlinEffectExpressionInfo create(
-      KmEffectExpression effectExpression, DexItemFactory factory, Reporter reporter) {
-    if (effectExpression == null) {
+      KmEffectExpression kmEffectExpression, DexItemFactory factory, Reporter reporter) {
+    if (kmEffectExpression == null) {
       return NO_EXPRESSION;
     }
     return new KotlinEffectExpressionInfo(
-        effectExpression.getFlags(),
-        effectExpression.getParameterIndex(),
-        effectExpression.getConstantValue(),
-        KotlinTypeInfo.create(effectExpression.isInstanceType(), factory, reporter),
-        create(effectExpression.getAndArguments(), factory, reporter),
-        create(effectExpression.getOrArguments(), factory, reporter));
+        kmEffectExpression,
+        KotlinTypeInfo.create(kmEffectExpression.isInstanceType(), factory, reporter),
+        create(kmEffectExpression.getAndArguments(), factory, reporter),
+        create(kmEffectExpression.getOrArguments(), factory, reporter));
   }
 
   static List<KotlinEffectExpressionInfo> create(
@@ -90,26 +82,31 @@ public class KotlinEffectExpressionInfo implements EnqueuerMetadataTraceable {
     if (this == NO_EXPRESSION) {
       return false;
     }
-    KmEffectExpression effectExpression = consume(new KmEffectExpression(), consumer);
-    effectExpression.setFlags(flags);
-    effectExpression.setParameterIndex(parameterIndex);
+    KmEffectExpression rewrittenKmEffectExpression = new KmEffectExpression();
+    consumer.accept(rewrittenKmEffectExpression);
+    KotlinFlagUtils.copyAllFlags(kmEffectExpression, rewrittenKmEffectExpression);
+    rewrittenKmEffectExpression.setParameterIndex(kmEffectExpression.getParameterIndex());
+    KmConstantValue constantValue = kmEffectExpression.getConstantValue();
     if (constantValue != null) {
-      effectExpression.setConstantValue(constantValue);
+      rewrittenKmEffectExpression.setConstantValue(constantValue);
     }
     boolean rewritten =
         rewriteIfNotNull(
-            appView, isInstanceType, effectExpression::setInstanceType, KotlinTypeInfo::rewrite);
+            appView,
+            isInstanceType,
+            rewrittenKmEffectExpression::setInstanceType,
+            KotlinTypeInfo::rewrite);
     rewritten |=
         rewriteList(
             appView,
             andArguments,
-            effectExpression.getAndArguments(),
+            rewrittenKmEffectExpression.getAndArguments(),
             KotlinEffectExpressionInfo::rewrite);
     rewritten |=
         rewriteList(
             appView,
             orArguments,
-            effectExpression.getOrArguments(),
+            rewrittenKmEffectExpression.getOrArguments(),
             KotlinEffectExpressionInfo::rewrite);
     return rewritten;
   }
