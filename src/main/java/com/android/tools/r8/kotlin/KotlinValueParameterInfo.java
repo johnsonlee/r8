@@ -15,32 +15,29 @@ import com.android.tools.r8.utils.Reporter;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.function.Consumer;
+import kotlin.metadata.Attributes;
 import kotlin.metadata.KmType;
 import kotlin.metadata.KmValueParameter;
-import kotlin.metadata.internal.metadata.deserialization.Flags;
 
 // Provides access to Kotlin information about value parameter.
 class KotlinValueParameterInfo implements EnqueuerMetadataTraceable {
   private static final List<KotlinValueParameterInfo> EMPTY_VALUE_PARAMETERS = ImmutableList.of();
-  // Original parameter name.
-  final String name;
-  // Original parameter flags, e.g., has default value.
-  final int flags;
+  // Original parameter.
+  final KmValueParameter kmValueParameter;
   // Original information about the type.
   final KotlinTypeInfo type;
   // Indicates whether the formal parameter is originally `vararg`.
   final KotlinTypeInfo varargElementType;
 
   private KotlinValueParameterInfo(
-      int flags, String name, KotlinTypeInfo type, KotlinTypeInfo varargElementType) {
-    this.name = name;
-    this.flags = flags;
+      KmValueParameter kmValueParameter, KotlinTypeInfo type, KotlinTypeInfo varargElementType) {
+    this.kmValueParameter = kmValueParameter;
     this.type = type;
     this.varargElementType = varargElementType;
   }
 
   boolean isCrossInline() {
-    return Flags.IS_CROSSINLINE.get(flags);
+    return Attributes.isCrossinline(kmValueParameter);
   }
 
   static KotlinValueParameterInfo create(
@@ -50,8 +47,7 @@ class KotlinValueParameterInfo implements EnqueuerMetadataTraceable {
     }
     KmType kmType = kmValueParameter.getType();
     return new KotlinValueParameterInfo(
-        kmValueParameter.getFlags(),
-        kmValueParameter.getName(),
+        kmValueParameter,
         KotlinTypeInfo.create(kmType, factory, reporter),
         KotlinTypeInfo.create(kmValueParameter.getVarargElementType(), factory, reporter));
   }
@@ -69,13 +65,16 @@ class KotlinValueParameterInfo implements EnqueuerMetadataTraceable {
   }
 
   boolean rewrite(Consumer<KmValueParameter> consumer, AppView<?> appView) {
-    KmValueParameter kmValueParameter = consume(new KmValueParameter(flags, name), consumer);
-    boolean rewritten = type.rewrite(kmValueParameter::setType, appView);
+    KmValueParameter rewrittenKmValueParameter =
+        consume(
+            new KmValueParameter(kmValueParameter.getFlags(), kmValueParameter.getName()),
+            consumer);
+    boolean rewritten = type.rewrite(rewrittenKmValueParameter::setType, appView);
     rewritten |=
         rewriteIfNotNull(
             appView,
             varargElementType,
-            kmValueParameter::setVarargElementType,
+            rewrittenKmValueParameter::setVarargElementType,
             KotlinTypeInfo::rewrite);
     return rewritten;
   }

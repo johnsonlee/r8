@@ -26,11 +26,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import kotlin.metadata.Attributes;
 import kotlin.metadata.KmDeclarationContainer;
 import kotlin.metadata.KmFunction;
 import kotlin.metadata.KmProperty;
+import kotlin.metadata.KmPropertyAccessorAttributes;
 import kotlin.metadata.KmTypeAlias;
-import kotlin.metadata.internal.metadata.deserialization.Flags;
 import kotlin.metadata.jvm.JvmExtensionsKt;
 import kotlin.metadata.jvm.JvmMethodSignature;
 
@@ -85,7 +86,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
         }
         continue;
       }
-      keepIfInline(kmFunction.getFlags(), method, signature, methodSignatureMap, keepByteCode);
+      keepIfInline(kmFunction, method, signature, methodSignatureMap, keepByteCode);
       method.setKotlinMemberInfo(kotlinFunctionInfo);
       originalAssignmentTracker.add(method.getReference());
     }
@@ -110,7 +111,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
             methodSignatureMap.get(propertyProcessor.getterSignature().toString());
         if (method != null) {
           hasBacking = true;
-          keepIfAccessorInline(kmProperty.getGetterFlags(), method, keepByteCode);
+          keepIfAccessorInline(kmProperty.getGetter(), method, keepByteCode);
           method.setKotlinMemberInfo(
               new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.GETTER));
           originalAssignmentTracker.add(method.getReference());
@@ -121,7 +122,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
             methodSignatureMap.get(propertyProcessor.setterSignature().toString());
         if (method != null) {
           hasBacking = true;
-          keepIfAccessorInline(kmProperty.getGetterFlags(), method, keepByteCode);
+          keepIfAccessorInline(kmProperty.getGetter(), method, keepByteCode);
           method.setKotlinMemberInfo(
               new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.SETTER));
           originalAssignmentTracker.add(method.getReference());
@@ -150,12 +151,12 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
   }
 
   private static void keepIfInline(
-      int flags,
+      KmFunction kmFunction,
       DexEncodedMethod method,
       JvmMethodSignature signature,
       Map<String, DexEncodedMethod> methodSignatureMap,
       Consumer<DexEncodedMethod> keepByteCode) {
-    if (Flags.IS_INLINE.get(flags)) {
+    if (Attributes.isInline(kmFunction)) {
       // Check if we can find a default method. If there are more than 32 arguments another int
       // index will be added to the default method.
       for (int i = 1;
@@ -173,8 +174,10 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
   }
 
   private static void keepIfAccessorInline(
-      int flags, DexEncodedMethod method, Consumer<DexEncodedMethod> keepByteCode) {
-    if (Flags.IS_INLINE_ACCESSOR.get(flags)) {
+      KmPropertyAccessorAttributes kmPropertyAccessorAttributes,
+      DexEncodedMethod method,
+      Consumer<DexEncodedMethod> keepByteCode) {
+    if (Attributes.isInline(kmPropertyAccessorAttributes)) {
       keepByteCode.accept(method);
     }
   }
