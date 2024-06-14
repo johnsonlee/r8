@@ -92,9 +92,9 @@ def run():
 
         # Write output files to public bucket.
         perf.ArchiveOutputFile(benchmark_data_file,
-                               'perf/benchmark_data.json',
+                               'benchmark_data.json',
                                header='Cache-Control:no-store')
-        perf.ArchiveOutputFile(INDEX_HTML, 'perf/index.html')
+        perf.ArchiveOutputFile(INDEX_HTML, 'index.html')
 
 
 def main():
