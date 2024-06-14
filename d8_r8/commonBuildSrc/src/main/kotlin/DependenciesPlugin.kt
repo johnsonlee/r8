@@ -469,6 +469,70 @@ object ThirdPartyDeps {
     Paths.get(
       "third_party", "opensource-apps", "compose-examples",
       "changed-bitwise-value-propagation.tar.gz.sha1").toFile())
+  val composeSamplesCrane = ThirdPartyDependency(
+    "compose-samples-crane",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "crane").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "crane.tar.gz.sha1").toFile())
+  val composeSamplesJetCaster = ThirdPartyDependency(
+    "compose-samples-jetcaster",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetcaster").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetcaster.tar.gz.sha1").toFile())
+  val composeSamplesJetChat = ThirdPartyDependency(
+    "compose-samples-jetchat",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetchat").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetchat.tar.gz.sha1").toFile())
+  val composeSamplesJetLagged = ThirdPartyDependency(
+    "compose-samples-jetlagged",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetlagged").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetlagged.tar.gz.sha1").toFile())
+  val composeSamplesJetNews = ThirdPartyDependency(
+    "compose-samples-jetnews",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetnews").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetnews.tar.gz.sha1").toFile())
+  val composeSamplesJetSnack = ThirdPartyDependency(
+    "compose-samples-jetsnack",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetsnack").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "jetsnack.tar.gz.sha1").toFile())
+  val composeSamplesOwl = ThirdPartyDependency(
+    "compose-samples-owl",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "owl").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "owl.tar.gz.sha1").toFile())
+  val composeSamplesReply = ThirdPartyDependency(
+    "compose-samples-reply",
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "reply").toFile(),
+    Paths.get(
+      "third_party", "opensource-apps", "android", "compose-samples",
+      "reply.tar.gz.sha1").toFile())
   val coreLambdaStubs = ThirdPartyDependency(
     "coreLambdaStubs",
     Paths.get("third_party", "core-lambda-stubs").toFile(),

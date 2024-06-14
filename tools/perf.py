@@ -24,12 +24,10 @@ SAMPLE_BENCHMARK_RESULT_JSON = {
 }
 
 # Result structure on cloud storage
-# gs://bucket/benchmark_results/APP/TARGET/GIT_HASH/results
+# gs://bucket/benchmark_results/APP/TARGET/GIT_HASH/result.json
 #                                                   meta
 # where results simply contains the result lines and
 # meta contains information about the execution (machine)
-
-
 def ParseOptions():
     result = argparse.ArgumentParser()
     result.add_argument('--app',
@@ -62,7 +60,7 @@ def ParseOptions():
                         help='Use R8 hash for the run (default local build)',
                         default=None)
     options, args = result.parse_known_args()
-    options.apps = options.app or ['NowInAndroidApp', 'TiviApp']
+    options.apps = options.app or ['CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp', 'JetSnackApp', 'NowInAndroidApp', 'Owl', 'ReplyApp', 'TiviApp']
     options.quiet = not options.verbose
     del options.app
     return options, args

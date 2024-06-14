@@ -386,101 +386,10 @@ APPS = [
         'url': 'https://github.com/wikimedia/apps-android-wikipedia',
         'revision': '0fa7cad843c66313be8e25790ef084cf1a1fa67e',
         'folder': 'wikipedia',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'androidx.compose.samples.crane',
-        'name': 'compose-crane',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/crane',
-        'golem_duration': 240
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.jetcaster',
-        'name': 'compose-jetcaster',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/jetcaster',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.compose.jetchat',
-        'name': 'compose-jetchat',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/jetchat',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.jetnews',
-        'name': 'compose-jetnews',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/jetnews',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.jetsnack',
-        'name': 'compose-jetsnack',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/jetsnack',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.compose.jetsurvey',
-        'name': 'compose-jetsurvey',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/jetsurvey',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.owl',
-        'name': 'compose-owl',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/owl',
-    }),
-    # TODO(b/173167253): Check if monkey testing works.
-    App({
-        'id': 'com.example.compose.rally',
-        'name': 'compose-rally',
-        'collections': ['compose-samples'],
-        'dump_app': 'dump_app.zip',
-        'apk_app': 'app-release-unsigned.apk',
-        'url': 'https://github.com/android/compose-samples',
-        'revision': '779cf9e187b8ee2c6b620b2abb4524719b3f10f8',
-        'folder': 'android/compose-samples/rally',
-    }),
+    })
 ]
 
-APP_COLLECTIONS = [AppCollection({
-    'name': 'compose-samples',
-})]
+APP_COLLECTIONS = []
 
 
 def remove_print_lines(file):

@@ -5,6 +5,7 @@ package com.android.tools.r8.benchmarks;
 
 import static java.util.Collections.emptyList;
 
+import com.android.tools.r8.benchmarks.appdumps.ComposeSamplesBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.NowInAndroidBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.TiviBenchmarks;
 import com.android.tools.r8.benchmarks.desugaredlib.L8Benchmark;
@@ -23,6 +24,13 @@ public class BenchmarkCollection {
 
   // Actual list of all configured benchmarks.
   private final Map<String, List<BenchmarkConfig>> benchmarks = new HashMap<>();
+
+  @SafeVarargs
+  public BenchmarkCollection(List<BenchmarkConfig>... benchmarksCollection) {
+    for (List<BenchmarkConfig> benchmarks : benchmarksCollection) {
+      benchmarks.forEach(this::addBenchmark);
+    }
+  }
 
   private void addBenchmark(BenchmarkConfig benchmark) {
     List<BenchmarkConfig> variants =
@@ -52,15 +60,15 @@ public class BenchmarkCollection {
   }
 
   public static BenchmarkCollection computeCollection() {
-    BenchmarkCollection collection = new BenchmarkCollection();
     // Every benchmark that should be active on golem must be setup in this method.
-    HelloWorldBenchmark.configs().forEach(collection::addBenchmark);
-    LegacyDesugaredLibraryBenchmark.configs().forEach(collection::addBenchmark);
-    L8Benchmark.configs().forEach(collection::addBenchmark);
-    NowInAndroidBenchmarks.configs().forEach(collection::addBenchmark);
-    TiviBenchmarks.configs().forEach(collection::addBenchmark);
-    RetraceStackTraceBenchmark.configs().forEach(collection::addBenchmark);
-    return collection;
+    return new BenchmarkCollection(
+        HelloWorldBenchmark.configs(),
+        LegacyDesugaredLibraryBenchmark.configs(),
+        L8Benchmark.configs(),
+        NowInAndroidBenchmarks.configs(),
+        TiviBenchmarks.configs(),
+        RetraceStackTraceBenchmark.configs(),
+        ComposeSamplesBenchmarks.configs());
   }
 
   /** Compute and print the golem configuration. */
