@@ -20,45 +20,41 @@ import kotlin.metadata.jvm.JvmExtensionsKt;
 // Holds information about a KmConstructor object.
 public class KotlinConstructorInfo implements KotlinMethodLevelInfo {
 
-  // Information from original KmValueParameter(s) if available.
-  private final int flags;
+  // Information from original constructor.
+  private final KmConstructor kmConstructor;
   // Information about the value parameters.
   private final List<KotlinValueParameterInfo> valueParameters;
   // Information about version requirements.
-  private final KotlinVersionRequirementInfo versionRequirements;
-  // Information about the signature.
   private final KotlinJvmMethodSignatureInfo signature;
 
   private KotlinConstructorInfo(
-      int flags,
+      KmConstructor kmConstructor,
       List<KotlinValueParameterInfo> valueParameters,
-      KotlinVersionRequirementInfo versionRequirements,
       KotlinJvmMethodSignatureInfo signature) {
-    this.flags = flags;
+    this.kmConstructor = kmConstructor;
     this.valueParameters = valueParameters;
-    this.versionRequirements = versionRequirements;
     this.signature = signature;
   }
 
   public static KotlinConstructorInfo create(
       KmConstructor kmConstructor, DexItemFactory factory, Reporter reporter) {
     return new KotlinConstructorInfo(
-        kmConstructor.getFlags(),
+        kmConstructor,
         KotlinValueParameterInfo.create(kmConstructor.getValueParameters(), factory, reporter),
-        KotlinVersionRequirementInfo.create(kmConstructor.getVersionRequirements()),
         KotlinJvmMethodSignatureInfo.create(JvmExtensionsKt.getSignature(kmConstructor), factory));
   }
 
   boolean rewrite(KmClass kmClass, DexEncodedMethod method, AppView<?> appView) {
     // Note that JvmExtensionsKt.setSignature does not have an overload for KmConstructorVisitor,
     // thus we rely on creating the KmConstructor manually.
-    // TODO(b/154348683): Check for special flags to pass in.
-    KmConstructor kmConstructor = new KmConstructor(flags);
+    KmConstructor rewrittenKmConstructor = new KmConstructor();
+    KotlinFlagUtils.copyAllFlags(kmConstructor, rewrittenKmConstructor);
     boolean rewritten = false;
     if (signature != null) {
       rewritten =
           signature.rewrite(
-              rewrittenSignature -> JvmExtensionsKt.setSignature(kmConstructor, rewrittenSignature),
+              rewrittenSignature ->
+                  JvmExtensionsKt.setSignature(rewrittenKmConstructor, rewrittenSignature),
               method,
               appView);
     }
@@ -66,10 +62,10 @@ public class KotlinConstructorInfo implements KotlinMethodLevelInfo {
         rewriteList(
             appView,
             valueParameters,
-            kmConstructor.getValueParameters(),
+            rewrittenKmConstructor.getValueParameters(),
             KotlinValueParameterInfo::rewrite);
-    rewritten |= versionRequirements.rewrite(kmConstructor.getVersionRequirements()::addAll);
-    kmClass.getConstructors().add(kmConstructor);
+    rewrittenKmConstructor.getVersionRequirements().addAll(kmConstructor.getVersionRequirements());
+    kmClass.getConstructors().add(rewrittenKmConstructor);
     return rewritten;
   }
 
