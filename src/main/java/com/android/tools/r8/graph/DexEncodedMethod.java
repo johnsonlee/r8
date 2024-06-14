@@ -35,7 +35,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.graph.proto.ArgumentInfoCollection;
+import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Position;
@@ -1579,13 +1579,16 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     }
 
     public Builder rewriteParameterAnnotations(
-        DexEncodedMethod method, ArgumentInfoCollection argumentInfoCollection) {
+        DexEncodedMethod method, RewrittenPrototypeDescription rewrittenPrototypeDescription) {
       if (parameterAnnotations.isEmpty()) {
         // Nothing to do.
         return this;
       }
+
+      var argumentInfoCollection = rewrittenPrototypeDescription.getArgumentInfoCollection();
       if (!argumentInfoCollection.hasArgumentPermutation()
-          && !argumentInfoCollection.hasRemovedArguments()) {
+          && !argumentInfoCollection.hasRemovedArguments()
+          && !rewrittenPrototypeDescription.hasExtraParameters()) {
         // Nothing to do.
         return this;
       }
@@ -1636,6 +1639,14 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
         }
         newParameterAnnotations = newPermutedParameterAnnotations;
         newNumberOfMissingParameterAnnotations = 0;
+      }
+
+      if (rewrittenPrototypeDescription.hasExtraParameters()) {
+        for (int extraParameter = 0;
+            extraParameter < rewrittenPrototypeDescription.getExtraParameters().size();
+            extraParameter++) {
+          newParameterAnnotations.add(DexAnnotationSet.empty());
+        }
       }
 
       return setParameterAnnotations(

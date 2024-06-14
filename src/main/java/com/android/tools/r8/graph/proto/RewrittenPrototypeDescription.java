@@ -84,7 +84,7 @@ public class RewrittenPrototypeDescription {
 
   public Consumer<DexEncodedMethod.Builder> createParameterAnnotationsRemover(
       DexEncodedMethod method) {
-    return getArgumentInfoCollection().createParameterAnnotationsRemover(method);
+    return builder -> builder.rewriteParameterAnnotations(method, this);
   }
 
   public MethodOptimizationInfoFixer createMethodOptimizationInfoFixer() {

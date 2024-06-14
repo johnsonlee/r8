@@ -5,7 +5,6 @@
 package com.android.tools.r8.graph.proto;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfoFixer;
@@ -24,7 +23,6 @@ import it.unimi.dsi.fastutil.objects.ObjectBidirectionalIterator;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Objects;
-import java.util.function.Consumer;
 
 public class ArgumentInfoCollection {
 
@@ -369,14 +367,5 @@ public class ArgumentInfoCollection {
     RewrittenPrototypeDescription prototypeChanges =
         RewrittenPrototypeDescription.create(Collections.emptyList(), null, this);
     return prototypeChanges.createMethodOptimizationInfoFixer();
-  }
-
-  /**
-   * Returns a function for rewriting the parameter annotations on a method info after prototype
-   * changes were made.
-   */
-  public Consumer<DexEncodedMethod.Builder> createParameterAnnotationsRemover(
-      DexEncodedMethod method) {
-    return builder -> builder.rewriteParameterAnnotations(method, this);
   }
 }

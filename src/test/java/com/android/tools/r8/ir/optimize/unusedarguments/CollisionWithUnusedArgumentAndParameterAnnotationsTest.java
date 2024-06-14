@@ -3,14 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.unusedarguments;
 
-import static org.junit.Assert.assertTrue;
-
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -23,7 +19,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class CollisionWithUnusedArgumentAndParameterAnnotations extends TestBase {
+public class CollisionWithUnusedArgumentAndParameterAnnotationsTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -50,25 +46,15 @@ public class CollisionWithUnusedArgumentAndParameterAnnotations extends TestBase
 
   @Test
   public void testR8Compat() throws Exception {
-    try {
-      testForR8Compat(parameters.getBackend())
-          .addInnerClasses(getClass())
-          .addKeepMainRule(TestClass.class)
-          .addKeepRuntimeVisibleParameterAnnotations()
-          .addKeepClassAndMembersRules(ParameterAnnotation.class)
-          .setMinApi(parameters.getApiLevel())
-          .enableNeverClassInliningAnnotations()
-          .run(parameters.getRuntime(), TestClass.class)
-          .assertSuccessWithOutput(EXPECTED_OUTPUT);
-      assertTrue(
-          parameters.isDexRuntime()
-              && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L));
-    } catch (CompilationFailedException e) {
-      // TODO(b/346981583): This should not hit an assertion.
-      assertTrue(
-          parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.L));
-      assertTrue(e.getCause() instanceof AssertionError);
-    }
+    testForR8Compat(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(TestClass.class)
+        .addKeepRuntimeVisibleParameterAnnotations()
+        .addKeepClassAndMembersRules(ParameterAnnotation.class)
+        .setMinApi(parameters.getApiLevel())
+        .enableNeverClassInliningAnnotations()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Retention(RetentionPolicy.RUNTIME)
