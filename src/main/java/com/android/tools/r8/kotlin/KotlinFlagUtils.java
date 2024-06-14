@@ -5,6 +5,7 @@
 package com.android.tools.r8.kotlin;
 
 import kotlin.metadata.Attributes;
+import kotlin.metadata.KmClass;
 import kotlin.metadata.KmProperty;
 import kotlin.metadata.KmPropertyAccessorAttributes;
 import kotlin.metadata.jvm.JvmAttributes;
@@ -35,5 +36,24 @@ public class KotlinFlagUtils {
     Attributes.setNotDefault(dest, Attributes.isNotDefault(src));
     Attributes.setExternal(dest, Attributes.isExternal(src));
     Attributes.setInline(dest, Attributes.isInline(src));
+  }
+
+  static void copyAllFlags(KmClass src, KmClass dest) {
+    Attributes.setHasAnnotations(dest, Attributes.getHasAnnotations(src));
+    Attributes.setVisibility(dest, Attributes.getVisibility(src));
+    Attributes.setModality(dest, Attributes.getModality(src));
+    Attributes.setKind(dest, Attributes.getKind(src));
+    Attributes.setInner(dest, Attributes.isInner(src));
+    Attributes.setData(dest, Attributes.isData(src));
+    Attributes.setExternal(dest, Attributes.isExternal(src));
+    Attributes.setExpect(dest, Attributes.isExpect(src));
+    Attributes.setValue(dest, Attributes.isValue(src));
+    Attributes.setFunInterface(dest, Attributes.isFunInterface(src));
+    Attributes.setHasEnumEntries(dest, Attributes.getHasEnumEntries(src));
+
+    JvmAttributes.setCompiledInCompatibilityMode(
+        dest, JvmAttributes.isCompiledInCompatibilityMode(src));
+    JvmAttributes.setHasMethodBodiesInInterface(
+        dest, JvmAttributes.getHasMethodBodiesInInterface(src));
   }
 }
