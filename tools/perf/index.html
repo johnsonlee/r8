@@ -5,7 +5,7 @@
   <title>R8 perf</title>
 </head>
 <body>
-  <select id="benchmark-selector"></select>
+  <div id="benchmark-selectors"></div>
   <div>
       <canvas id="myChart"></canvas>
   </div>
@@ -62,106 +62,113 @@
     }
 
     // DOM references.
-    const benchmarkSelector = document.getElementById('benchmark-selector')
+    const benchmarkSelectors = document.getElementById('benchmark-selectors')
     const canvas = document.getElementById('myChart');
     const showMoreLeft = document.getElementById('show-more-left');
     const showLessLeft = document.getElementById('show-less-left');
     const showLessRight = document.getElementById('show-less-right');
     const showMoreRight = document.getElementById('show-more-right');
 
-    // Initialize benchmark selector.
+    // Initialize benchmark selectors.
     const benchmarks = new Set();
     for (const commit of commits.values()) {
       for (const benchmark in commit.benchmarks) {
           benchmarks.add(benchmark)
       }
     }
-    var selectedBenchmark = window.location.hash.substring(1)
-    if (!benchmarks.has(selectedBenchmark)) {
-      selectedBenchmark = benchmarks.values().next().value;
+    const selectedBenchmarks =
+        new Set(
+            unescape(window.location.hash.substring(1))
+                .split(',')
+                .filter(b => benchmarks.has(b)));
+    if (selectedBenchmarks.size == 0) {
+      selectedBenchmarks.add(benchmarks.values().next().value);
     }
     for (const benchmark of benchmarks.values()) {
-      const opt = document.createElement('option');
-      opt.value = benchmark;
-      opt.innerHTML = benchmark;
-      benchmarkSelector.appendChild(opt);
-      if (benchmark == selectedBenchmark) {
-        benchmarkSelector.selectedIndex = benchmarkSelector.options.length - 1
-      }
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'benchmark';
+      input.id = benchmark;
+      input.value = benchmark;
+      input.checked = selectedBenchmarks.has(benchmark);
+      input.onchange = function (e) {
+        if (e.target.checked) {
+          selectedBenchmarks.add(e.target.value);
+        } else {
+          selectedBenchmarks.delete(e.target.value);
+        }
+        updateChart();
+      };
+
+      const label = document.createElement('label');
+      label.htmlFor = benchmark;
+      label.innerHTML = benchmark;
+
+      benchmarkSelectors.appendChild(input);
+      benchmarkSelectors.appendChild(label);
     }
-    benchmarkSelector.onchange = function(event) {
-      selectedBenchmark =
-          benchmarkSelector.options[benchmarkSelector.selectedIndex].value;
-      updateChart();
-      window.location.hash = selectedBenchmark;
-    };
 
     // Chart data provider.
     function getData(start = 0, end = commits.length) {
       const filteredCommits =
           commits
               .slice(start, end);
-              //.filter(
-              //    commit =>
-              //        selectedBenchmark in commit.benchmarks
-              //            && commit.benchmarks[selectedBenchmark].results.length > 0);
       const labels = filteredCommits.map((c, i) => i);
-      const codeSizeData =
-          filteredCommits.map(
-              (c, i) =>
-                  selectedBenchmark in filteredCommits[i].benchmarks
-                      ? filteredCommits[i]
-                          .benchmarks[selectedBenchmark]
-                          .results
-                          .first()
-                          .code_size
-                      : NaN);
-      const codeSizeScatterData = [];
-      for (const commit of filteredCommits.values()) {
-        if (!(selectedBenchmark in commit.benchmarks)) {
-          continue;
-        }
-        const codeSizes =
-            commit.benchmarks[selectedBenchmark].results.map(result => result.code_size)
-        const expectedCodeSize = codeSizes.first();
-        if (codeSizes.any(codeSize => codeSize != expectedCodeSize)) {
-          const seen = new Set();
-          seen.add(expectedCodeSize);
-          for (const codeSize of codeSizes.values()) {
-            if (!seen.has(codeSize)) {
-              codeSizeScatterData.push({ x: commit.index, y: codeSize });
-              seen.add(codeSize);
+      const datasets = []
+      for (const selectedBenchmark of selectedBenchmarks.values()) {
+        const codeSizeData =
+            filteredCommits.map(
+                (c, i) =>
+                    selectedBenchmark in filteredCommits[i].benchmarks
+                        ? filteredCommits[i]
+                            .benchmarks[selectedBenchmark]
+                            .results
+                            .first()
+                            .code_size
+                        : NaN);
+        const codeSizeScatterData = [];
+        for (const commit of filteredCommits.values()) {
+          if (!(selectedBenchmark in commit.benchmarks)) {
+            continue;
+          }
+          const codeSizes =
+              commit.benchmarks[selectedBenchmark].results.map(result => result.code_size)
+          const expectedCodeSize = codeSizes.first();
+          if (codeSizes.any(codeSize => codeSize != expectedCodeSize)) {
+            const seen = new Set();
+            seen.add(expectedCodeSize);
+            for (const codeSize of codeSizes.values()) {
+              if (!seen.has(codeSize)) {
+                codeSizeScatterData.push({ x: commit.index, y: codeSize });
+                seen.add(codeSize);
+              }
             }
           }
         }
-      }
-      const runtimeData =
-          filteredCommits.map(
-              (c, i) =>
-                  selectedBenchmark in filteredCommits[i].benchmarks
-                      ? filteredCommits[i]
-                          .benchmarks[selectedBenchmark]
-                          .results
-                          .map(result => result.runtime)
-                          .min()
-                          .ns_to_s()
-                      : NaN);
-      const runtimeScatterData = [];
-      for (const commit of filteredCommits.values()) {
-        if (!(selectedBenchmark in commit.benchmarks)) {
-          continue;
+        const runtimeData =
+            filteredCommits.map(
+                (c, i) =>
+                    selectedBenchmark in filteredCommits[i].benchmarks
+                        ? filteredCommits[i]
+                            .benchmarks[selectedBenchmark]
+                            .results
+                            .map(result => result.runtime)
+                            .min()
+                            .ns_to_s()
+                        : NaN);
+        const runtimeScatterData = [];
+        for (const commit of filteredCommits.values()) {
+          if (!(selectedBenchmark in commit.benchmarks)) {
+            continue;
+          }
+          const runtimes =
+              commit.benchmarks[selectedBenchmark].results.map(result => result.runtime)
+          for (const runtime of runtimes.values()) {
+            runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
+          }
         }
-        const runtimes =
-            commit.benchmarks[selectedBenchmark].results.map(result => result.runtime)
-        for (const runtime of runtimes.values()) {
-          runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
-        }
-      }
 
-      const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
-      return {
-        labels: labels,
-        datasets: [
+        datasets.push(...[
           {
             type: 'line',
             label: 'Code size',
@@ -178,6 +185,7 @@
             type: 'scatter',
             label: 'Nondeterminism',
             data: codeSizeScatterData,
+            radius: 6,
             pointBackgroundColor: 'red'
           },
           {
@@ -199,8 +207,26 @@
             data: runtimeScatterData,
             yAxisID: 'y2'
           }
-        ],
+        ]);
+      }
+
+      const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
+      return {
+        labels: labels,
+        datasets: datasets,
       };
+    }
+
+    // Legend tracking.
+    const legends =
+        new Set(['Code size', 'Nondeterminism', 'Runtime', 'Runtime variance']);
+    const selectedLegends =
+        new Set(
+              unescape(window.location.hash.substring(1))
+                  .split(',')
+                  .filter(l => legends.has(l)));
+    if (selectedLegends.size == 0) {
+      legends.forEach(l => selectedLegends.add(l));
     }
 
     // Chart options.
@@ -209,6 +235,27 @@
           event.native.target.style.cursor =
               chartElement[0] ? 'pointer' : 'default',
       plugins: {
+        legend: {
+          labels: {
+            filter: function(legendItem, data) {
+              // Only retain the legends for the first selected benchmark. If
+              // multiple benchmarks are selected, then use the legends of the
+              // first selected benchmark to control all selected benchmarks.
+              const numUniqueLegends =
+                  data.datasets.length / selectedBenchmarks.size;
+              return legendItem.datasetIndex < numUniqueLegends;
+            },
+          },
+          onClick: function legendClickHandler(e, legendItem, legend) {
+            const clickedLegend = legendItem.text;
+            if (selectedLegends.has(clickedLegend)) {
+              selectedLegends.delete(clickedLegend);
+            } else {
+              selectedLegends.add(clickedLegend);
+            }
+            updateChart();
+          },
+        },
         tooltip: {
           callbacks: {
             title: (context) => {
@@ -257,12 +304,6 @@
         }
       }
     };
-
-    // Create chart.
-    const myChart = new Chart(canvas, {
-      data: getData(),
-      options: options
-    });
 
     // Setup click handler.
     canvas.onclick = function (event) {
@@ -324,14 +365,41 @@
 
     function updateChart() {
       console.assert(left <= right);
+      // Update datasets.
       const newData = getData(left, right);
       Object.assign(myChart.data, newData);
+      // Update chart.
       myChart.update();
+      // Update legends.
+      for (var datasetIndex = 0;
+          datasetIndex < myChart.data.datasets.length;
+          datasetIndex++) {
+        const datasetMeta = myChart.getDatasetMeta(datasetIndex);
+        datasetMeta.hidden = !selectedLegends.has(datasetMeta.label);
+      }
+      // Update chart.
+      myChart.update();
+      // Update navigation.
       showMoreLeft.disabled = left == 0;
       showLessLeft.disabled = left == right - 1;
       showLessRight.disabled = left == right - 1;
       showMoreRight.disabled = right == commits.length;
+      // Update hash.
+      window.location.hash =
+          Array.from(selectedBenchmarks)
+              .concat(
+                  selectedLegends.size == legends.size
+                      ? []
+                      : Array.from(selectedLegends))
+              .join(',');
     }
+
+    // Create chart.
+    const myChart = new Chart(canvas, {
+      data: getData(),
+      options: options
+    });
+    updateChart();
   </script>
 </body>
 </html>
