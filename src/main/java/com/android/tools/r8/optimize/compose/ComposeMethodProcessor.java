@@ -9,6 +9,7 @@ import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
@@ -33,6 +34,8 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParam
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.optimize.argumentpropagation.propagation.DefaultFieldValueJoiner;
+import com.android.tools.r8.optimize.argumentpropagation.propagation.FlowGraph;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.IterableUtils;
@@ -42,6 +45,8 @@ import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -92,7 +97,22 @@ public class ComposeMethodProcessor extends MethodProcessor {
 
     InFlowPropagator inFlowPropagator =
         new InFlowPropagator(
-            appView, null, converter, codeScanner.getFieldStates(), codeScanner.getMethodStates());
+            appView, null, converter, codeScanner.getFieldStates(), codeScanner.getMethodStates()) {
+
+          @Override
+          protected DefaultFieldValueJoiner createDefaultFieldValueJoiner(
+              List<FlowGraph> flowGraphs) {
+            return new DefaultFieldValueJoiner(appView, null, fieldStates, flowGraphs) {
+
+              @Override
+              protected Map<DexProgramClass, List<ProgramField>> getFieldsOfInterest() {
+                // We do not rely on the optimization of any fields in the Composable optimization
+                // pass.
+                return Collections.emptyMap();
+              }
+            };
+          }
+        };
     inFlowPropagator.run(executorService);
 
     ArgumentPropagatorOptimizationInfoPopulator optimizationInfoPopulator =
