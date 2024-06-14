@@ -258,6 +258,12 @@ public class DefaultFieldValueJoiner {
         (holderType, fields) -> {
           assert !fields.isEmpty();
           DexProgramClass holder = fields.iterator().next().getHolder();
+          // If the class is kept it could be instantiated directly, in which case all default field
+          // values could be live.
+          if (appView.getKeepInfo(holder).isPinned(appView.options())) {
+            fields.forEach(liveDefaultValueConsumer);
+            return true;
+          }
           if (holder.isFinal() || !appView.appInfo().isInstantiatedIndirectly(holder)) {
             // When the class is not explicitly marked final, the class could in principle have
             // injected subclasses if it is pinned. However, none of the fields are pinned, so we
