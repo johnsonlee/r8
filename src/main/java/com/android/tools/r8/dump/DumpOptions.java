@@ -273,6 +273,10 @@ public class DumpOptions {
     throw new RuntimeException("Unknown key value pair: " + key + " = " + value);
   }
 
+  public String getAndroidApiExtensionPackages() {
+    return systemProperties.get("com.android.tools.r8.androidApiExtensionPackages");
+  }
+
   public Tool getTool() {
     return tool;
   }
@@ -281,8 +285,16 @@ public class DumpOptions {
     return compilationMode;
   }
 
+  public boolean getIsolatedSplits() {
+    return isolatedSplits.orElse(false);
+  }
+
   public int getMinApi() {
     return minApi;
+  }
+
+  public boolean getEnableSameFilePolicy() {
+    return systemProperties.containsKey("com.android.tools.r8.enableSameFilePolicy");
   }
 
   private void addOptionalDumpEntry(

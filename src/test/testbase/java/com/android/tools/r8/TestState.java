@@ -4,6 +4,7 @@
 package com.android.tools.r8;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -38,6 +39,14 @@ public class TestState {
 
   public Path getNewTempFile(String name) throws IOException {
     return getNewTempFolder().resolve(name);
+  }
+
+  public Path getNewTempFileUnchecked(String name) {
+    try {
+      return getNewTempFile(name);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   public DiagnosticsHandler getDiagnosticsHandler() {

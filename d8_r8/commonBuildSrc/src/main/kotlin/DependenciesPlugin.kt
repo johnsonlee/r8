@@ -453,6 +453,10 @@ object ThirdPartyDeps {
     Paths.get("third_party", "chrome", "chrome_200430").toFile(),
     Paths.get("third_party", "chrome", "chrome_200430.tar.gz.sha1").toFile(),
     DependencyType.X20)
+  val chromeBenchmark = ThirdPartyDependency(
+    "chrome-benchmark",
+    Paths.get("third_party", "opensource-apps", "chrome").toFile(),
+    Paths.get("third_party", "opensource-apps", "chrome.tar.gz.sha1").toFile())
   val compilerApi = ThirdPartyDependency(
     "compiler-api",
     Paths.get(

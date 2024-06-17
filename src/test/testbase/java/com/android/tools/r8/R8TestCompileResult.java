@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -239,14 +238,17 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
       throws IOException {
     assert getBackend() == runtime.getBackend();
     ClassSubject mainClassSubject = inspector().clazz(SplitRunner.class);
-    assertThat("Did you forget a keep rule for the main method?", mainClassSubject, Matchers.isPresent());
+    assertThat(
+        "Did you forget a keep rule for the main method?", mainClassSubject, Matchers.isPresent());
     assertThat(
         "Did you forget a keep rule for the main method?",
         mainClassSubject.mainMethod(),
         Matchers.isPresent());
     ClassSubject mainFeatureClassSubject = featureInspector(feature).clazz(mainFeatureClass);
     assertThat(
-        "Did you forget a keep rule for the run method?", mainFeatureClassSubject, Matchers.isPresent());
+        "Did you forget a keep rule for the run method?",
+        mainFeatureClassSubject,
+        Matchers.isPresent());
     assertThat(
         "Did you forget a keep rule for the run method?",
         mainFeatureClassSubject.uniqueMethodWithOriginalName("run"),
@@ -278,6 +280,15 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
 
   public R8TestCompileResult writeProguardMap(Path path) throws IOException {
     FileUtils.writeTextFile(path, getProguardMap());
+    return self();
+  }
+
+  @Override
+  public R8TestCompileResult benchmarkCodeSize(BenchmarkResults results)
+      throws IOException, ResourceException {
+    int applicationSizeWithFeatures =
+        AndroidApp.builder(app).addProgramFiles(features).build().applicationSize();
+    results.addCodeSizeResult(applicationSizeWithFeatures);
     return self();
   }
 }

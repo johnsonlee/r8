@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 public class CompilerDump {
 
@@ -27,6 +28,18 @@ public class CompilerDump {
 
   public CompilerDump(Path directory) {
     this.directory = directory;
+  }
+
+  public void forEachFeatureArchive(Consumer<? super Path> consumer) {
+    int i = 1;
+    while (true) {
+      Path featureJar = directory.resolve("feature-" + i + ".jar");
+      if (!Files.exists(featureJar)) {
+        break;
+      }
+      consumer.accept(featureJar);
+      i++;
+    }
   }
 
   public Path getProgramArchive() {

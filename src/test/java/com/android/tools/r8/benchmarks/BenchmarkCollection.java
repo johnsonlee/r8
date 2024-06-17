@@ -5,6 +5,7 @@ package com.android.tools.r8.benchmarks;
 
 import static java.util.Collections.emptyList;
 
+import com.android.tools.r8.benchmarks.appdumps.ChromeBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.ComposeSamplesBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.NowInAndroidBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.TiviBenchmarks;
@@ -68,7 +69,8 @@ public class BenchmarkCollection {
         NowInAndroidBenchmarks.configs(),
         TiviBenchmarks.configs(),
         RetraceStackTraceBenchmark.configs(),
-        ComposeSamplesBenchmarks.configs());
+        ComposeSamplesBenchmarks.configs(),
+        ChromeBenchmarks.configs());
   }
 
   /** Compute and print the golem configuration. */

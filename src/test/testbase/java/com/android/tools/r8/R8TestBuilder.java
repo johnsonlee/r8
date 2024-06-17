@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-
+import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
@@ -36,6 +36,7 @@ import com.android.tools.r8.shaking.NoVerticalClassMergingRule;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.startup.StartupProfileProvider;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.MapIdTemplateProvider;
@@ -856,6 +857,18 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     builder.addFeatureSplit(
         builder -> SplitterTestBase.simpleSplitProvider(builder, path, getState().getTempFolder(), classes));
     features.add(path);
+    return self();
+  }
+
+  public T addFeatureSplit(Path featureJar) {
+    Path featureOutJar = getState().getNewTempFileUnchecked("feature.zip");
+    builder.addFeatureSplit(
+        builder ->
+            builder
+                .addProgramResourceProvider(ArchiveResourceProvider.fromArchive(featureJar, true))
+                .setProgramConsumer(new ArchiveConsumer(featureOutJar, true))
+                .build());
+    features.add(featureOutJar);
     return self();
   }
 

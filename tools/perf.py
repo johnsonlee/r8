@@ -15,7 +15,7 @@ import upload_benchmark_data_to_google_storage
 import utils
 
 APPS = [
-    'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp',
+    'ChromeApp', 'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp',
     'JetSnackApp', 'NowInAndroidApp', 'OwlApp', 'ReplyApp', 'TiviApp'
 ]
 BUCKET = "r8-perf-results"

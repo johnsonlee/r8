@@ -236,8 +236,21 @@ public class AppDumpBenchmarkBuilder {
                       .addProgramFiles(dump.getProgramArchive())
                       .addLibraryFiles(dump.getLibraryArchive())
                       .addKeepRuleFiles(dump.getProguardConfigFile())
+                      .addOptionsModification(
+                          options -> {
+                            options.apiModelingOptions().androidApiExtensionPackages =
+                                dumpProperties.getAndroidApiExtensionPackages();
+                            options
+                                .horizontalClassMergerOptions()
+                                .setEnableSameFilePolicy(dumpProperties.getEnableSameFilePolicy());
+                          })
+                      .enableIsolatedSplits(dumpProperties.getIsolatedSplits())
                       .setMinApi(dumpProperties.getMinApi())
-                      .apply(b -> addDesugaredLibrary(b, dump))
+                      .apply(
+                          testBuilder -> {
+                            dump.forEachFeatureArchive(testBuilder::addFeatureSplit);
+                            addDesugaredLibrary(testBuilder, dump);
+                          })
                       .apply(configuration)
                       .applyIf(
                           enableResourceShrinking,
