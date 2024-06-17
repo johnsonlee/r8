@@ -35,9 +35,11 @@ SMALI_VERSION = '3.0.3'
 ERROR_PRONE_VERSION = '2.18.0'
 TESTNG_VERSION = '6.10'
 
+# keepanno & resource shrinker dependencies
+PROTOBUF_VERSION = '3.19.3'
+
 # Resource shrinker dependency versions
 AAPT2_PROTO_VERSION = '8.2.0-alpha10-10154469'
-PROTOBUF_VERSION = '3.19.3'
 STUDIO_SDK_VERSION = '31.5.0-alpha04'
 
 BUILD_DEPENDENCIES = [
@@ -97,6 +99,7 @@ TEST_DEPENDENCIES = [
 ]
 
 PLUGIN_DEPENDENCIES = [
+  'com.google.protobuf:protobuf-gradle-plugin:0.9.4',
   'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:pom:4.2.1',
   'org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.10',
   'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:pom:3.0.1',
