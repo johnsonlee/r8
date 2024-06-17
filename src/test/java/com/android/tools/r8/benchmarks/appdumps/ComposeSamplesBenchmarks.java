@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -51,12 +52,12 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
             .setName("JetCasterApp")
             .setDumpDependencyPath(dir.resolve("jetcaster"))
             .setFromRevision(16457)
-            .buildR8(),
+            .buildR8(ComposeSamplesBenchmarks::configureJetCasterApp),
         AppDumpBenchmarkBuilder.builder()
             .setName("JetChatApp")
             .setDumpDependencyPath(dir.resolve("jetchat"))
             .setFromRevision(16457)
-            .buildR8(),
+            .buildR8(ComposeSamplesBenchmarks::configureJetChatApp),
         AppDumpBenchmarkBuilder.builder()
             .setName("JetSnackApp")
             .setDumpDependencyPath(dir.resolve("jetsnack"))
@@ -72,5 +73,36 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
             .setDumpDependencyPath(dir.resolve("reply"))
             .setFromRevision(16457)
             .buildR8());
+  }
+
+  private static void configureJetCasterApp(R8FullTestBuilder testBuilder) {
+    testBuilder
+        .addDontWarn(
+            "org.bouncycastle.jsse.BCSSLParameters",
+            "org.bouncycastle.jsse.BCSSLSocket",
+            "org.bouncycastle.jsse.provider.BouncyCastleJsseProvider",
+            "org.conscrypt.Conscrypt",
+            "org.conscrypt.Conscrypt$Version",
+            "org.openjsse.javax.net.ssl.SSLParameters",
+            "org.openjsse.javax.net.ssl.SSLSocket",
+            "org.openjsse.net.ssl.OpenJSSE",
+            "org.slf4j.impl.StaticLoggerBinder")
+        .allowDiagnosticInfoMessages()
+        .allowUnnecessaryDontWarnWildcards()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules()
+        .addOptionsModification(
+            options -> {
+              options.getCfCodeAnalysisOptions().setAllowUnreachableCfBlocks(true);
+              options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
+            });
+  }
+
+  private static void configureJetChatApp(R8FullTestBuilder testBuilder) {
+    testBuilder
+        .allowDiagnosticInfoMessages()
+        .allowUnnecessaryDontWarnWildcards()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules();
   }
 }

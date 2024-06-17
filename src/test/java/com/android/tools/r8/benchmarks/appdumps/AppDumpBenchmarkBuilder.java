@@ -4,9 +4,11 @@
 package com.android.tools.r8.benchmarks.appdumps;
 
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestCompilerBuilder;
+import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
 import com.android.tools.r8.benchmarks.BenchmarkConfigError;
@@ -83,12 +85,16 @@ public class AppDumpBenchmarkBuilder {
   }
 
   public BenchmarkConfig buildR8() {
+    return buildR8(getDefaultR8Configuration());
+  }
+
+  public BenchmarkConfig buildR8(ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     verify();
     return BenchmarkConfig.builder()
         .setName(name)
         .setTarget(BenchmarkTarget.R8_NON_COMPAT)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8(this))
+        .setMethod(runR8(this, configuration))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
         .measureRunTime()
@@ -103,7 +109,7 @@ public class AppDumpBenchmarkBuilder {
         .setName(name)
         .setTarget(BenchmarkTarget.R8_NON_COMPAT)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8WithResourceShrinking(this))
+        .setMethod(runR8WithResourceShrinking(this, getDefaultR8Configuration()))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
         .addSubBenchmark(nameForCodePart(), BenchmarkMetric.CodeSize)
@@ -192,16 +198,32 @@ public class AppDumpBenchmarkBuilder {
     }
   }
 
-  private static BenchmarkMethod runR8(AppDumpBenchmarkBuilder builder) {
-    return internalRunR8(builder, false);
+  private static ThrowableConsumer<? super R8FullTestBuilder> getDefaultR8Configuration() {
+    return testBuilder ->
+        testBuilder
+            .allowUnnecessaryDontWarnWildcards()
+            .allowUnusedDontWarnPatterns()
+            .allowUnusedProguardConfigurationRules()
+            // TODO(b/222228826): Disallow unrecognized diagnostics and open interfaces.
+            .allowDiagnosticMessages()
+            .addOptionsModification(
+                options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces());
   }
 
-  private static BenchmarkMethod runR8WithResourceShrinking(AppDumpBenchmarkBuilder builder) {
-    return internalRunR8(builder, true);
+  private static BenchmarkMethod runR8(
+      AppDumpBenchmarkBuilder builder, ThrowableConsumer<? super R8FullTestBuilder> configuration) {
+    return internalRunR8(builder, false, configuration);
+  }
+
+  private static BenchmarkMethod runR8WithResourceShrinking(
+      AppDumpBenchmarkBuilder builder, ThrowableConsumer<? super R8FullTestBuilder> configuration) {
+    return internalRunR8(builder, true, configuration);
   }
 
   private static BenchmarkMethod internalRunR8(
-      AppDumpBenchmarkBuilder builder, boolean enableResourceShrinking) {
+      AppDumpBenchmarkBuilder builder,
+      boolean enableResourceShrinking,
+      ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     return environment ->
         BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
@@ -216,14 +238,7 @@ public class AppDumpBenchmarkBuilder {
                       .addKeepRuleFiles(dump.getProguardConfigFile())
                       .setMinApi(dumpProperties.getMinApi())
                       .apply(b -> addDesugaredLibrary(b, dump))
-                      .allowUnnecessaryDontWarnWildcards()
-                      .allowUnusedDontWarnPatterns()
-                      .allowUnusedProguardConfigurationRules()
-                      // TODO(b/222228826): Disallow unrecognized diagnostics and open interfaces.
-                      .allowDiagnosticMessages()
-                      .addOptionsModification(
-                          options ->
-                              options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
+                      .apply(configuration)
                       .applyIf(
                           enableResourceShrinking,
                           b ->
