@@ -12,9 +12,9 @@ import utils
 
 import sys
 
-APPS = ['NowInAndroidApp', 'TiviApp']
+APPS = perf.APPS
 TARGETS = ['r8-full']
-NUM_COMMITS = 250
+NUM_COMMITS = 1000
 
 INDEX_HTML = os.path.join(utils.TOOLS_DIR, 'perf/index.html')
 
