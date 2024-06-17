@@ -59,18 +59,15 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
   private static class KotlinAnnotationClassValueInfo extends KotlinAnnotationArgumentInfo {
 
     private final KotlinTypeReference value;
-    private final int arrayDimensionCount;
 
-    private KotlinAnnotationClassValueInfo(KotlinTypeReference value, int arrayDimensionCount) {
+    private KotlinAnnotationClassValueInfo(KotlinTypeReference value) {
       this.value = value;
-      this.arrayDimensionCount = arrayDimensionCount;
     }
 
     private static KotlinAnnotationClassValueInfo create(KClassValue arg, DexItemFactory factory) {
       return new KotlinAnnotationClassValueInfo(
           KotlinTypeReference.fromBinaryNameOrKotlinClassifier(
-              arg.getClassName(), factory, arg.getClassName()),
-          arg.getArrayDimensionCount());
+              arg.getClassName(), factory, arg.getClassName()));
     }
 
     @Override
@@ -81,7 +78,7 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
     @Override
     boolean rewrite(Consumer<KmAnnotationArgument> consumer, AppView<?> appView) {
       return value.toRenamedBinaryNameOrDefault(
-          rewrittenValue -> consumer.accept(new KClassValue(rewrittenValue, arrayDimensionCount)),
+          rewrittenValue -> consumer.accept(new KClassValue(rewrittenValue)),
           appView,
           ClassClassifiers.anyName);
     }
