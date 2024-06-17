@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
@@ -52,7 +51,8 @@ public class KotlinEffectInfo implements EnqueuerMetadataTraceable {
   }
 
   boolean rewrite(Consumer<KmEffect> consumer, AppView<?> appView) {
-    KmEffect kmEffect = consume(new KmEffect(type, invocationKind), consumer);
+    KmEffect kmEffect = new KmEffect(type, invocationKind);
+    consumer.accept(kmEffect);
     boolean rewritten = conclusion.rewrite(kmEffect::setConclusion, appView);
     rewritten |=
         rewriteList(

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteIfNotNull;
 
 import com.android.tools.r8.graph.AppView;
@@ -65,10 +64,9 @@ class KotlinValueParameterInfo implements EnqueuerMetadataTraceable {
   }
 
   boolean rewrite(Consumer<KmValueParameter> consumer, AppView<?> appView) {
-    KmValueParameter rewrittenKmValueParameter =
-        consume(
-            new KmValueParameter(kmValueParameter.getFlags(), kmValueParameter.getName()),
-            consumer);
+    KmValueParameter rewrittenKmValueParameter = new KmValueParameter(kmValueParameter.getName());
+    consumer.accept(rewrittenKmValueParameter);
+    KotlinFlagUtils.copyAllFlags(kmValueParameter, rewrittenKmValueParameter);
     boolean rewritten = type.rewrite(rewrittenKmValueParameter::setType, appView);
     rewritten |=
         rewriteIfNotNull(

@@ -286,9 +286,23 @@ public class KotlinMetadataWriter {
                 (nextNextIndent, kmProperty) -> appendKmProperty(nextNextIndent, sb, kmProperty)));
   }
 
+  public static void appendFlags(
+      String indent, String keyword, StringBuilder sb, Map<String, Object> flags) {
+    sb.append(indent).append(keyword).append(": [").append(LINE_SEPARATOR);
+    flags.forEach(
+        (name, value) ->
+            sb.append(indent)
+                .append(INDENT)
+                .append(name)
+                .append(": ")
+                .append(value)
+                .append(",")
+                .append(LINE_SEPARATOR));
+    sb.append(indent).append("]");
+  }
+
   public static void appendKmClass(String indent, StringBuilder sb, KmClass kmClass) {
-    appendKeyValue(indent, "flags", sb, kmClass.getFlags() + "");
-    appendKeyValue(indent, "jvmFlags", sb, JvmExtensionsKt.getJvmFlags(kmClass) + "");
+    appendFlags(indent, "flags", sb, KotlinFlagUtils.extractFlags(kmClass));
     appendKeyValue(indent, "name", sb, kmClass.getName());
     appendKeyValue(
         indent,
@@ -387,7 +401,7 @@ public class KotlinMetadataWriter {
         "KmConstructor",
         sb,
         newIndent -> {
-          appendKeyValue(newIndent, "flags", sb, constructor.getFlags() + "");
+          appendFlags(indent, "flags", sb, KotlinFlagUtils.extractFlags(constructor));
           appendKeyValue(
               newIndent,
               "valueParameters",
@@ -406,7 +420,7 @@ public class KotlinMetadataWriter {
         "KmFunction",
         sb,
         newIndent -> {
-          appendKeyValue(newIndent, "flags", sb, function.getFlags() + "");
+          appendFlags(indent, "flags", sb, KotlinFlagUtils.extractFlags(function));
           appendKeyValue(newIndent, "name", sb, function.getName());
           appendKeyValue(
               newIndent,
@@ -466,7 +480,7 @@ public class KotlinMetadataWriter {
         "KmProperty",
         sb,
         newIndent -> {
-          appendKeyValue(newIndent, "flags", sb, kmProperty.getFlags() + "");
+          appendFlags(indent, "flags", sb, KotlinFlagUtils.extractFlags(kmProperty));
           appendKeyValue(newIndent, "name", sb, kmProperty.getName());
           appendKeyValue(
               newIndent,
@@ -483,8 +497,12 @@ public class KotlinMetadataWriter {
               "typeParameters",
               sb,
               nextIndent -> appendTypeParameters(nextIndent, sb, kmProperty.getTypeParameters()));
-          appendKeyValue(newIndent, "getterFlags", sb, kmProperty.getGetterFlags() + "");
-          appendKeyValue(newIndent, "setterFlags", sb, kmProperty.getSetterFlags() + "");
+          appendFlags(
+              indent, "getterFlags", sb, KotlinFlagUtils.extractFlags(kmProperty.getGetter()));
+          if (kmProperty.getSetter() != null) {
+            appendFlags(
+                indent, "setterFlags", sb, KotlinFlagUtils.extractFlags(kmProperty.getSetter()));
+          }
           appendKeyValue(
               newIndent,
               "setterParameter",
@@ -502,7 +520,6 @@ public class KotlinMetadataWriter {
                       sb,
                       kmProperty.getContextReceiverTypes(),
                       (nextIndent, kmType) -> appendKmType(nextIndent, sb, kmType)));
-          appendKeyValue(newIndent, "jvmFlags", sb, JvmExtensionsKt.getJvmFlags(kmProperty) + "");
           JvmFieldSignature fieldSignature = JvmExtensionsKt.getFieldSignature(kmProperty);
           appendKeyValue(newIndent, "fieldSignature", sb, Objects.toString(fieldSignature));
           JvmMethodSignature getterSignature = JvmExtensionsKt.getGetterSignature(kmProperty);
@@ -536,7 +553,7 @@ public class KotlinMetadataWriter {
         "KmType",
         sb,
         newIndent -> {
-          appendKeyValue(newIndent, "flags", sb, kmType.getFlags() + "");
+          appendFlags(newIndent, "flags", sb, KotlinFlagUtils.extractFlags(kmType));
           appendKeyValue(newIndent, "classifier", sb, kmType.classifier.toString());
           appendKeyValue(
               newIndent,
@@ -641,7 +658,7 @@ public class KotlinMetadataWriter {
         "KmValueParameter",
         sb,
         newIndent -> {
-          appendKeyValue(newIndent, "flags", sb, valueParameter.getFlags() + "");
+          appendFlags(newIndent, "flags", sb, KotlinFlagUtils.extractFlags(valueParameter));
           appendKeyValue(newIndent, "name", sb, valueParameter.getName());
           appendKeyValue(
               newIndent,
@@ -674,7 +691,7 @@ public class KotlinMetadataWriter {
         sb,
         newIndent -> {
           appendKeyValue(newIndent, "id", sb, typeParameter.getId() + "");
-          appendKeyValue(newIndent, "flags", sb, typeParameter.getFlags() + "");
+          appendFlags(newIndent, "flags", sb, KotlinFlagUtils.extractFlags(typeParameter));
           appendKeyValue(newIndent, "name", sb, typeParameter.getName());
           appendKeyValue(newIndent, "variance", sb, typeParameter.getVariance().name());
           appendKeyValue(
@@ -695,7 +712,7 @@ public class KotlinMetadataWriter {
               nextIndent ->
                   appendKmList(
                       nextIndent,
-                      "KmAnnotion",
+                      "KmAnnotation",
                       sb,
                       JvmExtensionsKt.getAnnotations(typeParameter),
                       (nextNextIndent, kmAnnotation) ->
@@ -726,7 +743,7 @@ public class KotlinMetadataWriter {
               "expandedType",
               sb,
               nextIndent -> appendKmType(nextIndent, sb, kmTypeAlias.expandedType));
-          appendKeyValue(newIndent, "flags", sb, kmTypeAlias.getFlags() + "");
+          appendFlags(newIndent, "flags", sb, KotlinFlagUtils.extractFlags(kmTypeAlias));
           appendKeyValue(newIndent, "name", sb, kmTypeAlias.getName());
           appendKeyValue(
               newIndent,
@@ -895,7 +912,7 @@ public class KotlinMetadataWriter {
         "KmEffectExpression",
         sb,
         newIndent -> {
-          appendKeyValue(newIndent, "flags", sb, expression.getFlags() + "");
+          appendFlags(indent, "flags", sb, KotlinFlagUtils.extractFlags(expression));
           appendKeyValue(
               newIndent,
               "foo",

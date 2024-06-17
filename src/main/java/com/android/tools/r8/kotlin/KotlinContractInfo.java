@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
@@ -54,7 +53,8 @@ public class KotlinContractInfo implements EnqueuerMetadataTraceable {
     if (this == NO_EFFECT) {
       return false;
     }
-    KmContract kmContract = consume(new KmContract(), consumer);
+    KmContract kmContract = new KmContract();
+    consumer.accept(kmContract);
     return rewriteList(appView, effects, kmContract.getEffects(), KotlinEffectInfo::rewrite);
   }
 }

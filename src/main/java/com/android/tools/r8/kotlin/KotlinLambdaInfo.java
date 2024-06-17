@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmMethodSignature;
 
 import com.android.tools.r8.graph.AppView;
@@ -51,7 +50,8 @@ public class KotlinLambdaInfo implements EnqueuerMetadataTraceable {
   }
 
   boolean rewrite(Consumer<KmLambda> consumer, DexClass clazz, AppView<?> appView) {
-    KmLambda kmLambda = consume(new KmLambda(), consumer);
+    KmLambda kmLambda = new KmLambda();
+    consumer.accept(kmLambda);
     if (!hasBacking) {
       return function.rewrite(kmLambda::setFunction, null, appView);
     }

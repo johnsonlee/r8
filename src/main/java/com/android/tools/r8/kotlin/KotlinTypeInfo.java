@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteIfNotNull;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
@@ -28,7 +27,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
 
   private static final List<KotlinTypeProjectionInfo> EMPTY_ARGUMENTS = ImmutableList.of();
 
-  private final int flags;
+  private final KmType kmType;
   private final KotlinClassifierInfo classifier;
   private final KotlinTypeInfo abbreviatedType;
   private final KotlinTypeInfo outerType;
@@ -38,7 +37,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
   private final boolean isRaw;
 
   KotlinTypeInfo(
-      int flags,
+      KmType kmType,
       KotlinClassifierInfo classifier,
       KotlinTypeInfo abbreviatedType,
       KotlinTypeInfo outerType,
@@ -46,7 +45,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
       List<KotlinAnnotationInfo> annotations,
       KotlinFlexibleTypeUpperBoundInfo flexibleTypeUpperBound,
       boolean isRaw) {
-    this.flags = flags;
+    this.kmType = kmType;
     this.classifier = classifier;
     this.abbreviatedType = abbreviatedType;
     this.outerType = outerType;
@@ -61,7 +60,7 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
       return null;
     }
     return new KotlinTypeInfo(
-        kmType.getFlags(),
+        kmType,
         KotlinClassifierInfo.create(kmType.classifier, factory, reporter),
         KotlinTypeInfo.create(kmType.getAbbreviatedType(), factory, reporter),
         KotlinTypeInfo.create(kmType.getOuterType(), factory, reporter),
@@ -85,17 +84,21 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
   }
 
   boolean rewrite(Consumer<KmType> consumer, AppView<?> appView) {
-    // TODO(b/154348683): Check for correct flags
-    KmType kmType = consume(new KmType(flags), consumer);
-    boolean rewritten = classifier.rewrite(kmType, appView);
+    KmType rewrittenKmType = new KmType();
+    consumer.accept(rewrittenKmType);
+    KotlinFlagUtils.copyAllFlags(kmType, rewrittenKmType);
+    boolean rewritten = classifier.rewrite(rewrittenKmType, appView);
     rewritten |=
         rewriteIfNotNull(
-            appView, abbreviatedType, kmType::setAbbreviatedType, KotlinTypeInfo::rewrite);
+            appView, abbreviatedType, rewrittenKmType::setAbbreviatedType, KotlinTypeInfo::rewrite);
     rewritten |=
-        rewriteIfNotNull(appView, outerType, kmType::setOuterType, KotlinTypeInfo::rewrite);
+        rewriteIfNotNull(
+            appView, outerType, rewrittenKmType::setOuterType, KotlinTypeInfo::rewrite);
     rewritten |=
-        rewriteList(appView, arguments, kmType.getArguments(), KotlinTypeProjectionInfo::rewrite);
-    rewritten |= flexibleTypeUpperBound.rewrite(kmType::setFlexibleTypeUpperBound, appView);
+        rewriteList(
+            appView, arguments, rewrittenKmType.getArguments(), KotlinTypeProjectionInfo::rewrite);
+    rewritten |=
+        flexibleTypeUpperBound.rewrite(rewrittenKmType::setFlexibleTypeUpperBound, appView);
     if (annotations.isEmpty() && !isRaw) {
       return rewritten;
     }
@@ -103,9 +106,9 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
         rewriteList(
             appView,
             annotations,
-            JvmExtensionsKt.getAnnotations(kmType),
+            JvmExtensionsKt.getAnnotations(rewrittenKmType),
             KotlinAnnotationInfo::rewrite);
-    JvmExtensionsKt.setRaw(kmType, isRaw);
+    JvmExtensionsKt.setRaw(rewrittenKmType, isRaw);
     return rewritten;
   }
 

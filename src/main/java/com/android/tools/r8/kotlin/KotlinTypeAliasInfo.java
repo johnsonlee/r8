@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.consume;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
@@ -20,59 +19,56 @@ import kotlin.metadata.KmTypeAlias;
 // Holds information about KmTypeAlias
 public class KotlinTypeAliasInfo implements EnqueuerMetadataTraceable {
 
-  private final int flags;
-  private final String name;
+  private final KmTypeAlias kmTypeAlias;
   private final KotlinTypeInfo underlyingType;
   private final KotlinTypeInfo expandedType;
   private final List<KotlinTypeParameterInfo> typeParameters;
   private final List<KotlinAnnotationInfo> annotations;
-  private final KotlinVersionRequirementInfo versionRequirements;
 
   private KotlinTypeAliasInfo(
-      int flags,
-      String name,
+      KmTypeAlias kmTypeAlias,
       KotlinTypeInfo underlyingType,
       KotlinTypeInfo expandedType,
       List<KotlinTypeParameterInfo> typeParameters,
-      List<KotlinAnnotationInfo> annotations,
-      KotlinVersionRequirementInfo versionRequirements) {
-    this.flags = flags;
-    this.name = name;
+      List<KotlinAnnotationInfo> annotations) {
+    this.kmTypeAlias = kmTypeAlias;
     assert underlyingType != null;
     assert expandedType != null;
     this.underlyingType = underlyingType;
     this.expandedType = expandedType;
     this.typeParameters = typeParameters;
     this.annotations = annotations;
-    this.versionRequirements = versionRequirements;
   }
 
   public static KotlinTypeAliasInfo create(
       KmTypeAlias alias, DexItemFactory factory, Reporter reporter) {
     return new KotlinTypeAliasInfo(
-        alias.getFlags(),
-        alias.getName(),
+        alias,
         KotlinTypeInfo.create(alias.underlyingType, factory, reporter),
         KotlinTypeInfo.create(alias.expandedType, factory, reporter),
         KotlinTypeParameterInfo.create(alias.getTypeParameters(), factory, reporter),
-        KotlinAnnotationInfo.create(alias.getAnnotations(), factory),
-        KotlinVersionRequirementInfo.create(alias.getVersionRequirements()));
+        KotlinAnnotationInfo.create(alias.getAnnotations(), factory));
   }
 
   boolean rewrite(Consumer<KmTypeAlias> consumer, AppView<?> appView) {
-    KmTypeAlias kmTypeAlias = consume(new KmTypeAlias(flags, name), consumer);
-    boolean rewritten = underlyingType.rewrite(kmTypeAlias::setUnderlyingType, appView);
-    rewritten |= expandedType.rewrite(kmTypeAlias::setExpandedType, appView);
+    KmTypeAlias rewrittenKmTypeAlias = new KmTypeAlias(kmTypeAlias.getName());
+    consumer.accept(rewrittenKmTypeAlias);
+    KotlinFlagUtils.copyAllFlags(kmTypeAlias, rewrittenKmTypeAlias);
+    boolean rewritten = underlyingType.rewrite(rewrittenKmTypeAlias::setUnderlyingType, appView);
+    rewritten |= expandedType.rewrite(rewrittenKmTypeAlias::setExpandedType, appView);
     rewritten |=
         rewriteList(
             appView,
             typeParameters,
-            kmTypeAlias.getTypeParameters(),
+            rewrittenKmTypeAlias.getTypeParameters(),
             KotlinTypeParameterInfo::rewrite);
     rewritten |=
         rewriteList(
-            appView, annotations, kmTypeAlias.getAnnotations(), KotlinAnnotationInfo::rewrite);
-    rewritten |= versionRequirements.rewrite(kmTypeAlias.getVersionRequirements()::addAll);
+            appView,
+            annotations,
+            rewrittenKmTypeAlias.getAnnotations(),
+            KotlinAnnotationInfo::rewrite);
+    rewrittenKmTypeAlias.getVersionRequirements().addAll(kmTypeAlias.getVersionRequirements());
     return rewritten;
   }
 
