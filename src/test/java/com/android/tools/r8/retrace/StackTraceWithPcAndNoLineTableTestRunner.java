@@ -9,7 +9,6 @@ import static org.junit.Assert.assertEquals;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.naming.retrace.StackTrace;
 import com.android.tools.r8.naming.retrace.StackTrace.StackTraceLine;
 import org.junit.Test;
@@ -61,16 +60,7 @@ public class StackTraceWithPcAndNoLineTableTestRunner extends TestBase {
               assertEquals(
                   "SourceFile",
                   inspector.clazz(getTestClass()).getDexProgramClass().sourceFile.toString());
-              // TODO(b/202919530): The stack-trace should have line positions since they are
-              //  essentially free when compiling for dex.
-              if (parameters.isDexRuntime()
-                  && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V8_1_0)) {
-                assertThat(
-                    stacktrace, StackTrace.isSameExceptForLineNumbers(getExpectedStackTrace(true)));
-              } else {
-                // Having stripped the line-number table, the raw stack will not have line info.
-                assertThat(stacktrace, StackTrace.isSame(getExpectedStackTrace(false)));
-              }
+              assertThat(stacktrace, StackTrace.isSame(getExpectedStackTrace(true)));
             });
   }
 
