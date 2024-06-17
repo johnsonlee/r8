@@ -14,6 +14,10 @@ import sys
 import upload_benchmark_data_to_google_storage
 import utils
 
+APPS = [
+    'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp',
+    'JetSnackApp', 'NowInAndroidApp', 'OwlApp', 'ReplyApp', 'TiviApp'
+]
 BUCKET = "r8-perf-results"
 SAMPLE_BENCHMARK_RESULT_JSON = {
     'benchmark_name': '<benchmark_name>',
@@ -61,10 +65,7 @@ def ParseOptions():
                         help='Use R8 hash for the run (default local build)',
                         default=None)
     options, args = result.parse_known_args()
-    options.apps = options.app or [
-        'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp',
-        'JetSnackApp', 'NowInAndroidApp', 'OwlApp', 'ReplyApp', 'TiviApp'
-    ]
+    options.apps = options.app or APPS
     options.quiet = not options.verbose
     del options.app
     return options, args
