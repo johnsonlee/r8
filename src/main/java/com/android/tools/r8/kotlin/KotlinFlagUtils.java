@@ -8,6 +8,7 @@ import kotlin.metadata.Attributes;
 import kotlin.metadata.KmClass;
 import kotlin.metadata.KmConstructor;
 import kotlin.metadata.KmEffectExpression;
+import kotlin.metadata.KmFunction;
 import kotlin.metadata.KmProperty;
 import kotlin.metadata.KmPropertyAccessorAttributes;
 import kotlin.metadata.jvm.JvmAttributes;
@@ -63,6 +64,21 @@ public class KotlinFlagUtils {
     Attributes.setHasAnnotations(dest, Attributes.getHasAnnotations(src));
     Attributes.setVisibility(dest, Attributes.getVisibility(src));
     Attributes.setSecondary(dest, Attributes.isSecondary(src));
+    Attributes.setHasNonStableParameterNames(dest, Attributes.getHasNonStableParameterNames(src));
+  }
+
+  static void copyAllFlags(KmFunction src, KmFunction dest) {
+    Attributes.setHasAnnotations(dest, Attributes.getHasAnnotations(src));
+    Attributes.setKind(dest, Attributes.getKind(src));
+    Attributes.setModality(dest, Attributes.getModality(src));
+    Attributes.setOperator(dest, Attributes.isOperator(src));
+    Attributes.setInfix(dest, Attributes.isInfix(src));
+    Attributes.setInline(dest, Attributes.isInline(src));
+    Attributes.setTailrec(dest, Attributes.isTailrec(src));
+    Attributes.setExternal(dest, Attributes.isExternal(src));
+    Attributes.setSuspend(dest, Attributes.isSuspend(src));
+    Attributes.setExpect(dest, Attributes.isExpect(src));
+    Attributes.setVisibility(dest, Attributes.getVisibility(src));
     Attributes.setHasNonStableParameterNames(dest, Attributes.getHasNonStableParameterNames(src));
   }
 
