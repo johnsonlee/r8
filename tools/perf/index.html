@@ -168,6 +168,7 @@
           }
         }
 
+        const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
         datasets.push(...[
           {
             type: 'line',
@@ -176,7 +177,7 @@
             tension: 0.1,
             segment: {
               borderColor: ctx =>
-                  skipped(ctx, 'rgba(54, 162, 235, 0.5)'),
+                  skipped(ctx, myChart.data.datasets[ctx.datasetIndex].backgroundColor),
               borderDash: ctx => skipped(ctx, [6, 6]),
             },
             spanGaps: true
@@ -196,7 +197,7 @@
             yAxisID: 'y2',
             segment: {
               borderColor: ctx =>
-                  skipped(ctx, 'rgba(255, 160, 64, 0.5)'),
+                  skipped(ctx, myChart.data.datasets[ctx.datasetIndex].backgroundColor),
               borderDash: ctx => skipped(ctx, [6, 6]),
             },
             spanGaps: true
@@ -210,7 +211,6 @@
         ]);
       }
 
-      const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
       return {
         labels: labels,
         datasets: datasets,
