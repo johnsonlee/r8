@@ -29,6 +29,7 @@ import com.android.tools.r8.keepanno.ast.KeepBindings;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
+import com.android.tools.r8.keepanno.ast.KeepClassBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
@@ -48,6 +49,7 @@ import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern.BuilderBase;
+import com.android.tools.r8.keepanno.ast.KeepMemberBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
@@ -968,6 +970,12 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     @Override
+    public boolean useBindingForClassAndMembers() {
+      // KeepForApi targets should be disjunctive CLASS_AND_MEMBERS
+      return false;
+    }
+
+    @Override
     public void visitEnd() {
       if (!getKind().isOnlyClass() && isDefaultMemberDeclaration()) {
         // If no member declarations have been made, set public & protected as the default.
@@ -980,7 +988,7 @@ public class KeepEdgeReader implements Opcodes {
       // Default constraints should retain the expected meta-data, such as signatures, annotations
       // exception-throws etc.
       KeepConstraints defaultForApiConstraints = KeepConstraints.all();
-      Collection<KeepItemReference> items = getItemsWithoutBinding();
+      Collection<KeepItemReference> items = getItems();
       for (KeepItemReference item : items) {
         if (item.isBindingReference()) {
           throw parsingContext.error("cannot reference bindings");
@@ -1216,19 +1224,26 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     @Override
+    public boolean useBindingForClassAndMembers() {
+      // When annotating a class with UsedByReflection and including member patterns, don't
+      // require the member patterns to match to retain the class.
+      return true;
+    }
+
+    @Override
     public void visitEnd() {
       if (getKind() == null && !isDefaultMemberDeclaration()) {
         // If no explict kind is set and member declarations have been made, keep the class too.
         visitEnum(null, Kind.DESCRIPTOR, Kind.CLASS_AND_MEMBERS);
       }
       super.visitEnd();
-      Collection<KeepItemReference> items = getItemsWithoutBinding();
-      for (KeepItemReference item : items) {
+      for (KeepItemReference item : getItems()) {
+        KeepItemPattern itemPattern;
         if (item.isBindingReference()) {
-          // TODO(b/248408342): The edge can have preconditions so it should support bindings!
-          throw parsingContext.error("cannot reference bindings");
+          itemPattern = getBindingsHelper().getItemForBinding(item.asBindingReference());
+        } else {
+          itemPattern = item.asItemPattern();
         }
-        KeepItemPattern itemPattern = item.asItemPattern();
         KeepClassItemPattern holderPattern =
             itemPattern.isClassItemPattern()
                 ? itemPattern.asClassItemPattern()
@@ -1947,8 +1962,12 @@ public class KeepEdgeReader implements Opcodes {
 
     public abstract UserBindingsHelper getBindingsHelper();
 
-    // Constructed item available once visitEnd has been called.
-    private KeepItemReference itemReference = null;
+    public boolean useBindingForClassAndMembers() {
+      return true;
+    }
+
+    // Constructed items available once visitEnd has been called.
+    private List<KeepItemReference> itemReferences = null;
 
     KeepItemVisitorBase(ParsingContext parsingContext) {
       super(parsingContext);
@@ -1957,88 +1976,21 @@ public class KeepEdgeReader implements Opcodes {
       memberDeclaration = new MemberDeclarationParser(parsingContext);
     }
 
-    public Collection<KeepItemReference> getItemsWithoutBinding() {
-      if (itemReference == null) {
-        throw parsingContext.error("Item reference not finalized. Missing call to visitEnd()");
+    public Collection<KeepItemReference> getItems() {
+      if (itemReferences == null || kind == null) {
+        throw parsingContext.error("Items not finalized. Missing call to visitEnd()");
       }
-      if (itemReference.isBindingReference()) {
-        return Collections.singletonList(itemReference);
-      }
-      // Kind is only null if item is a "binding reference".
-      if (kind == null) {
-        throw parsingContext.error("Unexpected state: unknown kind for an item pattern");
-      }
-      if (kind.includesClassAndMembers()) {
-        assert !itemReference.isBindingReference();
-        KeepItemPattern itemPattern = itemReference.asItemPattern();
-        KeepClassItemReference classReference;
-        KeepMemberItemPattern memberPattern;
-        if (itemPattern.isClassItemPattern()) {
-          classReference = itemPattern.asClassItemPattern().toClassItemReference();
-          memberPattern =
-              KeepMemberItemPattern.builder()
-                  .setClassReference(classReference)
-                  .setMemberPattern(KeepMemberPattern.allMembers())
-                  .build();
-        } else {
-          memberPattern = itemPattern.asMemberItemPattern();
-          classReference = memberPattern.getClassReference();
-        }
-        return ImmutableList.of(classReference, memberPattern.toItemReference());
-      } else {
-        return Collections.singletonList(itemReference);
-      }
-    }
-
-    public Collection<KeepItemReference> getItemsWithBinding() {
-      if (itemReference == null) {
-        throw parsingContext.error("Item reference not finalized. Missing call to visitEnd()");
-      }
-      if (itemReference.isBindingReference()) {
-        return Collections.singletonList(itemReference);
-      }
-      // Kind is only null if item is a "binding reference".
-      if (kind == null) {
-        throw parsingContext.error("Unexpected state: unknown kind for an item pattern");
-      }
-      if (kind.includesClassAndMembers()) {
-        KeepItemPattern itemPattern = itemReference.asItemPattern();
-        // Ensure we have a member item linked to the correct class.
-        KeepMemberItemPattern memberItemPattern;
-        if (itemPattern.isClassItemPattern()) {
-          memberItemPattern =
-              KeepMemberItemPattern.builder()
-                  .setClassReference(itemPattern.asClassItemPattern().toClassItemReference())
-                  .build();
-        } else {
-          memberItemPattern = itemPattern.asMemberItemPattern();
-        }
-        // If the class is not a binding, introduce the binding and rewrite the member.
-        KeepClassItemReference classItemReference = memberItemPattern.getClassReference();
-        if (classItemReference.isClassItemPattern()) {
-          KeepClassItemPattern classItemPattern = classItemReference.asClassItemPattern();
-          KeepBindingSymbol symbol =
-              getBindingsHelper().defineFreshBinding("CLASS", classItemPattern);
-          classItemReference = KeepBindingReference.forClass(symbol).toClassItemReference();
-          memberItemPattern =
-              KeepMemberItemPattern.builder()
-                  .copyFrom(memberItemPattern)
-                  .setClassReference(classItemReference)
-                  .build();
-        }
-        assert classItemReference.isBindingReference();
-        assert memberItemPattern.getClassReference().equals(classItemReference);
-        return ImmutableList.of(classItemReference, memberItemPattern.toItemReference());
-      } else {
-        return Collections.singletonList(itemReference);
-      }
+      return itemReferences;
     }
 
     public KeepItemReference getItemReference() {
-      if (itemReference == null) {
+      if (itemReferences == null) {
         throw parsingContext.error("Item reference not finalized. Missing call to visitEnd()");
       }
-      return itemReference;
+      if (itemReferences.size() > 1) {
+        throw parsingContext.error("Ambiguous item reference.");
+      }
+      return itemReferences.get(0);
     }
 
     public ItemKind getKind() {
@@ -2097,16 +2049,58 @@ public class KeepEdgeReader implements Opcodes {
       return super.visitArray(name);
     }
 
+    private void visitEndWithMemberBindingReference() {
+      if (classDeclaration.isDeclared() || memberDeclaration.isDeclared()) {
+        throw parsingContext.error(
+            "Cannot define an item explicitly and via a member-binding reference");
+      }
+      KeepBindingSymbol symbol = getBindingsHelper().resolveUserBinding(memberBindingReference);
+      KeepMemberBindingReference memberBinding = KeepBindingReference.forMember(symbol);
+
+      // If no explicit kind is set, the member binding implies it is just members.
+      if (kind == null) {
+        kind = ItemKind.ONLY_MEMBERS;
+      }
+
+      if (!kind.includesClass()) {
+        itemReferences = Collections.singletonList(memberBinding.toItemReference());
+        return;
+      }
+
+      KeepClassItemReference holderReference =
+          getBindingsHelper()
+              .getItemForBinding(memberBinding)
+              .asMemberItemPattern()
+              .getClassReference();
+      itemReferences =
+          ImmutableList.of(ensureHolderForMember(holderReference), memberBinding.toItemReference());
+    }
+
+    private KeepClassItemReference ensureHolderForMember(KeepClassItemReference holderReference) {
+      if (useBindingForClassAndMembers() && !holderReference.isBindingReference()) {
+        // Ensure a binding between the member and its holder.
+        KeepBindingSymbol holderSymbol =
+            getBindingsHelper().defineFreshBinding("HOLDER", holderReference.asClassItemPattern());
+        return KeepClassItemReference.fromBindingReference(
+            KeepClassBindingReference.forClass(holderSymbol));
+      }
+      if (!useBindingForClassAndMembers() && holderReference.isBindingReference()) {
+        // Ensure *no* binding between the member and its holder.
+        KeepItemPattern holderPattern =
+            getBindingsHelper().getItemForBinding(holderReference.asBindingReference());
+        KeepBindingSymbol holderSymbol =
+            getBindingsHelper().defineFreshBinding("HOLDER", holderPattern);
+        return KeepClassItemReference.fromBindingReference(
+            KeepClassBindingReference.forClass(holderSymbol));
+      }
+      return holderReference;
+    }
+
     @Override
     public void visitEnd() {
       // Item defined by binding reference.
       if (memberBindingReference != null) {
-        if (classDeclaration.isDeclared() || memberDeclaration.isDeclared() || kind != null) {
-          throw parsingContext.error(
-              "Cannot define an item explicitly and via a member-binding reference");
-        }
-        KeepBindingSymbol symbol = getBindingsHelper().resolveUserBinding(memberBindingReference);
-        itemReference = KeepBindingReference.forMember(symbol).toItemReference();
+        visitEndWithMemberBindingReference();
         return;
       }
 
@@ -2131,7 +2125,7 @@ public class KeepEdgeReader implements Opcodes {
         if (memberDeclaration.isDeclared()) {
           throw parsingContext.error("Item pattern for members is incompatible with kind " + kind);
         }
-        itemReference = classDeclaration.getValue();
+        itemReferences = Collections.singletonList(classDeclaration.getValue());
         return;
       }
 
@@ -2167,7 +2161,13 @@ public class KeepEdgeReader implements Opcodes {
               .setClassReference(classReference)
               .setMemberPattern(memberPattern)
               .build();
-      itemReference = itemPattern.toItemReference();
+
+      if (kind.includesClass()) {
+        itemReferences =
+            ImmutableList.of(ensureHolderForMember(classReference), itemPattern.toItemReference());
+      } else {
+        itemReferences = Collections.singletonList(itemPattern.toItemReference());
+      }
     }
   }
 
@@ -2258,7 +2258,7 @@ public class KeepEdgeReader implements Opcodes {
       super.visitEnd();
       builder.setConstraints(
           constraintsParser.getValueOrDefault(KeepConstraints.defaultConstraints()));
-      for (KeepItemReference item : getItemsWithBinding()) {
+      for (KeepItemReference item : getItems()) {
         parent.accept(builder.setItemReference(item).build());
       }
     }
