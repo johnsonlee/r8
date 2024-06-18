@@ -14,7 +14,8 @@ public class KeepCheck extends KeepDeclaration {
 
     private KeepEdgeMetaInfo metaInfo = KeepEdgeMetaInfo.none();
     private KeepCheckKind kind = KeepCheckKind.REMOVED;
-    private KeepItemPattern itemPattern;
+    private KeepBindings bindings = KeepBindings.none();
+    private KeepItemReference itemReference;
 
     public Builder setMetaInfo(KeepEdgeMetaInfo metaInfo) {
       this.metaInfo = metaInfo;
@@ -26,16 +27,22 @@ public class KeepCheck extends KeepDeclaration {
       return this;
     }
 
-    public Builder setItemPattern(KeepItemPattern itemPattern) {
-      this.itemPattern = itemPattern;
+    public Builder setBindings(KeepBindings bindings) {
+      this.bindings = bindings;
+      return this;
+    }
+
+    public Builder setItemReference(KeepItemReference itemReference) {
+      this.itemReference = itemReference;
       return this;
     }
 
     public KeepCheck build() {
-      if (itemPattern == null) {
+      if (itemReference == null) {
         throw new KeepEdgeException("KeepCheck must have an item pattern.");
       }
-      return new KeepCheck(metaInfo, kind, itemPattern);
+      bindings.verify(itemReference);
+      return new KeepCheck(metaInfo, kind, bindings, itemReference);
     }
   }
 
@@ -45,12 +52,18 @@ public class KeepCheck extends KeepDeclaration {
 
   private final KeepEdgeMetaInfo metaInfo;
   private final KeepCheckKind kind;
-  private final KeepItemPattern itemPattern;
+  private final KeepBindings bindings;
+  private final KeepItemReference itemReference;
 
-  private KeepCheck(KeepEdgeMetaInfo metaInfo, KeepCheckKind kind, KeepItemPattern itemPattern) {
+  private KeepCheck(
+      KeepEdgeMetaInfo metaInfo,
+      KeepCheckKind kind,
+      KeepBindings bindings,
+      KeepItemReference itemReference) {
     this.metaInfo = metaInfo;
     this.kind = kind;
-    this.itemPattern = itemPattern;
+    this.bindings = bindings;
+    this.itemReference = itemReference;
   }
 
   @Override
@@ -66,12 +79,23 @@ public class KeepCheck extends KeepDeclaration {
     return kind;
   }
 
+  public KeepBindings getBindings() {
+    return bindings;
+  }
+
+  public KeepItemReference getItemReference() {
+    return itemReference;
+  }
+
   public KeepItemPattern getItemPattern() {
-    return itemPattern;
+    if (itemReference.isBindingReference()) {
+      return bindings.get(itemReference.asBindingReference()).getItem();
+    }
+    return itemReference.asItemPattern();
   }
 
   @Override
   public String toString() {
-    return "KeepCheck{kind=" + kind + ", item=" + itemPattern + "}";
+    return "KeepCheck{kind=" + kind + ", item=" + itemReference + "}";
   }
 }

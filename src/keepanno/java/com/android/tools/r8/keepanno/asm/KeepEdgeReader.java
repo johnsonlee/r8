@@ -49,6 +49,7 @@ import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern.BuilderBase;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepMemberItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodNamePattern;
@@ -829,14 +830,29 @@ public class KeepEdgeReader implements Opcodes {
                 "Invalid extracted annotation, must specify either an edge, a removed check, or an"
                     + " optimized-out check.");
       }
+      KeepEdgeMetaInfo metaInfo = context.applyToMetadata(KeepEdgeMetaInfo.builder()).build();
       KeepCheckKind kind = isCheckRemoved ? KeepCheckKind.REMOVED : KeepCheckKind.OPTIMIZED_OUT;
-      parent.accept(
-          KeepCheck.builder()
-              .setMetaInfo(context.applyToMetadata(KeepEdgeMetaInfo.builder()).build())
-              .setKind(kind)
-              .setItemPattern(context.toItemPattern())
-              .build());
+      KeepItemPattern itemPattern = context.toItemPattern();
+      parent.accept(buildKeepCheckFromItem(metaInfo, kind, itemPattern));
       super.visitEnd();
+    }
+
+    private static KeepCheck buildKeepCheckFromItem(
+        KeepEdgeMetaInfo metaInfo, KeepCheckKind kind, KeepItemPattern itemPattern) {
+      KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
+      KeepBindingSymbol symbol = bindingsBuilder.generateFreshSymbol("CHECK");
+      bindingsBuilder.addBinding(symbol, itemPattern);
+      KeepItemReference itemReference =
+          itemPattern.isClassItemPattern()
+              ? KeepClassItemReference.fromBindingReference(KeepBindingReference.forClass(symbol))
+              : KeepMemberItemReference.fromBindingReference(
+                  KeepBindingReference.forMember(symbol));
+      return KeepCheck.builder()
+          .setMetaInfo(metaInfo)
+          .setKind(kind)
+          .setBindings(bindingsBuilder.build())
+          .setItemReference(itemReference)
+          .build();
     }
   }
 
@@ -1531,11 +1547,12 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnd() {
+      UserBindingsHelper bindingsHelper = new UserBindingsHelper();
       KeepItemVisitorBase itemVisitor =
           new KeepItemVisitorBase(parsingContext) {
             @Override
             public UserBindingsHelper getBindingsHelper() {
-              throw parsingContext.error("bindings not supported");
+              return bindingsHelper;
             }
           };
       itemVisitor.visit(Item.className, className);
@@ -1544,7 +1561,8 @@ public class KeepEdgeReader implements Opcodes {
           KeepCheck.builder()
               .setMetaInfo(metaInfoBuilder.build())
               .setKind(kind)
-              .setItemPattern(itemVisitor.getItemReference().asItemPattern())
+              .setBindings(itemVisitor.getBindingsHelper().build())
+              .setItemReference(itemVisitor.getItemReference())
               .build());
     }
   }
@@ -1583,11 +1601,8 @@ public class KeepEdgeReader implements Opcodes {
     public void visitEnd() {
       super.visitEnd();
       parent.accept(
-          KeepCheck.builder()
-              .setMetaInfo(metaInfoBuilder.build())
-              .setKind(kind)
-              .setItemPattern(context)
-              .build());
+          ExtractedAnnotationVisitor.buildKeepCheckFromItem(
+              metaInfoBuilder.build(), kind, context));
     }
   }
 

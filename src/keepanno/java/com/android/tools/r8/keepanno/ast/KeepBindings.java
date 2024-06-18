@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -55,6 +57,28 @@ public class KeepBindings {
         + bindings.entrySet().stream()
             .map(e -> e.getKey() + "=" + e.getValue())
             .collect(Collectors.joining(", "));
+  }
+
+  public void verify(KeepItemReference... references) {
+    verify(Arrays.asList(references));
+  }
+
+  public void verify(Collection<KeepItemReference> references) {
+    for (KeepItemReference reference : references) {
+      if (reference.isBindingReference()) {
+        KeepBindingReference bindingReference = reference.asBindingReference();
+        if (!bindings.containsKey(bindingReference.getName())) {
+          throw new KeepEdgeException("Unbound reference to " + bindingReference);
+        }
+      } else {
+        KeepItemPattern itemPattern = reference.asItemPattern();
+        for (KeepBindingReference bindingReference : itemPattern.getBindingReferences()) {
+          if (!bindings.containsKey(bindingReference.getName())) {
+            throw new KeepEdgeException("Unbound reference to " + bindingReference);
+          }
+        }
+      }
+    }
   }
 
   /**
