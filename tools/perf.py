@@ -16,8 +16,9 @@ if utils.is_bot():
     import upload_benchmark_data_to_google_storage
 
 APPS = [
-    'ChromeApp', 'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp',
-    'JetSnackApp', 'NowInAndroidApp', 'OwlApp', 'ReplyApp', 'TiviApp'
+    'ChromeApp', 'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp',
+    'JetChatApp', 'JetSnackApp', 'NowInAndroidApp', 'OwlApp', 'ReplyApp',
+    'TiviApp'
 ]
 BUCKET = "r8-perf-results"
 SAMPLE_BENCHMARK_RESULT_JSON = {
@@ -70,6 +71,24 @@ def ParseOptions():
     options.quiet = not options.verbose
     del options.app
     return options, args
+
+
+def Build(options):
+    utils.Print('Building', quiet=options.quiet)
+    build_cmd = GetRunCmd('N/A', options, ['--iterations', '0'])
+    subprocess.check_call(build_cmd)
+
+
+def GetRunCmd(app, options, args):
+    base_cmd = [
+        'tools/run_benchmark.py', '--benchmark', app, '--target', options.target
+    ]
+    if options.verbose:
+        base_cmd.append('--verbose')
+    if options.version:
+        base_cmd.extend(
+            ['--version', options.version, '--version-jar', r8jar, '--nolib'])
+    return base_cmd + args
 
 
 def MergeBenchmarkResultJsonFiles(benchmark_result_json_files):
@@ -128,13 +147,14 @@ def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None):
 #     --bottom 7486f01e0622cb5935b77a92b59ddf1ca8dbd2e2
 def main():
     options, args = ParseOptions()
+    Build(options)
+    any_failed = False
     with utils.TempDir() as temp:
         if options.version:
             # Download r8.jar once instead of once per run_benchmark.py invocation.
             download_options = argparse.Namespace(no_build=True, nolib=True)
             r8jar = compiledump.download_distribution(options.version,
                                                       download_options, temp)
-
         for app in options.apps:
             if options.skip_if_output_exists:
                 if options.outdir:
@@ -146,36 +166,28 @@ def main():
                     print(f'Skipping run, {output} already exists.')
                     continue
 
-            base_cmd = [
-                'tools/run_benchmark.py', '--benchmark', app, '--target',
-                options.target
-            ]
-            if options.verbose:
-                base_cmd.append('--verbose')
-            if options.version:
-                base_cmd.extend([
-                    '--version', options.version, '--version-jar', r8jar,
-                    '--nolib'
-                ])
-
-            # Build
-            utils.Print(f'Preparing {app}', quiet=options.quiet)
-            build_cmd = base_cmd + ['--iterations', '0']
-            subprocess.check_output(build_cmd)
-
             # Run benchmark.
             benchmark_result_json_files = []
+            failed = False
             for i in range(options.iterations):
                 utils.Print(f'Benchmarking {app} ({i+1}/{options.iterations})',
                             quiet=options.quiet)
                 benchhmark_result_file = os.path.join(temp, f'result_file_{i}')
-                iteration_cmd = base_cmd + [
+                iteration_cmd = GetRunCmd(app, options, [
                     '--iterations',
                     str(options.iterations_inner), '--output',
                     benchhmark_result_file, '--no-build'
-                ]
-                subprocess.check_output(iteration_cmd)
-                benchmark_result_json_files.append(benchhmark_result_file)
+                ])
+                try:
+                    subprocess.check_call(iteration_cmd)
+                    benchmark_result_json_files.append(benchhmark_result_file)
+                except subprocess.CalledProcessError as e:
+                    failed = True
+                    any_failed = True
+                    break
+
+            if failed:
+                continue
 
             # Merge results and write output.
             result_file = os.path.join(temp, 'result_file')
@@ -201,6 +213,9 @@ def main():
 
     if utils.is_bot():
         upload_benchmark_data_to_google_storage.run()
+
+    if any_failed:
+        return 1
 
 
 if __name__ == '__main__':
