@@ -97,10 +97,11 @@
         } else {
           selectedBenchmarks.delete(e.target.value);
         }
-        updateChart();
+        updateChart(true, false);
       };
 
       const label = document.createElement('label');
+      label.id = benchmark + 'Label';
       label.htmlFor = benchmark;
       label.innerHTML = benchmark;
 
@@ -171,18 +172,24 @@
         const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
         datasets.push(...[
           {
+            benchmark: selectedBenchmark,
             type: 'line',
             label: 'Code size',
             data: codeSizeData,
             tension: 0.1,
             segment: {
               borderColor: ctx =>
-                  skipped(ctx, myChart.data.datasets[ctx.datasetIndex].backgroundColor),
+                  skipped(
+                      ctx,
+                      myChart
+                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
+                          : undefined),
               borderDash: ctx => skipped(ctx, [6, 6]),
             },
             spanGaps: true
           },
           {
+            benchmark: selectedBenchmark,
             type: 'scatter',
             label: 'Nondeterminism',
             data: codeSizeScatterData,
@@ -190,6 +197,7 @@
             pointBackgroundColor: 'red'
           },
           {
+            benchmark: selectedBenchmark,
             type: 'line',
             label: 'Runtime',
             data: runtimeData,
@@ -203,6 +211,7 @@
             spanGaps: true
           },
           {
+            benchmark: selectedBenchmark,
             type: 'scatter',
             label: 'Runtime variance',
             data: runtimeScatterData,
@@ -253,7 +262,7 @@
             } else {
               selectedLegends.add(clickedLegend);
             }
-            updateChart();
+            updateChart(false, true);
           },
         },
         tooltip: {
@@ -278,7 +287,9 @@
                 console.assert(elementInfo.dataset.type == 'scatter');
                 commit = commits[elementInfo.raw.x];
               }
-              return `Author: ${commit.author}\n`
+              const dataset = myChart.data.datasets[elementInfo.datasetIndex];
+              return `App: ${dataset.benchmark}\n`
+                  + `Author: ${commit.author}\n`
                   + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
                   + `Hash: ${commit.hash}`;
             }
@@ -330,7 +341,7 @@
       if (left < 0) {
         left = 0;
       }
-      updateChart();
+      updateChart(true, false);
     };
 
     showLessLeft.onclick = function (event) {
@@ -339,7 +350,7 @@
       if (left >= right) {
         left = right - 1;
       }
-      updateChart();
+      updateChart(true, false);
     };
 
     showLessRight.onclick = function (event) {
@@ -351,7 +362,7 @@
       if (right < left) {
         right = left;
       }
-      updateChart();
+      updateChart(true, false);
     };
 
     showMoreRight.onclick = function (event) {
@@ -360,30 +371,62 @@
       if (right > commits.length) {
         right = commits.length;
       }
-      updateChart();
+      updateChart(true, false);
     };
 
-    function updateChart() {
+    function updateChart(dataChanged, legendsChanged) {
       console.assert(left <= right);
+
       // Update datasets.
-      const newData = getData(left, right);
-      Object.assign(myChart.data, newData);
-      // Update chart.
-      myChart.update();
+      if (dataChanged) {
+        const newData = getData(left, right);
+        Object.assign(myChart.data, newData);
+        // Update chart.
+        myChart.update();
+      }
+
       // Update legends.
+      if (legendsChanged || (dataChanged && selectedLegends.size < legends.size)) {
+        for (var datasetIndex = 0;
+            datasetIndex < myChart.data.datasets.length;
+            datasetIndex++) {
+          const datasetMeta = myChart.getDatasetMeta(datasetIndex);
+          datasetMeta.hidden = !selectedLegends.has(datasetMeta.label);
+        }
+        // Update chart.
+        myChart.update();
+      }
+
+
+      // Update checkbox colors.
+      const benchmarkColors = {};
       for (var datasetIndex = 0;
           datasetIndex < myChart.data.datasets.length;
           datasetIndex++) {
-        const datasetMeta = myChart.getDatasetMeta(datasetIndex);
-        datasetMeta.hidden = !selectedLegends.has(datasetMeta.label);
+        if (myChart.getDatasetMeta(datasetIndex).hidden) {
+          continue;
+        }
+        const dataset = myChart.data.datasets[datasetIndex];
+        const benchmark = dataset.benchmark;
+        const benchmarkColor = dataset.borderColor;
+        if (!(benchmark in benchmarkColors)) {
+          benchmarkColors[benchmark] = benchmarkColor;
+        }
       }
-      // Update chart.
-      myChart.update();
+      for (const benchmark of benchmarks.values()) {
+        const benchmarkLabel = document.getElementById(benchmark + 'Label');
+        const benchmarkColor = benchmarkColors[benchmark] || '#000000';
+        const benchmarkFontWeight = benchmark in benchmarkColors ? 'bold' : 'normal';
+        benchmarkLabel.style.color = benchmarkColor;
+        benchmarkLabel.style.fontWeight = benchmarkFontWeight;
+      }
+
       // Update navigation.
       showMoreLeft.disabled = left == 0;
       showLessLeft.disabled = left == right - 1;
       showLessRight.disabled = left == right - 1;
       showMoreRight.disabled = right == commits.length;
+
       // Update hash.
       window.location.hash =
           Array.from(selectedBenchmarks)
@@ -399,7 +442,13 @@
       data: getData(),
       options: options
     });
-    updateChart();
+
+    // Hide disabled legends.
+    if (selectedLegends.size < legends.size) {
+      updateChart(false, true);
+    } else {
+      updateChart(false, false);
+    }
   </script>
 </body>
 </html>

@@ -11,8 +11,9 @@ import shutil
 import subprocess
 import sys
 
-import upload_benchmark_data_to_google_storage
 import utils
+if utils.is_bot():
+    import upload_benchmark_data_to_google_storage
 
 APPS = [
     'ChromeApp', 'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp', 'JetChatApp',
