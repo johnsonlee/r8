@@ -54,7 +54,7 @@
 
     // Import and reverse commits so that newest are last.
     import commits from "./benchmark_data.json" with { type: "json" };
-    commits.reverseInPlace()
+    commits.reverseInPlace();
 
     // Amend the commits with their unique index.
     for (var i = 0; i < commits.length; i++) {
@@ -62,7 +62,7 @@
     }
 
     // DOM references.
-    const benchmarkSelectors = document.getElementById('benchmark-selectors')
+    const benchmarkSelectors = document.getElementById('benchmark-selectors');
     const canvas = document.getElementById('myChart');
     const showMoreLeft = document.getElementById('show-more-left');
     const showLessLeft = document.getElementById('show-less-left');
@@ -73,14 +73,22 @@
     const benchmarks = new Set();
     for (const commit of commits.values()) {
       for (const benchmark in commit.benchmarks) {
-          benchmarks.add(benchmark)
+          benchmarks.add(benchmark);
       }
     }
-    const selectedBenchmarks =
-        new Set(
-            unescape(window.location.hash.substring(1))
-                .split(',')
-                .filter(b => benchmarks.has(b)));
+    const selectedBenchmarks = new Set();
+    const urlOptions = unescape(window.location.hash.substring(1)).split(',');
+    for (const benchmark of benchmarks.values()) {
+      for (const filter of urlOptions.values()) {
+        if (filter) {
+          const match = benchmark.match(new RegExp(filter.replace("*", ".*")));
+          if (match) {
+            selectedBenchmarks.add(benchmark);
+            break;
+          }
+        }
+      }
+    }
     if (selectedBenchmarks.size == 0) {
       selectedBenchmarks.add(benchmarks.values().next().value);
     }
@@ -110,12 +118,10 @@
     }
 
     // Chart data provider.
-    function getData(start = 0, end = commits.length) {
-      const filteredCommits =
-          commits
-              .slice(start, end);
-      const labels = filteredCommits.map((c, i) => i);
-      const datasets = []
+    function getData() {
+      const filteredCommits = commits.slice(zoom.left, zoom.right);
+      const labels = filteredCommits.map((c, i) => c.index);
+      const datasets = [];
       for (const selectedBenchmark of selectedBenchmarks.values()) {
         const codeSizeData =
             filteredCommits.map(
@@ -271,7 +277,7 @@
               const elementInfo = context[0];
               var commit;
               if (elementInfo.dataset.type == 'line') {
-                commit = commits[elementInfo.dataIndex];
+                commit = commits[zoom.left + elementInfo.dataIndex];
               } else {
                 console.assert(elementInfo.dataset.type == 'scatter');
                 commit = commits[elementInfo.raw.x];
@@ -282,7 +288,7 @@
               const elementInfo = context[0];
               var commit;
               if (elementInfo.dataset.type == 'line') {
-                commit = commits[elementInfo.dataIndex];
+                commit = commits[zoom.left + elementInfo.dataIndex];
               } else {
                 console.assert(elementInfo.dataset.type == 'scatter');
                 commit = commits[elementInfo.raw.x];
@@ -291,7 +297,8 @@
               return `App: ${dataset.benchmark}\n`
                   + `Author: ${commit.author}\n`
                   + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
-                  + `Hash: ${commit.hash}`;
+                  + `Hash: ${commit.hash}\n`
+                  + `Index: ${commit.index}`;
             }
           }
         }
@@ -329,57 +336,72 @@
     };
 
     // Setup chart navigation.
-    var left = 0;
-    var right = commits.length;
+    var zoom = { left: 0, right: commits.length };
+    for (const urlOption of urlOptions.values()) {
+      if (urlOption.startsWith('L')) {
+        var left = parseInt(urlOption.substring(1));
+        if (isNaN(left)) {
+          continue;
+        }
+        left = left >= 0 ? left : commits.length + left;
+        if (left < 0) {
+          zoom.left = 0;
+        } else if (left >= commits.length) {
+          zoom.left = commits.length - 1;
+        } else {
+          zoom.left = left;
+        }
+      }
+    }
 
     showMoreLeft.onclick = function (event) {
-      if (left == 0) {
+      if (zoom.left == 0) {
         return;
       }
-      const currentSize = right - left;
-      left = left - currentSize;
-      if (left < 0) {
-        left = 0;
+      const currentSize = zoom.right - zoom.left;
+      zoom.left = zoom.left - currentSize;
+      if (zoom.left < 0) {
+        zoom.left = 0;
       }
       updateChart(true, false);
     };
 
     showLessLeft.onclick = function (event) {
-      const currentSize = right - left;
-      left = left + Math.floor(currentSize / 2);
-      if (left >= right) {
-        left = right - 1;
+      const currentSize = zoom.right - zoom.left;
+      zoom.left = zoom.left + Math.floor(currentSize / 2);
+      if (zoom.left >= zoom.right) {
+        zoom.left = zoom.right - 1;
       }
       updateChart(true, false);
     };
 
     showLessRight.onclick = function (event) {
-      if (right == 0) {
+      if (zoom.right == 0) {
         return;
       }
-      const currentSize = right - left;
-      right = right - Math.floor(currentSize / 2);
-      if (right < left) {
-        right = left;
+      const currentSize = zoom.right - zoom.left;
+      zoom.right = zoom.right - Math.floor(currentSize / 2);
+      if (zoom.right < zoom.left) {
+        zoom.right = zoom.left;
       }
       updateChart(true, false);
     };
 
     showMoreRight.onclick = function (event) {
-      const currentSize = right - left;
-      right = right + currentSize;
-      if (right > commits.length) {
-        right = commits.length;
+      const currentSize = zoom.right - zoom.left;
+      zoom.right = zoom.right + currentSize;
+      if (zoom.right > commits.length) {
+        zoom.right = commits.length;
       }
       updateChart(true, false);
     };
 
     function updateChart(dataChanged, legendsChanged) {
-      console.assert(left <= right);
+      console.assert(zoom.left <= zoom.right);
 
       // Update datasets.
       if (dataChanged) {
-        const newData = getData(left, right);
+        const newData = getData();
         Object.assign(myChart.data, newData);
         // Update chart.
         myChart.update();
@@ -422,10 +444,10 @@
       }
 
       // Update navigation.
-      showMoreLeft.disabled = left == 0;
-      showLessLeft.disabled = left == right - 1;
-      showLessRight.disabled = left == right - 1;
-      showMoreRight.disabled = right == commits.length;
+      showMoreLeft.disabled = zoom.left == 0;
+      showLessLeft.disabled = zoom.left == zoom.right - 1;
+      showLessRight.disabled = zoom.left == zoom.right - 1;
+      showMoreRight.disabled = zoom.right == commits.length;
 
       // Update hash.
       window.location.hash =
