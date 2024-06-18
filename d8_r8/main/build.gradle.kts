@@ -223,6 +223,7 @@ tasks {
     }
     exclude("META-INF/*.kotlin_module")
     exclude("**/*.kotlin_metadata")
+    exclude("keepanno.proto")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
     archiveFileName.set("r8-full-exclude-deps.jar")
   }

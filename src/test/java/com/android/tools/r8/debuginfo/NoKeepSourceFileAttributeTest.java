@@ -42,7 +42,11 @@ public class NoKeepSourceFileAttributeTest extends TestBase {
               List<StackTraceLine> stackTraceLines = stacktrace.getStackTraceLines();
               assertEquals(1, stackTraceLines.size());
               StackTraceLine stackTraceLine = stackTraceLines.get(0);
-              assertEquals("SourceFile", stackTraceLine.fileName);
+              if (parameters.getApiLevel().isLessThan(apiLevelWithPcAsLineNumberSupport())) {
+                assertEquals("SourceFile", stackTraceLine.fileName);
+              } else {
+                assertEquals("Unknown Source", stackTraceLine.fileName);
+              }
             })
         .inspectStackTrace(
             stacktrace -> {

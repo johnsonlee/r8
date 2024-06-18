@@ -222,12 +222,8 @@ public class StringBuilderTests extends TestBase {
               FoundMethodSubject foundMethodSubject = method.asFoundMethodSubject();
               assertEquals(
                   stringBuilderTest.stringBuilders, countStringBuilderInits(foundMethodSubject));
-              if ((parameters.isCfRuntime()
-                      || parameters
-                          .getApiLevel()
-                          .isGreaterThanOrEqualTo(apiLevelWithPcAsLineNumberSupport()))
-                  && (stringBuilderTest.getMethodName().equals("diamondWithUseTest")
-                      || stringBuilderTest.getMethodName().equals("intoPhiTest"))) {
+              if (stringBuilderTest.getMethodName().equals("diamondWithUseTest")
+                  || stringBuilderTest.getMethodName().equals("intoPhiTest")) {
                 // We are not doing block suffix optimization in CF and line/pc info prohibits
                 // sharing.
                 assertEquals(
