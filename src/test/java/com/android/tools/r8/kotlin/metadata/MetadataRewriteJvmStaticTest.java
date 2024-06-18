@@ -138,7 +138,7 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
     assertThat(kmClass, isPresent());
     KmFunctionSubject staticFun = kmClass.kmFunctionWithUniqueName("staticFun");
     assertThat(staticFun, isPresent());
-    assertEquals("staticFun(Lkotlin/jvm/functions/Function0;)V", staticFun.signature().asString());
+    assertEquals("staticFun(Lkotlin/jvm/functions/Function0;)V", staticFun.signature().toString());
     KmPropertySubject staticProp = kmClass.kmPropertyWithUniqueName("staticProp");
     assertThat(staticProp, isPresent());
   }
@@ -154,6 +154,6 @@ public class MetadataRewriteJvmStaticTest extends KotlinMetadataTestBase {
     KmClassSubject kmClass = itfCompanion.getKmClass();
     KmFunctionSubject greetKm = kmClass.kmFunctionWithUniqueName("greet");
     assertThat(greetKm, isPresent());
-    assertEquals("greet(Ljava/lang/String;)V", greetKm.signature().asString());
+    assertEquals("greet(Ljava/lang/String;)V", greetKm.signature().toString());
   }
 }

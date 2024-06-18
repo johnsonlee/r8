@@ -203,7 +203,7 @@ public class MetadataRewriteInFunctionTest extends KotlinMetadataTestBase {
     KmFunctionSubject kmFunction = kmClass.kmFunctionWithUniqueName(foo.getFinalName());
     assertThat(kmFunction, isPresent());
     assertThat(kmFunction, not(isExtensionFunction()));
-    assertEquals(foo.getJvmMethodSignatureAsString(), kmFunction.signature().asString());
+    assertEquals(foo.getJvmMethodSignatureAsString(), kmFunction.signature().toString());
 
     ClassSubject impl = inspector.clazz(bClassName);
     assertThat(impl, isPresentAndNotRenamed());

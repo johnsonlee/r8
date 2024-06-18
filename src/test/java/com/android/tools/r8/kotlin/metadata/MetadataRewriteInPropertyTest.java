@@ -132,17 +132,17 @@ public class MetadataRewriteInPropertyTest extends KotlinMetadataTestBase {
     // Property name is not renamed, due to the kept getter.
     assertEquals("name", name.name());
     assertNotNull(name.fieldSignature());
-    assertEquals(backingField.getJvmFieldSignatureAsString(), name.fieldSignature().asString());
+    assertEquals(backingField.getJvmFieldSignatureAsString(), name.fieldSignature().toString());
     assertNotNull(name.getterSignature());
-    assertEquals(getterForName.getJvmMethodSignatureAsString(), name.getterSignature().asString());
-    assertEquals(name.setterSignature().asString(), "setName(Ljava/lang/String;)V");
+    assertEquals(getterForName.getJvmMethodSignatureAsString(), name.getterSignature().toString());
+    assertEquals(name.setterSignature().toString(), "setName(Ljava/lang/String;)V");
 
     KmPropertySubject familyName = kmClass.kmPropertyWithUniqueName("familyName");
     assertThat(familyName, isPresent());
     assertThat(familyName, not(isExtensionProperty()));
     // No backing field for property `familyName`
     assertNull(familyName.fieldSignature());
-    assertEquals(familyName.getterSignature().asString(), "getFamilyName()Ljava/lang/String;");
+    assertEquals(familyName.getterSignature().toString(), "getFamilyName()Ljava/lang/String;");
     assertNull(familyName.setterSignature());
 
     KmPropertySubject age = kmClass.kmPropertyWithUniqueName("age");
@@ -150,9 +150,9 @@ public class MetadataRewriteInPropertyTest extends KotlinMetadataTestBase {
     assertThat(age, not(isExtensionProperty()));
     assertEquals(
         kotlinParameters.isNewerThanOrEqualTo(KOTLINC_1_5_0) ? "b:I" : "a:I",
-        age.fieldSignature().asString());
-    assertEquals("getAge()I", age.getterSignature().asString());
-    assertEquals("setAge(I)V", age.setterSignature().asString());
+        age.fieldSignature().toString());
+    assertEquals("getAge()I", age.getterSignature().toString());
+    assertEquals("setAge(I)V", age.setterSignature().toString());
   }
 
   @Test
@@ -244,9 +244,9 @@ public class MetadataRewriteInPropertyTest extends KotlinMetadataTestBase {
     // #        fieldSignature: name:Ljava/lang/String;,
     // #        getterSignature: getName()Ljava/lang/String;,
     // #        setterSignature: setName(Ljava/lang/String;)V,
-    assertEquals("name:Ljava/lang/String;", name.fieldSignature().asString());
-    assertEquals("getName()Ljava/lang/String;", name.getterSignature().asString());
-    assertEquals("setName(Ljava/lang/String;)V", name.setterSignature().asString());
+    assertEquals("name:Ljava/lang/String;", name.fieldSignature().toString());
+    assertEquals("getName()Ljava/lang/String;", name.getterSignature().toString());
+    assertEquals("setName(Ljava/lang/String;)V", name.setterSignature().toString());
 
     KmPropertySubject familyName = kmClass.kmPropertyWithUniqueName("familyName");
     assertThat(familyName, not(isPresent()));
@@ -257,8 +257,8 @@ public class MetadataRewriteInPropertyTest extends KotlinMetadataTestBase {
     KmPropertySubject age = kmClass.kmPropertyWithUniqueName("age");
     assertThat(age, isPresent());
     assertThat(age, not(isExtensionProperty()));
-    assertEquals("age:I", age.fieldSignature().asString());
-    assertEquals("getAge()I", age.getterSignature().asString());
-    assertEquals("setAge(I)V", age.setterSignature().asString());
+    assertEquals("age:I", age.fieldSignature().toString());
+    assertEquals("getAge()I", age.getterSignature().toString());
+    assertEquals("setAge(I)V", age.setterSignature().toString());
   }
 }
