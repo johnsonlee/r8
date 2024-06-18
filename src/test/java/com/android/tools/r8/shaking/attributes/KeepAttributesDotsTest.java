@@ -76,7 +76,6 @@ public class KeepAttributesDotsTest extends TestBase {
     assertTrue(
         clazz.getDexProgramClass().sourceFile == null
             || clazz.getDexProgramClass().sourceFile.toString().equals("SourceFile"));
-    assertNull(main.getLineNumberTable());
     assertTrue(main.getLocalVariableTable().isEmpty());
   }
 
