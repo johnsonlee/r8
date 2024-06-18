@@ -4,9 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getCompatibleKotlinInfo;
-import static kotlin.metadata.jvm.KotlinClassMetadata.Companion;
-
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
@@ -19,9 +16,9 @@ import kotlin.metadata.jvm.KotlinClassMetadata.SyntheticClass;
 // Holds information about a Metadata.SyntheticClass object.
 public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
 
+  private final SyntheticClass syntheticClass;
   private final KotlinLambdaInfo lambda;
   private final String packageName;
-  private final int[] metadataVersion;
 
   public enum Flavour {
     KotlinStyleLambda,
@@ -32,29 +29,28 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
   private final Flavour flavour;
 
   private KotlinSyntheticClassInfo(
-      KotlinLambdaInfo lambda, Flavour flavour, String packageName, int[] metadataVersion) {
+      SyntheticClass syntheticClass, KotlinLambdaInfo lambda, Flavour flavour, String packageName) {
+    this.syntheticClass = syntheticClass;
     this.lambda = lambda;
     this.flavour = flavour;
     this.packageName = packageName;
-    this.metadataVersion = metadataVersion;
   }
 
   static KotlinSyntheticClassInfo create(
       SyntheticClass syntheticClass,
       String packageName,
-      int[] metadataVersion,
       DexClass clazz,
       Kotlin kotlin,
       AppView<?> appView) {
     KmLambda lambda = syntheticClass.getKmLambda();
     assert lambda == null || syntheticClass.isLambda();
     return new KotlinSyntheticClassInfo(
+        syntheticClass,
         lambda != null
             ? KotlinLambdaInfo.create(clazz, lambda, appView.dexItemFactory(), appView.reporter())
             : null,
         getFlavour(clazz, kotlin),
-        packageName,
-        metadataVersion);
+        packageName);
   }
 
   public boolean isLambda() {
@@ -74,13 +70,14 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
   @Override
   public Pair<Metadata, Boolean> rewrite(DexClass clazz, AppView<?> appView) {
     if (lambda == null) {
-      return Pair.create(Companion.writeSyntheticClass(getCompatibleKotlinInfo(), 0), false);
+      return Pair.create(syntheticClass.write(), false);
     }
     Box<KmLambda> newLambda = new Box<>();
     boolean rewritten = lambda.rewrite(newLambda::set, clazz, appView);
     assert newLambda.isSet();
-    return Pair.create(
-        Companion.writeLambda(newLambda.get(), getCompatibleKotlinInfo(), 0), rewritten);
+    syntheticClass.setKmLambda(newLambda.get());
+    syntheticClass.setFlags(0);
+    return Pair.create(syntheticClass.write(), rewritten);
   }
 
   @Override
@@ -97,7 +94,7 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
 
   @Override
   public int[] getMetadataVersion() {
-    return metadataVersion;
+    return KotlinJvmMetadataVersionUtils.toIntArray(syntheticClass.getVersion());
   }
 
   @SuppressWarnings("ReferenceEquality")

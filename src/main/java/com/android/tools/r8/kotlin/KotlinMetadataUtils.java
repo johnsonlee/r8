@@ -220,20 +220,6 @@ public class KotlinMetadataUtils {
     return DescriptorUtils.descriptorToKotlinClassifier(descriptor);
   }
 
-  static int[] getCompatibleKotlinInfo() {
-    // The kotlin metadata changelog recommends:
-    // "Main migration path here is to replace KotlinClassMetadata.COMPATIBLE_METADATA_VERSION
-    // with new value with the same meaning: JvmMetadataVersion.LATEST_STABLE_SUPPORTED."
-    // The inspection error "Usage of Kotlin internal declaration from different module" does not
-    // prevent the code to work correctly.
-    return JvmMetadataVersion.LATEST_STABLE_SUPPORTED.toIntArray();
-  }
-
-  static <TKm> TKm consume(TKm tKm, Consumer<TKm> consumer) {
-    consumer.accept(tKm);
-    return tKm;
-  }
-
   static <TInfo, TKm> boolean rewriteIfNotNull(
       AppView<?> appView,
       TInfo info,

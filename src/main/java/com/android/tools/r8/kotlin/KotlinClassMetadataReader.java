@@ -218,29 +218,26 @@ public final class KotlinClassMetadataReader {
       Consumer<DexEncodedMethod> keepByteCode) {
     Metadata metadata = extractMetadataWithPossiblyUnsupportedMetadataVersion(kMetadata);
     String packageName = metadata.pn();
-    int[] metadataVersion = KotlinJvmMetadataVersionUtils.toIntArray(kMetadata.getVersion());
     if (kMetadata instanceof KotlinClassMetadata.Class) {
       return KotlinClassInfo.create(
           (KotlinClassMetadata.Class) kMetadata,
           packageName,
-          metadataVersion,
           clazz,
           appView,
           keepByteCode);
     } else if (kMetadata instanceof KotlinClassMetadata.FileFacade) {
       // e.g., B.kt becomes class `BKt`
       return KotlinFileFacadeInfo.create(
-          (FileFacade) kMetadata, packageName, metadataVersion, clazz, appView, keepByteCode);
+          (FileFacade) kMetadata, packageName, clazz, appView, keepByteCode);
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassFacade) {
       // multi-file class with the same @JvmName.
       return KotlinMultiFileClassFacadeInfo.create(
-          (MultiFileClassFacade) kMetadata, packageName, metadataVersion, appView.dexItemFactory());
+          (MultiFileClassFacade) kMetadata, packageName, appView.dexItemFactory());
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassPart) {
       // A single file, which is part of multi-file class.
       return KotlinMultiFileClassPartInfo.create(
           (MultiFileClassPart) kMetadata,
           packageName,
-          metadataVersion,
           clazz,
           appView,
           keepByteCode);
@@ -248,7 +245,6 @@ public final class KotlinClassMetadataReader {
       return KotlinSyntheticClassInfo.create(
           (KotlinClassMetadata.SyntheticClass) kMetadata,
           packageName,
-          metadataVersion,
           clazz,
           kotlin,
           appView);

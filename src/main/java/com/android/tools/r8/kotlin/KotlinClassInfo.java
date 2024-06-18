@@ -4,12 +4,10 @@
 
 package com.android.tools.r8.kotlin;
 
-import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getCompatibleKotlinInfo;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmFieldSignature;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmMethodSignature;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
-import static kotlin.metadata.jvm.KotlinClassMetadata.Companion;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -41,7 +39,7 @@ import kotlin.metadata.jvm.KotlinClassMetadata;
 
 public class KotlinClassInfo implements KotlinClassLevelInfo {
 
-  private final KmClass kmClass;
+  private final KotlinClassMetadata.Class classMetadata;
   private final boolean nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin;
   private final String moduleName;
   private final List<KotlinConstructorInfo> constructorsWithNoBacking;
@@ -56,7 +54,6 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   private final KotlinTypeReference anonymousObjectOrigin;
   private final String packageName;
   private final KotlinLocalDelegatedPropertyInfo localDelegatedProperties;
-  private final int[] metadataVersion;
   private final String inlineClassUnderlyingPropertyName;
   private final KotlinTypeInfo inlineClassUnderlyingType;
   private final String companionObjectName;
@@ -67,7 +64,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   private final KotlinMetadataMembersTracker originalMembersWithKotlinInfo;
 
   private KotlinClassInfo(
-      KmClass kmClass,
+      KotlinClassMetadata.Class classMetadata,
       boolean nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin,
       String moduleName,
       KotlinDeclarationContainerInfo declarationContainerInfo,
@@ -80,13 +77,12 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       KotlinTypeReference anonymousObjectOrigin,
       String packageName,
       KotlinLocalDelegatedPropertyInfo localDelegatedProperties,
-      int[] metadataVersion,
       String inlineClassUnderlyingPropertyName,
       KotlinTypeInfo inlineClassUnderlyingType,
       KotlinMetadataMembersTracker originalMembersWithKotlinInfo,
       String companionObjectName,
       List<KotlinTypeInfo> contextReceiverTypes) {
-    this.kmClass = kmClass;
+    this.classMetadata = classMetadata;
     this.nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin =
         nameCanBeSynthesizedFromClassOrAnonymousObjectOrigin;
     this.moduleName = moduleName;
@@ -100,7 +96,6 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     this.anonymousObjectOrigin = anonymousObjectOrigin;
     this.packageName = packageName;
     this.localDelegatedProperties = localDelegatedProperties;
-    this.metadataVersion = metadataVersion;
     this.inlineClassUnderlyingPropertyName = inlineClassUnderlyingPropertyName;
     this.inlineClassUnderlyingType = inlineClassUnderlyingType;
     this.originalMembersWithKotlinInfo = originalMembersWithKotlinInfo;
@@ -111,7 +106,6 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   public static KotlinClassInfo create(
       KotlinClassMetadata.Class metadata,
       String packageName,
-      int[] metadataVersion,
       DexClass hostClass,
       AppView<?> appView,
       Consumer<DexEncodedMethod> keepByteCode) {
@@ -161,7 +155,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
             || (anonymousObjectOrigin != null
                 && kmClass.name.equals(anonymousObjectOrigin.toKotlinClassifier(true)));
     return new KotlinClassInfo(
-        kmClass,
+        metadata,
         nameCanBeDeducedFromClassOrOrigin,
         JvmExtensionsKt.getModuleName(kmClass),
         container,
@@ -175,7 +169,6 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
         packageName,
         KotlinLocalDelegatedPropertyInfo.create(
             JvmExtensionsKt.getLocalDelegatedProperties(kmClass), factory, reporter),
-        metadataVersion,
         kmClass.getInlineClassUnderlyingPropertyName(),
         KotlinTypeInfo.create(kmClass.getInlineClassUnderlyingType(), factory, reporter),
         originalMembersWithKotlinInfo,
@@ -279,6 +272,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   @Override
   @SuppressWarnings("ReferenceEquality")
   public Pair<Metadata, Boolean> rewrite(DexClass clazz, AppView<?> appView) {
+    KmClass kmClass = classMetadata.getKmClass();
     KmClass rewrittenKmClass = new KmClass();
     KotlinFlagUtils.copyAllFlags(kmClass, rewrittenKmClass);
     // Set potentially renamed class name.
@@ -444,8 +438,9 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
     rewritten |=
         localDelegatedProperties.rewrite(
             JvmExtensionsKt.getLocalDelegatedProperties(rewrittenKmClass)::add, appView);
+    classMetadata.setKmClass(rewrittenKmClass);
     return Pair.create(
-        Companion.writeClass(rewrittenKmClass, getCompatibleKotlinInfo(), 0),
+        classMetadata.write(),
         rewritten || !originalMembersWithKotlinInfo.isEqual(rewrittenReferences, appView));
   }
 
@@ -456,7 +451,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
 
   @Override
   public int[] getMetadataVersion() {
-    return metadataVersion;
+    return KotlinJvmMetadataVersionUtils.toIntArray(classMetadata.getVersion());
   }
 
   @Override
