@@ -355,8 +355,16 @@ public class KeepAnnotationMatcher {
     }
 
     private void continueWithNoClass(int classIndex) {
+      continueWithNoClassClearingMembers(classIndex, 0, null);
+    }
+
+    private void continueWithNoClassClearingMembers(
+        int classIndex, int memberInHolderIndex, IntList memberIndexTranslation) {
       if (schema.isOptionalClass(classIndex)) {
         assignment.setClass(classIndex, null);
+        for (int i = 0; i < memberInHolderIndex; i++) {
+          assignment.setMember(memberIndexTranslation.getInt(i), null);
+        }
         findMatchingClass(classIndex + 1);
       }
     }
@@ -404,9 +412,9 @@ public class KeepAnnotationMatcher {
                   holder.forEachProgramMethodMatching(
                       m -> predicates.matchesMethod(m, methodPattern), continueWithMember));
       if (didContinue.isFalse()) {
-        // No match for the member pattern existed, continue with empty member.
-        continueWithNoMember(
-            memberIndex, memberInHolderIndex + 1, memberIndexTranslation, holder, nextClassIndex);
+        // No match for the member pattern existed, continue with next class.
+        continueWithNoClassClearingMembers(
+            nextClassIndex - 1, memberInHolderIndex, memberIndexTranslation);
       }
     }
 
@@ -429,18 +437,6 @@ public class KeepAnnotationMatcher {
           definition.getContextClass(),
           nextClassIndex);
     }
-
-    private void continueWithNoMember(
-        int memberIndex,
-        int nextMemberInHolderIndex,
-        IntList memberIndexTranslation,
-        DexProgramClass holder,
-        int nextClassIndex) {
-      if (schema.isOptionalMember(memberIndex, nextClassIndex - 1)) {
-        assignment.setMember(memberIndex, null);
-        findMatchingMember(nextMemberInHolderIndex, memberIndexTranslation, holder, nextClassIndex);
-      }
-    }
   }
 
   /**
@@ -456,7 +452,6 @@ public class KeepAnnotationMatcher {
     final List<KeepClassItemPattern> classes = new ArrayList<>();
     final List<KeepMemberItemPattern> members = new ArrayList<>();
     final List<IntList> classMembers = new ArrayList<>();
-    final IntList boundClasses = new IntArrayList();
     final IntList preconditions = new IntArrayList();
     final IntList consequences = new IntArrayList();
     final List<KeepConstraints> constraints = new ArrayList<>();
@@ -485,11 +480,7 @@ public class KeepAnnotationMatcher {
     }
 
     public boolean isOptionalClass(int classIndex) {
-      return classIndex >= preconditionClassesCount && !boundClasses.contains(classIndex);
-    }
-
-    public boolean isOptionalMember(int memberIndex, int classIndex) {
-      return memberIndex >= preconditionMembersCount && isOptionalClass(classIndex);
+      return classIndex >= preconditionClassesCount;
     }
 
     public static boolean isClassKeyReference(int keyRef) {
@@ -523,14 +514,7 @@ public class KeepAnnotationMatcher {
 
     private int defineBindingReference(KeepBindingReference reference) {
       return symbolToKey.computeIfAbsent(
-          reference.getName(),
-          symbol -> {
-            int bindingId = defineItemPattern(getItemForBinding(symbol));
-            if (isClassKeyReference(bindingId)) {
-              boundClasses.add(bindingId);
-            }
-            return bindingId;
-          });
+          reference.getName(), symbol -> defineItemPattern(getItemForBinding(symbol)));
     }
 
     private int defineItemPattern(KeepItemPattern item) {
