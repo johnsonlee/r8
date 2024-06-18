@@ -27,7 +27,6 @@ import kotlin.Metadata;
 import kotlin.metadata.KmProperty;
 import kotlin.metadata.jvm.JvmExtensionsKt;
 import kotlin.metadata.jvm.JvmFieldSignature;
-import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.JvmMethodSignature;
 
 public class KotlinMetadataUtils {
