@@ -15,6 +15,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.kotlin.KotlinFlagUtils;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -28,9 +29,11 @@ import com.android.tools.r8.utils.codeinspector.KmTypeParameterSubjectMixin;
 import com.android.tools.r8.utils.codeinspector.KmTypeProjectionSubject;
 import com.android.tools.r8.utils.codeinspector.KmTypeSubject;
 import com.android.tools.r8.utils.codeinspector.KmValueParameterSubject;
+import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import kotlin.metadata.KmClassifier.TypeParameter;
 import kotlin.metadata.KmVariance;
 import org.junit.Test;
@@ -42,8 +45,10 @@ public class MetadataRewriteInTypeArgumentsTest extends KotlinMetadataTestBase {
 
   private static final String LIB_PKG = PKG + ".typeargument_lib.";
 
-  private static final int FLAG_NONE = 0;
-  private static final int FLAG_REIFIED = 1;
+  private static final Map<String, Object> FLAG_NONE =
+      ImmutableMap.of(KotlinFlagUtils.REIFIED_KEY, false);
+  private static final Map<String, Object> FLAG_REIFIED =
+      ImmutableMap.of(KotlinFlagUtils.REIFIED_KEY, true);
 
   private static final String EXPECTED =
       StringUtils.lines(
@@ -258,7 +263,11 @@ public class MetadataRewriteInTypeArgumentsTest extends KotlinMetadataTestBase {
   }
 
   private void inspectTypeParameter(
-      KmTypeParameterSubjectMixin subject, String name, int id, int flags, KmVariance variance) {
+      KmTypeParameterSubjectMixin subject,
+      String name,
+      int id,
+      Map<String, Object> flags,
+      KmVariance variance) {
     KmTypeParameterSubject typeParameter = subject.kmTypeParameterWithUniqueName(name);
     assertThat(typeParameter, isPresent());
     assertEquals(id, typeParameter.getId());

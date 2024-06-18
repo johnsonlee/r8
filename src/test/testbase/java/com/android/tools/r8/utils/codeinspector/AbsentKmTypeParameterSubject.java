@@ -5,7 +5,9 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.google.common.collect.ImmutableMap;
 import java.util.List;
+import java.util.Map;
 import kotlin.metadata.KmVariance;
 
 public class AbsentKmTypeParameterSubject extends KmTypeParameterSubject {
@@ -31,8 +33,8 @@ public class AbsentKmTypeParameterSubject extends KmTypeParameterSubject {
   }
 
   @Override
-  public int getFlags() {
-    return 0;
+  public Map<String, Object> getFlags() {
+    return ImmutableMap.of();
   }
 
   @Override

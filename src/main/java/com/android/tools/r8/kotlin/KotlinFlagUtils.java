@@ -52,7 +52,7 @@ public class KotlinFlagUtils {
   private static final String DECLARES_DEFAULT_VALUE_KEY = "declaresDefaultValue";
   private static final String CROSS_INLINE_KEY = "crossInline";
   private static final String NO_INLINE_KEY = "noInline";
-  private static final String REIFIED_KEY = "reified_key";
+  public static final String REIFIED_KEY = "reified";
 
   public static Map<String, Object> extractFlags(KmProperty src) {
     Map<String, Object> map = new HashMap<>();

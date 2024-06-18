@@ -1,6 +1,8 @@
 package com.android.tools.r8.utils.codeinspector;
 
+import com.android.tools.r8.kotlin.KotlinFlagUtils;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import kotlin.metadata.KmTypeParameter;
 import kotlin.metadata.KmVariance;
@@ -36,8 +38,8 @@ public class FoundKmTypeParameterSubject extends KmTypeParameterSubject {
   }
 
   @Override
-  public int getFlags() {
-    return kmTypeParameter.getFlags();
+  public Map<String, Object> getFlags() {
+    return KotlinFlagUtils.extractFlags(kmTypeParameter);
   }
 
   @Override
@@ -60,7 +62,8 @@ public class FoundKmTypeParameterSubject extends KmTypeParameterSubject {
     KmTypeParameter other = ((FoundKmTypeParameterSubject) obj).kmTypeParameter;
     if (!kmTypeParameter.getName().equals(other.getName())
         || kmTypeParameter.getId() != other.getId()
-        || kmTypeParameter.getFlags() != other.getFlags()
+        || !(KotlinFlagUtils.extractFlags(kmTypeParameter)
+            .equals(KotlinFlagUtils.extractFlags(other)))
         || kmTypeParameter.getVariance() != other.getVariance()) {
       return false;
     }

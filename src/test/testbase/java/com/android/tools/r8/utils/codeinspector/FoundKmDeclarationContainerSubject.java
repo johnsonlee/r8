@@ -10,19 +10,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import kotlin.metadata.KmDeclarationContainer;
-import kotlin.metadata.KmExtensionType;
 import kotlin.metadata.KmFunction;
-import kotlin.metadata.KmFunctionExtensionVisitor;
-import kotlin.metadata.KmFunctionVisitor;
 import kotlin.metadata.KmProperty;
-import kotlin.metadata.KmPropertyExtensionVisitor;
-import kotlin.metadata.KmPropertyVisitor;
 import kotlin.metadata.KmType;
 import kotlin.metadata.KmTypeAlias;
+import kotlin.metadata.jvm.JvmExtensionsKt;
 import kotlin.metadata.jvm.JvmFieldSignature;
-import kotlin.metadata.jvm.JvmFunctionExtensionVisitor;
 import kotlin.metadata.jvm.JvmMethodSignature;
-import kotlin.metadata.jvm.JvmPropertyExtensionVisitor;
 
 public interface FoundKmDeclarationContainerSubject extends KmDeclarationContainerSubject {
 
@@ -61,21 +55,7 @@ public interface FoundKmDeclarationContainerSubject extends KmDeclarationContain
     JvmMethodSignature signature = null;
 
     KmFunctionProcessor(KmFunction kmFunction) {
-      kmFunction.accept(new KmFunctionVisitor() {
-        @Override
-        public KmFunctionExtensionVisitor visitExtensions(KmExtensionType type) {
-          if (type != JvmFunctionExtensionVisitor.TYPE) {
-            return null;
-          }
-          return new JvmFunctionExtensionVisitor() {
-            @Override
-            public void visit(JvmMethodSignature desc) {
-              assert signature == null : signature.asString();
-              signature = desc;
-            }
-          };
-        }
-      });
+      signature = JvmExtensionsKt.getSignature(kmFunction);
       // We don't check Kotlin types in tests, but be aware of the relocation issue.
       // See b/70169921#comment57 for more details.
     }
@@ -161,29 +141,9 @@ public interface FoundKmDeclarationContainerSubject extends KmDeclarationContain
     JvmMethodSignature setterSignature = null;
 
     KmPropertyProcessor(KmProperty kmProperty) {
-      kmProperty.accept(new KmPropertyVisitor() {
-        @Override
-        public KmPropertyExtensionVisitor visitExtensions(KmExtensionType type) {
-          if (type != JvmPropertyExtensionVisitor.TYPE) {
-            return null;
-          }
-          return new JvmPropertyExtensionVisitor() {
-            @Override
-            public void visit(
-                int flags,
-                JvmFieldSignature fieldDesc,
-                JvmMethodSignature getterDesc,
-                JvmMethodSignature setterDesc) {
-              assert fieldSignature == null : fieldSignature.asString();
-              fieldSignature = fieldDesc;
-              assert getterSignature == null : getterSignature.asString();
-              getterSignature = getterDesc;
-              assert setterSignature == null : setterSignature.asString();
-              setterSignature = setterDesc;
-            }
-          };
-        }
-      });
+      fieldSignature = JvmExtensionsKt.getFieldSignature(kmProperty);
+      getterSignature = JvmExtensionsKt.getGetterSignature(kmProperty);
+      setterSignature = JvmExtensionsKt.getSetterSignature(kmProperty);
       // We don't check Kotlin types in tests, but be aware of the relocation issue.
       // See b/70169921#comment57 for more details.
     }

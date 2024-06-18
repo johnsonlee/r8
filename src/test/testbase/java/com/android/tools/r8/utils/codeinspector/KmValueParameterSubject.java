@@ -3,9 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.codeinspector;
 
-import static kotlin.metadata.Flag.ValueParameter.DECLARES_DEFAULT_VALUE;
-
 import com.android.tools.r8.errors.Unreachable;
+import kotlin.metadata.Attributes;
 import kotlin.metadata.KmValueParameter;
 
 public class KmValueParameterSubject extends Subject {
@@ -33,7 +32,7 @@ public class KmValueParameterSubject extends Subject {
   }
 
   public boolean declaresDefaultValue() {
-    return DECLARES_DEFAULT_VALUE.invoke(kmValueParameter.getFlags());
+    return Attributes.getDeclaresDefaultValue(kmValueParameter);
   }
 
   @Override

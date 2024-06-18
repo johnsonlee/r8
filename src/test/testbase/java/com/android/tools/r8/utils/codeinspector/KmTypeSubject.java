@@ -6,15 +6,16 @@ package com.android.tools.r8.utils.codeinspector;
 import static com.android.tools.r8.utils.DescriptorUtils.getDescriptorFromKotlinClassifier;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.kotlin.KotlinFlagUtils;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.utils.Box;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import kotlin.metadata.KmAnnotation;
+import kotlin.metadata.KmClassifier;
+import kotlin.metadata.KmClassifier.TypeAlias;
 import kotlin.metadata.KmFlexibleTypeUpperBound;
 import kotlin.metadata.KmType;
-import kotlin.metadata.KmTypeVisitor;
 import kotlin.metadata.jvm.JvmExtensionsKt;
 
 public class KmTypeSubject extends Subject {
@@ -32,23 +33,17 @@ public class KmTypeSubject extends Subject {
     if (kmType == null) {
       return null;
     }
-    Box<String> descriptor = new Box<>(null);
-    kmType.accept(new KmTypeVisitor() {
-      @Override
-      public void visitClass(String name) {
-        // We don't check Kotlin types in tests, but be aware of the relocation issue.
-        // See b/70169921#comment25 for more details.
-        assert descriptor.get() == null;
-        descriptor.set(getDescriptorFromKotlinClassifier(name));
-      }
-
-      @Override
-      public void visitTypeAlias(String name) {
-        assert descriptor.get() == null;
-        descriptor.set(getDescriptorFromKotlinClassifier(name));
-      }
-    });
-    return descriptor.get();
+    KmClassifier classifier = kmType.getClassifier();
+    if (classifier instanceof KmClassifier.Class) {
+      KmClassifier.Class classClassifier = (KmClassifier.Class) classifier;
+      return getDescriptorFromKotlinClassifier(classClassifier.getName());
+    }
+    if (classifier instanceof KmClassifier.TypeAlias) {
+      TypeAlias typeAliasClassifier = (TypeAlias) classifier;
+      return getDescriptorFromKotlinClassifier(typeAliasClassifier.getName());
+    }
+    // The case KmClassifier.TypeParameter is not implemented (?).
+    return null;
   }
 
   public String descriptor() {
@@ -107,7 +102,7 @@ public class KmTypeSubject extends Subject {
     if (one == null || other == null) {
       return false;
     }
-    if (one.getFlags() != other.getFlags()) {
+    if (!KotlinFlagUtils.extractFlags(one).equals(KotlinFlagUtils.extractFlags(other))) {
       return false;
     }
     if (!one.classifier.toString().equals(other.classifier.toString())) {

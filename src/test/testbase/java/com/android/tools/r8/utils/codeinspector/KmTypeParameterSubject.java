@@ -5,13 +5,14 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import java.util.List;
+import java.util.Map;
 import kotlin.metadata.KmVariance;
 
 public abstract class KmTypeParameterSubject extends Subject {
 
   public abstract int getId();
 
-  public abstract int getFlags();
+  public abstract Map<String, Object> getFlags();
 
   public abstract KmVariance getVariance();
 
