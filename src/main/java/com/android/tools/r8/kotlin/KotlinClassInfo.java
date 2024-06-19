@@ -7,6 +7,7 @@ package com.android.tools.r8.kotlin;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmFieldSignature;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmMethodSignature;
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.updateJvmMetadataVersionIfRequired;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
@@ -439,6 +440,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
         localDelegatedProperties.rewrite(
             JvmExtensionsKt.getLocalDelegatedProperties(rewrittenKmClass)::add, appView);
     classMetadata.setKmClass(rewrittenKmClass);
+    updateJvmMetadataVersionIfRequired(classMetadata);
     return Pair.create(
         classMetadata.write(),
         rewritten || !originalMembersWithKotlinInfo.isEqual(rewrittenReferences, appView));

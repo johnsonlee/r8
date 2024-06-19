@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.kotlin;
 
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.updateJvmMetadataVersionIfRequired;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
@@ -72,6 +73,7 @@ public class KotlinMultiFileClassFacadeInfo implements KotlinClassLevelInfo {
               null);
     }
     kmMultiFileClassFacade.setPartClassNames(partClassNameStrings);
+    updateJvmMetadataVersionIfRequired(kmMultiFileClassFacade);
     return Pair.create(kmMultiFileClassFacade.write(), rewritten);
   }
 

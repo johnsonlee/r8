@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.kotlin;
 
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.updateJvmMetadataVersionIfRequired;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
@@ -55,6 +57,7 @@ public class KotlinFileFacadeInfo implements KotlinClassLevelInfo {
   public Pair<Metadata, Boolean> rewrite(DexClass clazz, AppView<?> appView) {
     KmPackage kmPackage = new KmPackage();
     boolean rewritten = packageInfo.rewrite(kmPackage, clazz, appView);
+    updateJvmMetadataVersionIfRequired(kmFileFacade);
     kmFileFacade.setKmPackage(kmPackage);
     return Pair.create(kmFileFacade.write(), rewritten);
   }

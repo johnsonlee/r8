@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.kotlin;
 
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.updateJvmMetadataVersionIfRequired;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
@@ -69,6 +71,7 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
 
   @Override
   public Pair<Metadata, Boolean> rewrite(DexClass clazz, AppView<?> appView) {
+    updateJvmMetadataVersionIfRequired(syntheticClass);
     if (lambda == null) {
       return Pair.create(syntheticClass.write(), false);
     }
