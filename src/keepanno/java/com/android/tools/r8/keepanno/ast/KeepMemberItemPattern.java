@@ -9,18 +9,13 @@ import java.util.Objects;
 
 public class KeepMemberItemPattern extends KeepItemPattern {
 
-  public static KeepMemberItemPattern any() {
-    return builder().build();
-  }
-
   public static Builder builder() {
     return new Builder();
   }
 
   public static class Builder {
 
-    private KeepClassItemReference classReference =
-        KeepClassItemPattern.any().toClassItemReference();
+    private KeepClassItemReference classReference = null;
     private KeepMemberPattern memberPattern = KeepMemberPattern.allMembers();
 
     private Builder() {}
@@ -28,6 +23,11 @@ public class KeepMemberItemPattern extends KeepItemPattern {
     public Builder copyFrom(KeepMemberItemPattern pattern) {
       return setClassReference(pattern.getClassReference())
           .setMemberPattern(pattern.getMemberPattern());
+    }
+
+    public Builder setClassBindingReference(KeepClassBindingReference classReference) {
+      this.classReference = classReference.toClassItemReference();
+      return this;
     }
 
     public Builder setClassReference(KeepClassItemReference classReference) {
@@ -41,6 +41,10 @@ public class KeepMemberItemPattern extends KeepItemPattern {
     }
 
     public KeepMemberItemPattern build() {
+      if (classReference == null) {
+        throw new KeepEdgeException(
+            "Invalid attempt to build a member pattern without a class reference");
+      }
       return new KeepMemberItemPattern(classReference, memberPattern);
     }
   }

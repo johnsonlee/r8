@@ -23,10 +23,6 @@ public abstract class KeepItemPattern {
     return KeepClassItemPattern.any();
   }
 
-  public static KeepItemPattern anyMember() {
-    return KeepMemberItemPattern.any();
-  }
-
   public boolean isClassItemPattern() {
     return asClassItemPattern() != null;
   }

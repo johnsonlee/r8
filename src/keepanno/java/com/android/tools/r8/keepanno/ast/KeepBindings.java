@@ -211,6 +211,14 @@ public class KeepBindings {
       return this;
     }
 
+    public KeepItemPattern deleteBinding(KeepBindingSymbol symbol) {
+      KeepItemPattern removed = bindings.remove(symbol);
+      if (removed == null) {
+        throw new KeepEdgeException("Invalid deletion of binding '" + symbol + "'");
+      }
+      return removed;
+    }
+
     public KeepItemPattern getItemForBinding(KeepBindingSymbol symbol) {
       return bindings.get(symbol);
     }

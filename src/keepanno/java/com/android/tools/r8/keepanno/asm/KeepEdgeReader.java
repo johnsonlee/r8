@@ -46,12 +46,10 @@ import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepInstanceOfPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
-import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberAccessPattern.BuilderBase;
 import com.android.tools.r8.keepanno.ast.KeepMemberBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
-import com.android.tools.r8.keepanno.ast.KeepMemberItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodNamePattern;
@@ -79,6 +77,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
@@ -219,13 +218,12 @@ public class KeepEdgeReader implements Opcodes {
         });
   }
 
-  private static KeepClassItemReference classReferenceFromName(String className) {
-    return KeepClassItemReference.fromClassNamePattern(
-        KeepQualifiedClassNamePattern.exact(className));
-  }
-
-  private static KeepConstraints getClassConstraintsOrDefault(KeepConstraints constraints) {
-    return constraints != null ? constraints : KeepConstraints.defaultConstraints();
+  private static KeepClassBindingReference classReferenceFromName(
+      String className, UserBindingsHelper bindingsHelper) {
+    return bindingsHelper.defineFreshClassBinding(
+        KeepClassItemPattern.builder()
+            .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
+            .build());
   }
 
   /** Internal copy of the user-facing KeepItemKind */
@@ -379,11 +377,14 @@ public class KeepEdgeReader implements Opcodes {
         return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
       if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
-        KeepClassItemPattern classItem =
-            KeepClassItemPattern.builder()
-                .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
-                .build();
-        return new UsesReflectionVisitor(parsingContext, parent::accept, setContext, classItem);
+        return new UsesReflectionVisitor(
+            parsingContext,
+            parent::accept,
+            setContext,
+            bindingsHelper ->
+                KeepClassItemPattern.builder()
+                    .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
+                    .build());
       }
       if (descriptor.equals(ForApi.DESCRIPTOR)) {
         return new ForApiClassVisitor(parsingContext, parent::accept, setContext, className);
@@ -453,7 +454,10 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     private static KeepMemberItemPattern createMethodItemContext(
-        String className, String methodName, String methodDescriptor) {
+        String className,
+        String methodName,
+        String methodDescriptor,
+        UserBindingsHelper bindingsHelper) {
       String returnTypeDescriptor = Type.getReturnType(methodDescriptor).getDescriptor();
       Type[] argumentTypes = Type.getArgumentTypes(methodDescriptor);
       KeepMethodParametersPattern.Builder builder = KeepMethodParametersPattern.builder();
@@ -465,8 +469,9 @@ public class KeepEdgeReader implements Opcodes {
               ? KeepMethodReturnTypePattern.voidType()
               : KeepMethodReturnTypePattern.fromType(
                   KeepTypePattern.fromDescriptor(returnTypeDescriptor));
+
       return KeepMemberItemPattern.builder()
-          .setClassReference(classReferenceFromName(className))
+          .setClassBindingReference(classReferenceFromName(className, bindingsHelper))
           .setMemberPattern(
               KeepMethodPattern.builder()
                   .setNamePattern(KeepMethodNamePattern.exact(methodName))
@@ -522,14 +527,16 @@ public class KeepEdgeReader implements Opcodes {
             parsingContext,
             parent::accept,
             setContext,
-            createMethodItemContext(className, methodName, methodDescriptor));
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
       if (descriptor.equals(AnnotationConstants.ForApi.DESCRIPTOR)) {
         return new ForApiMemberVisitor(
             parsingContext,
             parent::accept,
             setContext,
-            createMethodItemContext(className, methodName, methodDescriptor));
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
       if (descriptor.equals(AnnotationConstants.UsedByReflection.DESCRIPTOR)
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
@@ -537,14 +544,16 @@ public class KeepEdgeReader implements Opcodes {
             parsingContext,
             parent::accept,
             setContext,
-            createMethodItemContext(className, methodName, methodDescriptor));
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
       if (descriptor.equals(AnnotationConstants.CheckRemoved.DESCRIPTOR)) {
         return new CheckRemovedMemberVisitor(
             parsingContext,
             parent::accept,
             setContext,
-            createMethodItemContext(className, methodName, methodDescriptor),
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper),
             KeepCheckKind.REMOVED);
       }
       if (descriptor.equals(AnnotationConstants.CheckOptimizedOut.DESCRIPTOR)) {
@@ -552,7 +561,8 @@ public class KeepEdgeReader implements Opcodes {
             parsingContext,
             parent::accept,
             setContext,
-            createMethodItemContext(className, methodName, methodDescriptor),
+            bindingsHelper ->
+                createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper),
             KeepCheckKind.OPTIMIZED_OUT);
       }
       return null;
@@ -591,11 +601,14 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     private static KeepMemberItemPattern createMemberItemContext(
-        String className, String fieldName, String fieldTypeDescriptor) {
+        String className,
+        String fieldName,
+        String fieldTypeDescriptor,
+        UserBindingsHelper bindingsHelper) {
       KeepFieldTypePattern typePattern =
           KeepFieldTypePattern.fromType(KeepTypePattern.fromDescriptor(fieldTypeDescriptor));
       return KeepMemberItemPattern.builder()
-          .setClassReference(classReferenceFromName(className))
+          .setClassBindingReference(classReferenceFromName(className, bindingsHelper))
           .setMemberPattern(
               KeepFieldPattern.builder()
                   .setNamePattern(KeepFieldNamePattern.exact(fieldName))
@@ -651,14 +664,16 @@ public class KeepEdgeReader implements Opcodes {
             parsingContext,
             parent::accept,
             setContext,
-            createMemberItemContext(className, fieldName, fieldTypeDescriptor));
+            bindingsHelper ->
+                createMemberItemContext(className, fieldName, fieldTypeDescriptor, bindingsHelper));
       }
       if (descriptor.equals(ForApi.DESCRIPTOR)) {
         return new ForApiMemberVisitor(
             parsingContext,
             parent::accept,
             setContext,
-            createMemberItemContext(className, fieldName, fieldTypeDescriptor));
+            bindingsHelper ->
+                createMemberItemContext(className, fieldName, fieldTypeDescriptor, bindingsHelper));
       }
       if (descriptor.equals(UsedByReflection.DESCRIPTOR)
           || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
@@ -666,7 +681,8 @@ public class KeepEdgeReader implements Opcodes {
             parsingContext,
             parent::accept,
             setContext,
-            createMemberItemContext(className, fieldName, fieldTypeDescriptor));
+            bindingsHelper ->
+                createMemberItemContext(className, fieldName, fieldTypeDescriptor, bindingsHelper));
       }
       return null;
     }
@@ -681,6 +697,10 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepBindings.Builder builder = KeepBindings.builder();
     private final Map<String, KeepBindingSymbol> userNames = new HashMap<>();
 
+    public boolean isUserBinding(KeepBindingSymbol symbol) {
+      return userNames.get(symbol.toString()) == symbol;
+    }
+
     public KeepBindingSymbol resolveUserBinding(String name) {
       return userNames.computeIfAbsent(name, builder::create);
     }
@@ -689,14 +709,65 @@ public class KeepEdgeReader implements Opcodes {
       builder.addBinding(resolveUserBinding(name), item);
     }
 
-    public KeepBindingSymbol defineFreshBinding(String name, KeepItemPattern item) {
+    public void replaceWithUserBinding(
+        String name, KeepBindingReference replacedBinding, ParsingContext parsingContext) {
+      if (isUserBinding(replacedBinding.getName())) {
+        // The language currently disallows aliasing bindings, thus a binding cannot directly be
+        // defined by a reference to another binding.
+        throw parsingContext.error(
+            "Invalid binding reference to '"
+                + replacedBinding
+                + "' in binding definition of '"
+                + name
+                + "'");
+      }
+      KeepItemPattern item = builder.deleteBinding(replacedBinding.getName());
+      defineUserBinding(name, item);
+    }
+
+    public KeepClassBindingReference defineFreshClassBinding(KeepClassItemPattern itemPattern) {
+      KeepBindingSymbol symbol = defineFreshBinding("CLASS", itemPattern);
+      return KeepClassBindingReference.forClass(symbol);
+    }
+
+    public KeepMemberBindingReference defineFreshMemberBinding(KeepMemberItemPattern itemPattern) {
+      KeepBindingSymbol symbol = defineFreshBinding("MEMBER", itemPattern);
+      return KeepMemberBindingReference.forMember(symbol);
+    }
+
+    public KeepBindingReference defineFreshItemBinding(KeepItemPattern itemPattern) {
+      KeepBindingSymbol symbol = defineFreshBinding("ITEM", itemPattern);
+      return KeepBindingReference.forItem(symbol, itemPattern);
+    }
+
+    private KeepBindingSymbol defineFreshBinding(String name, KeepItemPattern item) {
       KeepBindingSymbol symbol = builder.generateFreshSymbol(name);
       builder.addBinding(symbol, item);
       return symbol;
     }
 
-    public KeepItemPattern getItemForBinding(KeepBindingReference bindingReference) {
-      return builder.getItemForBinding(bindingReference.getName());
+    public KeepItemPattern getItem(KeepBindingReference bindingReference) {
+      return bindingReference.isClassType()
+          ? getClassItem(bindingReference.asClassBindingReference())
+          : getMemberItem(bindingReference.asMemberBindingReference());
+    }
+
+    public KeepClassItemPattern getClassItem(KeepClassBindingReference reference) {
+      KeepItemPattern item = builder.getItemForBinding(reference.getName());
+      assert item != null;
+      return item.asClassItemPattern();
+    }
+
+    public KeepMemberItemPattern getMemberItem(KeepMemberBindingReference reference) {
+      KeepItemPattern item = builder.getItemForBinding(reference.getName());
+      assert item != null;
+      return item.asMemberItemPattern();
+    }
+
+    public KeepClassItemPattern getClassItemForReference(KeepClassItemReference itemReference) {
+      return itemReference.isBindingReference()
+          ? getItem(itemReference.asBindingReference()).asClassItemPattern()
+          : itemReference.asClassItemPattern();
     }
 
     public KeepBindings build() {
@@ -834,26 +905,23 @@ public class KeepEdgeReader implements Opcodes {
       }
       KeepEdgeMetaInfo metaInfo = context.applyToMetadata(KeepEdgeMetaInfo.builder()).build();
       KeepCheckKind kind = isCheckRemoved ? KeepCheckKind.REMOVED : KeepCheckKind.OPTIMIZED_OUT;
+      UserBindingsHelper bindingsHelper = new UserBindingsHelper();
       KeepItemPattern itemPattern = context.toItemPattern();
-      parent.accept(buildKeepCheckFromItem(metaInfo, kind, itemPattern));
+      parent.accept(buildKeepCheckFromItem(metaInfo, kind, itemPattern, bindingsHelper));
       super.visitEnd();
     }
 
     private static KeepCheck buildKeepCheckFromItem(
-        KeepEdgeMetaInfo metaInfo, KeepCheckKind kind, KeepItemPattern itemPattern) {
-      KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
-      KeepBindingSymbol symbol = bindingsBuilder.generateFreshSymbol("CHECK");
-      bindingsBuilder.addBinding(symbol, itemPattern);
-      KeepItemReference itemReference =
-          itemPattern.isClassItemPattern()
-              ? KeepClassItemReference.fromBindingReference(KeepBindingReference.forClass(symbol))
-              : KeepMemberItemReference.fromBindingReference(
-                  KeepBindingReference.forMember(symbol));
+        KeepEdgeMetaInfo metaInfo,
+        KeepCheckKind kind,
+        KeepItemPattern itemPattern,
+        UserBindingsHelper bindingsHelper) {
+      KeepBindingReference itemReference = bindingsHelper.defineFreshItemBinding(itemPattern);
       return KeepCheck.builder()
           .setMetaInfo(metaInfo)
           .setKind(kind)
-          .setBindings(bindingsBuilder.build())
-          .setItemReference(itemReference)
+          .setBindings(bindingsHelper.build())
+          .setItemBindingReference(itemReference)
           .build();
     }
   }
@@ -988,15 +1056,14 @@ public class KeepEdgeReader implements Opcodes {
       // Default constraints should retain the expected meta-data, such as signatures, annotations
       // exception-throws etc.
       KeepConstraints defaultForApiConstraints = KeepConstraints.all();
-      Collection<KeepItemReference> items = getItems();
-      for (KeepItemReference item : items) {
-        if (item.isBindingReference()) {
-          throw parsingContext.error("cannot reference bindings");
-        }
+      Collection<KeepBindingReference> items = getItems();
+      for (KeepBindingReference bindingReference : items) {
+        KeepItemPattern item = bindingsHelper.getItem(bindingReference);
         KeepClassItemPattern classItemPattern = item.asClassItemPattern();
         if (classItemPattern == null) {
-          assert item.isMemberItemReference();
-          classItemPattern = item.asMemberItemPattern().getClassReference().asClassItemPattern();
+          assert item.isMemberItemPattern();
+          KeepClassItemReference classReference = item.asMemberItemPattern().getClassReference();
+          classItemPattern = bindingsHelper.getClassItemForReference(classReference);
         }
         String descriptor = KeepEdgeReaderUtils.getDescriptorFromClassTypeName(className);
         String itemDescriptor = classItemPattern.getClassNamePattern().getExactDescriptor();
@@ -1011,7 +1078,7 @@ public class KeepEdgeReader implements Opcodes {
         }
         consequences.addTarget(
             KeepTarget.builder()
-                .setItemReference(item)
+                .setItemBindingReference(bindingReference)
                 .setConstraints(defaultForApiConstraints)
                 .build());
       }
@@ -1042,25 +1109,39 @@ public class KeepEdgeReader implements Opcodes {
         AnnotationParsingContext parsingContext,
         Parent<KeepEdge> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
-        KeepMemberItemPattern context) {
+        Function<UserBindingsHelper, KeepMemberItemPattern> contextBuilder) {
       super(parsingContext);
       this.parsingContext = parsingContext;
       this.parent = parent;
       addContext.accept(metaInfoBuilder);
-      // Create a binding for the context such that the class and member are shared.
-      KeepClassItemPattern classContext = context.getClassReference().asClassItemPattern();
-      KeepBindingSymbol bindingSymbol = bindingsHelper.defineFreshBinding("CONTEXT", classContext);
-      KeepClassItemReference classReference =
-          KeepBindingReference.forClass(bindingSymbol).toClassItemReference();
-      consequences.addTarget(
-          KeepTarget.builder()
-              .setItemPattern(
-                  KeepMemberItemPattern.builder()
-                      .copyFrom(context)
-                      .setClassReference(classReference)
-                      .build())
-              .build());
-      consequences.addTarget(KeepTarget.builder().setItemReference(classReference).build());
+      KeepMemberItemPattern context = contextBuilder.apply(bindingsHelper);
+      KeepClassItemReference classReference = context.getClassReference();
+      if (classReference.isBindingReference()) {
+        consequences.addTarget(
+            KeepTarget.builder()
+                .setItemBindingReference(bindingsHelper.defineFreshMemberBinding(context))
+                .build());
+        consequences.addTarget(
+            KeepTarget.builder()
+                .setItemBindingReference(classReference.asBindingReference())
+                .build());
+      } else {
+        // Create a binding for the context such that the class and member are shared.
+        KeepClassItemPattern classContext = classReference.asClassItemPattern();
+        KeepClassBindingReference classBindingReference =
+            bindingsHelper.defineFreshClassBinding(classContext);
+        consequences.addTarget(
+            KeepTarget.builder()
+                .setItemBindingReference(
+                    bindingsHelper.defineFreshMemberBinding(
+                        KeepMemberItemPattern.builder()
+                            .copyFrom(context)
+                            .setClassBindingReference(classBindingReference)
+                            .build()))
+                .build());
+        consequences.addTarget(
+            KeepTarget.builder().setItemBindingReference(classBindingReference).build());
+      }
     }
 
     @Override
@@ -1237,17 +1318,13 @@ public class KeepEdgeReader implements Opcodes {
         visitEnum(null, Kind.DESCRIPTOR, Kind.CLASS_AND_MEMBERS);
       }
       super.visitEnd();
-      for (KeepItemReference item : getItems()) {
-        KeepItemPattern itemPattern;
-        if (item.isBindingReference()) {
-          itemPattern = getBindingsHelper().getItemForBinding(item.asBindingReference());
-        } else {
-          itemPattern = item.asItemPattern();
-        }
+      for (KeepBindingReference bindingReference : getItems()) {
+        KeepItemPattern itemPattern = bindingsHelper.getItem(bindingReference);
         KeepClassItemPattern holderPattern =
             itemPattern.isClassItemPattern()
                 ? itemPattern.asClassItemPattern()
-                : itemPattern.asMemberItemPattern().getClassReference().asClassItemPattern();
+                : bindingsHelper.getClassItemForReference(
+                    itemPattern.asMemberItemPattern().getClassReference());
         String descriptor = KeepEdgeReaderUtils.getDescriptorFromClassTypeName(className);
         String itemDescriptor = holderPattern.getClassNamePattern().getExactDescriptor();
         if (!descriptor.equals(itemDescriptor)) {
@@ -1293,11 +1370,11 @@ public class KeepEdgeReader implements Opcodes {
         AnnotationParsingContext parsingContext,
         Parent<KeepEdge> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
-        KeepItemPattern context) {
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
       super(parsingContext);
       this.parsingContext = parsingContext;
       this.parent = parent;
-      this.context = context;
+      this.context = contextBuilder.apply(bindingsHelper);
       addContext.accept(metaInfoBuilder);
       constraintsParser = new ConstraintDeclarationParser(parsingContext);
     }
@@ -1398,10 +1475,11 @@ public class KeepEdgeReader implements Opcodes {
         AnnotationParsingContext parsingContext,
         Parent<KeepEdge> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
-        KeepItemPattern context) {
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder) {
       super(parsingContext);
       this.parsingContext = parsingContext;
       this.parent = parent;
+      KeepItemPattern context = contextBuilder.apply(bindingsHelper);
       preconditions.addCondition(KeepCondition.builder().setItemPattern(context).build());
       addContext.accept(metaInfoBuilder);
     }
@@ -1577,7 +1655,7 @@ public class KeepEdgeReader implements Opcodes {
               .setMetaInfo(metaInfoBuilder.build())
               .setKind(kind)
               .setBindings(itemVisitor.getBindingsHelper().build())
-              .setItemReference(itemVisitor.getItemReference())
+              .setItemBindingReference(itemVisitor.getItemReference())
               .build());
     }
   }
@@ -1589,16 +1667,17 @@ public class KeepEdgeReader implements Opcodes {
     private final KeepItemPattern context;
     private final KeepEdgeMetaInfo.Builder metaInfoBuilder = KeepEdgeMetaInfo.builder();
     private final KeepCheckKind kind;
+    private final UserBindingsHelper bindingsHelper = new UserBindingsHelper();
 
     CheckRemovedMemberVisitor(
         AnnotationParsingContext parsingContext,
         Parent<KeepDeclaration> parent,
         Consumer<KeepEdgeMetaInfo.Builder> addContext,
-        KeepItemPattern context,
+        Function<UserBindingsHelper, KeepItemPattern> contextBuilder,
         KeepCheckKind kind) {
       super(parsingContext);
       this.parent = parent;
-      this.context = context;
+      this.context = contextBuilder.apply(bindingsHelper);
       this.kind = kind;
       addContext.accept(metaInfoBuilder);
     }
@@ -1617,16 +1696,16 @@ public class KeepEdgeReader implements Opcodes {
       super.visitEnd();
       parent.accept(
           ExtractedAnnotationVisitor.buildKeepCheckFromItem(
-              metaInfoBuilder.build(), kind, context));
+              metaInfoBuilder.build(), kind, context, bindingsHelper));
     }
   }
 
-  private static class ClassDeclarationParser extends DeclarationParser<KeepClassItemReference> {
+  private static class ClassDeclarationParser extends DeclarationParser<KeepClassBindingReference> {
 
     private final ParsingContext parsingContext;
     private final Supplier<UserBindingsHelper> getBindingsHelper;
 
-    private KeepClassItemReference boundClassItemReference = null;
+    private KeepClassBindingReference boundClassReference = null;
     private final ClassNameParser classNameParser;
     private final ClassNameParser annotatedByParser;
     private final InstanceOfParser instanceOfParser;
@@ -1665,7 +1744,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     private boolean isBindingReferenceDefined() {
-      return boundClassItemReference != null;
+      return boundClassReference != null;
     }
 
     private boolean classPatternsAreDeclared() {
@@ -1686,37 +1765,41 @@ public class KeepEdgeReader implements Opcodes {
       return isBindingReferenceDefined() || super.isDeclared();
     }
 
-    public KeepClassItemReference getValue() {
+    public KeepClassBindingReference getValue() {
       checkAllowedDefinitions();
       if (isBindingReferenceDefined()) {
-        return boundClassItemReference;
+        return boundClassReference;
       }
+      KeepClassItemPattern classItemPattern;
       if (classPatternsAreDeclared()) {
-        return KeepClassItemPattern.builder()
-            .setClassNamePattern(
-                classNameParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
-            .setAnnotatedByPattern(OptionalPattern.ofNullable(annotatedByParser.getValue()))
-            .setInstanceOfPattern(instanceOfParser.getValueOrDefault(KeepInstanceOfPattern.any()))
-            .build()
-            .toClassItemReference();
+        classItemPattern =
+            KeepClassItemPattern.builder()
+                .setClassNamePattern(
+                    classNameParser.getValueOrDefault(KeepQualifiedClassNamePattern.any()))
+                .setAnnotatedByPattern(OptionalPattern.ofNullable(annotatedByParser.getValue()))
+                .setInstanceOfPattern(
+                    instanceOfParser.getValueOrDefault(KeepInstanceOfPattern.any()))
+                .build();
+      } else {
+        assert isDefault();
+        classItemPattern = KeepClassItemPattern.any();
       }
-      assert isDefault();
-      return KeepClassItemPattern.any().toClassItemReference();
+      return getBindingsHelper.get().defineFreshClassBinding(classItemPattern);
     }
 
-    public void setBindingReference(KeepClassItemReference bindingReference) {
+    public void setBindingReference(KeepClassBindingReference bindingReference) {
       if (isBindingReferenceDefined()) {
         throw parsingContext.error(
             "Cannot reference multiple class bindings for a single class item");
       }
-      this.boundClassItemReference = bindingReference;
+      this.boundClassReference = bindingReference;
     }
 
     @Override
     public boolean tryParse(String name, Object value) {
       if (name.equals(Item.classFromBinding) && value instanceof String) {
         KeepBindingSymbol symbol = getBindingsHelper.get().resolveUserBinding((String) value);
-        setBindingReference(KeepBindingReference.forClass(symbol).toClassItemReference());
+        setBindingReference(KeepBindingReference.forClass(symbol));
         return true;
       }
       return super.tryParse(name, value);
@@ -1966,8 +2049,8 @@ public class KeepEdgeReader implements Opcodes {
       return true;
     }
 
-    // Constructed items available once visitEnd has been called.
-    private List<KeepItemReference> itemReferences = null;
+    // Constructed bindings available once visitEnd has been called.
+    private List<KeepBindingReference> itemReferences = null;
 
     KeepItemVisitorBase(ParsingContext parsingContext) {
       super(parsingContext);
@@ -1976,14 +2059,14 @@ public class KeepEdgeReader implements Opcodes {
       memberDeclaration = new MemberDeclarationParser(parsingContext);
     }
 
-    public Collection<KeepItemReference> getItems() {
+    public Collection<KeepBindingReference> getItems() {
       if (itemReferences == null || kind == null) {
         throw parsingContext.error("Items not finalized. Missing call to visitEnd()");
       }
       return itemReferences;
     }
 
-    public KeepItemReference getItemReference() {
+    public KeepBindingReference getItemReference() {
       if (itemReferences == null) {
         throw parsingContext.error("Item reference not finalized. Missing call to visitEnd()");
       }
@@ -2063,37 +2146,32 @@ public class KeepEdgeReader implements Opcodes {
       }
 
       if (!kind.includesClass()) {
-        itemReferences = Collections.singletonList(memberBinding.toItemReference());
+        itemReferences = Collections.singletonList(memberBinding);
         return;
       }
 
       KeepClassItemReference holderReference =
-          getBindingsHelper()
-              .getItemForBinding(memberBinding)
-              .asMemberItemPattern()
-              .getClassReference();
+          getBindingsHelper().getItem(memberBinding).asMemberItemPattern().getClassReference();
       itemReferences =
-          ImmutableList.of(ensureHolderForMember(holderReference), memberBinding.toItemReference());
+          ImmutableList.of(ensureCorrectBindingForMemberHolder(holderReference), memberBinding);
     }
 
-    private KeepClassItemReference ensureHolderForMember(KeepClassItemReference holderReference) {
-      if (useBindingForClassAndMembers() && !holderReference.isBindingReference()) {
-        // Ensure a binding between the member and its holder.
-        KeepBindingSymbol holderSymbol =
-            getBindingsHelper().defineFreshBinding("HOLDER", holderReference.asClassItemPattern());
-        return KeepClassItemReference.fromBindingReference(
-            KeepClassBindingReference.forClass(holderSymbol));
+    private KeepClassBindingReference ensureCorrectBindingForMemberHolder(
+        KeepClassItemReference holderReference) {
+      if (holderReference.isBindingReference()) {
+        KeepClassBindingReference bindingReference =
+            holderReference.asBindingReference().asClassBindingReference();
+        return ensureCorrectBindingForMemberHolder(bindingReference);
       }
-      if (!useBindingForClassAndMembers() && holderReference.isBindingReference()) {
-        // Ensure *no* binding between the member and its holder.
-        KeepItemPattern holderPattern =
-            getBindingsHelper().getItemForBinding(holderReference.asBindingReference());
-        KeepBindingSymbol holderSymbol =
-            getBindingsHelper().defineFreshBinding("HOLDER", holderPattern);
-        return KeepClassItemReference.fromBindingReference(
-            KeepClassBindingReference.forClass(holderSymbol));
-      }
-      return holderReference;
+      return getBindingsHelper().defineFreshClassBinding(holderReference.asClassItemPattern());
+    }
+
+    private KeepClassBindingReference ensureCorrectBindingForMemberHolder(
+        KeepClassBindingReference bindingReference) {
+      return useBindingForClassAndMembers()
+          ? bindingReference
+          : getBindingsHelper()
+              .defineFreshClassBinding(getBindingsHelper().getClassItem(bindingReference));
     }
 
     @Override
@@ -2155,19 +2233,19 @@ public class KeepEdgeReader implements Opcodes {
         }
       }
 
-      KeepClassItemReference classReference = classDeclaration.getValue();
-      KeepItemPattern itemPattern =
-          KeepMemberItemPattern.builder()
-              .setClassReference(classReference)
-              .setMemberPattern(memberPattern)
-              .build();
-
+      ImmutableList.Builder<KeepBindingReference> builder = ImmutableList.builder();
+      KeepClassBindingReference classReference = classDeclaration.getValue();
+      builder.add(
+          getBindingsHelper()
+              .defineFreshMemberBinding(
+                  KeepMemberItemPattern.builder()
+                      .setClassBindingReference(classReference)
+                      .setMemberPattern(memberPattern)
+                      .build()));
       if (kind.includesClass()) {
-        itemReferences =
-            ImmutableList.of(ensureHolderForMember(classReference), itemPattern.toItemReference());
-      } else {
-        itemReferences = Collections.singletonList(itemPattern.toItemReference());
+        builder.add(ensureCorrectBindingForMemberHolder(classReference));
       }
+      itemReferences = builder.build();
     }
   }
 
@@ -2200,18 +2278,8 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       super.visitEnd();
-      KeepItemReference item = getItemReference();
-      // The language currently disallows aliasing bindings, thus a binding cannot directly be
-      // defined by a reference to another binding.
-      if (item.isBindingReference()) {
-        throw parsingContext.error(
-            "Invalid binding reference to '"
-                + item.asBindingReference()
-                + "' in binding definition of '"
-                + bindingName
-                + "'");
-      }
-      helper.defineUserBinding(bindingName, item.asItemPattern());
+      KeepBindingReference bindingReference = getItemReference();
+      helper.replaceWithUserBinding(bindingName, bindingReference, parsingContext);
     }
   }
 
@@ -2258,8 +2326,8 @@ public class KeepEdgeReader implements Opcodes {
       super.visitEnd();
       builder.setConstraints(
           constraintsParser.getValueOrDefault(KeepConstraints.defaultConstraints()));
-      for (KeepItemReference item : getItems()) {
-        parent.accept(builder.setItemReference(item).build());
+      for (KeepBindingReference item : getItems()) {
+        parent.accept(builder.setItemBindingReference(item).build());
       }
     }
   }
@@ -2286,7 +2354,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public void visitEnd() {
       super.visitEnd();
-      parent.accept(KeepCondition.builder().setItemReference(getItemReference()).build());
+      parent.accept(KeepCondition.builder().setItemBindingReference(getItemReference()).build());
     }
   }
 

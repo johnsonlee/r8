@@ -40,6 +40,9 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepAll() {
+    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
+    KeepBindingSymbol anyClassSymbol = bindingsBuilder.generateFreshSymbol("ANY_CLASS");
+    bindingsBuilder.addBinding(anyClassSymbol, KeepItemPattern.anyClass());
     KeepEdge edge =
         KeepEdge.builder()
             .setConsequences(
@@ -47,8 +50,11 @@ public class KeepEdgeAstTest extends TestBase {
                     .addTarget(
                         KeepTarget.builder().setItemPattern(KeepItemPattern.anyClass()).build())
                     .addTarget(
-                        KeepTarget.builder().setItemPattern(KeepItemPattern.anyMember()).build())
+                        KeepTarget.builder()
+                            .setItemPattern(buildMemberItem(anyClassSymbol).build())
+                            .build())
                     .build())
+            .setBindings(bindingsBuilder.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -66,6 +72,9 @@ public class KeepEdgeAstTest extends TestBase {
             .add(KeepConstraint.fieldGet())
             .add(KeepConstraint.fieldSet())
             .build();
+    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
+    KeepBindingSymbol anyClassSymbol = bindingsBuilder.generateFreshSymbol("ANY_CLASS");
+    bindingsBuilder.addBinding(anyClassSymbol, KeepItemPattern.anyClass());
     KeepEdge edge =
         KeepEdge.builder()
             .setConsequences(
@@ -77,10 +86,11 @@ public class KeepEdgeAstTest extends TestBase {
                             .build())
                     .addTarget(
                         KeepTarget.builder()
-                            .setItemPattern(KeepItemPattern.anyMember())
+                            .setItemPattern(buildMemberItem(anyClassSymbol).build())
                             .setConstraints(constraints)
                             .build())
                     .build())
+            .setBindings(bindingsBuilder.build())
             .build();
     // Pinning just the use constraints points will issue the full inverse of the known options,
     // e.g., 'allowaccessmodification'.
@@ -107,6 +117,7 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepInitIfReferenced() {
+    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
     KeepEdge edge =
         KeepEdge.builder()
             .setPreconditions(
@@ -117,10 +128,11 @@ public class KeepEdgeAstTest extends TestBase {
                 KeepConsequences.builder()
                     .addTarget(
                         target(
-                            buildMemberItem(CLASS)
+                            buildMemberItem(CLASS, bindingsBuilder)
                                 .setMemberPattern(defaultInitializerPattern())
                                 .build()))
                     .build())
+            .setBindings(bindingsBuilder.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -150,6 +162,7 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepInstanceAndInitIfReferenced() {
+    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
     KeepEdge edge =
         KeepEdge.builder()
             .setPreconditions(
@@ -161,10 +174,11 @@ public class KeepEdgeAstTest extends TestBase {
                     .addTarget(target(classItem(CLASS)))
                     .addTarget(
                         target(
-                            buildMemberItem(CLASS)
+                            buildMemberItem(CLASS, bindingsBuilder)
                                 .setMemberPattern(defaultInitializerPattern())
                                 .build()))
                     .build())
+            .setBindings(bindingsBuilder.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -233,9 +247,21 @@ public class KeepEdgeAstTest extends TestBase {
         .setClassNamePattern(KeepQualifiedClassNamePattern.exact(typeName));
   }
 
-  private KeepMemberItemPattern.Builder buildMemberItem(String typeName) {
+  private KeepMemberItemPattern.Builder buildMemberItem(
+      String holderType, KeepBindings.Builder bindingsBuilder) {
+
+    KeepClassItemPattern classItemPattern = buildClassItem(holderType).build();
+    KeepBindingSymbol holderSymbol = bindingsBuilder.generateFreshSymbol("HOLDER");
+    bindingsBuilder.addBinding(holderSymbol, classItemPattern);
+    return buildMemberItem(holderSymbol);
+  }
+
+  private static KeepMemberItemPattern.Builder buildMemberItem(KeepBindingSymbol holderSymbol) {
     return KeepMemberItemPattern.builder()
-        .setClassReference(buildClassItem(typeName).build().toClassItemReference());
+        .setClassReference(
+            KeepClassItemReference.fromBindingReference(
+                KeepClassBindingReference.forClass(holderSymbol)))
+        .setMemberPattern(KeepMemberPattern.allMembers());
   }
 
   private KeepMemberPattern defaultInitializerPattern() {

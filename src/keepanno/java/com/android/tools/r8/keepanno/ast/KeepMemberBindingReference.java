@@ -22,6 +22,10 @@ public final class KeepMemberBindingReference extends KeepBindingReference {
     return KeepMemberItemReference.fromBindingReference(this);
   }
 
+  public KeepMemberItemReference toMemberItemReference() {
+    return KeepMemberItemReference.fromBindingReference(this);
+  }
+
   @Override
   public String toString() {
     return "member-ref(" + super.toString() + ")";

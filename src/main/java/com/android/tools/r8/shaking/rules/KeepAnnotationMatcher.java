@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
+import com.android.tools.r8.keepanno.ast.KeepBindings;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
@@ -34,6 +35,7 @@ import com.android.tools.r8.keepanno.ast.KeepConstraint.VisibilityRestrict;
 import com.android.tools.r8.keepanno.ast.KeepConstraintVisitor;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
+import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
@@ -475,8 +477,8 @@ public class KeepAnnotationMatcher {
     }
 
     private KeepItemPattern getItemForBinding(KeepBindingSymbol symbol) {
-      assert declaration.isKeepEdge();
-      return declaration.asKeepEdge().getBindings().get(symbol).getItem();
+      KeepBindings bindings = declaration.apply(KeepEdge::getBindings, KeepCheck::getBindings);
+      return bindings.get(symbol).getItem();
     }
 
     public boolean isOptionalClass(int classIndex) {

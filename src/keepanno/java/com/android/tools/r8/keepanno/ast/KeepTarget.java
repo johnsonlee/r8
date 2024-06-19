@@ -14,6 +14,11 @@ public class KeepTarget {
 
     private Builder() {}
 
+    public Builder setItemBindingReference(KeepBindingReference reference) {
+      this.item = reference.toItemReference();
+      return this;
+    }
+
     public Builder setItemReference(KeepItemReference item) {
       this.item = item;
       return this;

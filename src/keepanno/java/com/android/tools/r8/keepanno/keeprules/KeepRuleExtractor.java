@@ -6,10 +6,12 @@ package com.android.tools.r8.keepanno.keeprules;
 import com.android.tools.r8.keepanno.ast.KeepAttribute;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
+import com.android.tools.r8.keepanno.ast.KeepBindings.Binding;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
@@ -91,15 +93,24 @@ public class KeepRuleExtractor {
     Map<KeepBindingSymbol, KeepMemberPattern> memberPatterns;
     List<KeepBindingSymbol> targetMembers;
     KeepBindings.Builder builder = KeepBindings.builder();
-    KeepBindingSymbol symbol = builder.generateFreshSymbol("CLASS");
+    KeepBindingSymbol symbol;
     if (itemPattern.isClassItemPattern()) {
+      symbol = builder.generateFreshSymbol("CLASS");
       builder.addBinding(symbol, itemPattern);
       memberPatterns = Collections.emptyMap();
       targetMembers = Collections.emptyList();
     } else {
       KeepMemberItemPattern memberItemPattern = itemPattern.asMemberItemPattern();
-      assert memberItemPattern.getClassReference().isClassItemPattern();
-      builder.addBinding(symbol, memberItemPattern.getClassReference().asClassItemPattern());
+      KeepClassItemReference classReference = memberItemPattern.getClassReference();
+      if (classReference.isClassItemPattern()) {
+        symbol = builder.generateFreshSymbol("CLASS");
+        builder.addBinding(symbol, classReference.asClassItemPattern());
+      } else {
+        KeepBindingReference bindingReference = classReference.asBindingReference();
+        Binding binding = check.getBindings().get(bindingReference);
+        symbol = bindingReference.getName();
+        builder.addBinding(symbol, binding.getItem());
+      }
       KeepMemberPattern memberPattern = memberItemPattern.getMemberPattern();
       // This does not actually allocate a binding as the mapping is maintained in 'memberPatterns'.
       KeepBindingSymbol memberSymbol = new KeepBindingSymbol("MEMBERS");

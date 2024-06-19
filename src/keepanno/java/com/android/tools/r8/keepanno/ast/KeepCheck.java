@@ -32,6 +32,11 @@ public class KeepCheck extends KeepDeclaration {
       return this;
     }
 
+    public Builder setItemBindingReference(KeepBindingReference bindingReference) {
+      this.itemReference = bindingReference.toItemReference();
+      return this;
+    }
+
     public Builder setItemReference(KeepItemReference itemReference) {
       this.itemReference = itemReference;
       return this;

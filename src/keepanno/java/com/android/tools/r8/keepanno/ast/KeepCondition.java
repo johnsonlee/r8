@@ -23,6 +23,11 @@ public final class KeepCondition {
 
     private Builder() {}
 
+    public Builder setItemBindingReference(KeepBindingReference item) {
+      this.item = item.toItemReference();
+      return this;
+    }
+
     public Builder setItemReference(KeepItemReference item) {
       this.item = item;
       return this;
