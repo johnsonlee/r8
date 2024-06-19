@@ -22,6 +22,7 @@ public class AndroidApiLevelDatabaseHelper {
     notModeledTypes.add("androidx.annotation.RecentlyNonNull");
     notModeledTypes.add("android.annotation.Nullable");
     notModeledTypes.add("android.annotation.NonNull");
+    notModeledTypes.add("android.annotation.FlaggedApi");
     return notModeledTypes;
   }
 
