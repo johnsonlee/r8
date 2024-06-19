@@ -211,7 +211,11 @@
             yAxisID: 'y2',
             segment: {
               borderColor: ctx =>
-                  skipped(ctx, myChart.data.datasets[ctx.datasetIndex].backgroundColor),
+                  skipped(
+                      ctx,
+                      myChart
+                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
+                          : undefined),
               borderDash: ctx => skipped(ctx, [6, 6]),
             },
             spanGaps: true
