@@ -219,6 +219,11 @@ public class R8ResourceShrinkerState {
     try {
       XmlNode xmlNode = XmlNode.parseFrom(inputStream);
       visitNode(xmlNode, xmlFile);
+      // Ensure that we trace the transitive reachable ids, without us having to iterate all
+      // resources for the reachable marker.
+      ProtoAndroidManifestUsageRecorderKt.recordUsagesFromNode(xmlNode, r8ResourceShrinkerModel)
+          .iterator()
+          .forEachRemaining(resource -> trace(resource.value));
     } catch (IOException e) {
       errorHandler.apply(e);
     }

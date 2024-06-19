@@ -19,6 +19,7 @@ package com.android.build.shrinker.usages
 import com.android.aapt.Resources.XmlNode
 import com.android.build.shrinker.ResourceShrinkerModel
 import com.android.ide.common.resources.usage.ResourceUsageModel
+import com.android.ide.common.resources.usage.ResourceUsageModel.Resource
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -35,13 +36,13 @@ class ProtoAndroidManifestUsageRecorder(private val manifest: Path) : ResourceUs
     }
 
 }
-fun recordUsagesFromNode(node: XmlNode, model: ResourceShrinkerModel) {
+fun recordUsagesFromNode(node: XmlNode, model: ResourceShrinkerModel) : Sequence<Resource>{
     // Records only resources from element attributes that have reference items with resolved
     // ids or names.
     if (!node.hasElement()) {
-        return
+        return emptySequence()
     }
-    node.element.attributeList.asSequence()
+    val reachableResources = node.element.attributeList.asSequence()
         .filter { it.hasCompiledItem() }
         .map { it.compiledItem }
         .filter { it.hasRef() }
@@ -53,6 +54,6 @@ fun recordUsagesFromNode(node: XmlNode, model: ResourceShrinkerModel) {
                 else -> model.resourceStore.getResourcesFromUrl("@${it.name}")
             }.asSequence()
         }
-        .forEach { ResourceUsageModel.markReachable(it) }
-    node.element.childList.forEach { recordUsagesFromNode(it, model) }
+    reachableResources.forEach {ResourceUsageModel.markReachable(it)}
+    return reachableResources + node.element.childList.flatMap{ recordUsagesFromNode(it, model) }
 }
