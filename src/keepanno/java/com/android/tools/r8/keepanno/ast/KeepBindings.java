@@ -65,18 +65,9 @@ public class KeepBindings {
 
   public void verify(Collection<KeepItemReference> references) {
     for (KeepItemReference reference : references) {
-      if (reference.isBindingReference()) {
-        KeepBindingReference bindingReference = reference.asBindingReference();
-        if (!bindings.containsKey(bindingReference.getName())) {
-          throw new KeepEdgeException("Unbound reference to " + bindingReference);
-        }
-      } else {
-        KeepItemPattern itemPattern = reference.asItemPattern();
-        for (KeepBindingReference bindingReference : itemPattern.getBindingReferences()) {
-          if (!bindings.containsKey(bindingReference.getName())) {
-            throw new KeepEdgeException("Unbound reference to " + bindingReference);
-          }
-        }
+      KeepBindingReference bindingReference = reference.asBindingReference();
+      if (!bindings.containsKey(bindingReference.getName())) {
+        throw new KeepEdgeException("Unbound reference to " + bindingReference);
       }
     }
   }

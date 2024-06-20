@@ -37,11 +37,6 @@ public class KeepCheck extends KeepDeclaration {
       return this;
     }
 
-    public Builder setItemReference(KeepItemReference itemReference) {
-      this.itemReference = itemReference;
-      return this;
-    }
-
     public KeepCheck build() {
       if (itemReference == null) {
         throw new KeepEdgeException("KeepCheck must have an item pattern.");
@@ -88,15 +83,8 @@ public class KeepCheck extends KeepDeclaration {
     return bindings;
   }
 
-  public KeepItemReference getItemReference() {
-    return itemReference;
-  }
-
   public KeepItemPattern getItemPattern() {
-    if (itemReference.isBindingReference()) {
-      return bindings.get(itemReference.asBindingReference()).getItem();
-    }
-    return itemReference.asItemPattern();
+    return bindings.get(itemReference.asBindingReference()).getItem();
   }
 
   @Override

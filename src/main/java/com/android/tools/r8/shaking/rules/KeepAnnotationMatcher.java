@@ -511,7 +511,7 @@ public class KeepAnnotationMatcher {
     }
 
     private int defineItemReference(KeepItemReference reference) {
-      return reference.apply(this::defineBindingReference, this::defineItemPattern);
+      return defineBindingReference(reference.asBindingReference());
     }
 
     private int defineBindingReference(KeepBindingReference reference) {

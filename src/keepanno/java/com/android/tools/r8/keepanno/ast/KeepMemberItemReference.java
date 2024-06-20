@@ -11,11 +11,6 @@ public abstract class KeepMemberItemReference extends KeepItemReference {
     return new MemberBinding(bindingReference);
   }
 
-  @Override
-  public final KeepMemberItemReference asMemberItemReference() {
-    return this;
-  }
-
   private static final class MemberBinding extends KeepMemberItemReference {
 
     private final KeepMemberBindingReference bindingReference;

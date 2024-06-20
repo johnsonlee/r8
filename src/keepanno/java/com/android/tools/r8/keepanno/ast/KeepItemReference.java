@@ -3,13 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import java.util.function.Consumer;
-import java.util.function.Function;
-
 /**
  * A reference to an item pattern.
  *
- * <p>A reference can either be a binding-reference to an item pattern or the item pattern itself.
+ * <p>A reference is always a binding-reference and will be replaced soon.
  */
 public abstract class KeepItemReference {
 
@@ -17,64 +14,9 @@ public abstract class KeepItemReference {
     return asClassItemReference() != null;
   }
 
-  public final boolean isMemberItemReference() {
-    return asMemberItemReference() != null;
-  }
-
   public KeepClassItemReference asClassItemReference() {
     return null;
   }
 
-  public KeepMemberItemReference asMemberItemReference() {
-    return null;
-  }
-
-  // Helpers below.
-
-  /* Returns true if the reference is a binding to a class or member. */
-  public final boolean isBindingReference() {
-    return asBindingReference() != null;
-  }
-
-  /* Returns true if the reference is an item pattern for a class or member. */
-  public final boolean isItemPattern() {
-    return asItemPattern() != null;
-  }
-
-  public final boolean isClassItemPattern() {
-    return asClassItemPattern() != null;
-  }
-
-  public final boolean isMemberItemPattern() {
-    return asMemberItemPattern() != null;
-  }
-
-  public KeepBindingReference asBindingReference() {
-    return null;
-  }
-
-  public KeepItemPattern asItemPattern() {
-    return null;
-  }
-
-  public KeepClassItemPattern asClassItemPattern() {
-    return null;
-  }
-
-  public KeepMemberItemPattern asMemberItemPattern() {
-    return null;
-  }
-
-  public <T> T apply(
-      Function<KeepBindingReference, T> onBinding, Function<KeepItemPattern, T> onItem) {
-    if (isBindingReference()) {
-      return onBinding.apply(asBindingReference());
-    }
-    assert isItemPattern();
-    return onItem.apply(asItemPattern());
-  }
-
-  public void match(Consumer<KeepBindingReference> onBinding, Consumer<KeepItemPattern> onItem) {
-    apply(AstUtils.toVoidFunction(onBinding), AstUtils.toVoidFunction(onItem));
-  }
+  public abstract KeepBindingReference asBindingReference();
 }

@@ -20,19 +20,6 @@ public abstract class KeepClassItemReference extends KeepItemReference {
     return this;
   }
 
-  public final <T> T applyClassItemReference(
-      Function<KeepBindingReference, T> onBinding, Function<KeepClassItemPattern, T> onPattern) {
-    if (isBindingReference()) {
-      return onBinding.apply(asBindingReference());
-    }
-    return onPattern.apply(asClassItemPattern());
-  }
-
-  public final void matchClassItemReference(
-      Consumer<KeepBindingReference> onBinding, Consumer<KeepClassItemPattern> onPattern) {
-    applyClassItemReference(AstUtils.toVoidFunction(onBinding), AstUtils.toVoidFunction(onPattern));
-  }
-
   public abstract Collection<KeepBindingReference> getBindingReferences();
 
   private static class ClassBinding extends KeepClassItemReference {

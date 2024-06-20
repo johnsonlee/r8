@@ -6,7 +6,6 @@ package com.android.tools.r8.keepanno.keeprules;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
-import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
@@ -77,32 +76,17 @@ public class KeepEdgeNormalizer {
         .build();
   }
 
-  private KeepBindingSymbol synthesizeFreshBindingSymbol(KeepItemPattern item) {
-    KeepBindingSymbol bindingName = bindingsBuilder.generateFreshSymbol(syntheticBindingPrefix);
-    bindingsBuilder.addBinding(bindingName, item);
-    return bindingName;
-  }
-
-  private KeepBindingReference synthesizeFreshBindingReference(KeepItemPattern item) {
-    KeepBindingSymbol bindingName = synthesizeFreshBindingSymbol(item);
-    return KeepBindingReference.forItem(bindingName, item);
-  }
-
   private KeepItemReference normalizeItemReference(KeepItemReference item) {
-    if (item.isBindingReference()) {
-      KeepBindingReference bindingReference = item.asBindingReference();
-      if (bindingReference.isClassType()) {
-        // A class-type reference is allowed to reference a member-typed binding.
-        // In this case, the normalized reference is to the class of the member.
-        KeepItemPattern boundItemPattern = normalizedUserBindings.get(bindingReference.getName());
-        if (boundItemPattern.isMemberItemPattern()) {
-          return boundItemPattern.asMemberItemPattern().getClassReference();
-        }
+    KeepBindingReference bindingReference = item.asBindingReference();
+    if (bindingReference.isClassType()) {
+      // A class-type reference is allowed to reference a member-typed binding.
+      // In this case, the normalized reference is to the class of the member.
+      KeepItemPattern boundItemPattern = normalizedUserBindings.get(bindingReference.getName());
+      if (boundItemPattern.isMemberItemPattern()) {
+        return boundItemPattern.asMemberItemPattern().getClassReference();
       }
-      return item;
     }
-    KeepItemPattern newItemPattern = normalizeItemPattern(item.asItemPattern());
-    return synthesizeFreshBindingReference(newItemPattern).toItemReference();
+    return item;
   }
 
   private KeepItemPattern normalizeItemPattern(KeepItemPattern pattern) {
@@ -115,17 +99,6 @@ public class KeepEdgeNormalizer {
 
   private KeepMemberItemPattern normalizeMemberItemPattern(
       KeepMemberItemPattern memberItemPattern) {
-    KeepClassItemReference classReference = memberItemPattern.getClassReference();
-    if (classReference.isBindingReference()) {
-      // If the class is already defined via a binding then no need to introduce a new one and
-      // change the member item pattern.
-      return memberItemPattern;
-    }
-    KeepBindingSymbol bindingName =
-        synthesizeFreshBindingSymbol(classReference.asClassItemPattern());
-    return KeepMemberItemPattern.builder()
-        .copyFrom(memberItemPattern)
-        .setClassReference(KeepBindingReference.forClass(bindingName).toClassItemReference())
-        .build();
+    return memberItemPattern;
   }
 }

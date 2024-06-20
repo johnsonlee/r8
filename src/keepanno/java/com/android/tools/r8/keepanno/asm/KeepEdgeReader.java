@@ -765,9 +765,7 @@ public class KeepEdgeReader implements Opcodes {
     }
 
     public KeepClassItemPattern getClassItemForReference(KeepClassItemReference itemReference) {
-      return itemReference.isBindingReference()
-          ? getItem(itemReference.asBindingReference()).asClassItemPattern()
-          : itemReference.asClassItemPattern();
+      return getItem(itemReference.asBindingReference()).asClassItemPattern();
     }
 
     public KeepBindings build() {
@@ -1115,32 +1113,14 @@ public class KeepEdgeReader implements Opcodes {
       addContext.accept(metaInfoBuilder);
       KeepMemberItemPattern context = contextBuilder.apply(bindingsHelper);
       KeepClassItemReference classReference = context.getClassReference();
-      if (classReference.isBindingReference()) {
-        consequences.addTarget(
-            KeepTarget.builder()
-                .setItemBindingReference(bindingsHelper.defineFreshMemberBinding(context))
-                .build());
-        consequences.addTarget(
-            KeepTarget.builder()
-                .setItemBindingReference(classReference.asBindingReference())
-                .build());
-      } else {
-        // Create a binding for the context such that the class and member are shared.
-        KeepClassItemPattern classContext = classReference.asClassItemPattern();
-        KeepClassBindingReference classBindingReference =
-            bindingsHelper.defineFreshClassBinding(classContext);
-        consequences.addTarget(
-            KeepTarget.builder()
-                .setItemBindingReference(
-                    bindingsHelper.defineFreshMemberBinding(
-                        KeepMemberItemPattern.builder()
-                            .copyFrom(context)
-                            .setClassBindingReference(classBindingReference)
-                            .build()))
-                .build());
-        consequences.addTarget(
-            KeepTarget.builder().setItemBindingReference(classBindingReference).build());
-      }
+      consequences.addTarget(
+          KeepTarget.builder()
+              .setItemBindingReference(bindingsHelper.defineFreshMemberBinding(context))
+              .build());
+      consequences.addTarget(
+          KeepTarget.builder()
+              .setItemBindingReference(classReference.asBindingReference())
+              .build());
     }
 
     @Override
@@ -2165,12 +2145,9 @@ public class KeepEdgeReader implements Opcodes {
 
     private KeepClassBindingReference ensureCorrectBindingForMemberHolder(
         KeepClassItemReference holderReference) {
-      if (holderReference.isBindingReference()) {
-        KeepClassBindingReference bindingReference =
-            holderReference.asBindingReference().asClassBindingReference();
-        return ensureCorrectBindingForMemberHolder(bindingReference);
-      }
-      return getBindingsHelper().defineFreshClassBinding(holderReference.asClassItemPattern());
+      KeepClassBindingReference bindingReference =
+          holderReference.asBindingReference().asClassBindingReference();
+      return ensureCorrectBindingForMemberHolder(bindingReference);
     }
 
     private KeepClassBindingReference ensureCorrectBindingForMemberHolder(
