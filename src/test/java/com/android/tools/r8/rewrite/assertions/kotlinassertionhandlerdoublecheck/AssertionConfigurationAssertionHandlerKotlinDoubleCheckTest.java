@@ -91,7 +91,7 @@ public class AssertionConfigurationAssertionHandlerKotlinDoubleCheckTest
   @Override
   protected void configureR8(R8FullTestBuilder builder) {
     boolean referencesNotNull =
-        !kotlinParameters.isOlderThan(KotlinCompilerVersion.KOTLINC_1_6_0)
+        !kotlinParameters.isOlderThan(KotlinCompilerVersion.KOTLINC_1_4_20)
             && !kotlinStdlibAsLibrary;
     builder.applyIf(referencesNotNull, b -> b.addDontWarn("org.jetbrains.annotations.NotNull"));
   }
