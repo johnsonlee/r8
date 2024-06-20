@@ -56,31 +56,53 @@ import java.util.concurrent.ExecutorService;
 
 public class SupportedClassesGenerator {
 
+  private final Set<DexType> allStaticPublicMethods;
+  private final Set<DexMethod> allowedMethods;
+
   private final InternalOptions options;
   private final DirectMappedDexApplication appForMax;
   private final AndroidApiLevel minApi;
   private final SupportedClasses.Builder builder = SupportedClasses.builder();
   private final boolean androidPlatformBuild;
   private final boolean addBackports;
+  private final boolean allowMissingMethods;
 
   public SupportedClassesGenerator(
-      InternalOptions options, Collection<ClassFileResourceProvider> androidJar)
+      InternalOptions options,
+      Collection<ClassFileResourceProvider> androidJar,
+      boolean allowMissingMethods)
       throws IOException {
-    this(options, androidJar, AndroidApiLevel.B, false, false);
+    this(options, androidJar, allowMissingMethods, AndroidApiLevel.B, false, false);
   }
 
   public SupportedClassesGenerator(
       InternalOptions options,
       Collection<ClassFileResourceProvider> androidJar,
+      boolean allowMissingMethods,
       AndroidApiLevel minApi,
       boolean androidPlatformBuild,
       boolean addBackports)
       throws IOException {
+    this.allowMissingMethods = allowMissingMethods;
     this.options = options;
     this.appForMax = createAppForMax(androidJar);
     this.minApi = minApi;
     this.androidPlatformBuild = androidPlatformBuild;
     this.addBackports = addBackports;
+    DexItemFactory factory = options.dexItemFactory();
+    allStaticPublicMethods =
+        ImmutableSet.of(factory.mathType, factory.strictMathType, factory.objectsType);
+    allowedMethods =
+        ImmutableSet.of(
+            factory.createMethod(
+                factory.streamType,
+                factory.createProto(factory.streamType, factory.objectType),
+                "ofNullable"),
+            factory.createMethod(
+                factory.charSequenceType,
+                factory.createProto(
+                    factory.intType, factory.charSequenceType, factory.charSequenceType),
+                "compare"));
   }
 
   public SupportedClasses run(
@@ -187,23 +209,25 @@ public class SupportedClassesGenerator {
                     appInfo
                         .contextIndependentDefinitionFor(dexMethod.getHolderType())
                         .isInterface());
-            if (methodResolutionResult.isSingleResolution()) {
-              ComputedApiLevel computedApiLevel =
-                  appView
-                      .apiLevelCompute()
-                      .computeApiLevelForLibraryReferenceIgnoringDesugaredLibrary(
-                          methodResolutionResult.getResolvedMethod().getReference(),
-                          ComputedApiLevel.unknown());
-              if (!computedApiLevel.isKnownApiLevel()) {
+            DexMethod methodForApiDatabaseAnalysis =
+                methodResolutionResult.isSingleResolution()
+                    ? methodResolutionResult.getResolvedMethod().getReference()
+                    : dexMethod;
+            ComputedApiLevel computedApiLevel =
+                appView
+                    .apiLevelCompute()
+                    .computeApiLevelForLibraryReferenceIgnoringDesugaredLibrary(
+                        methodForApiDatabaseAnalysis, ComputedApiLevel.unknown());
+            if (!computedApiLevel.isKnownApiLevel()) {
+              if (methodResolutionResult.isSingleResolution()) {
                 throw new RuntimeException(
                     "API database does not recognize the method "
                         + encodedMethod.getReference().toSourceString());
               }
-              if (finalApi < computedApiLevel.asKnownApiLevel().getApiLevel().getLevel()) {
-                builder.annotateMethod(dexMethod, MethodAnnotation.createMissingInMinApi(finalApi));
-              }
-            } else {
-              assert methodResolutionResult.isFailedResolution();
+              builder.annotateMethod(dexMethod, MethodAnnotation.createMissingInMinApi(finalApi));
+              return;
+            }
+            if (finalApi < computedApiLevel.asKnownApiLevel().getApiLevel().getLevel()) {
               builder.annotateMethod(dexMethod, MethodAnnotation.createMissingInMinApi(finalApi));
             }
           });
@@ -405,33 +429,23 @@ public class SupportedClassesGenerator {
     }
     DexEncodedMethod dexEncodedMethod = maxClass.lookupMethod(backport);
     // Some backports are not in amendedAppForMax, such as Stream#ofNullable and recent ones
-    // introduced in U.
+    // introduced in U and V.
     if (dexEncodedMethod == null) {
-      ImmutableSet<DexType> allStaticPublicMethods =
-          ImmutableSet.of(
-              options.dexItemFactory().mathType,
-              options.dexItemFactory().strictMathType,
-              options.dexItemFactory().objectsType);
-      if (backport
-              .toString()
-              .equals(
-                  "java.util.stream.Stream"
-                      + " java.util.stream.Stream.ofNullable(java.lang.Object)")
-          || allStaticPublicMethods.contains(backport.getHolderType())) {
-        dexEncodedMethod =
-            DexEncodedMethod.builder()
-                .setMethod(backport)
-                .setAccessFlags(
-                    MethodAccessFlags.fromSharedAccessFlags(
-                        Constants.ACC_PUBLIC | Constants.ACC_STATIC, false))
-                .build();
-      } else {
-        throw new Error(
-            "Unexpected backport missing from Android "
-                + MAX_TESTED_ANDROID_API_LEVEL
-                + ": "
-                + backport);
+      if (!allowMissingMethods) {
+        if (!(allowedMethods.contains(backport)
+            || allStaticPublicMethods.contains(backport.getHolderType()))) {
+          options.reporter.error("Backport missing from library: " + backport);
+        }
       }
+      // Flags are either guaranteed to be public static by the checks above, or the flags don't
+      // matter (They matter for html printing but not for lint printing).
+      dexEncodedMethod =
+          DexEncodedMethod.builder()
+              .setMethod(backport)
+              .setAccessFlags(
+                  MethodAccessFlags.fromSharedAccessFlags(
+                      Constants.ACC_PUBLIC | Constants.ACC_STATIC, false))
+              .build();
     }
     assert dexEncodedMethod != null;
     return dexEncodedMethod;
@@ -472,6 +486,14 @@ public class SupportedClassesGenerator {
     options.ignoreJavaLibraryOverride = true;
     DexApplication appForMax = applicationReader.read(executorService);
     options.ignoreJavaLibraryOverride = false;
+    DexClass varHandle =
+        appForMax.definitionFor(
+            options.dexItemFactory().createType("Ljava/lang/invoke/VarHandle;"));
+    if (varHandle == null && !allowMissingMethods) {
+      options.reporter.warning(
+          "SupportedClassesGenerator expects library above or equal to T, it works below, but the"
+              + " modifiers are not correct which is fine for lint but not html doc generation.");
+    }
     return appForMax.toDirect();
   }
 

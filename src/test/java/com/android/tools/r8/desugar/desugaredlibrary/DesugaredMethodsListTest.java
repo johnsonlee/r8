@@ -40,20 +40,30 @@ public class DesugaredMethodsListTest extends DesugaredLibraryTestBase {
 
   private final TestParameters parameters;
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
+  private final AndroidApiLevel libApiLevel;
 
   private List<String> lintContents;
 
-  @Parameters(name = "{0}, {1}")
+  @Parameters(name = "{0}, {1}, lib: {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDexRuntimes().build(),
-        ImmutableList.of(JDK8, JDK11_MINIMAL, JDK11, JDK11_PATH, JDK11_LEGACY));
+        ImmutableList.of(JDK8, JDK11_MINIMAL, JDK11, JDK11_PATH, JDK11_LEGACY),
+        ImmutableList.of(
+            AndroidApiLevel.R,
+            AndroidApiLevel.S,
+            AndroidApiLevel.T,
+            AndroidApiLevel.U,
+            AndroidApiLevel.V));
   }
 
   public DesugaredMethodsListTest(
-      TestParameters parameters, LibraryDesugaringSpecification libraryDesugaringSpecification) {
+      TestParameters parameters,
+      LibraryDesugaringSpecification libraryDesugaringSpecification,
+      AndroidApiLevel libApiLevel) {
     this.parameters = parameters;
     this.libraryDesugaringSpecification = libraryDesugaringSpecification;
+    this.libApiLevel = libApiLevel;
   }
 
   private boolean supportsAllMethodsOf(String type) {
@@ -96,6 +106,10 @@ public class DesugaredMethodsListTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testLint() throws Exception {
+    Assume.assumeFalse(
+        "Required compilation api level for legacy is T",
+        libraryDesugaringSpecification == JDK11_LEGACY
+            && libApiLevel.isLessThan(AndroidApiLevel.T));
     Path output = temp.newFile("lint.txt").toPath();
     Path jdkLibJar =
         libraryDesugaringSpecification == JDK8
@@ -115,13 +129,17 @@ public class DesugaredMethodsListTest extends DesugaredLibraryTestBase {
           "--output",
           output.toString(),
           "--lib",
-          ToolHelper.getAndroidJar(AndroidApiLevel.U).toString()
+          ToolHelper.getAndroidJar(libApiLevel).toString()
         });
     checkFileContent(minApi, output, true, true);
   }
 
   @Test
   public void testDesugaredLibLint() throws Exception {
+    Assume.assumeFalse(
+        "Required compilation api level for legacy is T",
+        libraryDesugaringSpecification == JDK11_LEGACY
+            && libApiLevel.isLessThan(AndroidApiLevel.T));
     Assume.assumeTrue(
         "Run for a single api because the test is independent of api",
         parameters.getRuntime().asDex().getMinApiLevel().isEqualTo(AndroidApiLevel.T));
@@ -136,7 +154,7 @@ public class DesugaredMethodsListTest extends DesugaredLibraryTestBase {
           libraryDesugaringSpecification.getSpecification().toString(),
           jdkLibJar.toString(),
           output.toString(),
-          ToolHelper.getAndroidJar(AndroidApiLevel.U).toString()
+          ToolHelper.getAndroidJar(libApiLevel).toString()
         });
 
     InternalOptions options = new InternalOptions();
@@ -164,7 +182,7 @@ public class DesugaredMethodsListTest extends DesugaredLibraryTestBase {
           "--output",
           output.toString(),
           "--lib",
-          ToolHelper.getAndroidJar(AndroidApiLevel.U).toString()
+          ToolHelper.getAndroidJar(libApiLevel).toString()
         });
     checkFileContent(minApi, output, true, false);
   }

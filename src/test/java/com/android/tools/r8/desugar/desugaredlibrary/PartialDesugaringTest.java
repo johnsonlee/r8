@@ -111,7 +111,6 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
   private static final Set<String> FAILURES_ERA =
       ImmutableSet.of(
           // This fails on Java 8 desugared library due to missing covariant return type.
-          // The method is present on platform from 33 but not in android.jar...
           "java.time.chrono.IsoEra java.time.LocalDate.getEra()");
   private static final Set<String> FAILURES_CHRONOLOGY =
       ImmutableSet.of(
@@ -146,7 +145,8 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
         new SupportedClassesGenerator(
                 options,
                 ImmutableList.of(
-                    new ArchiveClassFileProvider(ToolHelper.getAndroidJar(AndroidApiLevel.U))))
+                    new ArchiveClassFileProvider(ToolHelper.getAndroidJar(AndroidApiLevel.U))),
+                false)
             .run(
                 programResources, StringResource.fromFile(librarySpecification.getSpecification()));
 
@@ -233,7 +233,7 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
     }
     if (librarySpecification == JDK8
         && api.isGreaterThanOrEqualTo(AndroidApiLevel.O)
-        && api.isLessThan(AndroidApiLevel.MAIN)) {
+        && api.isLessThan(AndroidApiLevel.T)) {
       expectedFailures.addAll(FAILURES_ERA);
     }
     return expectedFailures;

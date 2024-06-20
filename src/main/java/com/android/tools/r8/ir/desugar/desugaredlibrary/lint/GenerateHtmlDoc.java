@@ -556,7 +556,7 @@ public class GenerateHtmlDoc extends AbstractGenerateFiles {
     PrintStream ps = new PrintStream(Files.newOutputStream(output.resolve(outputFileName)));
 
     SupportedClasses supportedClasses =
-        new SupportedClassesGenerator(options, androidJar)
+        new SupportedClassesGenerator(options, androidJar, false)
             .run(desugaredLibraryImplementation, desugaredLibrarySpecificationResource);
 
     // Full classes added.

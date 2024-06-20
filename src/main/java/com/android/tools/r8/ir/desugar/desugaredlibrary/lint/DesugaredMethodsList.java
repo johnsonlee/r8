@@ -68,7 +68,7 @@ public class DesugaredMethodsList extends GenerateDesugaredLibraryLintFiles {
     AndroidApiLevel compilationLevel =
         desugaredLibrarySpecification.getRequiredCompilationApiLevel();
     SupportedClasses supportedMethods =
-        new SupportedClassesGenerator(options, androidJar, minApi, androidPlatformBuild, true)
+        new SupportedClassesGenerator(options, androidJar, true, minApi, androidPlatformBuild, true)
             .run(desugaredLibraryImplementation, desugaredLibrarySpecificationResource);
     writeLintFiles(compilationLevel, minApi, supportedMethods);
     return compilationLevel;
