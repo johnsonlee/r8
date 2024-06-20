@@ -3,10 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.MAX_SUPPORTED_VERSION;
 import static com.android.tools.r8.ToolHelper.isWindows;
 import static com.google.common.io.Files.getNameWithoutExtension;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -26,7 +26,6 @@ import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.hash.Hasher;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,7 +35,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.jar.Manifest;
 import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 import org.junit.rules.TemporaryFolder;
 
 public class KotlinCompilerTool {
@@ -214,6 +215,21 @@ public class KotlinCompilerTool {
       Path annotationJar = getFolder().resolve("annotations-13.0.jar");
       assert Files.exists(annotationJar) : "Expected annotation jar";
       return annotationJar;
+    }
+
+    public void checkClasspath() throws IOException {
+      try (ZipFile zipFile = new ZipFile(compiler.toFile(), UTF_8)) {
+        Manifest manifest =
+            new Manifest(zipFile.getInputStream(zipFile.getEntry("META-INF/MANIFEST.MF")));
+        String classPath = manifest.getMainAttributes().getValue("Class-Path");
+        String[] classPathEntries = classPath.split(" ");
+        // Expect all classpath entries to be present ajacent to the compiler jar.
+        for (String classPathEntry : classPathEntries) {
+          assert !classPathEntry.contains("/");
+          assert Files.exists(compiler.getParent().resolve(classPathEntry))
+              : "Kotlin compiler missing classpath: " + classPathEntry;
+        }
+      }
     }
 
     @Override
@@ -439,6 +455,7 @@ public class KotlinCompilerTool {
 
   private CommandLineAndHasherConsumers buildCommandLineAndHasherConsumers(Path output)
       throws IOException {
+    compiler.checkClasspath();
     CommandLineAndHasherConsumers commandLineAndHasherConsumers =
         new CommandLineAndHasherConsumers();
     List<String> cmdline = commandLineAndHasherConsumers.cmdline;
@@ -460,7 +477,7 @@ public class KotlinCompilerTool {
     // Until now this is just command line files, no inputs, hash existing command
     String noneFileCommandLineArguments = StringUtils.join("", cmdline);
     commandLineAndHasherConsumers.hasherConsumers.add(
-        hasher -> hasher.putString(noneFileCommandLineArguments, StandardCharsets.UTF_8));
+        hasher -> hasher.putString(noneFileCommandLineArguments, UTF_8));
 
     for (Path source : sources) {
       cmdline.add(source.toString());
@@ -478,14 +495,14 @@ public class KotlinCompilerTool {
       for (Path path : classpath) {
         commandLineAndHasherConsumers.hasherConsumers.add(
             hasher -> {
-              hasher.putString("--cp", StandardCharsets.UTF_8);
+              hasher.putString("--cp", UTF_8);
               hasher.putBytes(Files.readAllBytes(path));
             });
       }
     }
     cmdline.addAll(additionalArguments);
     commandLineAndHasherConsumers.hasherConsumers.add(
-        hasher -> additionalArguments.forEach(s -> hasher.putString(s, StandardCharsets.UTF_8)));
+        hasher -> additionalArguments.forEach(s -> hasher.putString(s, UTF_8)));
     return commandLineAndHasherConsumers;
   }
 }

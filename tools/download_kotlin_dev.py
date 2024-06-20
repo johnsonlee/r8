@@ -14,10 +14,14 @@ else:
     url_request = urllib
 import os
 import sys
+import xml.etree.ElementTree
+
 
 JETBRAINS_KOTLIN_MAVEN_URL = "https://maven.pkg.jetbrains.space/kotlin/p/" \
                              "kotlin/bootstrap/org/jetbrains/kotlin/"
 KOTLIN_RELEASE_URL = JETBRAINS_KOTLIN_MAVEN_URL + "kotlin-compiler/"
+KOTLINC_LIB = os.path.join(utils.THIRD_PARTY, "kotlin",
+                   "kotlin-compiler-dev", "kotlinc", "lib")
 
 
 def download_newest():
@@ -55,11 +59,11 @@ def download_newest():
         raise Exception('Url: %s \n returned %s' %
                         (KOTLIN_RELEASE_URL, response.getcode()))
 
+    # Check POM for expected dependencies.
+    check_pom(top_most_version_and_build)
+
     # We can now download all files related to the kotlin compiler version.
     print("Downloading version: " + top_most_version_and_build)
-
-    kotlinc_lib = os.path.join(utils.THIRD_PARTY, "kotlin",
-                               "kotlin-compiler-dev", "kotlinc", "lib")
 
     utils.DownloadFromGoogleCloudStorage(
         os.path.join(utils.THIRD_PARTY, "kotlin",
@@ -68,20 +72,61 @@ def download_newest():
     download_and_save(
         JETBRAINS_KOTLIN_MAVEN_URL +
         "kotlin-compiler/{0}/kotlin-compiler-{0}.jar".format(
-            top_most_version_and_build), kotlinc_lib, "kotlin-compiler.jar")
+            top_most_version_and_build), KOTLINC_LIB, "kotlin-compiler.jar")
     download_and_save(
         JETBRAINS_KOTLIN_MAVEN_URL +
         "kotlin-stdlib/{0}/kotlin-stdlib-{0}.jar".format(
-            top_most_version_and_build), kotlinc_lib, "kotlin-stdlib.jar")
+            top_most_version_and_build), KOTLINC_LIB, "kotlin-stdlib.jar")
+    download_and_save(
+        JETBRAINS_KOTLIN_MAVEN_URL +
+        "kotlin-stdlib-jdk8/{0}/kotlin-stdlib-jdk8-{0}.jar".format(
+            top_most_version_and_build), KOTLINC_LIB, "kotlin-stdlib-jdk8.jar")
+    # POM file has dependency on version 1.6.10 - download latest anyway.
     download_and_save(
         JETBRAINS_KOTLIN_MAVEN_URL +
         "kotlin-reflect/{0}/kotlin-reflect-{0}.jar".format(
-            top_most_version_and_build), kotlinc_lib, "kotlin-reflect.jar")
+            top_most_version_and_build), KOTLINC_LIB, "kotlin-reflect.jar")
     download_and_save(
         JETBRAINS_KOTLIN_MAVEN_URL +
         "kotlin-script-runtime/{0}/kotlin-script-runtime-{0}.jar".format(
-            top_most_version_and_build), kotlinc_lib,
+            top_most_version_and_build), KOTLINC_LIB,
         "kotlin-script-runtime.jar")
+    download_and_save(
+        "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.jar", KOTLINC_LIB, "kotlinx-coroutines-core-jvm.jar")
+    download_and_save(
+        "https://repo1.maven.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.jar", KOTLINC_LIB, "trove4j.jar")
+
+
+def check_pom(top_most_version_and_build):
+    # Download POM, and check the expected dependencies.
+    download_and_save(
+        JETBRAINS_KOTLIN_MAVEN_URL +
+        "kotlin-compiler/{0}/kotlin-compiler-{0}.pom".format(
+            top_most_version_and_build), KOTLINC_LIB, "kotlin-compiler.pom")
+    pom_file = os.path.join(KOTLINC_LIB, "kotlin-compiler.pom")
+    ns = "http://maven.apache.org/POM/4.0.0"
+    xml.etree.ElementTree.register_namespace('', ns)
+    tree = xml.etree.ElementTree.ElementTree()
+    tree.parse(pom_file)
+    #return tree.getroot().find("{%s}dependencies" % ns).text
+    for dependency in tree.getroot().find("{%s}dependencies" % ns):
+        groupId = dependency.find("{%s}groupId" % ns).text
+        artifactId = dependency.find("{%s}artifactId" % ns).text
+        version = dependency.find("{%s}version" % ns).text
+        coordinates = (
+            '{groupId}:{artifactId}:{version}'
+                .format(groupId=groupId, artifactId=artifactId, version=version))
+        print('Dependecy: ' + coordinates)
+        expected_dependencies = set()
+        for artifactId in ("kotlin-stdlib", "kotlin-stdlib-jdk8", "kotlin-script-runtime"):
+            expected_dependencies.add(
+                'org.jetbrains.kotlin:{artifactId}:{version}'
+                    .format(artifactId=artifactId, version=top_most_version_and_build))
+        expected_dependencies.add('org.jetbrains.kotlin:kotlin-reflect:1.6.10')
+        expected_dependencies.add('org.jetbrains.intellij.deps:trove4j:1.0.20200330')
+        expected_dependencies.add('org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4')
+        if not coordinates in expected_dependencies:
+            raise Exception('Unexpected dependency: ' + coordinates)
 
 
 def download_and_save(url, path, name):
