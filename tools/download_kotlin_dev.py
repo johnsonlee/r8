@@ -59,15 +59,18 @@ def download_newest():
         raise Exception('Url: %s \n returned %s' %
                         (KOTLIN_RELEASE_URL, response.getcode()))
 
+    # Download checked in kotlin dev compiler before owerlaying with the new.
+    # TODO(sgjesse): This should just ensure an empty directory instead of
+    # relying on overlaying and reusing some jars.
+    utils.DownloadFromGoogleCloudStorage(
+        os.path.join(utils.THIRD_PARTY, "kotlin",
+                     "kotlin-compiler-dev.tar.gz.sha1"))
+
     # Check POM for expected dependencies.
     check_pom(top_most_version_and_build)
 
     # We can now download all files related to the kotlin compiler version.
     print("Downloading version: " + top_most_version_and_build)
-
-    utils.DownloadFromGoogleCloudStorage(
-        os.path.join(utils.THIRD_PARTY, "kotlin",
-                     "kotlin-compiler-dev.tar.gz.sha1"))
 
     download_and_save(
         JETBRAINS_KOTLIN_MAVEN_URL +
