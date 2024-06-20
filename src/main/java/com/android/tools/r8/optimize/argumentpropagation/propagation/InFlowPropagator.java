@@ -46,7 +46,7 @@ public class InFlowPropagator {
   final AppView<AppInfoWithLiveness> appView;
   final Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers;
   final IRConverter converter;
-  protected final FieldStateCollection fieldStates;
+  final FieldStateCollection fieldStates;
   final MethodStateCollectionByReference methodStates;
 
   public InFlowPropagator(
@@ -113,13 +113,10 @@ public class InFlowPropagator {
 
   private Map<FlowGraph, Deque<FlowGraphNode>> includeDefaultValuesInFieldStates(
       List<FlowGraph> flowGraphs, ExecutorService executorService) throws ExecutionException {
-    DefaultFieldValueJoiner joiner = createDefaultFieldValueJoiner(flowGraphs);
+    DefaultFieldValueJoiner joiner =
+        new DefaultFieldValueJoiner(
+            appView, classesWithSingleCallerInlinedInstanceInitializers, fieldStates, flowGraphs);
     return joiner.joinDefaultFieldValuesForFieldsWithReadBeforeWrite(executorService);
-  }
-
-  protected DefaultFieldValueJoiner createDefaultFieldValueJoiner(List<FlowGraph> flowGraphs) {
-    return new DefaultFieldValueJoiner(
-        appView, classesWithSingleCallerInlinedInstanceInitializers, fieldStates, flowGraphs);
   }
 
   private void processFlowGraphs(List<FlowGraph> flowGraphs, ExecutorService executorService)

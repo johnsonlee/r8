@@ -200,15 +200,6 @@ public class Phi extends Value implements InstructionOrPhi {
     return operands;
   }
 
-  public boolean hasOperandThatMatches(Predicate<Value> predicate) {
-    for (Value operand : operands) {
-      if (predicate.test(operand)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   public void removeOperand(int index) {
     removeOperand(index, null, alwaysFalse());
   }
