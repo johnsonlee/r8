@@ -37,7 +37,6 @@ import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
-import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
@@ -510,10 +509,6 @@ public class KeepAnnotationMatcher {
       return -(key + 1);
     }
 
-    private int defineItemReference(KeepItemReference reference) {
-      return defineBindingReference(reference.asBindingReference());
-    }
-
     private int defineBindingReference(KeepBindingReference reference) {
       return symbolToKey.computeIfAbsent(
           reference.getName(), symbol -> defineItemPattern(getItemForBinding(symbol)));
@@ -526,7 +521,8 @@ public class KeepAnnotationMatcher {
         classMembers.add(new IntArrayList());
         return encodeClassKey(classIndex);
       } else {
-        int classIndex = defineItemReference(item.asMemberItemPattern().getClassReference());
+        KeepBindingReference reference = item.asMemberItemPattern().getClassReference();
+        int classIndex = defineBindingReference(reference);
         int memberIndex = members.size();
         members.add(item.asMemberItemPattern());
         classMembers.get(classIndex).add(memberIndex);
@@ -535,11 +531,12 @@ public class KeepAnnotationMatcher {
     }
 
     public void addPrecondition(KeepCondition condition) {
-      preconditions.add(defineItemReference(condition.getItem()));
+      preconditions.add(defineBindingReference(condition.getItem()));
     }
 
     private void addConsequence(KeepTarget target) {
-      consequences.add(defineItemReference(target.getItem()));
+      KeepBindingReference reference = target.getItem();
+      consequences.add(defineBindingReference(reference));
       constraints.add(target.getConstraints());
     }
   }

@@ -17,15 +17,6 @@ public final class KeepClassBindingReference extends KeepBindingReference {
     return this;
   }
 
-  public KeepClassItemReference toClassItemReference() {
-    return KeepClassItemReference.fromBindingReference(this);
-  }
-
-  @Override
-  public KeepItemReference toItemReference() {
-    return toClassItemReference();
-  }
-
   @Override
   public String toString() {
     return "class-ref(" + super.toString() + ")";

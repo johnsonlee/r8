@@ -10,7 +10,6 @@ import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConsequences;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
-import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepPreconditions;
 import com.android.tools.r8.keepanno.ast.KeepTarget;
@@ -76,8 +75,7 @@ public class KeepEdgeNormalizer {
         .build();
   }
 
-  private KeepItemReference normalizeItemReference(KeepItemReference item) {
-    KeepBindingReference bindingReference = item.asBindingReference();
+  private KeepBindingReference normalizeItemReference(KeepBindingReference bindingReference) {
     if (bindingReference.isClassType()) {
       // A class-type reference is allowed to reference a member-typed binding.
       // In this case, the normalized reference is to the class of the member.
@@ -86,7 +84,7 @@ public class KeepEdgeNormalizer {
         return boundItemPattern.asMemberItemPattern().getClassReference();
       }
     }
-    return item;
+    return bindingReference;
   }
 
   private KeepItemPattern normalizeItemPattern(KeepItemPattern pattern) {

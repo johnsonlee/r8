@@ -15,7 +15,7 @@ public class KeepCheck extends KeepDeclaration {
     private KeepEdgeMetaInfo metaInfo = KeepEdgeMetaInfo.none();
     private KeepCheckKind kind = KeepCheckKind.REMOVED;
     private KeepBindings bindings = KeepBindings.none();
-    private KeepItemReference itemReference;
+    private KeepBindingReference itemReference;
 
     public Builder setMetaInfo(KeepEdgeMetaInfo metaInfo) {
       this.metaInfo = metaInfo;
@@ -32,8 +32,8 @@ public class KeepCheck extends KeepDeclaration {
       return this;
     }
 
-    public Builder setItemBindingReference(KeepBindingReference bindingReference) {
-      this.itemReference = bindingReference.toItemReference();
+    public Builder setItemReference(KeepBindingReference itemReference) {
+      this.itemReference = itemReference;
       return this;
     }
 
@@ -53,13 +53,13 @@ public class KeepCheck extends KeepDeclaration {
   private final KeepEdgeMetaInfo metaInfo;
   private final KeepCheckKind kind;
   private final KeepBindings bindings;
-  private final KeepItemReference itemReference;
+  private final KeepBindingReference itemReference;
 
   private KeepCheck(
       KeepEdgeMetaInfo metaInfo,
       KeepCheckKind kind,
       KeepBindings bindings,
-      KeepItemReference itemReference) {
+      KeepBindingReference itemReference) {
     this.metaInfo = metaInfo;
     this.kind = kind;
     this.bindings = bindings;
@@ -84,7 +84,7 @@ public class KeepCheck extends KeepDeclaration {
   }
 
   public KeepItemPattern getItemPattern() {
-    return bindings.get(itemReference.asBindingReference()).getItem();
+    return bindings.get(itemReference).getItem();
   }
 
   @Override

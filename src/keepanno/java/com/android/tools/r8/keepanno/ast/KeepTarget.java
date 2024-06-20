@@ -9,18 +9,13 @@ public class KeepTarget {
 
   public static class Builder {
 
-    private KeepItemReference item;
+    private KeepBindingReference item;
     private KeepConstraints constraints = KeepConstraints.defaultConstraints();
 
     private Builder() {}
 
-    public Builder setItemBindingReference(KeepBindingReference reference) {
-      this.item = reference.toItemReference();
-      return this;
-    }
-
-    public Builder setItemReference(KeepItemReference item) {
-      this.item = item;
+    public Builder setItemReference(KeepBindingReference itemReference) {
+      this.item = itemReference;
       return this;
     }
 
@@ -37,10 +32,10 @@ public class KeepTarget {
     }
   }
 
-  private final KeepItemReference item;
+  private final KeepBindingReference item;
   private final KeepConstraints constraints;
 
-  private KeepTarget(KeepItemReference item, KeepConstraints constraints) {
+  private KeepTarget(KeepBindingReference item, KeepConstraints constraints) {
     assert item != null;
     assert constraints != null;
     this.item = item;
@@ -51,7 +46,7 @@ public class KeepTarget {
     return new Builder();
   }
 
-  public KeepItemReference getItem() {
+  public KeepBindingReference getItem() {
     return item;
   }
 

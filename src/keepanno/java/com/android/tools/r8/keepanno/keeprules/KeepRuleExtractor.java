@@ -10,8 +10,8 @@ import com.android.tools.r8.keepanno.ast.KeepBindings.Binding;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
+import com.android.tools.r8.keepanno.ast.KeepClassBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
-import com.android.tools.r8.keepanno.ast.KeepClassItemReference;
 import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
@@ -22,7 +22,6 @@ import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepInstanceOfPattern;
 import com.android.tools.r8.keepanno.ast.KeepItemPattern;
-import com.android.tools.r8.keepanno.ast.KeepItemReference;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodAccessPattern;
@@ -101,10 +100,9 @@ public class KeepRuleExtractor {
       targetMembers = Collections.emptyList();
     } else {
       KeepMemberItemPattern memberItemPattern = itemPattern.asMemberItemPattern();
-      KeepClassItemReference classReference = memberItemPattern.getClassReference();
-      KeepBindingReference bindingReference = classReference.asBindingReference();
-      Binding binding = check.getBindings().get(bindingReference);
-      symbol = bindingReference.getName();
+      KeepClassBindingReference classReference = memberItemPattern.getClassReference();
+      Binding binding = check.getBindings().get(classReference);
+      symbol = classReference.getName();
       builder.addBinding(symbol, binding.getItem());
       KeepMemberPattern memberPattern = memberItemPattern.getMemberPattern();
       // This does not actually allocate a binding as the mapping is maintained in 'memberPatterns'.
@@ -251,16 +249,15 @@ public class KeepRuleExtractor {
 
     public void addCondition(KeepCondition condition) {
       assert true;
-      conditionRefs.add(condition.getItem().asBindingReference().getName());
+      conditionRefs.add(condition.getItem().getName());
     }
 
     public void addTarget(KeepTarget target) {
       assert true;
       KeepConstraints constraints = target.getConstraints();
       KeepOptions options = constraints.convertToKeepOptions(defaultOptions);
-      targetRefs
-          .computeIfAbsent(options, k -> new HashSet<>())
-          .add(target.getItem().asBindingReference().getName());
+      KeepBindingReference bindingReference = target.getItem();
+      targetRefs.computeIfAbsent(options, k -> new HashSet<>()).add(bindingReference.getName());
     }
   }
 
@@ -582,7 +579,7 @@ public class KeepRuleExtractor {
   }
 
   private static KeepBindingSymbol getClassItemBindingReference(
-      KeepItemReference itemReference, KeepBindings bindings) {
+      KeepBindingReference itemReference, KeepBindings bindings) {
     KeepBindingSymbol classReference = null;
     for (KeepBindingSymbol reference : getTransitiveBindingReferences(itemReference, bindings)) {
       if (bindings.get(reference).getItem().isClassItemPattern()) {
@@ -596,7 +593,7 @@ public class KeepRuleExtractor {
   }
 
   private static Set<KeepBindingSymbol> getTransitiveBindingReferences(
-      KeepItemReference itemReference, KeepBindings bindings) {
+      KeepBindingReference itemReference, KeepBindings bindings) {
     Set<KeepBindingSymbol> symbols = new HashSet<>(2);
     Deque<KeepBindingReference> worklist = new ArrayDeque<>();
     worklist.addAll(getBindingReference(itemReference));
@@ -610,8 +607,8 @@ public class KeepRuleExtractor {
   }
 
   private static Collection<KeepBindingReference> getBindingReference(
-      KeepItemReference itemReference) {
-    return Collections.singletonList(itemReference.asBindingReference());
+      KeepBindingReference itemReference) {
+    return Collections.singletonList(itemReference);
   }
 
   private static Collection<KeepBindingReference> getBindingReference(KeepItemPattern itemPattern) {

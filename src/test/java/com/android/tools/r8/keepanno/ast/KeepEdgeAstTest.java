@@ -46,13 +46,9 @@ public class KeepEdgeAstTest extends TestBase {
             .setConsequences(
                 KeepConsequences.builder()
                     .addTarget(
-                        KeepTarget.builder()
-                            .setItemBindingReference(helper.freshAnyClass())
-                            .build())
+                        KeepTarget.builder().setItemReference(helper.freshAnyClass()).build())
                     .addTarget(
-                        KeepTarget.builder()
-                            .setItemBindingReference(helper.freshAnyMember())
-                            .build())
+                        KeepTarget.builder().setItemReference(helper.freshAnyMember()).build())
                     .build())
             .setBindings(helper.build())
             .build();
@@ -79,12 +75,12 @@ public class KeepEdgeAstTest extends TestBase {
                 KeepConsequences.builder()
                     .addTarget(
                         KeepTarget.builder()
-                            .setItemBindingReference(helper.freshAnyClass())
+                            .setItemReference(helper.freshAnyClass())
                             .setConstraints(constraints)
                             .build())
                     .addTarget(
                         KeepTarget.builder()
-                            .setItemBindingReference(helper.freshAnyMember())
+                            .setItemReference(helper.freshAnyMember())
                             .setConstraints(constraints)
                             .build())
                     .build())
@@ -150,7 +146,7 @@ public class KeepEdgeAstTest extends TestBase {
                 KeepPreconditions.builder()
                     .addCondition(
                         KeepCondition.builder()
-                            .setItemBindingReference(helper.freshClassBinding(classItem(CLASS)))
+                            .setItemReference(helper.freshClassBinding(classItem(CLASS)))
                             .build())
                     .build())
             .setConsequences(
@@ -207,7 +203,7 @@ public class KeepEdgeAstTest extends TestBase {
         KeepEdge.builder()
             .setPreconditions(
                 KeepPreconditions.builder()
-                    .addCondition(KeepCondition.builder().setItemBindingReference(clazz).build())
+                    .addCondition(KeepCondition.builder().setItemReference(clazz).build())
                     .build())
             .setConsequences(
                 KeepConsequences.builder()
@@ -215,7 +211,7 @@ public class KeepEdgeAstTest extends TestBase {
                     .addTarget(
                         target(
                             KeepMemberItemPattern.builder()
-                                .setClassBindingReference(clazz)
+                                .setClassReference(clazz)
                                 .setMemberPattern(defaultInitializerPattern())
                                 .build(),
                             helper))
@@ -241,7 +237,7 @@ public class KeepEdgeAstTest extends TestBase {
   }
 
   private KeepTarget target(KeepBindingReference item) {
-    return KeepTarget.builder().setItemBindingReference(item).build();
+    return KeepTarget.builder().setItemReference(item).build();
   }
 
   private KeepCondition condition(KeepItemPattern item, BindingsHelper helper) {
@@ -249,7 +245,7 @@ public class KeepEdgeAstTest extends TestBase {
   }
 
   private KeepCondition condition(KeepBindingReference item) {
-    return KeepCondition.builder().setItemBindingReference(item).build();
+    return KeepCondition.builder().setItemReference(item).build();
   }
 
   private KeepClassItemPattern classItem(String typeName) {
@@ -267,7 +263,7 @@ public class KeepEdgeAstTest extends TestBase {
 
   private static KeepMemberItemPattern.Builder buildMemberItem(KeepClassBindingReference holder) {
     return KeepMemberItemPattern.builder()
-        .setClassBindingReference(holder)
+        .setClassReference(holder)
         .setMemberPattern(KeepMemberPattern.allMembers());
   }
 

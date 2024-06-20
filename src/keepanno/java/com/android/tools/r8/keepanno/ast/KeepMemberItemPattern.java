@@ -5,6 +5,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Objects;
 
 public class KeepMemberItemPattern extends KeepItemPattern {
@@ -15,7 +16,7 @@ public class KeepMemberItemPattern extends KeepItemPattern {
 
   public static class Builder {
 
-    private KeepClassItemReference classReference = null;
+    private KeepClassBindingReference classReference = null;
     private KeepMemberPattern memberPattern = KeepMemberPattern.allMembers();
 
     private Builder() {}
@@ -25,12 +26,7 @@ public class KeepMemberItemPattern extends KeepItemPattern {
           .setMemberPattern(pattern.getMemberPattern());
     }
 
-    public Builder setClassBindingReference(KeepClassBindingReference classReference) {
-      this.classReference = classReference.toClassItemReference();
-      return this;
-    }
-
-    public Builder setClassReference(KeepClassItemReference classReference) {
+    public Builder setClassReference(KeepClassBindingReference classReference) {
       this.classReference = classReference;
       return this;
     }
@@ -49,11 +45,11 @@ public class KeepMemberItemPattern extends KeepItemPattern {
     }
   }
 
-  private final KeepClassItemReference classReference;
+  private final KeepClassBindingReference classReference;
   private final KeepMemberPattern memberPattern;
 
   private KeepMemberItemPattern(
-      KeepClassItemReference classReference, KeepMemberPattern memberPattern) {
+      KeepClassBindingReference classReference, KeepMemberPattern memberPattern) {
     assert classReference != null;
     assert memberPattern != null;
     this.classReference = classReference;
@@ -65,7 +61,7 @@ public class KeepMemberItemPattern extends KeepItemPattern {
     return this;
   }
 
-  public KeepClassItemReference getClassReference() {
+  public KeepClassBindingReference getClassReference() {
     return classReference;
   }
 
@@ -74,7 +70,7 @@ public class KeepMemberItemPattern extends KeepItemPattern {
   }
 
   public Collection<KeepBindingReference> getBindingReferences() {
-    return classReference.getBindingReferences();
+    return Collections.singletonList(classReference);
   }
 
   @Override

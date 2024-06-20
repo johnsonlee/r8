@@ -5,6 +5,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
+import java.util.Objects;
 
 public abstract class KeepBindingReference {
 
@@ -25,8 +26,6 @@ public abstract class KeepBindingReference {
   KeepBindingReference(KeepBindingSymbol name) {
     this.name = name;
   }
-
-  public abstract KeepItemReference toItemReference();
 
   public KeepBindingSymbol getName() {
     return name;
@@ -51,5 +50,22 @@ public abstract class KeepBindingReference {
   @Override
   public String toString() {
     return name.toString();
+  }
+
+  @Override
+  public final boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof KeepBindingReference)) {
+      return false;
+    }
+    KeepBindingReference other = (KeepBindingReference) obj;
+    return isClassType() == other.isClassType() && name.equals(other.name);
+  }
+
+  @Override
+  public final int hashCode() {
+    return Objects.hash(isClassType(), name);
   }
 }

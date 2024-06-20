@@ -19,16 +19,11 @@ public final class KeepCondition {
 
   public static class Builder {
 
-    private KeepItemReference item;
+    private KeepBindingReference item;
 
     private Builder() {}
 
-    public Builder setItemBindingReference(KeepBindingReference item) {
-      this.item = item.toItemReference();
-      return this;
-    }
-
-    public Builder setItemReference(KeepItemReference item) {
+    public Builder setItemReference(KeepBindingReference item) {
       this.item = item;
       return this;
     }
@@ -38,14 +33,14 @@ public final class KeepCondition {
     }
   }
 
-  private final KeepItemReference item;
+  private final KeepBindingReference item;
 
-  private KeepCondition(KeepItemReference item) {
+  private KeepCondition(KeepBindingReference item) {
     assert item != null;
     this.item = item;
   }
 
-  public KeepItemReference getItem() {
+  public KeepBindingReference getItem() {
     return item;
   }
 

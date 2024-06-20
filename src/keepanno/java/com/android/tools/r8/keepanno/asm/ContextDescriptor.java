@@ -123,7 +123,7 @@ public class ContextDescriptor {
     }
     KeepMemberItemPattern memberItem =
         KeepMemberItemPattern.builder()
-            .setClassBindingReference(classBinding)
+            .setClassReference(classBinding)
             .setMemberPattern(memberPattern)
             .build();
     return bindingsHelper.defineFreshMemberBinding(memberItem);
