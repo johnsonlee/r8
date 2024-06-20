@@ -19,7 +19,7 @@ import java.util.function.Function;
  */
 public abstract class KeepItemPattern {
 
-  public static KeepItemPattern anyClass() {
+  public static KeepClassItemPattern anyClass() {
     return KeepClassItemPattern.any();
   }
 
@@ -40,8 +40,6 @@ public abstract class KeepItemPattern {
   }
 
   public abstract Collection<KeepBindingReference> getBindingReferences();
-
-  public abstract KeepItemReference toItemReference();
 
   public final <T> T apply(
       Function<KeepClassItemPattern, T> onClass, Function<KeepMemberItemPattern, T> onMember) {

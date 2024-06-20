@@ -6,12 +6,14 @@ package com.android.tools.r8.keepanno.asm;
 
 import static com.android.tools.r8.keepanno.ast.KeepTypePattern.fromDescriptor;
 
+import com.android.tools.r8.keepanno.asm.KeepEdgeReader.UserBindingsHelper;
+import com.android.tools.r8.keepanno.ast.KeepBindingReference;
+import com.android.tools.r8.keepanno.ast.KeepClassBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
 import com.android.tools.r8.keepanno.ast.KeepFieldNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldTypePattern;
-import com.android.tools.r8.keepanno.ast.KeepItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberItemPattern;
 import com.android.tools.r8.keepanno.ast.KeepMemberPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodNamePattern;
@@ -103,13 +105,14 @@ public class ContextDescriptor {
     return metaInfoBuilder;
   }
 
-  public KeepItemPattern toItemPattern() {
+  public KeepBindingReference defineBindingReference(UserBindingsHelper bindingsHelper) {
     KeepQualifiedClassNamePattern className =
         KeepQualifiedClassNamePattern.exactFromDescriptor(getClassDescriptor());
     KeepClassItemPattern classItem =
         KeepClassItemPattern.builder().setClassNamePattern(className).build();
+    KeepClassBindingReference classBinding = bindingsHelper.defineFreshClassBinding(classItem);
     if (isClassContext()) {
-      return classItem;
+      return classBinding;
     }
     KeepMemberPattern memberPattern;
     if (isMethodContext()) {
@@ -118,10 +121,12 @@ public class ContextDescriptor {
       assert isFieldContext();
       memberPattern = createFieldPatternFromDescriptor();
     }
-    return KeepMemberItemPattern.builder()
-        .setClassReference(classItem.toClassItemReference())
-        .setMemberPattern(memberPattern)
-        .build();
+    KeepMemberItemPattern memberItem =
+        KeepMemberItemPattern.builder()
+            .setClassBindingReference(classBinding)
+            .setMemberPattern(memberPattern)
+            .build();
+    return bindingsHelper.defineFreshMemberBinding(memberItem);
   }
 
   private KeepFieldPattern createFieldPatternFromDescriptor() {

@@ -33,10 +33,6 @@ public final class KeepCondition {
       return this;
     }
 
-    public Builder setItemPattern(KeepItemPattern itemPattern) {
-      return setItemReference(itemPattern.toItemReference());
-    }
-
     public KeepCondition build() {
       return new KeepCondition(item);
     }

@@ -24,10 +24,6 @@ public class KeepTarget {
       return this;
     }
 
-    public Builder setItemPattern(KeepItemPattern itemPattern) {
-      return setItemReference(itemPattern.toItemReference());
-    }
-
     public Builder setConstraints(KeepConstraints constraints) {
       this.constraints = constraints;
       return this;

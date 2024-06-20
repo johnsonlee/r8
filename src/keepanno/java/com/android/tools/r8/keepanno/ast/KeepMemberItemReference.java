@@ -11,10 +11,6 @@ public abstract class KeepMemberItemReference extends KeepItemReference {
     return new MemberBinding(bindingReference);
   }
 
-  public static KeepMemberItemReference fromMemberItemPattern(KeepMemberItemPattern itemPattern) {
-    return new MemberItem(itemPattern);
-  }
-
   @Override
   public final KeepMemberItemReference asMemberItemReference() {
     return this;
@@ -36,30 +32,6 @@ public abstract class KeepMemberItemReference extends KeepItemReference {
     @Override
     public String toString() {
       return bindingReference.toString();
-    }
-  }
-
-  private static final class MemberItem extends KeepMemberItemReference {
-
-    private final KeepMemberItemPattern itemPattern;
-
-    public MemberItem(KeepMemberItemPattern itemPattern) {
-      this.itemPattern = itemPattern;
-    }
-
-    @Override
-    public KeepItemPattern asItemPattern() {
-      return itemPattern;
-    }
-
-    @Override
-    public KeepMemberItemPattern asMemberItemPattern() {
-      return itemPattern;
-    }
-
-    @Override
-    public String toString() {
-      return itemPattern.toString();
     }
   }
 }

@@ -65,11 +65,6 @@ public class KeepMemberItemPattern extends KeepItemPattern {
     return this;
   }
 
-  @Override
-  public KeepItemReference toItemReference() {
-    return KeepMemberItemReference.fromMemberItemPattern(this);
-  }
-
   public KeepClassItemReference getClassReference() {
     return classReference;
   }

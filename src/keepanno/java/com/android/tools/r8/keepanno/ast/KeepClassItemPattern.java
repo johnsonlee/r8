@@ -77,15 +77,6 @@ public class KeepClassItemPattern extends KeepItemPattern {
   }
 
   @Override
-  public KeepItemReference toItemReference() {
-    return toClassItemReference();
-  }
-
-  public final KeepClassItemReference toClassItemReference() {
-    return KeepClassItemReference.fromClassItemPattern(this);
-  }
-
-  @Override
   public Collection<KeepBindingReference> getBindingReferences() {
     return Collections.emptyList();
   }

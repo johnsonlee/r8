@@ -40,21 +40,21 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepAll() {
-    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
-    KeepBindingSymbol anyClassSymbol = bindingsBuilder.generateFreshSymbol("ANY_CLASS");
-    bindingsBuilder.addBinding(anyClassSymbol, KeepItemPattern.anyClass());
+    BindingsHelper helper = new BindingsHelper();
     KeepEdge edge =
         KeepEdge.builder()
             .setConsequences(
                 KeepConsequences.builder()
                     .addTarget(
-                        KeepTarget.builder().setItemPattern(KeepItemPattern.anyClass()).build())
+                        KeepTarget.builder()
+                            .setItemBindingReference(helper.freshAnyClass())
+                            .build())
                     .addTarget(
                         KeepTarget.builder()
-                            .setItemPattern(buildMemberItem(anyClassSymbol).build())
+                            .setItemBindingReference(helper.freshAnyMember())
                             .build())
                     .build())
-            .setBindings(bindingsBuilder.build())
+            .setBindings(helper.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -65,6 +65,7 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testSoftPinViaConstraints() {
+    BindingsHelper helper = new BindingsHelper();
     KeepConstraints constraints =
         KeepConstraints.builder()
             .add(KeepConstraint.classInstantiate())
@@ -72,25 +73,22 @@ public class KeepEdgeAstTest extends TestBase {
             .add(KeepConstraint.fieldGet())
             .add(KeepConstraint.fieldSet())
             .build();
-    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
-    KeepBindingSymbol anyClassSymbol = bindingsBuilder.generateFreshSymbol("ANY_CLASS");
-    bindingsBuilder.addBinding(anyClassSymbol, KeepItemPattern.anyClass());
     KeepEdge edge =
         KeepEdge.builder()
             .setConsequences(
                 KeepConsequences.builder()
                     .addTarget(
                         KeepTarget.builder()
-                            .setItemPattern(KeepItemPattern.anyClass())
+                            .setItemBindingReference(helper.freshAnyClass())
                             .setConstraints(constraints)
                             .build())
                     .addTarget(
                         KeepTarget.builder()
-                            .setItemPattern(buildMemberItem(anyClassSymbol).build())
+                            .setItemBindingReference(helper.freshAnyMember())
                             .setConstraints(constraints)
                             .build())
                     .build())
-            .setBindings(bindingsBuilder.build())
+            .setBindings(helper.build())
             .build();
     // Pinning just the use constraints points will issue the full inverse of the known options,
     // e.g., 'allowaccessmodification'.
@@ -106,9 +104,11 @@ public class KeepEdgeAstTest extends TestBase {
   }
   @Test
   public void testKeepClass() {
-    KeepTarget target = target(classItem(CLASS));
+    BindingsHelper helper = new BindingsHelper();
+    KeepTarget target = target(classItem(CLASS), helper);
     KeepConsequences consequences = KeepConsequences.builder().addTarget(target).build();
-    KeepEdge edge = KeepEdge.builder().setConsequences(consequences).build();
+    KeepEdge edge =
+        KeepEdge.builder().setConsequences(consequences).setBindings(helper.build()).build();
     assertEquals(
         StringUtils.unixLines(
             "-keep,allowaccessmodification class " + CLASS + " { void finalize(); }"),
@@ -117,22 +117,23 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepInitIfReferenced() {
-    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
+    BindingsHelper helper = new BindingsHelper();
     KeepEdge edge =
         KeepEdge.builder()
             .setPreconditions(
                 KeepPreconditions.builder()
-                    .addCondition(KeepCondition.builder().setItemPattern(classItem(CLASS)).build())
+                    .addCondition(condition(classItem(CLASS), helper))
                     .build())
             .setConsequences(
                 KeepConsequences.builder()
                     .addTarget(
                         target(
-                            buildMemberItem(CLASS, bindingsBuilder)
+                            buildMemberItem(CLASS, helper)
                                 .setMemberPattern(defaultInitializerPattern())
-                                .build()))
+                                .build(),
+                            helper))
                     .build())
-            .setBindings(bindingsBuilder.build())
+            .setBindings(helper.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -142,13 +143,19 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepInstanceIfReferenced() {
+    BindingsHelper helper = new BindingsHelper();
     KeepEdge edge =
         KeepEdge.builder()
             .setPreconditions(
                 KeepPreconditions.builder()
-                    .addCondition(KeepCondition.builder().setItemPattern(classItem(CLASS)).build())
+                    .addCondition(
+                        KeepCondition.builder()
+                            .setItemBindingReference(helper.freshClassBinding(classItem(CLASS)))
+                            .build())
                     .build())
-            .setConsequences(KeepConsequences.builder().addTarget(target(classItem(CLASS))).build())
+            .setConsequences(
+                KeepConsequences.builder().addTarget(target(classItem(CLASS), helper)).build())
+            .setBindings(helper.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -162,23 +169,24 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepInstanceAndInitIfReferenced() {
-    KeepBindings.Builder bindingsBuilder = KeepBindings.builder();
+    BindingsHelper helper = new BindingsHelper();
     KeepEdge edge =
         KeepEdge.builder()
             .setPreconditions(
                 KeepPreconditions.builder()
-                    .addCondition(KeepCondition.builder().setItemPattern(classItem(CLASS)).build())
+                    .addCondition(condition(classItem(CLASS), helper))
                     .build())
             .setConsequences(
                 KeepConsequences.builder()
-                    .addTarget(target(classItem(CLASS)))
+                    .addTarget(target(classItem(CLASS), helper))
                     .addTarget(
                         target(
-                            buildMemberItem(CLASS, bindingsBuilder)
+                            buildMemberItem(CLASS, helper)
                                 .setMemberPattern(defaultInitializerPattern())
-                                .build()))
+                                .build(),
+                            helper))
                     .build())
-            .setBindings(bindingsBuilder.build())
+            .setBindings(helper.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -193,28 +201,26 @@ public class KeepEdgeAstTest extends TestBase {
 
   @Test
   public void testKeepInstanceAndInitIfReferencedWithBinding() {
-    KeepBindings.Builder bindings = KeepBindings.builder();
-    KeepBindingSymbol classSymbol = bindings.create("CLASS");
+    BindingsHelper helper = new BindingsHelper();
+    KeepClassBindingReference clazz = helper.freshClassBinding(classItem(CLASS));
     KeepEdge edge =
         KeepEdge.builder()
-            .setBindings(bindings.addBinding(classSymbol, classItem(CLASS)).build())
             .setPreconditions(
                 KeepPreconditions.builder()
-                    .addCondition(
-                        KeepCondition.builder()
-                            .setItemReference(classItemBinding(classSymbol))
-                            .build())
+                    .addCondition(KeepCondition.builder().setItemBindingReference(clazz).build())
                     .build())
             .setConsequences(
                 KeepConsequences.builder()
-                    .addTarget(target(classItemBinding(classSymbol)))
+                    .addTarget(target(clazz))
                     .addTarget(
                         target(
                             KeepMemberItemPattern.builder()
-                                .setClassReference(classItemBinding(classSymbol))
+                                .setClassBindingReference(clazz)
                                 .setMemberPattern(defaultInitializerPattern())
-                                .build()))
+                                .build(),
+                            helper))
                     .build())
+            .setBindings(helper.build())
             .build();
     assertEquals(
         StringUtils.unixLines(
@@ -226,19 +232,27 @@ public class KeepEdgeAstTest extends TestBase {
         extract(edge));
   }
 
-  private KeepClassItemReference classItemBinding(KeepBindingSymbol bindingName) {
-    return KeepBindingReference.forClass(bindingName).toClassItemReference();
+  private KeepClassBindingReference classItemBinding(KeepBindingSymbol bindingName) {
+    return KeepBindingReference.forClass(bindingName);
   }
 
-  private KeepTarget target(KeepItemPattern item) {
-    return KeepTarget.builder().setItemPattern(item).build();
+  private KeepTarget target(KeepItemPattern item, BindingsHelper helper) {
+    return target(helper.freshItemBinding(item));
   }
 
-  private KeepTarget target(KeepItemReference item) {
-    return KeepTarget.builder().setItemReference(item).build();
+  private KeepTarget target(KeepBindingReference item) {
+    return KeepTarget.builder().setItemBindingReference(item).build();
   }
 
-  private KeepItemPattern classItem(String typeName) {
+  private KeepCondition condition(KeepItemPattern item, BindingsHelper helper) {
+    return condition(helper.freshItemBinding(item));
+  }
+
+  private KeepCondition condition(KeepBindingReference item) {
+    return KeepCondition.builder().setItemBindingReference(item).build();
+  }
+
+  private KeepClassItemPattern classItem(String typeName) {
     return buildClassItem(typeName).build();
   }
 
@@ -247,20 +261,13 @@ public class KeepEdgeAstTest extends TestBase {
         .setClassNamePattern(KeepQualifiedClassNamePattern.exact(typeName));
   }
 
-  private KeepMemberItemPattern.Builder buildMemberItem(
-      String holderType, KeepBindings.Builder bindingsBuilder) {
-
-    KeepClassItemPattern classItemPattern = buildClassItem(holderType).build();
-    KeepBindingSymbol holderSymbol = bindingsBuilder.generateFreshSymbol("HOLDER");
-    bindingsBuilder.addBinding(holderSymbol, classItemPattern);
-    return buildMemberItem(holderSymbol);
+  private KeepMemberItemPattern.Builder buildMemberItem(String holderType, BindingsHelper helper) {
+    return buildMemberItem(helper.freshClassBinding(buildClassItem(holderType).build()));
   }
 
-  private static KeepMemberItemPattern.Builder buildMemberItem(KeepBindingSymbol holderSymbol) {
+  private static KeepMemberItemPattern.Builder buildMemberItem(KeepClassBindingReference holder) {
     return KeepMemberItemPattern.builder()
-        .setClassReference(
-            KeepClassItemReference.fromBindingReference(
-                KeepClassBindingReference.forClass(holderSymbol)))
+        .setClassBindingReference(holder)
         .setMemberPattern(KeepMemberPattern.allMembers());
   }
 
@@ -270,5 +277,38 @@ public class KeepEdgeAstTest extends TestBase {
         .setParametersPattern(KeepMethodParametersPattern.none())
         .setReturnTypeVoid()
         .build();
+  }
+
+  private static class BindingsHelper {
+    private final KeepBindings.Builder builder = KeepBindings.builder();
+
+    public KeepClassBindingReference freshClassBinding(KeepClassItemPattern pattern) {
+      KeepBindingSymbol symbol = builder.generateFreshSymbol("CLASS");
+      builder.addBinding(symbol, pattern);
+      return KeepClassBindingReference.forClass(symbol);
+    }
+
+    public KeepMemberBindingReference freshMemberBinding(KeepMemberItemPattern pattern) {
+      KeepBindingSymbol symbol = builder.generateFreshSymbol("MEMBER");
+      builder.addBinding(symbol, pattern);
+      return KeepMemberBindingReference.forMember(symbol);
+    }
+
+    public KeepBindingReference freshItemBinding(KeepItemPattern pattern) {
+      return pattern.apply(this::freshClassBinding, this::freshMemberBinding);
+    }
+
+    public KeepClassBindingReference freshAnyClass() {
+      return freshClassBinding(KeepItemPattern.anyClass());
+    }
+
+    public KeepMemberBindingReference freshAnyMember() {
+      return freshMemberBinding(
+          buildMemberItem(freshClassBinding(KeepItemPattern.anyClass())).build());
+    }
+
+    public KeepBindings build() {
+      return builder.build();
+    }
   }
 }
