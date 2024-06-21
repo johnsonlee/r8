@@ -6,13 +6,16 @@ package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
+import static org.junit.Assert.fail;
 
+import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
+import com.android.tools.r8.desugar.desugaredlibrary.test.DesugaredLibraryTestCompileResult;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -171,13 +174,28 @@ public class FilesAttributes2Test extends DesugaredLibraryTestBase {
           .assertSuccessWithOutput(getExpectedResult());
       return;
     }
-    testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addInnerClasses(getClass())
-        .addKeepMainRule(TestClass.class)
-        .compile()
-        .withArt6Plus64BitsLib()
-        .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(getExpectedResult());
+    DesugaredLibraryTestCompileResult<?> compileResult =
+        testForDesugaredLibrary(
+                parameters, libraryDesugaringSpecification, compilationSpecification)
+            .addInnerClasses(getClass())
+            .addKeepMainRule(TestClass.class)
+            .compile()
+            .withArt6Plus64BitsLib();
+    if (!parameters.getDexRuntimeVersion().isEqualTo(Version.V7_0_0)) {
+      compileResult
+          .run(parameters.getRuntime(), TestClass.class)
+          .assertSuccessWithOutput(getExpectedResult());
+      return;
+    }
+    // Flaky on Android 24, try 3 times.
+    SingleTestRunResult<?> run = null;
+    for (int i = 0; i < 3; i++) {
+      run = compileResult.run(parameters.getRuntime(), TestClass.class);
+      if (run.getStdOut().equals(getExpectedResult())) {
+        return;
+      }
+    }
+    fail("Expected result not found");
   }
 
   public static class TestClass {
