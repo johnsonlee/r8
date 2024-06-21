@@ -6,6 +6,8 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public abstract class KeepBindingReference {
 
@@ -45,6 +47,21 @@ public abstract class KeepBindingReference {
 
   public KeepMemberBindingReference asMemberBindingReference() {
     return null;
+  }
+
+  public final <T> T apply(
+      Function<KeepClassBindingReference, T> onClass,
+      Function<KeepMemberBindingReference, T> onMember) {
+    if (isClassType()) {
+      return onClass.apply(asClassBindingReference());
+    }
+    assert isMemberType();
+    return onMember.apply(asMemberBindingReference());
+  }
+
+  public final void match(
+      Consumer<KeepClassBindingReference> onClass, Consumer<KeepMemberBindingReference> onMember) {
+    apply(AstUtils.toVoidFunction(onClass), AstUtils.toVoidFunction(onMember));
   }
 
   @Override

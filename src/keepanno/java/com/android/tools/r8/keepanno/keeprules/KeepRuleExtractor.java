@@ -16,7 +16,6 @@ import com.android.tools.r8.keepanno.ast.KeepCondition;
 import com.android.tools.r8.keepanno.ast.KeepConstraints;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepEdge;
-import com.android.tools.r8.keepanno.ast.KeepEdgeException;
 import com.android.tools.r8.keepanno.ast.KeepEdgeMetaInfo;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
@@ -35,11 +34,8 @@ import com.android.tools.r8.keepanno.keeprules.PgRule.PgDependentMembersRule;
 import com.android.tools.r8.keepanno.keeprules.PgRule.PgKeepAttributeRule;
 import com.android.tools.r8.keepanno.keeprules.PgRule.PgUnconditionalRule;
 import com.android.tools.r8.keepanno.keeprules.PgRule.TargetKeepKind;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -578,38 +574,8 @@ public class KeepRuleExtractor {
 
   private static KeepBindingSymbol getClassItemBindingReference(
       KeepBindingReference itemReference, KeepBindings bindings) {
-    KeepBindingSymbol classReference = null;
-    for (KeepBindingSymbol reference : getTransitiveBindingReferences(itemReference, bindings)) {
-      if (bindings.get(reference).getItem().isClassItemPattern()) {
-        if (classReference != null) {
-          throw new KeepEdgeException("Unexpected reference to multiple class bindings");
-        }
-        classReference = reference;
-      }
-    }
-    return classReference;
-  }
-
-  private static Set<KeepBindingSymbol> getTransitiveBindingReferences(
-      KeepBindingReference itemReference, KeepBindings bindings) {
-    Set<KeepBindingSymbol> symbols = new HashSet<>(2);
-    Deque<KeepBindingReference> worklist = new ArrayDeque<>();
-    worklist.addAll(getBindingReference(itemReference));
-    while (!worklist.isEmpty()) {
-      KeepBindingReference bindingReference = worklist.pop();
-      if (symbols.add(bindingReference.getName())) {
-        worklist.addAll(getBindingReference(bindings.get(bindingReference).getItem()));
-      }
-    }
-    return symbols;
-  }
-
-  private static Collection<KeepBindingReference> getBindingReference(
-      KeepBindingReference itemReference) {
-    return Collections.singletonList(itemReference);
-  }
-
-  private static Collection<KeepBindingReference> getBindingReference(KeepItemPattern itemPattern) {
-    return itemPattern.getBindingReferences();
+    return itemReference.apply(
+        KeepBindingReference::getName,
+        member -> bindings.getMemberItem(member).getClassReference().getName());
   }
 }
