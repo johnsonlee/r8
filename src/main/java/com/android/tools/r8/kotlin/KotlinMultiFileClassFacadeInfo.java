@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import kotlin.Metadata;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.KotlinClassMetadata.MultiFileClassFacade;
 
 // Holds information about Metadata.MultiFileClassFace
@@ -83,8 +84,8 @@ public class KotlinMultiFileClassFacadeInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public int[] getMetadataVersion() {
-    return KotlinJvmMetadataVersionUtils.toIntArray(kmMultiFileClassFacade.getVersion());
+  public JvmMetadataVersion getMetadataVersion() {
+    return kmMultiFileClassFacade.getVersion();
   }
 
   @Override

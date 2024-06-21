@@ -13,6 +13,7 @@ import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.Pair;
 import kotlin.Metadata;
 import kotlin.metadata.KmLambda;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.KotlinClassMetadata.SyntheticClass;
 
 // Holds information about a Metadata.SyntheticClass object.
@@ -96,8 +97,8 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public int[] getMetadataVersion() {
-    return KotlinJvmMetadataVersionUtils.toIntArray(syntheticClass.getVersion());
+  public JvmMetadataVersion getMetadataVersion() {
+    return syntheticClass.getVersion();
   }
 
   @SuppressWarnings("ReferenceEquality")

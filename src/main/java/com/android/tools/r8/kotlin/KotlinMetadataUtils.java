@@ -33,7 +33,7 @@ import kotlin.metadata.jvm.KotlinClassMetadata;
 
 public class KotlinMetadataUtils {
 
-  private static final JvmMetadataVersion VERSION_1_4_0 = new JvmMetadataVersion(1, 4, 0);
+  public static final JvmMetadataVersion VERSION_1_4_0 = new JvmMetadataVersion(1, 4, 0);
   private static final NoKotlinInfo NO_KOTLIN_INFO = new NoKotlinInfo("NO_KOTLIN_INFO");
   private static final NoKotlinInfo INVALID_KOTLIN_INFO = new NoKotlinInfo("INVALID_KOTLIN_INFO");
 
@@ -62,7 +62,7 @@ public class KotlinMetadataUtils {
     }
 
     @Override
-    public int[] getMetadataVersion() {
+    public JvmMetadataVersion getMetadataVersion() {
       throw new Unreachable("Should never be called");
     }
 

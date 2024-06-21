@@ -14,6 +14,7 @@ import com.android.tools.r8.utils.Pair;
 import java.util.function.Consumer;
 import kotlin.Metadata;
 import kotlin.metadata.KmPackage;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.KotlinClassMetadata.MultiFileClassPart;
 
 // Holds information about Metadata.MultiFileClassPartInfo
@@ -70,8 +71,8 @@ public class KotlinMultiFileClassPartInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public int[] getMetadataVersion() {
-    return KotlinJvmMetadataVersionUtils.toIntArray(classPart.getVersion());
+  public JvmMetadataVersion getMetadataVersion() {
+    return classPart.getVersion();
   }
 
   @Override

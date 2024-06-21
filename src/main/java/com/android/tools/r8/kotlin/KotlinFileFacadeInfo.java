@@ -14,6 +14,7 @@ import com.android.tools.r8.utils.Pair;
 import java.util.function.Consumer;
 import kotlin.Metadata;
 import kotlin.metadata.KmPackage;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.KotlinClassMetadata.FileFacade;
 
 // Holds information about Metadata.FileFacade
@@ -72,8 +73,8 @@ public class KotlinFileFacadeInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public int[] getMetadataVersion() {
-    return KotlinJvmMetadataVersionUtils.toIntArray(kmFileFacade.getVersion());
+  public JvmMetadataVersion getMetadataVersion() {
+    return kmFileFacade.getVersion();
   }
 
   @Override

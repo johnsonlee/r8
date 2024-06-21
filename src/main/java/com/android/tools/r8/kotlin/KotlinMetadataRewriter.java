@@ -4,6 +4,7 @@
 package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.kotlin.KotlinClassMetadataReader.toKotlinClassMetadata;
+import static com.android.tools.r8.kotlin.KotlinMetadataUtils.VERSION_1_4_0;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getInvalidKotlinInfo;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 import static com.android.tools.r8.kotlin.KotlinMetadataWriter.kotlinMetadataToString;
@@ -29,13 +30,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 
 public class KotlinMetadataRewriter {
-
-  @SuppressWarnings("UnusedVariable")
-  // Due to a bug with nested classes and the lookup of RequirementVersion, we bump all metadata
-  // versions to 1.4 if compiled with kotlin 1.3 (1.1.16). For more information, see b/161885097.
-  private static final int[] METADATA_VERSION_1_4 = new int[] {1, 4, 0};
 
   private static final class WriteMetadataFieldInfo {
     final boolean writeKind;
@@ -181,7 +178,7 @@ public class KotlinMetadataRewriter {
                     createKotlinMetadataAnnotation(
                         kotlinMetadata.getFirst(),
                         kotlinInfo.getPackageName(),
-                        getMaxVersion(METADATA_VERSION_1_4, kotlinInfo.getMetadataVersion()),
+                        computeMetadataVersion(kotlinInfo.getMetadataVersion()),
                         writeMetadataFieldInfo)));
         return;
       }
@@ -189,7 +186,7 @@ public class KotlinMetadataRewriter {
           createKotlinMetadataAnnotation(
               kotlinMetadata.getFirst(),
               kotlinInfo.getPackageName(),
-              getMaxVersion(METADATA_VERSION_1_4, kotlinInfo.getMetadataVersion()),
+              computeMetadataVersion(kotlinInfo.getMetadataVersion()),
               writeMetadataFieldInfo);
       clazz.setAnnotations(clazz.annotations().rewrite(anno -> anno == oldMeta ? newMeta : anno));
     } catch (Throwable t) {
@@ -240,13 +237,14 @@ public class KotlinMetadataRewriter {
   private DexAnnotation createKotlinMetadataAnnotation(
       kotlin.Metadata metadata,
       String packageName,
-      int[] metadataVersion,
+      JvmMetadataVersion metadataVersion,
       WriteMetadataFieldInfo writeMetadataFieldInfo) {
     List<DexAnnotationElement> elements = new ArrayList<>();
     if (writeMetadataFieldInfo.writeMetadataVersion) {
       elements.add(
           new DexAnnotationElement(
-              kotlin.metadata.metadataVersion, createIntArray(metadataVersion)));
+              kotlin.metadata.metadataVersion,
+              createIntArray(KotlinJvmMetadataVersionUtils.toIntArray(metadataVersion))));
     }
     if (writeMetadataFieldInfo.writeKind) {
       elements.add(
@@ -297,22 +295,12 @@ public class KotlinMetadataRewriter {
     return new DexValueArray(values);
   }
 
-  // We are not sure that the format is <Major>-<Minor>-<Patch>, the format can be: <Major>-<Minor>.
-  private int[] getMaxVersion(int[] one, int[] other) {
-    assert one.length == 2 || one.length == 3;
-    assert other.length == 2 || other.length == 3;
-    if (one[0] != other[0]) {
-      return one[0] > other[0] ? one : other;
+  // Due to a bug with nested classes and the lookup of RequirementVersion, we bump all metadata
+  // versions to 1.4 if compiled with kotlin 1.3 (1.1.16). For more information, see b/161885097.
+  private JvmMetadataVersion computeMetadataVersion(JvmMetadataVersion other) {
+    if (VERSION_1_4_0.compareTo(other) >= 0) {
+      return VERSION_1_4_0;
     }
-    if (one[1] != other[1]) {
-      return one[1] > other[1] ? one : other;
-    }
-    int patchOne = one.length >= 3 ? one[2] : 0;
-    int patchOther = other.length >= 3 ? other[2] : 0;
-    if (patchOne != patchOther) {
-      return patchOne > patchOther ? one : other;
-    }
-    // They are equal up to patch, just return one.
-    return one;
+    return other;
   }
 }

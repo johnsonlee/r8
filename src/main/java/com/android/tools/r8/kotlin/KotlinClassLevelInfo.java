@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Pair;
 import kotlin.Metadata;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 
 public interface KotlinClassLevelInfo extends EnqueuerMetadataTraceable {
 
@@ -60,5 +61,5 @@ public interface KotlinClassLevelInfo extends EnqueuerMetadataTraceable {
 
   String getPackageName();
 
-  int[] getMetadataVersion();
+  JvmMetadataVersion getMetadataVersion();
 }

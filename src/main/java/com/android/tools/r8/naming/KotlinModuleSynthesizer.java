@@ -110,7 +110,7 @@ public class KotlinModuleSynthesizer {
     private final Map<String, List<Pair<String, String>>> multiClassFacadeOriginalToRenamed =
         new LinkedHashMap<>();
     private final Map<String, List<String>> multiClassPartToOriginal = new HashMap<>();
-    private final Box<int[]> metadataVersion = new Box<>();
+    private final Box<JvmMetadataVersion> metadataVersion = new Box<>();
 
     private KotlinModuleInfoBuilder(String moduleName, AppView<?> appView) {
       this.moduleName = moduleName;
@@ -183,8 +183,7 @@ public class KotlinModuleSynthesizer {
       }
       return Optional.of(
           DataEntryResource.fromBytes(
-              new KotlinModuleMetadata(kmModule, new JvmMetadataVersion(metadataVersion.get()))
-                  .write(),
+              new KotlinModuleMetadata(kmModule, metadataVersion.get()).write(),
               "META-INF/" + moduleName + ".kotlin_module",
               Origin.unknown()));
     }

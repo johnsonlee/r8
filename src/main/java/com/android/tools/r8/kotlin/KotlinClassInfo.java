@@ -35,6 +35,7 @@ import kotlin.metadata.KmClass;
 import kotlin.metadata.KmConstructor;
 import kotlin.metadata.KmType;
 import kotlin.metadata.jvm.JvmExtensionsKt;
+import kotlin.metadata.jvm.JvmMetadataVersion;
 import kotlin.metadata.jvm.JvmMethodSignature;
 import kotlin.metadata.jvm.KotlinClassMetadata;
 
@@ -452,8 +453,8 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public int[] getMetadataVersion() {
-    return KotlinJvmMetadataVersionUtils.toIntArray(classMetadata.getVersion());
+  public JvmMetadataVersion getMetadataVersion() {
+    return classMetadata.getVersion();
   }
 
   @Override
