@@ -78,7 +78,7 @@ public class KeepRuleExtractor {
     if (declaration.isKeepCheck()) {
       return generateCheckRules(declaration.asKeepCheck());
     }
-    return doSplit(KeepEdgeNormalizer.normalize(declaration.asKeepEdge()));
+    return doSplit(declaration.asKeepEdge());
   }
 
   private List<PgRule> generateCheckRules(KeepCheck check) {
@@ -248,12 +248,10 @@ public class KeepRuleExtractor {
     }
 
     public void addCondition(KeepCondition condition) {
-      assert true;
       conditionRefs.add(condition.getItem().getName());
     }
 
     public void addTarget(KeepTarget target) {
-      assert true;
       KeepConstraints constraints = target.getConstraints();
       KeepOptions options = constraints.convertToKeepOptions(defaultOptions);
       KeepBindingReference bindingReference = target.getItem();

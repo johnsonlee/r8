@@ -175,7 +175,36 @@ public final class KeepEdge extends KeepDeclaration {
       if (consequences.isEmpty()) {
         throw new KeepEdgeException("KeepEdge must have non-empty set of consequences.");
       }
-      return new KeepEdge(metaInfo, bindings, preconditions, consequences);
+      KeepBindingsNormalizer normalizer = KeepBindingsNormalizer.create(bindings);
+
+      KeepPreconditions.Builder preconditionsBuilder = KeepPreconditions.builder();
+      preconditions.forEach(
+          condition ->
+              preconditionsBuilder.addCondition(
+                  normalizer.registerAndNormalizeReference(
+                      condition.getItem(),
+                      condition,
+                      (newReference, oldCondition) ->
+                          KeepCondition.builder().setItemReference(newReference).build())));
+
+      KeepConsequences.Builder consequencesBuilder = KeepConsequences.builder();
+      consequences.forEachTarget(
+          target ->
+              consequencesBuilder.addTarget(
+                  normalizer.registerAndNormalizeReference(
+                      target.getItem(),
+                      target,
+                      (newReference, oldTarget) ->
+                          KeepTarget.builder()
+                              .setConstraints(oldTarget.getConstraints())
+                              .setItemReference(newReference)
+                              .build())));
+
+      return new KeepEdge(
+          metaInfo,
+          normalizer.buildBindings(),
+          normalizer.didReplaceReferences() ? preconditionsBuilder.build() : preconditions,
+          normalizer.didReplaceReferences() ? consequencesBuilder.build() : consequences);
     }
   }
 

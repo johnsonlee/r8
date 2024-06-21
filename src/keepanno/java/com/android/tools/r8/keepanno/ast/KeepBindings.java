@@ -59,18 +59,6 @@ public class KeepBindings {
             .collect(Collectors.joining(", "));
   }
 
-  public void verify(KeepBindingReference... references) {
-    verify(Arrays.asList(references));
-  }
-
-  public void verify(Collection<KeepBindingReference> references) {
-    for (KeepBindingReference reference : references) {
-      if (!bindings.containsKey(reference.getName())) {
-        throw new KeepEdgeException("Unbound reference to " + reference);
-      }
-    }
-  }
-
   /**
    * A unique binding.
    *

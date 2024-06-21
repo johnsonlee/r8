@@ -41,8 +41,15 @@ public class KeepCheck extends KeepDeclaration {
       if (itemReference == null) {
         throw new KeepEdgeException("KeepCheck must have an item pattern.");
       }
-      bindings.verify(itemReference);
-      return new KeepCheck(metaInfo, kind, bindings, itemReference);
+
+      KeepBindingsNormalizer normalizer = KeepBindingsNormalizer.create(bindings);
+      itemReference =
+          normalizer.registerAndNormalizeReference(
+              itemReference,
+              itemReference,
+              (newItemReference, oldItemReference) -> newItemReference);
+
+      return new KeepCheck(metaInfo, kind, normalizer.buildBindings(), itemReference);
     }
   }
 
