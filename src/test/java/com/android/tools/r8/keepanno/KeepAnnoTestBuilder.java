@@ -189,8 +189,8 @@ public abstract class KeepAnnoTestBuilder {
       // This enables native interpretation of all keep annotations.
       builder.addOptionsModification(
           o -> {
-            o.testing.enableExtractedKeepAnnotations = true;
-            o.testing.enableEmbeddedKeepAnnotations = true;
+            o.testing.enableExtractedKeepAnnotations = isNormalizeEdges();
+            o.testing.enableEmbeddedKeepAnnotations = !isNormalizeEdges();
           });
       // This disables all reading of annotations in the command reader.
       builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
