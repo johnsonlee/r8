@@ -8,6 +8,7 @@ public class BitUtils {
 
   public static final int ALL_BITS_SET_MASK = -1;
   public static final int ONLY_SIGN_BIT_SET_MASK = Integer.MIN_VALUE;
+  public static final int INTEGER_SHIFT_MASK = 0x1f;
 
   public static boolean isBitSet(int value, int which) {
     return isBitInMaskSet(value, 1 << (which - 1));

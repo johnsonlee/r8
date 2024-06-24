@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.analysis.value.arithmetic;
 
+import static com.android.tools.r8.utils.BitUtils.INTEGER_SHIFT_MASK;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.utils.BitUtils;
@@ -96,7 +98,8 @@ public class AbstractCalculator {
     return shlIntegers(appView, left, rightConst);
   }
 
-  public static AbstractValue shlIntegers(AppView<?> appView, AbstractValue left, int rightConst) {
+  public static AbstractValue shlIntegers(AppView<?> appView, AbstractValue left, int right) {
+    int rightConst = right & INTEGER_SHIFT_MASK;
     if (rightConst == 0) {
       return left;
     }
@@ -104,7 +107,7 @@ public class AbstractCalculator {
       int result = left.asSingleNumberValue().getIntValue() << rightConst;
       return appView.abstractValueFactory().createUncheckedSingleNumberValue(result);
     }
-    if (left.hasDefinitelySetAndUnsetBitsInformation() && rightConst > 0) {
+    if (left.hasDefinitelySetAndUnsetBitsInformation()) {
       // Shift the known bits and add that we now know that the lowermost n bits are definitely
       // unset. Note that when rightConst is 31, 1 << rightConst is Integer.MIN_VALUE. When
       // subtracting 1 we overflow and get 0111...111, as desired.
@@ -126,7 +129,8 @@ public class AbstractCalculator {
     return shrIntegers(appView, left, rightConst);
   }
 
-  public static AbstractValue shrIntegers(AppView<?> appView, AbstractValue left, int rightConst) {
+  public static AbstractValue shrIntegers(AppView<?> appView, AbstractValue left, int right) {
+    int rightConst = right & INTEGER_SHIFT_MASK;
     if (rightConst == 0) {
       return left;
     }
@@ -149,7 +153,7 @@ public class AbstractCalculator {
     if (!right.isSingleNumberValue()) {
       return AbstractValue.unknown();
     }
-    int rightConst = right.asSingleNumberValue().getIntValue();
+    int rightConst = right.asSingleNumberValue().getIntValue() & INTEGER_SHIFT_MASK;
     if (rightConst == 0) {
       return left;
     }
@@ -157,7 +161,7 @@ public class AbstractCalculator {
       int result = left.asSingleNumberValue().getIntValue() >>> rightConst;
       return appView.abstractValueFactory().createUncheckedSingleNumberValue(result);
     }
-    if (left.hasDefinitelySetAndUnsetBitsInformation() && rightConst > 0) {
+    if (left.hasDefinitelySetAndUnsetBitsInformation()) {
       // Shift the known bits information and add that we now know that the uppermost n bits are
       // definitely unset.
       return appView
