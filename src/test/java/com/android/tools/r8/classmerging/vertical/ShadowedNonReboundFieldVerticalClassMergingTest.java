@@ -7,6 +7,7 @@ import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,13 +40,12 @@ public class ShadowedNonReboundFieldVerticalClassMergingTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addVerticallyMergedClassesInspector(
-            inspector -> inspector.assertMergedIntoSubtype(B.class).assertNoOtherClassesMerged())
+            VerticallyMergedClassesInspector::assertNoClassesMerged)
         .enableNoVerticalClassMergingAnnotations()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/348202700): Should succeed with "1", "2", "2".
-        .assertSuccessWithOutputLines("1", "2", "1");
+        .assertSuccessWithOutputLines("1", "2", "2");
   }
 
   static class Main {

@@ -23,6 +23,7 @@ import com.android.tools.r8.verticalclassmerging.policies.NoMethodResolutionChan
 import com.android.tools.r8.verticalclassmerging.policies.NoNestedMergingPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoNonSerializableClassIntoSerializableClassPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.NoServiceInterfacesPolicy;
+import com.android.tools.r8.verticalclassmerging.policies.NoShadowedFieldsPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameApiReferenceLevelPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameFeatureSplitPolicy;
 import com.android.tools.r8.verticalclassmerging.policies.SameMainDexGroupPolicy;
@@ -57,6 +58,7 @@ public class VerticalClassMergerPolicyScheduler {
         new NoInvokeSuperNoSuchMethodErrorsPolicy(appView),
         new SuccessfulVirtualMethodResolutionInTargetPolicy(appView),
         new NoAbstractMethodsOnAbstractClassesPolicy(appView),
+        new NoShadowedFieldsPolicy(appView),
         new NoNestedMergingPolicy());
   }
 }
