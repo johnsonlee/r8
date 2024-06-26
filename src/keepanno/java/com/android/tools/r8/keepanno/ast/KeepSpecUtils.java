@@ -12,17 +12,6 @@ public final class KeepSpecUtils {
 
   private KeepSpecUtils() {}
 
-  public static <T extends MessageOrBuilder> void doBuild(
-      T builder, Consumer<T> buildMethod, Consumer<T> setter) {
-    buildMethod.accept(builder);
-    setter.accept(builder);
-  }
-
-  public static <T extends MessageOrBuilder> String toString(T builder, Consumer<T> buildMethod) {
-    buildMethod.accept(builder);
-    return builder.toString();
-  }
-
   public static TypeDesc desc(String descriptor) {
     return TypeDesc.newBuilder().setDesc(descriptor).build();
   }

@@ -80,11 +80,13 @@ public class KeepEdgeMetaInfo {
     return "MetaInfo{" + String.join(", ", props) + "}";
   }
 
-  public void buildProto(MetaInfo.Builder builder) {
-    KeepSpecUtils.doBuild(Context.newBuilder(), context::buildProto, builder::setContext);
+  public MetaInfo.Builder buildProto() {
+    MetaInfo.Builder builder = MetaInfo.newBuilder();
+    builder.setContext(context.buildProto());
     if (!description.isEmpty()) {
       builder.setDescription(description.description);
     }
+    return builder;
   }
 
   public static class Builder {
@@ -195,8 +197,13 @@ public class KeepEdgeMetaInfo {
       return System.identityHashCode(this);
     }
 
-    public void buildProto(Context.Builder builder) {
+    public final Context.Builder buildProto() {
+      return buildProto(Context.newBuilder());
+    }
+
+    public Context.Builder buildProto(Context.Builder builder) {
       assert this == none();
+      return builder;
     }
   }
 
@@ -231,8 +238,8 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    public void buildProto(Context.Builder builder) {
-      builder.setClassDesc(desc(classDescriptor));
+    public Context.Builder buildProto(Context.Builder builder) {
+      return builder.setClassDesc(desc(classDescriptor));
     }
   }
 
@@ -287,7 +294,7 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    public void buildProto(Context.Builder builder) {
+    public Context.Builder buildProto(Context.Builder builder) {
       MethodDesc.Builder methodBuilder =
           MethodDesc.newBuilder()
               .setHolder(desc(classDescriptor))
@@ -296,7 +303,7 @@ public class KeepEdgeMetaInfo {
       for (String methodParameter : methodParameters) {
         methodBuilder.addParameterTypes(desc(methodParameter));
       }
-      builder.setMethodDesc(methodBuilder.build());
+      return builder.setMethodDesc(methodBuilder.build());
     }
   }
 
@@ -336,8 +343,8 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    public void buildProto(Context.Builder builder) {
-      builder.setFieldDesc(
+    public Context.Builder buildProto(Context.Builder builder) {
+      return builder.setFieldDesc(
           FieldDesc.newBuilder()
               .setHolder(desc(classDescriptor))
               .setName(fieldName)

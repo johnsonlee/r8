@@ -3,6 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Binding;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Bindings;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ItemPattern;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -83,6 +88,17 @@ public class KeepBindings {
         + bindings.entrySet().stream()
             .map(e -> e.getKey() + "=" + e.getValue())
             .collect(Collectors.joining(", "));
+  }
+
+  public KeepSpecProtos.Bindings.Builder buildProto() {
+    KeepSpecProtos.Bindings.Builder builder = KeepSpecProtos.Bindings.newBuilder();
+    bindings.forEach(
+        ((symbol, binding) ->
+            builder.addBindings(
+                KeepSpecProtos.Binding.newBuilder()
+                    .setName(symbol.toString())
+                    .setItem(binding.getItem().buildItemProto()))));
+    return builder;
   }
 
   /**
@@ -190,9 +206,35 @@ public class KeepBindings {
     private final Map<String, KeepBindingSymbol> reserved = new HashMap<>();
     private final Map<KeepBindingSymbol, KeepItemPattern> bindings = new IdentityHashMap<>();
 
+    public Builder applyProto(Bindings bindings) {
+      for (KeepSpecProtos.Binding binding : bindings.getBindingsList()) {
+        KeepBindingSymbol symbol = create(binding.getName());
+        ItemPattern protoItem = binding.getItem();
+        KeepItemPattern item;
+        if (protoItem.hasClassItem()) {
+          item = KeepClassItemPattern.builder().applyProto(protoItem.getClassItem()).build();
+        } else {
+          assert protoItem.hasMemberItem();
+          // item = KeepMemberItemPattern.builder().applyProto(protoItem.getMemberItem()).build();
+          throw new Unimplemented();
+        }
+        addBinding(symbol, item);
+      }
+      return this;
+    }
+
     public KeepBindingSymbol generateFreshSymbol(String hint) {
       // Allocate a fresh non-forgeable symbol. The actual name is chosen at build time.
       return new KeepBindingSymbol(hint);
+    }
+
+    public KeepBindingReference getBindingReferenceForUserBinding(String name) {
+      KeepBindingSymbol symbol = reserved.get(name);
+      if (symbol == null) {
+        throw new KeepEdgeException("Undefined binding for name '" + name + "'");
+      }
+      KeepItemPattern item = getItemForBinding(symbol);
+      return KeepBindingReference.forItem(symbol, item);
     }
 
     public KeepBindingSymbol create(String name) {

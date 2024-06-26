@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.UnqualifiedNamePattern;
+
 public class KeepUnqualfiedClassNamePattern {
 
   private static final KeepUnqualfiedClassNamePattern ANY =
@@ -66,6 +68,10 @@ public class KeepUnqualfiedClassNamePattern {
   @Override
   public String toString() {
     return unqualifiedNamePattern.toString();
+  }
+
+  public UnqualifiedNamePattern.Builder buildProto() {
+    return UnqualifiedNamePattern.newBuilder().setName(unqualifiedNamePattern.buildProto());
   }
 
   public static class Builder {

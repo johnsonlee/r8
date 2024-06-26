@@ -3,11 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import static com.android.tools.r8.keepanno.ast.KeepSpecUtils.doBuild;
-
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Edge;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Declaration;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -53,20 +50,21 @@ public abstract class KeepDeclaration {
     throw new RuntimeException();
   }
 
-  public final void buildDeclarationProto(KeepSpecProtos.Declaration.Builder builder) {
-    match(
-        edge -> doBuild(KeepSpecProtos.Edge.newBuilder(), edge::buildEdgeProto, builder::setEdge),
-        check -> {
-          throw new Unimplemented();
-        });
+  public final Declaration.Builder buildDeclarationProto() {
+    Declaration.Builder builder = Declaration.newBuilder();
+    return apply(
+        edge -> builder.setEdge(edge.buildEdgeProto()),
+        check -> builder.setCheck(check.buildCheckProto()));
   }
 
   public static KeepDeclaration fromProto(
       KeepSpecProtos.Declaration declaration, KeepSpecVersion version) {
     if (declaration.hasEdge()) {
-      Edge edge = declaration.getEdge();
-      return KeepEdge.builder().applyProto(edge, version).build();
+      return KeepEdge.builder().applyProto(declaration.getEdge(), version).build();
     }
-    throw new Unimplemented();
+    if (declaration.hasCheck()) {
+      return KeepCheck.builder().applyProto(declaration.getCheck(), version).build();
+    }
+    return null;
   }
 }

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ClassNamePattern;
 import java.util.Objects;
 
 public final class KeepQualifiedClassNamePattern {
@@ -44,12 +45,28 @@ public final class KeepQualifiedClassNamePattern {
         .build();
   }
 
+  public ClassNamePattern.Builder buildProto() {
+    return ClassNamePattern.newBuilder()
+        .setPackage(packagePattern.buildProto())
+        .setUnqualifiedName(namePattern.buildProto());
+  }
+
   public static class Builder {
 
     private KeepPackagePattern packagePattern;
     private KeepUnqualfiedClassNamePattern namePattern;
 
     private Builder() {}
+
+    public Builder applyProto(ClassNamePattern className) {
+      setPackagePattern(KeepPackagePattern.builder().applyProto(className.getPackage()).build());
+      setNamePattern(
+          KeepUnqualfiedClassNamePattern.fromStringPattern(
+              KeepStringPattern.builder()
+                  .applyProto(className.getUnqualifiedName().getName())
+                  .build()));
+      return this;
+    }
 
     public Builder setPackagePattern(KeepPackagePattern packagePattern) {
       this.packagePattern = packagePattern;

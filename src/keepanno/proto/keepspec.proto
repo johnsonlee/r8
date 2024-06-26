@@ -30,8 +30,7 @@ message Version {
 message Declaration {
   oneof decl_oneof {
     Edge edge = 2;
-    CheckRemoved check_removed = 3;
-    CheckOptimizedOut check_optimized_out = 4;
+    Check check = 3;
   }
 }
 
@@ -69,17 +68,94 @@ message MetaInfo {
   string description = 2;
 }
 
-message CheckRemoved {
-  MetaInfo meta_info = 1;
-  // TODO(b/343389186): Add content.
+enum CheckKind {
+  CHECK_UNSPECIFIED = 0;
+  CHECK_REMOVED = 1;
+  CHECK_OPTIMIZED_OUT = 2;
 }
 
-message CheckOptimizedOut {
+message Check {
   MetaInfo meta_info = 1;
-  // TODO(b/343389186): Add content.
+  CheckKind kind = 2;
+  Bindings bindings = 3;
+  BindingReference item = 4;
 }
 
 message Edge {
   MetaInfo meta_info = 1;
   // TODO(b/343389186): Add content.
 }
+
+message Bindings {
+  repeated Binding bindings = 1;
+}
+
+message Binding {
+  string name = 1;
+  ItemPattern item = 2;
+}
+
+message BindingReference {
+  string name = 1;
+}
+
+message ItemPattern {
+  oneof item_oneof {
+    ClassItemPattern class_item = 1;
+    MemberItemPattern member_item = 2;
+  }
+}
+
+message ClassItemPattern {
+  ClassNamePattern class_name = 1;
+  // TODO(b/343389186): Add instance-of.
+  // TODO(b/343389186): Add annotated-by.
+}
+
+message ClassNamePattern {
+  PackagePattern package = 1;
+  UnqualifiedNamePattern unqualified_name = 2;
+}
+
+message PackagePattern {
+  oneof package_oneof {
+    // An unset oneof implies any package (including multiple package parts).
+    StringPattern name = 1;
+    PackageNode node = 2;
+    // TODO(b/343389186): Rewrite package pattern AST to the tree structure.
+    string exactPackageHack = 3;
+  }
+}
+
+message PackageNode {
+  PackagePattern lhs = 1;
+  PackagePattern rhs = 2;
+}
+
+message StringPattern {
+  // The string pattern is split in two so that we can distinguish the exact
+  // empty string, from the inexact patterns.
+  // An unset oneof implies any string.
+  oneof pattern_oneof {
+    StringPatternExact exact = 1;
+    StringPatternInexact inexact = 2;
+  }
+}
+
+message StringPatternExact {
+  string exact = 1;
+}
+
+message StringPatternInexact {
+  string prefix = 2;
+  string suffix = 3;
+}
+
+message UnqualifiedNamePattern {
+  StringPattern name = 1;
+}
+
+message MemberItemPattern {
+  // TODO(b/343389186): Add content.
+}
+

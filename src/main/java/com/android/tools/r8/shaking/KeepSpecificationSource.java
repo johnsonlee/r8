@@ -45,7 +45,12 @@ public abstract class KeepSpecificationSource {
       throw new ResourceException(getOrigin(), "Unknown keepspec version " + spec.getVersion());
     }
     for (Declaration declaration : spec.getDeclarationsList()) {
-      consumer.accept(KeepDeclaration.fromProto(declaration, version));
+      KeepDeclaration parsedDeclaration = KeepDeclaration.fromProto(declaration, version);
+      if (parsedDeclaration == null) {
+        throw new ResourceException(getOrigin(), "Unable to parse declaration " + declaration);
+      } else {
+        consumer.accept(parsedDeclaration);
+      }
     }
   }
 

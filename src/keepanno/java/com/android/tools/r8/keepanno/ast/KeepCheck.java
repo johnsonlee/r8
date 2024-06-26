@@ -3,6 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Check;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.CheckKind;
+
 public class KeepCheck extends KeepDeclaration {
 
   public enum KeepCheckKind {
@@ -16,6 +20,21 @@ public class KeepCheck extends KeepDeclaration {
     private KeepCheckKind kind = KeepCheckKind.REMOVED;
     private KeepBindings bindings = KeepBindings.none();
     private KeepBindingReference itemReference;
+
+    public Builder applyProto(KeepSpecProtos.Check check, KeepSpecVersion version) {
+      KeepEdgeMetaInfo.builder().applyProto(check.getMetaInfo(), version).build();
+      if (check.getKind() == CheckKind.CHECK_OPTIMIZED_OUT) {
+        setKind(KeepCheckKind.OPTIMIZED_OUT);
+      } else {
+        assert check.getKind() == CheckKind.CHECK_REMOVED;
+        setKind(KeepCheckKind.REMOVED);
+      }
+      KeepBindings.Builder bindingsBuilder = KeepBindings.builder().applyProto(check.getBindings());
+      setBindings(bindingsBuilder.build());
+      setItemReference(
+          bindingsBuilder.getBindingReferenceForUserBinding(check.getItem().getName()));
+      return this;
+    }
 
     public Builder setMetaInfo(KeepEdgeMetaInfo metaInfo) {
       this.metaInfo = metaInfo;
@@ -97,5 +116,16 @@ public class KeepCheck extends KeepDeclaration {
   @Override
   public String toString() {
     return "KeepCheck{kind=" + kind + ", item=" + itemReference + "}";
+  }
+
+  public Check.Builder buildCheckProto() {
+    return Check.newBuilder()
+        .setMetaInfo(getMetaInfo().buildProto())
+        .setBindings(getBindings().buildProto())
+        .setItem(itemReference.buildProto())
+        .setKind(
+            kind == KeepCheckKind.REMOVED
+                ? KeepSpecProtos.CheckKind.CHECK_REMOVED
+                : KeepSpecProtos.CheckKind.CHECK_OPTIMIZED_OUT);
   }
 }

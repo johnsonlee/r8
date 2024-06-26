@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.StringPattern;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.StringPatternExact;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.StringPatternInexact;
 import java.util.Objects;
 
 public class KeepStringPattern {
@@ -22,12 +25,41 @@ public class KeepStringPattern {
     return new Builder();
   }
 
+  public StringPattern.Builder buildProto() {
+    StringPattern.Builder builder = StringPattern.newBuilder();
+    if (isAny()) {
+      // An unset oneof signifies the "any" string pattern.
+      return builder;
+    }
+    if (isExact()) {
+      return builder.setExact(StringPatternExact.newBuilder().setExact(exact));
+    }
+    return builder.setInexact(
+        StringPatternInexact.newBuilder()
+            .setPrefix(prefix == null ? "" : prefix)
+            .setSuffix(suffix == null ? "" : suffix));
+  }
+
   public static class Builder {
     private String exact = null;
     private String prefix = null;
     private String suffix = null;
 
     private Builder() {}
+
+    public Builder applyProto(StringPattern name) {
+      if (name.hasExact()) {
+        return setExact(name.getExact().getExact());
+      }
+      if (name.hasInexact()) {
+        StringPatternInexact inexact = name.getInexact();
+        setPrefix(inexact.getPrefix());
+        setSuffix(inexact.getSuffix());
+        return this;
+      }
+      // The unset oneof implies any. Don't assign any fields.
+      return this;
+    }
 
     public Builder setExact(String exact) {
       this.exact = exact;

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Version;
 
 public enum KeepSpecVersion {
@@ -40,9 +39,7 @@ public enum KeepSpecVersion {
     return "" + major + "." + minor + "." + patch;
   }
 
-  public void buildProto(KeepSpecProtos.Version.Builder builder) {
-    builder.setMajor(major);
-    builder.setMinor(minor);
-    builder.setPatch(patch);
+  public Version.Builder buildProto() {
+    return Version.newBuilder().setMajor(major).setMinor(minor).setPatch(patch);
   }
 }

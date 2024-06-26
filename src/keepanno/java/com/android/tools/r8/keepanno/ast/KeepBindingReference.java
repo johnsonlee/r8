@@ -5,6 +5,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.BindingReference;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -84,5 +85,9 @@ public abstract class KeepBindingReference {
   @Override
   public final int hashCode() {
     return Objects.hash(isClassType(), name);
+  }
+
+  public BindingReference.Builder buildProto() {
+    return BindingReference.newBuilder().setName(name.toString());
   }
 }
