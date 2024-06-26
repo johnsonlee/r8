@@ -9,10 +9,12 @@ import static org.junit.Assert.assertEquals;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,13 +65,26 @@ public class InvokeSpecialToImmediateInterfaceTest extends TestBase {
         .addProgramClasses(I.class, Main.class)
         .addProgramClassFileData(getClassWithTransformedInvoked())
         .addKeepMainRule(Main.class)
+        // Illegal invoke-super to interface method.
+        .applyIf(
+            parameters.isDexRuntime()
+                && parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.K),
+            R8TestBuilder::allowDiagnosticWarningMessages)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         // TODO(b/313065227): Should succeed.
         .applyIf(
             parameters.isCfRuntime(),
             runResult -> runResult.assertFailureWithErrorThatThrows(NoSuchMethodError.class),
-            runResult -> runResult.assertFailureWithErrorThatThrows(NullPointerException.class));
+            parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik(),
+            runResult -> runResult.assertFailureWithErrorThatThrows(VerifyError.class),
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            runResult -> runResult.assertFailureWithErrorThatThrows(NullPointerException.class),
+            parameters.isDexRuntime()
+                && parameters.getDexRuntimeVersion().isEqualToOneOf(Version.V5_1_1, Version.V6_0_1),
+            runResult ->
+                runResult.assertFailureWithErrorThatThrows(IncompatibleClassChangeError.class),
+            runResult -> runResult.assertFailureWithErrorThatThrows(AbstractMethodError.class));
   }
 
   private byte[] getClassWithTransformedInvoked() throws IOException {
