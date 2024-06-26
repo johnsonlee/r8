@@ -14,9 +14,6 @@ import static com.android.tools.r8.ir.analysis.type.TypeElement.getLong;
 import static com.android.tools.r8.ir.analysis.type.TypeElement.getNull;
 import static com.android.tools.r8.ir.analysis.type.TypeElement.getSingle;
 import static com.android.tools.r8.ir.analysis.type.TypeElement.getWide;
-import static com.android.tools.r8.ir.conversion.CfSourceCode.isExceptionalExitForMethodSynchronization;
-import static com.android.tools.r8.ir.conversion.CfSourceCode.isExceptionalMonitorExitForMethodSynchronization;
-import static com.android.tools.r8.ir.conversion.CfSourceCode.isExceptionalThrowForMethodSynchronization;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.errors.CompilationError;
@@ -158,14 +155,6 @@ import java.util.function.BiConsumer;
 public class IRBuilder {
 
   public static final int INITIAL_BLOCK_OFFSET = -1;
-
-  // The (synthetic) offset of the monitor-exit instruction on the exceptional exit, when desugaring
-  // declared synchronized methods.
-  public static final int EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET = -2;
-
-  // The (synthetic) offset of the throw instruction that follows the monitor-exit instruction on
-  // the exceptional exit, when desugaring declared synchronized methods.
-  public static final int EXCEPTIONAL_SYNC_EXIT_THROW_OFFSET = -3;
 
   private static TypeElement fromMemberType(MemberType type) {
     switch (type) {
@@ -388,8 +377,6 @@ public class IRBuilder {
   // TODO(b/270398965): Replace LinkedList.
   @SuppressWarnings("JdkObsolete")
   private final Queue<Integer> traceBlocksWorklist = new LinkedList<>();
-
-  private boolean processedExceptionalMonitorExitForMethodSynchronization;
 
   // Bitmap to ensure we don't process an instruction more than once.
   private boolean[] processedInstructions = null;
@@ -644,9 +631,6 @@ public class IRBuilder {
     traceBlocksWorklist.add(0);
     while (!traceBlocksWorklist.isEmpty()) {
       int startOfBlockOffset = traceBlocksWorklist.remove();
-      if (handleExceptionalExitForMethodSynchronization(startOfBlockOffset)) {
-        continue;
-      }
       int startOfBlockIndex = source.instructionIndex(startOfBlockOffset);
       // Check that the block has not been processed after being added.
       if (isIndexProcessed(startOfBlockIndex)) {
@@ -2486,24 +2470,14 @@ public class IRBuilder {
   // Ensure there is a block starting at offset and add it to the work-list if it needs processing.
   private BlockInfo ensureBlock(int offset) {
     // We don't enqueue negative targets (these are special blocks, eg, an argument prelude).
-    if (!isOffsetProcessed(offset)) {
+    if (offset >= 0 && !isOffsetProcessed(offset)) {
       traceBlocksWorklist.add(offset);
     }
     return ensureBlockWithoutEnqueuing(offset);
   }
 
   private boolean isOffsetProcessed(int offset) {
-    if (offset >= 0) {
-      return isIndexProcessed(source.instructionIndex(offset));
-    }
-    if (isExceptionalMonitorExitForMethodSynchronization(offset)) {
-      return isExceptionalMonitorExitForMethodSynchronizationProcessed();
-    } else {
-      // We never need to process this block since it has no successors and its predecessor is set
-      // up when processing the monitor-exit block.
-      assert isExceptionalThrowForMethodSynchronization(offset);
-      return true;
-    }
+    return isIndexProcessed(source.instructionIndex(offset));
   }
 
   private boolean isIndexProcessed(int index) {
@@ -2522,34 +2496,6 @@ public class IRBuilder {
     }
     ensureSubroutineProcessedInstructions();
     processedSubroutineInstructions.add(index);
-  }
-
-  private boolean handleExceptionalExitForMethodSynchronization(int startOfBlockOffset) {
-    if (!isExceptionalExitForMethodSynchronization(startOfBlockOffset)) {
-      return false;
-    }
-    // We never need to process the throw block. We therefore treat it as always processed, meaning
-    // it should never be traced here.
-    assert isExceptionalMonitorExitForMethodSynchronization(startOfBlockOffset);
-    if (markExceptionalMonitorExitForMethodSynchronizationProcessed()) {
-      ensureNormalSuccessorBlock(
-          EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET, EXCEPTIONAL_SYNC_EXIT_THROW_OFFSET);
-      ensureExceptionalSuccessorBlock(
-          EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET, EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET);
-    }
-    return true;
-  }
-
-  private boolean isExceptionalMonitorExitForMethodSynchronizationProcessed() {
-    return processedExceptionalMonitorExitForMethodSynchronization;
-  }
-
-  private boolean markExceptionalMonitorExitForMethodSynchronizationProcessed() {
-    if (isExceptionalMonitorExitForMethodSynchronizationProcessed()) {
-      return false;
-    }
-    processedExceptionalMonitorExitForMethodSynchronization = true;
-    return true;
   }
 
   private void ensureSubroutineProcessedInstructions() {
@@ -2786,3 +2732,4 @@ public class IRBuilder {
     return builder.toString();
   }
 }
+
