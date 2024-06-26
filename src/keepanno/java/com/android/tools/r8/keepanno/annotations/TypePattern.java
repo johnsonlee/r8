@@ -34,6 +34,7 @@ public @interface TypePattern {
    * <ul>
    *   <li>constant
    *   <li>classNamePattern
+   *   <li>instanceOfPattern
    * </ul>
    */
   String name() default "";
@@ -48,6 +49,7 @@ public @interface TypePattern {
    * <ul>
    *   <li>name
    *   <li>classNamePattern
+   *   <li>instanceOfPattern
    * </ul>
    */
   Class<?> constant() default Object.class;
@@ -60,7 +62,23 @@ public @interface TypePattern {
    * <ul>
    *   <li>name
    *   <li>constant
+   *   <li>instanceOfPattern
    * </ul>
    */
   ClassNamePattern classNamePattern() default @ClassNamePattern(unqualifiedName = "");
+
+  /**
+   * Define the instance-of with a pattern.
+   *
+   * <p>Mutually exclusive with the following other properties defining type-pattern:
+   *
+   * <ul>
+   *   <li>name
+   *   <li>constant
+   *   <li>classNamePattern
+   * </ul>
+   *
+   * @return The pattern that defines what instance-of the class must be.
+   */
+  InstanceOfPattern instanceOfPattern() default @InstanceOfPattern();
 }

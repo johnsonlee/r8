@@ -5,6 +5,7 @@
 package com.android.tools.r8.keepanno.asm;
 
 import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
+import com.android.tools.r8.keepanno.asm.InstanceOfParser.InstanceOfProperties;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.TypePattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
@@ -24,7 +25,8 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
     TYPE_PATTERN,
     TYPE_NAME,
     TYPE_CONSTANT,
-    CLASS_NAME_PATTERN
+    CLASS_NAME_PATTERN,
+    INSTANCE_OF_PATTERN
   }
 
   @Override
@@ -56,6 +58,7 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
           typeParser.setProperty(TypePattern.name, TypeProperty.TYPE_NAME);
           typeParser.setProperty(TypePattern.constant, TypeProperty.TYPE_CONSTANT);
           typeParser.setProperty(TypePattern.classNamePattern, TypeProperty.CLASS_NAME_PATTERN);
+          typeParser.setProperty(TypePattern.instanceOfPattern, TypeProperty.INSTANCE_OF_PATTERN);
           return new ParserVisitor(
               context,
               typeParser,
@@ -69,6 +72,15 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
               name,
               descriptor,
               value -> setValue.accept(KeepTypePattern.fromClass(value)));
+        }
+      case INSTANCE_OF_PATTERN:
+        {
+          InstanceOfParser parser = new InstanceOfParser(getParsingContext());
+          return parser.tryPropertyAnnotation(
+              InstanceOfProperties.PATTERN,
+              name,
+              descriptor,
+              value -> setValue.accept(KeepTypePattern.fromInstanceOf(value)));
         }
       default:
         return null;

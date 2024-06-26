@@ -581,7 +581,8 @@ public class KeepItemAnnotationGenerator {
           .addMember(
               new GroupMember("classNamePattern")
                   .setDocTitle("Classes matching the class-name pattern.")
-                  .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN));
+                  .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN))
+          .addMember(instanceOfPattern());
       // TODO(b/248408342): Add more injections on type pattern variants.
       // /** Exact type name as a string to match any array with that type as member. */
       // String arrayOf() default "";

@@ -408,10 +408,11 @@ public class KeepAnnotationMatcher {
               },
               fieldPattern ->
                   holder.forEachProgramFieldMatching(
-                      f -> predicates.matchesField(f, fieldPattern), continueWithMember),
+                      f -> predicates.matchesField(f, fieldPattern, appInfo), continueWithMember),
               methodPattern ->
                   holder.forEachProgramMethodMatching(
-                      m -> predicates.matchesMethod(m, methodPattern), continueWithMember));
+                      m -> predicates.matchesMethod(m, methodPattern, appInfo),
+                      continueWithMember));
       if (didContinue.isFalse()) {
         // No match for the member pattern existed, continue with next class.
         continueWithNoClassClearingMembers(

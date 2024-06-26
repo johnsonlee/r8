@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationSet;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -84,7 +85,16 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   private boolean matchesInstanceOfPattern(
-      DexProgramClass clazz, KeepInstanceOfPattern pattern, AppInfoWithClassHierarchy appInfo) {
+      DexType type, KeepInstanceOfPattern pattern, AppInfoWithClassHierarchy appInfo) {
+    DexClass dexClass = appInfo.definitionFor(type);
+    if (dexClass != null) {
+      return matchesInstanceOfPattern(dexClass.asProgramClass(), pattern, appInfo);
+    }
+    return false;
+  }
+
+  private boolean matchesInstanceOfPattern(
+      DexClass clazz, KeepInstanceOfPattern pattern, AppInfoWithClassHierarchy appInfo) {
     if (pattern.isAny()) {
       return true;
     }
@@ -115,23 +125,25 @@ public class KeepAnnotationMatcherPredicates {
         && matchesGeneralMemberAccess(member.getAccessFlags(), pattern.getAccessPattern());
   }
 
-  public boolean matchesMethod(DexEncodedMethod method, KeepMethodPattern pattern) {
+  public boolean matchesMethod(
+      DexEncodedMethod method, KeepMethodPattern pattern, AppInfoWithClassHierarchy appInfo) {
     if (pattern.isAnyMethod()) {
       return true;
     }
     return matchesString(method.getName(), pattern.getNamePattern().asStringPattern())
-        && matchesReturnType(method.getReturnType(), pattern.getReturnTypePattern())
-        && matchesParameters(method.getParameters(), pattern.getParametersPattern())
+        && matchesReturnType(method.getReturnType(), pattern.getReturnTypePattern(), appInfo)
+        && matchesParameters(method.getParameters(), pattern.getParametersPattern(), appInfo)
         && matchesAnnotatedBy(method.annotations(), pattern.getAnnotatedByPattern())
         && matchesMethodAccess(method.getAccessFlags(), pattern.getAccessPattern());
   }
 
-  public boolean matchesField(DexEncodedField field, KeepFieldPattern pattern) {
+  public boolean matchesField(
+      DexEncodedField field, KeepFieldPattern pattern, AppInfoWithClassHierarchy appInfo) {
     if (pattern.isAnyField()) {
       return true;
     }
     return matchesString(field.getName(), pattern.getNamePattern().asStringPattern())
-        && matchesType(field.getType(), pattern.getTypePattern().asType())
+        && matchesType(field.getType(), pattern.getTypePattern().asType(), appInfo)
         && matchesAnnotatedBy(field.annotations(), pattern.getAnnotatedByPattern())
         && matchesFieldAccess(field.getAccessFlags(), pattern.getAccessPattern());
   }
@@ -211,7 +223,10 @@ public class KeepAnnotationMatcherPredicates {
     return false;
   }
 
-  public boolean matchesParameters(DexTypeList parameters, KeepMethodParametersPattern pattern) {
+  public boolean matchesParameters(
+      DexTypeList parameters,
+      KeepMethodParametersPattern pattern,
+      AppInfoWithClassHierarchy appInfo) {
     if (pattern.isAny()) {
       return true;
     }
@@ -221,7 +236,7 @@ public class KeepAnnotationMatcherPredicates {
     }
     int size = parameters.size();
     for (int i = 0; i < size; i++) {
-      if (!matchesType(parameters.get(i), patternList.get(i))) {
+      if (!matchesType(parameters.get(i), patternList.get(i), appInfo)) {
         return false;
       }
     }
@@ -263,29 +278,34 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   public boolean matchesReturnType(
-      DexType returnType, KeepMethodReturnTypePattern returnTypePattern) {
+      DexType returnType,
+      KeepMethodReturnTypePattern returnTypePattern,
+      AppInfoWithClassHierarchy appInfo) {
     if (returnTypePattern.isAny()) {
       return true;
     }
     if (returnTypePattern.isVoid()) {
       return returnType.isVoidType();
     }
-    return matchesType(returnType, returnTypePattern.asType());
+    return matchesType(returnType, returnTypePattern.asType(), appInfo);
   }
 
-  public boolean matchesType(DexType type, KeepTypePattern pattern) {
+  public boolean matchesType(
+      DexType type, KeepTypePattern pattern, AppInfoWithClassHierarchy appInfo) {
     return pattern.apply(
         () -> true,
         p -> matchesPrimitiveType(type, p),
-        p -> matchesArrayType(type, p),
-        p -> matchesClassType(type, p));
+        p -> matchesArrayType(type, p, appInfo),
+        p -> matchesClassType(type, p),
+        p -> matchesInstanceOfPattern(type, p, appInfo));
   }
 
   public boolean matchesClassType(DexType type, KeepQualifiedClassNamePattern pattern) {
     return type.isClassType() && matchesClassName(type, pattern);
   }
 
-  public boolean matchesArrayType(DexType type, KeepArrayTypePattern pattern) {
+  public boolean matchesArrayType(
+      DexType type, KeepArrayTypePattern pattern, AppInfoWithClassHierarchy appInfo) {
     if (!type.isArrayType()) {
       return false;
     }
@@ -296,7 +316,9 @@ public class KeepAnnotationMatcherPredicates {
       return false;
     }
     return matchesType(
-        type.toArrayElementAfterDimension(pattern.getDimensions(), factory), pattern.getBaseType());
+        type.toArrayElementAfterDimension(pattern.getDimensions(), factory),
+        pattern.getBaseType(),
+        appInfo);
   }
 
   public boolean matchesPrimitiveType(DexType type, KeepPrimitiveTypePattern pattern) {

@@ -47,11 +47,14 @@ public class KeepArrayTypePattern {
             () -> {
               throw new KeepEdgeException("No descriptor exists for 'any primitive' array");
             },
-            primitive -> primitive.getDescriptor(),
+            KeepPrimitiveTypePattern::getDescriptor,
             array -> {
               throw new KeepEdgeException("Unexpected nested array");
             },
-            clazz -> clazz.getExactDescriptor());
+            KeepQualifiedClassNamePattern::getExactDescriptor,
+            instanceOf -> {
+              throw new KeepEdgeException("No descriptor exists for instanceOf array");
+            });
   }
 
   @Override

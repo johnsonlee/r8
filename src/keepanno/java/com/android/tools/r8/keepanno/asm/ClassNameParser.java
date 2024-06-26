@@ -69,7 +69,11 @@ public class ClassNameParser
         arrayTypePattern -> {
           throw parsingContext.error("Invalid use of array type where class type was expected");
         },
-        classNamePattern -> classNamePattern);
+        classNamePattern -> classNamePattern,
+        instanceOfPattern -> {
+          throw parsingContext.error(
+              "Invalid use of instance of type where class type was expected");
+        });
   }
 
   @Override

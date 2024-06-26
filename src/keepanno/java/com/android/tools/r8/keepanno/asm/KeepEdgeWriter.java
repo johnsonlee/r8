@@ -466,6 +466,9 @@ public class KeepEdgeWriter implements Opcodes {
                 },
                 clazz -> {
                   writeClassNamePattern(clazz, TypePattern.classNamePattern, v);
+                },
+                instanceOf -> {
+                  writeInstanceOfPattern(instanceOf, v);
                 }));
   }
 

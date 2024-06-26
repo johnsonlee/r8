@@ -237,6 +237,7 @@ public final class AnnotationConstants {
     public static final String name = "name";
     public static final String constant = "constant";
     public static final String classNamePattern = "classNamePattern";
+    public static final String instanceOfPattern = "instanceOfPattern";
   }
 
   public static final class ClassNamePattern {

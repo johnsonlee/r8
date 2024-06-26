@@ -28,6 +28,10 @@ public abstract class KeepTypePattern {
     return new ClassType(type);
   }
 
+  public static KeepTypePattern fromInstanceOf(KeepInstanceOfPattern pattern) {
+    return new KeepInstanceOf(pattern);
+  }
+
   public static KeepTypePattern fromDescriptor(String typeDescriptor) {
     char c = typeDescriptor.charAt(0);
     if (c == 'L') {
@@ -56,18 +60,21 @@ public abstract class KeepTypePattern {
       Supplier<T> onAny,
       Function<KeepPrimitiveTypePattern, T> onPrimitive,
       Function<KeepArrayTypePattern, T> onArray,
-      Function<KeepQualifiedClassNamePattern, T> onClass);
+      Function<KeepQualifiedClassNamePattern, T> onClass,
+      Function<KeepInstanceOfPattern, T> onInstanceOf);
 
   public final void match(
       Runnable onAny,
       Consumer<KeepPrimitiveTypePattern> onPrimitive,
       Consumer<KeepArrayTypePattern> onArray,
-      Consumer<KeepQualifiedClassNamePattern> onClass) {
+      Consumer<KeepQualifiedClassNamePattern> onClass,
+      Consumer<KeepInstanceOfPattern> onInstanceOf) {
     apply(
         AstUtils.toVoidSupplier(onAny),
         AstUtils.toVoidFunction(onPrimitive),
         AstUtils.toVoidFunction(onArray),
-        AstUtils.toVoidFunction(onClass));
+        AstUtils.toVoidFunction(onClass),
+        AstUtils.toVoidFunction(onInstanceOf));
   }
 
   public boolean isAny() {
@@ -87,7 +94,8 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass) {
+        Function<KeepQualifiedClassNamePattern, T> onClass,
+        Function<KeepInstanceOfPattern, T> onInstanceOf) {
       return onAny.get();
     }
 
@@ -152,7 +160,8 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass) {
+        Function<KeepQualifiedClassNamePattern, T> onClass,
+        Function<KeepInstanceOfPattern, T> onInstanceOf) {
       return onPrimitive.apply(type);
     }
   }
@@ -169,7 +178,8 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass) {
+        Function<KeepQualifiedClassNamePattern, T> onClass,
+        Function<KeepInstanceOfPattern, T> onInstanceOf) {
       return onClass.apply(type);
     }
 
@@ -208,7 +218,8 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass) {
+        Function<KeepQualifiedClassNamePattern, T> onClass,
+        Function<KeepInstanceOfPattern, T> onInstanceOf) {
       return onArray.apply(type);
     }
 
@@ -232,6 +243,24 @@ public abstract class KeepTypePattern {
     @Override
     public String toString() {
       return type.toString();
+    }
+  }
+
+  private static class KeepInstanceOf extends KeepTypePattern {
+    private final KeepInstanceOfPattern instanceOf;
+
+    private KeepInstanceOf(KeepInstanceOfPattern instanceOf) {
+      this.instanceOf = instanceOf;
+    }
+
+    @Override
+    public <T> T apply(
+        Supplier<T> onAny,
+        Function<KeepPrimitiveTypePattern, T> onPrimitive,
+        Function<KeepArrayTypePattern, T> onArray,
+        Function<KeepQualifiedClassNamePattern, T> onClass,
+        Function<KeepInstanceOfPattern, T> onInstanceOf) {
+      return onInstanceOf.apply(instanceOf);
     }
   }
 }

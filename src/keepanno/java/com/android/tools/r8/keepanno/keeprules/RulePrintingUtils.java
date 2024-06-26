@@ -221,7 +221,13 @@ public abstract class RulePrintingUtils {
         printer::appendTripleStar,
         primitivePattern -> printPrimitiveType(printer, primitivePattern),
         arrayTypePattern -> printArrayType(printer, arrayTypePattern),
-        classTypePattern -> printClassName(classTypePattern, printer));
+        classTypePattern -> printClassName(classTypePattern, printer),
+        instanceOfPattern -> printInstanceOf(instanceOfPattern, printer));
+  }
+
+  private static RulePrinter printInstanceOf(
+      KeepInstanceOfPattern instanceOfPattern, RulePrinter printer) {
+    throw new Unimplemented();
   }
 
   private static RulePrinter printPrimitiveType(
