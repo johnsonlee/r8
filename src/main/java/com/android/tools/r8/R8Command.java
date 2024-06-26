@@ -27,6 +27,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.profile.art.ArtProfileForRewriting;
 import com.android.tools.r8.shaking.FilteredClassPath;
+import com.android.tools.r8.shaking.KeepSpecificationSource;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationParser;
 import com.android.tools.r8.shaking.ProguardConfigurationParserOptions;
@@ -120,6 +121,7 @@ public final class R8Command extends BaseCompilerCommand {
     private Consumer<ProguardConfiguration.Builder> proguardConfigurationConsumerForTesting = null;
     private Consumer<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer = null;
     private StringConsumer desugaredLibraryKeepRuleConsumer = null;
+    private final List<KeepSpecificationSource> keepSpecifications = new ArrayList<>();
     private final List<ProguardConfigurationSource> proguardConfigs = new ArrayList<>();
     private boolean disableTreeShaking = false;
     private boolean disableMinification = false;
@@ -232,6 +234,20 @@ public final class R8Command extends BaseCompilerCommand {
           () ->
               mainDexRules.add(
                   new ProguardConfigurationSourceStrings(lines, Paths.get("."), origin)));
+      return self();
+    }
+
+    public Builder addKeepSpecificationFiles(Path... paths) {
+      return addKeepSpecificationFiles(Arrays.asList(paths));
+    }
+
+    public Builder addKeepSpecificationFiles(Collection<Path> paths) {
+      paths.forEach(p -> keepSpecifications.add(KeepSpecificationSource.fromFile(p)));
+      return self();
+    }
+
+    public Builder addKeepSpecificationData(byte[] data, Origin origin) {
+      keepSpecifications.add(KeepSpecificationSource.fromBytes(origin, data));
       return self();
     }
 
@@ -755,7 +771,8 @@ public final class R8Command extends BaseCompilerCommand {
               getCancelCompilationChecker(),
               androidResourceProvider,
               androidResourceConsumer,
-              resourceShrinkerConfiguration);
+              resourceShrinkerConfiguration,
+              keepSpecifications);
 
       if (inputDependencyGraphConsumer != null) {
         inputDependencyGraphConsumer.finished();
@@ -933,6 +950,7 @@ public final class R8Command extends BaseCompilerCommand {
 
   private final List<ProguardConfigurationRule> mainDexKeepRules;
   private final ProguardConfiguration proguardConfiguration;
+  private final List<KeepSpecificationSource> keepSpecifications;
   private final boolean enableTreeShaking;
   private final boolean enableMinification;
   private final boolean forceProguardCompatibility;
@@ -1051,7 +1069,8 @@ public final class R8Command extends BaseCompilerCommand {
       CancelCompilationChecker cancelCompilationChecker,
       AndroidResourceProvider androidResourceProvider,
       AndroidResourceConsumer androidResourceConsumer,
-      ResourceShrinkerConfiguration resourceShrinkerConfiguration) {
+      ResourceShrinkerConfiguration resourceShrinkerConfiguration,
+      List<KeepSpecificationSource> keepSpecifications) {
     super(
         inputApp,
         mode,
@@ -1078,6 +1097,7 @@ public final class R8Command extends BaseCompilerCommand {
     assert mainDexKeepRules != null;
     this.mainDexKeepRules = mainDexKeepRules;
     this.proguardConfiguration = proguardConfiguration;
+    this.keepSpecifications = keepSpecifications;
     this.enableTreeShaking = enableTreeShaking;
     this.enableMinification = enableMinification;
     this.forceProguardCompatibility = forceProguardCompatibility;
@@ -1105,6 +1125,7 @@ public final class R8Command extends BaseCompilerCommand {
     super(printHelp, printVersion);
     mainDexKeepRules = ImmutableList.of();
     proguardConfiguration = null;
+    keepSpecifications = null;
     enableTreeShaking = false;
     enableMinification = false;
     forceProguardCompatibility = false;
@@ -1163,6 +1184,8 @@ public final class R8Command extends BaseCompilerCommand {
                 && !internal.isOptimizing()
                 && !internal.isShrinking()
                 && !internal.isMinifying());
+
+    internal.setKeepSpecificationSources(keepSpecifications);
 
     assert !internal.verbose;
     internal.mainDexKeepRules = mainDexKeepRules;

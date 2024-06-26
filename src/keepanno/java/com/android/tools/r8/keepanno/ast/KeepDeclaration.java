@@ -3,10 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import static com.android.tools.r8.keepanno.ast.KeepSpecUtils.doBuild;
+
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Edge;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-/** Base class for the declarations represented in the keep annoations library. */
+/** Base class for the declarations represented in the keep annotations library. */
 public abstract class KeepDeclaration {
 
   public abstract KeepEdgeMetaInfo getMetaInfo();
@@ -46,5 +51,22 @@ public abstract class KeepDeclaration {
   @Override
   public final int hashCode() {
     throw new RuntimeException();
+  }
+
+  public final void buildDeclarationProto(KeepSpecProtos.Declaration.Builder builder) {
+    match(
+        edge -> doBuild(KeepSpecProtos.Edge.newBuilder(), edge::buildEdgeProto, builder::setEdge),
+        check -> {
+          throw new Unimplemented();
+        });
+  }
+
+  public static KeepDeclaration fromProto(
+      KeepSpecProtos.Declaration declaration, KeepSpecVersion version) {
+    if (declaration.hasEdge()) {
+      Edge edge = declaration.getEdge();
+      return KeepEdge.builder().applyProto(edge, version).build();
+    }
+    throw new Unimplemented();
   }
 }

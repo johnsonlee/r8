@@ -100,6 +100,7 @@ import com.android.tools.r8.repackaging.RepackagingLens;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.GlobalKeepInfoConfiguration;
+import com.android.tools.r8.shaking.KeepSpecificationSource;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.threading.ThreadingModule;
@@ -118,6 +119,7 @@ import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
@@ -240,6 +242,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final ProguardConfiguration proguardConfiguration;
   public final Reporter reporter;
 
+  private Collection<KeepSpecificationSource> keepSpecificationSources = Collections.emptyList();
+
   // TODO(zerny): Make this private-final once we have full program-consumer support.
   public ProgramConsumer programConsumer = null;
 
@@ -312,6 +316,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       lazyThreadingModule = ThreadingModule.Loader.load().create();
     }
     return lazyThreadingModule;
+  }
+
+  public Collection<KeepSpecificationSource> getKeepSpecifications() {
+    return keepSpecificationSources;
+  }
+
+  public void setKeepSpecificationSources(Collection<KeepSpecificationSource> specifications) {
+    keepSpecificationSources = specifications;
   }
 
   private void keepDebugRelatedInformation() {

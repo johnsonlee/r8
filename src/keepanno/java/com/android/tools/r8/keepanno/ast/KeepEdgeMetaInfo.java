@@ -3,24 +3,24 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import static com.android.tools.r8.keepanno.ast.KeepSpecUtils.desc;
+
 import com.android.tools.r8.keepanno.keeprules.RulePrintingUtils;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Context;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.FieldDesc;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MetaInfo;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MethodDesc;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypeDesc;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.objectweb.asm.Type;
 
 public class KeepEdgeMetaInfo {
 
-  public enum KeepEdgeVersion {
-    UNKNOWN;
-
-    public String toVersionString() {
-      return name();
-    }
-  }
-
   private static final KeepEdgeMetaInfo NONE =
       new KeepEdgeMetaInfo(
-          KeepEdgeVersion.UNKNOWN, KeepEdgeContext.none(), KeepEdgeDescription.empty());
+          KeepSpecVersion.UNKNOWN, KeepEdgeContext.none(), KeepEdgeDescription.empty());
 
   public static KeepEdgeMetaInfo none() {
     return NONE;
@@ -30,12 +30,12 @@ public class KeepEdgeMetaInfo {
     return new Builder();
   }
 
-  private final KeepEdgeVersion version;
+  private final KeepSpecVersion version;
   private final KeepEdgeContext context;
   private final KeepEdgeDescription description;
 
   private KeepEdgeMetaInfo(
-      KeepEdgeVersion version, KeepEdgeContext context, KeepEdgeDescription description) {
+      KeepSpecVersion version, KeepEdgeContext context, KeepEdgeDescription description) {
     this.version = version;
     this.context = context;
     this.description = description;
@@ -58,10 +58,10 @@ public class KeepEdgeMetaInfo {
   }
 
   public boolean hasVersion() {
-    return version != KeepEdgeVersion.UNKNOWN;
+    return version != KeepSpecVersion.UNKNOWN;
   }
 
-  public KeepEdgeVersion getVersion() {
+  public KeepSpecVersion getVersion() {
     return version;
   }
 
@@ -80,30 +80,61 @@ public class KeepEdgeMetaInfo {
     return "MetaInfo{" + String.join(", ", props) + "}";
   }
 
+  public void buildProto(MetaInfo.Builder builder) {
+    KeepSpecUtils.doBuild(Context.newBuilder(), context::buildProto, builder::setContext);
+    if (!description.isEmpty()) {
+      builder.setDescription(description.description);
+    }
+  }
+
   public static class Builder {
+    private KeepSpecVersion version = KeepSpecVersion.UNKNOWN;
     private KeepEdgeContext context = KeepEdgeContext.none();
     private KeepEdgeDescription description = KeepEdgeDescription.empty();
 
+    public Builder applyProto(MetaInfo metaInfo, KeepSpecVersion version) {
+      setVersion(version);
+      context = KeepEdgeContext.fromProto(metaInfo.getContext());
+      setDescription(metaInfo.getDescription());
+      return this;
+    }
+
+    public Builder setVersion(KeepSpecVersion version) {
+      this.version = version;
+      return this;
+    }
+
     public Builder setDescription(String description) {
-      this.description = new KeepEdgeDescription(description);
+      this.description =
+          description.isEmpty() ? KeepEdgeDescription.EMPTY : new KeepEdgeDescription(description);
+      return this;
+    }
+
+    public Builder setContext(KeepEdgeContext context) {
+      this.context = context;
       return this;
     }
 
     public Builder setContextFromClassDescriptor(String classDescriptor) {
-      context = new KeepEdgeClassContext(classDescriptor);
-      return this;
+      return setContext(new KeepEdgeClassContext(classDescriptor));
     }
 
     public Builder setContextFromMethodDescriptor(
         String classDescriptor, String methodName, String methodDescriptor) {
-      context = new KeepEdgeMethodContext(classDescriptor, methodName, methodDescriptor);
-      return this;
+      Type methodType = Type.getMethodType(methodDescriptor);
+      Type[] argumentTypes = methodType.getArgumentTypes();
+      List<String> parameters = new ArrayList<>(argumentTypes.length);
+      for (Type argumentType : argumentTypes) {
+        parameters.add(argumentType.getDescriptor());
+      }
+      return setContext(
+          new KeepEdgeMethodContext(
+              classDescriptor, methodName, methodType.getReturnType().getDescriptor(), parameters));
     }
 
     public Builder setContextFromFieldDescriptor(
         String classDescriptor, String fieldName, String fieldType) {
-      context = new KeepEdgeFieldContext(classDescriptor, fieldName, fieldType);
-      return this;
+      return setContext(new KeepEdgeFieldContext(classDescriptor, fieldName, fieldType));
     }
 
     public KeepEdgeMetaInfo build() {
@@ -111,7 +142,7 @@ public class KeepEdgeMetaInfo {
           && description.equals(KeepEdgeDescription.empty())) {
         return none();
       }
-      return new KeepEdgeMetaInfo(KeepEdgeVersion.UNKNOWN, context, description);
+      return new KeepEdgeMetaInfo(version, context, description);
     }
   }
 
@@ -123,6 +154,32 @@ public class KeepEdgeMetaInfo {
     }
 
     private KeepEdgeContext() {}
+
+    public static KeepEdgeContext fromProto(Context context) {
+      if (context.hasClassDesc()) {
+        return new KeepEdgeClassContext(context.getClassDesc().getDesc());
+      }
+      if (context.hasMethodDesc()) {
+        MethodDesc methodDesc = context.getMethodDesc();
+        List<String> parameters = new ArrayList<>(methodDesc.getParameterTypesCount());
+        for (TypeDesc typeDesc : methodDesc.getParameterTypesList()) {
+          parameters.add(typeDesc.getDesc());
+        }
+        return new KeepEdgeMethodContext(
+            methodDesc.getHolder().getDesc(),
+            methodDesc.getName(),
+            methodDesc.getReturnType().getDesc(),
+            parameters);
+      }
+      if (context.hasFieldDesc()) {
+        FieldDesc fieldDesc = context.getFieldDesc();
+        return new KeepEdgeFieldContext(
+            fieldDesc.getHolder().getDesc(),
+            fieldDesc.getName(),
+            fieldDesc.getFieldType().getDesc());
+      }
+      return none();
+    }
 
     public String getDescriptorString() {
       throw new KeepEdgeException("Invalid attempt to get descriptor string from none context");
@@ -136,6 +193,10 @@ public class KeepEdgeMetaInfo {
     @Override
     public int hashCode() {
       return System.identityHashCode(this);
+    }
+
+    public void buildProto(Context.Builder builder) {
+      assert this == none();
     }
   }
 
@@ -168,26 +229,41 @@ public class KeepEdgeMetaInfo {
     public int hashCode() {
       return classDescriptor.hashCode();
     }
+
+    @Override
+    public void buildProto(Context.Builder builder) {
+      builder.setClassDesc(desc(classDescriptor));
+    }
   }
 
   private static class KeepEdgeMethodContext extends KeepEdgeContext {
     private final String classDescriptor;
     private final String methodName;
-    private final String methodDescriptor;
+    private final String methodReturnType;
+    private final List<String> methodParameters;
 
     public KeepEdgeMethodContext(
-        String classDescriptor, String methodName, String methodDescriptor) {
+        String classDescriptor,
+        String methodName,
+        String methodReturnType,
+        List<String> methodParameters) {
       assert classDescriptor != null;
       assert methodName != null;
-      assert methodDescriptor != null;
+      assert methodParameters != null;
       this.classDescriptor = classDescriptor;
       this.methodName = methodName;
-      this.methodDescriptor = methodDescriptor;
+      this.methodReturnType = methodReturnType;
+      this.methodParameters = methodParameters;
     }
 
     @Override
     public String getDescriptorString() {
-      return classDescriptor + methodName + methodDescriptor;
+      StringBuilder builder = new StringBuilder();
+      builder.append(classDescriptor).append(methodName).append('(');
+      for (String parameter : methodParameters) {
+        builder.append(parameter);
+      }
+      return builder.append(')').append(methodReturnType).toString();
     }
 
     @Override
@@ -201,12 +277,26 @@ public class KeepEdgeMetaInfo {
       KeepEdgeMethodContext that = (KeepEdgeMethodContext) o;
       return classDescriptor.equals(that.classDescriptor)
           && methodName.equals(that.methodName)
-          && methodDescriptor.equals(that.methodDescriptor);
+          && methodReturnType.equals(that.methodReturnType)
+          && methodParameters.equals(that.methodParameters);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(classDescriptor, methodName, methodDescriptor);
+      return Objects.hash(classDescriptor, methodName, methodReturnType, methodParameters);
+    }
+
+    @Override
+    public void buildProto(Context.Builder builder) {
+      MethodDesc.Builder methodBuilder =
+          MethodDesc.newBuilder()
+              .setHolder(desc(classDescriptor))
+              .setName(methodName)
+              .setReturnType(desc(methodReturnType));
+      for (String methodParameter : methodParameters) {
+        methodBuilder.addParameterTypes(desc(methodParameter));
+      }
+      builder.setMethodDesc(methodBuilder.build());
     }
   }
 
@@ -244,6 +334,16 @@ public class KeepEdgeMetaInfo {
     public int hashCode() {
       return Objects.hash(classDescriptor, fieldName, fieldType);
     }
+
+    @Override
+    public void buildProto(Context.Builder builder) {
+      builder.setFieldDesc(
+          FieldDesc.newBuilder()
+              .setHolder(desc(classDescriptor))
+              .setName(fieldName)
+              .setFieldType(desc(fieldType))
+              .build());
+    }
   }
 
   private static class KeepEdgeDescription {
@@ -261,12 +361,11 @@ public class KeepEdgeMetaInfo {
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof KeepEdgeDescription)) {
         return false;
       }
       KeepEdgeDescription that = (KeepEdgeDescription) o;
@@ -281,6 +380,10 @@ public class KeepEdgeMetaInfo {
     @Override
     public String toString() {
       return description;
+    }
+
+    public boolean isEmpty() {
+      return description.isEmpty();
     }
   }
 }

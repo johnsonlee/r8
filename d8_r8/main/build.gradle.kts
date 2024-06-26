@@ -47,6 +47,7 @@ dependencies {
   compileOnly(Deps.gson)
   compileOnly(Deps.guava)
   compileOnly(Deps.kotlinMetadata)
+  compileOnly(Deps.protobuf)
   errorprone(Deps.errorprone)
 }
 

@@ -51,7 +51,7 @@ java {
 dependencies {
   compileOnly(Deps.asm)
   compileOnly(Deps.guava)
-  implementation("com.google.protobuf:protobuf-java:3.19.3")
+  compileOnly(Deps.protobuf)
 }
 
 tasks {

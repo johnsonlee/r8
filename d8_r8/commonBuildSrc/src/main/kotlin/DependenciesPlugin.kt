@@ -403,6 +403,7 @@ object Versions {
   const val kotlinMetadataVersion = "2.0.0"
   const val mockito = "2.10.0"
   const val smaliVersion = "3.0.3"
+  const val protobufVersion = "3.19.3"
 }
 
 object Deps {
@@ -422,6 +423,7 @@ object Deps {
   val mockito by lazy { "org.mockito:mockito-core:${Versions.mockito}" }
   val smali by lazy { "com.android.tools.smali:smali:${Versions.smaliVersion}" }
   val smaliUtil by lazy { "com.android.tools.smali:smali-util:${Versions.smaliVersion}" }
+  val protobuf by lazy { "com.google.protobuf:protobuf-java:${Versions.protobufVersion}" }
 }
 
 object ThirdPartyDeps {

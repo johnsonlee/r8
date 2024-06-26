@@ -23,7 +23,13 @@ import com.android.tools.r8.keepanno.KeepAnnoParameters.KeepAnnoConfig;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.asm.KeepEdgeWriter;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
+import com.android.tools.r8.keepanno.ast.KeepSpecUtils;
+import com.android.tools.r8.keepanno.ast.KeepSpecVersion;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Declaration;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.KeepSpec;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Version;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -280,6 +286,29 @@ public abstract class KeepAnnoTestBuilder {
       if (isNormalizeEdges()) {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
         if (!declarations.isEmpty()) {
+          List<KeepDeclaration> legacyExtract = new ArrayList<>();
+          KeepSpec.Builder keepSpecBuilder = KeepSpec.newBuilder();
+          KeepSpecUtils.doBuild(
+              Version.newBuilder(),
+              KeepSpecVersion.getCurrent()::buildProto,
+              keepSpecBuilder::setVersion);
+          for (KeepDeclaration declaration : declarations) {
+            try {
+              KeepSpecUtils.doBuild(
+                  Declaration.newBuilder(),
+                  declaration::buildDeclarationProto,
+                  keepSpecBuilder::addDeclarations);
+            } catch (Unimplemented e) {
+              legacyExtract.add(declaration);
+            }
+          }
+          builder
+              .getBuilder()
+              .addKeepSpecificationData(keepSpecBuilder.build().toByteArray(), Origin.unknown());
+          if (legacyExtract.isEmpty()) {
+            // TODO(b/343389186): Finish the proto encoding and remove the below extraction.
+            return;
+          }
           String binaryName =
               DescriptorUtils.getBinaryNameFromDescriptor(extractClassDescriptor(classFileData));
           String synthesizingTarget = binaryName + "$$ExtractedKeepEdges";
@@ -292,7 +321,7 @@ public abstract class KeepAnnoTestBuilder {
               "java/lang/Object",
               null);
           KeepEdgeWriter.writeExtractedEdges(
-              declarations,
+              legacyExtract,
               (descriptor, visible) ->
                   KeepAnnoTestUtils.wrap(classWriter.visitAnnotation(descriptor, visible)));
           classWriter.visitEnd();
