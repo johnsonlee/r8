@@ -6,6 +6,7 @@ package com.android.tools.r8.graph.lens;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
@@ -135,11 +136,27 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
     if (previous.hasReboundReference()) {
       // Rewrite the rebound reference and then "fixup" the non-rebound reference.
       DexField rewrittenReboundReference = previous.getRewrittenReboundReference(fieldMap);
-      DexField rewrittenNonReboundReference =
-          previous.getReference() == previous.getReboundReference()
-              ? rewrittenReboundReference
-              : rewrittenReboundReference.withHolder(
-                  getNextClassType(previous.getReference().getHolderType()), dexItemFactory());
+      DexField rewrittenNonReboundReference;
+      if (previous.getReference().isIdenticalTo(previous.getReboundReference())) {
+        rewrittenNonReboundReference = rewrittenReboundReference;
+      } else {
+        // Compute the new holder by mapping the original symbolic holder through the lens.
+        DexType originalHolder = previous.getReference().getHolderType();
+        DexType rewrittenHolder = getNextClassType(originalHolder);
+        rewrittenNonReboundReference =
+            rewrittenReboundReference.withHolder(rewrittenHolder, dexItemFactory());
+        // When vertical class merging preserve non-rebound method references when we can hit a
+        // collision due to field shadowing (b/348202700).
+        if (isVerticalClassMergerLens() && rewrittenHolder.isNotIdenticalTo(originalHolder)) {
+          DexClassAndField collision = appView.definitionFor(rewrittenNonReboundReference);
+          if (collision != null) {
+            assert !asVerticalClassMergerLens().hasBeenMerged(collision.getHolder().getSuperType());
+            rewrittenNonReboundReference =
+                rewrittenReboundReference.withHolder(
+                    collision.getHolder().getSuperType(), dexItemFactory());
+          }
+        }
+      }
       return FieldLookupResult.builder(this)
           .setReboundReference(rewrittenReboundReference)
           .setReference(rewrittenNonReboundReference)
