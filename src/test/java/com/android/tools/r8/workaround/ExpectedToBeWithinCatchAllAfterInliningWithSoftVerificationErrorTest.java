@@ -6,7 +6,6 @@ package com.android.tools.r8.workaround;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import java.util.Objects;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,11 +36,7 @@ public class ExpectedToBeWithinCatchAllAfterInliningWithSoftVerificationErrorTes
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.isCfRuntime()
-                || !parameters.getDexRuntimeVersion().isEqualTo(Version.V5_1_1),
-            runResult -> runResult.assertSuccessWithOutputLines("Hello, world!"),
-            runResult -> runResult.assertFailureWithErrorThatThrows(VerifyError.class));
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   static class Main {
