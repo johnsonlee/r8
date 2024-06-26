@@ -53,12 +53,10 @@ public class AndroidApiVersionsXmlParser {
   private Set<String> getDeletedTypesMissingRemovedAttribute() {
     Set<String> removedTypeNames = new HashSet<>();
     if (maxApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.U)) {
-      removedTypeNames.add("com.android.internal.util.Predicate");
+      if (maxApiLevel.isLessThan(AndroidApiLevel.V)) {
+        removedTypeNames.add("com.android.internal.util.Predicate");
+      }
       removedTypeNames.add("android.adservices.AdServicesVersion");
-    }
-    if (maxApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.V)) {
-      removedTypeNames.add("android.media.MediaDrm$HdcpLevel");
-      removedTypeNames.add("android.media.MediaDrm$SecurityLevel");
     }
     return removedTypeNames;
   }

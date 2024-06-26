@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class AndroidApiHashingDatabaseBuilderGenerator extends TestBase {
 
@@ -199,7 +200,31 @@ public class AndroidApiHashingDatabaseBuilderGenerator extends TestBase {
     expectedMissingMembers.add(factory.createType("Landroid/nfc/tech/NfcB;"));
     expectedMissingMembers.add(factory.createType("Landroid/nfc/tech/Ndef;"));
     expectedMissingMembers.add(factory.createType("Landroid/webkit/CookieSyncManager;"));
-    assertEquals(expectedMissingMembers, missingMemberInformation.keySet());
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/customaudience/CustomAudienceManager;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/customaudience/PartialCustomAudience$Builder;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/customaudience/PartialCustomAudience;"));
+    expectedMissingMembers.add(
+        factory.createType(
+            "Landroid/adservices/customaudience/ScheduleCustomAudienceUpdateRequest$Builder;"));
+    expectedMissingMembers.add(
+        factory.createType(
+            "Landroid/adservices/customaudience/ScheduleCustomAudienceUpdateRequest;"));
+    expectedMissingMembers.add(factory.createType("Landroid/app/appsearch/AppSearchResult;"));
+    assertEquals(
+        expectedMissingMembers.stream()
+                .map(DexType::toDescriptorString)
+                .sorted()
+                .collect(Collectors.joining("\n"))
+            + "\n---\n"
+            + missingMemberInformation.keySet().stream()
+                .map(DexType::toDescriptorString)
+                .sorted()
+                .collect(Collectors.joining("\n")),
+        expectedMissingMembers,
+        missingMemberInformation.keySet());
     return true;
   }
 

@@ -16,7 +16,7 @@ exit -1
 SDK_HOME=$HOME/Android/Sdk
 
 # Modify these to match the SDK android.jar to add.
-SDK_DIR_NAME=android-VanillaIceCream
+SDK_DIR_NAME=android-35
 SDK_VERSION=35
 
 SDK_DIR=$SDK_HOME/platforms/$SDK_DIR_NAME

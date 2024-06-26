@@ -16,14 +16,37 @@ import java.util.function.BiConsumer;
 public class AndroidApiLevelDatabaseHelper {
 
   public static Set<String> notModeledTypes() {
-    // The below types are known not to be modeled by any api-versions.
+    // The types below are known not to be modeled by any api-versions.
     Set<String> notModeledTypes = new HashSet<>();
     notModeledTypes.add("androidx.annotation.RecentlyNullable");
     notModeledTypes.add("androidx.annotation.RecentlyNonNull");
     notModeledTypes.add("android.annotation.Nullable");
     notModeledTypes.add("android.annotation.NonNull");
     notModeledTypes.add("android.annotation.FlaggedApi");
+    notModeledTypes.add("android.adservices.customaudience.PartialCustomAudience");
+    notModeledTypes.add("android.adservices.customaudience.PartialCustomAudience$Builder");
+    notModeledTypes.add(
+        "android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest$Builder");
+    notModeledTypes.add("android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest");
     return notModeledTypes;
+  }
+
+  public static Set<String> notModeledFields() {
+    // The fields below are known not to be modeled by any api-versions.
+    Set<String> notModeledFields = new HashSet<>();
+    notModeledFields.add("int android.app.appsearch.AppSearchResult.RESULT_DENIED");
+    notModeledFields.add("int android.app.appsearch.AppSearchResult.RESULT_RATE_LIMITED");
+    return notModeledFields;
+  }
+
+  public static Set<String> notModeledMethods() {
+    // The methods below are known not to be modeled by any api-versions.
+    Set<String> notModelledMethods = new HashSet<>();
+    notModelledMethods.add(
+        "void android.adservices.customaudience.CustomAudienceManager.scheduleCustomAudienceUpdate(android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest,"
+            + " java.util.concurrent.Executor,"
+            + " android.adservices.common.AdServicesOutcomeReceiver)");
+    return notModelledMethods;
   }
 
   static void visitAdditionalKnownApiReferences(

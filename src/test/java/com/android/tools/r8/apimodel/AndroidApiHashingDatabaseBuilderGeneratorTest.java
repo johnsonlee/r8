@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.apimodel;
 
+import static com.android.tools.r8.androidapi.AndroidApiLevelDatabaseHelper.notModeledFields;
+import static com.android.tools.r8.androidapi.AndroidApiLevelDatabaseHelper.notModeledMethods;
 import static com.android.tools.r8.androidapi.AndroidApiLevelDatabaseHelper.notModeledTypes;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.junit.Assert.assertEquals;
@@ -110,9 +112,9 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
                   methodReferences.forEach(field -> numberOfMethods.increment())));
         });
     // These numbers will change when updating api-versions.xml
-    assertEquals(5971, parsedApiClasses.size());
+    assertEquals(5972, parsedApiClasses.size());
     assertEquals(30341, numberOfFields.get());
-    assertEquals(46572, numberOfMethods.get());
+    assertEquals(46576, numberOfMethods.get());
   }
 
   @Test
@@ -134,6 +136,8 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
   private static void ensureAllPublicMethodsAreMapped(
       AppView<AppInfoWithClassHierarchy> appView, AndroidApiLevelCompute apiLevelCompute) {
     Set<String> notModeledTypes = notModeledTypes();
+    Set<String> notModeledFields = notModeledFields();
+    Set<String> notModeledMethods = notModeledMethods();
     for (DexLibraryClass clazz : appView.app().asDirect().libraryClasses()) {
       if (notModeledTypes.contains(clazz.getClassReference().getTypeName())) {
         continue;
@@ -144,7 +148,9 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
               .isKnownApiLevel());
       clazz.forEachClassField(
           field -> {
-            if (field.getAccessFlags().isPublic() && !field.toSourceString().contains("this$0")) {
+            if (field.getAccessFlags().isPublic()
+                && !field.toSourceString().contains("this$0")
+                && !notModeledFields.contains(field.toSourceString())) {
               assertTrue(
                   apiLevelCompute
                       .computeApiLevelForLibraryReference(field.getReference())
@@ -153,7 +159,8 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
           });
       clazz.forEachClassMethod(
           method -> {
-            if (method.getAccessFlags().isPublic()) {
+            if (method.getAccessFlags().isPublic()
+                && !notModeledMethods.contains(method.toSourceString())) {
               assertTrue(
                   apiLevelCompute
                       .computeApiLevelForLibraryReference(method.getReference())
