@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion;
 
+import static com.android.tools.r8.ir.conversion.IRBuilder.EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET;
+import static com.android.tools.r8.ir.conversion.IRBuilder.EXCEPTIONAL_SYNC_EXIT_THROW_OFFSET;
 import static it.unimi.dsi.fastutil.ints.Int2ReferenceSortedMaps.emptyMap;
 
 import com.android.tools.r8.cf.code.CfFrame;
@@ -59,12 +61,27 @@ import java.util.stream.Collectors;
 
 public class CfSourceCode implements SourceCode {
 
+  private enum GeneratedMethodSynchronizationBlock {
+    METHOD_ENTER,
+    METHOD_EXIT,
+    EXCEPTIONAL_MONITOR_EXIT,
+    EXCEPTIONAL_THROW,
+    NONE;
+
+    static GeneratedMethodSynchronizationBlock fromOffset(int offset) {
+      assert isExceptionalExitForMethodSynchronization(offset);
+      return isExceptionalMonitorExitForMethodSynchronization(offset)
+          ? EXCEPTIONAL_MONITOR_EXIT
+          : EXCEPTIONAL_THROW;
+    }
+  }
+
   private BlockInfo currentBlockInfo;
   private boolean hasExitingInstruction = false;
 
-  private static final int EXCEPTIONAL_SYNC_EXIT_OFFSET = -2;
   private final boolean needsGeneratedMethodSynchronization;
-  private boolean currentlyGeneratingMethodSynchronization = false;
+  private GeneratedMethodSynchronizationBlock currentlyGeneratingMethodSynchronization =
+      GeneratedMethodSynchronizationBlock.NONE;
   private Monitor monitorEnter = null;
 
   private static class TryHandlerList {
@@ -129,7 +146,7 @@ public class CfSourceCode implements SourceCode {
       }
       if (needsGeneratedMethodSynchronization && !seenCatchAll) {
         guards.add(factory.throwableType);
-        offsets.add(EXCEPTIONAL_SYNC_EXIT_OFFSET);
+        offsets.add(EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET);
       }
       return new TryHandlerList(startOffset, endOffset, guards, offsets);
     }
@@ -239,6 +256,18 @@ public class CfSourceCode implements SourceCode {
             && getMethod().isSynchronized();
   }
 
+  void setCurrentlyGeneratingMethodSynchronization(
+      GeneratedMethodSynchronizationBlock currentlyGeneratingMethodSynchronization) {
+    assert this.currentlyGeneratingMethodSynchronization
+        == GeneratedMethodSynchronizationBlock.NONE;
+    this.currentlyGeneratingMethodSynchronization = currentlyGeneratingMethodSynchronization;
+  }
+
+  void unsetCurrentlyGeneratingMethodSynchronization() {
+    assert currentlyGeneratingMethodSynchronization != GeneratedMethodSynchronizationBlock.NONE;
+    currentlyGeneratingMethodSynchronization = GeneratedMethodSynchronizationBlock.NONE;
+  }
+
   private DexEncodedMethod getMethod() {
     return method.getDefinition();
   }
@@ -272,7 +301,6 @@ public class CfSourceCode implements SourceCode {
   @Override
   public int traceInstruction(int instructionIndex, IRBuilder builder) {
     CfInstruction instruction = code.getInstructions().get(instructionIndex);
-    AppView<?> appView = builder.appView;
     assert appView.options().isGeneratingClassFiles()
         == internalOutputMode.isGeneratingClassFiles();
     if (instruction.canThrow()) {
@@ -393,16 +421,30 @@ public class CfSourceCode implements SourceCode {
   }
 
   private boolean isCurrentlyGeneratingMethodSynchronization() {
-    return currentlyGeneratingMethodSynchronization;
+    return currentlyGeneratingMethodSynchronization != GeneratedMethodSynchronizationBlock.NONE;
   }
 
-  private boolean isExceptionalExitForMethodSynchronization(int instructionIndex) {
-    return instructionIndex == EXCEPTIONAL_SYNC_EXIT_OFFSET;
+  private boolean isCurrentlyGeneratingExceptionalMonitorExitForMethodSynchronization() {
+    return currentlyGeneratingMethodSynchronization
+        == GeneratedMethodSynchronizationBlock.EXCEPTIONAL_MONITOR_EXIT;
+  }
+
+  public static boolean isExceptionalMonitorExitForMethodSynchronization(int instructionIndex) {
+    return instructionIndex == EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET;
+  }
+
+  public static boolean isExceptionalThrowForMethodSynchronization(int instructionIndex) {
+    return instructionIndex == EXCEPTIONAL_SYNC_EXIT_THROW_OFFSET;
+  }
+
+  public static boolean isExceptionalExitForMethodSynchronization(int instructionIndex) {
+    return isExceptionalMonitorExitForMethodSynchronization(instructionIndex)
+        || isExceptionalThrowForMethodSynchronization(instructionIndex);
   }
 
   private void buildMethodEnterSynchronization(IRBuilder builder) {
     assert needsGeneratedMethodSynchronization;
-    currentlyGeneratingMethodSynchronization = true;
+    setCurrentlyGeneratingMethodSynchronization(GeneratedMethodSynchronizationBlock.METHOD_ENTER);
     DexType type = method.getHolderType();
     int monitorRegister;
     if (getMethod().isStatic()) {
@@ -414,24 +456,30 @@ public class CfSourceCode implements SourceCode {
     }
     // Build the monitor enter and save it for when generating exits later.
     monitorEnter = builder.addMonitor(MonitorType.ENTER, monitorRegister);
-    currentlyGeneratingMethodSynchronization = false;
+    unsetCurrentlyGeneratingMethodSynchronization();
   }
 
-  private void buildExceptionalExitMethodSynchronization(IRBuilder builder) {
+  private void buildExceptionalExitForMethodSynchronization(
+      IRBuilder builder, int instructionIndex) {
     assert needsGeneratedMethodSynchronization;
-    currentlyGeneratingMethodSynchronization = true;
-    state.setPosition(getCanonicalDebugPositionAtOffset(EXCEPTIONAL_SYNC_EXIT_OFFSET));
-    builder.add(new Monitor(MonitorType.EXIT, monitorEnter.inValues().get(0)));
-    builder.addThrow(getMoveExceptionRegister(0));
-    currentlyGeneratingMethodSynchronization = false;
+    setCurrentlyGeneratingMethodSynchronization(
+        GeneratedMethodSynchronizationBlock.fromOffset(instructionIndex));
+    state.setPosition(getCanonicalDebugPositionAtOffset(instructionIndex));
+    if (isExceptionalMonitorExitForMethodSynchronization(instructionIndex)) {
+      builder.add(new Monitor(MonitorType.EXIT, monitorEnter.object()));
+      builder.addGoto(EXCEPTIONAL_SYNC_EXIT_THROW_OFFSET);
+    } else {
+      builder.addThrow(getMoveExceptionRegister(0));
+    }
+    unsetCurrentlyGeneratingMethodSynchronization();
   }
 
   @Override
   public void buildPostlude(IRBuilder builder) {
     if (needsGeneratedMethodSynchronization) {
-      currentlyGeneratingMethodSynchronization = true;
-      builder.add(new Monitor(MonitorType.EXIT, monitorEnter.inValues().get(0)));
-      currentlyGeneratingMethodSynchronization = false;
+      setCurrentlyGeneratingMethodSynchronization(GeneratedMethodSynchronizationBlock.METHOD_EXIT);
+      builder.add(new Monitor(MonitorType.EXIT, monitorEnter.object()));
+      unsetCurrentlyGeneratingMethodSynchronization();
     }
   }
 
@@ -484,7 +532,7 @@ public class CfSourceCode implements SourceCode {
   public void buildInstruction(
       IRBuilder builder, int instructionIndex, boolean firstBlockInstruction) {
     if (isExceptionalExitForMethodSynchronization(instructionIndex)) {
-      buildExceptionalExitMethodSynchronization(builder);
+      buildExceptionalExitForMethodSynchronization(builder, instructionIndex);
       return;
     }
     CfInstruction instruction = code.getInstructions().get(instructionIndex);
@@ -507,7 +555,7 @@ public class CfSourceCode implements SourceCode {
 
     if (instruction.canThrow()) {
       Snapshot exceptionTransfer =
-          state.getSnapshot().exceptionTransfer(builder.appView.dexItemFactory().throwableType);
+          state.getSnapshot().exceptionTransfer(appView.dexItemFactory().throwableType);
       for (int target : currentBlockInfo.exceptionalSuccessors) {
         recordStateForTarget(target, exceptionTransfer);
       }
@@ -820,12 +868,19 @@ public class CfSourceCode implements SourceCode {
     if (inPrelude) {
       return null;
     }
+    TryHandlerList tryHandlers;
     if (isCurrentlyGeneratingMethodSynchronization()) {
-      return null;
+      if (!isCurrentlyGeneratingExceptionalMonitorExitForMethodSynchronization()) {
+        return null;
+      }
+      // Ensure that the exceptional monitor-exit instruction is guarded by a catch-all handler that
+      // repeats the monitor-exit.
+      tryHandlers =
+          getTryHandlers(EXCEPTIONAL_SYNC_EXIT_MONITOR_EXIT_OFFSET, appView.dexItemFactory());
+    } else {
+      tryHandlers =
+          getTryHandlers(instructionOffset(currentInstructionIndex), appView.dexItemFactory());
     }
-    TryHandlerList tryHandlers =
-        getTryHandlers(
-            instructionOffset(currentInstructionIndex), builder.appView.dexItemFactory());
     if (tryHandlers.isEmpty()) {
       return null;
     }
@@ -857,7 +912,7 @@ public class CfSourceCode implements SourceCode {
 
   @Override
   public Position getCanonicalDebugPositionAtOffset(int offset) {
-    if (offset == EXCEPTIONAL_SYNC_EXIT_OFFSET) {
+    if (isExceptionalExitForMethodSynchronization(offset)) {
       return canonicalPositions.getExceptionalExitPosition(
           appView.options().debug,
           () ->
