@@ -41,7 +41,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import kotlin.text.Charsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -285,16 +284,6 @@ public class TraceReferencesCommandTest extends TestBase {
       String expected)
       throws Throwable {
     runAndCheckOutput(targetClasses, sourceClasses, format, expected, null);
-  }
-
-  private Path zipWithTestClasses(Path zipFile, List<Class<?>> targetClasses) throws IOException {
-    return ZipBuilder.builder(zipFile)
-        .addFilesRelative(
-            ToolHelper.getClassPathForTests(),
-            targetClasses.stream()
-                .map(ToolHelper::getClassFileForTestClass)
-                .collect(Collectors.toList()))
-        .build();
   }
 
   public void runAndCheckOutput(

@@ -3,12 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.jacoco;
 
+import static com.android.tools.r8.utils.CfUtils.extractClassName;
 import static com.android.tools.r8.utils.DescriptorUtils.JAVA_PACKAGE_SEPARATOR;
 import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static org.junit.Assert.assertEquals;
 
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.utils.ZipUtils;
@@ -42,7 +42,7 @@ public class JacocoClasses {
     // Write the class to a .class file with package sub-directories.
     Path original = dir.resolve("original");
     for (byte[] clazz : classes) {
-      String typeName = TestBase.extractClassName(clazz);
+      String typeName = extractClassName(clazz);
       int lastDotIndex = typeName.lastIndexOf('.');
       String pkg = typeName.substring(0, lastDotIndex);
       String baseFileName = typeName.substring(lastDotIndex + 1) + CLASS_EXTENSION;

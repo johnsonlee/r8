@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.TestBase.extractClassDescriptor;
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;

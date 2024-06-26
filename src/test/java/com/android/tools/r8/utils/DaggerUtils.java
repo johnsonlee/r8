@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import static com.android.tools.r8.utils.CfUtils.extractClassName;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
@@ -73,7 +74,7 @@ public class DaggerUtils {
             String entryString = entry.toString();
             if (FileUtils.isClassFile(entryString)) {
               byte[] bytes = ByteStreams.toByteArray(inputStream);
-              classNames.add(TestBase.extractClassName(bytes));
+              classNames.add(extractClassName(bytes));
             }
           });
     }

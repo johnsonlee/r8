@@ -4,6 +4,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.TestBase.descriptor;
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.TestBase.Backend;
@@ -241,7 +242,7 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     }
     ArchiveConsumer consumer = new ArchiveConsumer(out);
     for (byte[] bytes : classes) {
-      consumer.accept(ByteDataView.of(bytes), TestBase.extractClassDescriptor(bytes), null);
+      consumer.accept(ByteDataView.of(bytes), extractClassDescriptor(bytes), null);
     }
     consumer.finished(null);
     return outputConsumer.apply(out);

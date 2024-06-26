@@ -4,6 +4,7 @@
 package com.android.tools.r8.utils;
 
 import static com.android.tools.r8.utils.AndroidApiLevel.B;
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
 
 import com.android.tools.r8.AndroidResourceConsumer;
@@ -2025,6 +2026,31 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableLibraryApiModeling =
         System.getProperty("com.android.tools.r8.disableApiModeling") == null;
 
+    // Flag to specify Android extension libraries (also known as OEM-implemented shared libraries
+    // or sidecars). All APIs within these libraries are handled as having an API level
+    // higher than any existing API level as these APIs might not exist on any device independent
+    // of API level (the nature of an extension API).
+    public String androidApiExtensionLibraries =
+        System.getProperty("com.android.tools.r8.androidApiExtensionLibraries");
+
+    public void forEachAndroidApiExtensionClassDescriptor(Consumer<String> consumer) {
+      if (androidApiExtensionLibraries != null) {
+        StringUtils.split(androidApiExtensionLibraries, ',')
+            .forEach(
+                lib -> {
+                  try {
+                    ZipUtils.iter(
+                        Paths.get(lib),
+                        (entry, input) -> consumer.accept(extractClassDescriptor(input)));
+                  } catch (IOException e) {
+                    throw new CompilationError("Failed to read extension library " + lib, e);
+                  }
+                });
+      }
+    }
+
+    // TODO(b/326252366): Remove support for list of extension packages in favour of only
+    //  supporting passing extension libraries as JAR files.
     // Flag to specify packages for Android extension APIs (also known as OEM-implemented
     // shared libraries or sidecars). The packages are specified as java package names
     // separated by commas. All APIs within these packages are handled as having an API level
@@ -2034,6 +2060,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     //  each package to prevent merging of API outline methods fron different extensions.
     public String androidApiExtensionPackages =
         System.getProperty("com.android.tools.r8.androidApiExtensionPackages");
+
+    public void forEachAndroidApiExtensionPackage(Consumer<String> consumer) {
+      if (androidApiExtensionPackages != null) {
+        StringUtils.split(androidApiExtensionPackages, ',').forEach(consumer);
+      }
+    }
 
     // The flag enableApiCallerIdentification controls if we can inline or merge targets with
     // different api levels. It is also the flag that specifies if we assign api levels to

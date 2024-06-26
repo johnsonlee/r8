@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.keepanno;
 
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
+
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.ProguardTestBuilder;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -257,8 +259,7 @@ public abstract class KeepAnnoTestBuilder {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
         if (!declarations.isEmpty()) {
           String binaryName =
-              DescriptorUtils.getBinaryNameFromDescriptor(
-                  TestBase.extractClassDescriptor(classFileData));
+              DescriptorUtils.getBinaryNameFromDescriptor(extractClassDescriptor(classFileData));
           String synthesizingTarget = binaryName + "$$ExtractedKeepEdges";
           ClassWriter classWriter = new ClassWriter(InternalOptions.ASM_VERSION);
           classWriter.visit(

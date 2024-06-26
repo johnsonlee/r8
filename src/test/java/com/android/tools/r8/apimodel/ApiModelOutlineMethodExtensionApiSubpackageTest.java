@@ -7,6 +7,7 @@ package com.android.tools.r8.apimodel;
 import static com.android.tools.r8.apimodel.ApiModelingTestHelper.verifyThat;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestBase;
@@ -18,7 +19,9 @@ import com.android.tools.r8.apimodel.extension.subpackage.SubpackageExtensionApi
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.nio.file.Path;
 import java.util.List;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -42,36 +45,75 @@ public class ApiModelOutlineMethodExtensionApiSubpackageTest extends TestBase {
   @Parameter(2)
   public boolean subpackageIsExtension;
 
-  @Parameters(name = "{0}, packageIsExtension = {1}, subpackageIsExtension = {2}")
+  @Parameter(3)
+  public boolean useExtensionJar;
+
+  @Parameters(
+      name = "{0}, packageIsExtension = {1}, subpackageIsExtension = {2}, useExtensionJar = {3}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
         BooleanUtils.values(),
+        BooleanUtils.values(),
         BooleanUtils.values());
+  }
+
+  private static Path extensionLibraryJar;
+  private static Path subPackagExtensionLibraryJar;
+
+  @BeforeClass
+  public static void setUp() throws Exception {
+    extensionLibraryJar =
+        zipWithTestClasses(
+            getStaticTemp().newFolder().toPath().resolve("extension.jar"),
+            ExtensionApiLibraryClass.class);
+    subPackagExtensionLibraryJar =
+        zipWithTestClasses(
+            getStaticTemp().newFolder().toPath().resolve("sub_package_extension.jar"),
+            SubpackageExtensionApiLibraryClass.class);
   }
 
   private void setupTestBuilder(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder) throws Exception {
     testBuilder
-        .addLibraryClasses(ExtensionApiLibraryClass.class, SubpackageExtensionApiLibraryClass.class)
+        .addLibraryFiles(extensionLibraryJar, subPackagExtensionLibraryJar)
         .addDefaultRuntimeLibrary(parameters)
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addOptionsModification(
             options -> {
-              StringBuilder androidApiExtensionPackages = new StringBuilder();
-              if (packageIsExtension) {
-                String typeName = ExtensionApiLibraryClass.class.getTypeName();
-                androidApiExtensionPackages.append(typeName, 0, typeName.lastIndexOf('.'));
-              }
-              if (subpackageIsExtension) {
-                String typeName = SubpackageExtensionApiLibraryClass.class.getTypeName();
+              if (useExtensionJar) {
+                StringBuilder androidApiExtensionLibraries = new StringBuilder();
                 if (packageIsExtension) {
-                  androidApiExtensionPackages.append(",");
+                  androidApiExtensionLibraries.append(extensionLibraryJar);
                 }
-                androidApiExtensionPackages.append(typeName, 0, typeName.lastIndexOf('.'));
+                if (subpackageIsExtension) {
+                  if (packageIsExtension) {
+                    androidApiExtensionLibraries.append(",");
+                  }
+                  androidApiExtensionLibraries.append(subPackagExtensionLibraryJar);
+                }
+                if (packageIsExtension || subpackageIsExtension) {
+                  options.apiModelingOptions().androidApiExtensionLibraries =
+                      androidApiExtensionLibraries.toString();
+                } else {
+                  assertTrue(androidApiExtensionLibraries.toString().isEmpty());
+                }
+              } else {
+                StringBuilder androidApiExtensionPackages = new StringBuilder();
+                if (packageIsExtension) {
+                  String typeName = ExtensionApiLibraryClass.class.getTypeName();
+                  androidApiExtensionPackages.append(typeName, 0, typeName.lastIndexOf('.'));
+                }
+                if (subpackageIsExtension) {
+                  String typeName = SubpackageExtensionApiLibraryClass.class.getTypeName();
+                  if (packageIsExtension) {
+                    androidApiExtensionPackages.append(",");
+                  }
+                  androidApiExtensionPackages.append(typeName, 0, typeName.lastIndexOf('.'));
+                }
+                options.apiModelingOptions().androidApiExtensionPackages =
+                    androidApiExtensionPackages.toString();
               }
-              options.apiModelingOptions().androidApiExtensionPackages =
-                  androidApiExtensionPackages.toString();
             })
         // TODO(b/213552119): Remove when enabled by default.
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)

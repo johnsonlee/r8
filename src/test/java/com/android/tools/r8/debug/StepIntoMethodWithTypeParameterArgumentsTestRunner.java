@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.debug;
 
+import static com.android.tools.r8.utils.CfUtils.extractClassName;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.ByteDataView;

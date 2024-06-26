@@ -6,7 +6,7 @@ package com.android.tools.r8;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.TestBase.Backend.DEX;
 import static com.android.tools.r8.TestBase.testForD8;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -218,7 +218,8 @@ public abstract class TestCompileResult<
         }
       }
     }
-    assertThat("Did you forget a keep rule for the main method?", mainClassSubject, Matchers.isPresent());
+    assertThat(
+        "Did you forget a keep rule for the main method?", mainClassSubject, Matchers.isPresent());
     if (runtime.isDex()) {
       return runArt(runtime, mainClassSubject.getFinalName(), args);
     }
@@ -295,7 +296,7 @@ public abstract class TestCompileResult<
       AndroidApp.Builder appBuilder = AndroidApp.builder();
       for (byte[] clazz : classes) {
         appBuilder.addClassProgramData(
-            clazz, Origin.unknown(), ImmutableSet.of(TestBase.extractClassDescriptor(clazz)));
+            clazz, Origin.unknown(), ImmutableSet.of(extractClassDescriptor(clazz)));
       }
       Path path = state.getNewTempFolder().resolve("runtime-classes.jar");
       appBuilder.build().writeToZipForTesting(path, OutputMode.ClassFile);

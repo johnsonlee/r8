@@ -6,6 +6,7 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.TestBuilder.getTestingAnnotations;
 import static com.android.tools.r8.ToolHelper.R8_TEST_BUCKET;
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -87,6 +88,7 @@ import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.TestDescriptionWatcher;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
@@ -1395,45 +1397,6 @@ public class TestBase {
     }
   }
 
-  public static String extractClassName(byte[] ccc) {
-    return DescriptorUtils.descriptorToJavaType(extractClassDescriptor(ccc));
-  }
-
-  public static String extractClassDescriptor(byte[] ccc) {
-    return "L" + extractClassInternalType(ccc) + ";";
-  }
-
-  private static String extractClassInternalType(byte[] ccc) {
-    class ClassNameExtractor extends ClassVisitor {
-      private String className;
-
-      private ClassNameExtractor() {
-        super(ASM_VERSION);
-      }
-
-      @Override
-      public void visit(
-          int version,
-          int access,
-          String name,
-          String signature,
-          String superName,
-          String[] interfaces) {
-        className = name;
-      }
-
-      String getClassInternalType() {
-        return className;
-      }
-    }
-
-    ClassReader reader = new ClassReader(ccc);
-    ClassNameExtractor extractor = new ClassNameExtractor();
-    reader.accept(
-        extractor, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-    return extractor.getClassInternalType();
-  }
-
   protected static void writeClassesToJar(Path output, Collection<Class<?>> classes)
       throws IOException {
     ClassFileConsumer consumer = new ArchiveConsumer(output);
@@ -2155,6 +2118,19 @@ public class TestBase {
       }
       next = inputStream.getNextEntry();
     }
+  }
+
+  protected static Path zipWithTestClasses(Path zipFile, Class<?>... classes) throws IOException {
+    return zipWithTestClasses(zipFile, Arrays.asList(classes));
+  }
+
+  protected static Path zipWithTestClasses(Path zipFile, List<Class<?>> classes)
+      throws IOException {
+    return ZipBuilder.builder(zipFile)
+        .addFilesRelative(
+            ToolHelper.getClassPathForTests(),
+            classes.stream().map(ToolHelper::getClassFileForTestClass).collect(Collectors.toList()))
+        .build();
   }
 
   private static class GenericSignatureReader extends ClassVisitor {

@@ -15,16 +15,17 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThrowingCharIterator;
 import com.android.tools.r8.utils.ThrowingFunction;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UTFDataFormatException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDatabase {
@@ -36,6 +37,7 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
   private static final byte[] NON_EXISTING_DESCRIPTOR = new byte[0];
 
   private final List<DexString> androidApiExtensionPackages;
+  private final Set<DexType> androidApiExtensionClasses;
 
   public static byte[] getNonExistingDescriptor() {
     return NON_EXISTING_DESCRIPTOR;
@@ -165,22 +167,35 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
               predefinedApiReference.getReference(),
               Optional.of(predefinedApiReference.getApiLevel()));
         });
-    ImmutableList.Builder<DexString> androidApiExtensionPackagesBuilder =
-        new ImmutableList.Builder<>();
-    if (options.apiModelingOptions().androidApiExtensionPackages != null) {
-      StringUtils.split(options.apiModelingOptions().androidApiExtensionPackages, ',')
-          .forEach(
-              pkg -> {
-                androidApiExtensionPackagesBuilder.add(
-                    options.itemFactory.createString(
-                        "L"
-                            + pkg.replace(
-                                DescriptorUtils.JAVA_PACKAGE_SEPARATOR,
-                                DescriptorUtils.DESCRIPTOR_PACKAGE_SEPARATOR)
-                            + "/"));
-              });
+
+    // Register classes in the extension libraries.
+    {
+      ImmutableSet.Builder<DexType> builder = ImmutableSet.builder();
+      options
+          .apiModelingOptions()
+          .forEachAndroidApiExtensionClassDescriptor(
+              descriptor -> builder.add(options.itemFactory.createType(descriptor)));
+      this.androidApiExtensionClasses = builder.build();
     }
-    this.androidApiExtensionPackages = androidApiExtensionPackagesBuilder.build();
+    // Register packages for extension libraries.
+    // TODO(b/326252366): Remove support for  list of extension packages in favour of only
+    //  supporting passing extension libraries as JAR files.
+    {
+      ImmutableList.Builder<DexString> builder = ImmutableList.builder();
+      options
+          .apiModelingOptions()
+          .forEachAndroidApiExtensionPackage(
+              pkg ->
+                  builder.add(
+                      options.itemFactory.createString(
+                          "L"
+                              + pkg.replace(
+                                  DescriptorUtils.JAVA_PACKAGE_SEPARATOR,
+                                  DescriptorUtils.DESCRIPTOR_PACKAGE_SEPARATOR)
+                              + "/")));
+      this.androidApiExtensionPackages = builder.build();
+    }
+
     assert predefinedApiTypeLookup.stream()
         .allMatch(added -> added.getApiLevel().isEqualTo(lookupApiLevel(added.getReference())));
   }
@@ -225,6 +240,9 @@ public class AndroidApiLevelHashingDatabaseImpl implements AndroidApiLevelDataba
   private AndroidApiLevel lookupApiLevel(DexReference reference) {
     // TODO(b/326252366): Assigning all extension items the same "fake" API level results in API
     //  outlines becoming mergable across extensions, which should be prevented.
+    if (androidApiExtensionClasses.contains(reference.getContextType())) {
+      return AndroidApiLevel.EXTENSION;
+    }
     for (int i = 0; i < androidApiExtensionPackages.size(); i++) {
       DexString descriptor = reference.getContextType().getDescriptor();
       DexString extensionPackage = androidApiExtensionPackages.get(i);

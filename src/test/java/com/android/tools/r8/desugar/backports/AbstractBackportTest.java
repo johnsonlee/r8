@@ -6,6 +6,7 @@ package com.android.tools.r8.desugar.backports;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.utils.CfUtils.extractClassName;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.CoreMatchers.containsString;

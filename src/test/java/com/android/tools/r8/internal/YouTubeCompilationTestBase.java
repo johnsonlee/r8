@@ -3,12 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.internal;
 
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.R8TestCompileResult;
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -120,7 +120,7 @@ public abstract class YouTubeCompilationTestBase extends CompilationTestBase {
           String entryString = entry.toString();
           if (entryString.endsWith(".class") && !entryString.startsWith("j$")) {
             byte[] bytes = ByteStreams.toByteArray(inputStream);
-            consumer.accept(ByteDataView.of(bytes), TestBase.extractClassDescriptor(bytes), null);
+            consumer.accept(ByteDataView.of(bytes), extractClassDescriptor(bytes), null);
           }
         });
     consumer.finished(null);

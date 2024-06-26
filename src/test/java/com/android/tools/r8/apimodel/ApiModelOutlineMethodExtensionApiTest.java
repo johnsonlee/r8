@@ -14,13 +14,17 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.apimodel.extension.ExtensionApiLibraryClass;
 import com.android.tools.r8.apimodel.extension.ExtensionApiLibraryInterface;
 import com.android.tools.r8.apimodel.extension.ExtensionApiLibraryInterfaceImpl;
 import com.android.tools.r8.apimodel.extension.ExtensionApiLibraryInterfaceProvider;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.google.common.collect.ImmutableList;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -35,27 +39,48 @@ public class ApiModelOutlineMethodExtensionApiTest extends TestBase {
           "ExtensionApiLibraryClass::extensionApi",
           "ExtensionApiLibraryInterfaceImpl::extensionApi");
 
-  @Parameter public TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+  @Parameter(1)
+  public boolean useExtensionJar;
+
+  @Parameters(name = "{0}, useExtensionJar = {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
+  }
+
+  private static final List<Class<?>> extensionLibraryClasses =
+      ImmutableList.of(
+          ExtensionApiLibraryClass.class,
+          ExtensionApiLibraryInterface.class,
+          ExtensionApiLibraryInterfaceProvider.class);
+  private static Path extensionLibraryJar;
+
+  @BeforeClass
+  public static void setUp() throws Exception {
+    extensionLibraryJar =
+        zipWithTestClasses(
+            getStaticTemp().newFolder().toPath().resolve("extension.jar"), extensionLibraryClasses);
   }
 
   private void setupTestBuilder(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder) throws Exception {
     testBuilder
-        .addLibraryClasses(
-            ExtensionApiLibraryClass.class,
-            ExtensionApiLibraryInterface.class,
-            ExtensionApiLibraryInterfaceProvider.class)
+        .addLibraryFiles(extensionLibraryJar)
         .addDefaultRuntimeLibrary(parameters)
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addOptionsModification(
             options -> {
-              String typeName = ExtensionApiLibraryClass.class.getTypeName();
-              options.apiModelingOptions().androidApiExtensionPackages =
-                  typeName.substring(0, typeName.lastIndexOf('.'));
+              if (useExtensionJar) {
+                options.apiModelingOptions().androidApiExtensionLibraries =
+                    extensionLibraryJar.toString();
+              } else {
+                String typeName = ExtensionApiLibraryClass.class.getTypeName();
+                options.apiModelingOptions().androidApiExtensionPackages =
+                    typeName.substring(0, typeName.lastIndexOf('.'));
+              }
             })
         // TODO(b/213552119): Remove when enabled by default.
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
@@ -64,11 +89,9 @@ public class ApiModelOutlineMethodExtensionApiTest extends TestBase {
   }
 
   private void populateBootClasspath(TestCompileResult<?, ?> compilerResult) throws Exception {
-    compilerResult.addBootClasspathClasses(
-        ExtensionApiLibraryClass.class,
-        ExtensionApiLibraryInterface.class,
-        ExtensionApiLibraryInterfaceImpl.class,
-        ExtensionApiLibraryInterfaceProvider.class);
+    compilerResult
+        .addBootClasspathClasses(extensionLibraryClasses)
+        .addBootClasspathClasses(ExtensionApiLibraryInterfaceImpl.class);
   }
 
   @Test
