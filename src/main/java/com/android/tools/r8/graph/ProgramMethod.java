@@ -81,14 +81,27 @@ public final class ProgramMethod extends DexClassAndMethod
   }
 
   public boolean canBeConvertedToAbstractMethod(AppView<AppInfoWithLiveness> appView) {
-    return (appView.options().canUseAbstractMethodOnNonAbstractClass()
+    if (!(appView.options().canUseAbstractMethodOnNonAbstractClass()
             || getHolder().isAbstract()
             || getHolder().isInterface())
-        && !getAccessFlags().isNative()
-        && !getAccessFlags().isPrivate()
-        && !getAccessFlags().isStatic()
-        && !getDefinition().isInstanceInitializer()
-        && !appView.appInfo().isFailedMethodResolutionTarget(getReference());
+        || getAccessFlags().isNative()
+        || getAccessFlags().isPrivate()
+        || getAccessFlags().isStatic()
+        || getDefinition().isInstanceInitializer()) {
+      return false;
+    }
+    // If the method has a failed resolution, then keep the method as non-abstract to preserve
+    // runtime errors, except when interface method desugaring is required.
+    if (appView.appInfo().isFailedMethodResolutionTarget(getReference())) {
+      boolean mustBeConvertedToAbstractMethod =
+          !appView.options().canUseDefaultAndStaticInterfaceMethods()
+              && getHolder().isInterface()
+              && getAccessFlags().belongsToVirtualPool();
+      if (!mustBeConvertedToAbstractMethod) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public void convertToAbstractOrThrowNullMethod(AppView<AppInfoWithLiveness> appView) {
