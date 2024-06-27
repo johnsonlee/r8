@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPatternField;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Objects;
 
 public final class KeepFieldPattern extends KeepMemberPattern {
@@ -144,5 +146,9 @@ public final class KeepFieldPattern extends KeepMemberPattern {
         + ", type="
         + typePattern
         + '}';
+  }
+
+  public MemberPatternField.Builder buildFieldProto() {
+    throw new Unimplemented();
   }
 }

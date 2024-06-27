@@ -3,6 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPatternMethod;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MethodParameterTypesPattern;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MethodReturnTypePattern;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypePattern;
 import java.util.Objects;
 
 public final class KeepMethodPattern extends KeepMemberPattern {
@@ -27,6 +31,42 @@ public final class KeepMethodPattern extends KeepMemberPattern {
     private Builder() {}
 
     public Builder self() {
+      return this;
+    }
+
+    public Builder applyProto(MemberPatternMethod methodMember) {
+      assert namePattern.isAny();
+      if (methodMember.hasName()) {
+        setNamePattern(
+            KeepMethodNamePattern.fromStringPattern(
+                KeepStringPattern.fromProto(methodMember.getName())));
+      }
+
+      assert returnTypePattern.isAny();
+      if (methodMember.hasReturnType()) {
+        MethodReturnTypePattern returnType = methodMember.getReturnType();
+        if (returnType.hasVoidType()) {
+          setReturnTypeVoid();
+        } else if (returnType.hasSomeType()) {
+          setReturnTypePattern(
+              KeepMethodReturnTypePattern.fromType(
+                  KeepTypePattern.fromProto(returnType.getSomeType())));
+        }
+      }
+
+      assert parametersPattern.isAny();
+      if (methodMember.hasParameterTypes()) {
+        MethodParameterTypesPattern parameterTypes = methodMember.getParameterTypes();
+        KeepMethodParametersPattern.Builder parametersBuilder =
+            KeepMethodParametersPattern.builder();
+        for (TypePattern typePattern : parameterTypes.getTypesList()) {
+          parametersBuilder.addParameterTypePattern(KeepTypePattern.fromProto(typePattern));
+        }
+        setParametersPattern(parametersBuilder.build());
+      }
+
+      // TODO(b/343389186): Add annotated-by.
+      // TODO(b/343389186): Add access.
       return this;
     }
 
@@ -175,5 +215,22 @@ public final class KeepMethodPattern extends KeepMemberPattern {
         + ", parameters="
         + parametersPattern
         + '}';
+  }
+
+  public static KeepMemberPattern fromMethodProto(MemberPatternMethod methodMember) {
+    return builder().applyProto(methodMember).build();
+  }
+
+  public MemberPatternMethod.Builder buildMethodProto() {
+    MemberPatternMethod.Builder builder =
+        MemberPatternMethod.newBuilder()
+            .setName(namePattern.asStringPattern().buildProto())
+            .setReturnType(returnTypePattern.buildProto());
+    if (!parametersPattern.isAny()) {
+      builder.setParameterTypes(parametersPattern.buildProto());
+    }
+    // TODO(b/343389186): Add annotated-by.
+    // TODO(b/343389186): Add access.
+    return builder;
   }
 }

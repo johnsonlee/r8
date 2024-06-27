@@ -25,6 +25,10 @@ public abstract class KeepPackagePattern {
     return KeepPackagePattern.builder().exact(fullPackage).build();
   }
 
+  public static KeepPackagePattern fromProto(PackagePattern proto) {
+    return builder().applyProto(proto).build();
+  }
+
   public PackagePattern.Builder buildProto() {
     PackagePattern.Builder builder = PackagePattern.newBuilder();
     if (isAny()) {
@@ -33,9 +37,7 @@ public abstract class KeepPackagePattern {
     }
     if (isTop()) {
       // The top/unspecified package is encoded as the empty package name.
-      builder.setName(
-          KeepSpecProtos.StringPattern.newBuilder()
-              .setExact(KeepSpecProtos.StringPatternExact.newBuilder().setExact("")));
+      return builder.setName(KeepSpecProtos.StringPattern.newBuilder().setExact(""));
     }
     // TODO(b/343389186): Rewrite the package patterns to use the tree structure.
     return builder.setExactPackageHack(getExactPackageAsString());
@@ -51,8 +53,7 @@ public abstract class KeepPackagePattern {
         return this;
       }
       if (pkg.hasName()) {
-        KeepStringPattern stringPattern =
-            KeepStringPattern.builder().applyProto(pkg.getName()).build();
+        KeepStringPattern stringPattern = KeepStringPattern.fromProto(pkg.getName());
         if (stringPattern.isExact() && stringPattern.asExactString().isEmpty()) {
           return top();
         }
@@ -62,7 +63,8 @@ public abstract class KeepPackagePattern {
         throw new Unimplemented();
       }
       // The unset oneof implies any package.
-      return any();
+      assert pattern.isAny();
+      return this;
     }
 
     public Builder any() {

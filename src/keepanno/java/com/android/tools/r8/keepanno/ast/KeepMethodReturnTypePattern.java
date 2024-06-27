@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MethodReturnTypePattern;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypeVoid;
 
 public abstract class KeepMethodReturnTypePattern {
 
@@ -100,5 +102,17 @@ public abstract class KeepMethodReturnTypePattern {
     public String toString() {
       return typePattern.toString();
     }
+  }
+
+  public MethodReturnTypePattern.Builder buildProto() {
+    MethodReturnTypePattern.Builder builder = MethodReturnTypePattern.newBuilder();
+    if (isAny()) {
+      // The unset oneof denotes any return type.
+      return builder;
+    }
+    if (isVoid()) {
+      return builder.setVoidType(TypeVoid.getDefaultInstance());
+    }
+    return builder.setSomeType(asType().buildProto());
   }
 }

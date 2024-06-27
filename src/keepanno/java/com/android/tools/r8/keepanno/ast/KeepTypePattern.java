@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypePattern;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +56,21 @@ public abstract class KeepTypePattern {
       return primitiveType;
     }
     throw new KeepEdgeException("Invalid type descriptor: " + typeDescriptor);
+  }
+
+  public static KeepTypePattern fromProto(TypePattern typeProto) {
+    if (typeProto.hasPrimitive()) {
+      return KeepTypePattern.fromPrimitive(
+          KeepPrimitiveTypePattern.fromProto(typeProto.getPrimitive()));
+    }
+    if (typeProto.hasArray()) {
+      return KeepTypePattern.fromArray(KeepArrayTypePattern.fromProto(typeProto.getArray()));
+    }
+    if (typeProto.hasClazz()) {
+      return KeepTypePattern.fromClass(
+          KeepQualifiedClassNamePattern.fromProto(typeProto.getClazz()));
+    }
+    return KeepTypePattern.any();
   }
 
   public abstract <T> T apply(
@@ -262,5 +279,20 @@ public abstract class KeepTypePattern {
         Function<KeepInstanceOfPattern, T> onInstanceOf) {
       return onInstanceOf.apply(instanceOf);
     }
+  }
+
+  public TypePattern.Builder buildProto() {
+    TypePattern.Builder builder = TypePattern.newBuilder();
+    match(
+        () -> {
+          // The unset oneof is "any type".
+        },
+        primitive -> builder.setPrimitive(primitive.buildProto()),
+        array -> builder.setArray(array.buildProto()),
+        clazz -> builder.setClazz(clazz.buildProto()),
+        instanceOf -> {
+          throw new Unimplemented();
+        });
+    return builder;
   }
 }

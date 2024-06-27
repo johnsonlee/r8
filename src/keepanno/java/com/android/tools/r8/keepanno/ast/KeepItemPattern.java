@@ -3,9 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ItemPattern;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -56,15 +55,24 @@ public abstract class KeepItemPattern {
     apply(AstUtils.toVoidFunction(onClass), AstUtils.toVoidFunction(onMember));
   }
 
+  public static KeepItemPattern fromItemProto(
+      ItemPattern proto,
+      KeepItemPattern defaultValue,
+      Function<String, KeepBindingSymbol> getSymbol) {
+    if (proto.hasClassItem()) {
+      return KeepClassItemPattern.fromClassProto(proto.getClassItem());
+    }
+    if (proto.hasMemberItem()) {
+      return KeepMemberItemPattern.fromMemberProto(proto.getMemberItem(), getSymbol);
+    }
+    return defaultValue;
+  }
+
   public ItemPattern.Builder buildItemProto() {
     ItemPattern.Builder builder = ItemPattern.newBuilder();
     match(
-        clazz ->
-            builder.setClassItem(
-                clazz.buildClassProto(KeepSpecProtos.ClassItemPattern.newBuilder())),
-        member -> {
-          throw new Unimplemented();
-        });
+        clazz -> builder.setClassItem(clazz.buildClassProto()),
+        member -> builder.setMemberItem(member.buildMemberProto()));
     return builder;
   }
 }

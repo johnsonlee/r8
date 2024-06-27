@@ -5,7 +5,6 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.StringPattern;
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos.StringPatternExact;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.StringPatternInexact;
 import java.util.Objects;
 
@@ -25,6 +24,10 @@ public class KeepStringPattern {
     return new Builder();
   }
 
+  public static KeepStringPattern fromProto(StringPattern proto) {
+    return builder().applyProto(proto).build();
+  }
+
   public StringPattern.Builder buildProto() {
     StringPattern.Builder builder = StringPattern.newBuilder();
     if (isAny()) {
@@ -32,7 +35,7 @@ public class KeepStringPattern {
       return builder;
     }
     if (isExact()) {
-      return builder.setExact(StringPatternExact.newBuilder().setExact(exact));
+      return builder.setExact(exact);
     }
     return builder.setInexact(
         StringPatternInexact.newBuilder()
@@ -49,7 +52,7 @@ public class KeepStringPattern {
 
     public Builder applyProto(StringPattern name) {
       if (name.hasExact()) {
-        return setExact(name.getExact().getExact());
+        return setExact(name.getExact());
       }
       if (name.hasInexact()) {
         StringPatternInexact inexact = name.getInexact();
@@ -58,6 +61,7 @@ public class KeepStringPattern {
         return this;
       }
       // The unset oneof implies any. Don't assign any fields.
+      assert build().isAny();
       return this;
     }
 

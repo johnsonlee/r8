@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MethodParameterTypesPattern;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +36,8 @@ public abstract class KeepMethodParametersPattern {
   public List<KeepTypePattern> asList() {
     return null;
   }
+
+  public abstract MethodParameterTypesPattern.Builder buildProto();
 
   public static class Builder {
     ImmutableList.Builder<KeepTypePattern> parameterPatterns = ImmutableList.builder();
@@ -95,6 +98,15 @@ public abstract class KeepMethodParametersPattern {
           + parameterPatterns.stream().map(Object::toString).collect(Collectors.joining(", "))
           + ")";
     }
+
+    @Override
+    public MethodParameterTypesPattern.Builder buildProto() {
+      MethodParameterTypesPattern.Builder builder = MethodParameterTypesPattern.newBuilder();
+      for (KeepTypePattern parameterPattern : parameterPatterns) {
+        builder.addTypes(parameterPattern.buildProto());
+      }
+      return builder;
+    }
   }
 
   private static class Any extends KeepMethodParametersPattern {
@@ -122,6 +134,11 @@ public abstract class KeepMethodParametersPattern {
     @Override
     public String toString() {
       return "(...)";
+    }
+
+    @Override
+    public MethodParameterTypesPattern.Builder buildProto() {
+      throw new KeepEdgeException("Attempt to build message of any type encoded as absent.");
     }
   }
 }

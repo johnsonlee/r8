@@ -45,6 +45,10 @@ public final class KeepQualifiedClassNamePattern {
         .build();
   }
 
+  public static KeepQualifiedClassNamePattern fromProto(ClassNamePattern clazz) {
+    return KeepQualifiedClassNamePattern.builder().applyProto(clazz).build();
+  }
+
   public ClassNamePattern.Builder buildProto() {
     return ClassNamePattern.newBuilder()
         .setPackage(packagePattern.buildProto())
@@ -53,18 +57,21 @@ public final class KeepQualifiedClassNamePattern {
 
   public static class Builder {
 
-    private KeepPackagePattern packagePattern;
-    private KeepUnqualfiedClassNamePattern namePattern;
+    private KeepPackagePattern packagePattern = KeepPackagePattern.any();
+    private KeepUnqualfiedClassNamePattern namePattern = KeepUnqualfiedClassNamePattern.any();
 
     private Builder() {}
 
-    public Builder applyProto(ClassNamePattern className) {
-      setPackagePattern(KeepPackagePattern.builder().applyProto(className.getPackage()).build());
-      setNamePattern(
-          KeepUnqualfiedClassNamePattern.fromStringPattern(
-              KeepStringPattern.builder()
-                  .applyProto(className.getUnqualifiedName().getName())
-                  .build()));
+    public Builder applyProto(ClassNamePattern proto) {
+      assert packagePattern.isAny();
+      if (proto.hasPackage()) {
+        setPackagePattern(KeepPackagePattern.fromProto(proto.getPackage()));
+      }
+
+      assert namePattern.isAny();
+      if (proto.hasUnqualifiedName()) {
+        setNamePattern(KeepUnqualfiedClassNamePattern.fromProto(proto.getUnqualifiedName()));
+      }
       return this;
     }
 

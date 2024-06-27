@@ -80,6 +80,10 @@ public class KeepEdgeMetaInfo {
     return "MetaInfo{" + String.join(", ", props) + "}";
   }
 
+  public static KeepEdgeMetaInfo fromProto(MetaInfo proto, KeepSpecVersion version) {
+    return builder().applyProto(proto, version).build();
+  }
+
   public MetaInfo.Builder buildProto() {
     MetaInfo.Builder builder = MetaInfo.newBuilder();
     builder.setContext(context.buildProto());
@@ -94,10 +98,16 @@ public class KeepEdgeMetaInfo {
     private KeepEdgeContext context = KeepEdgeContext.none();
     private KeepEdgeDescription description = KeepEdgeDescription.empty();
 
-    public Builder applyProto(MetaInfo metaInfo, KeepSpecVersion version) {
+    public Builder applyProto(MetaInfo proto, KeepSpecVersion version) {
+      // Version is a non-optional value (not part of the proto MetaInfo).
       setVersion(version);
-      context = KeepEdgeContext.fromProto(metaInfo.getContext());
-      setDescription(metaInfo.getDescription());
+      // The proto MetaInfo is optional so guard for the null case here.
+      if (proto != null) {
+        if (proto.hasContext()) {
+          setContext(KeepEdgeContext.fromProto(proto.getContext()));
+        }
+        setDescription(proto.getDescription());
+      }
       return this;
     }
 

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypePatternPrimitive;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -91,5 +92,57 @@ public class KeepPrimitiveTypePattern {
 
   public static void forEachPrimitive(Consumer<KeepPrimitiveTypePattern> fn) {
     PRIMITIVES.values().forEach(fn);
+  }
+
+  public static KeepPrimitiveTypePattern fromProto(TypePatternPrimitive primitive) {
+    switch (primitive.getNumber()) {
+      case TypePatternPrimitive.PRIMITIVE_BOOLEAN_VALUE:
+        return getBoolean();
+      case TypePatternPrimitive.PRIMITIVE_BYTE_VALUE:
+        return getByte();
+      case TypePatternPrimitive.PRIMITIVE_CHAR_VALUE:
+        return getChar();
+      case TypePatternPrimitive.PRIMITIVE_SHORT_VALUE:
+        return getShort();
+      case TypePatternPrimitive.PRIMITIVE_INT_VALUE:
+        return getInt();
+      case TypePatternPrimitive.PRIMITIVE_LONG_VALUE:
+        return getLong();
+      case TypePatternPrimitive.PRIMITIVE_FLOAT_VALUE:
+        return getFloat();
+      case TypePatternPrimitive.PRIMITIVE_DOUBLE_VALUE:
+        return getDouble();
+      default:
+        return getAny();
+    }
+  }
+
+  public TypePatternPrimitive buildProto() {
+    if (this == BOOLEAN) {
+      return TypePatternPrimitive.PRIMITIVE_BOOLEAN;
+    }
+    if (this == BYTE) {
+      return TypePatternPrimitive.PRIMITIVE_BYTE;
+    }
+    if (this == CHAR) {
+      return TypePatternPrimitive.PRIMITIVE_CHAR;
+    }
+    if (this == SHORT) {
+      return TypePatternPrimitive.PRIMITIVE_SHORT;
+    }
+    if (this == INT) {
+      return TypePatternPrimitive.PRIMITIVE_INT;
+    }
+    if (this == LONG) {
+      return TypePatternPrimitive.PRIMITIVE_LONG;
+    }
+    if (this == FLOAT) {
+      return TypePatternPrimitive.PRIMITIVE_FLOAT;
+    }
+    if (this == DOUBLE) {
+      return TypePatternPrimitive.PRIMITIVE_DOUBLE;
+    }
+    assert isAny();
+    return TypePatternPrimitive.PRIMITIVE_UNSPECIFIED;
   }
 }

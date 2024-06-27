@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPattern;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPatternGeneral;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -90,6 +93,10 @@ public abstract class KeepMemberPattern {
           + accessPattern
           + '}';
     }
+
+    public MemberPatternGeneral.Builder buildGeneralProto() {
+      throw new Unimplemented();
+    }
   }
 
   KeepMemberPattern() {}
@@ -144,5 +151,29 @@ public abstract class KeepMemberPattern {
         AstUtils.toVoidFunction(onGeneralMember),
         AstUtils.toVoidFunction(onFieldMember),
         AstUtils.toVoidFunction(onMethodMember));
+  }
+
+  public MemberPattern.Builder buildProto() {
+    MemberPattern.Builder builder = MemberPattern.newBuilder();
+    match(
+        general -> builder.setGeneralMember(((Some) general).buildGeneralProto()),
+        field -> builder.setFieldMember(field.buildFieldProto()),
+        method -> builder.setMethodMember(method.buildMethodProto()));
+    return builder;
+  }
+
+  public static KeepMemberPattern fromMemberProto(MemberPattern memberPattern) {
+    if (memberPattern.hasGeneralMember()) {
+      // return KeepMemberPattern.memberBuilder().applyProto(memberPattern.getGeneralMember());
+      throw new Unimplemented();
+    }
+    if (memberPattern.hasFieldMember()) {
+      // return KeepFieldPattern.builder().applyProto(memberPattern.getFieldMember());
+      throw new Unimplemented();
+    }
+    if (memberPattern.hasMethodMember()) {
+      return KeepMethodPattern.fromMethodProto(memberPattern.getMethodMember());
+    }
+    return KeepMemberPattern.allMembers();
   }
 }

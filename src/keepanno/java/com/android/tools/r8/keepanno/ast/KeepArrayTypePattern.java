@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypePatternArray;
 import com.google.common.base.Strings;
 import java.util.Objects;
 
@@ -77,5 +78,20 @@ public class KeepArrayTypePattern {
   @Override
   public String toString() {
     return baseType + Strings.repeat("[]", dimensions);
+  }
+
+  public static KeepArrayTypePattern fromProto(TypePatternArray array) {
+    KeepTypePattern baseType =
+        array.hasBaseType()
+            ? KeepTypePattern.fromProto(array.getBaseType())
+            : KeepTypePattern.any();
+    int dimensions = Math.max(1, array.getDimensions());
+    return new KeepArrayTypePattern(baseType, dimensions);
+  }
+
+  public TypePatternArray.Builder buildProto() {
+    return TypePatternArray.newBuilder()
+        .setDimensions(dimensions)
+        .setBaseType(baseType.buildProto());
   }
 }

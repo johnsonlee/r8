@@ -21,18 +21,34 @@ public class KeepCheck extends KeepDeclaration {
     private KeepBindings bindings = KeepBindings.none();
     private KeepBindingReference itemReference;
 
-    public Builder applyProto(KeepSpecProtos.Check check, KeepSpecVersion version) {
-      KeepEdgeMetaInfo.builder().applyProto(check.getMetaInfo(), version).build();
-      if (check.getKind() == CheckKind.CHECK_OPTIMIZED_OUT) {
-        setKind(KeepCheckKind.OPTIMIZED_OUT);
-      } else {
-        assert check.getKind() == CheckKind.CHECK_REMOVED;
-        setKind(KeepCheckKind.REMOVED);
+    public Builder applyProto(KeepSpecProtos.Check proto, KeepSpecVersion version) {
+      // MetaInfo is optional, but that is handled in its applyProto.
+      setMetaInfo(KeepEdgeMetaInfo.fromProto(proto.getMetaInfo(), version));
+
+      switch (proto.getKindValue()) {
+        case CheckKind.CHECK_OPTIMIZED_OUT_VALUE:
+          setKind(KeepCheckKind.OPTIMIZED_OUT);
+          break;
+        case CheckKind.CHECK_REMOVED_VALUE:
+        default:
+          // The kind is not optional, but in the even of a format change we assume removed.
+          assert proto.getKind() == CheckKind.CHECK_REMOVED;
+          setKind(KeepCheckKind.REMOVED);
       }
-      KeepBindings.Builder bindingsBuilder = KeepBindings.builder().applyProto(check.getBindings());
+
+      // Bindings are not optional.
+      if (!proto.hasBindings()) {
+        throw new KeepEdgeException("Invalid Check, must have valid bindings.");
+      }
+      KeepBindings.Builder bindingsBuilder = KeepBindings.builder().applyProto(proto.getBindings());
       setBindings(bindingsBuilder.build());
+
+      // The check item reference is not optional.
+      if (!proto.hasItem() || proto.getItem().getName().isEmpty()) {
+        throw new KeepEdgeException("Invalid check, must have a valid item reference.");
+      }
       setItemReference(
-          bindingsBuilder.getBindingReferenceForUserBinding(check.getItem().getName()));
+          bindingsBuilder.getBindingReferenceForUserBinding(proto.getItem().getName()));
       return this;
     }
 
@@ -116,6 +132,10 @@ public class KeepCheck extends KeepDeclaration {
   @Override
   public String toString() {
     return "KeepCheck{kind=" + kind + ", item=" + itemReference + "}";
+  }
+
+  public static KeepCheck fromCheckProto(Check proto, KeepSpecVersion version) {
+    return builder().applyProto(proto, version).build();
   }
 
   public Check.Builder buildCheckProto() {

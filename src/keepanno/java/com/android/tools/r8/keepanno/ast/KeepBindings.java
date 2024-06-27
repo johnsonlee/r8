@@ -4,13 +4,11 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Binding;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Bindings;
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ItemPattern;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -206,20 +204,36 @@ public class KeepBindings {
     private final Map<String, KeepBindingSymbol> reserved = new HashMap<>();
     private final Map<KeepBindingSymbol, KeepItemPattern> bindings = new IdentityHashMap<>();
 
-    public Builder applyProto(Bindings bindings) {
-      for (KeepSpecProtos.Binding binding : bindings.getBindingsList()) {
-        KeepBindingSymbol symbol = create(binding.getName());
-        ItemPattern protoItem = binding.getItem();
-        KeepItemPattern item;
-        if (protoItem.hasClassItem()) {
-          item = KeepClassItemPattern.builder().applyProto(protoItem.getClassItem()).build();
-        } else {
-          assert protoItem.hasMemberItem();
-          // item = KeepMemberItemPattern.builder().applyProto(protoItem.getMemberItem()).build();
-          throw new Unimplemented();
+    public Builder applyProto(Bindings proto) {
+      List<KeepSpecProtos.Binding> protoList = proto.getBindingsList();
+      // The structure of keep edges and checks requires at least one consequent/check item.
+      // Thus, we should never be building empty binding lists, but the code is not incorrect.
+      assert !protoList.isEmpty();
+
+      // Two pass build.
+      // First pass validates and allocates symbols for each binding.
+      for (KeepSpecProtos.Binding binding : protoList) {
+        String protoName = binding.getName();
+        if (protoName.isEmpty()) {
+          throw new KeepEdgeException("Invalid binding to empty name");
         }
-        addBinding(symbol, item);
+        create(protoName);
       }
+      // Second pass constructs the items which may themselves have references to symbols.
+      for (KeepSpecProtos.Binding binding : protoList) {
+        KeepBindingSymbol symbol = reserved.get(binding.getName());
+        // We can only create a binding for an item that is present.
+        if (binding.hasItem()) {
+          KeepItemPattern itemPattern =
+              KeepItemPattern.fromItemProto(binding.getItem(), null, reserved::get);
+          // It also must be a class/member kind.
+          if (itemPattern != null) {
+            addBinding(symbol, itemPattern);
+          }
+        }
+      }
+      // We expect the bindings to have been read (a format change could invalidate this).
+      assert bindings.size() == protoList.size();
       return this;
     }
 

@@ -4,14 +4,29 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.BindingReference;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberItemPattern;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class KeepMemberItemPattern extends KeepItemPattern {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public static KeepItemPattern fromMemberProto(
+      MemberItemPattern protoMember, Function<String, KeepBindingSymbol> getSymbol) {
+    return builder().applyProto(protoMember, getSymbol).build();
+  }
+
+  public MemberItemPattern.Builder buildMemberProto() {
+    return MemberItemPattern.newBuilder()
+        .setClassReference(classReference.buildProto())
+        .setMemberPattern(memberPattern.buildProto());
   }
 
   public static class Builder {
@@ -20,6 +35,30 @@ public class KeepMemberItemPattern extends KeepItemPattern {
     private KeepMemberPattern memberPattern = KeepMemberPattern.allMembers();
 
     private Builder() {}
+
+    public Builder applyProto(
+        MemberItemPattern protoMember, Function<String, KeepBindingSymbol> getSymbol) {
+      // The class-reference is special as we can't artificially insert an "any class" without
+      // patching up the bindings. Thus, the following hard fails if the format is missing any
+      // part of the class-reference structure, both here and in the bindings themselves.
+      if (!protoMember.hasClassReference()) {
+        throw new KeepEdgeException("Invalid MemberItemPattern, must have a valid class reference");
+      }
+      BindingReference protoClassRef = protoMember.getClassReference();
+      String protoName = protoClassRef.getName();
+      KeepBindingSymbol symbol = getSymbol.apply(protoName);
+      if (symbol == null) {
+        throw new KeepEdgeException(
+            "Invalid MemberItemPattern, reference to unbound binding: '" + protoName + "'");
+      }
+      setClassReference(KeepBindingReference.forClass(symbol));
+
+      assert memberPattern.isAllMembers();
+      if (protoMember.hasMemberPattern()) {
+        setMemberPattern(KeepMemberPattern.fromMemberProto(protoMember.getMemberPattern()));
+      }
+      return this;
+    }
 
     public Builder copyFrom(KeepMemberItemPattern pattern) {
       return setClassReference(pattern.getClassReference())
