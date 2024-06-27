@@ -76,6 +76,7 @@ import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstMethodHandle;
 import com.android.tools.r8.ir.code.ConstMethodType;
 import com.android.tools.r8.ir.code.DexItemBasedConstString;
+import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.FieldPut;
 import com.android.tools.r8.ir.code.IRCode;
@@ -626,21 +627,8 @@ public class LensCodeRewriter {
               }
               if (newOutValue != null) {
                 if (lookup.hasReadCastType() && newOutValue.hasNonDebugUsers()) {
-                  TypeElement castType =
-                      TypeElement.fromDexType(
-                          lookup.getReadCastType(), newOutValue.getType().nullability(), appView);
-                  Value castOutValue = code.createValue(castType);
-                  newOutValue.replaceUsers(castOutValue);
-                  CheckCast checkCast =
-                      SafeCheckCast.builder()
-                          .setCastType(lookup.getReadCastType())
-                          .setObject(newOutValue)
-                          .setOutValue(castOutValue)
-                          .setPosition(instanceGet)
-                          .build();
-                  iterator.addThrowingInstructionToPossiblyThrowingBlock(
-                      code, blocks, checkCast, options);
-                  affectedPhis.addAll(checkCast.outValue().uniquePhiUsers());
+                  insertReadCast(
+                      code, blocks, iterator, instanceGet, lookup, newOutValue, affectedPhis);
                 } else if (newOutValue.getType() != instanceGet.getOutType()) {
                   affectedPhis.addAll(newOutValue.uniquePhiUsers());
                 }
@@ -684,21 +672,8 @@ public class LensCodeRewriter {
               }
               if (newOutValue != null) {
                 if (lookup.hasReadCastType() && newOutValue.hasNonDebugUsers()) {
-                  TypeElement castType =
-                      TypeElement.fromDexType(
-                          lookup.getReadCastType(), newOutValue.getType().nullability(), appView);
-                  Value castOutValue = code.createValue(castType);
-                  newOutValue.replaceUsers(castOutValue);
-                  CheckCast checkCast =
-                      SafeCheckCast.builder()
-                          .setCastType(lookup.getReadCastType())
-                          .setObject(newOutValue)
-                          .setOutValue(castOutValue)
-                          .setPosition(staticGet)
-                          .build();
-                  iterator.addThrowingInstructionToPossiblyThrowingBlock(
-                      code, blocks, checkCast, options);
-                  affectedPhis.addAll(checkCast.outValue().uniquePhiUsers());
+                  insertReadCast(
+                      code, blocks, iterator, staticGet, lookup, newOutValue, affectedPhis);
                 } else if (newOutValue.getType() != staticGet.getOutType()) {
                   affectedPhis.addAll(newOutValue.uniquePhiUsers());
                 }
@@ -1065,6 +1040,30 @@ public class LensCodeRewriter {
     affectedPhis.addAll(replacementValue.uniquePhiUsers());
     Collections.addAll(argumentPostlude, replacement);
     instructionIterator.removeOrReplaceByDebugLocalRead();
+  }
+
+  private void insertReadCast(
+      IRCode code,
+      BasicBlockIterator blocks,
+      InstructionListIterator iterator,
+      FieldGet fieldGet,
+      FieldLookupResult lookup,
+      Value newOutValue,
+      Set<Phi> affectedPhis) {
+    TypeElement castTypeElement =
+        TypeElement.fromDexType(
+            lookup.getReadCastType(), newOutValue.getType().nullability(), appView);
+    Value castOutValue = code.createValue(castTypeElement);
+    newOutValue.replaceUsers(castOutValue);
+    CheckCast checkCast =
+        SafeCheckCast.builder()
+            .setCastType(lookup.getReadCastType())
+            .setObject(newOutValue)
+            .setOutValue(castOutValue)
+            .setPosition(fieldGet.asFieldInstruction())
+            .build();
+    iterator.addThrowingInstructionToPossiblyThrowingBlock(code, blocks, checkCast, options);
+    affectedPhis.addAll(checkCast.outValue().uniquePhiUsers());
   }
 
   private Argument rewriteArgumentType(

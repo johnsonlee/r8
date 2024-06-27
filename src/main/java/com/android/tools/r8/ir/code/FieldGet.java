@@ -17,6 +17,8 @@ public interface FieldGet {
 
   TypeElement getOutType();
 
+  FieldInstruction asFieldInstruction();
+
   boolean isInstanceGet();
 
   InstanceGet asInstanceGet();
