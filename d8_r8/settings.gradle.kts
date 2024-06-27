@@ -11,7 +11,7 @@ import org.gradle.internal.os.OperatingSystem
 rootProject.name = "d8-r8"
 
 // Bootstrap building by downloading dependencies.
-val dependencies_bucket = "r8-deps"
+val dependencies_bucket = "r8-deps-backup"
 val root = rootProject.projectDir
 
 fun getRepoRoot() : File {
