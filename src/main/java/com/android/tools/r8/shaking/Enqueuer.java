@@ -3356,6 +3356,18 @@ public class Enqueuer {
       getKeepInfo().keepField(field);
     }
 
+    if (mode.isFinalTreeShaking() && options.isOptimizing() && !field.getAccessFlags().isStatic()) {
+      DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
+      if (fieldBaseType.isClassType()) {
+        DexClass clazz = definitionFor(fieldBaseType, context);
+        if (clazz != null
+            && AccessControl.isClassAccessible(clazz, context, appView).isPossiblyFalse()) {
+          applyMinimumKeepInfoWhenLive(
+              field.getHolder(), KeepClassInfo.newEmptyJoiner().disallowHorizontalClassMerging());
+        }
+      }
+    }
+
     // Notify analyses.
     analyses.forEach(analysis -> analysis.processNewlyLiveField(field, context, worklist));
   }

@@ -11,6 +11,7 @@ import com.android.tools.r8.classmerging.horizontal.testclasses.InaccessibleFiel
 import com.android.tools.r8.classmerging.horizontal.testclasses.InaccessibleFieldTypeMergingTestClasses.BarGreeterContainer;
 import com.android.tools.r8.classmerging.horizontal.testclasses.InaccessibleFieldTypeMergingTestClasses.FooGreeterContainer;
 import com.android.tools.r8.classmerging.horizontal.testclasses.InaccessibleFieldTypeMergingTestClasses.Greeter;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,11 +35,7 @@ public class InaccessibleFieldTypeMergingTest extends TestBase {
         .addInnerClasses(getClass(), InaccessibleFieldTypeMergingTestClasses.class)
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
-            inspector ->
-                inspector
-                    .assertIsCompleteMergeGroup(
-                        FooGreeterContainer.class, BarGreeterContainer.class)
-                    .assertNoOtherClassesMerged())
+            HorizontallyMergedClassesInspector::assertNoClassesMerged)
         .enableInliningAnnotations()
         .enableNoAccessModificationAnnotationsForClasses()
         .enableNoHorizontalClassMergingAnnotations()
@@ -47,8 +44,7 @@ public class InaccessibleFieldTypeMergingTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/347676160): Should succeed.
-        .assertFailureWithErrorThatThrows(IllegalAccessError.class);
+        .assertSuccessWithOutputLines("Foo!", "Bar!");
   }
 
   static class Main {
