@@ -21,7 +21,6 @@ import com.android.tools.r8.utils.Timing;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiConsumer;
 
 public class NonEmptyStartupProfile extends StartupProfile {
 
@@ -103,6 +102,11 @@ public class NonEmptyStartupProfile extends StartupProfile {
 
   public int size() {
     return startupRules.size();
+  }
+
+  @Override
+  public Builder toEmptyBuilderWithCapacity() {
+    return builderWithCapacity(size());
   }
 
   /**
@@ -193,15 +197,5 @@ public class NonEmptyStartupProfile extends StartupProfile {
             });
     timing.end();
     return result;
-  }
-
-  private StartupProfile transform(
-      BiConsumer<StartupProfileClassRule, Builder> classRuleTransformer,
-      BiConsumer<StartupProfileMethodRule, Builder> methodRuleTransformer) {
-    Builder builder = builderWithCapacity(startupRules.size());
-    forEachRule(
-        classRule -> classRuleTransformer.accept(classRule, builder),
-        methodRule -> methodRuleTransformer.accept(methodRule, builder));
-    return builder.build();
   }
 }

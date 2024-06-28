@@ -28,10 +28,11 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfileMethodRule> {
+public class ArtProfile
+    implements AbstractProfile<
+        ArtProfileClassRule, ArtProfileMethodRule, ArtProfile, ArtProfile.Builder> {
 
   private final Map<DexReference, ArtProfileRule> rules;
 
@@ -50,6 +51,11 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
 
   public static Builder builderWithCapacity(int capacity) {
     return new Builder(capacity);
+  }
+
+  @Override
+  public Builder toEmptyBuilderWithCapacity() {
+    return builderWithCapacity(rules.size());
   }
 
   @Override
@@ -193,22 +199,6 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
   public ArtProfile withoutPrunedItems(PrunedItems prunedItems) {
     rules.keySet().removeIf(prunedItems::isRemoved);
     return this;
-  }
-
-  private ArtProfile transform(
-      BiConsumer<ArtProfileClassRule, Builder> classTransformation,
-      BiConsumer<ArtProfileMethodRule, Builder> methodTransformation) {
-    Builder builder = builderWithCapacity(rules.size());
-    forEachRule(
-        // Supply a factory method for creating a builder. If the current rule should be included in
-        // the rewritten profile, the caller should call the provided builder factory method to
-        // create a class rule builder. If two rules are mapped to the same reference, the same rule
-        // builder is reused so that the two rules are merged into a single rule (with their flags
-        // merged).
-        classRule -> classTransformation.accept(classRule, builder),
-        // As above.
-        methodRule -> methodTransformation.accept(methodRule, builder));
-    return builder.build();
   }
 
   public void supplyConsumer(ArtProfileConsumer consumer, Reporter reporter) {

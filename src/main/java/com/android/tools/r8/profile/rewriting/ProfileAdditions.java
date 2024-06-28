@@ -47,7 +47,7 @@ public abstract class ProfileAdditions<
     MethodRule extends AbstractProfileMethodRule,
     MethodRuleBuilder extends AbstractProfileMethodRule.Builder<MethodRule, MethodRuleBuilder>,
     ProfileRule extends AbstractProfileRule,
-    Profile extends AbstractProfile<ClassRule, MethodRule>,
+    Profile extends AbstractProfile<ClassRule, MethodRule, Profile, ProfileBuilder>,
     ProfileBuilder extends
         AbstractProfile.Builder<ClassRule, MethodRule, Profile, ProfileBuilder>> {
 

@@ -66,6 +66,11 @@ public class EmptyStartupProfile extends StartupProfile {
   }
 
   @Override
+  public Builder toEmptyBuilderWithCapacity() {
+    return builder();
+  }
+
+  @Override
   public EmptyStartupProfile toStartupProfileForWriting(AppView<?> appView) {
     return this;
   }

@@ -6,10 +6,15 @@ package com.android.tools.r8.profile;
 
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.profile.AbstractProfile.Builder;
 import com.android.tools.r8.utils.ThrowingConsumer;
+import java.util.function.BiConsumer;
 
 public interface AbstractProfile<
-    ClassRule extends AbstractProfileClassRule, MethodRule extends AbstractProfileMethodRule> {
+    ClassRule extends AbstractProfileClassRule,
+    MethodRule extends AbstractProfileMethodRule,
+    Profile extends AbstractProfile<ClassRule, MethodRule, Profile, ProfileBuilder>,
+    ProfileBuilder extends Builder<ClassRule, MethodRule, Profile, ProfileBuilder>> {
 
   boolean containsClassRule(DexType type);
 
@@ -24,10 +29,22 @@ public interface AbstractProfile<
 
   MethodRule getMethodRule(DexMethod method);
 
+  ProfileBuilder toEmptyBuilderWithCapacity();
+
+  default Profile transform(
+      BiConsumer<ClassRule, ProfileBuilder> classRuleTransformer,
+      BiConsumer<MethodRule, ProfileBuilder> methodRuleTransformer) {
+    ProfileBuilder builder = toEmptyBuilderWithCapacity();
+    forEachRule(
+        classRule -> classRuleTransformer.accept(classRule, builder),
+        methodRule -> methodRuleTransformer.accept(methodRule, builder));
+    return builder.build();
+  }
+
   interface Builder<
       ClassRule extends AbstractProfileClassRule,
       MethodRule extends AbstractProfileMethodRule,
-      Profile extends AbstractProfile<ClassRule, MethodRule>,
+      Profile extends AbstractProfile<ClassRule, MethodRule, Profile, ProfileBuilder>,
       ProfileBuilder extends Builder<ClassRule, MethodRule, Profile, ProfileBuilder>> {
 
     ProfileBuilder addRule(AbstractProfileRule rule);

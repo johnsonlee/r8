@@ -36,7 +36,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public abstract class StartupProfile
-    implements AbstractProfile<StartupProfileClassRule, StartupProfileMethodRule> {
+    implements AbstractProfile<
+        StartupProfileClassRule, StartupProfileMethodRule, StartupProfile, StartupProfile.Builder> {
 
   protected StartupProfile() {}
 
