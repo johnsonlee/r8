@@ -105,7 +105,7 @@ public class ArtProfileMethodRule extends ArtProfileRule implements AbstractProf
     private final DexItemFactory dexItemFactory;
 
     private DexMethod method;
-    private ArtProfileMethodRuleInfoImpl.Builder methodRuleInfoBuilder =
+    private final ArtProfileMethodRuleInfoImpl.Builder methodRuleInfoBuilder =
         ArtProfileMethodRuleInfoImpl.builder();
 
     Builder() {

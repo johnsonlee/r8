@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.profile.art;
 
-import static com.android.tools.r8.utils.MapUtils.ignoreKey;
-
 import com.android.tools.r8.TextInputStream;
 import com.android.tools.r8.TextOutputStream;
 import com.android.tools.r8.graph.AppInfo;
@@ -24,7 +22,6 @@ import com.android.tools.r8.profile.AbstractProfileRule;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.ThrowingConsumer;
-import com.android.tools.r8.utils.TriConsumer;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
@@ -33,7 +30,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfileMethodRule> {
 
@@ -50,6 +46,10 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
   public static Builder builderForInitialArtProfile(
       ArtProfileProvider artProfileProvider, InternalOptions options) {
     return new Builder(artProfileProvider, options);
+  }
+
+  public static Builder builderWithCapacity(int capacity) {
+    return new Builder(capacity);
   }
 
   @Override
@@ -99,31 +99,33 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
       return rewrittenWithLens(appView, lens.asEnumUnboxerLens());
     }
     return transform(
-        (classRule, classRuleBuilderFactory) -> {
+        (classRule, builder) -> {
           DexType newClassRule = lens.lookupType(classRule.getType());
           assert newClassRule.isClassType();
-          classRuleBuilderFactory.accept(newClassRule);
+          builder.addClassRule(ArtProfileClassRule.builder().setType(newClassRule).build());
         },
-        (methodRule, classRuleBuilderFactory, methodRuleBuilderFactory) ->
-            methodRuleBuilderFactory
-                .apply(lens.getRenamedMethodSignature(methodRule.getMethod()))
-                .acceptMethodRuleInfoBuilder(
-                    methodRuleInfoBuilder ->
-                        methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo())));
+        (methodRule, builder) ->
+            builder.addMethodRule(
+                ArtProfileMethodRule.builder()
+                    .setMethod(methodRule.getMethod())
+                    .acceptMethodRuleInfoBuilder(
+                        methodRuleInfoBuilder ->
+                            methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()))
+                    .build()));
   }
 
   @SuppressWarnings("ReferenceEquality")
   public ArtProfile rewrittenWithLens(AppView<?> appView, EnumUnboxingLens lens) {
     return transform(
-        (classRule, classRuleBuilderFactory) -> {
+        (classRule, builder) -> {
           DexType newClassRule = lens.lookupType(classRule.getType());
           if (newClassRule.isClassType()) {
-            classRuleBuilderFactory.accept(newClassRule);
+            builder.addClassRule(ArtProfileClassRule.builder().setType(newClassRule).build());
           } else {
             assert newClassRule.isIntType();
           }
         },
-        (methodRule, classRuleBuilderFactory, methodRuleBuilderFactory) -> {
+        (methodRule, builder) -> {
           DexMethod newMethod = lens.getRenamedMethodSignature(methodRule.getMethod());
           // When moving non-synthetic methods from an enum class to its enum utility class we also
           // add a rule for the utility class.
@@ -132,13 +134,16 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
                 .getSyntheticItems()
                 .isSyntheticOfKind(
                     newMethod.getHolderType(), naming -> naming.ENUM_UNBOXING_LOCAL_UTILITY_CLASS);
-            classRuleBuilderFactory.accept(newMethod.getHolderType());
+            builder.addClassRule(
+                ArtProfileClassRule.builder().setType(newMethod.getHolderType()).build());
           }
-          methodRuleBuilderFactory
-              .apply(newMethod)
-              .acceptMethodRuleInfoBuilder(
-                  methodRuleInfoBuilder ->
-                      methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()));
+          builder.addMethodRule(
+              ArtProfileMethodRule.builder()
+                  .setMethod(newMethod)
+                  .acceptMethodRuleInfoBuilder(
+                      methodRuleInfoBuilder ->
+                          methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()))
+                  .build());
         });
   }
 
@@ -146,33 +151,41 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     assert !lens.isIdentityLens();
     return transform(
-        (classRule, classRuleBuilderFactory) ->
-            classRuleBuilderFactory.accept(lens.lookupType(classRule.getType(), dexItemFactory)),
-        (methodRule, classRuleBuilderFactory, methodRuleBuilderFactory) ->
-            methodRuleBuilderFactory
-                .apply(lens.lookupMethod(methodRule.getMethod(), dexItemFactory))
-                .acceptMethodRuleInfoBuilder(
-                    methodRuleInfoBuilder ->
-                        methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo())));
+        (classRule, builder) ->
+            builder.addClassRule(
+                ArtProfileClassRule.builder()
+                    .setType(lens.lookupType(classRule.getType(), dexItemFactory))
+                    .build()),
+        (methodRule, builder) ->
+            builder.addMethodRule(
+                ArtProfileMethodRule.builder()
+                    .setMethod(lens.lookupMethod(methodRule.getMethod(), dexItemFactory))
+                    .acceptMethodRuleInfoBuilder(
+                        methodRuleInfoBuilder ->
+                            methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()))
+                    .build()));
   }
 
   public ArtProfile withoutMissingItems(AppView<?> appView) {
     AppInfo appInfo = appView.appInfo();
     return transform(
-        (classRule, classRuleBuilderFactory) -> {
+        (classRule, builder) -> {
           if (appInfo.hasDefinitionForWithoutExistenceAssert(classRule.getType())) {
-            classRuleBuilderFactory.accept(classRule.getType());
+            builder.addClassRule(
+                ArtProfileClassRule.builder().setType(classRule.getType()).build());
           }
         },
-        (methodRule, classRuleBuilderFactory, methodRuleBuilderFactory) -> {
+        (methodRule, builder) -> {
           DexClass clazz =
               appInfo.definitionForWithoutExistenceAssert(methodRule.getMethod().getHolderType());
           if (methodRule.getMethod().isDefinedOnClass(clazz)) {
-            methodRuleBuilderFactory
-                .apply(methodRule.getMethod())
-                .acceptMethodRuleInfoBuilder(
-                    methodRuleInfoBuilder ->
-                        methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()));
+            builder.addMethodRule(
+                ArtProfileMethodRule.builder()
+                    .setMethod(methodRule.getMethod())
+                    .acceptMethodRuleInfoBuilder(
+                        methodRuleInfoBuilder ->
+                            methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()))
+                    .build());
           }
         });
   }
@@ -183,37 +196,19 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
   }
 
   private ArtProfile transform(
-      BiConsumer<ArtProfileClassRule, Consumer<DexType>> classTransformation,
-      TriConsumer<
-              ArtProfileMethodRule,
-              Consumer<DexType>,
-              Function<DexMethod, ArtProfileMethodRule.Builder>>
-          methodTransformation) {
-    Map<DexReference, ArtProfileRule.Builder> ruleBuilders = new LinkedHashMap<>();
-    Consumer<DexType> classRuleBuilderFactory =
-        newType ->
-            ruleBuilders
-                .computeIfAbsent(
-                    newType, ignoreKey(() -> ArtProfileClassRule.builder().setType(newType)))
-                .asClassRuleBuilder();
-    Function<DexMethod, ArtProfileMethodRule.Builder> methodRuleBuilderFactory =
-        newMethod ->
-            ruleBuilders
-                .computeIfAbsent(
-                    newMethod, ignoreKey(() -> ArtProfileMethodRule.builder().setMethod(newMethod)))
-                .asMethodRuleBuilder();
+      BiConsumer<ArtProfileClassRule, Builder> classTransformation,
+      BiConsumer<ArtProfileMethodRule, Builder> methodTransformation) {
+    Builder builder = builderWithCapacity(rules.size());
     forEachRule(
         // Supply a factory method for creating a builder. If the current rule should be included in
         // the rewritten profile, the caller should call the provided builder factory method to
         // create a class rule builder. If two rules are mapped to the same reference, the same rule
         // builder is reused so that the two rules are merged into a single rule (with their flags
         // merged).
-        classRule -> classTransformation.accept(classRule, classRuleBuilderFactory),
+        classRule -> classTransformation.accept(classRule, builder),
         // As above.
-        methodRule ->
-            methodTransformation.accept(
-                methodRule, classRuleBuilderFactory, methodRuleBuilderFactory));
-    return builder().addRuleBuilders(ruleBuilders.values()).build();
+        methodRule -> methodTransformation.accept(methodRule, builder));
+    return builder.build();
   }
 
   public void supplyConsumer(ArtProfileConsumer consumer, Reporter reporter) {
@@ -263,12 +258,21 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
     private final ArtProfileProvider artProfileProvider;
     private final DexItemFactory dexItemFactory;
     private Reporter reporter;
-    private final Map<DexReference, ArtProfileRule> rules = new LinkedHashMap<>();
+    private final Map<DexReference, ArtProfileRule> rules;
 
     Builder() {
+      this(new LinkedHashMap<>());
+    }
+
+    Builder(Map<DexReference, ArtProfileRule> rules) {
       this.artProfileProvider = null;
       this.dexItemFactory = null;
       this.reporter = null;
+      this.rules = rules;
+    }
+
+    Builder(int capacity) {
+      this(new LinkedHashMap<>(capacity));
     }
 
     // Constructor for building the initial ART profile. The input is based on the Reference API, so
@@ -278,6 +282,7 @@ public class ArtProfile implements AbstractProfile<ArtProfileClassRule, ArtProfi
       this.artProfileProvider = artProfileProvider;
       this.dexItemFactory = options.dexItemFactory();
       this.reporter = options.reporter;
+      this.rules = new LinkedHashMap<>();
     }
 
     @Override
