@@ -3,11 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.singlecaller;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.VirtualRootMethodsAnalysisBase;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.List;
@@ -18,12 +18,13 @@ import java.util.concurrent.ExecutorService;
 public class MonomorphicVirtualMethodsAnalysis extends VirtualRootMethodsAnalysisBase {
 
   public MonomorphicVirtualMethodsAnalysis(
-      AppView<AppInfoWithLiveness> appView, ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     super(appView, immediateSubtypingInfo);
   }
 
   public static ProgramMethodSet computeMonomorphicVirtualRootMethods(
-      AppView<AppInfoWithLiveness> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       List<Set<DexProgramClass>> stronglyConnectedComponents,
       ExecutorService executorService)
@@ -43,7 +44,7 @@ public class MonomorphicVirtualMethodsAnalysis extends VirtualRootMethodsAnalysi
   }
 
   private static ProgramMethodSet computeMonomorphicVirtualRootMethodsInComponent(
-      AppView<AppInfoWithLiveness> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       Set<DexProgramClass> stronglyConnectedComponent) {
     MonomorphicVirtualMethodsAnalysis analysis =

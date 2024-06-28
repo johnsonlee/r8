@@ -17,6 +17,14 @@ import java.util.Collections;
 public class StartupOptions {
 
   /**
+   * When enabled, attempts to move or outline all non-startup methods on startup classes.
+   *
+   * <p>Currently only supported in R8.
+   */
+  private boolean enableOutlining =
+      parseSystemPropertyOrDefault("com.android.tools.r8.startup.outline", false);
+
+  /**
    * When enabled, all startup classes will be placed in the primary classes.dex file. All other
    * (non-startup) classes will be placed in classes2.dex, ..., classesN.dex.
    */
@@ -68,6 +76,10 @@ public class StartupOptions {
             Collections::emptyList);
   }
 
+  public boolean isOutliningEnabled() {
+    return enableOutlining;
+  }
+
   public boolean isMinimalStartupDexEnabled() {
     return enableMinimalStartupDex;
   }
@@ -97,6 +109,11 @@ public class StartupOptions {
 
   public boolean isStartupLayoutOptimizationEnabled() {
     return enableStartupLayoutOptimization;
+  }
+
+  public StartupOptions setEnableOutlining(boolean enableOutlining) {
+    this.enableOutlining = enableOutlining;
+    return this;
   }
 
   public StartupOptions setEnableStartupCompletenessCheckForTesting() {

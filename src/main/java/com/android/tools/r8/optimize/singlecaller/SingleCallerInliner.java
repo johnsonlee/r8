@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.singlecaller;
 import static com.android.tools.r8.ir.optimize.info.OptimizationFeedback.getSimpleFeedback;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
@@ -69,7 +70,7 @@ public class SingleCallerInliner {
 
   public void run(ExecutorService executorService) throws ExecutionException {
     ProgramMethodSet monomorphicVirtualMethods =
-        computeMonomorphicVirtualRootMethods(executorService);
+        computeMonomorphicVirtualRootMethods(appView, executorService);
     ProgramMethodMap<ProgramMethod> singleCallerMethods =
         new SingleCallerScanner(appView, monomorphicVirtualMethods)
             .getSingleCallerMethods(executorService);
@@ -87,8 +88,8 @@ public class SingleCallerInliner {
   // deal with (rooted) virtual methods that do not override abstract/interface methods. In order to
   // also deal with virtual methods that override abstract/interface methods we would need to record
   // calls to the abstract/interface methods as calls to the non-abstract virtual method.
-  @SuppressWarnings("UnusedMethod")
-  private ProgramMethodSet computeMonomorphicVirtualRootMethods(ExecutorService executorService)
+  public static ProgramMethodSet computeMonomorphicVirtualRootMethods(
+      AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService)
       throws ExecutionException {
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
         ImmediateProgramSubtypingInfo.create(appView);

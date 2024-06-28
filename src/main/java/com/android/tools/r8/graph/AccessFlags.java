@@ -269,8 +269,9 @@ public abstract class AccessFlags<T extends AccessFlags<T>> implements Structura
     return newAccessFlags;
   }
 
-  public void promoteToStatic() {
+  public T promoteToStatic() {
     promote(Constants.ACC_STATIC);
+    return self();
   }
 
   private boolean wasSet(int flag) {

@@ -1003,10 +1003,12 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
       DexDebugInfo newDebugInfo = dexCode.debugInfoWithFakeThisParameter(appView.dexItemFactory());
       assert (newDebugInfo == null) || (arity == newDebugInfo.getParameterCount());
       dexCode.setDebugInfo(newDebugInfo);
-    } else {
-      assert code.isCfCode();
+    } else if (code.isCfCode()) {
       CfCode cfCode = code.asCfCode();
       cfCode.addFakeThisParameter(appView.dexItemFactory());
+    } else if (code.isLirCode()) {
+      assert appView.options().isRelease();
+      assert code.asLirCode().getDebugLocalInfoTable() == null;
     }
   }
 

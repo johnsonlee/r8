@@ -69,6 +69,7 @@ public class MethodResolutionOptimizationInfoAnalysis {
 
   private static class Traversal extends DepthFirstTopDownClassHierarchyTraversal {
 
+    private final AppView<AppInfoWithLiveness> appViewWithLiveness;
     private final MethodResolutionOptimizationInfoCollection.Builder builder;
     private final Map<DexProgramClass, TraversalState> states = new IdentityHashMap<>();
 
@@ -77,6 +78,7 @@ public class MethodResolutionOptimizationInfoAnalysis {
         MethodResolutionOptimizationInfoCollection.Builder builder,
         ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
       super(appView, immediateSubtypingInfo);
+      this.appViewWithLiveness = appView;
       this.builder = builder;
     }
 
@@ -145,7 +147,7 @@ public class MethodResolutionOptimizationInfoAnalysis {
                 states
                     .getOrDefault(subClass, UpwardsTraversalState.empty())
                     .asUpwardsTraversalState();
-            newState.join(appView, subClassState);
+            newState.join(appViewWithLiveness, subClassState);
 
             // If the current class is an interface and the current subclass is not, then we need
             // special handling to account for the fact that invoke-interface instructions may
@@ -156,26 +158,30 @@ public class MethodResolutionOptimizationInfoAnalysis {
             }
           });
       ObjectAllocationInfoCollection objectAllocationInfoCollection =
-          appView.appInfo().getObjectAllocationInfoCollection();
+          appViewWithLiveness.appInfo().getObjectAllocationInfoCollection();
       if (objectAllocationInfoCollection.isImmediateInterfaceOfInstantiatedLambda(clazz)) {
         for (DexEncodedMethod method : clazz.virtualMethods()) {
           newState.joinMethodOptimizationInfo(
-              appView, method.getSignature(), DefaultMethodOptimizationInfo.getInstance());
+              appViewWithLiveness,
+              method.getSignature(),
+              DefaultMethodOptimizationInfo.getInstance());
         }
       } else {
         for (DexEncodedMethod method : clazz.virtualMethods()) {
-          KeepMethodInfo keepInfo = appView.getKeepInfo().getMethodInfo(method, clazz);
-          if (!keepInfo.isShrinkingAllowed(appView.options())) {
+          KeepMethodInfo keepInfo = appViewWithLiveness.getKeepInfo().getMethodInfo(method, clazz);
+          if (!keepInfo.isShrinkingAllowed(appViewWithLiveness.options())) {
             // Method is kept and could be overridden outside app (e.g., in tests). Verify we don't
             // have any optimization info recorded for non-abstract methods.
             assert method.isAbstract()
                 || method.getOptimizationInfo().isDefault()
                 || method.getOptimizationInfo().returnValueHasBeenPropagated();
             newState.joinMethodOptimizationInfo(
-                appView, method.getSignature(), DefaultMethodOptimizationInfo.getInstance());
+                appViewWithLiveness,
+                method.getSignature(),
+                DefaultMethodOptimizationInfo.getInstance());
           } else if (!method.isAbstract()) {
             newState.joinMethodOptimizationInfo(
-                appView, method.getSignature(), method.getOptimizationInfo());
+                appViewWithLiveness, method.getSignature(), method.getOptimizationInfo());
           }
         }
       }
@@ -214,7 +220,7 @@ public class MethodResolutionOptimizationInfoAnalysis {
 
       for (DexMethodSignature method : interfaceMethodsInClassOrAbove) {
         MethodResolutionResult resolutionResult =
-            appView.appInfo().resolveMethodOnClass(subClass, method);
+            appViewWithLiveness.appInfo().resolveMethodOnClass(subClass, method);
         if (resolutionResult.isFailedResolution()) {
           assert resolutionResult.asFailedResolution().hasMethodsCausingError();
           continue;
@@ -223,7 +229,7 @@ public class MethodResolutionOptimizationInfoAnalysis {
         if (resolutionResult.isMultiMethodResolutionResult()) {
           // Conservatively drop the current optimization info.
           newState.joinMethodOptimizationInfo(
-              appView, method, DefaultMethodOptimizationInfo.getInstance());
+              appViewWithLiveness, method, DefaultMethodOptimizationInfo.getInstance());
           continue;
         }
 
@@ -231,7 +237,7 @@ public class MethodResolutionOptimizationInfoAnalysis {
         DexClassAndMethod resolvedMethod = resolutionResult.getResolutionPair();
         if (!resolvedMethod.getHolder().isInterface() && resolvedMethod.getHolder() != subClass) {
           newState.joinMethodOptimizationInfo(
-              appView, method, resolvedMethod.getOptimizationInfo());
+              appViewWithLiveness, method, resolvedMethod.getOptimizationInfo());
         }
       }
     }

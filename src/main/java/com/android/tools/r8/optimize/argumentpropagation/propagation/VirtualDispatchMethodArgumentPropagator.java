@@ -70,14 +70,14 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       assert parentState != null;
 
       // Add the argument information that must be propagated to all method overrides.
-      active.addMethodStates(appView, parentState.active);
+      active.addMethodStates(appViewWithLiveness, parentState.active);
 
       // Add the argument information that is active until a given lower bound.
       parentState.activeUntilLowerBound.forEach(
           (lowerBound, activeMethodState) -> {
-            TypeElement lowerBoundType = lowerBound.toTypeElement(appView);
-            TypeElement currentType = clazz.getType().toTypeElement(appView);
-            if (lowerBoundType.lessThanOrEqual(currentType, appView)) {
+            TypeElement lowerBoundType = lowerBound.toTypeElement(appViewWithLiveness);
+            TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
+            if (lowerBoundType.lessThanOrEqual(currentType, appViewWithLiveness)) {
               addActiveUntilLowerBound(lowerBound, activeMethodState);
             } else {
               // No longer active.
@@ -109,21 +109,22 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
               // interface method is not applied. The information is propagated to the class
               // method that implements the interface method below.
               ClassTypeElement lowerBound = bounds.getDynamicLowerBoundType();
-              TypeElement currentType = clazz.getType().toTypeElement(appView);
-              if (lowerBound.lessThanOrEqual(currentType, appView)) {
-                DexType activeUntilLowerBoundType = lowerBound.toDexType(appView.dexItemFactory());
+              TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
+              if (lowerBound.lessThanOrEqual(currentType, appViewWithLiveness)) {
+                DexType activeUntilLowerBoundType =
+                    lowerBound.toDexType(appViewWithLiveness.dexItemFactory());
                 addActiveUntilLowerBound(activeUntilLowerBoundType, inactiveMethodStates);
               } else {
                 return;
               }
             } else {
-              active.addMethodStates(appView, inactiveMethodStates);
+              active.addMethodStates(appViewWithLiveness, inactiveMethodStates);
             }
 
             inactiveMethodStates.forEach(
                 (signature, methodState) -> {
                   SingleResolutionResult<?> resolutionResult =
-                      appView
+                      appViewWithLiveness
                           .appInfo()
                           .resolveMethodOnLegacy(clazz, signature)
                           .asSingleResolution();
@@ -132,7 +133,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                   while (resolutionResult != null
                       && resolutionResult.getResolvedMethod().belongsToDirectPool()) {
                     resolutionResult =
-                        appView
+                        appViewWithLiveness
                             .appInfo()
                             .resolveMethodOnClassLegacy(
                                 resolutionResult.getResolvedHolder().getSuperType(), signature)
@@ -160,28 +161,28 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
         DexType lowerBound, ProgramMethod method, MethodState methodState) {
       activeUntilLowerBound
           .computeIfAbsent(lowerBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodState(appView, method, methodState);
+          .addMethodState(appViewWithLiveness, method, methodState);
     }
 
     private void addActiveUntilLowerBound(
         DexType lowerBound, MethodStateCollectionBySignature methodStates) {
       activeUntilLowerBound
           .computeIfAbsent(lowerBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodStates(appView, methodStates);
+          .addMethodStates(appViewWithLiveness, methodStates);
     }
 
     private void addInactiveUntilUpperBound(
         DynamicTypeWithUpperBound upperBound, ProgramMethod method, MethodState methodState) {
       inactiveUntilUpperBound
           .computeIfAbsent(upperBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodState(appView, method, methodState);
+          .addMethodState(appViewWithLiveness, method, methodState);
     }
 
     private void addInactiveUntilUpperBound(
         DynamicTypeWithUpperBound upperBound, MethodStateCollectionBySignature methodStates) {
       inactiveUntilUpperBound
           .computeIfAbsent(upperBound, ignoreKey(MethodStateCollectionBySignature::create))
-          .addMethodStates(appView, methodStates);
+          .addMethodStates(appViewWithLiveness, methodStates);
     }
 
     private MethodState computeMethodStateForPolymorphicMethod(ProgramMethod method) {
@@ -192,7 +193,10 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
         for (MethodStateCollectionBySignature methodStates : activeUntilLowerBound.values()) {
           methodState =
               methodState.mutableJoin(
-                  appView, methodSignature, methodStates.get(method), StateCloner.getCloner());
+                  appViewWithLiveness,
+                  methodSignature,
+                  methodStates.get(method),
+                  StateCloner.getCloner());
         }
       }
       if (methodState.isMonomorphic()) {
@@ -226,8 +230,9 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
           dynamicType.asDynamicTypeWithUpperBound();
       TypeElement dynamicUpperBoundType = dynamicTypeWithUpperBound.getDynamicUpperBoundType();
       TypeElement staticUpperBoundType =
-          method.getHolderType().toTypeElement(appView, definitelyNotNull());
-      if (dynamicUpperBoundType.lessThanOrEqualUpToNullability(staticUpperBoundType, appView)) {
+          method.getHolderType().toTypeElement(appViewWithLiveness, definitelyNotNull());
+      if (dynamicUpperBoundType.lessThanOrEqualUpToNullability(
+          staticUpperBoundType, appViewWithLiveness)) {
         DynamicType newDynamicType = dynamicType.withNullability(definitelyNotNull());
         assert newDynamicType.equals(dynamicType)
             || !dynamicType.getNullability().isDefinitelyNotNull();
@@ -237,25 +242,27 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       if (dynamicLowerBoundType == null) {
         return DynamicType.definitelyNotNull();
       }
-      assert dynamicLowerBoundType.lessThanOrEqualUpToNullability(staticUpperBoundType, appView);
+      assert dynamicLowerBoundType.lessThanOrEqualUpToNullability(
+          staticUpperBoundType, appViewWithLiveness);
       if (dynamicLowerBoundType.equalUpToNullability(staticUpperBoundType)) {
         return DynamicType.createExact(dynamicLowerBoundType.asDefinitelyNotNull());
       }
       return DynamicType.create(
-          appView, staticUpperBoundType, dynamicLowerBoundType.asDefinitelyNotNull());
+          appViewWithLiveness, staticUpperBoundType, dynamicLowerBoundType.asDefinitelyNotNull());
     }
 
     @SuppressWarnings("ReferenceEquality")
     private boolean shouldActivateMethodStateGuardedByBounds(
         ClassTypeElement upperBound, DexProgramClass currentClass, DexProgramClass superClass) {
       ClassTypeElement classType =
-          TypeElement.fromDexType(currentClass.getType(), maybeNull(), appView).asClassType();
+          TypeElement.fromDexType(currentClass.getType(), maybeNull(), appViewWithLiveness)
+              .asClassType();
       // When propagating argument information for interface methods downwards from an interface to
       // a non-interface we need to account for the parent classes of the current class.
       if (superClass.isInterface()
           && !currentClass.isInterface()
-          && currentClass.getSuperType() != appView.dexItemFactory().objectType) {
-        return classType.lessThanOrEqualUpToNullability(upperBound, appView);
+          && currentClass.getSuperType() != appViewWithLiveness.dexItemFactory().objectType) {
+        return classType.lessThanOrEqualUpToNullability(upperBound, appViewWithLiveness);
       }
       // If the upper bound does not have any interfaces we simply activate the method state when
       // meeting the upper bound class type in the downwards traversal over the class hierarchy.
@@ -264,18 +271,20 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       }
       // If the upper bound has interfaces, we check if the current class is a subtype of *both* the
       // upper bound class type and the upper bound interface types.
-      return classType.lessThanOrEqualUpToNullability(upperBound, appView);
+      return classType.lessThanOrEqualUpToNullability(upperBound, appViewWithLiveness);
     }
 
     boolean verifyActiveUntilLowerBoundRelevance(DexProgramClass clazz) {
-      TypeElement currentType = clazz.getType().toTypeElement(appView);
+      TypeElement currentType = clazz.getType().toTypeElement(appViewWithLiveness);
       for (DexType lowerBound : activeUntilLowerBound.keySet()) {
-        TypeElement lowerBoundType = lowerBound.toTypeElement(appView);
-        assert lowerBoundType.lessThanOrEqual(currentType, appView);
+        TypeElement lowerBoundType = lowerBound.toTypeElement(appViewWithLiveness);
+        assert lowerBoundType.lessThanOrEqual(currentType, appViewWithLiveness);
       }
       return true;
     }
   }
+
+  final AppView<AppInfoWithLiveness> appViewWithLiveness;
 
   // For each class, stores the argument information for each virtual method on this class and all
   // direct and indirect super classes.
@@ -290,6 +299,7 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       MethodStateCollectionByReference methodStates) {
     super(appView, immediateSubtypingInfo, methodStates);
+    this.appViewWithLiveness = appView;
   }
 
   @Override
@@ -336,7 +346,8 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
           polymorphicMethodState.forEach(
               (bounds, methodStateForBounds) -> {
                 if (bounds.isUnknown()) {
-                  propagationState.active.addMethodState(appView, method, methodStateForBounds);
+                  propagationState.active.addMethodState(
+                      appViewWithLiveness, method, methodStateForBounds);
                 } else {
                   // TODO(b/190154391): Verify that the bounds are not trivial according to the
                   //  static receiver type.
@@ -347,19 +358,20 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
                       //  class.
                       ClassTypeElement lowerBound = bounds.getDynamicLowerBoundType();
                       DexType activeUntilLowerBoundType =
-                          lowerBound.toDexType(appView.dexItemFactory());
+                          lowerBound.toDexType(appViewWithLiveness.dexItemFactory());
                       assert !bounds.isExactClassType()
                           || activeUntilLowerBoundType.isIdenticalTo(clazz.getType());
                       propagationState.addActiveUntilLowerBound(
                           activeUntilLowerBoundType, method, methodStateForBounds);
                     } else {
-                      propagationState.active.addMethodState(appView, method, methodStateForBounds);
+                      propagationState.active.addMethodState(
+                          appViewWithLiveness, method, methodStateForBounds);
                     }
                   } else {
                     assert !clazz
                         .getType()
-                        .toTypeElement(appView)
-                        .lessThanOrEqualUpToNullability(upperBound, appView);
+                        .toTypeElement(appViewWithLiveness)
+                        .lessThanOrEqualUpToNullability(upperBound, appViewWithLiveness);
                     propagationState.addInactiveUntilUpperBound(
                         bounds, method, methodStateForBounds);
                   }
@@ -372,8 +384,9 @@ public class VirtualDispatchMethodArgumentPropagator extends MethodArgumentPropa
   }
 
   private boolean isUpperBoundSatisfied(ClassTypeElement upperBound, DexProgramClass currentClass) {
-    DexType upperBoundType = upperBound.toDexType(appView.dexItemFactory());
-    DexProgramClass upperBoundClass = asProgramClassOrNull(appView.definitionFor(upperBoundType));
+    DexType upperBoundType = upperBound.toDexType(appViewWithLiveness.dexItemFactory());
+    DexProgramClass upperBoundClass =
+        asProgramClassOrNull(appViewWithLiveness.definitionFor(upperBoundType));
     if (upperBoundClass == null) {
       // We should generally never have a dynamic receiver upper bound for a program method which is
       // not a program class. However, since the program may not type change or there could be

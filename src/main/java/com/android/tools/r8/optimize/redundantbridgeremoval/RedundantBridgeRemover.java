@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.redundantbridgeremoval;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultUseRegistry;
 import com.android.tools.r8.graph.DexClass;
@@ -387,7 +388,7 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
       if (superTargets != null) {
         return superTargets;
       }
-      AppView<AppInfoWithLiveness> appViewWithLiveness = appView;
+      AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy = appView;
       superTargets = ProgramMethodSet.create();
       WorkList<DexProgramClass> worklist = WorkList.newIdentityWorkList(root);
       while (worklist.hasNext()) {
@@ -402,9 +403,10 @@ public class RedundantBridgeRemover extends MemberRebindingHelper {
                       public void registerInvokeSuper(DexMethod method) {
                         ProgramMethod superTarget =
                             asProgramMethodOrNull(
-                                appViewWithLiveness
+                                appViewWithClassHierarchy
                                     .appInfo()
-                                    .lookupSuperTarget(method, getContext(), appViewWithLiveness));
+                                    .lookupSuperTarget(
+                                        method, getContext(), appViewWithClassHierarchy));
                         if (superTarget != null) {
                           superTargets.add(superTarget);
                         }

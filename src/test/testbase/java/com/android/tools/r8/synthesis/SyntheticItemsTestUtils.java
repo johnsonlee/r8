@@ -227,6 +227,15 @@ public class SyntheticItemsTestUtils {
         originalMethod.getMethodDescriptor());
   }
 
+  public static ClassReference syntheticNonStartupInStartupOutlineClass(Class<?> clazz, int id) {
+    return syntheticNonStartupInStartupOutlineClass(Reference.classFromClass(clazz), id);
+  }
+
+  public static ClassReference syntheticNonStartupInStartupOutlineClass(
+      ClassReference reference, int id) {
+    return syntheticClass(reference, naming.NON_STARTUP_IN_STARTUP_OUTLINE, id);
+  }
+
   public static MethodReference syntheticPrivateInterfaceMethodAsCompanionMethod(Method method) {
     MethodReference originalMethod = Reference.methodFromMethod(method);
     ClassReference companionClassReference =

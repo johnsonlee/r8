@@ -43,6 +43,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
 
   // Contains the argument information for each interface method (including inherited interface
   // methods) on the seen but not finished interfaces.
+  final AppView<AppInfoWithLiveness> appViewWithLiveness;
   final Map<DexProgramClass, MethodStateCollectionBySignature> methodStatesToPropagate =
       new IdentityHashMap<>();
   final Consumer<DexMethodSignature> interfaceDispatchOutsideProgram;
@@ -53,6 +54,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
       MethodStateCollectionByReference methodStates,
       Consumer<DexMethodSignature> interfaceDispatchOutsideProgram) {
     super(appView, immediateSubtypingInfo, methodStates);
+    this.appViewWithLiveness = appView;
     this.interfaceDispatchOutsideProgram = interfaceDispatchOutsideProgram;
   }
 
@@ -98,7 +100,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
           MethodStateCollectionBySignature implementedInterfaceState =
               methodStatesToPropagate.get(superclass);
           assert implementedInterfaceState != null;
-          interfaceState.addMethodStates(appView, implementedInterfaceState);
+          interfaceState.addMethodStates(appViewWithLiveness, implementedInterfaceState);
         });
 
     // Add any argument information for virtual methods on the current interface to the state.
@@ -116,7 +118,7 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
           }
 
           assert methodState.isUnknown() || methodState.asConcrete().isPolymorphic();
-          interfaceState.addMethodState(appView, method, methodState);
+          interfaceState.addMethodState(appViewWithLiveness, method, methodState);
         });
 
     methodStatesToPropagate.put(interfaceDefinition, interfaceState);
@@ -134,7 +136,9 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
             interfaceState.forEach(
                 (interfaceMethod, interfaceMethodState) -> {
                   MethodResolutionResult resolutionResult =
-                      appView.appInfo().resolveMethodOnClassLegacy(subclass, interfaceMethod);
+                      appViewWithLiveness
+                          .appInfo()
+                          .resolveMethodOnClassLegacy(subclass, interfaceMethod);
                   if (resolutionResult.isFailedResolution()) {
                     // TODO(b/190154391): Do we need to propagate argument information to the first
                     //  virtual method above the inaccessible method in the class hierarchy?
@@ -155,10 +159,14 @@ public class InterfaceMethodArgumentPropagator extends MethodArgumentPropagator 
 
                   MethodState transformedInterfaceMethodState =
                       transformInterfaceMethodStateForClassMethod(
-                          appView, subclass, resolvedMethod, interfaceMethodState, methodStates);
+                          appViewWithLiveness,
+                          subclass,
+                          resolvedMethod,
+                          interfaceMethodState,
+                          methodStates);
                   if (!transformedInterfaceMethodState.isBottom()) {
                     methodStates.addMethodState(
-                        appView, resolvedMethod, transformedInterfaceMethodState);
+                        appViewWithLiveness, resolvedMethod, transformedInterfaceMethodState);
                   }
                 }));
   }

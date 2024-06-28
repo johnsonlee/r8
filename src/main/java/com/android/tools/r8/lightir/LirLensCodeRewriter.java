@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerGraphLens;
 import com.android.tools.r8.ir.code.IRCode;
@@ -54,6 +55,8 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   private final GraphLens codeLens;
   private final LensCodeRewriterUtils helper;
 
+  private final boolean isNonStartupInStartupOutlinerLens;
+
   private int numberOfInvokeOpcodeChanges = 0;
   private Map<LirConstant, LirConstant> constantPoolMapping = null;
 
@@ -71,6 +74,15 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     this.graphLens = appView.graphLens();
     this.codeLens = context.getDefinition().getCode().getCodeLens(appView);
     this.helper = helper;
+    NonIdentityGraphLens nonStartupInStartupOutlinerLens =
+        graphLens.isNonIdentityLens()
+            ? graphLens
+                .asNonIdentityLens()
+                .find(l -> l.isNonStartupInStartupOutlinerLens() || l == codeLens)
+            : null;
+    this.isNonStartupInStartupOutlinerLens =
+        nonStartupInStartupOutlinerLens != null
+            && nonStartupInStartupOutlinerLens.isNonStartupInStartupOutlinerLens();
   }
 
   @Override
@@ -120,13 +132,14 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     InvokeType newType = result.getType();
     boolean newIsInterface = lookupIsInterface(method, opcode, result);
     int newOpcode = newType.getLirOpcode(newIsInterface);
-    assert newMethod.getArity() == method.getArity();
+    assert newMethod.getArity() == method.getArity() || newType.isStatic();
     if (newOpcode != opcode) {
       assert type == newType
-              || (type.isDirect() && (newType.isInterface() || newType.isVirtual()))
-              || (type.isInterface() && newType.isVirtual())
+              || (type.isDirect()
+                  && (newType.isInterface() || newType.isStatic() || newType.isVirtual()))
+              || (type.isInterface() && (newType.isStatic() || newType.isVirtual()))
               || (type.isSuper() && newType.isVirtual())
-              || (type.isVirtual() && newType.isInterface())
+              || (type.isVirtual() && (newType.isInterface() || newType.isStatic()))
           : type + " -> " + newType;
       numberOfInvokeOpcodeChanges++;
     } else {
@@ -280,6 +293,17 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     }
     if (opcode == LirOpcodes.INVOKEINTERFACE) {
       return InvokeType.INTERFACE;
+    }
+    if (isNonStartupInStartupOutlinerLens) {
+      if (LirOpcodeUtils.isInvokeDirect(opcode)) {
+        return InvokeType.DIRECT;
+      }
+      if (LirOpcodeUtils.isInvokeInterface(opcode)) {
+        return InvokeType.INTERFACE;
+      }
+      if (LirOpcodeUtils.isInvokeVirtual(opcode)) {
+        return InvokeType.VIRTUAL;
+      }
     }
     if (graphLens.isVerticalClassMergerLens()) {
       if (opcode == LirOpcodes.INVOKESTATIC_ITF) {

@@ -460,6 +460,10 @@ public abstract class GraphLens {
     return null;
   }
 
+  public boolean isNonStartupInStartupOutlinerLens() {
+    return false;
+  }
+
   public boolean isProtoNormalizerLens() {
     return false;
   }

@@ -105,6 +105,7 @@ import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
 import com.android.tools.r8.shaking.TreePruner;
 import com.android.tools.r8.shaking.TreePrunerConfiguration;
 import com.android.tools.r8.shaking.WhyAreYouKeepingConsumer;
+import com.android.tools.r8.startup.NonStartupInStartupOutliner;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.AndroidApp;
@@ -705,6 +706,8 @@ public class R8 {
       appView.setArtProfileCollection(
           appView.getArtProfileCollection().withoutMissingItems(appView));
       appView.setStartupProfile(appView.getStartupProfile().withoutMissingItems(appView));
+
+      new NonStartupInStartupOutliner(appView).runIfNecessary(executorService, timing);
 
       if (appView.appInfo().hasLiveness()) {
         SyntheticFinalization.finalizeWithLiveness(appView.withLiveness(), executorService, timing);

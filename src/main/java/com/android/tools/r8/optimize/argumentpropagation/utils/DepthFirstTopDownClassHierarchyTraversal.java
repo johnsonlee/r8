@@ -6,11 +6,11 @@ package com.android.tools.r8.optimize.argumentpropagation.utils;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,7 +34,7 @@ public abstract class DepthFirstTopDownClassHierarchyTraversal {
     FINISHED
   }
 
-  protected final AppView<AppInfoWithLiveness> appView;
+  protected final AppView<? extends AppInfoWithClassHierarchy> appView;
   protected final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
 
   // Contains the traversal state for each class. If a given class is not in the map the class is
@@ -53,7 +53,8 @@ public abstract class DepthFirstTopDownClassHierarchyTraversal {
   private final List<DexProgramClass> newlySeenButNotFinishedRoots = new ArrayList<>();
 
   public DepthFirstTopDownClassHierarchyTraversal(
-      AppView<AppInfoWithLiveness> appView, ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     this.appView = appView;
     this.immediateSubtypingInfo = immediateSubtypingInfo;
   }

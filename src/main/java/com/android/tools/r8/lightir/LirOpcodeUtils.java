@@ -54,6 +54,14 @@ public class LirOpcodeUtils {
     }
   }
 
+  public static boolean isInvokeDirect(int opcode) {
+    return opcode == INVOKEDIRECT || opcode == INVOKEDIRECT_ITF;
+  }
+
+  public static boolean isInvokeInterface(int opcode) {
+    return opcode == INVOKEINTERFACE;
+  }
+
   public static boolean isInvokeMethod(int opcode) {
     switch (opcode) {
       case INVOKEDIRECT:
@@ -68,5 +76,9 @@ public class LirOpcodeUtils {
       default:
         return false;
     }
+  }
+
+  public static boolean isInvokeVirtual(int opcode) {
+    return opcode == INVOKEVIRTUAL;
   }
 }

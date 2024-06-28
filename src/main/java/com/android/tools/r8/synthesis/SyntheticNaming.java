@@ -102,6 +102,8 @@ public class SyntheticNaming {
       generator.forSingleMethod("ApiModelOutline");
   public final SyntheticKind DESUGARED_LIBRARY_BRIDGE =
       generator.forSingleMethod("DesugaredLibraryBridge");
+  public final SyntheticKind NON_STARTUP_IN_STARTUP_OUTLINE =
+      generator.forSingleMethodWithGlobalMerging("NonStartupInStartupOutline");
 
   private final List<SyntheticKind> ALL_KINDS;
   private String lazyVersionHash = null;
