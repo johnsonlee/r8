@@ -287,6 +287,13 @@ public class ArtProfile
     }
 
     @Override
+    public boolean addClassRule(DexType type) {
+      int oldSize = size();
+      addClassRule(ArtProfileClassRule.builder().setType(type).build());
+      return size() > oldSize;
+    }
+
+    @Override
     public Builder addMethodRule(ArtProfileMethodRule methodRule) {
       rules.compute(
           methodRule.getReference(),
@@ -345,6 +352,11 @@ public class ArtProfile
     @Override
     public ArtProfile build() {
       return new ArtProfile(rules);
+    }
+
+    @Override
+    public int size() {
+      return rules.size();
     }
   }
 }

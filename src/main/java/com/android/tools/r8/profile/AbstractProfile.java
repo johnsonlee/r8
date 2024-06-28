@@ -4,7 +4,9 @@
 
 package com.android.tools.r8.profile;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.profile.AbstractProfile.Builder;
 import com.android.tools.r8.utils.ThrowingConsumer;
@@ -31,6 +33,12 @@ public interface AbstractProfile<
 
   ProfileBuilder toEmptyBuilderWithCapacity();
 
+  default Profile toProfileWithSuperclasses(AppView<?> appView) {
+    return transform(
+        (classRule, builder) -> builder.addClassAndParentClasses(classRule.getReference(), appView),
+        (methodRule, builder) -> builder.addMethodRule(methodRule));
+  }
+
   default Profile transform(
       BiConsumer<ClassRule, ProfileBuilder> classRuleTransformer,
       BiConsumer<MethodRule, ProfileBuilder> methodRuleTransformer) {
@@ -51,8 +59,29 @@ public interface AbstractProfile<
 
     ProfileBuilder addClassRule(ClassRule classRule);
 
+    boolean addClassRule(DexType type);
+
+    default void addClassAndParentClasses(DexType type, AppView<?> appView) {
+      DexProgramClass definition = appView.app().programDefinitionFor(type);
+      if (definition != null) {
+        addClassAndParentClasses(definition, appView);
+      }
+    }
+
+    private void addClassAndParentClasses(DexProgramClass clazz, AppView<?> appView) {
+      if (addClassRule(clazz.getType())) {
+        addParentClasses(clazz, appView);
+      }
+    }
+
+    private void addParentClasses(DexProgramClass clazz, AppView<?> appView) {
+      clazz.forEachImmediateSupertype(supertype -> addClassAndParentClasses(supertype, appView));
+    }
+
     ProfileBuilder addMethodRule(MethodRule methodRule);
 
     Profile build();
+
+    int size();
   }
 }

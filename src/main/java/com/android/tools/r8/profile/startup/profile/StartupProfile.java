@@ -196,6 +196,13 @@ public abstract class StartupProfile
     }
 
     @Override
+    public boolean addClassRule(DexType type) {
+      int oldSize = size();
+      addClassRule(StartupProfileClassRule.builder().setClassReference(type).build());
+      return size() > oldSize;
+    }
+
+    @Override
     public Builder addMethodRule(StartupProfileMethodRule methodRule) {
       return addStartupItem(methodRule);
     }
@@ -259,6 +266,7 @@ public abstract class StartupProfile
       return this;
     }
 
+    @Override
     public int size() {
       return startupItems.size();
     }
