@@ -61,6 +61,21 @@ public class KeepAnnoTestUtils {
     return archive;
   }
 
+  public static List<String> extractRulesFromFiles(
+      List<Path> inputFiles, KeepRuleExtractorOptions extractorOptions) {
+    return extractRulesFromBytes(
+        ListUtils.map(
+            inputFiles,
+            path -> {
+              try {
+                return Files.readAllBytes(path);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            }),
+        extractorOptions);
+  }
+
   public static List<String> extractRules(
       List<Class<?>> inputClasses, KeepRuleExtractorOptions extractorOptions) {
     return extractRulesFromBytes(

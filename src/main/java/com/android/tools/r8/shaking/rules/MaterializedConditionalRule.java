@@ -26,23 +26,8 @@ public class MaterializedConditionalRule {
   }
 
   public boolean pruneItems(PrunedItems prunedItems) {
-    for (DexReference precondition : preconditions) {
-      if (precondition.isDexType()) {
-        if (prunedItems.getRemovedClasses().contains(precondition.asDexType())) {
-          return true;
-        }
-      } else if (precondition.isDexField()) {
-        if (prunedItems.getRemovedFields().contains(precondition.asDexField())) {
-          return true;
-        }
-      } else {
-        assert precondition.isDexMethod();
-        if (prunedItems.getRemovedMethods().contains(precondition.asDexMethod())) {
-          return true;
-        }
-      }
-    }
-    // Preconditions are in place, so trim down consequences.
+    // Preconditions cannot be pruned as they reference "original" program references which may be
+    // in inlined positions even when the items themselves are "pruned".
     consequences.pruneItems(prunedItems);
     return consequences.isEmpty();
   }
