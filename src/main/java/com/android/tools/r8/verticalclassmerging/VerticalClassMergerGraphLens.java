@@ -222,7 +222,12 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
           MethodLookupResult.builder(this, codeLens)
               .setReboundReference(newReboundReference)
               .setReference(newReference)
-              .setType(mapInvocationType(newReference, previous.getReference(), previous.getType()))
+              .setType(
+                  mapInvocationType(
+                      newReference,
+                      newReboundReference,
+                      previous.getReference(),
+                      previous.getType()))
               .setPrototypeChanges(
                   internalDescribePrototypeChanges(
                       previous.getPrototypeChanges(),
@@ -287,8 +292,8 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
 
   @Override
   protected InvokeType mapInvocationType(
-      DexMethod newMethod, DexMethod previousMethod, InvokeType type) {
-    if (isStaticized(newMethod)) {
+      DexMethod newMethod, DexMethod newReboundMethod, DexMethod previousMethod, InvokeType type) {
+    if (isStaticized(newReboundMethod)) {
       return InvokeType.STATIC;
     }
     if (type.isInterface()

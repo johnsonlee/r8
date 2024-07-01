@@ -462,7 +462,11 @@ public class MappedPositionToClassNameMapperBuilder {
       assert residualIsD8R8Synthesized
           || originalMethod.isIdenticalTo(lensOriginalMethod)
           // TODO(b/326562454): In some case the lens is mapping two methods to a common original.
-          || originalMethod.getHolderType().isIdenticalTo(lensOriginalMethod.getHolderType());
+          || originalMethod.getHolderType().isIdenticalTo(lensOriginalMethod.getHolderType())
+          || appView
+              .getSyntheticItems()
+              .isSyntheticOfKind(
+                  method.getHolderType(), kinds -> kinds.NON_STARTUP_IN_STARTUP_OUTLINE);
       return true;
     }
 

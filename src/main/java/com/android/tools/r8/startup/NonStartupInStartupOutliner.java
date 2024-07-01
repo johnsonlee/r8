@@ -41,6 +41,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
+// TODO(b/275292237): Preserve class initialization side effects using InitClass.
+// TODO(b/275292237): Preserve receiver NPE semantics by inserting null checks.
 public class NonStartupInStartupOutliner {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
@@ -103,7 +105,7 @@ public class NonStartupInStartupOutliner {
         method -> {
           if (!startupProfile.containsMethodRule(method.getReference())
               && !method.getDefinition().isInitializer()
-              && !hasPrivateOrSuperAccess(method)) {
+              && canCodeBeMoved(method)) {
             fn.accept(method);
           }
         });
@@ -111,20 +113,16 @@ public class NonStartupInStartupOutliner {
 
   // TODO(b/275292237): Extend to cover all possible accesses to private items (e.g., consider
   //  method handles).
-  private boolean hasPrivateOrSuperAccess(ProgramMethod method) {
+  private boolean canCodeBeMoved(ProgramMethod method) {
     return method.registerCodeReferencesWithResult(
-        new DefaultUseRegistryWithResult<>(appView, method, false) {
+        new DefaultUseRegistryWithResult<>(appView, method, true) {
 
           private AppInfoWithClassHierarchy appInfo() {
             return NonStartupInStartupOutliner.this.appView.appInfo();
           }
 
-          private void setHasPrivateAccess() {
-            setResult(true);
-          }
-
-          private void setHasSuperAccess() {
-            setResult(true);
+          private void setCodeCannotBeMoved() {
+            setResult(false);
           }
 
           // Field accesses.
@@ -152,8 +150,14 @@ public class NonStartupInStartupOutliner {
           private void registerFieldAccess(DexField field) {
             DexClassAndField resolvedField =
                 appInfo().resolveField(field, getContext()).getResolutionPair();
-            if (resolvedField != null && resolvedField.getAccessFlags().isPrivate()) {
-              setHasPrivateAccess();
+            if (resolvedField == null) {
+              return;
+            }
+            if (resolvedField.getAccessFlags().isPrivate()) {
+              setCodeCannotBeMoved();
+            } else if (resolvedField.getAccessFlags().isProtected()
+                && !resolvedField.isSamePackage(getContext())) {
+              setCodeCannotBeMoved();
             }
           }
 
@@ -176,7 +180,7 @@ public class NonStartupInStartupOutliner {
 
           @Override
           public void registerInvokeSuper(DexMethod method) {
-            setHasSuperAccess();
+            setCodeCannotBeMoved();
           }
 
           @Override
@@ -186,8 +190,14 @@ public class NonStartupInStartupOutliner {
 
           private void registerInvokeMethod(MethodResolutionResult resolutionResult) {
             DexClassAndMethod resolvedMethod = resolutionResult.getResolutionPair();
-            if (resolvedMethod != null && resolvedMethod.getAccessFlags().isPrivate()) {
-              setHasPrivateAccess();
+            if (resolvedMethod == null) {
+              return;
+            }
+            if (resolvedMethod.getAccessFlags().isPrivate()) {
+              setCodeCannotBeMoved();
+            } else if (resolvedMethod.getAccessFlags().isProtected()
+                && !resolvedMethod.isSamePackage(getContext())) {
+              setCodeCannotBeMoved();
             }
           }
         });
@@ -267,7 +277,8 @@ public class NonStartupInStartupOutliner {
     }
     // Virtual methods can only be staticized and moved if they are monomorphic.
     assert method.getAccessFlags().belongsToVirtualPool();
-    return monomorphicVirtualMethods.contains(method);
+    return method.getDefinition().isLibraryMethodOverride().isFalse()
+        && monomorphicVirtualMethods.contains(method);
   }
 
   private ProgramMethod performMove(
@@ -324,16 +335,23 @@ public class NonStartupInStartupOutliner {
                             method.getReference(), !method.getAccessFlags().isStatic()))
                     .setCode(
                         syntheticMethod -> {
-                          Code code =
-                              method
-                                  .getDefinition()
-                                  .getCode()
-                                  .getCodeAsInlining(
-                                      syntheticMethod,
-                                      true,
-                                      method.getReference(),
-                                      method.getDefinition().isD8R8Synthesized(),
-                                      factory);
+                          Code code;
+                          if (method.getDefinition().getCode().supportsPendingInlineFrame()) {
+                            code = method.getDefinition().getCode();
+                            builder.setInlineFrame(
+                                method.getReference(), method.getDefinition().isD8R8Synthesized());
+                          } else {
+                            code =
+                                method
+                                    .getDefinition()
+                                    .getCode()
+                                    .getCodeAsInlining(
+                                        syntheticMethod,
+                                        true,
+                                        method.getReference(),
+                                        method.getDefinition().isD8R8Synthesized(),
+                                        factory);
+                          }
                           if (!method.getAccessFlags().isStatic()) {
                             DexEncodedMethod.setDebugInfoWithFakeThisParameter(
                                 code, syntheticMethod.getArity(), appView);

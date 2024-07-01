@@ -27,8 +27,8 @@ import java.util.function.Function;
  * <p>Subclasses can override the lookup methods.
  *
  * <p>For method mapping where invocation type can change just override {@link
- * #mapInvocationType(DexMethod, DexMethod, InvokeType)} if the default name mapping applies, and
- * only invocation type might need to change.
+ * #mapInvocationType(DexMethod, DexMethod, DexMethod, InvokeType)} if the default name mapping
+ * applies, and only invocation type might need to change.
  */
 public class NestedGraphLens extends DefaultNonIdentityGraphLens {
 
@@ -199,7 +199,10 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
                   rewrittenReboundReference))
           .setType(
               mapInvocationType(
-                  rewrittenReboundReference, previous.getReference(), previous.getType()))
+                  rewrittenReference,
+                  rewrittenReboundReference,
+                  previous.getReference(),
+                  previous.getType()))
           .build();
     } else {
       // TODO(b/168282032): We should always have the rebound reference, so this should become
@@ -220,7 +223,8 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
       return MethodLookupResult.builder(this, codeLens)
           .setReference(newMethod)
           .setPrototypeChanges(newPrototypeChanges)
-          .setType(mapInvocationType(newMethod, previous.getReference(), previous.getType()))
+          .setType(
+              mapInvocationType(newMethod, newMethod, previous.getReference(), previous.getType()))
           .build();
     }
   }
@@ -271,7 +275,7 @@ public class NestedGraphLens extends DefaultNonIdentityGraphLens {
    * method or {@link #lookupMethod(DexMethod, DexMethod, InvokeType)}
    */
   protected InvokeType mapInvocationType(
-      DexMethod newMethod, DexMethod originalMethod, InvokeType type) {
+      DexMethod newMethod, DexMethod newReboundMethod, DexMethod originalMethod, InvokeType type) {
     return type;
   }
 

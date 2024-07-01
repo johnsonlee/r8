@@ -196,7 +196,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
         .setPrototypeChanges(
             internalDescribePrototypeChanges(
                 previous.getPrototypeChanges(), previous.getReference(), result))
-        .setType(mapInvocationType(result, previous.getReference(), previous.getType()))
+        .setType(mapInvocationType(result, result, previous.getReference(), previous.getType()))
         .build();
   }
 
@@ -244,7 +244,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
   @Override
   @SuppressWarnings("ReferenceEquality")
   protected InvokeType mapInvocationType(
-      DexMethod newMethod, DexMethod originalMethod, InvokeType type) {
+      DexMethod newMethod, DexMethod newReboundMethod, DexMethod originalMethod, InvokeType type) {
     if (typeMap.containsKey(originalMethod.getHolderType())) {
       // Methods moved from unboxed enums to the utility class are either static or statified.
       assert newMethod != originalMethod;

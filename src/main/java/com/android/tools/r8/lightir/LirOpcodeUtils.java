@@ -78,6 +78,10 @@ public class LirOpcodeUtils {
     }
   }
 
+  public static boolean isInvokeSuper(int opcode) {
+    return opcode == INVOKESUPER || opcode == INVOKESUPER_ITF;
+  }
+
   public static boolean isInvokeVirtual(int opcode) {
     return opcode == INVOKEVIRTUAL;
   }

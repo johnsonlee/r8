@@ -440,13 +440,16 @@ public abstract class KeepInfoCollection {
             assert !info.isPinned(options)
                 || info.isMinificationAllowed(options)
                 || newMethod.name.isIdenticalTo(method.name);
-            assert !info.isPinned(options) || newMethod.getArity() == method.getArity();
+            assert !info.isPinned(options)
+                || newMethod.getArity() == method.getArity()
+                || (info.isShrinkingAllowed(options) && lens.isNonStartupInStartupOutlinerLens());
             assert !info.isPinned(options)
                 || Streams.zip(
                         newMethod.getParameters().stream(),
                         method.getParameters().stream().map(lens::lookupType),
                         Object::equals)
-                    .allMatch(x -> x);
+                    .allMatch(x -> x)
+                || (info.isShrinkingAllowed(options) && lens.isNonStartupInStartupOutlinerLens());
             assert !info.isPinned(options)
                 || newMethod.getReturnType().isIdenticalTo(lens.lookupType(method.getReturnType()));
             KeepMethodInfo previous = newMethodInfo.put(newMethod, info);

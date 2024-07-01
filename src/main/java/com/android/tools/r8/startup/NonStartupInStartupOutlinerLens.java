@@ -31,11 +31,8 @@ public class NonStartupInStartupOutlinerLens extends NestedGraphLens {
 
   @Override
   protected InvokeType mapInvocationType(
-      DexMethod newMethod, DexMethod previousMethod, InvokeType type) {
-    if (newMethod.isIdenticalTo(previousMethod)) {
-      return type;
-    }
-    return InvokeType.STATIC;
+      DexMethod newMethod, DexMethod newReboundMethod, DexMethod previousMethod, InvokeType type) {
+    return newMethod.isIdenticalTo(previousMethod) ? type : InvokeType.STATIC;
   }
 
   public static class Builder {
@@ -50,7 +47,6 @@ public class NonStartupInStartupOutlinerLens extends NestedGraphLens {
     public synchronized void recordMove(ProgramMethod from, ProgramMethod to) {
       newMethodSignatures.put(from.getReference(), to.getReference());
     }
-
     public NonStartupInStartupOutlinerLens build(
         AppView<? extends AppInfoWithClassHierarchy> appView) {
       return new NonStartupInStartupOutlinerLens(appView, newMethodSignatures);

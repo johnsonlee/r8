@@ -89,13 +89,13 @@ public class ArgumentPropagatorGraphLens extends NestedGraphLens {
 
   @Override
   protected InvokeType mapInvocationType(
-      DexMethod newMethod, DexMethod originalMethod, InvokeType type) {
-    return hasPrototypeChanges(newMethod)
-            && getPrototypeChanges(newMethod)
+      DexMethod newMethod, DexMethod newReboundMethod, DexMethod originalMethod, InvokeType type) {
+    return hasPrototypeChanges(newReboundMethod)
+            && getPrototypeChanges(newReboundMethod)
                 .getArgumentInfoCollection()
                 .isConvertedToStaticMethod()
         ? InvokeType.STATIC
-        : super.mapInvocationType(newMethod, originalMethod, type);
+        : super.mapInvocationType(newMethod, newReboundMethod, originalMethod, type);
   }
 
   public static class Builder {

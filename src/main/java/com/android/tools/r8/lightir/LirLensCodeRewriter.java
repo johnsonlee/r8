@@ -138,7 +138,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
               || (type.isDirect()
                   && (newType.isInterface() || newType.isStatic() || newType.isVirtual()))
               || (type.isInterface() && (newType.isStatic() || newType.isVirtual()))
-              || (type.isSuper() && newType.isVirtual())
+              || (type.isSuper() && (newType.isStatic() || newType.isVirtual()))
               || (type.isVirtual() && (newType.isInterface() || newType.isStatic()))
           : type + " -> " + newType;
       numberOfInvokeOpcodeChanges++;
@@ -300,6 +300,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       }
       if (LirOpcodeUtils.isInvokeInterface(opcode)) {
         return InvokeType.INTERFACE;
+      }
+      if (LirOpcodeUtils.isInvokeSuper(opcode)) {
+        return InvokeType.SUPER;
       }
       if (LirOpcodeUtils.isInvokeVirtual(opcode)) {
         return InvokeType.VIRTUAL;

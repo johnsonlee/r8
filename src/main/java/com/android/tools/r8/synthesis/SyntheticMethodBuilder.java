@@ -35,6 +35,7 @@ public class SyntheticMethodBuilder {
   private DexProto proto = null;
   private CfVersion classFileVersion;
   private SyntheticCodeGenerator codeGenerator = null;
+  private DexMethod pendingInlineFrame = null;
   private MethodAccessFlags accessFlags = null;
   private MethodTypeSignature genericSignature = MethodTypeSignature.noSignature();
   private DexAnnotationSet annotations = DexAnnotationSet.empty();
@@ -95,6 +96,14 @@ public class SyntheticMethodBuilder {
     return this;
   }
 
+  public SyntheticMethodBuilder setInlineFrame(DexMethod callee, boolean calleeIsD8R8Synthesized) {
+    if (!calleeIsD8R8Synthesized) {
+      // // No need to record a compiler synthesized inline frame.
+      this.pendingInlineFrame = callee;
+    }
+    return this;
+  }
+
   public SyntheticMethodBuilder setAccessFlags(MethodAccessFlags accessFlags) {
     this.accessFlags = accessFlags;
     return this;
@@ -144,6 +153,7 @@ public class SyntheticMethodBuilder {
             .setAnnotations(annotations)
             .setParameterAnnotations(parameterAnnotationsList)
             .setCode(code)
+            .applyIf(pendingInlineFrame != null, b -> b.setInlineFrame(pendingInlineFrame, false))
             .setClassFileVersion(classFileVersion)
             .setApiLevelForDefinition(apiLevelForDefinition)
             .setApiLevelForCode(apiLevelForCode)
