@@ -36,7 +36,10 @@ public interface AbstractProfile<
   default Profile toProfileWithSuperclasses(AppView<?> appView) {
     return transform(
         (classRule, builder) -> builder.addClassAndParentClasses(classRule.getReference(), appView),
-        (methodRule, builder) -> builder.addMethodRule(methodRule));
+        (methodRule, builder) -> {
+          builder.addClassAndParentClasses(methodRule.getReference().getHolderType(), appView);
+          builder.addMethodRule(methodRule);
+        });
   }
 
   default Profile transform(
