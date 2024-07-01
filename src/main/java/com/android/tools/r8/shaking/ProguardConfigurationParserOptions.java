@@ -72,9 +72,10 @@ public class ProguardConfigurationParserOptions {
               "com.android.tools.r8.experimental.enablewhyareyounotinlining", false);
       enableTestingOptions =
           parseSystemPropertyOrDefault("com.android.tools.r8.allowTestProguardOptions", false);
+      // TODO(b/323136645): This should default to false.
       forceEnableEmptyMemberRulesToDefaultInitRuleConversion =
           parseSystemPropertyOrDefault(
-              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion", false);
+              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion", true);
       return this;
     }
 
