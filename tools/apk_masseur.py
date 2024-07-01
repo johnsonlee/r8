@@ -23,6 +23,10 @@ def parse_options():
                       'assets/dexopt/',
                       default=False,
                       action='store_true')
+    parser.add_option('--compress-dex',
+                      help='Whether the dex should be stored compressed',
+                      action='store_true',
+                      default=False)
     parser.add_option('--dex',
                       help='Directory or archive with dex files to use instead '
                       'of those in the apk',
@@ -67,8 +71,8 @@ def is_archive(file):
     return file.endswith('.zip') or file.endswith('.jar')
 
 
-def repack(apk, clear_profile, processed_out, desugared_library_dex, resources,
-           temp, quiet, logging):
+def repack(apk, clear_profile, processed_out, desugared_library_dex,
+           compress_dex, resources, temp, quiet, logging):
     processed_apk = os.path.join(temp, 'processed.apk')
     shutil.copyfile(apk, processed_apk)
 
@@ -119,7 +123,12 @@ def repack(apk, clear_profile, processed_out, desugared_library_dex, resources,
         dex_files = glob.glob('*.dex')
         dex_files.sort()
         resource_files = glob.glob(resources) if resources else []
-        cmd = ['zip', '-u', '-0', processed_apk] + dex_files + resource_files
+        cmd = ['zip', '-u']
+        if not compress_dex:
+            cmd.append('-0')
+        cmd.append(processed_apk)
+        cmd.extend(dex_files)
+        cmd.extend(resource_files)
         utils.RunCmd(cmd, quiet=quiet, logging=logging)
     return processed_apk
 
@@ -143,6 +152,7 @@ def masseur(apk,
             clear_profile=False,
             dex=None,
             desugared_library_dex=None,
+            compress_dex=False,
             resources=None,
             out=None,
             adb_options=None,
@@ -159,8 +169,8 @@ def masseur(apk,
         processed_apk = None
         if dex or clear_profile:
             processed_apk = repack(apk, clear_profile, dex,
-                                   desugared_library_dex, resources, temp,
-                                   quiet, logging)
+                                   desugared_library_dex, compress_dex,
+                                   resources, temp, quiet, logging)
         else:
             assert not desugared_library_dex
             utils.Print('Signing original APK without modifying apk',

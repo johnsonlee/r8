@@ -138,7 +138,8 @@ def setup_for_run(apk_or_apks, out_dir, options):
 
 
 def teardown_for_run(out_dir, options, teardown_options):
-    assert adb_utils.get_screen_state(options.device_id).is_on_and_unlocked()
+    assert adb_utils.get_screen_state(
+        options.device_id).is_on_and_unlocked_or_unknown()
 
     if options.capture_screen:
         target = os.path.join(out_dir, 'screen.png')
@@ -153,7 +154,8 @@ def teardown_for_run(out_dir, options, teardown_options):
 
 
 def run(out_dir, options, tmp_dir):
-    assert adb_utils.get_screen_state(options.device_id).is_on_and_unlocked()
+    assert adb_utils.get_screen_state(
+        options.device_id).is_on_and_unlocked_or_unknown()
 
     # Start logcat for time to fully drawn.
     logcat_process = None
@@ -445,7 +447,7 @@ def global_setup(options):
     if options.cooldown == 0:
         teardown_options = adb_utils.prepare_for_interaction_with_device(
             options.device_id, options.device_pin)
-        assert adb_utils.get_screen_state(options.device_id).is_on()
+        assert adb_utils.get_screen_state(options.device_id).is_on_or_unknown()
     else:
         adb_utils.ensure_screen_off(options.device_id)
     return teardown_options

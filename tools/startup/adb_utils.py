@@ -41,9 +41,13 @@ class ScreenState(Enum):
     OFF_UNLOCKED = 2
     ON_LOCKED = 3
     ON_UNLOCKED = 4
+    UNKNOWN = 5
 
     def is_off(self):
         return self == ScreenState.OFF_LOCKED or self == ScreenState.OFF_UNLOCKED
+
+    def is_off_or_unknown(self):
+        return self.is_off() or self.is_unknown()
 
     def is_on(self):
         return self == ScreenState.ON_LOCKED or self == ScreenState.ON_UNLOCKED
@@ -53,6 +57,15 @@ class ScreenState(Enum):
 
     def is_on_and_unlocked(self):
         return self == ScreenState.ON_UNLOCKED
+
+    def is_on_and_unlocked_or_unknown(self):
+        return self.is_on_and_unlocked() or self.is_unknown()
+
+    def is_on_or_unknown(self):
+        return self.is_on() or self.is_unknown()
+
+    def is_unknown(self):
+        return self == ScreenState.UNKNOWN
 
 
 def broadcast(action, component, device_id=None):
@@ -147,13 +160,13 @@ def drop_caches(device_id=None):
 def ensure_screen_on(device_id=None):
     if get_screen_state(device_id).is_off():
         toggle_screen(device_id)
-    assert get_screen_state(device_id).is_on()
+    assert get_screen_state(device_id).is_on_or_unknown()
 
 
 def ensure_screen_off(device_id=None):
     if get_screen_state(device_id).is_on():
         toggle_screen(device_id)
-    assert get_screen_state(device_id).is_off()
+    assert get_screen_state(device_id).is_off_or_unknown()
 
 
 def force_compilation(app_id, device_id=None):
@@ -243,7 +256,11 @@ def get_pid(app_id, device_id=None):
 
 def get_screen_state(device_id=None):
     cmd = create_adb_cmd('shell dumpsys nfc', device_id)
-    stdout = subprocess.check_output(cmd).decode('utf-8').strip()
+    process_result = subprocess.run(cmd, capture_output=True)
+    stderr = process_result.stderr.decode('utf-8')
+    if "Can't find service: nfc" in stderr:
+        return ScreenState.UNKNOWN
+    stdout = process_result.stdout.decode('utf-8').strip()
     screen_state_value = None
     for line in stdout.splitlines():
         if line.startswith('mScreenState='):
@@ -480,6 +497,8 @@ def uninstall(app_id, device_id=None):
 def unlock(device_id=None, device_pin=None):
     ensure_screen_on(device_id)
     screen_state = get_screen_state(device_id)
+    if screen_state.is_unknown():
+        return
     assert screen_state.is_on(), 'was %s' % screen_state
     if screen_state.is_on_and_locked():
         if device_pin is not None:
