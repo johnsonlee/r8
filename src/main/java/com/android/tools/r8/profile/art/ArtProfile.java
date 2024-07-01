@@ -113,7 +113,7 @@ public class ArtProfile
         (methodRule, builder) ->
             builder.addMethodRule(
                 ArtProfileMethodRule.builder()
-                    .setMethod(methodRule.getMethod())
+                    .setMethod(lens.getRenamedMethodSignature(methodRule.getMethod()))
                     .acceptMethodRuleInfoBuilder(
                         methodRuleInfoBuilder ->
                             methodRuleInfoBuilder.merge(methodRule.getMethodRuleInfo()))
