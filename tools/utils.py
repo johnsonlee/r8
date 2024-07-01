@@ -334,7 +334,7 @@ def DownloadFromX20(sha1_file):
 
 
 def DownloadFromGoogleCloudStorage(sha1_file,
-                                   bucket='r8-deps',
+                                   bucket='r8-deps-new-backup',
                                    auth=False,
                                    quiet=False):
     suffix = '.bat' if IsWindows() else ''
