@@ -224,7 +224,7 @@ tasks {
     }
     exclude("META-INF/*.kotlin_module")
     exclude("**/*.kotlin_metadata")
-    exclude("keepanno.proto")
+    exclude("keepspec.proto")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
     archiveFileName.set("r8-full-exclude-deps.jar")
   }
@@ -269,6 +269,7 @@ tasks {
     exclude("README.md")
     exclude("javax/annotation/**")
     exclude("wireless/**")
+    exclude("google/protobuf/**")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set("deps.jar")
   }
