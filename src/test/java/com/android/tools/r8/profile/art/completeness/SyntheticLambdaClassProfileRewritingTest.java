@@ -134,11 +134,13 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
         switch (this) {
           case MAIN_METHOD:
             profileInspector
+                .assertContainsClassRule(mainClassSubject)
                 .assertContainsMethodRule(mainMethodSubject)
                 .assertContainsNoOtherRules();
             break;
           case IMPLEMENTATION_METHOD:
             profileInspector
+                .assertContainsClassRule(mainClassSubject)
                 .assertContainsMethodRules(
                     lambdaImplementationMethod, otherLambdaImplementationMethod)
                 .assertContainsNoOtherRules();
@@ -153,7 +155,8 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
             // with their initializers. Since Main.lambda$main$*() is not in the art profile, the
             // interface method implementation does not need to be included in the profile.
             profileInspector
-                .assertContainsClassRules(lambdaClassSubject, otherLambdaClassSubject)
+                .assertContainsClassRules(
+                    mainClassSubject, lambdaClassSubject, otherLambdaClassSubject)
                 .assertContainsMethodRules(mainMethodSubject)
                 .applyIf(
                     !canHaveNonReboundConstructorInvoke,
@@ -166,6 +169,8 @@ public class SyntheticLambdaClassProfileRewritingTest extends TestBase {
             // Since Main.lambda$main$*() is in the art profile, so should the two accessibility
             // bridges be along with the main virtual methods of the lambda classes.
             profileInspector
+                .assertContainsClassRules(
+                    mainClassSubject, lambdaClassSubject, otherLambdaClassSubject)
                 .assertContainsMethodRules(
                     lambdaImplementationMethod,
                     lambdaMainMethodSubject,

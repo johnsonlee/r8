@@ -141,6 +141,7 @@ public class MovedStaticInterfaceMethodProfileRewritingTest extends TestBase {
       assertThat(staticInterfaceMethodSubject, isPresent());
 
       profileInspector
+          .assertContainsClassRule(iClassSubject)
           .assertContainsMethodRule(staticInterfaceMethodSubject)
           .assertContainsNoOtherRules();
     } else {

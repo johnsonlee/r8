@@ -78,6 +78,7 @@ public class VerticalClassMergingBridgeProfileRewritingTest extends TestBase {
     assertThat(syntheticBridgeMethodSubject, isPresent());
 
     profileInspector
+        .assertContainsClassRule(bClassSubject)
         .assertContainsMethodRules(movedMethodSubject, syntheticBridgeMethodSubject)
         .assertContainsNoOtherRules();
   }

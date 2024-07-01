@@ -125,6 +125,7 @@ public class MovedPrivateInterfaceMethodProfileRewritingTest extends TestBase {
       assertThat(privateInterfaceMethodSubject, isPresent());
 
       profileInspector
+          .assertContainsClassRule(iClassSubject)
           .assertContainsMethodRule(privateInterfaceMethodSubject)
           .assertContainsNoOtherRules();
     } else {

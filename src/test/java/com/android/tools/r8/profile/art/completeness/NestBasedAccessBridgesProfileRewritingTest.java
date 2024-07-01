@@ -104,7 +104,12 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
 
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector)
       throws Exception {
-    inspect(profileInspector, inspector, false, parameters.canUseNestBasedAccessesWhenDesugaring());
+    inspect(
+        profileInspector,
+        inspector,
+        false,
+        parameters.canUseNestBasedAccessesWhenDesugaring(),
+        false);
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector)
@@ -113,14 +118,16 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
         profileInspector,
         inspector,
         parameters.canHaveNonReboundConstructorInvoke(),
-        parameters.canUseNestBasedAccesses());
+        parameters.canUseNestBasedAccesses(),
+        true);
   }
 
   private void inspect(
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
       boolean canHaveNonReboundConstructorInvoke,
-      boolean canUseNestBasedAccesses)
+      boolean canUseNestBasedAccesses,
+      boolean isR8)
       throws Exception {
     ClassSubject nestMemberClassSubject = inspector.clazz(NestMember.class);
     assertThat(nestMemberClassSubject, isPresent());
@@ -197,7 +204,11 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
     // Verify the residual profile contains the synthetic nest based access bridges and the
     // synthetic constructor argument class.
     profileInspector
+        .assertContainsClassRule(Reference.classFromClass(Main.class))
         .assertContainsMethodRule(MethodReferenceUtils.mainMethod(Main.class))
+        .applyIf(
+            !isR8 || parameters.isDexRuntime(),
+            i -> i.assertContainsClassRule(nestMemberClassSubject))
         .applyIf(
             !canUseNestBasedAccesses,
             i ->

@@ -13,6 +13,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
@@ -96,6 +97,7 @@ public class BackportProfileRewritingTest extends TestBase {
 
     // Verify residual profile contains the backported method and its holder.
     profileInspector
+        .assertContainsClassRule(Reference.classFromClass(Main.class))
         .assertContainsMethodRules(MethodReferenceUtils.mainMethod(Main.class))
         .applyIf(
             isBackportingObjectsNonNull,

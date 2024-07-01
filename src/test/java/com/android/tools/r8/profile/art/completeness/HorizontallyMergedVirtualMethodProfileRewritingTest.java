@@ -70,6 +70,7 @@ public class HorizontallyMergedVirtualMethodProfileRewritingTest extends TestBas
       assertEquals(aClassSubject.asTypeSubject(), syntheticBridgeMethodSubject.getParameter(0));
 
       profileInspector
+          .assertContainsClassRule(aClassSubject)
           .assertContainsMethodRules(movedMethodSubject, syntheticBridgeMethodSubject)
           .assertContainsNoOtherRules();
     }

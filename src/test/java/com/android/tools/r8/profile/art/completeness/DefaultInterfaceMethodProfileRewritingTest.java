@@ -95,7 +95,9 @@ public class DefaultInterfaceMethodProfileRewritingTest extends TestBase {
       MethodSubject interfaceMethodSubject = iClassSubject.uniqueMethodWithOriginalName("m");
       assertThat(interfaceMethodSubject, isPresent());
 
-      profileInspector.assertContainsMethodRule(interfaceMethodSubject);
+      profileInspector
+          .assertContainsClassRule(iClassSubject)
+          .assertContainsMethodRule(interfaceMethodSubject);
     } else {
       ClassSubject iClassSubject = inspector.clazz(I.class);
       assertThat(iClassSubject, isPresent());
@@ -125,7 +127,8 @@ public class DefaultInterfaceMethodProfileRewritingTest extends TestBase {
       assertThat(movedMethodSubject, isPresent());
 
       profileInspector
-          .assertContainsClassRule(companionClassSubject)
+          .assertContainsClassRules(
+              aClassSubject, bClassSubject, iClassSubject, companionClassSubject)
           .assertContainsMethodRules(
               interfaceMethodSubject,
               aForwardingMethodSubject,

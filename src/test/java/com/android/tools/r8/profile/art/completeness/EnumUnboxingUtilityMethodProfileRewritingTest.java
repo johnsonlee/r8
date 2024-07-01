@@ -99,7 +99,9 @@ public class EnumUnboxingUtilityMethodProfileRewritingTest extends TestBase {
 
     profileInspector
         .assertContainsClassRules(
-            enumUnboxingLocalUtilityClassSubject, enumUnboxingSharedUtilityClassSubject)
+            mainClassSubject,
+            enumUnboxingLocalUtilityClassSubject,
+            enumUnboxingSharedUtilityClassSubject)
         .assertContainsMethodRules(
             mainClassSubject.mainMethod(),
             localGreetMethodSubject,

@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.profile.art.completeness;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
@@ -75,7 +75,7 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
   }
 
   private void inspectD8(ArtProfileInspector profileInspector, CodeInspector inspector) {
-    inspect(profileInspector, inspector, false, false);
+    inspect(profileInspector, inspector, false, false, false);
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
@@ -83,37 +83,44 @@ public class LambdaStaticLibraryMethodImplementationProfileRewritingTest extends
         profileInspector,
         inspector,
         parameters.canHaveNonReboundConstructorInvoke(),
-        parameters.isCfRuntime());
+        parameters.isCfRuntime(),
+        true);
   }
 
   public void inspect(
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
       boolean canHaveNonReboundConstructorInvoke,
-      boolean canUseLambdas) {
+      boolean canUseLambdas,
+      boolean isR8) {
     ClassSubject mainClassSubject = inspector.clazz(Main.class);
     assertThat(mainClassSubject, isPresent());
 
     MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
     assertThat(mainMethodSubject, isPresent());
 
+    ClassSubject setSupplierClassSubject = inspector.clazz(SetSupplier.class);
+    assertThat(setSupplierClassSubject, isAbsentIf(!canUseLambdas && isR8));
+
     // Check the presence of the lambda class and its methods.
     ClassSubject lambdaClassSubject =
         inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0));
-    assertThat(lambdaClassSubject, notIf(isPresent(), canUseLambdas));
+    assertThat(lambdaClassSubject, isAbsentIf(canUseLambdas));
 
     MethodSubject lambdaInitializerSubject = lambdaClassSubject.uniqueInstanceInitializer();
-    assertThat(lambdaInitializerSubject, notIf(isPresent(), canUseLambdas));
+    assertThat(lambdaInitializerSubject, isAbsentIf(canUseLambdas));
 
     MethodSubject lambdaMainMethodSubject =
         lambdaClassSubject.uniqueMethodThatMatches(FoundMethodSubject::isVirtual);
-    assertThat(lambdaMainMethodSubject, notIf(isPresent(), canUseLambdas));
+    assertThat(lambdaMainMethodSubject, isAbsentIf(canUseLambdas));
 
-    if (canUseLambdas) {
-      profileInspector.assertContainsMethodRule(mainMethodSubject);
-    } else {
+    profileInspector
+        .assertContainsClassRules(mainClassSubject)
+        .assertContainsMethodRule(mainMethodSubject);
+    if (!canUseLambdas) {
       profileInspector
           .assertContainsClassRules(lambdaClassSubject)
+          .applyIf(!isR8, i -> i.assertContainsClassRule(setSupplierClassSubject))
           .assertContainsMethodRules(
               mainMethodSubject, lambdaInitializerSubject, lambdaMainMethodSubject);
     }

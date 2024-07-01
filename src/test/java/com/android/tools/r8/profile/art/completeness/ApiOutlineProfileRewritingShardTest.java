@@ -17,6 +17,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -145,6 +146,7 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
 
     // Verify the residual profile contains the outline method and its holder when present.
     profileInspector
+        .assertContainsClassRule(Reference.classFromClass(mainClass))
         .assertContainsMethodRule(MethodReferenceUtils.mainMethod(mainClass))
         .applyIf(
             !isLibraryClassAlwaysPresent(),
@@ -172,8 +174,11 @@ public class ApiOutlineProfileRewritingShardTest extends TestBase {
 
     // Verify the residual profile contains the outline method and its holder when present.
     profileInspector
-        .assertContainsMethodRule(MethodReferenceUtils.mainMethod(Main.class))
-        .assertContainsMethodRule(MethodReferenceUtils.mainMethod(OtherMain.class))
+        .assertContainsClassRules(
+            Reference.classFromClass(Main.class), Reference.classFromClass(OtherMain.class))
+        .assertContainsMethodRules(
+            MethodReferenceUtils.mainMethod(Main.class),
+            MethodReferenceUtils.mainMethod(OtherMain.class))
         .applyIf(
             !isLibraryClassAlwaysPresent(),
             i ->

@@ -113,6 +113,9 @@ public class DesugaredLibraryArtProfileRewritingTest extends DesugaredLibraryTes
             libraryDesugaringSpecification.functionPrefix(parameters) + ".util.function.Consumer");
     assertThat(consumerClassSubject, isPresent());
 
+    ClassSubject baseStreamClassSubject = inspector.clazz("j$.util.stream.BaseStream");
+    assertThat(baseStreamClassSubject, isPresentAndRenamed(compilationSpecification.isL8Shrink()));
+
     ClassSubject streamClassSubject = inspector.clazz("j$.util.stream.Stream");
     assertThat(streamClassSubject, isPresentAndNotRenamed());
 
@@ -124,7 +127,10 @@ public class DesugaredLibraryArtProfileRewritingTest extends DesugaredLibraryTes
                 && libraryDesugaringSpecification == LibraryDesugaringSpecification.JDK8));
     assertEquals(consumerClassSubject.asTypeSubject(), forEachMethodSubject.getParameter(0));
 
-    profileInspector.assertContainsMethodRule(forEachMethodSubject).assertContainsNoOtherRules();
+    profileInspector
+        .assertContainsClassRules(streamClassSubject, baseStreamClassSubject)
+        .assertContainsMethodRule(forEachMethodSubject)
+        .assertContainsNoOtherRules();
   }
 
   static class Main {

@@ -154,6 +154,9 @@ public class ArtProfile
   }
 
   public ArtProfile rewrittenWithLens(AppView<?> appView, NamingLens lens) {
+    if (lens.isIdentityLens()) {
+      return this;
+    }
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     assert !lens.isIdentityLens();
     return transform(

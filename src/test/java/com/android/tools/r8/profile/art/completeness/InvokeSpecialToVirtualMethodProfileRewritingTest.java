@@ -132,6 +132,7 @@ public class InvokeSpecialToVirtualMethodProfileRewritingTest extends TestBase {
 
     // Verify residual profile contains private synthetic method when present.
     profileInspector
+        .assertContainsClassRule(mainClassSubject)
         .assertContainsMethodRules(mMethodSubject, mMovedMethodSubject)
         .assertContainsNoOtherRules();
   }

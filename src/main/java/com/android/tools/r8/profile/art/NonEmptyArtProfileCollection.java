@@ -81,19 +81,18 @@ public class NonEmptyArtProfileCollection extends ArtProfileCollection {
         return;
       }
     }
-    NonEmptyArtProfileCollection collection =
-        appView.getNamingLens().isIdentityLens()
-            ? this
-            : rewrittenWithLens(appView, appView.getNamingLens());
     InternalOptions options = appView.options();
     Collection<ArtProfileForRewriting> inputs =
         options.getArtProfileOptions().getArtProfilesForRewriting();
     assert !inputs.isEmpty();
-    assert collection.artProfiles.size() == inputs.size();
+    assert artProfiles.size() == inputs.size();
     Iterator<ArtProfileForRewriting> inputIterator = inputs.iterator();
-    for (ArtProfile artProfile : collection.artProfiles) {
+    for (ArtProfile artProfile : artProfiles) {
       ArtProfileForRewriting input = inputIterator.next();
-      artProfile.supplyConsumer(input.getResidualArtProfileConsumer(), options.reporter);
+      artProfile
+          .toProfileWithSuperclasses(appView)
+          .rewrittenWithLens(appView, appView.getNamingLens())
+          .supplyConsumer(input.getResidualArtProfileConsumer(), options.reporter);
     }
   }
 

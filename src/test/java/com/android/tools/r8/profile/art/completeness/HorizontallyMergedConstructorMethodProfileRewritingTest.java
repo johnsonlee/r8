@@ -76,6 +76,7 @@ public class HorizontallyMergedConstructorMethodProfileRewritingTest extends Tes
       assertThat(syntheticConstructorSubject, isPresent());
 
       profileInspector
+          .assertContainsClassRule(aClassSubject)
           .assertContainsMethodRules(syntheticConstructorSubject)
           .applyIf(
               this == A_CONSTRUCTOR,

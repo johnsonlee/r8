@@ -42,9 +42,14 @@ public class IncludeTransitiveSuperClassesInArtProfileTest extends TestBase {
         .compile()
         .inspectResidualArtProfile(
             (profile, inspector) ->
-                // TODO(b/349914130): Augment profile with transitive super classes.
                 profile
-                    .assertContainsClassRules(getFinalReference(C.class, inspector))
+                    .assertContainsClassRules(
+                        getFinalReference(A.class, inspector),
+                        getFinalReference(B.class, inspector),
+                        getFinalReference(C.class, inspector),
+                        getFinalReference(I.class, inspector),
+                        getFinalReference(J.class, inspector),
+                        getFinalReference(K.class, inspector))
                     .assertContainsNoOtherRules());
   }
 

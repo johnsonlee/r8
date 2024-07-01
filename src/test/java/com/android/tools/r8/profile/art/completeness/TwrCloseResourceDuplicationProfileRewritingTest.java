@@ -159,11 +159,13 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
         barClassSubject.uniqueMethodWithOriginalName("$closeResource");
     assertThat(barCloseResourceMethodSubject, isPresent());
 
-    profileInspector.assertContainsMethodRules(
-        fooMethodSubject,
-        fooCloseResourceMethodSubject,
-        barMethodSubject,
-        barCloseResourceMethodSubject);
+    profileInspector
+        .assertContainsClassRules(fooClassSubject, barClassSubject)
+        .assertContainsMethodRules(
+            fooMethodSubject,
+            fooCloseResourceMethodSubject,
+            barMethodSubject,
+            barCloseResourceMethodSubject);
 
     // There is 1 backport, 2 synthetic API outlines, and 3 twr classes for both Foo and Bar.
     for (JavaExampleClassProxy clazz : ImmutableList.of(FOO, BAR)) {

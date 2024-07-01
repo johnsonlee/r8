@@ -300,7 +300,7 @@ public class RecordProfileRewritingTest extends TestBase {
         toStringMethodSubject, ifThen(!canUseRecords, invokesMethod(toStringHelperMethodSubject)));
 
     profileInspector
-        .assertContainsClassRule(personRecordClassSubject)
+        .assertContainsClassRules(mainClassSubject, personRecordClassSubject)
         .assertContainsMethodRules(
             mainMethodSubject,
             personInstanceInitializerSubject,

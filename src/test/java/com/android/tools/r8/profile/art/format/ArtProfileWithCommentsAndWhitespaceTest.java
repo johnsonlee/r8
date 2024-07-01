@@ -100,7 +100,10 @@ public class ArtProfileWithCommentsAndWhitespaceTest extends TestBase {
   }
 
   private void inspectResidualArtProfile(ArtProfileInspector profileInspector) {
-    profileInspector.assertContainsMethodRule(MAIN_METHOD_REFERENCE).assertContainsNoOtherRules();
+    profileInspector
+        .assertContainsClassRule(MAIN_METHOD_REFERENCE.getHolderClass())
+        .assertContainsMethodRule(MAIN_METHOD_REFERENCE)
+        .assertContainsNoOtherRules();
   }
 
   static class Main {

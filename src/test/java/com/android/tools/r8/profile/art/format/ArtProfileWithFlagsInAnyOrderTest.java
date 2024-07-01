@@ -114,6 +114,7 @@ public class ArtProfileWithFlagsInAnyOrderTest extends TestBase {
 
   private void inspectResidualArtProfile(ArtProfileInspector profileInspector) {
     profileInspector
+        .assertContainsClassRule(MAIN_METHOD_REFERENCE.getHolderClass())
         .inspectMethodRule(
             MAIN_METHOD_REFERENCE,
             ruleInspector -> ruleInspector.assertIsHot().assertIsStartup().assertIsPostStartup())
