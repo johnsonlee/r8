@@ -3356,18 +3356,6 @@ public class Enqueuer {
       getKeepInfo().keepField(field);
     }
 
-    if (mode.isFinalTreeShaking() && options.isOptimizing() && !field.getAccessFlags().isStatic()) {
-      DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
-      if (fieldBaseType.isClassType()) {
-        DexClass clazz = definitionFor(fieldBaseType, context);
-        if (clazz != null
-            && AccessControl.isClassAccessible(clazz, context, appView).isPossiblyFalse()) {
-          applyMinimumKeepInfoWhenLive(
-              field.getHolder(), KeepClassInfo.newEmptyJoiner().disallowHorizontalClassMerging());
-        }
-      }
-    }
-
     // Notify analyses.
     analyses.forEach(analysis -> analysis.processNewlyLiveField(field, context, worklist));
   }
@@ -3384,6 +3372,8 @@ public class Enqueuer {
       markFieldAsLive(field, context, reason);
     }
 
+    handleFieldAccessWithInaccessibleFieldType(field, context);
+
     if (liveFields.contains(field)
         || !reachableInstanceFields
             .computeIfAbsent(field.getHolder(), ignore -> ProgramFieldSet.create())
@@ -3396,6 +3386,21 @@ public class Enqueuer {
     traceFieldDefinition(field);
 
     analyses.forEach(analysis -> analysis.notifyMarkFieldAsReachable(field, worklist));
+  }
+
+  private void handleFieldAccessWithInaccessibleFieldType(
+      ProgramField field, ProgramDefinition context) {
+    if (mode.isFinalTreeShaking() && options.isOptimizing() && !field.getAccessFlags().isStatic()) {
+      DexType fieldBaseType = field.getType().toBaseType(appView.dexItemFactory());
+      if (fieldBaseType.isClassType()) {
+        DexClass clazz = definitionFor(fieldBaseType, context);
+        if (clazz != null
+            && AccessControl.isClassAccessible(clazz, context, appView).isPossiblyFalse()) {
+          applyMinimumKeepInfoWhenLive(
+              field.getHolder(), KeepClassInfo.newEmptyJoiner().disallowHorizontalClassMerging());
+        }
+      }
+    }
   }
 
   private void traceFieldDefinition(ProgramField field) {
