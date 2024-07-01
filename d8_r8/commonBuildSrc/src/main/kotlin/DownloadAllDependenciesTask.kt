@@ -107,7 +107,7 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
 
     @Throws(IOException::class, InterruptedException::class)
     private fun downloadFromGoogleStorage(parameters: RunDownloadParameters, sha1File: File) {
-      val args = Arrays.asList("-n", "-b", "r8-deps-new-backup", "-s", "-u", sha1File.toString())
+      val args = Arrays.asList("-n", "-b", "r8-deps", "-s", "-u", sha1File.toString())
       if (OperatingSystem.current().isWindows) {
         val command: MutableList<String> = ArrayList()
         command.add("download_from_google_storage.bat")
