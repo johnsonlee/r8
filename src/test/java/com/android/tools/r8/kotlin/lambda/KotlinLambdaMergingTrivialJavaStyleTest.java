@@ -99,7 +99,7 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
         && kotlinParameters.getCompilerVersion().isLessThan(KOTLINC_1_5_0)) {
       // Don't check exactly how J-style Kotlin lambdas are merged for kotlinc before 1.5.0.
       assertEquals(
-          parameters.isDexRuntime() && parameters.canUseDefaultAndStaticInterfaceMethods() ? 2 : 10,
+          parameters.isDexRuntime() && parameters.canUseDefaultAndStaticInterfaceMethods() ? 3 : 10,
           inspector.getMergeGroups().size());
       return;
     }
@@ -242,7 +242,7 @@ public class KotlinLambdaMergingTrivialJavaStyleTest extends KotlinTestBase {
         kotlinParameters.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_1_5_0)
             ? 0
             : (parameters.isDexRuntime() && parameters.canUseDefaultAndStaticInterfaceMethods()
-                ? 2
+                ? 3
                 : 8),
         lambdasInOutput.size());
   }
