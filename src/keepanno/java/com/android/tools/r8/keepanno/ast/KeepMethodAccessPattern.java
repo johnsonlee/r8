@@ -5,7 +5,9 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.keeprules.RulePrinter;
 import com.android.tools.r8.keepanno.keeprules.RulePrintingUtils;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberAccessMethod;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class KeepMethodAccessPattern extends KeepMemberAccessPattern {
 
@@ -51,6 +53,24 @@ public class KeepMethodAccessPattern extends KeepMemberAccessPattern {
     this.nativePattern = nativePattern;
     this.abstractPattern = abstractPattern;
     this.strictFpPattern = strictFpPattern;
+  }
+
+  public static KeepMethodAccessPattern fromMethodProto(MemberAccessMethod proto) {
+    return builder().applyMethodProto(proto).build();
+  }
+
+  public void buildMethodProto(Consumer<MemberAccessMethod.Builder> callback) {
+    if (isAny()) {
+      return;
+    }
+    MemberAccessMethod.Builder builder = MemberAccessMethod.newBuilder();
+    buildGeneralProto(builder::setGeneralAccess);
+    synchronizedPattern.buildProto(builder::setSynchronizedPattern);
+    bridgePattern.buildProto(builder::setBridgePattern);
+    nativePattern.buildProto(builder::setNativePattern);
+    abstractPattern.buildProto(builder::setAbstractPattern);
+    strictFpPattern.buildProto(builder::setStrictFpPattern);
+    callback.accept(builder);
   }
 
   @Override
@@ -121,6 +141,33 @@ public class KeepMethodAccessPattern extends KeepMemberAccessPattern {
               getSyntheticPattern(),
               getStrictFpPattern());
       return pattern.isAny() ? anyMethodAccess() : pattern;
+    }
+
+    public Builder applyMethodProto(MemberAccessMethod proto) {
+      if (proto.hasGeneralAccess()) {
+        applyGeneralProto(proto.getGeneralAccess());
+      }
+      assert synchronizedPattern.isAny();
+      if (proto.hasSynchronizedPattern()) {
+        setSynchronized(proto.getSynchronizedPattern().getValue());
+      }
+      assert bridgePattern.isAny();
+      if (proto.hasBridgePattern()) {
+        setBridge(proto.getBridgePattern().getValue());
+      }
+      assert nativePattern.isAny();
+      if (proto.hasNativePattern()) {
+        setNative(proto.getNativePattern().getValue());
+      }
+      assert abstractPattern.isAny();
+      if (proto.hasAbstractPattern()) {
+        setAbstract(proto.getAbstractPattern().getValue());
+      }
+      assert strictFpPattern.isAny();
+      if (proto.hasStrictFpPattern()) {
+        setStrictFp(proto.getStrictFpPattern().getValue());
+      }
+      return this;
     }
 
     public Builder setSynchronized(boolean allow) {

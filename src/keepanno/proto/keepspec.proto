@@ -83,7 +83,9 @@ message Check {
 
 message Edge {
   MetaInfo meta_info = 1;
-  // TODO(b/343389186): Add content.
+  Bindings bindings = 2;
+  repeated Condition preconditions = 3;
+  repeated Target consequences = 4;
 }
 
 message Bindings {
@@ -99,6 +101,55 @@ message BindingReference {
   string name = 1;
 }
 
+message Condition {
+  BindingReference item = 1;
+}
+
+message Target {
+  BindingReference item = 1;
+  optional Constraints constraints = 2;
+  repeated Constraint constraint_additions = 3;
+}
+
+message Constraints {
+  repeated Constraint constraints = 1;
+}
+
+enum ConstraintElement {
+  CONSTRAINT_UNSPECIFIED = 0;
+  CONSTRAINT_LOOKUP = 1;
+  CONSTRAINT_NAME = 2;
+  CONSTRAINT_VISIBILITY_RELAX = 3;
+  CONSTRAINT_VISIBILITY_RESTRICT = 4;
+  CONSTRAINT_NEVER_INLINE = 5;
+  CONSTRAINT_CLASS_INSTANTIATE = 6;
+  CONSTRAINT_CLASS_OPEN_HIERARCHY = 7;
+  CONSTRAINT_METHOD_INVOKE = 8;
+  CONSTRAINT_METHOD_REPLACE = 9;
+  CONSTRAINT_FIELD_GET = 10;
+  CONSTRAINT_FIELD_SET = 11;
+  CONSTRAINT_FIELD_REPLACE = 12;
+  CONSTRAINT_GENERIC_SIGNATURE = 13;
+}
+
+message AnnotationPattern {
+  optional AnnotationRetention retention = 1;
+  optional ClassNamePattern name = 2;
+}
+
+enum AnnotationRetention {
+  RETENTION_UNSPECIFIED = 0;
+  RETENTION_RUNTIME = 1;
+  RETENTION_CLASS = 2;
+}
+
+message Constraint {
+  oneof constraint_oneof {
+    ConstraintElement element = 1;
+    AnnotationPattern annotation = 2;
+  }
+}
+
 message ItemPattern {
   oneof item_oneof {
     ClassItemPattern class_item = 1;
@@ -108,8 +159,13 @@ message ItemPattern {
 
 message ClassItemPattern {
   optional ClassNamePattern class_name = 1;
-  // TODO(b/343389186): Add instance-of.
-  // TODO(b/343389186): Add annotated-by.
+  optional InstanceOfPattern instance_of = 2;
+  optional AnnotatedByPattern annotated_by = 3;
+}
+
+message InstanceOfPattern {
+  optional bool inclusive = 1;
+  optional ClassNamePattern class_name = 2;
 }
 
 message ClassNamePattern {
@@ -151,6 +207,10 @@ message UnqualifiedNamePattern {
   optional StringPattern name = 1;
 }
 
+message AnnotatedByPattern {
+  optional ClassNamePattern name = 1;
+}
+
 message MemberItemPattern {
   BindingReference class_reference = 1;
   optional MemberPattern member_pattern = 2;
@@ -164,20 +224,64 @@ message MemberPattern {
   }
 }
 
+enum AccessVisibility {
+  ACCESS_UNSPECIFIED = 0;
+  ACCESS_PUBLIC = 1;
+  ACCESS_PROTECTED = 2;
+  ACCESS_PACKAGE_PRIVATE = 3;
+  ACCESS_PRIVATE = 4;
+}
+
+message AccessVisibilitySet {
+  repeated AccessVisibility access_visibility = 1;
+}
+
+// Placeholder for an optional boolean modifier.
+// The optional value is encoded by it not being present at the reference point.
+message ModifierPattern {
+  bool value = 1;
+}
+
+message MemberAccessGeneral {
+  optional AccessVisibilitySet access_visibility = 1;
+  optional ModifierPattern static_pattern = 2;
+  optional ModifierPattern final_pattern = 3;
+  optional ModifierPattern synthetic_pattern = 4;
+}
+
+message MemberAccessField {
+  optional MemberAccessGeneral general_access = 1;
+  optional ModifierPattern volatile_pattern = 2;
+  optional ModifierPattern transient_pattern = 3;
+}
+
+message MemberAccessMethod {
+  optional MemberAccessGeneral general_access = 1;
+  optional ModifierPattern synchronized_pattern = 2;
+  optional ModifierPattern bridge_pattern = 3;
+  optional ModifierPattern native_pattern = 4;
+  optional ModifierPattern abstract_pattern = 5;
+  optional ModifierPattern strict_fp_pattern = 6;
+}
+
 message MemberPatternGeneral {
-  // TODO(b/343389186): Add content.
+  optional MemberAccessGeneral access = 1;
+  optional AnnotatedByPattern annotated_by = 2;
 }
 
 message MemberPatternField {
-  // TODO(b/343389186): Add content.
+  optional MemberAccessField access = 1;
+  optional AnnotatedByPattern annotated_by = 2;
+  optional StringPattern name = 3;
+  optional TypePattern field_type = 4;
 }
 
 message MemberPatternMethod {
-  optional StringPattern name = 1;
-  optional MethodReturnTypePattern return_type = 2;
-  optional MethodParameterTypesPattern parameter_types = 3;
-  // TODO(b/343389186): Add annotated-by.
-  // TODO(b/343389186): Add access.
+  optional MemberAccessMethod access = 1;
+  optional AnnotatedByPattern annotated_by = 2;
+  optional StringPattern name = 3;
+  optional MethodReturnTypePattern return_type = 4;
+  optional MethodParameterTypesPattern parameter_types = 5;
 }
 
 message MethodReturnTypePattern {
@@ -202,7 +306,7 @@ message TypePattern {
     TypePatternPrimitive primitive = 1;
     TypePatternArray array = 2;
     ClassNamePattern clazz = 3;
-    // TODO(b/343389186): Add instance-of.
+    InstanceOfPattern instance_of = 4;
   }
 }
 
@@ -223,4 +327,3 @@ message TypePatternArray {
   optional uint32 dimensions = 1;
   optional TypePattern base_type = 2;
 }
-

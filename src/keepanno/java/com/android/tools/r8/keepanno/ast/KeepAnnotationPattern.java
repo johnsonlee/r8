@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.AnnotationPattern;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.AnnotationRetention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Objects;
 
@@ -38,12 +40,52 @@ public class KeepAnnotationPattern {
     return new Builder();
   }
 
+  public static KeepAnnotationPattern fromProto(AnnotationPattern proto) {
+    return builder().applyProto(proto).build();
+  }
+
+  public AnnotationPattern.Builder buildProto() {
+    AnnotationPattern.Builder builder = AnnotationPattern.newBuilder();
+    builder.setName(namePattern.buildProto());
+    if (retentionPolicies == RUNTIME_RETENTION_MASK) {
+      builder.setRetention(AnnotationRetention.RETENTION_RUNTIME);
+    } else if (retentionPolicies == CLASS_RETENTION_MASK) {
+      builder.setRetention(AnnotationRetention.RETENTION_CLASS);
+    }
+    return builder;
+  }
+
   public static class Builder {
 
     private KeepQualifiedClassNamePattern namePattern = KeepQualifiedClassNamePattern.any();
     private int retentionPolicies = 0x0;
 
     private Builder() {}
+
+    public Builder applyProto(AnnotationPattern proto) {
+      assert namePattern.isAny();
+      if (proto.hasName()) {
+        setNamePattern(KeepQualifiedClassNamePattern.fromProto(proto.getName()));
+      }
+      // The builder is configured to check that retention is set.
+      // Thus, we apply the default case here explicitly.
+      assert retentionPolicies != ANY_RETENTION_MASK;
+      retentionPolicies = ANY_RETENTION_MASK;
+      if (proto.hasRetention()) {
+        switch (proto.getRetention().getNumber()) {
+          case AnnotationRetention.RETENTION_RUNTIME_VALUE:
+            retentionPolicies = RUNTIME_RETENTION_MASK;
+            break;
+          case AnnotationRetention.RETENTION_CLASS_VALUE:
+            retentionPolicies = CLASS_RETENTION_MASK;
+            break;
+          default:
+            // default any applies.
+            assert retentionPolicies == ANY_RETENTION_MASK;
+        }
+      }
+      return this;
+    }
 
     public Builder setNamePattern(KeepQualifiedClassNamePattern namePattern) {
       this.namePattern = namePattern;

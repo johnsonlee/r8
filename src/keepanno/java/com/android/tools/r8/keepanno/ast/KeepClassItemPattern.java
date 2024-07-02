@@ -24,9 +24,10 @@ public class KeepClassItemPattern extends KeepItemPattern {
   }
 
   public ClassItemPattern.Builder buildClassProto() {
-    // TODO(b/343389186): Add instance-of.
-    // TODO(b/343389186): Add annotated-by.
-    return ClassItemPattern.newBuilder().setClassName(classNamePattern.buildProto());
+    ClassItemPattern.Builder builder = ClassItemPattern.newBuilder();
+    KeepSpecUtils.buildAnnotatedByProto(annotatedByPattern, builder::setAnnotatedBy);
+    instanceOfPattern.buildProto(builder::setInstanceOf);
+    return builder.setClassName(classNamePattern.buildProto());
   }
 
   public static class Builder {
@@ -43,9 +44,14 @@ public class KeepClassItemPattern extends KeepItemPattern {
       if (protoItem.hasClassName()) {
         setClassNamePattern(KeepQualifiedClassNamePattern.fromProto(protoItem.getClassName()));
       }
-
-      // TODO(b/343389186): Add instance-of.
-      // TODO(b/343389186): Add annotated-by.
+      assert annotatedByPattern.isAbsent();
+      if (protoItem.hasAnnotatedBy()) {
+        setAnnotatedByPattern(KeepSpecUtils.annotatedByFromProto(protoItem.getAnnotatedBy()));
+      }
+      assert instanceOfPattern.isAny();
+      if (protoItem.hasInstanceOf()) {
+        setInstanceOfPattern(KeepInstanceOfPattern.fromProto(protoItem.getInstanceOf()));
+      }
       return this;
     }
 

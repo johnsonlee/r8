@@ -4,7 +4,6 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.TypePattern;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;
@@ -56,21 +55,6 @@ public abstract class KeepTypePattern {
       return primitiveType;
     }
     throw new KeepEdgeException("Invalid type descriptor: " + typeDescriptor);
-  }
-
-  public static KeepTypePattern fromProto(TypePattern typeProto) {
-    if (typeProto.hasPrimitive()) {
-      return KeepTypePattern.fromPrimitive(
-          KeepPrimitiveTypePattern.fromProto(typeProto.getPrimitive()));
-    }
-    if (typeProto.hasArray()) {
-      return KeepTypePattern.fromArray(KeepArrayTypePattern.fromProto(typeProto.getArray()));
-    }
-    if (typeProto.hasClazz()) {
-      return KeepTypePattern.fromClass(
-          KeepQualifiedClassNamePattern.fromProto(typeProto.getClazz()));
-    }
-    return KeepTypePattern.any();
   }
 
   public abstract <T> T apply(
@@ -281,6 +265,25 @@ public abstract class KeepTypePattern {
     }
   }
 
+  public static KeepTypePattern fromProto(TypePattern typeProto) {
+    if (typeProto.hasPrimitive()) {
+      return KeepTypePattern.fromPrimitive(
+          KeepPrimitiveTypePattern.fromProto(typeProto.getPrimitive()));
+    }
+    if (typeProto.hasArray()) {
+      return KeepTypePattern.fromArray(KeepArrayTypePattern.fromProto(typeProto.getArray()));
+    }
+    if (typeProto.hasClazz()) {
+      return KeepTypePattern.fromClass(
+          KeepQualifiedClassNamePattern.fromProto(typeProto.getClazz()));
+    }
+    if (typeProto.hasInstanceOf()) {
+      return KeepTypePattern.fromInstanceOf(
+          KeepInstanceOfPattern.fromProto(typeProto.getInstanceOf()));
+    }
+    return KeepTypePattern.any();
+  }
+
   public TypePattern.Builder buildProto() {
     TypePattern.Builder builder = TypePattern.newBuilder();
     match(
@@ -291,7 +294,14 @@ public abstract class KeepTypePattern {
         array -> builder.setArray(array.buildProto()),
         clazz -> builder.setClazz(clazz.buildProto()),
         instanceOf -> {
-          throw new Unimplemented();
+          if (instanceOf.isAny()) {
+            // Note that an "any" instance-of pattern should match any class-type
+            // TODO(b/350647134): This should become evident when introducing a class-pattern.
+            //  When doing so, consider also if/how to match a general reference type.
+            builder.setClazz(KeepQualifiedClassNamePattern.any().buildProto());
+          } else {
+            instanceOf.buildProto(builder::setInstanceOf);
+          }
         });
     return builder;
   }

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Bindings;
 import java.util.Collections;
@@ -86,6 +87,13 @@ public class KeepBindings {
         + bindings.entrySet().stream()
             .map(e -> e.getKey() + "=" + e.getValue())
             .collect(Collectors.joining(", "));
+  }
+
+  public static BindingResolver fromProto(Bindings proto) {
+    if (proto == null) {
+      throw new KeepEdgeException("Invalid keep spec, must have valid bindings.");
+    }
+    return new BindingResolver(builder().applyProto(proto));
   }
 
   public KeepSpecProtos.Bindings.Builder buildProto() {

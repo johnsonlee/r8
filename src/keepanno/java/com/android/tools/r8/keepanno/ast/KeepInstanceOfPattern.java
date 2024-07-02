@@ -3,11 +3,28 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.InstanceOfPattern;
+import java.util.function.Consumer;
+
 /** Pattern for matching the instance-of properties of a class. */
 public abstract class KeepInstanceOfPattern {
 
   public static KeepInstanceOfPattern any() {
     return Some.getAnyInstance();
+  }
+
+  public static KeepInstanceOfPattern fromProto(InstanceOfPattern proto) {
+    return builder().applyProto(proto).build();
+  }
+
+  public void buildProto(Consumer<InstanceOfPattern.Builder> setter) {
+    if (isAny()) {
+      return;
+    }
+    setter.accept(
+        InstanceOfPattern.newBuilder()
+            .setInclusive(isInclusive())
+            .setClassName(getClassNamePattern().buildProto()));
   }
 
   public static class Builder {
@@ -16,6 +33,18 @@ public abstract class KeepInstanceOfPattern {
     private boolean isInclusive = true;
 
     private Builder() {}
+
+    public Builder applyProto(InstanceOfPattern proto) {
+      assert namePattern.isAny();
+      if (proto.hasClassName()) {
+        classPattern(KeepQualifiedClassNamePattern.fromProto(proto.getClassName()));
+      }
+      assert isInclusive;
+      if (proto.hasInclusive()) {
+        setInclusive(proto.getInclusive());
+      }
+      return this;
+    }
 
     public Builder classPattern(KeepQualifiedClassNamePattern namePattern) {
       this.namePattern = namePattern;
