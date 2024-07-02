@@ -192,20 +192,15 @@ public abstract class KeepAnnoTestBuilder {
       if (isExtractRules()) {
         // TODO(b/323816623): Replace the internal rule extraction by extraction in this builder.
         builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
-        builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
         return;
       }
 
       // TODO(b/323816623): Replace the testing flag by the API call.
       // This enables native interpretation of all keep annotations.
       builder.addOptionsModification(
-          o -> {
-            o.testing.enableExtractedKeepAnnotations = isNormalizeEdges();
-            o.testing.enableEmbeddedKeepAnnotations = !isNormalizeEdges();
-          });
+          o -> o.testing.enableEmbeddedKeepAnnotations = !isNormalizeEdges());
       // This disables all reading of annotations in the command reader.
       builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
-      builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
     }
 
     private boolean isExtractRules() {

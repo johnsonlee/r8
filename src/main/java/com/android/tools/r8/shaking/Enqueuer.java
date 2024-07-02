@@ -678,9 +678,6 @@ public class Enqueuer {
   }
 
   private void addEffectivelyLiveOriginalMethod(ProgramMethod method) {
-    if (!options.testing.isKeepAnnotationsEnabled()) {
-      return;
-    }
     if (method.getDefinition().hasPendingInlineFrame()) {
       traceMethodPosition(method.getDefinition().getPendingInlineFrameAsPosition(), method);
     } else if (!method.getDefinition().isD8R8Synthesized()) {
@@ -1677,10 +1674,6 @@ public class Enqueuer {
   }
 
   void traceMethodPosition(com.android.tools.r8.ir.code.Position position, ProgramMethod context) {
-    if (!options.testing.isKeepAnnotationsEnabled()) {
-      // Currently inlining is only intended for the evaluation of keep annotation edges.
-      return;
-    }
     while (position.hasCallerPosition()) {
       // Any inner position should not be non-synthetic user methods.
       assert !position.isD8R8Synthesized();
@@ -3311,9 +3304,6 @@ public class Enqueuer {
   }
 
   private void addEffectivelyLiveOriginalField(ProgramField field) {
-    if (!options.testing.isKeepAnnotationsEnabled()) {
-      return;
-    }
     if (field.getDefinition().hasOriginalFieldWitness()) {
       markEffectivelyLiveOriginalReference(field.getDefinition().getOriginalFieldWitness());
     } else {
@@ -3560,7 +3550,6 @@ public class Enqueuer {
   }
 
   public boolean isOriginalReferenceEffectivelyLive(DexReference reference) {
-    assert options.testing.isKeepAnnotationsEnabled();
     // The effectively-live original set contains types, fields and methods witnessed by
     // instructions, such as method inlining positions.
     return effectivelyLiveOriginalReferences.contains(reference);

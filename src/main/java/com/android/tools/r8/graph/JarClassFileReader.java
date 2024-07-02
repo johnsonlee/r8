@@ -458,7 +458,7 @@ public class JarClassFileReader<T extends DexClass> {
     public boolean shouldReadKeepAnnotations() {
       // Only compilers configured to read annotations should process them.
       // In all other instances (D8, relocater, etc.) they must be pass-through.
-      return application.options.testing.isKeepAnnotationsEnabled()
+      return application.options.testing.enableEmbeddedKeepAnnotations
           && classKind == ClassKind.PROGRAM;
     }
 
@@ -470,7 +470,6 @@ public class JarClassFileReader<T extends DexClass> {
             desc,
             visible,
             application.options.testing.enableEmbeddedKeepAnnotations,
-            application.options.testing.enableExtractedKeepAnnotations,
             className,
             ClassParsingContext.fromName(className).annotation(desc),
             application::addKeepDeclaration);
@@ -684,7 +683,6 @@ public class JarClassFileReader<T extends DexClass> {
             desc,
             visible,
             parent.application.options.testing.enableEmbeddedKeepAnnotations,
-            parent.application.options.testing.enableExtractedKeepAnnotations,
             className,
             name,
             fieldTypeDescriptor,
@@ -852,7 +850,6 @@ public class JarClassFileReader<T extends DexClass> {
             desc,
             visible,
             parent.application.options.testing.enableEmbeddedKeepAnnotations,
-            parent.application.options.testing.enableExtractedKeepAnnotations,
             className,
             name,
             methodDescriptor,

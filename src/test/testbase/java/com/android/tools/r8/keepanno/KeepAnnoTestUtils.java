@@ -11,12 +11,10 @@ import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.ProguardVersion;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
-import com.android.tools.r8.keepanno.asm.KeepEdgeWriter.AnnotationVisitorInterface;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.utils.FileUtils;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.rules.TemporaryFolder;
-import org.objectweb.asm.AnnotationVisitor;
 
 public class KeepAnnoTestUtils {
 
@@ -100,48 +97,5 @@ public class KeepAnnoTestUtils {
       declarations.forEach(extractor::extract);
     }
     return rules;
-  }
-
-  public static AnnotationVisitorInterface wrap(AnnotationVisitor visitor) {
-    return visitor == null ? null : new WrappedAnnotationVisitor(visitor);
-  }
-
-  private static class WrappedAnnotationVisitor implements AnnotationVisitorInterface {
-
-    private final AnnotationVisitor visitor;
-
-    private WrappedAnnotationVisitor(AnnotationVisitor visitor) {
-      this.visitor = visitor;
-    }
-
-    @Override
-    public int version() {
-      return InternalOptions.ASM_VERSION;
-    }
-
-    @Override
-    public void visit(String name, Object value) {
-      visitor.visit(name, value);
-    }
-
-    @Override
-    public void visitEnum(String name, String descriptor, String value) {
-      visitor.visitEnum(name, descriptor, value);
-    }
-
-    @Override
-    public AnnotationVisitorInterface visitAnnotation(String name, String descriptor) {
-      return wrap(visitor.visitAnnotation(name, descriptor));
-    }
-
-    @Override
-    public AnnotationVisitorInterface visitArray(String name) {
-      return wrap(visitor.visitArray(name));
-    }
-
-    @Override
-    public void visitEnd() {
-      visitor.visitEnd();
-    }
   }
 }
