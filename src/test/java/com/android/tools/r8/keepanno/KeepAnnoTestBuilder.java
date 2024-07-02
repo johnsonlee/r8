@@ -21,6 +21,7 @@ import com.android.tools.r8.keepanno.KeepAnnoParameters.KeepAnnoConfig;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepSpecVersion;
+import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.KeepSpec;
 import com.android.tools.r8.origin.Origin;
@@ -189,18 +190,8 @@ public abstract class KeepAnnoTestBuilder {
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
 
-      if (isExtractRules()) {
-        // TODO(b/323816623): Replace the internal rule extraction by extraction in this builder.
-        builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
-        return;
-      }
-
       // TODO(b/323816623): Replace the testing flag by the API call.
-      // This enables native interpretation of all keep annotations.
-      builder.addOptionsModification(
-          o -> o.testing.enableEmbeddedKeepAnnotations = !isNormalizeEdges());
-      // This disables all reading of annotations in the command reader.
-      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+      builder.addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
     }
 
     private boolean isExtractRules() {
@@ -209,6 +200,10 @@ public abstract class KeepAnnoTestBuilder {
 
     private boolean isNormalizeEdges() {
       return config == KeepAnnoConfig.R8_NORMALIZED;
+    }
+
+    private boolean isDirect() {
+      return config == KeepAnnoConfig.R8_DIRECT;
     }
 
     @Override
@@ -267,6 +262,14 @@ public abstract class KeepAnnoTestBuilder {
 
     private void extractAndAdd(byte[] classFileData) {
       builder.addProgramClassFileData(classFileData);
+      if (isExtractRules()) {
+        List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
+        if (!declarations.isEmpty()) {
+          KeepRuleExtractor extractor = new KeepRuleExtractor(builder::addKeepRules);
+          declarations.forEach(extractor::extract);
+        }
+        return;
+      }
       if (isNormalizeEdges()) {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
         if (!declarations.isEmpty()) {
@@ -279,7 +282,9 @@ public abstract class KeepAnnoTestBuilder {
               .getBuilder()
               .addKeepSpecificationData(keepSpecBuilder.build().toByteArray(), Origin.unknown());
         }
+        return;
       }
+      assert isDirect();
     }
 
     @Override
