@@ -333,7 +333,8 @@ public class CompatKeepClassMemberNamesTestRunner extends TestBase {
 
   @Test
   public void testWithMembersStarRuleFullR8() throws Exception {
-    testWithMembersStarRule(testForR8(parameters.getBackend()));
+    testWithMembersStarRule(
+        testForR8(parameters.getBackend()).allowUnusedProguardConfigurationRules());
   }
 
   // Tests for "-keepclassmembernames" and *no* minification.

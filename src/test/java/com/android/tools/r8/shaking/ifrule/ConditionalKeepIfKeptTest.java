@@ -62,7 +62,7 @@ public class ConditionalKeepIfKeptTest extends TestBase {
               ClassSubject classSubject = inspector.clazz(StaticallyReferenced.class);
               assertThat(classSubject, isPresent());
               assertEquals(0, classSubject.allFields().size());
-              assertEquals(1, classSubject.allMethods().size());
+              assertEquals(0, classSubject.allMethods().size());
             });
   }
 
