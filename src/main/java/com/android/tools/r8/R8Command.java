@@ -1158,7 +1158,9 @@ public final class R8Command extends BaseCompilerCommand {
 
     assert !internal.enableTreeShakingOfLibraryMethodOverrides;
 
-    internal.testing.enableEmbeddedKeepAnnotations = enableExperimentalKeepAnnotations;
+    if (enableExperimentalKeepAnnotations) {
+      internal.testing.enableEmbeddedKeepAnnotations = true;
+    }
 
     if (!internal.isShrinking()) {
       // If R8 is not shrinking, there is no point in running various optimizations since the
