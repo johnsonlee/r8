@@ -29,7 +29,6 @@ ANDROID_TOOLS_PACKAGE = 'com.android.tools'
 
 GITHUB_DESUGAR_JDK_LIBS = 'https://github.com/google/desugar_jdk_libs'
 
-
 def install_gerrit_change_id_hook(checkout_dir):
     with utils.ChangedWorkingDirectory(checkout_dir):
         # Fancy way of getting the string ".git".
@@ -353,12 +352,14 @@ def g4_open(file):
         subprocess.check_call('g4 open %s' % file, shell=True)
 
 
-def g4_change(version):
+def g4_change(version, commit_info):
     message = f'Update R8 to {version}'
     if version == 'main':
         message = f'DO NOT SUBMIT: {message}'
+    if commit_info:
+        message += f'\n\n{commit_info}'
     return subprocess.check_output(
-        f'g4 change --desc "{message}\n"',
+        f"g4 change --desc '{message}\n'",
         shell=True).decode('utf-8')
 
 
@@ -406,6 +407,36 @@ def blaze_run(target):
                                    stderr=subprocess.STDOUT).decode('utf-8')
 
 
+def find_r8_version_hash(branch, version):
+    if not branch.startswith('origin/'):
+        print('Expected branch to start with origin/')
+        return 1
+    output = subprocess.check_output([
+        'git',
+        'log',
+        '--pretty=format:%H\t%s',
+        '--grep',
+        '^Version [[:digit:]]\+.[[:digit:]]\+.[[:digit:]]\+\(\|-dev\)$',
+        branch]).decode('utf-8')
+    for l in output.split('\n'):
+        (hash, subject) = l.split('\t')
+        m = re.search('Version (.+)', subject)
+        if not m:
+            print('Unable to find a version for line: %s' % l)
+            continue
+        if (m.group(1) == version):
+            return hash
+    print(f'ERROR: Did not find commit for {version} on branch {branch}')
+
+
+def find_2nd(string, substring):
+    return string.find(substring, string.find(substring) + 1)
+
+
+def branch_from_version(version):
+    return version[0:find_2nd(version, '.')]
+
+
 def prepare_google3(args):
     assert args.version
     # Check if an existing client exists.
@@ -421,6 +452,7 @@ def prepare_google3(args):
             ['p4', 'g4d', '-f', args.p4_client]).decode('utf-8').rstrip()
         third_party_r8 = os.path.join(google3_base, 'third_party', 'java', 'r8')
         today = datetime.date.today()
+        commit_info = 'No info on changes merged.'
         with utils.ChangedWorkingDirectory(third_party_r8):
             # download files
             g4_open('full.jar')
@@ -456,13 +488,25 @@ def prepare_google3(args):
                 metadata_path = os.path.join(third_party_r8, 'METADATA')
                 match_count = 0
                 match_count_expected = 10
-                version_match_regexp = r'[1-9]\.[0-9]{1,2}\.[0-9]{1,3}-dev'
+                match_value = None
+                version_match_regexp = r'([1-9]\.[0-9]{1,2}\.[0-9]{1,3}-dev)'
                 for line in open(metadata_path, 'r'):
                     result = re.search(version_match_regexp, line)
                     if result:
                         match_count = match_count + 1
+                        if not match_value:
+                            match_value = result.group(1)
+                        else:
+                            if match_value != result.group(1):
+                                print(f"""ERROR:
+                                Multiple -dev release strings ({match_value} and
+                                {result.group(0)}) found in METADATA. Please update
+                                {metadata_path} manually and run again with options
+                                --google3 --use-existing-work-branch.
+                                """)
+                                sys.exit(1)
                 if match_count != match_count_expected:
-                    print(f"""WARNING:
+                    print(f"""ERROR:
                     Could not find the previous -dev release string to replace in METADATA.
                     Expected to find it mentioned {match_count_expected} times, but found
                     {match_count} occurrences. Please update {metadata_path} manually and
@@ -474,6 +518,35 @@ def prepare_google3(args):
                     f'{{ year: {today.year} month: {today.month} day: {today.day} }}',
                     metadata_path)
             subprocess.check_output('chmod u+w *', shell=True)
+            previous_version = match_value
+            if not options.version.endswith('-dev') or not previous_version.endswith('-dev'):
+                print(f'ERROR: At least one of {options.version} (new version) '
+                    + f'and {previous_version} (previous version) is not a -dev version. '
+                    + 'Expected both to be.')
+                sys.exit(1)
+            print(f'Previous version was: {previous_version}')
+            with utils.TempDir() as temp:
+                subprocess.check_call(['git', 'clone', utils.REPO_SOURCE, temp])
+                with utils.ChangedWorkingDirectory(temp):
+                    current_version_hash = find_r8_version_hash(
+                        'origin/' + branch_from_version(previous_version), previous_version)
+                    new_version_hash = find_r8_version_hash(
+                        'origin/' + branch_from_version(options.version), options.version)
+                    if not current_version_hash or not new_version_hash:
+                        print('ERROR: Failed to generate merged commits log, missing version')
+                        sys.exit(1)
+                    commits_merged = subprocess.check_output([
+                        'git',
+                        'log',
+                        '--oneline',
+                        f"{current_version_hash}..{new_version_hash}"]).decode('utf-8')
+                    if len(commits_merged) == 0:
+                        print('ERROR: Failed to generate merged commits log, commit log is empty')
+                        sys.exit(1)
+                    commit_info = (
+                        f'Commits merged (since {previous_version}):\n'
+                        + f'{commits_merged}\n'
+                        + f'See https://r8.googlesource.com/r8/+log/{new_version_hash}')
 
         with utils.ChangedWorkingDirectory(google3_base):
             blaze_result = blaze_run('//third_party/java/r8:d8 -- --version')
@@ -481,7 +554,7 @@ def prepare_google3(args):
             assert options.version in blaze_result
 
             if not options.no_upload:
-                change_result = g4_change(options.version)
+                change_result = g4_change(options.version, commit_info)
                 change_result += 'Run \'(g4d ' + args.p4_client \
                                  + ' && tap_presubmit -p all --train -c ' \
                                  + get_cl_id(change_result) + ')\' for running TAP global' \
