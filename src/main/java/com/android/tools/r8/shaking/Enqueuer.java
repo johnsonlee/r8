@@ -154,6 +154,7 @@ import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
 import com.android.tools.r8.shaking.rules.ApplicableRulesEvaluator;
+import com.android.tools.r8.shaking.rules.KeepAnnotationFakeProguardRule;
 import com.android.tools.r8.shaking.rules.KeepAnnotationMatcher;
 import com.android.tools.r8.synthesis.SyntheticItems.SynthesizingContextOracle;
 import com.android.tools.r8.utils.Action;
@@ -1053,7 +1054,8 @@ public class Enqueuer {
         if (forceProguardCompatibility) {
           Joiner joiner = KeepMethodInfo.newEmptyJoiner();
           for (ProguardKeepRuleBase rule : rules) {
-            if (!rule.getType().equals(ProguardKeepRuleType.KEEP_CLASS_MEMBERS)) {
+            if (!(rule instanceof KeepAnnotationFakeProguardRule)
+                && !rule.getType().equals(ProguardKeepRuleType.KEEP_CLASS_MEMBERS)) {
               joiner.addRule(rule);
             }
           }

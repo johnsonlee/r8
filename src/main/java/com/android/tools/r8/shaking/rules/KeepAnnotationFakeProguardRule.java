@@ -9,6 +9,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.ProguardClassType;
 import com.android.tools.r8.shaking.ProguardKeepRuleBase;
+import com.android.tools.r8.shaking.ProguardKeepRuleType;
 
 // TODO(b/323816623): Make an interface to use in the keep-reason tracking.
 public class KeepAnnotationFakeProguardRule extends ProguardKeepRuleBase {
@@ -28,7 +29,7 @@ public class KeepAnnotationFakeProguardRule extends ProguardKeepRuleBase {
         null,
         false,
         null,
-        null,
+        ProguardKeepRuleType.KEEPSPEC,
         null);
   }
 }
