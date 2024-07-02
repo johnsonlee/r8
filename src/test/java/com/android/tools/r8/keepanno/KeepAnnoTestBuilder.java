@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno;
 
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.ProguardTestBuilder;
@@ -189,9 +190,11 @@ public abstract class KeepAnnoTestBuilder {
           TestBase.testForR8(temp, parameters().getBackend())
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
-
-      // TODO(b/323816623): Replace the testing flag by the API call.
-      builder.addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(isDirect());
+      // If the internal reader value does not match we will need to update the extract tests to
+      // also strip the annotations.
+      builder.addOptionsModification(
+          o -> assertEquals(isDirect(), o.testing.enableEmbeddedKeepAnnotations));
     }
 
     private boolean isExtractRules() {

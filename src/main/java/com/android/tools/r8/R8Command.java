@@ -17,9 +17,6 @@ import com.android.tools.r8.inspector.Inspector;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
-import com.android.tools.r8.keepanno.ast.KeepDeclaration;
-import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.naming.MapConsumer;
 import com.android.tools.r8.naming.ProguardMapStringConsumer;
 import com.android.tools.r8.naming.SourceFileRewriter;
@@ -65,7 +62,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
@@ -137,8 +133,7 @@ public final class R8Command extends BaseCompilerCommand {
         FeatureSplitConfiguration.builder();
     private String synthesizedClassPrefix = "";
     private boolean enableMissingLibraryApiModeling = false;
-    private boolean enableExperimentalKeepAnnotations =
-        System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
+    private boolean enableExperimentalKeepAnnotations = false;
     public boolean enableStartupLayoutOptimization = true;
     private SemanticVersion fakeCompilerVersion = null;
     private AndroidResourceProvider androidResourceProvider = null;
@@ -704,10 +699,6 @@ public final class R8Command extends BaseCompilerCommand {
 
       // Add embedded keep rules.
       amendWithRulesAndProvidersForInjarsAndMetaInf(reporter, parser);
-
-      // Extract out rules for keep annotations and amend the configuration.
-      // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
-      extractKeepAnnotationRules(parser);
       ProguardConfiguration configuration = configurationBuilder.build();
       getAppBuilder().addFilteredLibraryArchives(configuration.getLibraryjars());
 
@@ -756,6 +747,7 @@ public final class R8Command extends BaseCompilerCommand {
               getSourceFileProvider(),
               enableMissingLibraryApiModeling,
               enableStartupLayoutOptimization,
+              enableExperimentalKeepAnnotations,
               getAndroidPlatformBuild(),
               getArtProfilesForRewriting(),
               getStartupProfileProviders(),
@@ -833,35 +825,6 @@ public final class R8Command extends BaseCompilerCommand {
             }
           }
         }
-      }
-    }
-
-    private void extractKeepAnnotationRules(ProguardConfigurationParser parser) {
-      if (!enableExperimentalKeepAnnotations) {
-        return;
-      }
-      try {
-        for (ProgramResourceProvider provider : getAppBuilder().getProgramResourceProviders()) {
-          for (ProgramResource resource : provider.getProgramResources()) {
-            if (resource.getKind() == Kind.CF) {
-              List<KeepDeclaration> declarations =
-                  KeepEdgeReader.readKeepEdges(resource.getBytes());
-              if (!declarations.isEmpty()) {
-                KeepRuleExtractor extractor =
-                    new KeepRuleExtractor(
-                        rule -> {
-                          ProguardConfigurationSourceStrings source =
-                              new ProguardConfigurationSourceStrings(
-                                  Collections.singletonList(rule), null, resource.getOrigin());
-                          parser.parse(source);
-                        });
-                declarations.forEach(extractor::extract);
-              }
-            }
-          }
-        }
-      } catch (ResourceException e) {
-        throw getAppBuilder().getReporter().fatalError(new ExceptionDiagnostic(e));
       }
     }
 
@@ -956,6 +919,7 @@ public final class R8Command extends BaseCompilerCommand {
   private final String synthesizedClassPrefix;
   private final boolean enableMissingLibraryApiModeling;
   private final boolean enableStartupLayoutOptimization;
+  private final boolean enableExperimentalKeepAnnotations;
   private final AndroidResourceProvider androidResourceProvider;
   private final AndroidResourceConsumer androidResourceConsumer;
   private final ResourceShrinkerConfiguration resourceShrinkerConfiguration;
@@ -1049,6 +1013,7 @@ public final class R8Command extends BaseCompilerCommand {
       SourceFileProvider sourceFileProvider,
       boolean enableMissingLibraryApiModeling,
       boolean enableStartupLayoutOptimization,
+      boolean enableExperimentalKeepAnnotations,
       boolean isAndroidPlatformBuild,
       List<ArtProfileForRewriting> artProfilesForRewriting,
       List<StartupProfileProvider> startupProfileProviders,
@@ -1103,6 +1068,7 @@ public final class R8Command extends BaseCompilerCommand {
     this.synthesizedClassPrefix = synthesizedClassPrefix;
     this.enableMissingLibraryApiModeling = enableMissingLibraryApiModeling;
     this.enableStartupLayoutOptimization = enableStartupLayoutOptimization;
+    this.enableExperimentalKeepAnnotations = enableExperimentalKeepAnnotations;
     this.androidResourceProvider = androidResourceProvider;
     this.androidResourceConsumer = androidResourceConsumer;
     this.resourceShrinkerConfiguration = resourceShrinkerConfiguration;
@@ -1131,6 +1097,7 @@ public final class R8Command extends BaseCompilerCommand {
     synthesizedClassPrefix = null;
     enableMissingLibraryApiModeling = false;
     enableStartupLayoutOptimization = true;
+    enableExperimentalKeepAnnotations = false;
     androidResourceProvider = null;
     androidResourceConsumer = null;
     resourceShrinkerConfiguration = null;
@@ -1190,6 +1157,8 @@ public final class R8Command extends BaseCompilerCommand {
     assert internal.isOptimizing() || horizontalClassMergerOptions.isRestrictedToSynthetics();
 
     assert !internal.enableTreeShakingOfLibraryMethodOverrides;
+
+    internal.testing.enableEmbeddedKeepAnnotations = enableExperimentalKeepAnnotations;
 
     if (!internal.isShrinking()) {
       // If R8 is not shrinking, there is no point in running various optimizations since the
