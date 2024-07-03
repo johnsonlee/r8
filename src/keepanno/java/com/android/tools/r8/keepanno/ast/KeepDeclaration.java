@@ -50,6 +50,8 @@ public abstract class KeepDeclaration {
     throw new RuntimeException();
   }
 
+  public abstract String toProtoString();
+
   public final Declaration.Builder buildDeclarationProto() {
     Declaration.Builder builder = Declaration.newBuilder();
     return apply(
@@ -57,13 +59,13 @@ public abstract class KeepDeclaration {
         check -> builder.setCheck(check.buildCheckProto()));
   }
 
-  public static KeepDeclaration fromProto(
+  public static KeepDeclaration fromDeclarationProto(
       KeepSpecProtos.Declaration declaration, KeepSpecVersion version) {
     if (declaration.hasEdge()) {
-      return KeepEdge.builder().applyProto(declaration.getEdge(), version).build();
+      return KeepEdge.fromEdgeProto(declaration.getEdge(), version);
     }
     if (declaration.hasCheck()) {
-      return KeepCheck.builder().applyProto(declaration.getCheck(), version).build();
+      return KeepCheck.fromCheckProto(declaration.getCheck(), version);
     }
     return null;
   }

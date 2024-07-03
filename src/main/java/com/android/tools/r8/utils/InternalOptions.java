@@ -2217,13 +2217,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public static class TestingOptions {
 
-    public boolean enableExtractedKeepAnnotations = false;
-    public boolean enableEmbeddedKeepAnnotations = false;
+    public boolean enableEmbeddedKeepAnnotations =
+        System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
     public boolean reverseClassSortingForDeterminism = false;
-
-    public boolean isKeepAnnotationsEnabled() {
-      return enableExtractedKeepAnnotations || enableEmbeddedKeepAnnotations;
-    }
 
     public boolean enableNumberUnboxer = false;
     public boolean printNumberUnboxed = false;

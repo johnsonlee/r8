@@ -3,11 +3,17 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Condition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
 public abstract class KeepPreconditions {
+
+  public static KeepPreconditions fromProto(List<Condition> protoList, BindingResolver resolver) {
+    return builder().applyProto(protoList, resolver).build();
+  }
 
   public abstract void forEach(Consumer<KeepCondition> fn);
 
@@ -16,6 +22,14 @@ public abstract class KeepPreconditions {
     private List<KeepCondition> preconditions = new ArrayList<>();
 
     private Builder() {}
+
+    public Builder applyProto(List<Condition> protoList, BindingResolver resolver) {
+      for (Condition condition : protoList) {
+        addCondition(KeepCondition.fromProto(condition, resolver));
+      }
+      assert !protoList.isEmpty() || build().isAlways();
+      return this;
+    }
 
     public Builder addCondition(KeepCondition condition) {
       preconditions.add(condition);

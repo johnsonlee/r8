@@ -5,7 +5,11 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.keeprules.RulePrinter;
 import com.android.tools.r8.keepanno.keeprules.RulePrintingUtils;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.AccessVisibilitySet;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberAccessGeneral;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class KeepMemberAccessPattern {
 
@@ -81,6 +85,28 @@ public class KeepMemberAccessPattern {
 
   public ModifierPattern getSyntheticPattern() {
     return syntheticPattern;
+  }
+
+  public static KeepMemberAccessPattern fromGeneralProto(MemberAccessGeneral proto) {
+    return memberBuilder().applyGeneralProto(proto).build();
+  }
+
+  public void buildGeneralProto(Consumer<MemberAccessGeneral.Builder> callback) {
+    if (isAny()) {
+      return;
+    }
+    MemberAccessGeneral.Builder builder = MemberAccessGeneral.newBuilder();
+    if (!isAnyVisibility()) {
+      AccessVisibilitySet.Builder visibilityBuilder = AccessVisibilitySet.newBuilder();
+      for (AccessVisibility visibility : allowedVisibilities) {
+        visibilityBuilder.addAccessVisibility(visibility.buildProto());
+      }
+      builder.setAccessVisibility(visibilityBuilder.build());
+    }
+    staticPattern.buildProto(builder::setStaticPattern);
+    finalPattern.buildProto(builder::setFinalPattern);
+    syntheticPattern.buildProto(builder::setSyntheticPattern);
+    callback.accept(builder);
   }
 
   public static class Builder extends BuilderBase<KeepMemberAccessPattern, Builder> {
@@ -183,6 +209,33 @@ public class KeepMemberAccessPattern {
 
     public B setSynthetic(boolean allow) {
       syntheticPattern = ModifierPattern.fromAllowValue(allow);
+      return self();
+    }
+
+    public B applyGeneralProto(MemberAccessGeneral proto) {
+      assert getAllowedVisibilities() == AccessVisibility.all();
+      if (proto.hasAccessVisibility()) {
+        AccessVisibilitySet protoSet = proto.getAccessVisibility();
+        for (KeepSpecProtos.AccessVisibility protoVisibility : protoSet.getAccessVisibilityList()) {
+          // Map "unspecified" value to no effect, e.g. any visibility.
+          AccessVisibility visibility = AccessVisibility.fromProto(protoVisibility);
+          if (visibility != null) {
+            setAccessVisibility(visibility, true);
+          }
+        }
+      }
+      assert staticPattern.isAny();
+      if (proto.hasStaticPattern()) {
+        setStatic(proto.getStaticPattern().getValue());
+      }
+      assert finalPattern.isAny();
+      if (proto.hasFinalPattern()) {
+        setFinal(proto.getFinalPattern().getValue());
+      }
+      assert syntheticPattern.isAny();
+      if (proto.hasSyntheticPattern()) {
+        setSynthetic(proto.getSyntheticPattern().getValue());
+      }
       return self();
     }
   }

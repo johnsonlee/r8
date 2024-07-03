@@ -34,17 +34,16 @@ public final class KeepMethodPattern extends KeepMemberPattern {
       return this;
     }
 
-    public Builder applyProto(MemberPatternMethod methodMember) {
+    public Builder applyProto(MemberPatternMethod proto) {
       assert namePattern.isAny();
-      if (methodMember.hasName()) {
+      if (proto.hasName()) {
         setNamePattern(
-            KeepMethodNamePattern.fromStringPattern(
-                KeepStringPattern.fromProto(methodMember.getName())));
+            KeepMethodNamePattern.fromStringPattern(KeepStringPattern.fromProto(proto.getName())));
       }
 
       assert returnTypePattern.isAny();
-      if (methodMember.hasReturnType()) {
-        MethodReturnTypePattern returnType = methodMember.getReturnType();
+      if (proto.hasReturnType()) {
+        MethodReturnTypePattern returnType = proto.getReturnType();
         if (returnType.hasVoidType()) {
           setReturnTypeVoid();
         } else if (returnType.hasSomeType()) {
@@ -55,8 +54,8 @@ public final class KeepMethodPattern extends KeepMemberPattern {
       }
 
       assert parametersPattern.isAny();
-      if (methodMember.hasParameterTypes()) {
-        MethodParameterTypesPattern parameterTypes = methodMember.getParameterTypes();
+      if (proto.hasParameterTypes()) {
+        MethodParameterTypesPattern parameterTypes = proto.getParameterTypes();
         KeepMethodParametersPattern.Builder parametersBuilder =
             KeepMethodParametersPattern.builder();
         for (TypePattern typePattern : parameterTypes.getTypesList()) {
@@ -65,8 +64,15 @@ public final class KeepMethodPattern extends KeepMemberPattern {
         setParametersPattern(parametersBuilder.build());
       }
 
-      // TODO(b/343389186): Add annotated-by.
-      // TODO(b/343389186): Add access.
+      assert accessPattern.isAny();
+      if (proto.hasAccess()) {
+        setAccessPattern(KeepMethodAccessPattern.fromMethodProto(proto.getAccess()));
+      }
+
+      assert annotatedByPattern.isAbsent();
+      if (proto.hasAnnotatedBy()) {
+        setAnnotatedByPattern(KeepSpecUtils.annotatedByFromProto(proto.getAnnotatedBy()));
+      }
       return this;
     }
 
@@ -217,7 +223,7 @@ public final class KeepMethodPattern extends KeepMemberPattern {
         + '}';
   }
 
-  public static KeepMemberPattern fromMethodProto(MemberPatternMethod methodMember) {
+  public static KeepMemberPattern fromMethodMemberProto(MemberPatternMethod methodMember) {
     return builder().applyProto(methodMember).build();
   }
 
@@ -229,8 +235,8 @@ public final class KeepMethodPattern extends KeepMemberPattern {
     if (!parametersPattern.isAny()) {
       builder.setParameterTypes(parametersPattern.buildProto());
     }
-    // TODO(b/343389186): Add annotated-by.
-    // TODO(b/343389186): Add access.
+    accessPattern.buildMethodProto(builder::setAccess);
+    KeepSpecUtils.buildAnnotatedByProto(annotatedByPattern, builder::setAnnotatedBy);
     return builder;
   }
 }

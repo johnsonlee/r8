@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Target;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -11,18 +13,29 @@ import java.util.stream.Collectors;
 /**
  * Set of consequences of a keep edge.
  *
- * <p>The consequences are "targets" described by item patterns along with "keep options" which
+ * <p>The consequences are "targets" described by item references along with "keep options" which
  * detail what aspects of the items must be retained.
  *
  * <p>The consequences come into effect if the preconditions of an edge are met.
  */
 public final class KeepConsequences {
 
+  public static KeepConsequences fromProto(List<Target> protoList, BindingResolver resolver) {
+    return builder().applyProto(protoList, resolver).build();
+  }
+
   public static class Builder {
 
     private List<KeepTarget> targets = new ArrayList<>();
 
     private Builder() {}
+
+    public Builder applyProto(List<Target> protoList, BindingResolver resolver) {
+      for (Target target : protoList) {
+        addTarget(KeepTarget.fromProto(target, resolver));
+      }
+      return this;
+    }
 
     public Builder addTarget(KeepTarget target) {
       targets.add(target);

@@ -80,8 +80,6 @@ public class KeepItemAnnotationGenerator {
   static final ClassReference USED_BY_NATIVE = annoClass("UsedByNative");
   static final ClassReference CHECK_REMOVED = annoClass("CheckRemoved");
   static final ClassReference CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
-  static final ClassReference EXTRACTED_KEEP_ANNOTATIONS = annoClass("ExtractedKeepAnnotations");
-  static final ClassReference EXTRACTED_KEEP_ANNOTATION = annoClass("ExtractedKeepAnnotation");
   static final ClassReference KEEP_EDGE = annoClass("KeepEdge");
   static final ClassReference KEEP_BINDING = annoClass("KeepBinding");
   static final ClassReference KEEP_TARGET = annoClass("KeepTarget");
@@ -1680,7 +1678,6 @@ public class KeepItemAnnotationGenerator {
       withIndent(
           () -> {
             // Root annotations.
-            generateExtractedKeepAnnotationsConstants();
             generateKeepEdgeConstants();
             generateKeepForApiConstants();
             generateUsesReflectionConstants();
@@ -1717,49 +1714,6 @@ public class KeepItemAnnotationGenerator {
     private void generateAnnotationConstants(ClassReference clazz) {
       String desc = clazz.getDescriptor();
       println("public static final String DESCRIPTOR = " + quote(desc) + ";");
-    }
-
-    private void generateExtractedKeepAnnotationsConstants() {
-      println("public static final class ExtractedAnnotations {");
-      withIndent(
-          () -> {
-            generateAnnotationConstants(EXTRACTED_KEEP_ANNOTATIONS);
-            new GroupMember("value")
-                .setDocTitle("Extracted normalized keep edges.")
-                .requiredArrayValue(KEEP_EDGE)
-                .generateConstants(this);
-          });
-      println("}");
-      println();
-      println("public static final class ExtractedAnnotation {");
-      withIndent(
-          () -> {
-            generateAnnotationConstants(EXTRACTED_KEEP_ANNOTATION);
-            new GroupMember("version")
-                .setDocTitle("Extraction version used to generate this keep annotation.")
-                .requiredStringValue()
-                .generateConstants(this);
-            new GroupMember("context")
-                .setDocTitle("Extraction context from which this keep annotation is generated.")
-                .requiredStringValue()
-                .generateConstants(this);
-            new Group("keep-annotation")
-                .addMember(
-                    new GroupMember("edge")
-                        .setDocTitle("Extracted normalized keep edge.")
-                        .requiredValue(KEEP_EDGE))
-                .addMember(
-                    new GroupMember("checkRemoved")
-                        .setDocTitle("Extracted check removed.")
-                        .defaultBooleanValue(false))
-                .addMember(
-                    new GroupMember("checkOptimizedOut")
-                        .setDocTitle("Extracted check optimized out.")
-                        .defaultBooleanValue(false))
-                .generateConstants(this);
-          });
-      println("}");
-      println();
     }
 
     List<Group> getKeepEdgeGroups() {

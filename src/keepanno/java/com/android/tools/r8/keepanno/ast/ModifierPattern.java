@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import java.util.function.Consumer;
+
 /** Three-point valued matcher on an access modifier. */
 public class ModifierPattern {
 
@@ -68,5 +71,13 @@ public class ModifierPattern {
   @Override
   public int hashCode() {
     return System.identityHashCode(this);
+  }
+
+  public void buildProto(Consumer<KeepSpecProtos.ModifierPattern.Builder> callback) {
+    if (isOnlyPositive()) {
+      callback.accept(KeepSpecProtos.ModifierPattern.newBuilder().setValue(true));
+    } else if (isOnlyNegative()) {
+      callback.accept(KeepSpecProtos.ModifierPattern.newBuilder().setValue(false));
+    }
   }
 }

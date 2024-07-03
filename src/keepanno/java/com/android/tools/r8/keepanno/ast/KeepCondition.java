@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Condition;
+
 /**
  * A keep condition is the content of an item in the set of preconditions.
  *
@@ -17,11 +20,24 @@ public final class KeepCondition {
     return new Builder();
   }
 
+  public Condition.Builder buildProto() {
+    return Condition.newBuilder().setItem(item.buildProto());
+  }
+
+  public static KeepCondition fromProto(Condition proto, BindingResolver resolver) {
+    return builder().applyProto(proto, resolver).build();
+  }
+
   public static class Builder {
 
     private KeepBindingReference item;
 
     private Builder() {}
+
+    public Builder applyProto(Condition proto, BindingResolver resolver) {
+      // Item is not optional and the resolver will throw if not present.
+      return setItemReference(resolver.mapReference(proto.getItem()));
+    }
 
     public Builder setItemReference(KeepBindingReference item) {
       this.item = item;

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.util.HashSet;
@@ -41,5 +42,36 @@ public enum AccessVisibility {
 
   public static Set<AccessVisibility> all() {
     return ALL;
+  }
+
+  public KeepSpecProtos.AccessVisibility buildProto() {
+    switch (this) {
+      case PUBLIC:
+        return KeepSpecProtos.AccessVisibility.ACCESS_PUBLIC;
+      case PROTECTED:
+        return KeepSpecProtos.AccessVisibility.ACCESS_PROTECTED;
+      case PACKAGE_PRIVATE:
+        return KeepSpecProtos.AccessVisibility.ACCESS_PACKAGE_PRIVATE;
+      case PRIVATE:
+        return KeepSpecProtos.AccessVisibility.ACCESS_PRIVATE;
+      default:
+        return KeepSpecProtos.AccessVisibility.ACCESS_UNSPECIFIED;
+    }
+  }
+
+  public static AccessVisibility fromProto(KeepSpecProtos.AccessVisibility proto) {
+    switch (proto.getNumber()) {
+      case KeepSpecProtos.AccessVisibility.ACCESS_PUBLIC_VALUE:
+        return PUBLIC;
+      case KeepSpecProtos.AccessVisibility.ACCESS_PROTECTED_VALUE:
+        return PROTECTED;
+      case KeepSpecProtos.AccessVisibility.ACCESS_PACKAGE_PRIVATE_VALUE:
+        return PACKAGE_PRIVATE;
+      case KeepSpecProtos.AccessVisibility.ACCESS_PRIVATE_VALUE:
+        return PRIVATE;
+      default:
+        assert proto == KeepSpecProtos.AccessVisibility.ACCESS_UNSPECIFIED;
+        return null;
+    }
   }
 }

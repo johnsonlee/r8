@@ -5,7 +5,9 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.keeprules.RulePrinter;
 import com.android.tools.r8.keepanno.keeprules.RulePrintingUtils;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberAccessField;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class KeepFieldAccessPattern extends KeepMemberAccessPattern {
 
@@ -41,6 +43,10 @@ public class KeepFieldAccessPattern extends KeepMemberAccessPattern {
     this.transientPattern = transientPattern;
   }
 
+  public static KeepFieldAccessPattern fromFieldProto(MemberAccessField proto) {
+    return builder().applyFieldProto(proto).build();
+  }
+
   @Override
   public String toString() {
     if (isAny()) {
@@ -62,6 +68,17 @@ public class KeepFieldAccessPattern extends KeepMemberAccessPattern {
 
   public ModifierPattern getTransientPattern() {
     return transientPattern;
+  }
+
+  public void buildFieldProto(Consumer<MemberAccessField.Builder> callback) {
+    if (isAny()) {
+      return;
+    }
+    MemberAccessField.Builder builder = MemberAccessField.newBuilder();
+    buildGeneralProto(builder::setGeneralAccess);
+    volatilePattern.buildProto(builder::setVolatilePattern);
+    transientPattern.buildProto(builder::setTransientPattern);
+    callback.accept(builder);
   }
 
   public static class Builder extends BuilderBase<KeepFieldAccessPattern, Builder> {
@@ -105,6 +122,21 @@ public class KeepFieldAccessPattern extends KeepMemberAccessPattern {
 
     public ModifierPattern getTransientPattern() {
       return transientPattern;
+    }
+
+    public Builder applyFieldProto(MemberAccessField proto) {
+      if (proto.hasGeneralAccess()) {
+        applyGeneralProto(proto.getGeneralAccess());
+      }
+      assert volatilePattern.isAny();
+      if (proto.hasVolatilePattern()) {
+        setVolatile(proto.getVolatilePattern().getValue());
+      }
+      assert transientPattern.isAny();
+      if (proto.hasTransientPattern()) {
+        setTransient(proto.getTransientPattern().getValue());
+      }
+      return this;
     }
   }
 }

@@ -45,7 +45,7 @@ public abstract class KeepPackagePattern {
 
   public static class Builder {
 
-    private KeepPackagePattern pattern;
+    private KeepPackagePattern pattern = KeepPackagePattern.any();
 
     public Builder applyProto(PackagePattern pkg) {
       if (pkg.hasExactPackageHack()) {

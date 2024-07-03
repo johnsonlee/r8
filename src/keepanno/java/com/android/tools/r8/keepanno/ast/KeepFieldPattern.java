@@ -4,7 +4,6 @@
 package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPatternField;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Objects;
 
 public final class KeepFieldPattern extends KeepMemberPattern {
@@ -29,6 +28,31 @@ public final class KeepFieldPattern extends KeepMemberPattern {
 
     public Builder self() {
       return this;
+    }
+
+    public Builder applyProto(MemberPatternField proto) {
+      assert namePattern.isAny();
+      if (proto.hasName()) {
+        setNamePattern(
+            KeepFieldNamePattern.fromStringPattern(KeepStringPattern.fromProto(proto.getName())));
+      }
+
+      assert typePattern.isAny();
+      if (proto.hasFieldType()) {
+        setTypePattern(
+            KeepFieldTypePattern.fromType(KeepTypePattern.fromProto(proto.getFieldType())));
+      }
+
+      assert accessPattern.isAny();
+      if (proto.hasAccess()) {
+        setAccessPattern(KeepFieldAccessPattern.fromFieldProto(proto.getAccess()));
+      }
+
+      assert annotatedByPattern.isAbsent();
+      if (proto.hasAnnotatedBy()) {
+        setAnnotatedByPattern(KeepSpecUtils.annotatedByFromProto(proto.getAnnotatedBy()));
+      }
+      return self();
     }
 
     public Builder copyFromMemberPattern(KeepMemberPattern memberPattern) {
@@ -148,7 +172,17 @@ public final class KeepFieldPattern extends KeepMemberPattern {
         + '}';
   }
 
+  public static KeepFieldPattern fromFieldMemberProto(MemberPatternField proto) {
+    return builder().applyProto(proto).build();
+  }
+
   public MemberPatternField.Builder buildFieldProto() {
-    throw new Unimplemented();
+    MemberPatternField.Builder builder =
+        MemberPatternField.newBuilder()
+            .setName(namePattern.asStringPattern().buildProto())
+            .setFieldType(typePattern.asType().buildProto());
+    accessPattern.buildFieldProto(builder::setAccess);
+    KeepSpecUtils.buildAnnotatedByProto(annotatedByPattern, builder::setAnnotatedBy);
+    return builder;
   }
 }

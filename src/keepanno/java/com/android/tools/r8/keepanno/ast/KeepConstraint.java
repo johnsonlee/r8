@@ -5,9 +5,66 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.Constraints;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Constraint;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ConstraintElement;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public abstract class KeepConstraint {
+
+  public Constraint.Builder buildProto() {
+    return Constraint.newBuilder().setElement(buildElementProto());
+  }
+
+  public abstract ConstraintElement buildElementProto();
+
+  public static void fromProto(Constraint proto, Consumer<KeepConstraint> callback) {
+    if (proto.hasElement()) {
+      KeepConstraint constraint = getConstraintFromProtoEnum(proto.getElement());
+      if (constraint != null) {
+        callback.accept(constraint);
+      }
+      return;
+    }
+    if (proto.hasAnnotation()) {
+      callback.accept(
+          KeepConstraint.annotation(KeepAnnotationPattern.fromProto(proto.getAnnotation())));
+    }
+  }
+
+  private static KeepConstraint getConstraintFromProtoEnum(ConstraintElement proto) {
+    switch (proto.getNumber()) {
+      case ConstraintElement.CONSTRAINT_LOOKUP_VALUE:
+        return lookup();
+      case ConstraintElement.CONSTRAINT_NAME_VALUE:
+        return name();
+      case ConstraintElement.CONSTRAINT_VISIBILITY_RELAX_VALUE:
+        return visibilityRelax();
+      case ConstraintElement.CONSTRAINT_VISIBILITY_RESTRICT_VALUE:
+        return visibilityRestrict();
+      case ConstraintElement.CONSTRAINT_NEVER_INLINE_VALUE:
+        return neverInline();
+      case ConstraintElement.CONSTRAINT_CLASS_INSTANTIATE_VALUE:
+        return classInstantiate();
+      case ConstraintElement.CONSTRAINT_CLASS_OPEN_HIERARCHY_VALUE:
+        return classOpenHierarchy();
+      case ConstraintElement.CONSTRAINT_METHOD_INVOKE_VALUE:
+        return methodInvoke();
+      case ConstraintElement.CONSTRAINT_METHOD_REPLACE_VALUE:
+        return methodReplace();
+      case ConstraintElement.CONSTRAINT_FIELD_GET_VALUE:
+        return fieldGet();
+      case ConstraintElement.CONSTRAINT_FIELD_SET_VALUE:
+        return fieldSet();
+      case ConstraintElement.CONSTRAINT_FIELD_REPLACE_VALUE:
+        return fieldReplace();
+      case ConstraintElement.CONSTRAINT_GENERIC_SIGNATURE_VALUE:
+        return genericSignature();
+      default:
+        assert proto == ConstraintElement.CONSTRAINT_UNSPECIFIED;
+        return null;
+    }
+  }
 
   @Override
   public String toString() {
@@ -87,6 +144,11 @@ public abstract class KeepConstraint {
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.SHRINKING);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_LOOKUP;
+    }
   }
 
   public static Name name() {
@@ -113,6 +175,11 @@ public abstract class KeepConstraint {
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OBFUSCATING);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_NAME;
+    }
   }
 
   public static VisibilityRelax visibilityRelax() {
@@ -138,6 +205,11 @@ public abstract class KeepConstraint {
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       // The compiler currently satisfies that access is never restricted.
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_VISIBILITY_RELAX;
     }
   }
 
@@ -166,6 +238,11 @@ public abstract class KeepConstraint {
       // We don't have directional rules so this prohibits any modification.
       builder.add(KeepOption.ACCESS_MODIFICATION);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_VISIBILITY_RESTRICT;
+    }
   }
 
   public static NeverInline neverInline() {
@@ -191,6 +268,11 @@ public abstract class KeepConstraint {
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_NEVER_INLINE;
     }
   }
 
@@ -223,6 +305,11 @@ public abstract class KeepConstraint {
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_CLASS_INSTANTIATE;
+    }
   }
 
   public static ClassOpenHierarchy classOpenHierarchy() {
@@ -253,6 +340,11 @@ public abstract class KeepConstraint {
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_CLASS_OPEN_HIERARCHY;
     }
   }
 
@@ -285,6 +377,11 @@ public abstract class KeepConstraint {
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_METHOD_INVOKE;
+    }
   }
 
   public static MethodReplace methodReplace() {
@@ -315,6 +412,11 @@ public abstract class KeepConstraint {
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_METHOD_REPLACE;
     }
   }
 
@@ -347,6 +449,11 @@ public abstract class KeepConstraint {
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_FIELD_GET;
+    }
   }
 
   public static FieldSet fieldSet() {
@@ -377,6 +484,11 @@ public abstract class KeepConstraint {
     @Override
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_FIELD_SET;
     }
   }
 
@@ -409,6 +521,11 @@ public abstract class KeepConstraint {
     public void convertToDisallowKeepOptions(KeepOptions.Builder builder) {
       builder.add(KeepOption.OPTIMIZING);
     }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_FIELD_REPLACE;
+    }
   }
 
   public static GenericSignature genericSignature() {
@@ -439,6 +556,11 @@ public abstract class KeepConstraint {
     @Override
     public void addRequiredKeepAttributes(Set<KeepAttribute> attributes) {
       attributes.add(KeepAttribute.GENERIC_SIGNATURES);
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      return ConstraintElement.CONSTRAINT_GENERIC_SIGNATURE;
     }
   }
 
@@ -493,6 +615,16 @@ public abstract class KeepConstraint {
     public String getEnumValue() {
       // The annotation constraints cannot be represented by an enum value.
       return null;
+    }
+
+    @Override
+    public ConstraintElement buildElementProto() {
+      throw new KeepEdgeException("Unexpected attempt to build element for annotation constraint");
+    }
+
+    @Override
+    public Constraint.Builder buildProto() {
+      return Constraint.newBuilder().setAnnotation(annotationPattern.buildProto());
     }
 
     @Override

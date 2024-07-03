@@ -6,11 +6,14 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.ast.KeepConstraint.Annotation;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -39,6 +42,27 @@ public abstract class KeepConstraints {
 
   public void forEachAccept(KeepConstraintVisitor visitor) {
     getConstraints().forEach(c -> c.accept(visitor));
+  }
+
+  public abstract void buildProto(
+      Consumer<KeepSpecProtos.Constraints> setConstraints,
+      Consumer<KeepSpecProtos.Constraint> addConstraintAddition);
+
+  public void fromProto(
+      KeepSpecProtos.Constraints proto,
+      List<KeepSpecProtos.Constraint> protoAdditions,
+      Consumer<KeepConstraints> setConstraints) {
+    if (proto == null && protoAdditions.isEmpty()) {
+      return;
+    }
+    Builder builder = builder();
+    if (proto == null) {
+      builder.copyFrom(defaultConstraints());
+    } else {
+      proto.getConstraintsList().forEach(c -> KeepConstraint.fromProto(c, builder::add));
+    }
+    protoAdditions.forEach(c -> KeepConstraint.fromProto(c, builder::add));
+    setConstraints.accept(builder.build());
   }
 
   public static class Builder {
@@ -149,6 +173,15 @@ public abstract class KeepConstraints {
     public KeepOptions convertToKeepOptions(KeepOptions defaultOptions) {
       return KeepOptions.keepAll();
     }
+
+    @Override
+    public void buildProto(
+        Consumer<KeepSpecProtos.Constraints> setConstraints,
+        Consumer<KeepSpecProtos.Constraint> addConstraintAddition) {
+      KeepSpecProtos.Constraints.Builder builder = KeepSpecProtos.Constraints.newBuilder();
+      constraints.forEach(c -> builder.addConstraints(c.buildProto()));
+      setConstraints.accept(builder.build());
+    }
   }
 
   private static class Defaults extends KeepConstraints {
@@ -163,6 +196,11 @@ public abstract class KeepConstraints {
             KeepConstraint.methodInvoke(),
             KeepConstraint.fieldGet(),
             KeepConstraint.fieldSet());
+
+    @Override
+    public boolean isDefault() {
+      return true;
+    }
 
     @Override
     Set<KeepConstraint> getConstraints() {
@@ -183,6 +221,13 @@ public abstract class KeepConstraints {
     public Set<KeepAttribute> getRequiredKeepAttributes() {
       // The default set of keep rules for any kind of target requires no additional attributes.
       return Collections.emptySet();
+    }
+
+    @Override
+    public void buildProto(
+        Consumer<KeepSpecProtos.Constraints> setConstraints,
+        Consumer<KeepSpecProtos.Constraint> addConstraintAddition) {
+      // Nothing to add as these are the defaults.
     }
   }
 
@@ -218,6 +263,15 @@ public abstract class KeepConstraints {
     public Set<KeepAttribute> getRequiredKeepAttributes() {
       return additions.getRequiredKeepAttributes();
     }
+
+    @Override
+    public void buildProto(
+        Consumer<KeepSpecProtos.Constraints> setConstraints,
+        Consumer<KeepSpecProtos.Constraint> addConstraintAddition) {
+      // Map all nested constraints into additions.
+      additions.buildProto(
+          cs -> cs.getConstraintsList().forEach(addConstraintAddition), addConstraintAddition);
+    }
   }
 
   private static class Constraints extends KeepConstraints {
@@ -226,6 +280,15 @@ public abstract class KeepConstraints {
 
     public Constraints(Set<KeepConstraint> constraints) {
       this.constraints = ImmutableSet.copyOf(constraints);
+    }
+
+    @Override
+    public void buildProto(
+        Consumer<KeepSpecProtos.Constraints> setConstraints,
+        Consumer<KeepSpecProtos.Constraint> addConstraintAddition) {
+      KeepSpecProtos.Constraints.Builder builder = KeepSpecProtos.Constraints.newBuilder();
+      constraints.forEach(c -> builder.addConstraints(c.buildProto()));
+      setConstraints.accept(builder.build());
     }
 
     @Override
@@ -262,4 +325,8 @@ public abstract class KeepConstraints {
   public abstract KeepOptions convertToKeepOptions(KeepOptions defaultOptions);
 
   public abstract Set<KeepAttribute> getRequiredKeepAttributes();
+
+  public boolean isDefault() {
+    return false;
+  }
 }

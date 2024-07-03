@@ -5,7 +5,6 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPattern;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.MemberPatternGeneral;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -21,8 +20,21 @@ public abstract class KeepMemberPattern {
   }
 
   public static class Builder {
-    private OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern;
+    private OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern =
+        OptionalPattern.absent();
     private KeepMemberAccessPattern accessPattern = KeepMemberAccessPattern.anyMemberAccess();
+
+    public Builder applyProto(MemberPatternGeneral proto) {
+      assert annotatedByPattern.isAbsent();
+      if (proto.hasAnnotatedBy()) {
+        setAnnotatedByPattern(KeepSpecUtils.annotatedByFromProto(proto.getAnnotatedBy()));
+      }
+      assert accessPattern.isAny();
+      if (proto.hasAccess()) {
+        setAccessPattern(KeepMemberAccessPattern.fromGeneralProto(proto.getAccess()));
+      }
+      return this;
+    }
 
     public Builder setAnnotatedByPattern(
         OptionalPattern<KeepQualifiedClassNamePattern> annotatedByPattern) {
@@ -94,8 +106,15 @@ public abstract class KeepMemberPattern {
           + '}';
     }
 
-    public MemberPatternGeneral.Builder buildGeneralProto() {
-      throw new Unimplemented();
+    public MemberPatternGeneral.Builder buildGeneralMemberProto() {
+      MemberPatternGeneral.Builder builder = MemberPatternGeneral.newBuilder();
+      accessPattern.buildGeneralProto(builder::setAccess);
+      KeepSpecUtils.buildAnnotatedByProto(annotatedByPattern, builder::setAnnotatedBy);
+      return builder;
+    }
+
+    public static KeepMemberPattern fromGeneralMemberProto(MemberPatternGeneral proto) {
+      return memberBuilder().applyProto(proto).build();
     }
   }
 
@@ -156,7 +175,7 @@ public abstract class KeepMemberPattern {
   public MemberPattern.Builder buildProto() {
     MemberPattern.Builder builder = MemberPattern.newBuilder();
     match(
-        general -> builder.setGeneralMember(((Some) general).buildGeneralProto()),
+        general -> builder.setGeneralMember(((Some) general).buildGeneralMemberProto()),
         field -> builder.setFieldMember(field.buildFieldProto()),
         method -> builder.setMethodMember(method.buildMethodProto()));
     return builder;
@@ -164,15 +183,13 @@ public abstract class KeepMemberPattern {
 
   public static KeepMemberPattern fromMemberProto(MemberPattern memberPattern) {
     if (memberPattern.hasGeneralMember()) {
-      // return KeepMemberPattern.memberBuilder().applyProto(memberPattern.getGeneralMember());
-      throw new Unimplemented();
+      return Some.fromGeneralMemberProto(memberPattern.getGeneralMember());
     }
     if (memberPattern.hasFieldMember()) {
-      // return KeepFieldPattern.builder().applyProto(memberPattern.getFieldMember());
-      throw new Unimplemented();
+      return KeepFieldPattern.fromFieldMemberProto(memberPattern.getFieldMember());
     }
     if (memberPattern.hasMethodMember()) {
-      return KeepMethodPattern.fromMethodProto(memberPattern.getMethodMember());
+      return KeepMethodPattern.fromMethodMemberProto(memberPattern.getMethodMember());
     }
     return KeepMemberPattern.allMembers();
   }
