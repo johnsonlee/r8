@@ -61,11 +61,12 @@ def parse_options():
                       help='Sign the apk before aligning',
                       default=False,
                       action='store_true')
-    (options, args) = parser.parse_args()
-    if len(args) != 1:
-        parser.error('Expected <apk> argument, got: ' + ' '.join(args))
-    apk = args[0]
-    return (options, apk)
+    (options, apks) = parser.parse_args()
+    if len(apks) == 0:
+        parser.error('Expected one or more apk arguments, got none.')
+    if len(apks) > 1 and options.out:
+        parser.error('Cannot process multiple apks with --out')
+    return (options, apks)
 
 
 def is_archive(file):
@@ -224,8 +225,13 @@ def masseur(apk,
 
 
 def main():
-    (options, apk) = parse_options()
-    masseur(apk, **vars(options))
+    (options, apks) = parse_options()
+    if len(apks) == 1:
+        masseur(apks[0], **vars(options))
+    else:
+        for apk in apks:
+            print(f'Processing {apk}')
+            masseur(apk, **vars(options))
     return 0
 
 
