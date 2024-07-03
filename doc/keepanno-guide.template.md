@@ -121,9 +121,8 @@ Let's consider some code with reflection outside our control.
 
 ## [Annotating APIs](apis)
 
-If your code is being shrunk before release as a library, or if you have an API
-surface that is used via dynamic loading at runtime, then you need to keep the
-API surface. For that you should use the `@KeepForApi` annotation.
+If your code is being shrunk before release as a library, then you need to keep
+the API surface. For that you should use the `@KeepForApi` annotation.
 
 [[[INCLUDE DOC:ApiClass]]]
 
@@ -136,6 +135,39 @@ API surface. For that you should use the `@KeepForApi` annotation.
 [[[INCLUDE DOC:ApiMember]]]
 
 [[[INCLUDE CODE:ApiMember]]]
+
+
+## [Constraints](constraints)
+
+When an item is kept (e.g., items matched by `@KeepTarget` or annotated by
+`@UsedByReflection` or `@KeepForApi`) you can additionally specify constraints
+about what properties of that item must be kept. Typical constraints are to keep
+the items *name* or its ability to be reflectively *looked up*. You may also be
+interested in keeping the generic signature of an item or annotations associated
+with it.
+
+### [Defaults](constraints-defaults)
+
+By default the constraints are to retain the item's name, its ability to be
+looked-up as well as its normal usage. Its normal usage is:
+
+- to be instantiated, for class items;
+- to be invoked, for method items; and
+- to be get and/or set, for field items.
+
+[[[INCLUDE DOC:UsesReflectionFieldPrinterWithConstraints]]]
+
+[[[INCLUDE CODE:UsesReflectionFieldPrinterWithConstraints]]]
+
+
+### [Generic signatures](constraints-signatures)
+
+The generic signature information of an item is not kept by default, and
+requires adding constraints to the targeted items.
+
+[[[INCLUDE DOC:GenericSignaturePrinter]]]
+
+[[[INCLUDE CODE:GenericSignaturePrinter]]]
 
 
 ## [Migrating rules to annotations](migrating-rules)

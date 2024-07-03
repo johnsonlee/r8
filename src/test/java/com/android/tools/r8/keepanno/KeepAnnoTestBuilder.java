@@ -70,6 +70,11 @@ public abstract class KeepAnnoTestBuilder {
 
   public abstract KeepAnnoTestBuilder addProgramFiles(List<Path> programFiles) throws IOException;
 
+  public final KeepAnnoTestBuilder addProgramClasses(Class<?>... programClasses)
+      throws IOException {
+    return addProgramClasses(Arrays.asList(programClasses));
+  }
+
   public abstract KeepAnnoTestBuilder addProgramClasses(List<Class<?>> programClasses)
       throws IOException;
 

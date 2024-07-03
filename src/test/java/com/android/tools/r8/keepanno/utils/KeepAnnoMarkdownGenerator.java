@@ -30,6 +30,7 @@ import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.qu
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.doctests.ForApiDocumentationTest;
+import com.android.tools.r8.keepanno.doctests.GenericSignaturePrinter;
 import com.android.tools.r8.keepanno.doctests.MainMethodsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionAnnotationsDocumentationTest;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionDocumentationTest;
@@ -112,7 +113,8 @@ public class KeepAnnoMarkdownGenerator {
         UsesReflectionDocumentationTest.class,
         UsesReflectionAnnotationsDocumentationTest.class,
         ForApiDocumentationTest.class,
-        MainMethodsDocumentationTest.class);
+        MainMethodsDocumentationTest.class,
+        GenericSignaturePrinter.class);
   }
 
   private static String getPrefix(ClassReference annoType) {

@@ -34,6 +34,7 @@ public class UsesReflectionDocumentationTest extends TestBase {
           EXPECTED_FIELD_EXAMPLE,
           EXPECTED_FIELD_EXAMPLE,
           EXPECTED_FIELD_EXAMPLE,
+          EXPECTED_FIELD_EXAMPLE,
           EXPECTED_FIELD_EXAMPLE);
 
   private final TestParameters parameters;
@@ -70,7 +71,12 @@ public class UsesReflectionDocumentationTest extends TestBase {
 
   public List<Class<?>> getExampleClasses() {
     return ImmutableList.of(
-        Example1.class, Example2.class, Example3.class, Example4.class, Example5.class);
+        Example1.class,
+        Example2.class,
+        Example2WithConstraints.class,
+        Example3.class,
+        Example4.class,
+        Example5.class);
   }
 
   static class Example1 {
@@ -105,12 +111,11 @@ public class UsesReflectionDocumentationTest extends TestBase {
     // INCLUDE CODE: UsesReflectionOnVirtualMethod
     public class MyHiddenMethodCaller {
 
-      @UsesReflection({
-        @KeepTarget(
-            instanceOfClassConstant = BaseClass.class,
-            methodName = "hiddenMethod",
-            methodParameters = {})
-      })
+      @UsesReflection(
+          @KeepTarget(
+              instanceOfClassConstant = BaseClass.class,
+              methodName = "hiddenMethod",
+              methodParameters = {}))
       public void callHiddenMethod(BaseClass base) throws Exception {
         base.getClass().getDeclaredMethod("hiddenMethod").invoke(base);
       }
@@ -142,22 +147,59 @@ public class UsesReflectionDocumentationTest extends TestBase {
     of the object.
 
     The `@KeepTarget` describes these field targets. Since the printing only cares about preserving
-    the fields, the `@KeepTarget#kind` is set to `@KeepItemKind#ONLY_FIELDS`. Also, since printing
-    the field names and values only requires looking up the field, printing its name and getting
-    its value the `@KeepTarget#constraints` are set to just `@KeepConstraint#LOOKUP`,
+    the fields, the `@KeepTarget#kind` is set to `@KeepItemKind#ONLY_FIELDS`.
+    INCLUDE END */
+
+    public
+    // INCLUDE CODE: UsesReflectionFieldPrinter
+    static class MyFieldValuePrinter {
+
+      @UsesReflection(
+          @KeepTarget(
+              instanceOfClassConstant = PrintableFieldInterface.class,
+              kind = KeepItemKind.ONLY_FIELDS))
+      public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
+        for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+          System.out.println(field.getName() + " = " + field.get(objectWithFields));
+        }
+      }
+    }
+
+    // INCLUDE END
+
+    static void run() throws Exception {
+      new MyFieldValuePrinter().printFieldValues(new ClassWithFields());
+    }
+  }
+
+  static class Example2WithConstraints {
+
+    interface PrintableFieldInterface {}
+
+    static class ClassWithFields implements PrintableFieldInterface {
+      final int intField = 42;
+      String stringField = "Hello!";
+    }
+
+    /* INCLUDE DOC: UsesReflectionFieldPrinterWithConstraints
+    Let us revisit the example reflectively accessing the fields on a class.
+
+    Notice that printing the field names and values only requires looking up the field, printing
+    its name and getting its value. It does not require setting a new value on the field.
+    We can thus use a more restrictive set of constraints
+    by setting the `@KeepTarget#constraints` property to just `@KeepConstraint#LOOKUP`,
     `@KeepConstraint#NAME` and `@KeepConstraint#FIELD_GET`.
     INCLUDE END */
 
-    static
-    // INCLUDE CODE: UsesReflectionFieldPrinter
-    public class MyFieldValuePrinter {
+    public
+    // INCLUDE CODE: UsesReflectionFieldPrinterWithConstraints
+    static class MyFieldValuePrinter {
 
-      @UsesReflection({
-        @KeepTarget(
-            instanceOfClassConstant = PrintableFieldInterface.class,
-            kind = KeepItemKind.ONLY_FIELDS,
-            constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-      })
+      @UsesReflection(
+          @KeepTarget(
+              instanceOfClassConstant = PrintableFieldInterface.class,
+              kind = KeepItemKind.ONLY_FIELDS,
+              constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET}))
       public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
         for (Field field : objectWithFields.getClass().getDeclaredFields()) {
           System.out.println(field.getName() + " = " + field.get(objectWithFields));
@@ -182,9 +224,6 @@ public class UsesReflectionDocumentationTest extends TestBase {
     In this example, the `MyClassWithFields` is a class you are passing to the
     field-printing utility of the library. Since the library is reflectively accessing each field
     we annotate them with the `@UsedByReflection` annotation.
-
-    We could additionally add the `@UsedByReflection#constraints` property as we did previously.
-    We elide it here for brevity.
     INCLUDE END */
 
     static
@@ -220,17 +259,12 @@ public class UsesReflectionDocumentationTest extends TestBase {
     similar to the `@KeepTarget`. The `@UsedByReflection#kind` specifies that only the fields are
     used reflectively. In particular, the "field printer" example we are considering here does not
     make reflective assumptions about the holder class, so we should not constrain it.
-
-    To be more precise let's add the `@UsedByReflection#constraints` property now. This specifies
-    that the fields are looked up, their names are used/assumed and their values are read.
     INCLUDE END */
 
     static
     // INCLUDE CODE: UsedByReflectionFieldPrinterOnClass
-    @UsedByReflection(
-        kind = KeepItemKind.ONLY_FIELDS,
-        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-    public class MyClassWithFields implements PrintableFieldInterface {
+    @UsedByReflection(kind = KeepItemKind.ONLY_FIELDS) public class MyClassWithFields
+        implements PrintableFieldInterface {
       final int intField = 42;
       String stringField = "Hello!";
     }
@@ -275,9 +309,8 @@ public class UsesReflectionDocumentationTest extends TestBase {
               classConstant = FieldValuePrinterLibrary.class,
               methodName = "printFieldValues")
         },
-        kind = KeepItemKind.ONLY_FIELDS,
-        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-    public class MyClassWithFields implements PrintableFieldInterface {
+        kind = KeepItemKind.ONLY_FIELDS) public class MyClassWithFields
+        implements PrintableFieldInterface {
       final int intField = 42;
       String stringField = "Hello!";
     }
@@ -303,6 +336,7 @@ public class UsesReflectionDocumentationTest extends TestBase {
     public static void main(String[] args) throws Exception {
       Example1.run();
       Example2.run();
+      Example2WithConstraints.run();
       Example3.run();
       Example4.run();
       Example5.run();

@@ -26,6 +26,9 @@ bugs](https://issuetracker.google.com/issues/new?component=326788) in the
   - [Accessing annotations](#using-reflection-annotations)
 - [Annotating code used by reflection (or via JNI)](#used-by-reflection)
 - [Annotating APIs](#apis)
+- [Constraints](#constraints)
+  - [Defaults](#constraints-defaults)
+  - [Generic signatures](#constraints-signatures)
 - [Migrating rules to annotations](#migrating-rules)
 - [My use case is not covered!](#other-uses)
 - [Troubleshooting](#troubleshooting)
@@ -104,12 +107,11 @@ are objects that are instances of the class `BaseClass` or subclasses thereof.
 ```
 public class MyHiddenMethodCaller {
 
-  @UsesReflection({
-    @KeepTarget(
-        instanceOfClassConstant = BaseClass.class,
-        methodName = "hiddenMethod",
-        methodParameters = {})
-  })
+  @UsesReflection(
+      @KeepTarget(
+          instanceOfClassConstant = BaseClass.class,
+          methodName = "hiddenMethod",
+          methodParameters = {}))
   public void callHiddenMethod(BaseClass base) throws Exception {
     base.getClass().getDeclaredMethod("hiddenMethod").invoke(base);
   }
@@ -128,21 +130,16 @@ type `PrintableFieldInterface` and then looks for all the fields declared on the
 of the object.
 
 The [@KeepTarget](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html) describes these field targets. Since the printing only cares about preserving
-the fields, the [@KeepTarget.kind](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#kind()) is set to [KeepItemKind.ONLY_FIELDS](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepItemKind.html#ONLY_FIELDS). Also, since printing
-the field names and values only requires looking up the field, printing its name and getting
-its value the [@KeepTarget.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#constraints()) are set to just [KeepConstraint.LOOKUP](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#LOOKUP),
-[KeepConstraint.NAME](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#NAME) and [KeepConstraint.FIELD_GET](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#FIELD_GET).
+the fields, the [@KeepTarget.kind](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#kind()) is set to [KeepItemKind.ONLY_FIELDS](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepItemKind.html#ONLY_FIELDS).
 
 
 ```
-public class MyFieldValuePrinter {
+static class MyFieldValuePrinter {
 
-  @UsesReflection({
-    @KeepTarget(
-        instanceOfClassConstant = PrintableFieldInterface.class,
-        kind = KeepItemKind.ONLY_FIELDS,
-        constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-  })
+  @UsesReflection(
+      @KeepTarget(
+          instanceOfClassConstant = PrintableFieldInterface.class,
+          kind = KeepItemKind.ONLY_FIELDS))
   public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
     for (Field field : objectWithFields.getClass().getDeclaredFields()) {
       System.out.println(field.getName() + " = " + field.get(objectWithFields));
@@ -241,9 +238,6 @@ In this example, the `MyClassWithFields` is a class you are passing to the
 field-printing utility of the library. Since the library is reflectively accessing each field
 we annotate them with the [@UsedByReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html) annotation.
 
-We could additionally add the [@UsedByReflection.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html#constraints()) property as we did previously.
-We elide it here for brevity.
-
 
 ```
 public class MyClassWithFields implements PrintableFieldInterface {
@@ -263,15 +257,10 @@ similar to the [@KeepTarget](https://storage.googleapis.com/r8-releases/raw/main
 used reflectively. In particular, the "field printer" example we are considering here does not
 make reflective assumptions about the holder class, so we should not constrain it.
 
-To be more precise let's add the [@UsedByReflection.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html#constraints()) property now. This specifies
-that the fields are looked up, their names are used/assumed and their values are read.
-
 
 ```
-@UsedByReflection(
-    kind = KeepItemKind.ONLY_FIELDS,
-    constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-public class MyClassWithFields implements PrintableFieldInterface {
+@UsedByReflection(kind = KeepItemKind.ONLY_FIELDS) public class MyClassWithFields
+    implements PrintableFieldInterface {
   final int intField = 42;
   String stringField = "Hello!";
 }
@@ -296,9 +285,8 @@ Luckily we can specify the same precondition using [@UsedByReflection.preconditi
           classConstant = FieldValuePrinterLibrary.class,
           methodName = "printFieldValues")
     },
-    kind = KeepItemKind.ONLY_FIELDS,
-    constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET})
-public class MyClassWithFields implements PrintableFieldInterface {
+    kind = KeepItemKind.ONLY_FIELDS) public class MyClassWithFields
+    implements PrintableFieldInterface {
   final int intField = 42;
   String stringField = "Hello!";
 }
@@ -308,9 +296,8 @@ public class MyClassWithFields implements PrintableFieldInterface {
 
 ## Annotating APIs<a name="apis"></a>
 
-If your code is being shrunk before release as a library, or if you have an API
-surface that is used via dynamic loading at runtime, then you need to keep the
-API surface. For that you should use the [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html) annotation.
+If your code is being shrunk before release as a library, then you need to keep
+the API surface. For that you should use the [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html) annotation.
 
 When annotating a class the default for [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html) is to keep the class as well as all of its
 public and protected members:
@@ -368,6 +355,92 @@ public class MyOtherApi {
     /* ... */
   }
 }
+```
+
+
+
+## Constraints<a name="constraints"></a>
+
+When an item is kept (e.g., items matched by [@KeepTarget](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html) or annotated by
+[@UsedByReflection](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/UsedByReflection.html) or [@KeepForApi](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepForApi.html)) you can additionally specify constraints
+about what properties of that item must be kept. Typical constraints are to keep
+the items *name* or its ability to be reflectively *looked up*. You may also be
+interested in keeping the generic signature of an item or annotations associated
+with it.
+
+### Defaults<a name="constraints-defaults"></a>
+
+By default the constraints are to retain the item's name, its ability to be
+looked-up as well as its normal usage. Its normal usage is:
+
+- to be instantiated, for class items;
+- to be invoked, for method items; and
+- to be get and/or set, for field items.
+
+Let us revisit the example reflectively accessing the fields on a class.
+
+Notice that printing the field names and values only requires looking up the field, printing
+its name and getting its value. It does not require setting a new value on the field.
+We can thus use a more restrictive set of constraints
+by setting the [@KeepTarget.constraints](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#constraints()) property to just [KeepConstraint.LOOKUP](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#LOOKUP),
+[KeepConstraint.NAME](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#NAME) and [KeepConstraint.FIELD_GET](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#FIELD_GET).
+
+
+```
+static class MyFieldValuePrinter {
+
+  @UsesReflection(
+      @KeepTarget(
+          instanceOfClassConstant = PrintableFieldInterface.class,
+          kind = KeepItemKind.ONLY_FIELDS,
+          constraints = {KeepConstraint.LOOKUP, KeepConstraint.NAME, KeepConstraint.FIELD_GET}))
+  public void printFieldValues(PrintableFieldInterface objectWithFields) throws Exception {
+    for (Field field : objectWithFields.getClass().getDeclaredFields()) {
+      System.out.println(field.getName() + " = " + field.get(objectWithFields));
+    }
+  }
+}
+```
+
+
+
+### Generic signatures<a name="constraints-signatures"></a>
+
+The generic signature information of an item is not kept by default, and
+requires adding constraints to the targeted items.
+
+Imagine we had code that is making use of the template parameters for implementations of a
+generic interface. The code below assumes direct implementations of the `WrappedValue` interface
+and simply prints the type parameter used.
+
+Since we are reflecting on the class structure of implementations of `WrappedValue` we need to
+keep it and any instance of it.
+
+We must also preserve the generic signatures of these classes. We add the
+[KeepConstraint.GENERIC_SIGNATURE](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepConstraint.html#GENERIC_SIGNATURE) constraint by using the [@KeepTarget.constraintAdditions](https://storage.googleapis.com/r8-releases/raw/main/docs/keepanno/javadoc/com/android/tools/r8/keepanno/annotations/KeepTarget.html#constraintAdditions())
+property. This ensures that the default constraints are still in place in addition to the
+constraint on generic signatures.
+
+
+```
+public class GenericSignaturePrinter {
+
+  interface WrappedValue<T> {
+    T getValue();
+  }
+
+  @UsesReflection(
+      @KeepTarget(
+          instanceOfClassConstant = WrappedValue.class,
+          constraintAdditions = KeepConstraint.GENERIC_SIGNATURE))
+  public static void printSignature(WrappedValue<?> obj) {
+    Class<? extends WrappedValue> clazz = obj.getClass();
+    for (Type iface : clazz.getGenericInterfaces()) {
+      String typeName = iface.getTypeName();
+      String param = typeName.substring(typeName.lastIndexOf('<') + 1, typeName.lastIndexOf('>'));
+      System.out.println(clazz.getName() + " uses type " + param);
+    }
+  }
 ```
 
 

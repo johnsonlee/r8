@@ -19,6 +19,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.base.Charsets;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -245,7 +246,11 @@ public class ExternalR8TestBuilder
       if (FileUtils.isJarFile(file)) {
         programJars.add(file);
       } else {
-        throw new Unimplemented("No support for adding paths directly");
+        try {
+          addProgramClassFileData(Files.readAllBytes(file));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
       }
     }
     return self();
