@@ -782,7 +782,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   }
 
   public T enableExperimentalKeepAnnotations() {
-    builder.setEnableExperimentalKeepAnnotations(true);
+    addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = true);
     try {
       builder.addClasspathFiles(KeepAnnoTestUtils.getKeepAnnoLib(getState().getTempFolder()));
       return self();
