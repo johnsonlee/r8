@@ -9,8 +9,7 @@ public enum ProguardKeepRuleType {
   KEEP,
   KEEP_CLASS_MEMBERS,
   KEEP_CLASSES_WITH_MEMBERS,
-  CONDITIONAL,
-  KEEPSPEC;
+  CONDITIONAL;
 
   @Override
   public String toString() {
@@ -23,8 +22,6 @@ public enum ProguardKeepRuleType {
         return "keepclasseswithmembers";
       case CONDITIONAL:
         return "if";
-      case KEEPSPEC:
-        return "keepspec";
       default:
         throw new Unreachable("Unknown ProguardKeepRuleType.");
     }

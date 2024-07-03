@@ -50,8 +50,7 @@ public final class KeepQualifiedClassNamePattern {
   }
 
   public ClassNamePattern.Builder buildProto() {
-    ClassNamePattern.Builder builder = ClassNamePattern.newBuilder();
-    return builder
+    return ClassNamePattern.newBuilder()
         .setPackage(packagePattern.buildProto())
         .setUnqualifiedName(namePattern.buildProto());
   }

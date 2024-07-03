@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Check;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.CheckKind;
@@ -37,11 +36,19 @@ public class KeepCheck extends KeepDeclaration {
           setKind(KeepCheckKind.REMOVED);
       }
 
-      // Bindings are non-optional (checked in fromProto).
-      BindingResolver resolver = KeepBindings.fromProto(proto.getBindings());
-      setBindings(resolver.getBindings());
-      // Item is non-optional (checked in mapReference).
-      setItemReference(resolver.mapReference(proto.getItem()));
+      // Bindings are not optional.
+      if (!proto.hasBindings()) {
+        throw new KeepEdgeException("Invalid Check, must have valid bindings.");
+      }
+      KeepBindings.Builder bindingsBuilder = KeepBindings.builder().applyProto(proto.getBindings());
+      setBindings(bindingsBuilder.build());
+
+      // The check item reference is not optional.
+      if (!proto.hasItem() || proto.getItem().getName().isEmpty()) {
+        throw new KeepEdgeException("Invalid check, must have a valid item reference.");
+      }
+      setItemReference(
+          bindingsBuilder.getBindingReferenceForUserBinding(proto.getItem().getName()));
       return this;
     }
 
@@ -124,12 +131,7 @@ public class KeepCheck extends KeepDeclaration {
 
   @Override
   public String toString() {
-    return toProtoString();
-  }
-
-  @Override
-  public String toProtoString() {
-    return buildCheckProto().toString();
+    return "KeepCheck{kind=" + kind + ", item=" + itemReference + "}";
   }
 
   public static KeepCheck fromCheckProto(Check proto, KeepSpecVersion version) {

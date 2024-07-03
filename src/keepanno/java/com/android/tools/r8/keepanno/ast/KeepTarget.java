@@ -3,21 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Target;
 import java.util.Objects;
 
 public class KeepTarget {
-
-  public Target.Builder buildProto() {
-    Target.Builder builder = Target.newBuilder();
-    constraints.buildProto(builder::setConstraints, builder::addConstraintAdditions);
-    return builder.setItem(item.buildProto());
-  }
-
-  public static KeepTarget fromProto(Target proto, BindingResolver resolver) {
-    return builder().applyProto(proto, resolver).build();
-  }
 
   public static class Builder {
 
@@ -25,16 +13,6 @@ public class KeepTarget {
     private KeepConstraints constraints = KeepConstraints.defaultConstraints();
 
     private Builder() {}
-
-    public Builder applyProto(Target proto, BindingResolver resolver) {
-      setItemReference(resolver.mapReference(proto.getItem()));
-      assert constraints.isDefault();
-      constraints.fromProto(
-          proto.hasConstraints() ? proto.getConstraints() : null,
-          proto.getConstraintAdditionsList(),
-          this::setConstraints);
-      return this;
-    }
 
     public Builder setItemReference(KeepBindingReference itemReference) {
       this.item = itemReference;

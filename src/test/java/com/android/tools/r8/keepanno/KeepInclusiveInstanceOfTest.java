@@ -3,9 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static org.hamcrest.MatcherAssert.assertThat;
-
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -37,14 +34,11 @@ public class KeepInclusiveInstanceOfTest extends KeepAnnoTestBase {
         .addKeepMainRule(TestClass.class)
         .setExcludedOuterClass(getClass())
         .run(TestClass.class)
-        .assertSuccessWithOutput(EXPECTED)
-        .applyIf(
-            parameters.isShrinker(),
-            r -> r.inspect(inspector -> assertThat(inspector.clazz(Unrelated.class), isAbsent())));
+        .assertSuccessWithOutput(EXPECTED);
   }
 
   public List<Class<?>> getInputClasses() {
-    return ImmutableList.of(TestClass.class, Base.class, Sub.class, A.class, Unrelated.class);
+    return ImmutableList.of(TestClass.class, Base.class, Sub.class, A.class);
   }
 
   static class Base {
@@ -56,12 +50,6 @@ public class KeepInclusiveInstanceOfTest extends KeepAnnoTestBase {
   static class Sub extends Base {
     static void hiddenMethod() {
       System.out.println("on Sub");
-    }
-  }
-
-  static class Unrelated {
-    static void hiddenMethod() {
-      System.out.println("on Unrelated");
     }
   }
 

@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.ast.KeepSpecUtils.BindingResolver;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.Edge;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 
 /**
  * An edge in the keep graph.
@@ -147,14 +147,9 @@ public final class KeepEdge extends KeepDeclaration {
 
     private Builder() {}
 
-    public Builder applyProto(Edge proto, KeepSpecVersion version) {
-      // Proto MetaInfo is optional but the `fromProto` deals with the null case.
-      setMetaInfo(KeepEdgeMetaInfo.fromProto(proto.getMetaInfo(), version));
-      // Bindings are non-optional (checked in fromProto).
-      BindingResolver resolver = KeepBindings.fromProto(proto.getBindings());
-      setBindings(resolver.getBindings());
-      setPreconditions(KeepPreconditions.fromProto(proto.getPreconditionsList(), resolver));
-      setConsequences(KeepConsequences.fromProto(proto.getConsequencesList(), resolver));
+    public Builder applyProto(Edge edge, KeepSpecVersion version) {
+      // TODO(b/343389186): implement this.
+      KeepEdgeMetaInfo.builder().applyProto(edge.getMetaInfo(), version).build();
       return this;
     }
 
@@ -262,24 +257,17 @@ public final class KeepEdge extends KeepDeclaration {
 
   @Override
   public String toString() {
-    return toProtoString();
-  }
-
-  @Override
-  public String toProtoString() {
-    return buildEdgeProto().toString();
-  }
-
-  public static KeepEdge fromEdgeProto(Edge proto, KeepSpecVersion version) {
-    return KeepEdge.builder().applyProto(proto, version).build();
+    return "KeepEdge{metainfo="
+        + getMetaInfo()
+        + ", preconditions="
+        + preconditions
+        + ", consequences="
+        + consequences
+        + '}';
   }
 
   public Edge.Builder buildEdgeProto() {
-    Edge.Builder builder = Edge.newBuilder();
-    builder.setMetaInfo(getMetaInfo().buildProto());
-    builder.setBindings(bindings.buildProto());
-    preconditions.forEach(condition -> builder.addPreconditions(condition.buildProto()));
-    consequences.forEachTarget(target -> builder.addConsequences(target.buildProto()));
-    return builder;
+    Edge.newBuilder().setMetaInfo(getMetaInfo().buildProto());
+    throw new Unimplemented();
   }
 }

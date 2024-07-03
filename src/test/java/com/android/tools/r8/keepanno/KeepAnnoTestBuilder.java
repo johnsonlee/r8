@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.keepanno;
 
+import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.ProguardTestBuilder;
@@ -17,14 +18,18 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.keepanno.KeepAnnoParameters.KeepAnnoConfig;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
+import com.android.tools.r8.keepanno.asm.KeepEdgeWriter;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.keepanno.ast.KeepSpecVersion;
-import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.KeepSpec;
+import com.android.tools.r8.keepanno.utils.Unimplemented;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +38,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 import org.junit.rules.TemporaryFolder;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 public abstract class KeepAnnoTestBuilder {
 
@@ -190,8 +197,23 @@ public abstract class KeepAnnoTestBuilder {
               .enableExperimentalKeepAnnotations()
               .setMinApi(parameters());
 
+      if (isExtractRules()) {
+        // TODO(b/323816623): Replace the internal rule extraction by extraction in this builder.
+        builder.getBuilder().setEnableExperimentalKeepAnnotations(true);
+        builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
+        return;
+      }
+
       // TODO(b/323816623): Replace the testing flag by the API call.
-      builder.addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
+      // This enables native interpretation of all keep annotations.
+      builder.addOptionsModification(
+          o -> {
+            o.testing.enableExtractedKeepAnnotations = isNormalizeEdges();
+            o.testing.enableEmbeddedKeepAnnotations = !isNormalizeEdges();
+          });
+      // This disables all reading of annotations in the command reader.
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+      builder.getBuilder().setEnableExperimentalExtractedKeepAnnotations(false);
     }
 
     private boolean isExtractRules() {
@@ -200,10 +222,6 @@ public abstract class KeepAnnoTestBuilder {
 
     private boolean isNormalizeEdges() {
       return config == KeepAnnoConfig.R8_NORMALIZED;
-    }
-
-    private boolean isDirect() {
-      return config == KeepAnnoConfig.R8_DIRECT;
     }
 
     @Override
@@ -262,29 +280,54 @@ public abstract class KeepAnnoTestBuilder {
 
     private void extractAndAdd(byte[] classFileData) {
       builder.addProgramClassFileData(classFileData);
-      if (isExtractRules()) {
-        List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
-        if (!declarations.isEmpty()) {
-          KeepRuleExtractor extractor = new KeepRuleExtractor(builder::addKeepRules);
-          declarations.forEach(extractor::extract);
-        }
-        return;
-      }
       if (isNormalizeEdges()) {
         List<KeepDeclaration> declarations = KeepEdgeReader.readKeepEdges(classFileData);
         if (!declarations.isEmpty()) {
+          List<KeepDeclaration> legacyExtract = new ArrayList<>();
           KeepSpec.Builder keepSpecBuilder = KeepSpec.newBuilder();
           keepSpecBuilder.setVersion(KeepSpecVersion.getCurrent().buildProto());
           for (KeepDeclaration declaration : declarations) {
-            keepSpecBuilder.addDeclarations(declaration.buildDeclarationProto());
+            try {
+              keepSpecBuilder.addDeclarations(declaration.buildDeclarationProto());
+            } catch (Unimplemented e) {
+              legacyExtract.add(declaration);
+            }
           }
           builder
               .getBuilder()
               .addKeepSpecificationData(keepSpecBuilder.build().toByteArray(), Origin.unknown());
+          if (legacyExtract.isEmpty()) {
+            // TODO(b/343389186): Finish the proto encoding and remove the below extraction.
+            return;
+          }
+          String binaryName =
+              DescriptorUtils.getBinaryNameFromDescriptor(extractClassDescriptor(classFileData));
+          String synthesizingTarget = binaryName + "$$ExtractedKeepEdges";
+          ClassWriter classWriter = new ClassWriter(InternalOptions.ASM_VERSION);
+          classWriter.visit(
+              Opcodes.V1_8,
+              ClassAccessFlags.createPublicFinalSynthetic().getAsCfAccessFlags(),
+              synthesizingTarget,
+              null,
+              "java/lang/Object",
+              null);
+          KeepEdgeWriter.writeExtractedEdges(
+              legacyExtract,
+              (descriptor, visible) ->
+                  KeepAnnoTestUtils.wrap(classWriter.visitAnnotation(descriptor, visible)));
+          classWriter.visitEnd();
+          builder
+              .getBuilder()
+              .addClassProgramData(
+                  classWriter.toByteArray(),
+                  new Origin(Origin.root()) {
+                    @Override
+                    public String part() {
+                      return "edge-extraction";
+                    }
+                  });
         }
-        return;
       }
-      assert isDirect();
     }
 
     @Override

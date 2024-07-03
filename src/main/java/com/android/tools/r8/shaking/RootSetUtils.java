@@ -282,8 +282,6 @@ public class RootSetUtils {
             break;
           case CONDITIONAL:
             throw new Unreachable("-if rule will be evaluated separately, not here.");
-          case KEEPSPEC:
-            throw new Unreachable("keepspec rules are evaluated separately, not here.");
         }
         return;
       }

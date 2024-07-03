@@ -139,6 +139,8 @@ public final class R8Command extends BaseCompilerCommand {
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
         System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
+    private boolean enableExperimentalVersionedKeepEdgeAnnotations =
+        System.getProperty("com.android.tools.r8.enableVersionedKeepEdgeAnnotations") != null;
     public boolean enableStartupLayoutOptimization = true;
     private SemanticVersion fakeCompilerVersion = null;
     private AndroidResourceProvider androidResourceProvider = null;
@@ -520,6 +522,12 @@ public final class R8Command extends BaseCompilerCommand {
       return self();
     }
 
+    @Deprecated
+    public Builder setEnableExperimentalExtractedKeepAnnotations(boolean enable) {
+      this.enableExperimentalVersionedKeepEdgeAnnotations = enable;
+      return self();
+    }
+
     @Override
     protected InternalProgramOutputPathConsumer createProgramOutputConsumer(
         Path path,
@@ -837,15 +845,20 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     private void extractKeepAnnotationRules(ProguardConfigurationParser parser) {
-      if (!enableExperimentalKeepAnnotations) {
+      if (!enableExperimentalKeepAnnotations && !enableExperimentalVersionedKeepEdgeAnnotations) {
         return;
       }
+      assert enableExperimentalKeepAnnotations != enableExperimentalVersionedKeepEdgeAnnotations;
       try {
         for (ProgramResourceProvider provider : getAppBuilder().getProgramResourceProviders()) {
           for (ProgramResource resource : provider.getProgramResources()) {
             if (resource.getKind() == Kind.CF) {
-              List<KeepDeclaration> declarations =
-                  KeepEdgeReader.readKeepEdges(resource.getBytes());
+              List<KeepDeclaration> declarations;
+              if (!enableExperimentalKeepAnnotations) {
+                declarations = KeepEdgeReader.readExtractedKeepEdges(resource.getBytes());
+              } else {
+                declarations = KeepEdgeReader.readKeepEdges(resource.getBytes());
+              }
               if (!declarations.isEmpty()) {
                 KeepRuleExtractor extractor =
                     new KeepRuleExtractor(
