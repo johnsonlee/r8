@@ -29,3 +29,7 @@
 
 # Test in this class is using the class name to fing the original .java file.
 -keep class com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaringMethods
+
+# The protobuf library uses reflection for toString printing.
+# Note that this is keeping the relocated package location.
+-keep class com.android.tools.r8.relocated.keepanno.proto.** { *; }
