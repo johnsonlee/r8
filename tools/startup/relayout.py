@@ -24,6 +24,10 @@ def parse_options(argv):
     result = argparse.ArgumentParser(
         description='Relayout a given APK using a startup profile.')
     result.add_argument('--apk', help='Path to the .apk', required=True)
+    result.add_argument('--compress-dex',
+                        help='Whether the dex should be stored compressed',
+                        action='store_true',
+                        default=False)
     result.add_argument(
         '--desugared-library',
         choices=['auto', 'true', 'false'],
@@ -94,7 +98,10 @@ def main(argv):
             zip_utils.add_file_to_zip(desugared_library_dex,
                                       'classes%s.dex' % str(len(dex_files) + 1),
                                       dex)
-        apk_masseur.masseur(options.apk, dex=dex, out=options.out)
+        apk_masseur.masseur(options.apk,
+                            dex=dex,
+                            out=options.out,
+                            compress_dex=options.compress_dex)
 
 
 if __name__ == '__main__':
