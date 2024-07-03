@@ -294,14 +294,17 @@ public abstract class KeepAnnotationCollectionInfo {
         // Our specific types are "bottom" so this is less than.
         return true;
       }
-      if (other.specificTypeInfo == null) {
-        // Other specific types are "bottom" and this is not bottom, so it is not less than.
-        return false;
-      }
-      // Check that each specific type is less than the content of the type in other.
+      // Check that each specific type is less than the content of the type in other or its
+      // any-type when not present.
       for (DexType type : specificTypeInfo.keySet()) {
-        KeepAnnotationInfo otherInfo = other.specificTypeInfo.get(type);
-        if (otherInfo == null || !specificTypeInfo.get(type).isLessThanOrEqualTo(otherInfo)) {
+        KeepAnnotationInfo otherInfo = null;
+        if (other.specificTypeInfo != null) {
+          otherInfo = other.specificTypeInfo.get(type);
+        }
+        if (otherInfo == null) {
+          otherInfo = other.anyTypeInfo;
+        }
+        if (!specificTypeInfo.get(type).isLessThanOrEqualTo(otherInfo)) {
           return false;
         }
       }
