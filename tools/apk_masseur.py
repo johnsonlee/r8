@@ -7,6 +7,7 @@ import glob
 import optparse
 import os
 import shutil
+import subprocess
 import sys
 
 import apk_utils
@@ -82,8 +83,13 @@ def repack(apk, clear_profile, processed_out, desugared_library_dex,
             processed_apk)
 
     if not processed_out:
-        utils.Print('Using original dex as is', quiet=quiet)
-        return processed_apk
+        if has_wrong_compression(apk, compress_dex):
+            processed_out = os.path.join(temp, 'extracted')
+            subprocess.check_call(
+                ['unzip', apk, '-d', processed_out, 'classes*.dex'])
+        else:
+            utils.Print('Using original dex as is', quiet=quiet)
+            return processed_apk
 
     utils.Print('Repacking APK with dex files from {}'.format(processed_out),
                 quiet=quiet)
@@ -148,6 +154,16 @@ def align(signed_apk, temp, quiet, logging):
     return apk_utils.align(signed_apk, aligned_apk)
 
 
+def has_wrong_compression(apk, compress_dex):
+    cmd = ['zipinfo', apk, 'classes*.dex']
+    stdout = subprocess.check_output(cmd).decode('utf-8').strip()
+    expected = ' defN ' if compress_dex else ' stor '
+    for line in stdout.splitlines():
+        if not expected in line:
+            return True
+    return False
+
+
 def masseur(apk,
             clear_profile=False,
             dex=None,
@@ -167,7 +183,7 @@ def masseur(apk,
         keystore = apk_utils.default_keystore()
     with utils.TempDir() as temp:
         processed_apk = None
-        if dex or clear_profile:
+        if dex or clear_profile or has_wrong_compression(apk, compress_dex):
             processed_apk = repack(apk, clear_profile, dex,
                                    desugared_library_dex, compress_dex,
                                    resources, temp, quiet, logging)
