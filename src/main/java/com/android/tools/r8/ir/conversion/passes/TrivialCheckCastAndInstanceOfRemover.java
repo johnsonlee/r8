@@ -241,7 +241,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     // type.
     if (castType.isClassType()
         && castType.isAlwaysNull(appViewWithLiveness)
-        && !outValue.hasDebugUsers()
+        && !outValue.hasLocalInfo()
         && !appView.getSyntheticItems().isFinalized()) {
       // Replace all usages of the out-value by null.
       it.previous();
