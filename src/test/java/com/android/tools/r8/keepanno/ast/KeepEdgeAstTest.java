@@ -4,6 +4,7 @@
 package com.android.tools.r8.keepanno.ast;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -226,6 +227,38 @@ public class KeepEdgeAstTest extends TestBase {
                 + CLASS
                 + " { void <init>(); }"),
         extract(edge));
+  }
+
+  @Test
+  public void testKeepZeroOrMorePackage() {
+    BindingsHelper helper = new BindingsHelper();
+    KeepClassBindingReference clazz =
+        helper.freshClassBinding(
+            KeepClassItemPattern.builder()
+                .setClassNamePattern(
+                    KeepQualifiedClassNamePattern.builder()
+                        .setPackagePattern(
+                            KeepPackagePattern.builder()
+                                .append(KeepPackageComponentPattern.exact("a"))
+                                .append(KeepPackageComponentPattern.zeroOrMore())
+                                .append(KeepPackageComponentPattern.exact("b"))
+                                .build())
+                        .build())
+                .build());
+    KeepEdge edge =
+        KeepEdge.builder()
+            .setConsequences(KeepConsequences.builder().addTarget(target(clazz)).build())
+            .setBindings(helper.build())
+            .build();
+    // Extraction fails due to the package structure.
+    try {
+      extract(edge);
+    } catch (KeepEdgeException e) {
+      if (e.getMessage().contains("Unsupported use of zero-or-more package pattern")) {
+        return;
+      }
+    }
+    fail("Expected extraction to fail");
   }
 
   private KeepClassBindingReference classItemBinding(KeepBindingSymbol bindingName) {

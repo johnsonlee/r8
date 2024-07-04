@@ -3,223 +3,210 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.ast;
 
-import com.android.tools.r8.keepanno.proto.KeepSpecProtos;
+import com.android.tools.r8.keepanno.proto.KeepSpecProtos.PackageComponentPattern;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.PackagePattern;
-import com.android.tools.r8.keepanno.utils.Unimplemented;
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.Objects;
 
-public abstract class KeepPackagePattern {
+/**
+ * Pattern over the Java package structure.
+ *
+ * <p>The patterns are represented as a list of package component patterns. A package component is
+ * the string content between two package separators (separators are `.` as well as the package
+ * start and end).
+ */
+public class KeepPackagePattern {
+
+  private static final KeepPackagePattern ANY =
+      new KeepPackagePattern(false, ImmutableList.of(KeepPackageComponentPattern.zeroOrMore()));
+
+  private static final KeepPackagePattern TOP =
+      new KeepPackagePattern(true, ImmutableList.of(KeepPackageComponentPattern.exact("")));
+
+  public static KeepPackagePattern any() {
+    return ANY;
+  }
+
+  public static KeepPackagePattern top() {
+    return TOP;
+  }
 
   public static Builder builder() {
     return new Builder();
   }
 
-  public static KeepPackagePattern any() {
-    return Any.getInstance();
-  }
-
-  public static KeepPackagePattern top() {
-    return Top.getInstance();
-  }
-
   public static KeepPackagePattern exact(String fullPackage) {
-    return KeepPackagePattern.builder().exact(fullPackage).build();
+    if (fullPackage.isEmpty()) {
+      return top();
+    }
+    int length = fullPackage.length();
+    Builder builder = KeepPackagePattern.builder();
+    int componentStart = 0;
+    for (int i = 0; i < length; i++) {
+      if (fullPackage.charAt(i) == '.') {
+        if (componentStart == i) {
+          throw new KeepEdgeException("Invalid package string: " + fullPackage + "'");
+        }
+        String substring = fullPackage.substring(componentStart, i);
+        builder.append(KeepPackageComponentPattern.exact(substring));
+        componentStart = i + 1;
+      }
+    }
+    if (componentStart == length) {
+      throw new KeepEdgeException("Invalid package string: '" + fullPackage + "'");
+    }
+    String remaining = fullPackage.substring(componentStart, length);
+    builder.append(KeepPackageComponentPattern.exact(remaining));
+    return builder.build();
   }
 
   public static KeepPackagePattern fromProto(PackagePattern proto) {
     return builder().applyProto(proto).build();
   }
 
-  public PackagePattern.Builder buildProto() {
+  public final PackagePattern.Builder buildProto() {
     PackagePattern.Builder builder = PackagePattern.newBuilder();
     if (isAny()) {
-      // An unset oneof implies "any package" (including multiple package parts).
+      // Any package is serialized out as the empty proto.
       return builder;
     }
-    if (isTop()) {
-      // The top/unspecified package is encoded as the empty package name.
-      return builder.setName(KeepSpecProtos.StringPattern.newBuilder().setExact(""));
+    for (KeepPackageComponentPattern componentPattern : componentPatterns) {
+      builder.addComponents(componentPattern.buildProto());
     }
-    // TODO(b/343389186): Rewrite the package patterns to use the tree structure.
-    return builder.setExactPackageHack(getExactPackageAsString());
+    return builder;
   }
 
   public static class Builder {
 
-    private KeepPackagePattern pattern = KeepPackagePattern.any();
+    private Deque<KeepPackageComponentPattern> componentPatterns = new ArrayDeque<>();
 
-    public Builder applyProto(PackagePattern pkg) {
-      if (pkg.hasExactPackageHack()) {
-        exact(pkg.getExactPackageHack());
-        return this;
+    public Builder applyProto(PackagePattern proto) {
+      for (PackageComponentPattern componentProto : proto.getComponentsList()) {
+        append(KeepPackageComponentPattern.fromProto(componentProto));
       }
-      if (pkg.hasName()) {
-        KeepStringPattern stringPattern = KeepStringPattern.fromProto(pkg.getName());
-        if (stringPattern.isExact() && stringPattern.asExactString().isEmpty()) {
-          return top();
-        }
-        throw new Unimplemented();
-      }
-      if (pkg.hasNode()) {
-        throw new Unimplemented();
-      }
-      // The unset oneof implies any package.
-      assert pattern.isAny();
       return this;
     }
 
     public Builder any() {
-      pattern = Any.getInstance();
+      componentPatterns.clear();
       return this;
     }
 
     public Builder top() {
-      pattern = Top.getInstance();
+      componentPatterns.clear();
+      componentPatterns.add(KeepPackageComponentPattern.single(KeepStringPattern.exact("")));
       return this;
     }
 
-    public Builder exact(String fullPackage) {
-      pattern = fullPackage.isEmpty() ? KeepPackagePattern.top() : new Exact(fullPackage);
+    public Builder append(KeepPackageComponentPattern componentPattern) {
+      componentPatterns.addLast(componentPattern);
       return this;
     }
 
     public KeepPackagePattern build() {
-      if (pattern == null) {
-        throw new KeepEdgeException("Invalid package pattern: null");
+      if (componentPatterns.isEmpty()) {
+        return KeepPackagePattern.any();
       }
-      return pattern;
-    }
-  }
-
-  private static final class Any extends KeepPackagePattern {
-
-    private static final Any INSTANCE = new Any();
-
-    public static Any getInstance() {
-      return INSTANCE;
-    }
-
-    private Any() {}
-
-    @Override
-    public boolean isAny() {
-      return true;
-    }
-
-    @Override
-    public boolean isTop() {
-      return false;
-    }
-
-    @Override
-    public boolean isExact() {
-      return false;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return obj == this;
-    }
-
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(this);
-    }
-
-    @Override
-    public String toString() {
-      return "*";
-    }
-  }
-
-  private static final class Top extends Exact {
-
-    private static final Top INSTANCE = new Top();
-
-    public static Top getInstance() {
-      return INSTANCE;
-    }
-
-    private Top() {
-      super("");
-    }
-
-    @Override
-    public boolean isAny() {
-      return false;
-    }
-
-    @Override
-    public boolean isTop() {
-      return true;
-    }
-
-    @Override
-    public String toString() {
-      return "";
-    }
-  }
-
-  private static class Exact extends KeepPackagePattern {
-
-    private final String fullPackage;
-
-    private Exact(String fullPackage) {
-      assert fullPackage != null;
-      this.fullPackage = fullPackage;
-      // TODO: Verify valid package identifiers.
-    }
-
-    @Override
-    public boolean isAny() {
-      return false;
-    }
-
-    @Override
-    public boolean isTop() {
-      return fullPackage.equals("");
-    }
-
-    @Override
-    public boolean isExact() {
-      return true;
-    }
-
-    @Override
-    public String getExactPackageAsString() {
-      return fullPackage;
-    }
-
-    @Override
-    @SuppressWarnings("EqualsGetClass")
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
+      boolean isExact = true;
+      boolean previousIsZeroOrMore = false;
+      ImmutableList.Builder<KeepPackageComponentPattern> builder = ImmutableList.builder();
+      for (KeepPackageComponentPattern component : componentPatterns) {
+        if (component.isZeroOrMore()) {
+          if (!previousIsZeroOrMore) {
+            builder.add(component);
+          }
+          isExact = false;
+          previousIsZeroOrMore = true;
+        } else {
+          builder.add(component);
+          isExact &= component.getSinglePattern().isExact();
+        }
       }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
+      ImmutableList<KeepPackageComponentPattern> finalComponents = builder.build();
+      if (finalComponents.size() == 1) {
+        KeepPackageComponentPattern single = finalComponents.get(0);
+        if (single.isZeroOrMore()) {
+          return KeepPackagePattern.any();
+        }
+        if (isExact && single.getSinglePattern().asExactString().isEmpty()) {
+          return KeepPackagePattern.top();
+        }
       }
-      Exact that = (Exact) o;
-      return fullPackage.equals(that.fullPackage);
-    }
-
-    @Override
-    public int hashCode() {
-      return fullPackage.hashCode();
-    }
-
-    @Override
-    public String toString() {
-      return fullPackage;
+      return new KeepPackagePattern(isExact, finalComponents);
     }
   }
 
-  public abstract boolean isAny();
+  // Cached value to avoid traversing the components to determine exact package strings.
+  private final boolean isExact;
+  private final List<KeepPackageComponentPattern> componentPatterns;
 
-  public abstract boolean isTop();
+  private KeepPackagePattern(
+      boolean isExact, ImmutableList<KeepPackageComponentPattern> componentPatterns) {
+    assert !componentPatterns.isEmpty();
+    assert !isExact || componentPatterns.stream().allMatch(KeepPackageComponentPattern::isExact);
+    this.isExact = isExact;
+    this.componentPatterns = componentPatterns;
+  }
 
-  public abstract boolean isExact();
+  public List<KeepPackageComponentPattern> getComponents() {
+    return componentPatterns;
+  }
+
+  public boolean isAny() {
+    return componentPatterns.size() == 1 && componentPatterns.get(0).isZeroOrMore();
+  }
+
+  public boolean isTop() {
+    if (componentPatterns.size() != 1) {
+      return false;
+    }
+    KeepPackageComponentPattern component = componentPatterns.get(0);
+    if (component.isZeroOrMore()) {
+      return false;
+    }
+    KeepStringPattern singlePattern = component.getSinglePattern();
+    return singlePattern.isExact() && singlePattern.asExactString().isEmpty();
+  }
+
+  public boolean isExact() {
+    return isExact;
+  }
 
   public String getExactPackageAsString() {
-    throw new IllegalStateException();
+    if (!isExact) {
+      throw new KeepEdgeException("Invalid attempt to get exact from inexact package pattern");
+    }
+    if (isTop()) {
+      return "";
+    }
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < componentPatterns.size(); i++) {
+      KeepPackageComponentPattern componentPattern = componentPatterns.get(i);
+      if (i > 0) {
+        builder.append('.');
+      }
+      builder.append(componentPattern.getSinglePattern().asExactString());
+    }
+    return builder.toString();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof KeepPackagePattern)) {
+      return false;
+    }
+    KeepPackagePattern other = (KeepPackagePattern) obj;
+    return isExact == other.isExact && componentPatterns.equals(other.componentPatterns);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(isExact, componentPatterns);
   }
 }

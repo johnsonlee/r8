@@ -174,18 +174,13 @@ message ClassNamePattern {
 }
 
 message PackagePattern {
-  oneof package_oneof {
-    // An unset oneof implies any package (including multiple package parts).
-    StringPattern name = 1;
-    PackageNode node = 2;
-    // TODO(b/343389186): Rewrite package pattern AST to the tree structure.
-    string exact_package_hack = 3;
-  }
+  // No components matches any package.
+  repeated PackageComponentPattern components = 1;
 }
 
-message PackageNode {
-  PackagePattern lhs = 1;
-  PackagePattern rhs = 2;
+message PackageComponentPattern {
+  // An absent single component matches any number of components.
+  optional StringPattern single_component = 1;
 }
 
 message StringPattern {

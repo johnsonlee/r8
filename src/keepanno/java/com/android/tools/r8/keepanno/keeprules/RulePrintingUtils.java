@@ -21,6 +21,7 @@ import com.android.tools.r8.keepanno.ast.KeepMethodPattern;
 import com.android.tools.r8.keepanno.ast.KeepMethodReturnTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepOptions;
 import com.android.tools.r8.keepanno.ast.KeepOptions.KeepOption;
+import com.android.tools.r8.keepanno.ast.KeepPackageComponentPattern;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepPrimitiveTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
@@ -334,8 +335,14 @@ public abstract class RulePrintingUtils {
     if (packagePattern.isTop()) {
       return builder;
     }
-    assert packagePattern.isExact();
-    return builder.append(packagePattern.getExactPackageAsString()).append(".");
+    for (KeepPackageComponentPattern component : packagePattern.getComponents()) {
+      if (component.isZeroOrMore()) {
+        throw new KeepEdgeException("Unsupported use of zero-or-more package pattern");
+      }
+      printStringPattern(builder, component.getSinglePattern());
+      builder.append(".");
+    }
+    return builder;
   }
 
   private static RulePrinter printSimpleClassName(
