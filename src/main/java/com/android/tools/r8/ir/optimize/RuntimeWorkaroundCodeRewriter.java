@@ -109,7 +109,8 @@ public class RuntimeWorkaroundCodeRewriter {
               instanceOf.type().toTypeElement(appView, valueType.nullability());
           if (instanceOfType.isClassType(t -> t.getClassType().isNotIdenticalTo(objectType))
               && !instanceOfType.lessThanOrEqual(valueType, appView)
-              && !valueType.lessThanOrEqual(instanceOfType, appView)) {
+              && !valueType.lessThanOrEqual(instanceOfType, appView)
+              && !valueType.isBasedOnMissingClass(appView.withClassHierarchy())) {
             instructionIterator.replaceCurrentInstructionWithConstFalse(code);
             didReplaceInstructions = true;
           }
