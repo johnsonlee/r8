@@ -5,6 +5,7 @@ package com.android.tools.r8.keepanno.ast;
 
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.ClassNamePattern;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public final class KeepQualifiedClassNamePattern {
 
@@ -49,11 +50,12 @@ public final class KeepQualifiedClassNamePattern {
     return KeepQualifiedClassNamePattern.builder().applyProto(clazz).build();
   }
 
-  public ClassNamePattern.Builder buildProto() {
-    ClassNamePattern.Builder builder = ClassNamePattern.newBuilder();
-    return builder
-        .setPackage(packagePattern.buildProto())
-        .setUnqualifiedName(namePattern.buildProto());
+  public void buildProtoIfNotAny(Consumer<ClassNamePattern.Builder> setter) {
+    if (!isAny()) {
+      ClassNamePattern.Builder builder = ClassNamePattern.newBuilder();
+      builder.setPackage(packagePattern.buildProto()).setUnqualifiedName(namePattern.buildProto());
+      setter.accept(builder);
+    }
   }
 
   public static class Builder {

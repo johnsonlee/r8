@@ -158,9 +158,13 @@ message ItemPattern {
 }
 
 message ClassItemPattern {
+  optional ClassPattern class_pattern = 1;
+  optional AnnotatedByPattern annotated_by = 2;
+}
+
+message ClassPattern {
   optional ClassNamePattern class_name = 1;
   optional InstanceOfPattern instance_of = 2;
-  optional AnnotatedByPattern annotated_by = 3;
 }
 
 message InstanceOfPattern {
@@ -300,8 +304,7 @@ message TypePattern {
     // Unset type denotes any type.
     TypePatternPrimitive primitive = 1;
     TypePatternArray array = 2;
-    ClassNamePattern clazz = 3;
-    InstanceOfPattern instance_of = 4;
+    ClassPattern class_pattern = 3;
   }
 }
 

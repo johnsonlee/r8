@@ -222,13 +222,13 @@ public abstract class RulePrintingUtils {
         printer::appendTripleStar,
         primitivePattern -> printPrimitiveType(printer, primitivePattern),
         arrayTypePattern -> printArrayType(printer, arrayTypePattern),
-        classTypePattern -> printClassName(classTypePattern, printer),
-        instanceOfPattern -> printInstanceOf(instanceOfPattern, printer));
-  }
-
-  private static RulePrinter printInstanceOf(
-      KeepInstanceOfPattern instanceOfPattern, RulePrinter printer) {
-    throw new Unimplemented();
+        classTypePattern -> {
+          if (!classTypePattern.getInstanceOfPattern().isAny()) {
+            throw new KeepEdgeException(
+                "Type patterns with instance-of are not supported in rule extraction");
+          }
+          return printClassName(classTypePattern.getClassNamePattern(), printer);
+        });
   }
 
   private static RulePrinter printPrimitiveType(

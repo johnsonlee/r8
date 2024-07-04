@@ -52,10 +52,7 @@ public class KeepArrayTypePattern {
             array -> {
               throw new KeepEdgeException("Unexpected nested array");
             },
-            KeepQualifiedClassNamePattern::getExactDescriptor,
-            instanceOf -> {
-              throw new KeepEdgeException("No descriptor exists for instanceOf array");
-            });
+            clazz -> clazz.getClassNamePattern().getExactDescriptor());
   }
 
   @Override

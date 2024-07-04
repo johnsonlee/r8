@@ -103,9 +103,9 @@ public class KeepMemberAccessPattern {
       }
       builder.setAccessVisibility(visibilityBuilder.build());
     }
-    staticPattern.buildProto(builder::setStaticPattern);
-    finalPattern.buildProto(builder::setFinalPattern);
-    syntheticPattern.buildProto(builder::setSyntheticPattern);
+    staticPattern.buildProtoIfNotAny(builder::setStaticPattern);
+    finalPattern.buildProtoIfNotAny(builder::setFinalPattern);
+    syntheticPattern.buildProtoIfNotAny(builder::setSyntheticPattern);
     callback.accept(builder);
   }
 

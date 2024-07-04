@@ -25,12 +25,8 @@ public abstract class KeepTypePattern {
     return new ArrayType(type);
   }
 
-  public static KeepTypePattern fromClass(KeepQualifiedClassNamePattern type) {
+  public static KeepTypePattern fromClass(KeepClassPattern type) {
     return new ClassType(type);
-  }
-
-  public static KeepTypePattern fromInstanceOf(KeepInstanceOfPattern pattern) {
-    return new KeepInstanceOf(pattern);
   }
 
   public static KeepTypePattern fromDescriptor(String typeDescriptor) {
@@ -40,7 +36,7 @@ public abstract class KeepTypePattern {
       if (typeDescriptor.charAt(end) != ';') {
         throw new KeepEdgeException("Invalid type descriptor: " + typeDescriptor);
       }
-      return fromClass(KeepQualifiedClassNamePattern.exactFromDescriptor(typeDescriptor));
+      return fromClass(KeepClassPattern.exactFromDescriptor(typeDescriptor));
     }
     if (c == '[') {
       int dim = 1;
@@ -61,21 +57,18 @@ public abstract class KeepTypePattern {
       Supplier<T> onAny,
       Function<KeepPrimitiveTypePattern, T> onPrimitive,
       Function<KeepArrayTypePattern, T> onArray,
-      Function<KeepQualifiedClassNamePattern, T> onClass,
-      Function<KeepInstanceOfPattern, T> onInstanceOf);
+      Function<KeepClassPattern, T> onClass);
 
   public final void match(
       Runnable onAny,
       Consumer<KeepPrimitiveTypePattern> onPrimitive,
       Consumer<KeepArrayTypePattern> onArray,
-      Consumer<KeepQualifiedClassNamePattern> onClass,
-      Consumer<KeepInstanceOfPattern> onInstanceOf) {
+      Consumer<KeepClassPattern> onClass) {
     apply(
         AstUtils.toVoidSupplier(onAny),
         AstUtils.toVoidFunction(onPrimitive),
         AstUtils.toVoidFunction(onArray),
-        AstUtils.toVoidFunction(onClass),
-        AstUtils.toVoidFunction(onInstanceOf));
+        AstUtils.toVoidFunction(onClass));
   }
 
   public boolean isAny() {
@@ -95,8 +88,7 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass,
-        Function<KeepInstanceOfPattern, T> onInstanceOf) {
+        Function<KeepClassPattern, T> onClass) {
       return onAny.get();
     }
 
@@ -161,16 +153,15 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass,
-        Function<KeepInstanceOfPattern, T> onInstanceOf) {
+        Function<KeepClassPattern, T> onClass) {
       return onPrimitive.apply(type);
     }
   }
 
   private static class ClassType extends KeepTypePattern {
-    private final KeepQualifiedClassNamePattern type;
+    private final KeepClassPattern type;
 
-    public ClassType(KeepQualifiedClassNamePattern type) {
+    public ClassType(KeepClassPattern type) {
       this.type = type;
     }
 
@@ -179,8 +170,7 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass,
-        Function<KeepInstanceOfPattern, T> onInstanceOf) {
+        Function<KeepClassPattern, T> onClass) {
       return onClass.apply(type);
     }
 
@@ -219,8 +209,7 @@ public abstract class KeepTypePattern {
         Supplier<T> onAny,
         Function<KeepPrimitiveTypePattern, T> onPrimitive,
         Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass,
-        Function<KeepInstanceOfPattern, T> onInstanceOf) {
+        Function<KeepClassPattern, T> onClass) {
       return onArray.apply(type);
     }
 
@@ -247,24 +236,6 @@ public abstract class KeepTypePattern {
     }
   }
 
-  private static class KeepInstanceOf extends KeepTypePattern {
-    private final KeepInstanceOfPattern instanceOf;
-
-    private KeepInstanceOf(KeepInstanceOfPattern instanceOf) {
-      this.instanceOf = instanceOf;
-    }
-
-    @Override
-    public <T> T apply(
-        Supplier<T> onAny,
-        Function<KeepPrimitiveTypePattern, T> onPrimitive,
-        Function<KeepArrayTypePattern, T> onArray,
-        Function<KeepQualifiedClassNamePattern, T> onClass,
-        Function<KeepInstanceOfPattern, T> onInstanceOf) {
-      return onInstanceOf.apply(instanceOf);
-    }
-  }
-
   public static KeepTypePattern fromProto(TypePattern typeProto) {
     if (typeProto.hasPrimitive()) {
       return KeepTypePattern.fromPrimitive(
@@ -273,13 +244,8 @@ public abstract class KeepTypePattern {
     if (typeProto.hasArray()) {
       return KeepTypePattern.fromArray(KeepArrayTypePattern.fromProto(typeProto.getArray()));
     }
-    if (typeProto.hasClazz()) {
-      return KeepTypePattern.fromClass(
-          KeepQualifiedClassNamePattern.fromProto(typeProto.getClazz()));
-    }
-    if (typeProto.hasInstanceOf()) {
-      return KeepTypePattern.fromInstanceOf(
-          KeepInstanceOfPattern.fromProto(typeProto.getInstanceOf()));
+    if (typeProto.hasClassPattern()) {
+      return KeepTypePattern.fromClass(KeepClassPattern.fromProto(typeProto.getClassPattern()));
     }
     return KeepTypePattern.any();
   }
@@ -292,17 +258,7 @@ public abstract class KeepTypePattern {
         },
         primitive -> builder.setPrimitive(primitive.buildProto()),
         array -> builder.setArray(array.buildProto()),
-        clazz -> builder.setClazz(clazz.buildProto()),
-        instanceOf -> {
-          if (instanceOf.isAny()) {
-            // Note that an "any" instance-of pattern should match any class-type
-            // TODO(b/350647134): This should become evident when introducing a class-pattern.
-            //  When doing so, consider also if/how to match a general reference type.
-            builder.setClazz(KeepQualifiedClassNamePattern.any().buildProto());
-          } else {
-            instanceOf.buildProto(builder::setInstanceOf);
-          }
-        });
+        clazz -> builder.setClassPattern(clazz.buildProto()));
     return builder;
   }
 }

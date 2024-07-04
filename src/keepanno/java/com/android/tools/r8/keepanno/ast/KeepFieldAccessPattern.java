@@ -76,8 +76,8 @@ public class KeepFieldAccessPattern extends KeepMemberAccessPattern {
     }
     MemberAccessField.Builder builder = MemberAccessField.newBuilder();
     buildGeneralProto(builder::setGeneralAccess);
-    volatilePattern.buildProto(builder::setVolatilePattern);
-    transientPattern.buildProto(builder::setTransientPattern);
+    volatilePattern.buildProtoIfNotAny(builder::setVolatilePattern);
+    transientPattern.buildProtoIfNotAny(builder::setTransientPattern);
     callback.accept(builder);
   }
 

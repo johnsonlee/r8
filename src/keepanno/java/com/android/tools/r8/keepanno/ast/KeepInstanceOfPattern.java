@@ -17,14 +17,12 @@ public abstract class KeepInstanceOfPattern {
     return builder().applyProto(proto).build();
   }
 
-  public void buildProto(Consumer<InstanceOfPattern.Builder> setter) {
-    if (isAny()) {
-      return;
+  public void buildProtoIfNotAny(Consumer<InstanceOfPattern.Builder> setter) {
+    if (!isAny()) {
+      InstanceOfPattern.Builder builder = InstanceOfPattern.newBuilder();
+      getClassNamePattern().buildProtoIfNotAny(builder::setClassName);
+      setter.accept(builder.setInclusive(isInclusive()));
     }
-    setter.accept(
-        InstanceOfPattern.newBuilder()
-            .setInclusive(isInclusive())
-            .setClassName(getClassNamePattern().buildProto()));
   }
 
   public static class Builder {

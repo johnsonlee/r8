@@ -49,7 +49,11 @@ public final class KeepSpecUtils {
       Consumer<AnnotatedByPattern.Builder> callback) {
     // If the annotated-by pattern is absent then no restrictions are present, and we don't set it.
     if (pattern.isPresent()) {
-      callback.accept(AnnotatedByPattern.newBuilder().setName(pattern.get().buildProto()));
+      // We must set a pattern here even if the annotation is "any" as that implies that the item
+      // must be annotated by some annotation.
+      AnnotatedByPattern.Builder builder = AnnotatedByPattern.newBuilder();
+      pattern.get().buildProtoIfNotAny(builder::setName);
+      callback.accept(builder);
     }
   }
 

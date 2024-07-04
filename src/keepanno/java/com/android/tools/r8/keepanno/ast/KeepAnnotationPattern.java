@@ -46,7 +46,7 @@ public class KeepAnnotationPattern {
 
   public AnnotationPattern.Builder buildProto() {
     AnnotationPattern.Builder builder = AnnotationPattern.newBuilder();
-    builder.setName(namePattern.buildProto());
+    namePattern.buildProtoIfNotAny(builder::setName);
     if (retentionPolicies == RUNTIME_RETENTION_MASK) {
       builder.setRetention(AnnotationRetention.RETENTION_RUNTIME);
     } else if (retentionPolicies == CLASS_RETENTION_MASK) {

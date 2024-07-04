@@ -73,7 +73,7 @@ public class ModifierPattern {
     return System.identityHashCode(this);
   }
 
-  public void buildProto(Consumer<KeepSpecProtos.ModifierPattern.Builder> callback) {
+  public void buildProtoIfNotAny(Consumer<KeepSpecProtos.ModifierPattern.Builder> callback) {
     if (isOnlyPositive()) {
       callback.accept(KeepSpecProtos.ModifierPattern.newBuilder().setValue(true));
     } else if (isOnlyNegative()) {

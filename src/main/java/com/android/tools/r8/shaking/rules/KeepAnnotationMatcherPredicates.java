@@ -23,6 +23,7 @@ import com.android.tools.r8.keepanno.ast.AccessVisibility;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepArrayTypePattern;
 import com.android.tools.r8.keepanno.ast.KeepClassItemPattern;
+import com.android.tools.r8.keepanno.ast.KeepClassPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldAccessPattern;
 import com.android.tools.r8.keepanno.ast.KeepFieldPattern;
 import com.android.tools.r8.keepanno.ast.KeepInstanceOfPattern;
@@ -296,8 +297,13 @@ public class KeepAnnotationMatcherPredicates {
         () -> true,
         p -> matchesPrimitiveType(type, p),
         p -> matchesArrayType(type, p, appInfo),
-        p -> matchesClassType(type, p),
-        p -> matchesInstanceOfPattern(type, p, appInfo));
+        p -> matchesClassPattern(type, p, appInfo));
+  }
+
+  public boolean matchesClassPattern(
+      DexType type, KeepClassPattern pattern, AppInfoWithClassHierarchy appInfo) {
+    return matchesClassType(type, pattern.getClassNamePattern())
+        && matchesInstanceOfPattern(type, pattern.getInstanceOfPattern(), appInfo);
   }
 
   public boolean matchesClassType(DexType type, KeepQualifiedClassNamePattern pattern) {

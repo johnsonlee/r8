@@ -8,6 +8,7 @@ import com.android.tools.r8.keepanno.asm.ClassNameParser.ClassNameProperty;
 import com.android.tools.r8.keepanno.asm.InstanceOfParser.InstanceOfProperties;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.TypePattern;
+import com.android.tools.r8.keepanno.ast.KeepClassPattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
 import com.android.tools.r8.keepanno.ast.ParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
@@ -71,7 +72,8 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
               ClassNameProperty.PATTERN,
               name,
               descriptor,
-              value -> setValue.accept(KeepTypePattern.fromClass(value)));
+              value ->
+                  setValue.accept(KeepTypePattern.fromClass(KeepClassPattern.fromName(value))));
         }
       case INSTANCE_OF_PATTERN:
         {
@@ -80,7 +82,10 @@ public class TypeParser extends PropertyParserBase<KeepTypePattern, TypeProperty
               InstanceOfProperties.PATTERN,
               name,
               descriptor,
-              value -> setValue.accept(KeepTypePattern.fromInstanceOf(value)));
+              value ->
+                  setValue.accept(
+                      KeepTypePattern.fromClass(
+                          KeepClassPattern.builder().setInstanceOfPattern(value).build())));
         }
       default:
         return null;

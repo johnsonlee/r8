@@ -9,6 +9,7 @@ import com.android.tools.r8.keepanno.asm.ClassUnqualifiedNameParser.ClassUnquali
 import com.android.tools.r8.keepanno.asm.PackageNameParser.PackageNameProperty;
 import com.android.tools.r8.keepanno.asm.TypeParser.TypeProperty;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants.ClassNamePattern;
+import com.android.tools.r8.keepanno.ast.KeepClassPattern;
 import com.android.tools.r8.keepanno.ast.KeepPackagePattern;
 import com.android.tools.r8.keepanno.ast.KeepQualifiedClassNamePattern;
 import com.android.tools.r8.keepanno.ast.KeepTypePattern;
@@ -46,20 +47,22 @@ public class ClassNameParser
                 TypeProperty.TYPE_NAME,
                 name,
                 value,
-                type -> setValue.accept(typeToClassType(type, getParsingContext().property(name))));
+                type ->
+                    setValue.accept(typeToClassNameType(type, getParsingContext().property(name))));
       case CONSTANT:
         return new TypeParser(getParsingContext())
             .tryProperty(
                 TypeProperty.TYPE_CONSTANT,
                 name,
                 value,
-                type -> setValue.accept(typeToClassType(type, getParsingContext().property(name))));
+                type ->
+                    setValue.accept(typeToClassNameType(type, getParsingContext().property(name))));
       default:
         return false;
     }
   }
 
-  KeepQualifiedClassNamePattern typeToClassType(
+  KeepQualifiedClassNamePattern typeToClassNameType(
       KeepTypePattern typePattern, PropertyParsingContext parsingContext) {
     return typePattern.apply(
         KeepQualifiedClassNamePattern::any,
@@ -69,11 +72,7 @@ public class ClassNameParser
         arrayTypePattern -> {
           throw parsingContext.error("Invalid use of array type where class type was expected");
         },
-        classNamePattern -> classNamePattern,
-        instanceOfPattern -> {
-          throw parsingContext.error(
-              "Invalid use of instance of type where class type was expected");
-        });
+        KeepClassPattern::getClassNamePattern);
   }
 
   @Override

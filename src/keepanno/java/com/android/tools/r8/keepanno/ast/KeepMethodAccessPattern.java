@@ -65,11 +65,11 @@ public class KeepMethodAccessPattern extends KeepMemberAccessPattern {
     }
     MemberAccessMethod.Builder builder = MemberAccessMethod.newBuilder();
     buildGeneralProto(builder::setGeneralAccess);
-    synchronizedPattern.buildProto(builder::setSynchronizedPattern);
-    bridgePattern.buildProto(builder::setBridgePattern);
-    nativePattern.buildProto(builder::setNativePattern);
-    abstractPattern.buildProto(builder::setAbstractPattern);
-    strictFpPattern.buildProto(builder::setStrictFpPattern);
+    synchronizedPattern.buildProtoIfNotAny(builder::setSynchronizedPattern);
+    bridgePattern.buildProtoIfNotAny(builder::setBridgePattern);
+    nativePattern.buildProtoIfNotAny(builder::setNativePattern);
+    abstractPattern.buildProtoIfNotAny(builder::setAbstractPattern);
+    strictFpPattern.buildProtoIfNotAny(builder::setStrictFpPattern);
     callback.accept(builder);
   }
 
