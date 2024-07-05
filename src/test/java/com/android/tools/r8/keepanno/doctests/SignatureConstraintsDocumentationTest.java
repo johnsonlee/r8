@@ -19,10 +19,8 @@ public class SignatureConstraintsDocumentationTest extends KeepAnnoTestBase {
 
   static final String EXPECTED =
       StringUtils.lines(
-          "com.android.tools.r8.keepanno.doctests.SignaturePrinter$MyString uses type"
-              + " java.lang.String",
-          "com.android.tools.r8.keepanno.doctests.SignaturePrinter$MyBool uses type"
-              + " java.lang.Boolean");
+          typeName(GenericSignaturePrinter.class) + "$MyString uses type java.lang.String",
+          typeName(GenericSignaturePrinter.class) + "$MyBool uses type java.lang.Boolean");
 
   @Parameter public KeepAnnoParameters parameters;
 
