@@ -472,7 +472,7 @@ public class KeepAnnotationMatcher {
           check -> {
             preconditionClassesCount = 0;
             preconditionMembersCount = 0;
-            consequences.add(defineItemPattern(check.getItemPattern()));
+            consequences.add(defineBindingReference(check.getItemReference()));
           });
     }
 

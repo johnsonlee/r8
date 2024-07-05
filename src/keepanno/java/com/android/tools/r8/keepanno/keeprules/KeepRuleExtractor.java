@@ -6,7 +6,6 @@ package com.android.tools.r8.keepanno.keeprules;
 import com.android.tools.r8.keepanno.ast.KeepAttribute;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
-import com.android.tools.r8.keepanno.ast.KeepBindings.Binding;
 import com.android.tools.r8.keepanno.ast.KeepBindings.KeepBindingSymbol;
 import com.android.tools.r8.keepanno.ast.KeepCheck;
 import com.android.tools.r8.keepanno.ast.KeepCheck.KeepCheckKind;
@@ -81,32 +80,31 @@ public class KeepRuleExtractor {
     if (!extractorOptions.hasCheckDiscardSupport()) {
       return Collections.emptyList();
     }
-    KeepItemPattern itemPattern = check.getItemPattern();
+    KeepBindingReference itemReference = check.getItemReference();
+    KeepBindings bindings = check.getBindings();
+
     boolean isRemovedPattern = check.getKind() == KeepCheckKind.REMOVED;
     List<PgRule> rules = new ArrayList<>(isRemovedPattern ? 2 : 1);
     Holder holder;
     Map<KeepBindingSymbol, KeepMemberPattern> memberPatterns;
     List<KeepBindingSymbol> targetMembers;
-    KeepBindings.Builder builder = KeepBindings.builder();
     KeepBindingSymbol symbol;
-    if (itemPattern.isClassItemPattern()) {
-      symbol = builder.generateFreshSymbol("CLASS");
-      builder.addBinding(symbol, itemPattern);
+    if (itemReference.isClassType()) {
+      symbol = itemReference.getName();
       memberPatterns = Collections.emptyMap();
       targetMembers = Collections.emptyList();
     } else {
-      KeepMemberItemPattern memberItemPattern = itemPattern.asMemberItemPattern();
+      KeepMemberItemPattern memberItemPattern =
+          bindings.getMemberItem(itemReference.asMemberBindingReference());
       KeepClassBindingReference classReference = memberItemPattern.getClassReference();
-      Binding binding = check.getBindings().get(classReference);
       symbol = classReference.getName();
-      builder.addBinding(symbol, binding.getItem());
       KeepMemberPattern memberPattern = memberItemPattern.getMemberPattern();
       // This does not actually allocate a binding as the mapping is maintained in 'memberPatterns'.
-      KeepBindingSymbol memberSymbol = new KeepBindingSymbol("MEMBERS");
+      KeepBindingSymbol memberSymbol = itemReference.getName();
       memberPatterns = Collections.singletonMap(memberSymbol, memberPattern);
       targetMembers = Collections.singletonList(memberSymbol);
     }
-    holder = Holder.create(symbol, builder.build());
+    holder = Holder.create(symbol, bindings);
     // Add a -checkdiscard rule for the class or members.
     rules.add(
         new PgUnconditionalRule(
@@ -121,7 +119,7 @@ public class KeepRuleExtractor {
     // moving/inlining the items.
     if (isRemovedPattern) {
       KeepOptions allowShrinking = KeepOptions.allow(KeepOption.SHRINKING);
-      if (itemPattern.isClassItemPattern()) {
+      if (itemReference.isClassType()) {
         // A check removal on a class means that the entire class is removed, thus soft-pin the
         // class and *all* of its members.
         KeepBindingSymbol memberSymbol = new KeepBindingSymbol("MEMBERS");

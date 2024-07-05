@@ -118,8 +118,8 @@ public class KeepCheck extends KeepDeclaration {
     return bindings;
   }
 
-  public KeepItemPattern getItemPattern() {
-    return bindings.get(itemReference).getItem();
+  public KeepBindingReference getItemReference() {
+    return itemReference;
   }
 
   @Override
