@@ -2053,8 +2053,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
                   try {
                     ZipUtils.iter(
                         Paths.get(lib),
-                        (entry, input) -> consumer.accept(extractClassDescriptor(input)));
-                  } catch (IOException e) {
+                        (entry, input) -> {
+                          if (ZipUtils.isClassFile(entry.getName())) {
+                            consumer.accept(extractClassDescriptor(input));
+                          }
+                        });
+                  } catch (Exception e) {
                     throw new CompilationError("Failed to read extension library " + lib, e);
                   }
                 });
