@@ -42,8 +42,12 @@ public class NoFieldResolutionChangesPolicy extends VerticalClassMergerPolicy {
       FieldSignatureEquivalence equivalence = FieldSignatureEquivalence.get();
       Set<Wrapper<DexField>> staticFieldsInInterfacesOfTarget = new HashSet<>();
       for (DexType interfaceType : target.getInterfaces()) {
-        DexClass clazz = appView.definitionFor(interfaceType);
-        for (DexEncodedField staticField : clazz.staticFields()) {
+        DexClass itf = appView.definitionFor(interfaceType);
+        if (itf == null) {
+          // See b/353475583.
+          return true;
+        }
+        for (DexEncodedField staticField : itf.staticFields()) {
           staticFieldsInInterfacesOfTarget.add(equivalence.wrap(staticField.getReference()));
         }
       }
