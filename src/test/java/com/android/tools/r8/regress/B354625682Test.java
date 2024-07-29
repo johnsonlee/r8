@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.regress;
 
-import static org.junit.Assert.assertThrows;
-
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -42,16 +40,12 @@ public class B354625682Test extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    // TODO(b/354625682): Should run successfully.
-    assertThrows(
-        AssertionError.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(TestClass.class)
-                .setMinApi(parameters)
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutputLines(EXPECTED_OUTPUT));
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
 
   static class TestClass {

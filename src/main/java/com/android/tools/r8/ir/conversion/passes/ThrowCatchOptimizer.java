@@ -137,6 +137,12 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
           if (!canDetachValueIsNullTarget) {
             continue;
           }
+          if (!block.hasEquivalentCatchHandlers(valueIsNullTarget)) {
+            // The new null check is at the if position, while the throw null/NPE is in the
+            // following block. Both should have the same catch handlers for the rewriting to be
+            // correct.
+            continue;
+          }
 
           insertNotNullCheck(
               block,
