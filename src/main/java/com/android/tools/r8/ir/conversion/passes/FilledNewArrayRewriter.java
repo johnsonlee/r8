@@ -110,7 +110,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
                 next.inValues()
                     .forEach(
                         value -> {
-                          if (value.hasSingleUniqueUser()) {
+                          if (value.hasSingleUniqueUser() && !value.hasPhiUsers()) {
                             additionalToRemove.add(value.getDefinition());
                           }
                         });

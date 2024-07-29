@@ -6,10 +6,8 @@ package com.android.tools.r8.regress;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,26 +37,12 @@ public class B354625681Test extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    if (parameters.isCfRuntime()
-        || (parameters.isDexRuntime()
-            && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N))) {
-      testForR8(parameters.getBackend())
-          .addInnerClasses(getClass())
-          .addKeepMainRule(TestClass.class)
-          .setMinApi(parameters)
-          .run(parameters.getRuntime(), TestClass.class)
-          .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
-    } else {
-      Assert.assertThrows(
-          Throwable.class,
-          () ->
-              testForR8(parameters.getBackend())
-                  .addInnerClasses(getClass())
-                  .addKeepMainRule(TestClass.class)
-                  .setMinApi(parameters)
-                  .run(parameters.getRuntime(), TestClass.class)
-                  .assertSuccessWithOutputLines(EXPECTED_OUTPUT));
-    }
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
