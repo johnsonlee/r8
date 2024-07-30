@@ -179,7 +179,8 @@ public class SplitBranch extends CodeRewriterPass<AppInfo> {
       if (isNumberAgainstConstNumberIf(theIf)
           && nonConstNumberOperand.isPhi()
           && nonConstNumberOperand.hasSingleUniqueUser()
-          && !nonConstNumberOperand.hasPhiUsers()) {
+          && !nonConstNumberOperand.hasPhiUsers()
+          && nonConstNumberOperand.getBlock() == theIf.getBlock()) {
         candidates.add(block);
       }
     }

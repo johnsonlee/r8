@@ -4,9 +4,6 @@
 
 package com.android.tools.r8.ir.optimize.ifs;
 
-import static org.junit.Assert.assertThrows;
-
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -45,32 +42,24 @@ public class Regress343136777Test extends TestBase {
   @Test
   public void testD8Release() throws Exception {
     parameters.assumeDexRuntime();
-    // TODO(b/343136777: This should not fail.
-    assertThrows(
-        CompilationFailedException.class,
-        () ->
-            testForD8(parameters.getBackend())
-                .addProgramClasses(TestClass.class)
-                .setMinApi(parameters)
-                .release()
-                .compile()
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutput(EXPECTED_OUTPUT));
+    testForD8(parameters.getBackend())
+        .addProgramClasses(TestClass.class)
+        .setMinApi(parameters)
+        .release()
+        .compile()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testR8() throws Exception {
-    // TODO(b/343136777: This should not fail.
-    assertThrows(
-        CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramClasses(TestClass.class)
-                .setMinApi(parameters)
-                .addKeepMainRule(TestClass.class)
-                .compile()
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutput(EXPECTED_OUTPUT));
+    testForR8(parameters.getBackend())
+        .addProgramClasses(TestClass.class)
+        .setMinApi(parameters)
+        .addKeepMainRule(TestClass.class)
+        .compile()
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
