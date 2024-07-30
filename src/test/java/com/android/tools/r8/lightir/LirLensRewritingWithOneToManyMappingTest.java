@@ -13,7 +13,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -33,28 +32,22 @@ public class LirLensRewritingWithOneToManyMappingTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    // TODO(b/354878031): Should succeed.
-    AssertUtils.assertFailsCompilationIf(
-        parameters.isCfRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.N),
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramClasses(Main.class, Baz.class, Qux.class)
-                .addKeepMainRule(Main.class)
-                .addLibraryClasses(Foo.class, Bar.class)
-                .addDefaultRuntimeLibrary(parameters)
-                .apply(setMockApiLevelForClass(Foo.class, AndroidApiLevel.B))
-                .apply(
-                    setMockApiLevelForMethod(
-                        Foo.class.getDeclaredMethod("method"), AndroidApiLevel.B))
-                .apply(setMockApiLevelForClass(Bar.class, AndroidApiLevel.B))
-                .enableInliningAnnotations()
-                .enableNeverClassInliningAnnotations()
-                .enableNoVerticalClassMergingAnnotations()
-                .setMinApi(parameters)
-                .compile()
-                .addRunClasspathClasses(Foo.class, Bar.class)
-                .run(parameters.getRuntime(), Main.class)
-                .assertSuccessWithOutputLines("Foo", "Foo"));
+    testForR8(parameters.getBackend())
+        .addProgramClasses(Main.class, Baz.class, Qux.class)
+        .addKeepMainRule(Main.class)
+        .addLibraryClasses(Foo.class, Bar.class)
+        .addDefaultRuntimeLibrary(parameters)
+        .apply(setMockApiLevelForClass(Foo.class, AndroidApiLevel.B))
+        .apply(setMockApiLevelForMethod(Foo.class.getDeclaredMethod("method"), AndroidApiLevel.B))
+        .apply(setMockApiLevelForClass(Bar.class, AndroidApiLevel.B))
+        .enableInliningAnnotations()
+        .enableNeverClassInliningAnnotations()
+        .enableNoVerticalClassMergingAnnotations()
+        .setMinApi(parameters)
+        .compile()
+        .addRunClasspathClasses(Foo.class, Bar.class)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("Foo", "Foo");
   }
 
   static class Main {

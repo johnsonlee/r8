@@ -37,16 +37,22 @@ import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
 import com.android.tools.r8.lightir.LirCode.TryCatchTable;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
 import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.verticalclassmerging.VerticalClassMergerGraphLens;
+import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
+
+  private static final Set<DexMethod> NO_INVOKES_TO_REWRITE = ImmutableSet.of();
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final ProgramMethod context;
@@ -58,6 +64,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   private final boolean isNonStartupInStartupOutlinerLens;
 
   private int numberOfInvokeOpcodeChanges = 0;
+  private Set<DexMethod> invokesToRewrite = NO_INVOKES_TO_REWRITE;
   private Map<LirConstant, LirConstant> constantPoolMapping = null;
 
   private boolean hasNonTrivialRewritings = false;
@@ -144,7 +151,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       numberOfInvokeOpcodeChanges++;
     } else {
       // All non-type dependent mappings are just rewritten in the content pool.
-      addRewrittenMapping(method, newMethod);
+      addRewrittenMethodMapping(method, newMethod);
     }
   }
 
@@ -174,17 +181,31 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     return false;
   }
 
+  private void addRewrittenMethodMapping(DexMethod method, DexMethod rewrittenMethod) {
+    getOrCreateConstantPoolMapping()
+        .compute(
+            method,
+            (unusedKey, otherRewrittenMethod) -> {
+              if (otherRewrittenMethod == null || otherRewrittenMethod == rewrittenMethod) {
+                return rewrittenMethod;
+              } else {
+                // Two invokes with the same symbolic method reference but different invoke types
+                // are rewritten to two different symbolic method references. Record that the
+                // invokes need to be processed.
+                if (invokesToRewrite == NO_INVOKES_TO_REWRITE) {
+                  invokesToRewrite = new HashSet<>();
+                }
+                invokesToRewrite.add(method);
+                return method;
+              }
+            });
+  }
+
   private void addRewrittenMapping(LirConstant item, LirConstant rewrittenItem) {
     if (item == rewrittenItem) {
       return;
     }
-    if (constantPoolMapping == null) {
-      constantPoolMapping =
-          new IdentityHashMap<>(
-              // Avoid using initial capacity larger than the number of actual constants.
-              Math.min(getCode().getConstantPool().length, 32));
-    }
-    LirConstant old = constantPoolMapping.put(item, rewrittenItem);
+    LirConstant old = getOrCreateConstantPoolMapping().put(item, rewrittenItem);
     if (old != null && old != rewrittenItem) {
       throw new Unreachable(
           "Unexpected rewriting of item: "
@@ -194,6 +215,16 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
               + " and "
               + old);
     }
+  }
+
+  private Map<LirConstant, LirConstant> getOrCreateConstantPoolMapping() {
+    if (constantPoolMapping == null) {
+      constantPoolMapping =
+          new IdentityHashMap<>(
+              // Avoid using initial capacity larger than the number of actual constants.
+              Math.min(getCode().getConstantPool().length, 32));
+    }
+    return constantPoolMapping;
   }
 
   @Override
@@ -284,39 +315,43 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     onInvoke(method, InvokeType.INTERFACE, true);
   }
 
-  private InvokeType getInvokeTypeThatMayChange(int opcode) {
+  private boolean isInvokeThatMaybeRequiresRewriting(int opcode) {
+    assert LirOpcodeUtils.isInvokeMethod(opcode);
+    if (!invokesToRewrite.isEmpty()) {
+      return true;
+    }
     if (codeLens.isIdentityLens() && LirOpcodeUtils.isInvokeMethod(opcode)) {
-      return LirOpcodeUtils.getInvokeType(opcode);
+      return true;
     }
     if (opcode == LirOpcodes.INVOKEVIRTUAL) {
-      return InvokeType.VIRTUAL;
+      return true;
     }
     if (opcode == LirOpcodes.INVOKEINTERFACE) {
-      return InvokeType.INTERFACE;
+      return true;
     }
     if (isNonStartupInStartupOutlinerLens) {
       if (LirOpcodeUtils.isInvokeDirect(opcode)) {
-        return InvokeType.DIRECT;
+        return true;
       }
       if (LirOpcodeUtils.isInvokeInterface(opcode)) {
-        return InvokeType.INTERFACE;
+        return true;
       }
       if (LirOpcodeUtils.isInvokeSuper(opcode)) {
-        return InvokeType.SUPER;
+        return true;
       }
       if (LirOpcodeUtils.isInvokeVirtual(opcode)) {
-        return InvokeType.VIRTUAL;
+        return true;
       }
     }
     if (graphLens.isVerticalClassMergerLens()) {
       if (opcode == LirOpcodes.INVOKESTATIC_ITF) {
-        return InvokeType.STATIC;
+        return true;
       }
       if (opcode == LirOpcodes.INVOKESUPER) {
-        return InvokeType.SUPER;
+        return true;
       }
     }
-    return null;
+    return false;
   }
 
   public LirCode<EV> rewrite() {
@@ -474,7 +509,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   private LirCode<EV> rewriteInstructionsWithInvokeTypeChanges(LirCode<EV> code) {
-    if (numberOfInvokeOpcodeChanges == 0) {
+    if (numberOfInvokeOpcodeChanges == 0 && invokesToRewrite.isEmpty()) {
       return code;
     }
     // Build a small map from method refs to index in case the type-dependent methods are already
@@ -498,8 +533,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         lirWriter.writeOneByteInstruction(opcode);
         continue;
       }
-      InvokeType type = getInvokeTypeThatMayChange(opcode);
-      if (type == null) {
+      if (!LirOpcodeUtils.isInvokeMethod(opcode) || !isInvokeThatMaybeRequiresRewriting(opcode)) {
         int size = view.getRemainingOperandSizeInBytes();
         lirWriter.writeInstruction(opcode, size);
         while (size-- > 0) {
@@ -507,9 +541,12 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         }
         continue;
       }
-      // This is potentially an invoke with a type change, in such cases the method is mapped with
+      // If this is either (i) an invoke with a type change or (ii) an invoke to a method M where
+      // there exists another invoke in the current method to M, and the two invokes are mapped to
+      // two different methods (one-to-many constant pool mapping), then the method is mapped with
       // the instruction updated to the new type. The constant pool is amended with the mapped
       // method if needed.
+      InvokeType type = LirOpcodeUtils.getInvokeType(opcode);
       int constantIndex = view.getNextConstantOperand();
       DexMethod method = (DexMethod) code.getConstantItem(constantIndex);
       MethodLookupResult result =
@@ -517,8 +554,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       boolean newIsInterface = lookupIsInterface(method, opcode, result);
       InvokeType newType = result.getType();
       int newOpcode = newType.getLirOpcode(newIsInterface);
-      if (newOpcode != opcode) {
-        --numberOfInvokeOpcodeChanges;
+      if (newOpcode != opcode || invokesToRewrite.contains(method)) {
         constantIndex =
             methodIndices.computeIfAbsent(
                 result.getReference(),
@@ -526,6 +562,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
                   methodsToAppend.add(ref);
                   return rewrittenConstants.length + methodsToAppend.size() - 1;
                 });
+        numberOfInvokeOpcodeChanges -= BooleanUtils.intValue(newOpcode != opcode);
       }
       int constantIndexSize = ByteUtils.intEncodingSize(constantIndex);
       int remainingSize = view.getRemainingOperandSizeInBytes();
@@ -539,11 +576,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     // Note that since we assume 'null' in the mapping is identity this may end up with a stale
     // reference to a no longer used method. That is not an issue as it will be pruned when
     // building IR again, it is just a small and size overhead.
-    LirCode<EV> newCode =
-        code.copyWithNewConstantsAndInstructions(
-            ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
-            byteWriter.toByteArray());
-    return newCode;
+    return code.copyWithNewConstantsAndInstructions(
+        ArrayUtils.appendElements(code.getConstantPool(), methodsToAppend),
+        byteWriter.toByteArray());
   }
 
   // TODO(b/157111832): This should be part of the graph lens lookup result.
