@@ -8,28 +8,34 @@ import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemProperty
 
 public class ProguardConfigurationParserOptions {
 
+  private final boolean enableEmptyMemberRulesToDefaultInitRuleConversion;
   private final boolean enableExperimentalCheckEnumUnboxed;
   private final boolean enableExperimentalConvertCheckNotNull;
   private final boolean enableExperimentalWhyAreYouNotInlining;
   private final boolean enableTestingOptions;
-  private final boolean forceEnableEmptyMemberRulesToDefaultInitRuleConversion;
 
   ProguardConfigurationParserOptions(
+      boolean enableEmptyMemberRulesToDefaultInitRuleConversion,
       boolean enableExperimentalCheckEnumUnboxed,
       boolean enableExperimentalConvertCheckNotNull,
       boolean enableExperimentalWhyAreYouNotInlining,
-      boolean enableTestingOptions,
-      boolean forceEnableEmptyMemberRulesToDefaultInitRuleConversion) {
+      boolean enableTestingOptions) {
     this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
     this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
     this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
     this.enableTestingOptions = enableTestingOptions;
-    this.forceEnableEmptyMemberRulesToDefaultInitRuleConversion =
-        forceEnableEmptyMemberRulesToDefaultInitRuleConversion;
+    this.enableEmptyMemberRulesToDefaultInitRuleConversion =
+        enableEmptyMemberRulesToDefaultInitRuleConversion;
   }
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public boolean isEmptyMemberRulesToDefaultInitRuleConversionEnabled(
+      ProguardConfiguration.Builder configurationBuilder) {
+    return enableEmptyMemberRulesToDefaultInitRuleConversion
+        || configurationBuilder.isForceProguardCompatibility();
   }
 
   public boolean isExperimentalCheckEnumUnboxedEnabled() {
@@ -44,23 +50,22 @@ public class ProguardConfigurationParserOptions {
     return enableExperimentalWhyAreYouNotInlining;
   }
 
-  public boolean isForceEmptyMemberRulesToDefaultInitRuleConversionEnabled() {
-    return forceEnableEmptyMemberRulesToDefaultInitRuleConversion;
-  }
-
   public boolean isTestingOptionsEnabled() {
     return enableTestingOptions;
   }
 
   public static class Builder {
 
+    private boolean enableEmptyMemberRulesToDefaultInitRuleConversion;
     private boolean enableExperimentalCheckEnumUnboxed;
     private boolean enableExperimentalConvertCheckNotNull;
     private boolean enableExperimentalWhyAreYouNotInlining;
     private boolean enableTestingOptions;
-    private boolean forceEnableEmptyMemberRulesToDefaultInitRuleConversion;
 
     public Builder readEnvironment() {
+      enableEmptyMemberRulesToDefaultInitRuleConversion =
+          parseSystemPropertyOrDefault(
+              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion", false);
       enableExperimentalCheckEnumUnboxed =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.experimental.enablecheckenumunboxed", false);
@@ -72,9 +77,13 @@ public class ProguardConfigurationParserOptions {
               "com.android.tools.r8.experimental.enablewhyareyounotinlining", false);
       enableTestingOptions =
           parseSystemPropertyOrDefault("com.android.tools.r8.allowTestProguardOptions", false);
-      forceEnableEmptyMemberRulesToDefaultInitRuleConversion =
-          parseSystemPropertyOrDefault(
-              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion", false);
+      return this;
+    }
+
+    public Builder setEnableEmptyMemberRulesToDefaultInitRuleConversion(
+        boolean enableEmptyMemberRulesToDefaultInitRuleConversion) {
+      this.enableEmptyMemberRulesToDefaultInitRuleConversion =
+          enableEmptyMemberRulesToDefaultInitRuleConversion;
       return this;
     }
 
@@ -103,11 +112,11 @@ public class ProguardConfigurationParserOptions {
 
     public ProguardConfigurationParserOptions build() {
       return new ProguardConfigurationParserOptions(
+          enableEmptyMemberRulesToDefaultInitRuleConversion,
           enableExperimentalCheckEnumUnboxed,
           enableExperimentalConvertCheckNotNull,
           enableExperimentalWhyAreYouNotInlining,
-          enableTestingOptions,
-          forceEnableEmptyMemberRulesToDefaultInitRuleConversion);
+          enableTestingOptions);
     }
   }
 }

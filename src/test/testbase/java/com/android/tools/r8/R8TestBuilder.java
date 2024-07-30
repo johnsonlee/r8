@@ -76,6 +76,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
   private boolean allowUnusedProguardConfigurationRules = false;
+  private boolean enableEmptyMemberRulesToDefaultInitRuleConversion = false;
   private boolean enableIsolatedSplits = false;
   private boolean enableMissingLibraryApiModeling = true;
   private boolean enableStartupLayoutOptimization = true;
@@ -139,6 +140,8 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
+    builder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
+        enableEmptyMemberRulesToDefaultInitRuleConversion);
     builder.setEnableIsolatedSplits(enableIsolatedSplits);
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
     builder.setEnableStartupLayoutOptimization(enableStartupLayoutOptimization);
@@ -879,6 +882,13 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
         builder ->
             SplitterTestBase.splitWithNonJavaFile(builder, path, getState().getTempFolder(), nonJavaFiles, classes));
     features.add(path);
+    return self();
+  }
+
+  public T enableEmptyMemberRulesToDefaultInitRuleConversion(
+      boolean enableEmptyMemberRulesToDefaultInitRuleConversion) {
+    this.enableEmptyMemberRulesToDefaultInitRuleConversion =
+        enableEmptyMemberRulesToDefaultInitRuleConversion;
     return self();
   }
 

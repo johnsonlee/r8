@@ -846,8 +846,7 @@ public class ProguardConfigurationParser {
           .setStart(start);
       parseRuleTypeAndModifiers(keepRuleBuilder);
       parseClassSpec(keepRuleBuilder);
-      if (configurationBuilder.isForceProguardCompatibility()
-          || options.isForceEmptyMemberRulesToDefaultInitRuleConversionEnabled()) {
+      if (options.isEmptyMemberRulesToDefaultInitRuleConversionEnabled(configurationBuilder)) {
         if (keepRuleBuilder.getMemberRules().isEmpty()
             && keepRuleBuilder.getKeepRuleType()
                 != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {

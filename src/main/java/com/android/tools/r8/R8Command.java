@@ -485,6 +485,19 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     /**
+     * Used to disable that keep rules with no member rules are implicitly converted into rules that
+     * keep the default instance constructor.
+     *
+     * <p>This currently defaults to true in stable versions.
+     */
+    public Builder setEnableEmptyMemberRulesToDefaultInitRuleConversion(
+        boolean enableEmptyMemberRulesToDefaultInitRuleConversion) {
+      parserOptionsBuilder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
+          enableEmptyMemberRulesToDefaultInitRuleConversion);
+      return this;
+    }
+
+    /**
      * Used to specify if the application is using isolated splits, i.e., if split APKs installed
      * for this application are loaded into their own Context objects.
      *
