@@ -22,7 +22,10 @@ public class KeepItemGeneratedFilesTest {
             String expectedContent = FileUtils.readTextFile(file, StandardCharsets.UTF_8);
             assertEquals(expectedContent, content);
           } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(
+                "Documentation out of sync, you might need to run main in"
+                    + " KeepItemAnnotationGenerator.",
+                e);
           }
         });
   }

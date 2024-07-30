@@ -65,7 +65,7 @@ public @interface UsedByReflection {
    *   <li>{@link KeepItemKind#ONLY_CLASS} if no member patterns are defined;
    *   <li>{@link KeepItemKind#CLASS_AND_METHODS} if method patterns are defined;
    *   <li>{@link KeepItemKind#CLASS_AND_FIELDS} if field patterns are defined;
-   *   <li>{@link KeepItemKind#CLASS_AND_MEMBERS}otherwise.
+   *   <li>{@link KeepItemKind#CLASS_AND_MEMBERS} otherwise.
    * </ul>
    *
    * <p>When annotating a method the default kind is: {@link KeepItemKind#ONLY_METHODS}

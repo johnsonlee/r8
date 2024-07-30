@@ -1620,7 +1620,7 @@ public class KeepItemAnnotationGenerator {
                     docEnumLink(KIND_ONLY_CLASS) + " if no member patterns are defined;",
                     docEnumLink(KIND_CLASS_AND_METHODS) + " if method patterns are defined;",
                     docEnumLink(KIND_CLASS_AND_FIELDS) + " if field patterns are defined;",
-                    docEnumLink(KIND_CLASS_AND_MEMBERS) + "otherwise.")
+                    docEnumLink(KIND_CLASS_AND_MEMBERS) + " otherwise.")
                 .addParagraph(
                     "When annotating a method the default kind is: "
                         + docEnumLink(KIND_ONLY_METHODS))
