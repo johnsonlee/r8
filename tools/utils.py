@@ -55,6 +55,7 @@ GRADLE_TASK_TEST = ':test:test'
 GRADLE_TASK_ALL_TESTS_WITH_APPLY_MAPPING_JAR = ':test:rewriteTestsForR8LibWithRelocatedDeps'
 GRADLE_TASK_TESTBASE_WITH_APPLY_MAPPING_JAR = ':test:rewriteTestBaseForR8LibWithRelocatedDeps'
 GRADLE_TASK_TEST_DEPS_JAR = ':test:packageTestDeps'
+GRADLE_TASK_TEST_BASE_JAR = ':test:relocateTestBaseForR8LibWithRelocatedDeps'
 GRADLE_TASK_TEST_JAR = ':test:relocateTestsForR8LibWithRelocatedDeps'
 GRADLE_TASK_TEST_UNZIP_TESTBASE = ':test:unzipTestBase'
 

@@ -88,7 +88,7 @@ def run(args):
     configuration = None
     conversions = None
     implementation = None
-    version_file = None
+    version_file_name = None
     implementation_build_target = None
     implementation_maven_zip = None
     release_archive_location = None
@@ -99,7 +99,7 @@ def run(args):
             configuration = utils.DESUGAR_CONFIGURATION
             conversions = utils.LIBRARY_DESUGAR_CONVERSIONS_LEGACY_ZIP
             implementation = utils.DESUGAR_IMPLEMENTATION
-            version_file = 'VERSION.txt'
+            version_file_name = 'VERSION.txt'
             implementation_build_target = ':maven_release'
             implementation_maven_zip = 'desugar_jdk_libs.zip'
             release_archive_location = 'desugar_jdk_libs'
@@ -109,7 +109,7 @@ def run(args):
             configuration = utils.DESUGAR_CONFIGURATION_JDK11_LEGACY
             conversions = utils.LIBRARY_DESUGAR_CONVERSIONS_LEGACY_ZIP
             implementation = utils.DESUGAR_IMPLEMENTATION_JDK11
-            version_file = 'VERSION_JDK11_LEGACY.txt'
+            version_file_name = 'VERSION_JDK11_LEGACY.txt'
             implementation_build_target = ':maven_release_jdk11_legacy'
             implementation_maven_zip = 'desugar_jdk_libs_jdk11_legacy.zip'
             release_archive_location = 'desugar_jdk_libs'
@@ -119,7 +119,7 @@ def run(args):
             configuration = utils.DESUGAR_CONFIGURATION_JDK11_MINIMAL
             conversions = utils.LIBRARY_DESUGAR_CONVERSIONS_ZIP
             implementation = utils.DESUGAR_IMPLEMENTATION_JDK11
-            version_file = 'VERSION_JDK11_MINIMAL.txt'
+            version_file_name = 'VERSION_JDK11_MINIMAL.txt'
             implementation_build_target = ':maven_release_jdk11_minimal'
             implementation_maven_zip = 'desugar_jdk_libs_jdk11_minimal.zip'
             release_archive_location = 'desugar_jdk_libs_minimal'
@@ -129,7 +129,7 @@ def run(args):
             configuration = utils.DESUGAR_CONFIGURATION_JDK11
             conversions = utils.LIBRARY_DESUGAR_CONVERSIONS_ZIP
             implementation = utils.DESUGAR_IMPLEMENTATION_JDK11
-            version_file = 'VERSION_JDK11.txt'
+            version_file_name = 'VERSION_JDK11.txt'
             implementation_build_target = ':maven_release_jdk11'
             implementation_maven_zip = 'desugar_jdk_libs_jdk11.zip'
             release_archive_location = 'desugar_jdk_libs'
@@ -139,7 +139,7 @@ def run(args):
             configuration = utils.DESUGAR_CONFIGURATION_JDK11_NIO
             conversions = utils.LIBRARY_DESUGAR_CONVERSIONS_ZIP
             implementation = utils.DESUGAR_IMPLEMENTATION_JDK11
-            version_file = 'VERSION_JDK11_NIO.txt'
+            version_file_name = 'VERSION_JDK11_NIO.txt'
             implementation_build_target = ':maven_release_jdk11_nio'
             implementation_maven_zip = 'desugar_jdk_libs_jdk11_nio.zip'
             release_archive_location = 'desugar_jdk_libs_nio'
@@ -171,8 +171,9 @@ def run(args):
                     'git', '-C', checkout_dir, 'checkout',
                     args.desugar_jdk_libs_revision
                 ])
+        if not args.release_version:
             with utils.ChangedWorkingDirectory(checkout_dir):
-                with open(version_file) as version_file:
+                with open(version_file_name) as version_file:
                     version_file_lines = version_file.readlines()
                     for line in version_file_lines:
                         if not line.startswith('#'):
@@ -180,9 +181,13 @@ def run(args):
                             if (version != desugar_jdk_libs_version):
                                 raise Exception(
                                     "Version mismatch. Configuration has version '"
-                                    + version +
-                                    "', and desugar_jdk_libs has version '" +
-                                    desugar_jdk_libs_version + "'")
+                                    + version
+                                    + "', and desugar_jdk_libs has version '"
+                                    + desugar_jdk_libs_version
+                                    + " in '" + version_file_name
+                                    + "'. If testing a new version use "
+                                    + "--desugar-jdk-libs-checkout with updated "
+                                    + "VERSION_*.txt and DEPENDENCIES_*.txt files.")
 
         # Build desugared library configuration.
         print("Building desugared library configuration " + version)

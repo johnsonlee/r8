@@ -42,7 +42,7 @@ public class DesugaredLibraryJDK11Undesugarer extends DesugaredLibraryTestBase {
 
   public static void main(String[] args) {
     if (!Files.exists(Paths.get(args[0]))) {
-      throw new RuntimeException("Undesugarer source not found");
+      throw new RuntimeException("Undesugarer source not found: " + args[0]);
     }
     if (Files.exists(Paths.get(args[1]))) {
       throw new RuntimeException("Undesugarer destination already exists");
