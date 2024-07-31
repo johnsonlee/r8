@@ -116,6 +116,7 @@ import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.verticalclassmerging.InterfaceTypeToClassTypeLensCodeRewriterHelper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -1062,7 +1063,8 @@ public class LensCodeRewriter {
             .setOutValue(castOutValue)
             .setPosition(fieldGet.asFieldInstruction())
             .build();
-    iterator.addThrowingInstructionToPossiblyThrowingBlock(code, blocks, checkCast, options);
+    iterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+        code, blocks, ImmutableList.of(checkCast), options);
     affectedPhis.addAll(checkCast.outValue().uniquePhiUsers());
   }
 

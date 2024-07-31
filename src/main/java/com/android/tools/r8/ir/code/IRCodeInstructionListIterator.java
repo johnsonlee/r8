@@ -245,16 +245,6 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
   }
 
   @Override
-  public BasicBlock addThrowingInstructionToPossiblyThrowingBlock(
-      IRCode code,
-      ListIterator<BasicBlock> blockIterator,
-      Instruction instruction,
-      InternalOptions options) {
-    return instructionIterator.addThrowingInstructionToPossiblyThrowingBlock(
-        code, blockIterator, instruction, options);
-  }
-
-  @Override
   public void remove() {
     instructionIterator.remove();
   }

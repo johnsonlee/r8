@@ -69,12 +69,6 @@ public interface InstructionListIterator
         code, blockIterator, Arrays.asList(instructionsToAdd), options);
   }
 
-  BasicBlock addThrowingInstructionToPossiblyThrowingBlock(
-      IRCode code,
-      ListIterator<BasicBlock> blockIterator,
-      Instruction instruction,
-      InternalOptions options);
-
   default void addAndPositionBeforeNewInstruction(Instruction instruction) {
     add(instruction);
     Instruction previous = previous();
