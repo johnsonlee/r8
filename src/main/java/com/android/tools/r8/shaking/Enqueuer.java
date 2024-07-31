@@ -2462,6 +2462,7 @@ public class Enqueuer {
   private void enqueueHolderWithDependentInstanceConstructor(
       ProgramMethod instanceInitializer, Set<ProguardKeepRuleBase> reasons) {
     DexProgramClass holder = instanceInitializer.getHolder();
+    applyMinimumKeepInfoWhenLive(holder, KeepClassInfo.newEmptyJoiner().disallowOptimization());
     enqueueKeepRuleInstantiatedType(holder, reasons, instanceInitializer.getDefinition());
   }
 
