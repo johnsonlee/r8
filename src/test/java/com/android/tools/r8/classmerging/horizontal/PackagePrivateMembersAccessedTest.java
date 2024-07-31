@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -35,7 +36,9 @@ public class PackagePrivateMembersAccessedTest extends HorizontalClassMergingTes
         .assertSuccessWithOutputLines("foo", "hello", "5", "foobar")
         .inspect(
             codeInspector -> {
-              assertThat(codeInspector.clazz(C.class), isPresent());
+              assertThat(
+                  codeInspector.clazz(C.class),
+                  isAbsentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
               assertThat(codeInspector.clazz(D.class), isPresent());
               assertThat(codeInspector.clazz(E.class), isPresent());
             });

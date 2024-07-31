@@ -8,14 +8,15 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class ProgramFieldSet implements Iterable<ProgramField> {
@@ -52,6 +53,10 @@ public class ProgramFieldSet implements Iterable<ProgramField> {
 
   public void addAll(ProgramFieldSet fields) {
     backing.putAll(fields.backing);
+  }
+
+  public boolean allMatch(Predicate<? super ProgramField> predicate) {
+    return Iterables.all(this, predicate);
   }
 
   public boolean createAndAdd(DexProgramClass clazz, DexEncodedField definition) {

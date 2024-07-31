@@ -3,10 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.membervaluepropagation;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.TestBase;
@@ -42,17 +42,11 @@ public class InstanceFieldWithConstructorInliningTest extends TestBase {
         .inspect(
             inspector -> {
               ClassSubject aClassSubject = inspector.clazz(A.class);
-              // TODO(b/339210038): Should always be absent.
-              assertThat(
-                  aClassSubject,
-                  isPresentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
+              assertThat(aClassSubject, isAbsent());
 
               MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
               assertThat(mainMethodSubject, isPresent());
-              // TODO(b/339210038): Should always contain 42.
-              assertEquals(
-                  parameters.canInitNewInstanceUsingSuperclassConstructor(),
-                  mainMethodSubject.streamInstructions().noneMatch(i -> i.isConstNumber(42)));
+              assertTrue(mainMethodSubject.streamInstructions().anyMatch(i -> i.isConstNumber(42)));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("42");
