@@ -3288,4 +3288,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean canInitNewInstanceUsingSuperclassConstructor() {
     return isGeneratingDex() && minApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L);
   }
+
+  // b/302826300 Dalvik can vms gives hard verification errors when we rebind program types to
+  // library types that are superclasses of unavailable classes on the specific api level.
+  // Instead, we should always rebind to just the first library class.
+  public boolean canHaveDalvikVerifyErrorOnVirtualInvokeWithMissingClasses() {
+    return canHaveBugPresentUntilExclusive(AndroidApiLevel.L);
+  }
 }

@@ -136,6 +136,11 @@ public class LibraryMemberRebindingInterfaceTest extends TestBase {
       // If we are compiling to an old runtime with a new android.jar, we should rebind to LibraryB.
       return LibraryB.class;
     }
+    // On pre L we don't rebind above classes that we can't find in the api database
+    if (!parameters.isDexRuntime() || parameters.getApiLevel().isLessThan(AndroidApiLevel.L)) {
+      return LibraryB.class;
+    }
+
     // Otherwise, we are compiling to an old android.jar, in which case we should rebind to
     // LibraryI.
     return LibraryI.class;

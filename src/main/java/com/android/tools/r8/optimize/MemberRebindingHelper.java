@@ -13,12 +13,14 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.LibraryMethod;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
@@ -47,8 +49,10 @@ public class MemberRebindingHelper {
     if (invokeType.isDirect()) {
       return original;
     }
-
-    if (invokeType.isSuper() && options.canHaveSuperInvokeBug()) {
+    if ((invokeType.isSuper() && options.canHaveSuperInvokeBug())
+        || (invokeType.isVirtual()
+            && options.canHaveDalvikVerifyErrorOnVirtualInvokeWithMissingClasses()
+            && canBreakDalvikWithRebinding(resolutionResult))) {
       // To preserve semantics we should find the first library method on the boundary.
       DexType firstLibraryTarget =
           firstLibraryClassOrFirstInterfaceTarget(
@@ -111,6 +115,36 @@ public class MemberRebindingHelper {
             original.getHolderType(),
             DexClass::lookupMethod);
     return newHolder != null ? original.withHolder(newHolder, appView.dexItemFactory()) : original;
+  }
+
+  // On dalvik we can have hard verification errors if we rebind to known library classes that
+  // are super classes unknown library classes.
+  private boolean canBreakDalvikWithRebinding(SingleResolutionResult<?> resolutionResult) {
+    assert !resolutionResult.getResolvedHolder().isProgramClass();
+
+    DexClass current = resolutionResult.getInitialResolutionHolder();
+    while (current != null && !current.isLibraryClass()) {
+      current = appView.definitionFor(current.getSuperType());
+    }
+    if (current == null) {
+      assert resolutionResult.getResolvedHolder().isInterface();
+      return false;
+    }
+
+    DexLibraryClass currentLibraryClass = current.asLibraryClass();
+    while (currentLibraryClass != null) {
+      if (!AndroidApiLevelUtils.isApiSafeForReference(currentLibraryClass, appView)) {
+        return true;
+      }
+      if (!currentLibraryClass.hasSuperType()) {
+        // Object
+        break;
+      }
+      currentLibraryClass =
+          DexLibraryClass.asLibraryClassOrNull(
+              appView.definitionFor(currentLibraryClass.getSuperType()));
+    }
+    return false;
   }
 
   private boolean canRebindDirectlyToLibraryMethod(

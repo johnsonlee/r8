@@ -31,6 +31,9 @@ public class Regress302826300 extends TestBase {
 
   @Test
   public void testD8() throws Exception {
+    // This is illustrating the problem from b/302826300 using just D8 (in which case we don't
+    // introduce the error, the error is in the build setup). The actual bug is introduced by
+    // R8, see MemberRebindingWithApiDatabaseLookupTest.
     D8TestRunResult run =
         testForD8(parameters.getBackend())
             // We simply pass LibraryBaseClass as program, but could also compile it separately and
