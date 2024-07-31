@@ -1607,13 +1607,14 @@ public abstract class Instruction
   }
 
   public boolean verifyValidPositionInfo(boolean debug) {
-    assert position != null;
-    assert !debug || getPosition().isSome();
+    assert position != null : toString();
+    assert !debug || getPosition().isSome() : toString();
     assert !instructionTypeCanThrow()
-        || isConstString()
-        || isDexItemBasedConstString()
-        || getPosition().isSome()
-        || getPosition().isSyntheticNone();
+            || isConstString()
+            || isDexItemBasedConstString()
+            || getPosition().isSome()
+            || getPosition().isSyntheticNone()
+        : toString();
     return true;
   }
 
