@@ -40,6 +40,7 @@ import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.MapIdTemplateProvider;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.SourceFileTemplateProvider;
@@ -76,7 +77,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   private AllowedDiagnosticMessages allowedDiagnosticMessages = AllowedDiagnosticMessages.NONE;
   private boolean allowUnusedProguardConfigurationRules = false;
-  private boolean enableEmptyMemberRulesToDefaultInitRuleConversion = false;
+  private OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion = OptionalBool.FALSE;
   private boolean enableIsolatedSplits = false;
   private boolean enableMissingLibraryApiModeling = true;
   private boolean enableStartupLayoutOptimization = true;
@@ -140,8 +141,10 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
-    builder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
-        enableEmptyMemberRulesToDefaultInitRuleConversion);
+    if (!enableEmptyMemberRulesToDefaultInitRuleConversion.isUnknown()) {
+      builder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
+          enableEmptyMemberRulesToDefaultInitRuleConversion.toBoolean());
+    }
     builder.setEnableIsolatedSplits(enableIsolatedSplits);
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
     builder.setEnableStartupLayoutOptimization(enableStartupLayoutOptimization);
@@ -888,7 +891,12 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   public T enableEmptyMemberRulesToDefaultInitRuleConversion(
       boolean enableEmptyMemberRulesToDefaultInitRuleConversion) {
     this.enableEmptyMemberRulesToDefaultInitRuleConversion =
-        enableEmptyMemberRulesToDefaultInitRuleConversion;
+        OptionalBool.of(enableEmptyMemberRulesToDefaultInitRuleConversion);
+    return self();
+  }
+
+  public T clearEnableEmptyMemberRulesToDefaultInitRuleConversion() {
+    this.enableEmptyMemberRulesToDefaultInitRuleConversion = OptionalBool.UNKNOWN;
     return self();
   }
 

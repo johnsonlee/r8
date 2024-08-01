@@ -10,6 +10,7 @@ import static com.android.tools.r8.utils.DescriptorUtils.javaTypeToDescriptor;
 import com.android.tools.r8.InputDependencyGraphConsumer;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.dex.Constants;
+import com.android.tools.r8.errors.EmptyMemberRulesToDefaultInitRuleConversionDiagnostic;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
@@ -32,6 +33,7 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -127,6 +129,7 @@ public class ProguardConfigurationParser {
         dexItemFactory,
         reporter,
         ProguardConfigurationParserOptions.builder()
+            .setEnableEmptyMemberRulesToDefaultInitRuleConversion(false)
             .setEnableExperimentalCheckEnumUnboxed(false)
             .setEnableExperimentalConvertCheckNotNull(false)
             .setEnableExperimentalWhyAreYouNotInlining(false)
@@ -846,28 +849,31 @@ public class ProguardConfigurationParser {
           .setStart(start);
       parseRuleTypeAndModifiers(keepRuleBuilder);
       parseClassSpec(keepRuleBuilder);
-      if (options.isEmptyMemberRulesToDefaultInitRuleConversionEnabled(configurationBuilder)) {
-        if (keepRuleBuilder.getMemberRules().isEmpty()
-            && keepRuleBuilder.getKeepRuleType()
-                != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
-          // If there are no member rules, a default rule for the parameterless constructor applies
-          // in compatibility mode.
-          keepRuleBuilder
-              .getMemberRules()
-              .add(
-                  ProguardMemberRule.builder()
-                      .setName(
-                          IdentifierPatternWithWildcards.withoutWildcards(
-                              Constants.INSTANCE_INITIALIZER_NAME))
-                      .setRuleType(ProguardMemberType.INIT)
-                      .setArguments(Collections.emptyList())
-                      .build());
-        }
-      }
       Position end = getPosition();
-      keepRuleBuilder.setSource(getSourceSnippet(contents, start, end));
-      keepRuleBuilder.setEnd(end);
-      return keepRuleBuilder.build();
+      ProguardKeepRule rule =
+          keepRuleBuilder.setSource(getSourceSnippet(contents, start, end)).setEnd(end).build();
+      if (options.isEmptyMemberRulesToDefaultInitRuleConversionEnabled(configurationBuilder)
+          && rule.getMemberRules().isEmpty()
+          && rule.getType() != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
+        // If there are no member rules, a default rule for the parameterless constructor applies
+        // in compatibility mode.
+        if (options.isEmptyMemberRulesToDefaultInitRuleConversionWarningsEnabled(
+            configurationBuilder)) {
+          reporter.warning(
+              EmptyMemberRulesToDefaultInitRuleConversionDiagnostic.Factory.create(rule));
+        }
+        List<ProguardMemberRule> memberRules =
+            Lists.newArrayList(
+                ProguardMemberRule.builder()
+                    .setName(
+                        IdentifierPatternWithWildcards.withoutWildcards(
+                            Constants.INSTANCE_INITIALIZER_NAME))
+                    .setRuleType(ProguardMemberType.INIT)
+                    .setArguments(Collections.emptyList())
+                    .build());
+        rule = keepRuleBuilder.setMemberRules(memberRules).build();
+      }
+      return rule;
     }
 
     @SuppressWarnings("NonCanonicalType")

@@ -7,6 +7,8 @@ package com.android.tools.r8.utils;
 import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.Version;
+import com.android.tools.r8.errors.Unreachable;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -59,19 +61,34 @@ public class SystemPropertyUtils {
 
   public static boolean parseSystemPropertyOrDefault(String propertyName, boolean defaultValue) {
     return internalParseSystemPropertyForDevelopmentOrDefault(
-        propertyName, System.getProperty(propertyName), defaultValue);
+        propertyName, System.getProperty(propertyName), () -> defaultValue);
+  }
+
+  public static OptionalBool parseSystemPropertyOrDefault(
+      String propertyName, OptionalBool defaultValue) {
+    if (System.getProperty(propertyName) == null) {
+      return defaultValue;
+    }
+    boolean value =
+        internalParseSystemPropertyForDevelopmentOrDefault(
+            propertyName,
+            System.getProperty(propertyName),
+            () -> {
+              throw new Unreachable();
+            });
+    return OptionalBool.of(value);
   }
 
   public static boolean parseSystemPropertyForDevelopmentOrDefault(
       String propertyName, boolean defaultValue) {
     return internalParseSystemPropertyForDevelopmentOrDefault(
-        propertyName, getSystemPropertyForDevelopment(propertyName), defaultValue);
+        propertyName, getSystemPropertyForDevelopment(propertyName), () -> defaultValue);
   }
 
   private static boolean internalParseSystemPropertyForDevelopmentOrDefault(
-      String propertyName, String propertyValue, boolean defaultValue) {
+      String propertyName, String propertyValue, BooleanSupplier defaultValue) {
     if (propertyValue == null) {
-      return defaultValue;
+      return defaultValue.getAsBoolean();
     }
     if (StringUtils.isFalsy(propertyValue)) {
       return false;

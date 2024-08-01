@@ -58,6 +58,11 @@ public abstract class OptionalBool extends BooleanLatticeElement {
       new OptionalBool() {
 
         @Override
+        public boolean getOrDefault(boolean defaultValue) {
+          return defaultValue;
+        }
+
+        @Override
         public boolean isUnknown() {
           return true;
         }
@@ -91,6 +96,10 @@ public abstract class OptionalBool extends BooleanLatticeElement {
   @Override
   public OptionalBool asOptionalBool() {
     return this;
+  }
+
+  public boolean getOrDefault(boolean defaultValue) {
+    return toBoolean();
   }
 
   public abstract boolean toBoolean();

@@ -387,6 +387,7 @@ public final class L8Command extends BaseCompilerCommand {
         R8Command.Builder r8Builder =
             R8Command.builder(getReporter())
                 .addProgramResourceProvider((ProgramResourceProvider) l8CfConsumer)
+                .setEnableEmptyMemberRulesToDefaultInitRuleConversion(false)
                 .setSynthesizedClassesPrefix(
                     desugaredLibrarySpecification.getSynthesizedLibraryClassesPackagePrefix())
                 .setMinApiLevel(getMinApiLevel())

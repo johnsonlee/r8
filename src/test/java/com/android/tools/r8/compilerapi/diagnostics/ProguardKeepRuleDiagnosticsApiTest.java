@@ -98,6 +98,7 @@ public class ProguardKeepRuleDiagnosticsApiTest extends CompilerApiTestRunner {
               .addProguardConfiguration(
                   Collections.singletonList("-keep class NotPresent {}"), Origin.unknown())
               .addLibraryFiles(getJava8RuntimeJar())
+              .setEnableEmptyMemberRulesToDefaultInitRuleConversion(false)
               .setProgramConsumer(DexIndexedConsumer.emptyConsumer())
               .setMinApiLevel(1)
               .build());
