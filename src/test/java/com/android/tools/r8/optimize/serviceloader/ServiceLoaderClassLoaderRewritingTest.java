@@ -4,25 +4,17 @@
 
 package com.android.tools.r8.optimize.serviceloader;
 
-import static junit.framework.TestCase.assertNull;
-
-import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
 import java.util.ServiceLoader;
-import java.util.zip.ZipFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class ServiceLoaderClassLoaderRewritingTest extends ServiceLoaderTestBase {
-
-  private final TestParameters parameters;
   private final String EXPECTED_OUTPUT = StringUtils.lines("Hello World!");
 
   public interface Service {
@@ -67,30 +59,17 @@ public class ServiceLoaderClassLoaderRewritingTest extends ServiceLoaderTestBase
   }
 
   public ServiceLoaderClassLoaderRewritingTest(TestParameters parameters) {
-    this.parameters = parameters;
+    super(parameters);
   }
 
   @Test
   public void testRewritings() throws Exception {
-    Path path = temp.newFile("out.zip").toPath();
-    testForR8(parameters.getBackend())
-        .addInnerClasses(ServiceLoaderClassLoaderRewritingTest.class)
+    serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(MainRunner.class)
-        .setMinApi(parameters)
         .enableInliningAnnotations()
-        .addDataEntryResources(
-            DataEntryResource.fromBytes(
-                StringUtils.lines(ServiceImpl.class.getTypeName()).getBytes(),
-                "META-INF/services/" + Service.class.getTypeName(),
-                Origin.unknown()))
         .compile()
-        .writeToZip(path)
         .inspect(inspector -> verifyNoServiceLoaderLoads(inspector.clazz(MainRunner.class)))
         .run(parameters.getRuntime(), MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
-
-    // Check that we have removed the service configuration from META-INF/services.
-    ZipFile zip = new ZipFile(path.toFile());
-    assertNull(zip.getEntry("META-INF/services/" + Service.class.getTypeName()));
   }
 }

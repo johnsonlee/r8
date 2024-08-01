@@ -5,31 +5,24 @@
 package com.android.tools.r8.optimize.serviceloader;
 
 import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
-import java.util.zip.ZipFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class ServiceLoaderMultipleCallsSameMethodTest extends ServiceLoaderTestBase {
-
-  private final TestParameters parameters;
   private final String EXPECTED_OUTPUT = StringUtils.lines("Hello World!", "Hello World!");
 
   public interface Service {
@@ -45,13 +38,6 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends ServiceLoaderTestB
     }
   }
 
-  public static class ServiceImpl2 implements Service {
-
-    @Override
-    public void print() {
-      System.out.println("Hello World 2!");
-    }
-  }
 
   public static class MainRunner {
 
@@ -77,31 +63,22 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends ServiceLoaderTestB
   }
 
   public ServiceLoaderMultipleCallsSameMethodTest(TestParameters parameters) {
-    this.parameters = parameters;
+    super(parameters);
   }
 
   @Test
   public void testRewritings() throws IOException, CompilationFailedException, ExecutionException {
-    Path path = temp.newFile("out.zip").toPath();
-    testForR8(parameters.getBackend())
-        .addInnerClasses(ServiceLoaderMultipleCallsSameMethodTest.class)
+    serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(MainRunner.class)
-        .setMinApi(parameters)
         .enableInliningAnnotations()
-        .addDataEntryResources(
-            DataEntryResource.fromBytes(
-                StringUtils.lines(ServiceImpl.class.getTypeName()).getBytes(),
-                "META-INF/services/" + Service.class.getTypeName(),
-                Origin.unknown()))
         .compile()
-        .writeToZip(path)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
-        // Check that we have actually rewritten the calls to ServiceLoader.load.
-        .inspect(this::verifyNoServiceLoaderLoads)
-        .inspect(this::verifyNoClassLoaders)
         .inspect(
             inspector -> {
+              verifyNoServiceLoaderLoads(inspector);
+              verifyNoClassLoaders(inspector);
+              verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
               // Check the synthesize service loader method is a single shared method.
               // Due to minification we just check there is only a single synthetic class with a
               // single static method.
@@ -115,9 +92,5 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends ServiceLoaderTestB
                 }
               }
             });
-
-    // Check that we have removed the service configuration from META-INF/services.
-    ZipFile zip = new ZipFile(path.toFile());
-    assertNull(zip.getEntry("META-INF/services/" + Service.class.getTypeName()));
   }
 }

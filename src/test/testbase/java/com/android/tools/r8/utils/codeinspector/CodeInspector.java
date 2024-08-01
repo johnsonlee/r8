@@ -67,6 +67,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class CodeInspector {
 
@@ -399,6 +400,12 @@ public class CodeInspector {
     ImmutableList.Builder<FoundClassSubject> builder = ImmutableList.builder();
     forAllClasses(builder::add);
     return builder.build();
+  }
+
+  public Stream<InstructionSubject> streamInstructions() {
+    return allClasses().stream()
+        .flatMap(cls -> cls.allMethods(MethodSubject::hasCode).stream())
+        .flatMap(MethodSubject::streamInstructions);
   }
 
   public FieldSubject field(Field field) {

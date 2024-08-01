@@ -5,7 +5,6 @@
 package com.android.tools.r8.optimize.serviceloader;
 
 import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNull;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataEntryResource;
@@ -13,10 +12,8 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.zip.ZipFile;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -24,8 +21,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class ServiceLoaderRewritingLineSeparatorTest extends ServiceLoaderTestBase {
-
-  private final TestParameters parameters;
   private final Separator lineSeparator;
 
   private final String EXPECTED_OUTPUT =
@@ -55,18 +50,16 @@ public class ServiceLoaderRewritingLineSeparatorTest extends ServiceLoaderTestBa
   }
 
   public ServiceLoaderRewritingLineSeparatorTest(TestParameters parameters, Separator separator) {
-    this.parameters = parameters;
+    super(parameters);
     this.lineSeparator = separator;
   }
 
   @Test
   public void testRewritingWithMultipleWithLineSeparator()
       throws IOException, CompilationFailedException, ExecutionException {
-    Path path = temp.newFile("out.zip").toPath();
-    testForR8(parameters.getBackend())
+    serviceLoaderTest(null)
         .addInnerClasses(ServiceLoaderRewritingTest.class)
         .addKeepMainRule(ServiceLoaderRewritingTest.MainRunner.class)
-        .setMinApi(parameters)
         .addDataEntryResources(
             DataEntryResource.fromBytes(
                 StringUtils.join(
@@ -77,14 +70,17 @@ public class ServiceLoaderRewritingLineSeparatorTest extends ServiceLoaderTestBa
                 "META-INF/services/" + ServiceLoaderRewritingTest.Service.class.getTypeName(),
                 Origin.unknown()))
         .compile()
-        .writeToZip(path)
         .run(parameters.getRuntime(), ServiceLoaderRewritingTest.MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("Hello World 2!"))
         // Check that we have actually rewritten the calls to ServiceLoader.load.
-        .inspect(inspector -> assertEquals(0, getServiceLoaderLoads(inspector)));
-
-    // Check that we have removed the service configuration from META-INF/services.
-    ZipFile zip = new ZipFile(path.toFile());
-    assertNull(zip.getEntry("META-INF/services"));
+        .inspect(
+            inspector -> {
+              assertEquals(0, getServiceLoaderLoads(inspector));
+              verifyServiceMetaInf(
+                  inspector,
+                  ServiceLoaderRewritingTest.Service.class,
+                  ServiceLoaderRewritingTest.ServiceImpl.class,
+                  ServiceLoaderRewritingTest.ServiceImpl2.class);
+            });
   }
 }

@@ -4,38 +4,43 @@
 package com.android.tools.r8.optimize.serviceloader;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethodWithName;
-import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.DataEntryResource;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.graph.AppServices;
+import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.DataResourceConsumerForTesting;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
-import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 public class ServiceLoaderTestBase extends TestBase {
+  protected final TestParameters parameters;
+  protected DataResourceConsumerForTesting dataResourceConsumer;
+
+  public ServiceLoaderTestBase(TestParameters parameters) {
+    this.parameters = parameters;
+  }
 
   public static long getServiceLoaderLoads(CodeInspector inspector) {
-    return inspector.allClasses().stream()
-        .mapToLong(ServiceLoaderTestBase::getServiceLoaderLoads)
-        .reduce(0, Long::sum);
-  }
-
-  public static long getServiceLoaderLoads(CodeInspector inspector, Class<?> clazz) {
-    return getServiceLoaderLoads(inspector.clazz(clazz));
-  }
-
-  public static long getServiceLoaderLoads(ClassSubject classSubject) {
-    assertTrue(classSubject.isPresent());
-    return classSubject.allMethods(MethodSubject::hasCode).stream()
-        .mapToLong(
-            method ->
-                method
-                    .streamInstructions()
-                    .filter(ServiceLoaderTestBase::isServiceLoaderLoad)
-                    .count())
-        .sum();
+    return inspector
+        .streamInstructions()
+        .filter(ServiceLoaderTestBase::isServiceLoaderLoad)
+        .count();
   }
 
   private static boolean isServiceLoaderLoad(InstructionSubject instruction) {
@@ -43,22 +48,93 @@ public class ServiceLoaderTestBase extends TestBase {
         && instruction.getMethod().qualifiedName().contains("ServiceLoader.load");
   }
 
-  public void verifyNoClassLoaders(CodeInspector inspector) {
-    inspector.allClasses().forEach(this::verifyNoClassLoaders);
+  public static void verifyNoClassLoaders(CodeInspector inspector) {
+    inspector.allClasses().forEach(ServiceLoaderTestBase::verifyNoClassLoaders);
   }
 
-  public void verifyNoClassLoaders(ClassSubject classSubject) {
+  public static void verifyNoClassLoaders(ClassSubject classSubject) {
     assertTrue(classSubject.isPresent());
     classSubject.forAllMethods(
         method -> assertThat(method, not(invokesMethodWithName("getClassLoader"))));
   }
 
-  public void verifyNoServiceLoaderLoads(CodeInspector inspector) {
-    inspector.allClasses().forEach(this::verifyNoServiceLoaderLoads);
+  public static void verifyNoServiceLoaderLoads(CodeInspector inspector) {
+    inspector.allClasses().forEach(ServiceLoaderTestBase::verifyNoServiceLoaderLoads);
   }
 
-  public void verifyNoServiceLoaderLoads(ClassSubject classSubject) {
+  public static void verifyNoServiceLoaderLoads(ClassSubject classSubject) {
     assertTrue(classSubject.isPresent());
     classSubject.forAllMethods(method -> assertThat(method, not(invokesMethodWithName("load"))));
+  }
+
+  public Map<String, List<String>> getServiceMappings() {
+    return dataResourceConsumer.getAll().entrySet().stream()
+        .filter(e -> e.getKey().startsWith(AppServices.SERVICE_DIRECTORY_NAME))
+        .collect(
+            Collectors.toMap(
+                e -> e.getKey().substring(AppServices.SERVICE_DIRECTORY_NAME.length()),
+                e -> e.getValue()));
+  }
+
+  public void verifyServiceMetaInf(
+      CodeInspector inspector, Class<?> serviceClass, Class<?> serviceImplClass) {
+    // Account for renaming, and for the impl to be merged with the interface.
+    String finalServiceName = inspector.clazz(serviceClass).getFinalName();
+    String finalImplName = inspector.clazz(serviceImplClass).getFinalName();
+    if (finalServiceName == null) {
+      finalServiceName = finalImplName;
+    }
+    Map<String, List<String>> actual = getServiceMappings();
+    Map<String, List<String>> expected =
+        ImmutableMap.of(finalServiceName, Collections.singletonList(finalImplName));
+    assertEquals(expected, actual);
+  }
+
+  public void verifyServiceMetaInf(
+      CodeInspector inspector,
+      Class<?> serviceClass,
+      Class<?> serviceImplClass1,
+      Class<?> serviceImplClass2) {
+    // Account for renaming. No class merging should happen.
+    String finalServiceName = inspector.clazz(serviceClass).getFinalName();
+    String finalImplName1 = inspector.clazz(serviceImplClass1).getFinalName();
+    String finalImplName2 = inspector.clazz(serviceImplClass2).getFinalName();
+    Map<String, List<String>> actual = getServiceMappings();
+    Map<String, List<String>> expected =
+        ImmutableMap.of(finalServiceName, Arrays.asList(finalImplName1, finalImplName2));
+    assertEquals(expected, actual);
+  }
+
+  protected R8FullTestBuilder serviceLoaderTest(Class<?> serviceClass, Class<?>... implClasses)
+      throws IOException {
+    return serviceLoaderTestNoClasses(serviceClass, implClasses).addInnerClasses(getClass());
+  }
+
+  protected R8FullTestBuilder serviceLoaderTestNoClasses(
+      Class<?> serviceClass, Class<?>... implClasses) throws IOException {
+    R8FullTestBuilder ret =
+        testForR8(parameters.getBackend())
+            .setMinApi(parameters)
+            .addOptionsModification(
+                o -> {
+                  dataResourceConsumer = new DataResourceConsumerForTesting(o.dataResourceConsumer);
+                  o.dataResourceConsumer = dataResourceConsumer;
+                })
+            // Enables ServiceLoader optimization failure diagnostics.
+            .enableExperimentalWhyAreYouNotInlining()
+            .addKeepRules(
+                "-whyareyounotinlining class java.util.ServiceLoader { *** load(...); }");
+    if (implClasses.length > 0) {
+      String implLines =
+          Arrays.stream(implClasses)
+              .map(c -> c.getTypeName() + "\n")
+              .collect(Collectors.joining(""));
+      ret.addDataEntryResources(
+          DataEntryResource.fromBytes(
+              implLines.getBytes(),
+              AppServices.SERVICE_DIRECTORY_NAME + serviceClass.getTypeName(),
+              Origin.unknown()));
+    }
+    return ret;
   }
 }

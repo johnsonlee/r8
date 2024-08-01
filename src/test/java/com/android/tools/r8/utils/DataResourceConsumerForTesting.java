@@ -54,6 +54,10 @@ public class DataResourceConsumerForTesting implements DataResourceConsumer {
   @Override
   public void finished(DiagnosticsHandler handler) {}
 
+  public Map<String, ImmutableList<String>> getAll() {
+    return resources;
+  }
+
   public ImmutableList<String> get(String name) {
     return resources.get(name);
   }
