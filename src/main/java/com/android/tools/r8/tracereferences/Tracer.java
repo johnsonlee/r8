@@ -167,6 +167,12 @@ public class Tracer {
       }
     }
 
+    private void addMemberResolutionHolder(DexClass clazz, DefinitionContext referencedFrom) {
+      assert isTargetType(clazz.getType());
+      TracedClassImpl tracedClass = new TracedClassImpl(clazz, referencedFrom);
+      consumer.acceptType(tracedClass, diagnostics);
+    }
+
     private void addSuperMethodFromTarget(
         DexClassAndMethod method, DefinitionContext referencedFrom) {
       assert !method.isProgramMethod();
@@ -398,7 +404,7 @@ public class Tracer {
               || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
           if (isTargetType(resolvedMethod.getHolderType())) {
             if (resolvedMethod.getHolderType() != method.getHolderType()) {
-              addType(resolvedMethod.getHolderType(), referencedFrom);
+              addMemberResolutionHolder(resolvedMethod.getHolder(), referencedFrom);
             }
             TracedMethodImpl tracedMethod = new TracedMethodImpl(definition, referencedFrom);
             consumer.acceptMethod(tracedMethod, diagnostics);
@@ -463,7 +469,7 @@ public class Tracer {
               DexClassAndField resolvedField = singleResolutionResult.getResolutionPair();
               if (isTargetType(resolvedField.getHolderType())) {
                 if (resolvedField.getHolderType() != field.getHolderType()) {
-                  addClass(resolvedField.getHolder(), referencedFrom);
+                  addMemberResolutionHolder(resolvedField.getHolder(), referencedFrom);
                 }
                 TracedFieldImpl tracedField = new TracedFieldImpl(resolvedField, referencedFrom);
                 consumer.acceptField(tracedField, diagnostics);

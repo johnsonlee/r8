@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.tracereferences.packages;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -33,8 +33,7 @@ public class TraceReferenceRedundantKeepPackageForNonReboundMethodTest extends T
         .addInnerClassesAsTargetClasses(
             TraceReferenceRedundantKeepPackageForNonReboundMethodTestClasses.class)
         .trace()
-        // TODO(b/356827163): Should be empty.
-        .inspect(inspector -> assertFalse(inspector.getPackages().isEmpty()));
+        .inspect(inspector -> assertTrue(inspector.getPackages().isEmpty()));
   }
 
   public static class Main {
