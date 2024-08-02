@@ -563,7 +563,7 @@ public class RecordDesugaring
       return factory.objectMembers.toString;
     }
     assert method == factory.recordMembers.hashCode;
-    return factory.objectMembers.toString;
+    return factory.objectMembers.hashCode;
   }
 
   private static DexEncodedMethod synthesizeRecordInitMethod(AppView<?> appView) {
