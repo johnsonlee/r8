@@ -171,7 +171,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
             residualArtProfiles,
             resourceShrinkerOutput,
             resourceShrinkerOutputForFeatures,
-            buildMetadata.get());
+            buildMetadata != null ? buildMetadata.get() : null);
     switch (allowedDiagnosticMessages) {
       case ALL:
         compileResult.getDiagnosticMessages().assertAllDiagnosticsMatch(new IsAnything<>());
