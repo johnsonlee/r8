@@ -47,6 +47,7 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.ObjectToOffsetMapping;
 import com.android.tools.r8.graph.ParameterAnnotationsList;
+import com.android.tools.r8.metadata.BuildMetadataFactory;
 import com.android.tools.r8.naming.KotlinModuleSynthesizer;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.ProguardMapSupplier.ProguardMapId;
@@ -723,6 +724,12 @@ public class ApplicationWriter {
             resourceAdapter,
             kotlinModuleSynthesizer);
       }
+    }
+
+    if (options.buildMetadataConsumer != null) {
+      assert appView.hasClassHierarchy();
+      options.buildMetadataConsumer.accept(
+          BuildMetadataFactory.create(appView.withClassHierarchy()));
     }
   }
 

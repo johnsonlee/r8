@@ -76,6 +76,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.Mac
 import com.android.tools.r8.ir.desugar.nest.Nest;
 import com.android.tools.r8.ir.optimize.Inliner;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
+import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.naming.MapConsumer;
 import com.android.tools.r8.naming.MapVersion;
@@ -252,6 +253,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private GlobalSyntheticsConsumer globalSyntheticsConsumer = null;
   private SyntheticInfoConsumer syntheticInfoConsumer = null;
 
+  public Consumer<? super R8BuildMetadata> buildMetadataConsumer = null;
   public DataResourceConsumer dataResourceConsumer;
   public FeatureSplitConfiguration featureSplitConfiguration;
 
