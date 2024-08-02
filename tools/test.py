@@ -312,6 +312,17 @@ def archive_failures(options):
     print('Test results available at: %s' % url)
 
 
+def bot_symlinks():
+    art7 = os.path.join(utils.TOOLS_DIR, "linux", "art-7.0.0")
+    art7_sha = art7 + ".tar.gz.sha1"
+    utils.DownloadFromGoogleCloudStorage(art7_sha)
+    if not os.path.exists("tools/linux/art-7.0.0/lib/libncurses.so.5"):
+        os.symlink("/usr/lib/i386-linux-gnu/libncurses.so.6",
+                   art7 + "/lib/libncurses.so.5")
+    if not os.path.exists("tools/linux/art-7.0.0/lib64/libncurses.so.5"):
+        os.symlink("/usr/lib/x86_64-linux-gnu/libncurses.so.6",
+                   art7 + "/lib64/libncurses.so.5")
+
 def Main():
     (options, args) = ParseOptions()
     if utils.is_bot():
@@ -319,6 +330,8 @@ def Main():
         print('Running with python ' + str(sys.version_info))
         # Always print stats on bots if command cache is enabled
         options.command_cache_stats = options.command_cache_dir is not None
+        if options.dex_vm == '7.0.0':
+            bot_symlinks()
 
     desugar_jdk_json_dir = None
     if options.desugared_library_configuration:
