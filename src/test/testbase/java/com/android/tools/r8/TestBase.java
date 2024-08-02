@@ -350,6 +350,14 @@ public class TestBase {
     return testForMainDexListGenerator(temp);
   }
 
+  public TraceReferencesTestBuilder testForTraceReferences() {
+    return testForTraceReferences(temp);
+  }
+
+  public static TraceReferencesTestBuilder testForTraceReferences(TemporaryFolder temp) {
+    return new TraceReferencesTestBuilder(new TestState(temp));
+  }
+
   public JavaCompilerTool javac(CfRuntime jdk) {
     return JavaCompilerTool.create(jdk, temp);
   }
