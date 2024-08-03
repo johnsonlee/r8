@@ -123,7 +123,7 @@ public abstract class AccessFlags<T extends AccessFlags<T>> implements Structura
       return true;
     }
     return visibilityOrdinal == other.getVisibilityOrdinal()
-        && isVisibilityDependingOnPackage()
+        && isPackagePrivateOrProtected()
         && !packageNameThis.equals(packageNameOther);
   }
 
@@ -140,10 +140,6 @@ public abstract class AccessFlags<T extends AccessFlags<T>> implements Structura
     }
     // Package-private
     return 1;
-  }
-
-  public boolean isVisibilityDependingOnPackage() {
-    return getVisibilityOrdinal() == 1 || getVisibilityOrdinal() == 2;
   }
 
   public boolean isPackagePrivate() {

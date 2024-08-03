@@ -587,7 +587,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     if (accessFlags.isPrivate()) {
       return getHolderType() == other.getHolderType();
     }
-    assert accessFlags.isVisibilityDependingOnPackage();
+    assert accessFlags.isPackagePrivateOrProtected();
     return getHolderType().getPackageName().equals(other.getHolderType().getPackageName());
   }
 
