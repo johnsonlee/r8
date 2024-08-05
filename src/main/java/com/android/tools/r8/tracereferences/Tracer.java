@@ -245,17 +245,6 @@ public class Tracer {
           }
         }
       }
-      MethodResolutionResult methodResolutionResult =
-          method.getHolder().isInterface()
-              ? appInfo().resolveMethodOnInterface(method.getHolder(), method.getReference())
-              : appInfo().resolveMethodOnClass(method.getHolder(), method.getReference());
-      DexClassAndMethod superTarget =
-          methodResolutionResult.lookupInvokeSpecialTarget(method.getHolder(), appView);
-      if (superTarget != null
-          && !superTarget.isProgramMethod()
-          && isTargetType(superTarget.getHolderType())) {
-        addSuperMethodFromTarget(superTarget, referencedFrom);
-      }
     }
 
     private void traceCode(ProgramMethod method) {
