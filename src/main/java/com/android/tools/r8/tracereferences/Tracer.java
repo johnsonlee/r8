@@ -255,7 +255,7 @@ public class Tracer {
         DexProgramClass clazz, DexType superType, DefinitionContext referencedFrom) {
       addType(superType, referencedFrom);
       // If clazz overrides any methods in superType, we should keep those as well.
-      clazz.forEachMethod(
+      clazz.forEachProgramVirtualMethod(
           method -> {
             DexClassAndMethod resolvedMethod =
                 appInfo()
