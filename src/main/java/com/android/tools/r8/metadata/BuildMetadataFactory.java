@@ -11,6 +11,6 @@ public class BuildMetadataFactory {
 
   @SuppressWarnings("UnusedVariable")
   public static R8BuildMetadata create(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return R8BuildMetadataImpl.builder().setVersion(Version.getVersionString()).build();
+    return R8BuildMetadataImpl.builder().setVersion(Version.LABEL).build();
   }
 }
