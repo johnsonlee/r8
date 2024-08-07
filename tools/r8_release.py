@@ -358,8 +358,9 @@ def g4_change(version, commit_info):
         message = f'DO NOT SUBMIT: {message}'
     if commit_info:
         message += f'\n\n{commit_info}'
+    message = message.replace("'", r"\'")
     return subprocess.check_output(
-        f"g4 change --desc '{message}\n'",
+        f"g4 change --desc $'{message}\n'",
         shell=True).decode('utf-8')
 
 
