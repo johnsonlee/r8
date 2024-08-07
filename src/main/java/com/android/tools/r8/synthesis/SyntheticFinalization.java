@@ -26,8 +26,10 @@ import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.ir.code.NumberGenerator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.MainDexInfo;
+import com.android.tools.r8.shaking.SyntheticKeepClassInfo;
 import com.android.tools.r8.synthesis.SyntheticItems.State;
 import com.android.tools.r8.synthesis.SyntheticNaming.Phase;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
@@ -298,7 +300,9 @@ public class SyntheticFinalization {
         mainDexInfoBuilder.build());
   }
 
-  private <R extends SyntheticReference<R, D, ?>, D extends SyntheticDefinition<R, D, ?>>
+  private <
+          R extends SyntheticReference<R, D, DexProgramClass>,
+          D extends SyntheticDefinition<R, D, DexProgramClass>>
       Map<DexType, EquivalenceGroup<D>> computeEquivalences(
           AppView<?> appView,
           ImmutableMap<DexType, List<R>> references,
@@ -314,6 +318,7 @@ public class SyntheticFinalization {
     timing.begin("Potential equivalences");
     Collection<List<D>> potentialEquivalences =
         computePotentialEquivalences(
+            appView,
             definitions,
             intermediate,
             appView.options(),
@@ -836,8 +841,9 @@ public class SyntheticFinalization {
   }
 
   @SuppressWarnings("MixedMutabilityReturnType")
-  private static <T extends SyntheticDefinition<?, T, ?>>
+  private static <T extends SyntheticDefinition<?, T, DexProgramClass>>
       Collection<List<T>> computePotentialEquivalences(
+          AppView<?> appView,
           Map<DexType, T> definitions,
           boolean intermediate,
           InternalOptions options,
@@ -870,12 +876,24 @@ public class SyntheticFinalization {
     }
     RepresentativeMap map = t -> syntheticTypes.contains(t) ? options.dexItemFactory().voidType : t;
     Map<HashCode, List<T>> equivalences = new HashMap<>(definitions.size());
+    List<List<T>> result = new ArrayList<>();
     for (T definition : definitions.values()) {
-      HashCode hash =
-          definition.computeHash(map, intermediate, classToFeatureSplitMap, syntheticItems);
-      equivalences.computeIfAbsent(hash, k -> new ArrayList<>()).add(definition);
+      DexProgramClass holder = definition.getHolder();
+      KeepClassInfo keepInfo =
+          appView.getKeepInfoOrDefault(holder, SyntheticKeepClassInfo.bottom());
+      if (keepInfo.isSyntheticSharingAllowed()) {
+        HashCode hash =
+            definition.computeHash(map, intermediate, classToFeatureSplitMap, syntheticItems);
+        equivalences.computeIfAbsent(hash, k -> new ArrayList<>()).add(definition);
+      } else {
+        result.add(ImmutableList.of(definition));
+      }
     }
-    return equivalences.values();
+    if (result.isEmpty()) {
+      return equivalences.values();
+    }
+    result.addAll(equivalences.values());
+    return result;
   }
 
   private <R extends SyntheticReference<R, D, ?>, D extends SyntheticDefinition<R, D, ?>>

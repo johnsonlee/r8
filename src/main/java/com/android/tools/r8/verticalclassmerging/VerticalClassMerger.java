@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -24,6 +25,7 @@ import com.android.tools.r8.optimize.argumentpropagation.utils.ProgramClassesBid
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepClassInfo.Joiner;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -286,6 +288,13 @@ public class VerticalClassMerger {
               PrunedItems.builder()
                   .setRemovedClasses(verticallyMergedClasses.getSources())
                   .build());
+          for (DexType target : verticallyMergedClasses.getTargets()) {
+            DexProgramClass targetClass = appView.definitionFor(target).asProgramClass();
+            if (appView.getSyntheticItems().isSynthetic(targetClass)) {
+              mutator.ensureCompilerSynthesizedClass(targetClass);
+              mutator.joinClass(targetClass, Joiner::disallowSyntheticSharing);
+            }
+          }
         });
     timing.end();
   }

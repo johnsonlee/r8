@@ -32,19 +32,24 @@ public class ConstClassAfterVerticalClassMergingTest extends TestBase {
   }
 
   @Test
-  public void test() throws Exception {
-    parameters.assumeDexRuntime();
+  public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addHorizontallyMergedClassesInspector(
             HorizontallyMergedClassesInspector::assertNoClassesMerged)
+        .addVerticallyMergedClassesInspector(
+            inspector ->
+                inspector
+                    .applyIf(
+                        parameters.isDexRuntime(), i -> i.assertMergedIntoSubtype(I.class, J.class))
+                    .assertNoOtherClassesMerged())
         .setMinApi(parameters)
         .addOptionsModification(
             options -> options.getTestingOptions().enableSyntheticSharing = enableSyntheticSharing)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(enableSyntheticSharing ? "1" : "2");
+        .assertSuccessWithOutputLines("2");
   }
 
   static class Main {

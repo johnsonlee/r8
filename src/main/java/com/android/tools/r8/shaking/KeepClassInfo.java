@@ -11,7 +11,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import java.util.function.Function;
 
 /** Immutable keep requirements for a class. */
-public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo> {
+public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo> {
 
   // Requires all aspects of a class to be kept.
   private static final KeepClassInfo TOP =
@@ -53,16 +53,18 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
   private final boolean allowHorizontalClassMerging;
   private final boolean allowPermittedSubclassesRemoval;
   private final boolean allowRepackaging;
+  private final boolean allowSyntheticSharing;
   private final boolean allowUnusedInterfaceRemoval;
   private final boolean allowVerticalClassMerging;
   private final boolean checkEnumUnboxed;
 
-  private KeepClassInfo(Builder builder) {
+  KeepClassInfo(Builder builder) {
     super(builder);
     this.allowClassInlining = builder.isClassInliningAllowed();
     this.allowHorizontalClassMerging = builder.isHorizontalClassMergingAllowed();
     this.allowPermittedSubclassesRemoval = builder.isPermittedSubclassesRemovalAllowed();
     this.allowRepackaging = builder.isRepackagingAllowed();
+    this.allowSyntheticSharing = builder.isSyntheticSharingAllowed();
     this.allowUnusedInterfaceRemoval = builder.isUnusedInterfaceRemovalAllowed();
     this.allowVerticalClassMerging = builder.isVerticalClassMergingAllowed();
     this.checkEnumUnboxed = builder.isCheckEnumUnboxedEnabled();
@@ -147,6 +149,14 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
     return allowRepackaging;
   }
 
+  public boolean isSyntheticSharingAllowed() {
+    return internalIsSyntheticSharingAllowed();
+  }
+
+  private boolean internalIsSyntheticSharingAllowed() {
+    return allowSyntheticSharing;
+  }
+
   boolean internalIsUnusedInterfaceRemovalAllowed() {
     return allowUnusedInterfaceRemoval;
   }
@@ -182,20 +192,22 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
     private boolean allowHorizontalClassMerging;
     private boolean allowPermittedSubclassesRemoval;
     private boolean allowRepackaging;
+    private boolean allowSyntheticSharing;
     private boolean allowUnusedInterfaceRemoval;
     private boolean allowVerticalClassMerging;
     private boolean checkEnumUnboxed;
 
-    private Builder() {
+    Builder() {
       super();
     }
 
-    private Builder(KeepClassInfo original) {
+    Builder(KeepClassInfo original) {
       super(original);
       allowClassInlining = original.internalIsClassInliningAllowed();
       allowHorizontalClassMerging = original.internalIsHorizontalClassMergingAllowed();
       allowPermittedSubclassesRemoval = original.internalIsPermittedSubclassesRemovalAllowed();
       allowRepackaging = original.internalIsRepackagingAllowed();
+      allowSyntheticSharing = original.internalIsSyntheticSharingAllowed();
       allowUnusedInterfaceRemoval = original.internalIsUnusedInterfaceRemovalAllowed();
       allowVerticalClassMerging = original.internalIsVerticalClassMergingAllowed();
       checkEnumUnboxed = original.internalIsCheckEnumUnboxedEnabled();
@@ -296,6 +308,17 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
       return setAllowRepackaging(false);
     }
 
+    // Synthetic sharing.
+
+    public boolean isSyntheticSharingAllowed() {
+      return allowSyntheticSharing;
+    }
+
+    private Builder setAllowSyntheticSharing(boolean allowSyntheticSharing) {
+      this.allowSyntheticSharing = allowSyntheticSharing;
+      return self();
+    }
+
     // Unused interface removal.
 
     public Builder allowUnusedInterfaceRemoval() {
@@ -363,6 +386,7 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
           && isPermittedSubclassesRemovalAllowed()
               == other.internalIsPermittedSubclassesRemovalAllowed()
           && isRepackagingAllowed() == other.internalIsRepackagingAllowed()
+          && isSyntheticSharingAllowed() == other.internalIsSyntheticSharingAllowed()
           && isUnusedInterfaceRemovalAllowed() == other.internalIsUnusedInterfaceRemovalAllowed()
           && isVerticalClassMergingAllowed() == other.internalIsVerticalClassMergingAllowed();
     }
@@ -379,6 +403,8 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
           .disallowHorizontalClassMerging()
           .disallowPermittedSubclassesRemoval()
           .disallowRepackaging()
+          // Synthetic sharing is always allowed, unless explicitly set to false.
+          .setAllowSyntheticSharing(true)
           .disallowUnusedInterfaceRemoval()
           .disallowVerticalClassMerging()
           .unsetCheckEnumUnboxed();
@@ -391,6 +417,7 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
           .allowHorizontalClassMerging()
           .allowPermittedSubclassesRemoval()
           .allowRepackaging()
+          .setAllowSyntheticSharing(true)
           .allowUnusedInterfaceRemoval()
           .allowVerticalClassMerging()
           .unsetCheckEnumUnboxed();
@@ -401,6 +428,10 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
 
     public Joiner(KeepClassInfo info) {
       super(info.builder());
+    }
+
+    protected Joiner(KeepClassInfo.Builder builder) {
+      super(builder);
     }
 
     public Joiner disallowClassInlining() {
@@ -420,6 +451,11 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
 
     public Joiner disallowRepackaging() {
       builder.disallowRepackaging();
+      return self();
+    }
+
+    public Joiner disallowSyntheticSharing() {
+      builder.setAllowSyntheticSharing(false);
       return self();
     }
 
@@ -460,6 +496,7 @@ public final class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepCla
               !joiner.builder.isPermittedSubclassesRemovalAllowed(),
               Joiner::disallowPermittedSubclassesRemoval)
           .applyIf(!joiner.builder.isRepackagingAllowed(), Joiner::disallowRepackaging)
+          .applyIf(!joiner.builder.isSyntheticSharingAllowed(), Joiner::disallowSyntheticSharing)
           .applyIf(
               !joiner.builder.isUnusedInterfaceRemovalAllowed(),
               Joiner::disallowUnusedInterfaceRemoval)

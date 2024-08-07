@@ -3921,7 +3921,7 @@ public class Enqueuer {
         timing.begin("Retain keep info");
         applicableRules = keepInfoCollection.getApplicableRules();
         EnqueuerEvent preconditionEvent = UnconditionalKeepInfoEvent.get();
-        keepInfo.registerCompilerSynthesizedMethods(keepInfoCollection);
+        keepInfo.registerCompilerSynthesizedItems(keepInfoCollection);
         keepInfoCollection.forEachRuleInstance(
             appView,
             (clazz, minimumKeepInfo) ->

@@ -531,15 +531,26 @@ public abstract class KeepInfoCollection {
       }
     }
 
+    public void ensureCompilerSynthesizedClass(DexProgramClass clazz) {
+      keepClassInfo.computeIfAbsent(clazz.getType(), ignoreKey(SyntheticKeepClassInfo::bottom));
+    }
+
     @Override
     public void registerCompilerSynthesizedMethod(ProgramMethod method) {
       assert !keepMethodInfo.containsKey(method.getReference());
       keepMethodInfo.put(method.getReference(), SyntheticKeepMethodInfo.bottom());
     }
 
-    public void registerCompilerSynthesizedMethods(KeepInfoCollection keepInfoCollection) {
+    public void registerCompilerSynthesizedItems(KeepInfoCollection keepInfoCollection) {
       keepInfoCollection.mutate(
           mutableKeepInfoCollection -> {
+            mutableKeepInfoCollection.keepClassInfo.forEach(
+                (c, info) -> {
+                  if (info instanceof SyntheticKeepClassInfo) {
+                    assert !keepClassInfo.containsKey(c);
+                    keepClassInfo.put(c, info);
+                  }
+                });
             mutableKeepInfoCollection.keepMethodInfo.forEach(
                 (m, info) -> {
                   if (info instanceof SyntheticKeepMethodInfo) {
