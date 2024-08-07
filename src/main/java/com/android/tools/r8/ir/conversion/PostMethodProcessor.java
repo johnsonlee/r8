@@ -52,11 +52,15 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
       CallGraph callGraph,
       MethodProcessorEventConsumer eventConsumer,
       ProgramMethodSet methodsToProcess) {
-    this.callSiteInformation = callGraph.createCallSiteInformation(appView, this);
     this.eventConsumer = eventConsumer;
     this.methodsToProcess = methodsToProcess;
     this.processorContext = appView.createProcessorContext();
+    this.callSiteInformation = callGraph.createCallSiteInformation(appView, this);
     this.waves = createWaves(callGraph);
+  }
+
+  public void addMethodToProcess(ProgramMethod method) {
+    methodsToProcess.add(method);
   }
 
   public void markCallersForProcessing(ProgramMethod method) {
@@ -172,10 +176,6 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
               }
             });
         put(set);
-      }
-      if (methodsToReprocessBuilder.isEmpty()) {
-        // Nothing to revisit.
-        return null;
       }
       ProgramMethodSet methodsToReprocess = methodsToReprocessBuilder.build(appView);
       // TODO(b/333677610): Check this assert when bridges synthesized by member rebinding is

@@ -855,7 +855,6 @@ public class VerticalClassMergerTest extends TestBase {
         ImmutableSet.of(
             "classmerging.SuperCallToMergedClassIsRewrittenTest",
             "classmerging.A",
-            "classmerging.D",
             "classmerging.F");
 
     JasminBuilder jasminBuilder = new JasminBuilder();

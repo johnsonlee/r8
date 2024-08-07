@@ -1299,15 +1299,28 @@ public class Inliner {
           // Convert and remove virtual single caller inlined methods to abstract or throw null.
           singleCallerInlinedMethodsForClass.removeIf(
               (callee, caller) -> {
-                // TODO(b/203188583): Enable pruning of methods with generic signatures. For this to
-                //  work we need to pass in a seed to GenericSignatureContextBuilder.create in R8.
-                if (callee.getDefinition().belongsToVirtualPool()
-                    || callee.getDefinition().getGenericSignature().hasSignature()) {
+                boolean convertToAbstractOrThrowNullMethod =
+                    callee.getDefinition().belongsToVirtualPool();
+                if (callee.getDefinition().getGenericSignature().hasSignature()) {
+                  // TODO(b/203188583): Enable pruning of methods with generic signatures. For this
+                  //  to work we need to pass in a seed to GenericSignatureContextBuilder.create in
+                  //  R8.
+                  convertToAbstractOrThrowNullMethod = true;
+                } else if (appView.options().configurationDebugging
+                    && appView.getSyntheticItems().isSynthetic(callee.getHolder())) {
+                  // If static synthetic methods are removed after being single caller inlined, we
+                  // need to unregister them as synthetic methods in the synthetic items collection.
+                  // This means that they will not be renamed to ExternalSynthetic leading to
+                  // assertion errors. This should only be a problem when configuration debugging is
+                  // enabled, since configuration debugging disables shrinking of the synthetic
+                  // method's holder.
+                  convertToAbstractOrThrowNullMethod = true;
+                }
+                if (convertToAbstractOrThrowNullMethod) {
                   callee.convertToAbstractOrThrowNullMethod(appView);
                   converter.onMethodCodePruned(callee);
-                  return true;
                 }
-                return false;
+                return convertToAbstractOrThrowNullMethod;
               });
 
           // Remove direct single caller inlined methods from the application.

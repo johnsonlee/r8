@@ -140,15 +140,19 @@ public abstract class CallSiteInformation {
             }
           }
           Set<Node> callersWithDeterministicOrder = node.getCallersWithDeterministicOrder();
-          DexMethod caller = reference;
+          ProgramMethod caller = method;
           // We can have recursive methods where the recursive call is the only call site. We do
           // not track callers for these.
           if (!callersWithDeterministicOrder.isEmpty()) {
             assert callersWithDeterministicOrder.size() == 1;
-            caller = callersWithDeterministicOrder.iterator().next().getMethod().getReference();
+            caller = callersWithDeterministicOrder.iterator().next().getProgramMethod();
           }
           assert !singleCallerMethods.containsKey(reference);
-          singleCallerMethods.put(reference, caller);
+          singleCallerMethods.put(reference, caller.getReference());
+          if (methodProcessor.isPostMethodProcessor()
+              && appView.getKeepInfo(caller).isReprocessingAllowed(options, caller)) {
+            methodProcessor.asPostMethodProcessor().addMethodToProcess(caller);
+          }
         } else if (numberOfCallSites > 1 && methodProcessor.isPrimaryMethodProcessor()) {
           multiCallerInlineCandidates.add(reference);
         }
