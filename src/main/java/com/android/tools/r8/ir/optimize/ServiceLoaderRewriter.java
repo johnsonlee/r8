@@ -129,10 +129,11 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       }
 
       ConstClass constClass = argument.getDefinition().asConstClass();
+      DexType serviceType = constClass.getType();
       if (invokedMethod.isNotIdenticalTo(serviceLoaderMethods.loadWithClassLoader)) {
         report(
             code.context(),
-            constClass.getType(),
+            serviceType,
             "Inlining is only supported for `java.util.ServiceLoader.load(java.lang.Class,"
                 + " java.lang.ClassLoader)`");
         continue;
@@ -143,7 +144,7 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
               + " java.lang.ServiceLoader.iterator()`";
       Value serviceLoaderLoadOut = serviceLoaderLoad.outValue();
       if (!serviceLoaderLoadOut.hasSingleUniqueUser() || serviceLoaderLoadOut.hasPhiUsers()) {
-        report(code.context(), constClass.getType(), invalidUserMessage);
+        report(code.context(), serviceType, invalidUserMessage);
         continue;
       }
 
@@ -151,14 +152,13 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       InvokeVirtual singleUniqueUser = serviceLoaderLoadOut.singleUniqueUser().asInvokeVirtual();
       if (singleUniqueUser == null
           || singleUniqueUser.getInvokedMethod().isNotIdenticalTo(serviceLoaderMethods.iterator)) {
-        report(
-            code.context(), constClass.getType(), invalidUserMessage + ", but found other usages");
+        report(code.context(), serviceType, invalidUserMessage + ", but found other usages");
         continue;
       }
 
       // Check that the service is not kept.
       if (appView().appInfo().isPinnedWithDefinitionLookup(constClass.getValue())) {
-        report(code.context(), constClass.getType(), "The service loader type is kept");
+        report(code.context(), serviceType, "The service loader type is kept");
         continue;
       }
 
@@ -168,9 +168,9 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       if (classLoaderValue.isPhi()) {
         report(
             code.context(),
-            constClass.getType(),
+            serviceType,
             "The java.lang.ClassLoader argument must be defined locally as null or "
-                + constClass.getType()
+                + serviceType
                 + ".class.getClassLoader()");
         continue;
       }
@@ -186,45 +186,62 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                   .getDefinition()
                   .asConstClass()
                   .getValue()
-                  .isIdenticalTo(constClass.getType());
+                  .isIdenticalTo(serviceType);
       if (!isNullClassLoader && !isGetClassLoaderOnConstClass) {
         report(
             code.context(),
-            constClass.getType(),
+            serviceType,
             "The java.lang.ClassLoader argument must be defined locally as null or "
-                + constClass.getType()
+                + serviceType
                 + ".class.getClassLoader()");
         continue;
       }
 
       // Check that the service is configured in the META-INF/services.
       AppServices appServices = appView.appServices();
-      if (!appServices.allServiceTypes().contains(constClass.getValue())) {
-        report(code.context(), constClass.getType(), "No META-INF/services file found.");
-        continue;
-      }
-
-      // Check that we are not service loading anything from a feature into base.
-      if (hasServiceImplementationInDifferentFeature(
-          code, constClass.getType(), isNullClassLoader)) {
-        continue;
-      }
-
       List<DexType> dexTypes = appServices.serviceImplementationsFor(constClass.getValue());
       List<DexClass> classes = new ArrayList<>(dexTypes.size());
-      boolean seenNull = false;
       for (DexType serviceImpl : dexTypes) {
         DexClass serviceImplementation = appView.definitionFor(serviceImpl);
         if (serviceImplementation == null) {
           report(
               code.context(),
-              constClass.getType(),
+              serviceType,
               "Unable to find definition for service implementation " + serviceImpl.getTypeName());
-          seenNull = true;
+          break;
+        }
+        if (!appView().appInfo().isSubtype(serviceImpl, serviceType)) {
+          report(
+              code.context(),
+              serviceType,
+              "Implementation is not a subtype of the service: " + serviceImpl.getTypeName());
+          break;
+        }
+        DexEncodedMethod method = serviceImplementation.getDefaultInitializer();
+        if (method == null) {
+          report(
+              code.context(),
+              serviceType,
+              "Implementation has no default constructor: " + serviceImpl.getTypeName());
+          break;
+        }
+        if (!method.getAccessFlags().wasPublic()) {
+          // A non-public constructor causes a ServiceConfigurationError on APIs 24 & 25 (Nougat).
+          // Check the original access flag to not change app behavior if R8 publicized the method.
+          report(
+              code.context(),
+              serviceType,
+              "Implementation's default constructor is not public: " + serviceImpl.getTypeName());
+          break;
         }
         classes.add(serviceImplementation);
       }
-      if (seenNull) {
+      if (dexTypes.size() != classes.size()) {
+        continue;
+      }
+
+      // Check that we are not service loading anything from a feature into base.
+      if (hasServiceImplementationInDifferentFeature(code, serviceType, isNullClassLoader)) {
         continue;
       }
 

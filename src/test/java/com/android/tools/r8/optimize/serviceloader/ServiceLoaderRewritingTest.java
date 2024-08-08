@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.optimize.serviceloader;
 
+import static com.android.tools.r8.ToolHelper.DexVm.Version.V7_0_0;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
@@ -11,11 +12,11 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
 import org.junit.Test;
@@ -47,6 +48,14 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     public void print() {
       System.out.println("Hello World 2!");
     }
+  }
+
+  public static class ServiceImplNoDefaultConstructor extends ServiceImpl {
+    public ServiceImplNoDefaultConstructor(int unused) {}
+  }
+
+  public static class ServiceImplNonPublicConstructor extends ServiceImpl {
+    ServiceImplNonPublicConstructor() {}
   }
 
   public static class MainRunner {
@@ -153,11 +162,10 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
       throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(null)
         .addKeepMainRule(MainRunner.class)
-        .allowDiagnosticInfoMessages()
-        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
+        .compile()
         .run(parameters.getRuntime(), MainRunner.class)
         .assertFailureWithErrorThatThrows(NoSuchElementException.class)
-        .inspectFailure(inspector -> assertEquals(1, getServiceLoaderLoads(inspector)));
+        .inspectFailure(inspector -> assertEquals(0, getServiceLoaderLoads(inspector)));
   }
 
   @Test
@@ -221,6 +229,44 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
   }
 
   @Test
+  public void testDoNoRewriteNoDefaultConstructor()
+      throws IOException, CompilationFailedException, ExecutionException {
+    serviceLoaderTest(Service.class, ServiceImplNoDefaultConstructor.class)
+        .addKeepMainRule(MainRunner.class)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
+        .run(parameters.getRuntime(), MainRunner.class)
+        .assertFailureWithErrorThatThrows(ServiceConfigurationError.class);
+  }
+
+  @Test
+  public void testDoNoRewriteNonSubclass()
+      throws IOException, CompilationFailedException, ExecutionException {
+    serviceLoaderTest(Service.class, MainRunner.class)
+        .addKeepMainRule(MainRunner.class)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
+        .run(parameters.getRuntime(), MainRunner.class)
+        .assertFailureWithErrorThatThrows(ServiceConfigurationError.class);
+  }
+
+  @Test
+  public void testDoNoRewriteNonPublicConstructor()
+      throws IOException, CompilationFailedException, ExecutionException {
+    // This throws a ServiceConfigurationError only on Android 7.
+    serviceLoaderTest(Service.class, ServiceImplNonPublicConstructor.class)
+        .addKeepMainRule(MainRunner.class)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
+        .run(parameters.getRuntime(), MainRunner.class)
+        .applyIf(
+            parameters.isCfRuntime() || parameters.getDexRuntimeVersion() != V7_0_0,
+            runResult -> runResult.assertSuccessWithOutput(EXPECTED_OUTPUT),
+            runResult ->
+                runResult.assertFailureWithErrorThatThrows(ServiceConfigurationError.class));
+  }
+
+  @Test
   public void testDoNoRewriteWhenEscaping()
       throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(Service.class, ServiceImpl.class)
@@ -262,7 +308,7 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     // https://android-review.googlesource.com/c/platform/libcore/+/273135
     assumeTrue(
         parameters.getRuntime().isCf()
-            || !parameters.getRuntime().asDex().getVm().getVersion().equals(Version.V7_0_0));
+            || !parameters.getRuntime().asDex().getVm().getVersion().equals(V7_0_0));
     serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(MainRunner.class)
         .addKeepClassRules(Service.class)

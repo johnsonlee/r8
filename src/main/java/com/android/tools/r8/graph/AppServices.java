@@ -76,10 +76,6 @@ public class AppServices {
     assert verifyRewrittenWithLens();
     Map<FeatureSplit, List<DexType>> featureSplitListMap = services.get(serviceType);
     if (featureSplitListMap == null) {
-      assert false
-          : "Unexpected attempt to get service implementations for non-service type `"
-              + serviceType.toSourceString()
-              + "`";
       return ImmutableList.of();
     }
     ImmutableList.Builder<DexType> builder = ImmutableList.builder();
