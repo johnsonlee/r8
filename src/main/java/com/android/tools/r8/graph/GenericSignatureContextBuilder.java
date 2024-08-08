@@ -249,6 +249,9 @@ public class GenericSignatureContextBuilder {
       return typeParameterContext;
     }
     TypeParameterSubstitutions methodFormals = this.formalsInfo.get(reference);
+    if (methodFormals == null) {
+      return typeParameterContext;
+    }
     if (clazz != null && !prunedHere) {
       DexEncodedMethod method = clazz.lookupMethod(reference.asDexMethod());
       prunedHere =

@@ -7,8 +7,10 @@ package com.android.tools.r8.classpath;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
+import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import java.nio.file.Path;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -28,17 +30,24 @@ public class SuperclassOfLocalClassesOnClasspathTest extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  static Path classpath;
+  static Path classpathDex;
+  static Path classpathCf;
 
   @BeforeClass
   public static void setUpClasspath() throws Exception {
     // Build classpath DEX with API level 1 to work with all API levels.
-    classpath = getStaticTemp().newFile("classpath.zip").toPath();
-    testForD8(getStaticTemp())
-        .addProgramClasses(A.class)
-        .setMinApi(AndroidApiLevel.B)
-        .compile()
-        .writeToZip(classpath);
+    classpathDex =
+        testForD8(getStaticTemp())
+            .addProgramClasses(A.class)
+            .setMinApi(AndroidApiLevel.B)
+            .compile()
+            .writeToZip();
+    classpathCf = getStaticTemp().newFile("classpath2.zip").toPath();
+    ZipBuilder.builder(classpathCf)
+        .addFile(
+            DescriptorUtils.getPathFromJavaType(A.class),
+            ToolHelper.getClassFileForTestClass(A.class))
+        .build();
   }
 
   @Test
@@ -50,26 +59,25 @@ public class SuperclassOfLocalClassesOnClasspathTest extends TestBase {
         .addProgramClasses(I.class)
         .addProgramClasses(TestClass.class)
         .setMinApi(parameters)
-        .addRunClasspathFiles(classpath)
+        .addRunClasspathFiles(classpathDex)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccess();
   }
 
   @Test
   public void testR8() throws Exception {
-    AssertUtils.assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                // Split A and its inner classes on classpath/program.
-                .addClasspathClasses(A.class)
-                .addInnerClasses(A.class)
-                .addProgramClasses(I.class)
-                .addProgramClasses(TestClass.class)
-                .addKeepMainRule(TestClass.class)
-                .setMinApi(parameters)
-                .addRunClasspathFiles(classpath)
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccess());
+    testForR8(parameters.getBackend())
+        // Split A and its inner classes on classpath/program.
+        .addClasspathClasses(A.class)
+        .addInnerClasses(A.class)
+        .addProgramClasses(I.class)
+        .addProgramClasses(TestClass.class)
+        .addKeepMainRule(TestClass.class)
+        .addKeepRules("-keep class " + A.class.getTypeName() + "$* { *; }")
+        .setMinApi(parameters)
+        .addRunClasspathFiles(parameters.isDexRuntime() ? classpathDex : classpathCf)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccess();
   }
 
   interface I {
