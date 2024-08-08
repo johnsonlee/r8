@@ -144,6 +144,7 @@ public class ApplyMappingTest extends TestBase {
         testForR8(parameters.getBackend())
             .addProgramFiles(NAMING001_JAR)
             .addKeepRuleFiles(Paths.get(ToolHelper.EXAMPLES_DIR, "naming001", "keep-rules-106.txt"))
+            .addDontOptimize()
             .noTreeShaking()
             .setMinApi(parameters)
             .compile()

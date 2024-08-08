@@ -22,10 +22,6 @@ public class ProguardKeepRuleBase extends ProguardConfigurationRule {
       super();
     }
 
-    public ProguardKeepRuleType getKeepRuleType() {
-      return type;
-    }
-
     public B setType(ProguardKeepRuleType type) {
       this.type = type;
       return self();

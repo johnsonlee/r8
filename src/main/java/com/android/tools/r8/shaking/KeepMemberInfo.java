@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.shaking.KeepMemberInfo.Builder;
+import com.android.tools.r8.utils.InternalOptions;
 
 /** Immutable keep requirements for a member. */
 @SuppressWarnings("BadImport")
@@ -21,7 +22,6 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     this.allowValuePropagation = builder.isValuePropagationAllowed();
   }
 
-  @SuppressWarnings("BadImport")
   public boolean isKotlinMetadataRemovalAllowed(
       DexProgramClass holder, GlobalKeepInfoConfiguration configuration) {
     // Checking the holder for missing kotlin information relies on the holder being processed
@@ -31,18 +31,17 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
 
   public boolean isValuePropagationAllowed(
       AppView<AppInfoWithLiveness> appView, ProgramMember<?, ?> member) {
+    InternalOptions options = appView.options();
+    if (!internalIsValuePropagationAllowed()) {
+      return false;
+    }
+    if (member.isMethod() && !asMethodInfo().isCodeReplacementAllowed(options)) {
+      return true;
+    }
     DexType type =
         member.isField() ? member.asField().getType() : member.asMethod().getReturnType();
     boolean isTypeInstantiated = !type.isAlwaysNull(appView);
-    return isValuePropagationAllowed(appView.options(), isTypeInstantiated);
-  }
-
-  public boolean isValuePropagationAllowed(
-      GlobalKeepInfoConfiguration configuration, boolean isTypeInstantiated) {
-    if (!isOptimizationAllowed(configuration) && isTypeInstantiated) {
-      return false;
-    }
-    return internalIsValuePropagationAllowed();
+    return isOptimizationAllowed(options) || !isTypeInstantiated;
   }
 
   boolean internalIsValuePropagationAllowed() {

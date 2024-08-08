@@ -1713,6 +1713,13 @@ public class RootSetUtils {
         context.markAsUsed();
       }
 
+      if (item.isProgramMethod()
+          && !appView.options().isCodeReplacementForceEnabled()
+          && modifiers.allowsCodeReplacement) {
+        itemJoiner.computeIfAbsent().asMethodJoiner().allowCodeReplacement();
+        context.markAsUsed();
+      }
+
       if (item.isProgramClass()
           && appView.options().isKeepPermittedSubclassesEnabled()
           && !modifiers.allowsPermittedSubclassesRemoval) {

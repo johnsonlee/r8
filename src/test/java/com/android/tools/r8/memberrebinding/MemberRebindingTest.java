@@ -6,32 +6,23 @@ package com.android.tools.r8.memberrebinding;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.R8Command;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.naming.MemberNaming.MethodSignature;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.TestDescriptionWatcher;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FieldAccessInstructionSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.InvokeInstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import org.junit.Assume;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,7 +40,7 @@ public class MemberRebindingTest extends TestBase {
   private final Backend backend;
   private final String keepRuleFile;
   private final Path programFile;
-  private final Consumer<CodeInspector> inspection;
+  private final ThrowingConsumer<CodeInspector, Exception> inspection;
   private final int minApiLevel;
 
   @Rule
@@ -62,34 +53,6 @@ public class MemberRebindingTest extends TestBase {
     this.programFile = configuration.getJarPath();
     this.inspection = configuration.processedInspection;
     this.minApiLevel = configuration.getMinApiLevel();
-  }
-
-  @Before
-  public void runR8() throws Exception {
-    // Generate R8 processed version without library option.
-    String out = temp.getRoot().getCanonicalPath();
-    // NOTE: It is important to turn off inlining to ensure
-    // dex inspection of invokes is predictable.
-    R8Command.Builder builder =
-        R8Command.builder()
-            .setOutput(Paths.get(out), TestBase.outputMode(backend))
-            .addLibraryFiles(JAR_LIBRARY, TestBase.runtimeJar(backend))
-            .setDisableTreeShaking(true)
-            .setDisableMinification(true);
-    if (backend == Backend.DEX) {
-      builder.setMinApiLevel(minApiLevel);
-    }
-    if (keepRuleFile != null) {
-      builder.addProguardConfigurationFiles(Paths.get(ToolHelper.EXAMPLES_DIR, name, keepRuleFile));
-      ToolHelper.allowTestProguardOptions(builder);
-    }
-    ToolHelper.getAppBuilder(builder).addProgramFiles(programFile);
-    ToolHelper.runR8(
-        builder.build(),
-        options -> {
-          options.inlinerOptions().enableInlining = false;
-          options.enableRedundantFieldLoadElimination = false;
-        });
   }
 
   private static boolean coolInvokes(InstructionSubject instruction) {
@@ -185,14 +148,14 @@ public class MemberRebindingTest extends TestBase {
     final Backend backend;
     final String keepRuleFile;
     final AndroidVersion version;
-    final Consumer<CodeInspector> processedInspection;
+    final ThrowingConsumer<CodeInspector, Exception> processedInspection;
 
     private TestConfiguration(
         String name,
         Backend backend,
         String keepRuleFile,
         AndroidVersion version,
-        Consumer<CodeInspector> processedInspection) {
+        ThrowingConsumer<CodeInspector, Exception> processedInspection) {
       this.name = name;
       this.backend = backend;
       this.keepRuleFile = keepRuleFile;
@@ -206,12 +169,8 @@ public class MemberRebindingTest extends TestBase {
         Backend backend,
         String keepRuleFile,
         AndroidVersion version,
-        Consumer<CodeInspector> processedInspection) {
+        ThrowingConsumer<CodeInspector, Exception> processedInspection) {
       builder.add(new TestConfiguration(name, backend, keepRuleFile, version, processedInspection));
-    }
-
-    public Path getDexPath() {
-      return getBuildPath().resolve(name).resolve("classes.dex");
     }
 
     public Path getJarPath() {
@@ -267,7 +226,7 @@ public class MemberRebindingTest extends TestBase {
           builder,
           "memberrebinding3",
           backend,
-          null,
+          "keep-rules.txt",
           TestConfiguration.AndroidVersion.PRE_N,
           MemberRebindingTest::inspect3);
       TestConfiguration.add(
@@ -282,23 +241,24 @@ public class MemberRebindingTest extends TestBase {
   }
 
   @Test
-  public void memberRebindingTest() throws IOException {
-    Assume.assumeTrue(ToolHelper.artSupported() || ToolHelper.compareAgaintsGoldenFiles());
-
-    Path out = Paths.get(temp.getRoot().getCanonicalPath());
-    List<Path> processed;
-    if (backend == Backend.DEX) {
-      processed = Collections.singletonList(out.resolve("classes.dex"));
-    } else {
-      assert backend == Backend.CF;
-      processed =
-          Arrays.stream(out.resolve(name).toFile().listFiles(f -> f.toString().endsWith(".class")))
-              .map(File::toPath)
-              .collect(Collectors.toList());
-    }
-
-    CodeInspector inspector = new CodeInspector(processed);
-    inspection.accept(inspector);
-
+  public void memberRebindingTest() throws Exception {
+    testForR8(backend)
+        .addProgramFiles(programFile)
+        .addClasspathFiles(JAR_LIBRARY)
+        .applyIf(
+            keepRuleFile != null,
+            b -> b.addKeepRuleFiles(Paths.get(ToolHelper.EXAMPLES_DIR, name, keepRuleFile)))
+        .applyIf(backend.isDex(), b -> b.setMinApi(minApiLevel))
+        .addDontObfuscate()
+        .addDontShrink()
+        .addKeepRules("-neverpropagatevalue class * { *; }")
+        .addOptionsModification(
+            options -> {
+              options.enableRedundantFieldLoadElimination = false;
+              options.inlinerOptions().enableInlining = false;
+            })
+        .enableProguardTestOptions()
+        .compile()
+        .inspect(inspection);
   }
 }

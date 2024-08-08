@@ -9,4 +9,5 @@
 
 -keepnames class identifiernamestring.A
 
+-dontoptimize
 -dontshrink

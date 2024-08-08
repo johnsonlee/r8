@@ -119,10 +119,10 @@ public class CheckCastAndInstanceOfMethodSpecialization {
       return;
     }
 
-    // Verify that the methods are not pinned. They shouldn't be, since we've computed an abstract
-    // return value for both.
-    assert !appView.appInfo().isPinned(method);
-    assert !appView.appInfo().isPinned(parentMethod);
+    // Verify that the methods are not replaceable. They shouldn't be, since we've computed an
+    // abstract return value for both.
+    assert !appView.getKeepInfo(method).isCodeReplacementAllowed(appView.options());
+    assert !appView.getKeepInfo(parentMethod).isCodeReplacementAllowed(appView.options());
 
     if (appView
         .appInfo()

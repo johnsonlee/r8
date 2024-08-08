@@ -797,6 +797,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   @Override
+  public boolean isCodeReplacementForceEnabled() {
+    return getTestingOptions().allowCodeReplacement;
+  }
+
+  @Override
   public boolean isTreeShakingEnabled() {
     return isShrinking();
   }
@@ -2401,6 +2406,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean addCallEdgesForLibraryInvokes = false;
 
     public boolean allowClassInliningOfSynthetics = true;
+    public boolean allowCodeReplacement = true;
     public boolean allowInjectedAnnotationMethods = false;
     public boolean allowInliningOfOutlines = true;
     public boolean allowInliningOfSynthetics = true;

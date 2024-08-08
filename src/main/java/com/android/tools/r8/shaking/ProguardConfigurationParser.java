@@ -1074,6 +1074,8 @@ public class ProguardConfigurationParser {
           } else if (options.isTestingOptionsEnabled()) {
             if (acceptString("annotationremoval")) {
               builder.getModifiersBuilder().setAllowsAnnotationRemoval(true);
+            } else if (acceptString("codereplacement")) {
+              builder.getModifiersBuilder().setAllowsCodeReplacement(true);
             }
           }
         } else if (acceptString("includedescriptorclasses")) {

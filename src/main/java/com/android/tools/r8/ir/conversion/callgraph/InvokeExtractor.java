@@ -57,13 +57,13 @@ public class InvokeExtractor<N extends NodeBase<N>> extends DefaultUseRegistry<P
       // We don't care about calls to native methods.
       return;
     }
-    if (!appViewWithLiveness
+    if (appViewWithLiveness
         .getKeepInfo(callee)
-        .isOptimizationAllowed(appViewWithLiveness.options())) {
-      // Since the callee is kept and optimizations are disallowed, we cannot inline it into the
-      // caller, and we also cannot collect any optimization info for the method. Therefore, we
-      // drop the call edge to reduce the total number of call graph edges, which should lead to
-      // fewer call graph cycles.
+        .isCodeReplacementAllowed(appViewWithLiveness.options())) {
+      // Since the code of the callee may be replaced, we cannot inline it into the caller, and we
+      // also cannot collect any optimization info for the method. Therefore, we drop the call edge
+      // to reduce the total number of call graph edges, which should lead to fewer call graph
+      // cycles.
       return;
     }
     nodeFactory.apply(callee).addCallerConcurrently(currentMethod, likelySpuriousCallEdge);

@@ -31,6 +31,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
   private final boolean allowThrowsRemoval;
   private final boolean allowClassInlining;
   private final boolean allowClosedWorldReasoning;
+  private final boolean allowCodeReplacement;
   private final boolean allowConstantArgumentOptimization;
   private final boolean allowInlining;
   private final boolean allowMethodStaticizing;
@@ -50,6 +51,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     this.allowThrowsRemoval = builder.isThrowsRemovalAllowed();
     this.allowClassInlining = builder.isClassInliningAllowed();
     this.allowClosedWorldReasoning = builder.isClosedWorldReasoningAllowed();
+    this.allowCodeReplacement = builder.isCodeReplacementAllowed();
     this.allowConstantArgumentOptimization = builder.isConstantArgumentOptimizationAllowed();
     this.allowInlining = builder.isInliningAllowed();
     this.allowMethodStaticizing = builder.isMethodStaticizingAllowed();
@@ -127,6 +129,16 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
   boolean internalIsClosedWorldReasoningAllowed() {
     return allowClosedWorldReasoning;
+  }
+
+  public boolean isCodeReplacementAllowed(GlobalKeepInfoConfiguration configuration) {
+    return configuration.isCodeReplacementForceEnabled()
+        ? !isOptimizationAllowed(configuration)
+        : internalIsCodeReplacementAllowed();
+  }
+
+  boolean internalIsCodeReplacementAllowed() {
+    return allowCodeReplacement;
   }
 
   public boolean isConstantArgumentOptimizationAllowed(GlobalKeepInfoConfiguration configuration) {
@@ -273,6 +285,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     private boolean allowThrowsRemoval;
     private boolean allowClassInlining;
     private boolean allowClosedWorldReasoning;
+    private boolean allowCodeReplacement;
     private boolean allowConstantArgumentOptimization;
     private boolean allowInlining;
     private boolean allowMethodStaticizing;
@@ -296,6 +309,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
       allowThrowsRemoval = original.internalIsThrowsRemovalAllowed();
       allowClassInlining = original.internalIsClassInliningAllowed();
       allowClosedWorldReasoning = original.internalIsClosedWorldReasoningAllowed();
+      allowCodeReplacement = original.internalIsCodeReplacementAllowed();
       allowConstantArgumentOptimization = original.internalIsConstantArgumentOptimizationAllowed();
       allowInlining = original.internalIsInliningAllowed();
       allowMethodStaticizing = original.internalIsMethodStaticizingAllowed();
@@ -336,6 +350,15 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     public Builder setAllowClosedWorldReasoning(boolean allowClosedWorldReasoning) {
       this.allowClosedWorldReasoning = allowClosedWorldReasoning;
+      return self();
+    }
+
+    public boolean isCodeReplacementAllowed() {
+      return allowCodeReplacement;
+    }
+
+    public Builder setAllowCodeReplacement(boolean allowCodeReplacement) {
+      this.allowCodeReplacement = allowCodeReplacement;
       return self();
     }
 
@@ -483,6 +506,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           && isThrowsRemovalAllowed() == other.internalIsThrowsRemovalAllowed()
           && isClassInliningAllowed() == other.internalIsClassInliningAllowed()
           && isClosedWorldReasoningAllowed() == other.internalIsClosedWorldReasoningAllowed()
+          && isCodeReplacementAllowed() == other.internalIsCodeReplacementAllowed()
           && isConstantArgumentOptimizationAllowed()
               == other.internalIsConstantArgumentOptimizationAllowed()
           && isInliningAllowed() == other.internalIsInliningAllowed()
@@ -513,6 +537,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .setAllowThrowsRemoval(false)
           .setAllowClassInlining(false)
           .setAllowClosedWorldReasoning(false)
+          .setAllowCodeReplacement(true)
           .setAllowConstantArgumentOptimization(false)
           .setAllowInlining(false)
           .setAllowMethodStaticizing(false)
@@ -534,6 +559,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .setAllowThrowsRemoval(true)
           .setAllowClassInlining(true)
           .setAllowClosedWorldReasoning(true)
+          .setAllowCodeReplacement(false)
           .setAllowConstantArgumentOptimization(true)
           .setAllowInlining(true)
           .setAllowMethodStaticizing(true)
@@ -572,6 +598,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     public Joiner disallowClosedWorldReasoning() {
       builder.setAllowClosedWorldReasoning(false);
+      return self();
+    }
+
+    public Joiner allowCodeReplacement() {
+      builder.setAllowCodeReplacement(true);
       return self();
     }
 
@@ -662,6 +693,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
           .applyIf(!joiner.builder.isClassInliningAllowed(), Joiner::disallowClassInlining)
           .applyIf(
               !joiner.builder.isClosedWorldReasoningAllowed(), Joiner::disallowClosedWorldReasoning)
+          .applyIf(joiner.builder.isCodeReplacementAllowed(), Joiner::allowCodeReplacement)
           .applyIf(
               !joiner.builder.isConstantArgumentOptimizationAllowed(),
               Joiner::disallowConstantArgumentOptimization)

@@ -35,6 +35,7 @@ import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
@@ -126,7 +127,8 @@ public final class TrivialFieldAccessReprocessor {
   private void markFieldAsDead(DexEncodedField field) {
     // Don't mark pinned fields as dead, since they need to remain in the app even if all reads and
     // writes are removed.
-    if (appView.appInfo().isPinned(field)) {
+    KeepFieldInfo keepInfo = appView.getKeepInfo().getFieldInfo(field, appView);
+    if (!keepInfo.isOptimizationAllowed(appView.options())) {
       assert field.getType().isAlwaysNull(appView);
     } else {
       getSimpleFeedback().markFieldAsDead(field);

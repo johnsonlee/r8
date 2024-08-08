@@ -169,9 +169,9 @@ public class MethodResolutionOptimizationInfoAnalysis {
       } else {
         for (DexEncodedMethod method : clazz.virtualMethods()) {
           KeepMethodInfo keepInfo = appViewWithLiveness.getKeepInfo().getMethodInfo(method, clazz);
-          if (!keepInfo.isShrinkingAllowed(appViewWithLiveness.options())) {
-            // Method is kept and could be overridden outside app (e.g., in tests). Verify we don't
-            // have any optimization info recorded for non-abstract methods.
+          if (keepInfo.isCodeReplacementAllowed(appViewWithLiveness.options())) {
+            // Method can be replaced. Verify we don't have any optimization info recorded for
+            // non-abstract methods.
             assert method.isAbstract()
                 || method.getOptimizationInfo().isDefault()
                 || method.getOptimizationInfo().returnValueHasBeenPropagated();

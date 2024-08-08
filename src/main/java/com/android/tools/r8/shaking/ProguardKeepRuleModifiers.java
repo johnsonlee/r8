@@ -10,6 +10,8 @@ public class ProguardKeepRuleModifiers {
 
     private boolean allowsAccessModification = false;
     private boolean allowsAnnotationRemoval = false;
+    // The default value is determined by InternalOptions.
+    private boolean allowsCodeReplacement = false;
     private boolean allowsRepackaging = false;
     private boolean allowsShrinking = false;
     private boolean allowsOptimization = false;
@@ -22,6 +24,7 @@ public class ProguardKeepRuleModifiers {
     public Builder setAllowsAll() {
       setAllowsAccessModification(true);
       setAllowsAnnotationRemoval(true);
+      setAllowsCodeReplacement(false);
       setAllowsObfuscation(true);
       setAllowsOptimization(true);
       setAllowsRepackaging(true);
@@ -36,6 +39,11 @@ public class ProguardKeepRuleModifiers {
 
     public Builder setAllowsAnnotationRemoval(boolean allowsAnnotationRemoval) {
       this.allowsAnnotationRemoval = allowsAnnotationRemoval;
+      return this;
+    }
+
+    public Builder setAllowsCodeReplacement(boolean allowsCodeReplacement) {
+      this.allowsCodeReplacement = allowsCodeReplacement;
       return this;
     }
 
@@ -75,6 +83,7 @@ public class ProguardKeepRuleModifiers {
       return new ProguardKeepRuleModifiers(
           allowsAccessModification,
           allowsAnnotationRemoval,
+          allowsCodeReplacement,
           allowsRepackaging,
           allowsShrinking,
           allowsOptimization,
@@ -86,6 +95,7 @@ public class ProguardKeepRuleModifiers {
 
   public final boolean allowsAccessModification;
   public final boolean allowsAnnotationRemoval;
+  public final boolean allowsCodeReplacement;
   public final boolean allowsRepackaging;
   public final boolean allowsShrinking;
   public final boolean allowsOptimization;
@@ -96,6 +106,7 @@ public class ProguardKeepRuleModifiers {
   private ProguardKeepRuleModifiers(
       boolean allowsAccessModification,
       boolean allowsAnnotationRemoval,
+      boolean allowsCodeReplacement,
       boolean allowsRepackaging,
       boolean allowsShrinking,
       boolean allowsOptimization,
@@ -104,6 +115,7 @@ public class ProguardKeepRuleModifiers {
       boolean allowsPermittedSubclassesRemoval) {
     this.allowsAccessModification = allowsAccessModification;
     this.allowsAnnotationRemoval = allowsAnnotationRemoval;
+    this.allowsCodeReplacement = allowsCodeReplacement;
     this.allowsRepackaging = allowsRepackaging;
     this.allowsShrinking = allowsShrinking;
     this.allowsOptimization = allowsOptimization;
@@ -122,6 +134,7 @@ public class ProguardKeepRuleModifiers {
   public boolean isBottom() {
     return allowsAccessModification
         && allowsAnnotationRemoval
+        && !allowsCodeReplacement
         && allowsRepackaging
         && allowsObfuscation
         && allowsOptimization
@@ -138,6 +151,7 @@ public class ProguardKeepRuleModifiers {
     ProguardKeepRuleModifiers that = (ProguardKeepRuleModifiers) o;
     return allowsAccessModification == that.allowsAccessModification
         && allowsAnnotationRemoval == that.allowsAnnotationRemoval
+        && allowsCodeReplacement == that.allowsCodeReplacement
         && allowsRepackaging == that.allowsRepackaging
         && allowsShrinking == that.allowsShrinking
         && allowsOptimization == that.allowsOptimization
@@ -151,6 +165,7 @@ public class ProguardKeepRuleModifiers {
     return Objects.hash(
         allowsAccessModification,
         allowsAnnotationRemoval,
+        allowsCodeReplacement,
         allowsRepackaging,
         allowsShrinking,
         allowsOptimization,
@@ -164,6 +179,7 @@ public class ProguardKeepRuleModifiers {
     StringBuilder builder = new StringBuilder();
     appendWithComma(builder, allowsAccessModification, "allowaccessmodification");
     appendWithComma(builder, allowsAnnotationRemoval, "allowannotationremoval");
+    appendWithComma(builder, allowsCodeReplacement, "allowcodereplacement");
     appendWithComma(builder, allowsRepackaging, "allowrepackaging");
     appendWithComma(builder, allowsObfuscation, "allowobfuscation");
     appendWithComma(builder, allowsShrinking, "allowshrinking");
