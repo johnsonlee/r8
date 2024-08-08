@@ -140,6 +140,11 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
         AndroidApp.builder().addProgramFile(feature).setProguardMapOutputData(proguardMap).build());
   }
 
+  public CodeInspector featureInspector() throws IOException {
+    assert features.size() == 1;
+    return featureInspector(features.get(0));
+  }
+
   @SafeVarargs
   public final <E extends Throwable> R8TestCompileResult inspect(
       ThrowingConsumer<CodeInspector, E>... consumers) throws IOException, E {

@@ -8,12 +8,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.DiagnosticsMatcher;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.ir.optimize.ServiceLoaderRewriterDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
 import java.util.List;
@@ -155,9 +153,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
       throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(null)
         .addKeepMainRule(MainRunner.class)
-        .compile()
-        .assertAllInfosMatch(
-            DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class))
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertFailureWithErrorThatThrows(NoSuchElementException.class)
         .inspectFailure(inspector -> assertEquals(1, getServiceLoaderLoads(inspector)));
@@ -213,10 +210,7 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(OtherRunner.class)
         .allowDiagnosticInfoMessages()
-        .compile()
-        .assertAllInfosMatch(
-            DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class))
-        .assertAtLeastOneInfoMessage()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), OtherRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(
@@ -234,10 +228,7 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
         .enableInliningAnnotations()
         .addDontObfuscate()
         .allowDiagnosticInfoMessages()
-        .compile()
-        .assertAllInfosMatch(
-            DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class))
-        .assertAtLeastOneInfoMessage()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), EscapingRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(
@@ -254,10 +245,7 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
         .addKeepMainRule(LoadWhereClassLoaderIsPhi.class)
         .enableInliningAnnotations()
         .allowDiagnosticInfoMessages()
-        .compile()
-        .assertAllInfosMatch(
-            DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class))
-        .assertAtLeastOneInfoMessage()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), LoadWhereClassLoaderIsPhi.class)
         .assertSuccessWithOutputLines("Hello World!")
         .inspect(
@@ -279,10 +267,7 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
         .addKeepMainRule(MainRunner.class)
         .addKeepClassRules(Service.class)
         .allowDiagnosticInfoMessages()
-        .compile()
-        .assertAllInfosMatch(
-            DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class))
-        .assertAtLeastOneInfoMessage()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(

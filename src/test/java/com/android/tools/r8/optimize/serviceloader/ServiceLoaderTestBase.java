@@ -9,11 +9,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataEntryResource;
+import com.android.tools.r8.DiagnosticsMatcher;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompilerBuilder.DiagnosticsConsumer;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.graph.AppServices;
+import com.android.tools.r8.ir.optimize.ServiceLoaderRewriterDiagnostic;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.DataResourceConsumerForTesting;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -25,12 +29,17 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 public class ServiceLoaderTestBase extends TestBase {
   protected final TestParameters parameters;
   protected DataResourceConsumerForTesting dataResourceConsumer;
+  protected static final DiagnosticsConsumer<CompilationFailedException> REWRITER_DIAGNOSTICS =
+      diagnostics ->
+          diagnostics
+              .assertOnlyInfos()
+              .assertAllInfosMatch(
+                  DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class));
 
   public ServiceLoaderTestBase(TestParameters parameters) {
     this.parameters = parameters;

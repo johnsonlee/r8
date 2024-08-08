@@ -4,14 +4,17 @@
 
 package com.android.tools.r8.ir.optimize;
 
+import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory.ServiceLoaderMethods;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
@@ -159,22 +162,6 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
         continue;
       }
 
-      // Check that the service is configured in the META-INF/services.
-      AppServices appServices = appView.appServices();
-      if (!appServices.allServiceTypes().contains(constClass.getValue())) {
-        // Error already reported in the Enqueuer.
-        continue;
-      }
-
-      // Check that we are not service loading anything from a feature into base.
-      if (appServices.hasServiceImplementationsInFeature(appView(), constClass.getValue())) {
-        report(
-            code.context(),
-            constClass.getType(),
-            "The service loader type has implementations in a feature split");
-        continue;
-      }
-
       // Check that ClassLoader used is the ClassLoader defined for the service configuration
       // that we are instantiating or NULL.
       Value classLoaderValue = serviceLoaderLoad.getLastArgument().getAliasedValue();
@@ -187,26 +174,39 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                 + ".class.getClassLoader()");
         continue;
       }
+      boolean isNullClassLoader = classLoaderValue.getType().isNullType();
       InvokeVirtual classLoaderInvoke = classLoaderValue.getDefinition().asInvokeVirtual();
-      boolean isGetClassLoaderOnConstClassOrNull =
-          classLoaderValue.getType().isNullType()
-              || (classLoaderInvoke != null
-                  && classLoaderInvoke.arguments().size() == 1
-                  && classLoaderInvoke.getReceiver().getAliasedValue().isConstClass()
-                  && classLoaderInvoke
-                      .getReceiver()
-                      .getAliasedValue()
-                      .getDefinition()
-                      .asConstClass()
-                      .getValue()
-                      .isIdenticalTo(constClass.getValue()));
-      if (!isGetClassLoaderOnConstClassOrNull) {
+      boolean isGetClassLoaderOnConstClass =
+          classLoaderInvoke != null
+              && classLoaderInvoke.arguments().size() == 1
+              && classLoaderInvoke.getReceiver().getAliasedValue().isConstClass()
+              && classLoaderInvoke
+                  .getReceiver()
+                  .getAliasedValue()
+                  .getDefinition()
+                  .asConstClass()
+                  .getValue()
+                  .isIdenticalTo(constClass.getType());
+      if (!isNullClassLoader && !isGetClassLoaderOnConstClass) {
         report(
             code.context(),
             constClass.getType(),
             "The java.lang.ClassLoader argument must be defined locally as null or "
                 + constClass.getType()
                 + ".class.getClassLoader()");
+        continue;
+      }
+
+      // Check that the service is configured in the META-INF/services.
+      AppServices appServices = appView.appServices();
+      if (!appServices.allServiceTypes().contains(constClass.getValue())) {
+        report(code.context(), constClass.getType(), "No META-INF/services file found.");
+        continue;
+      }
+
+      // Check that we are not service loading anything from a feature into base.
+      if (hasServiceImplementationInDifferentFeature(
+          code, constClass.getType(), isNullClassLoader)) {
         continue;
       }
 
@@ -266,6 +266,64 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                       + ": "
                       + message));
     }
+  }
+
+  private boolean hasServiceImplementationInDifferentFeature(
+      IRCode code, DexType serviceType, boolean baseFeatureOnly) {
+    AppView<AppInfoWithLiveness> appViewWithClasses = appView();
+    ClassToFeatureSplitMap classToFeatureSplitMap =
+        appViewWithClasses.appInfo().getClassToFeatureSplitMap();
+    if (classToFeatureSplitMap.isEmpty()) {
+      return false;
+    }
+    Map<FeatureSplit, List<DexType>> featureImplementations =
+        appView.appServices().serviceImplementationsByFeatureFor(serviceType);
+    if (featureImplementations == null || featureImplementations.isEmpty()) {
+      return false;
+    }
+    DexProgramClass serviceClass = appView.definitionForProgramType(serviceType);
+    if (serviceClass == null) {
+      return false;
+    }
+    FeatureSplit serviceFeature =
+        classToFeatureSplitMap.getFeatureSplit(serviceClass, appViewWithClasses);
+    if (baseFeatureOnly && !serviceFeature.isBase()) {
+      report(
+          code.context(),
+          serviceType,
+          "ClassLoader arg was null and service interface is in non-base feature");
+      return true;
+    }
+    for (var entry : featureImplementations.entrySet()) {
+      FeatureSplit metaInfFeature = entry.getKey();
+      if (!metaInfFeature.isBase()) {
+        if (baseFeatureOnly) {
+          report(
+              code.context(),
+              serviceType,
+              "ClassLoader arg was null and META-INF/ service entry found in non-base feature");
+          return true;
+        }
+        if (metaInfFeature != serviceFeature) {
+          report(
+              code.context(),
+              serviceType,
+              "META-INF/ service found in different feature from service interface");
+          return true;
+        }
+      }
+      for (DexType impl : entry.getValue()) {
+        FeatureSplit implFeature = classToFeatureSplitMap.getFeatureSplit(impl, appViewWithClasses);
+        if (implFeature != serviceFeature) {
+          report(
+              code.context(),
+              serviceType,
+              "Implementation found in different feature from service interface: " + impl);
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private DexEncodedMethod createSynthesizedMethod(

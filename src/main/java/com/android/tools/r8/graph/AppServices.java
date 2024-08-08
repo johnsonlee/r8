@@ -12,10 +12,8 @@ import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -91,43 +89,8 @@ public class AppServices {
     return builder.build();
   }
 
-  public boolean hasServiceImplementationsInFeature(
-      AppView<? extends AppInfoWithLiveness> appView, DexType serviceType) {
-    ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
-    if (classToFeatureSplitMap.isEmpty()) {
-      return false;
-    }
-    Map<FeatureSplit, List<DexType>> featureImplementations = services.get(serviceType);
-    if (featureImplementations == null || featureImplementations.isEmpty()) {
-      assert false
-          : "Unexpected attempt to get service implementations for non-service type `"
-              + serviceType.toSourceString()
-              + "`";
-      return true;
-    }
-    if (featureImplementations.keySet().stream().anyMatch(feature -> !feature.isBase())) {
-      return true;
-    }
-    // All service implementations are in one of the base splits.
-    assert featureImplementations.size() <= 2;
-    // Check if service is defined feature
-    DexProgramClass serviceClass = appView.definitionForProgramType(serviceType);
-    if (serviceClass != null && classToFeatureSplitMap.isInFeature(serviceClass, appView)) {
-      return true;
-    }
-    for (Entry<FeatureSplit, List<DexType>> entry : featureImplementations.entrySet()) {
-      FeatureSplit feature = entry.getKey();
-      assert feature.isBase();
-      List<DexType> implementationTypes = entry.getValue();
-      for (DexType implementationType : implementationTypes) {
-        DexProgramClass implementationClass = appView.definitionForProgramType(implementationType);
-        if (implementationClass != null
-            && classToFeatureSplitMap.isInFeature(implementationClass, appView)) {
-          return true;
-        }
-      }
-    }
-    return false;
+  public Map<FeatureSplit, List<DexType>> serviceImplementationsByFeatureFor(DexType serviceType) {
+    return services.get(serviceType);
   }
 
   public AppServices rewrittenWithLens(GraphLens graphLens, Timing timing) {
