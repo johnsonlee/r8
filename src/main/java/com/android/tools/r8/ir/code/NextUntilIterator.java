@@ -24,4 +24,19 @@ public interface NextUntilIterator<T> extends Iterator<T> {
     }
     return null;
   }
+
+  /**
+   * Continue to call {@link #next} until it returns the given item.
+   *
+   * @returns item if it was found, null otherwise.
+   */
+  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
+  default <S extends T> S nextUntil(T item) {
+    while (hasNext()) {
+      if (next() == item) {
+        return (S) item;
+      }
+    }
+    return null;
+  }
 }

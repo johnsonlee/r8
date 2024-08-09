@@ -67,10 +67,6 @@ public class ServiceLoaderTestBase extends TestBase {
         method -> assertThat(method, not(invokesMethodWithName("getClassLoader"))));
   }
 
-  public static void verifyNoServiceLoaderLoads(CodeInspector inspector) {
-    inspector.allClasses().forEach(ServiceLoaderTestBase::verifyNoServiceLoaderLoads);
-  }
-
   public static void verifyNoServiceLoaderLoads(ClassSubject classSubject) {
     assertTrue(classSubject.isPresent());
     classSubject.forAllMethods(method -> assertThat(method, not(invokesMethodWithName("load"))));
