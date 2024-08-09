@@ -614,8 +614,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
         if (!invoke.getFirstArgument().isConstClass()) {
           return;
         }
-        DexType enumType =
-            invoke.getFirstArgument().getConstInstruction().asConstClass().getValue();
+        DexType enumType = invoke.getFirstArgument().getConstInstruction().asConstClass().getType();
         if (!unboxedEnumsData.isUnboxedEnum(enumType)) {
           return;
         }

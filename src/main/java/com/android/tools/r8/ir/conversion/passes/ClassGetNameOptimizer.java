@@ -100,7 +100,7 @@ public class ClassGetNameOptimizer extends CodeRewriterPass<AppInfo> {
       }
 
       ConstClass constClass = in.definition.asConstClass();
-      DexType type = constClass.getValue();
+      DexType type = constClass.getType();
       int arrayDepth = type.getNumberOfLeadingSquareBrackets();
       DexType baseType = type.toBaseType(dexItemFactory);
       // Make sure base type is a class type.

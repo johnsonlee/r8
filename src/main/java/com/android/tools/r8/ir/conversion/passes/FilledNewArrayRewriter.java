@@ -582,7 +582,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         if (elementValue.isConstString()) {
           addOccurrence(elementValue.getDefinition().asConstString().getValue());
         } else if (elementValue.isConstClass()) {
-          addOccurrence(elementValue.getDefinition().asConstClass().getValue());
+          addOccurrence(elementValue.getDefinition().asConstClass().getType());
         } else if (elementValue.isDefinedByInstructionSatisfying(Instruction::isStaticGet)) {
           addOccurrence(elementValue.getDefinition().asStaticGet().getField());
         }
@@ -600,7 +600,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
           return value;
         }
       } else if (elementValue.isConstClass()) {
-        DexType type = elementValue.getDefinition().asConstClass().getValue();
+        DexType type = elementValue.getDefinition().asConstClass().getType();
         Value value = constantValue.get(type);
         if (value != null) {
           seenOcourence(type);
@@ -657,7 +657,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         return instruction.asStaticGet().getField();
       } else {
         assert instruction.isConstClass();
-        return instruction.asConstClass().getValue();
+        return instruction.asConstClass().getType();
       }
     }
 

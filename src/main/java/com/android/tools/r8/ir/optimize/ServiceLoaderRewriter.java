@@ -157,7 +157,7 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       }
 
       // Check that the service is not kept.
-      if (appView().appInfo().isPinnedWithDefinitionLookup(constClass.getValue())) {
+      if (appView().appInfo().isPinnedWithDefinitionLookup(constClass.getType())) {
         report(code.context(), serviceType, "The service loader type is kept");
         continue;
       }
@@ -185,7 +185,7 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
                   .getAliasedValue()
                   .getDefinition()
                   .asConstClass()
-                  .getValue()
+                  .getType()
                   .isIdenticalTo(serviceType);
       if (!isNullClassLoader && !isGetClassLoaderOnConstClass) {
         report(
@@ -199,7 +199,7 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
 
       // Check that the service is configured in the META-INF/services.
       AppServices appServices = appView.appServices();
-      List<DexType> dexTypes = appServices.serviceImplementationsFor(constClass.getValue());
+      List<DexType> dexTypes = appServices.serviceImplementationsFor(constClass.getType());
       List<DexClass> classes = new ArrayList<>(dexTypes.size());
       for (DexType serviceImpl : dexTypes) {
         DexClass serviceImplementation = appView.definitionFor(serviceImpl);
@@ -248,7 +248,7 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       // We can perform the rewrite of the ServiceLoader.load call.
       DexEncodedMethod synthesizedMethod =
           synthesizedServiceLoaders.computeIfAbsent(
-              constClass.getValue(),
+              constClass.getType(),
               service -> {
                 DexEncodedMethod addedMethod =
                     createSynthesizedMethod(

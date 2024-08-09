@@ -24,7 +24,7 @@ public class ConstantValueUtils {
     }
 
     if (alias.definition.isConstClass()) {
-      return alias.definition.asConstClass().getValue();
+      return alias.definition.asConstClass().getType();
     }
 
     if (alias.definition.isInvokeStatic()) {

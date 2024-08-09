@@ -286,7 +286,7 @@ public class LoadStoreHelper {
         return new DexItemBasedConstString(
             stackValue, computedConstant.getItem(), computedConstant.getNameComputationInfo());
       } else if (constant.isConstClass()) {
-        return new ConstClass(stackValue, constant.asConstClass().getValue());
+        return new ConstClass(stackValue, constant.asConstClass().getType());
       } else {
         throw new Unreachable("Unexpected constant value: " + value);
       }

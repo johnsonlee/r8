@@ -282,7 +282,7 @@ public class BasicBlockBehavioralSubsumption {
       }
       ConstClass constClassInstruction = instruction.asConstClass();
       ConstClass otherConstClassInstruction = other.asConstClass();
-      return constClassInstruction.getValue() == otherConstClassInstruction.getValue();
+      return constClassInstruction.getType() == otherConstClassInstruction.getType();
     }
 
     if (instruction.isConstNumber()) {

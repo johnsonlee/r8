@@ -66,7 +66,7 @@ public class EnumMethodOptimizer extends StatelessLibraryMethodModelCollection {
     if (invoke.getBlock().hasCatchHandlers()) {
       return;
     }
-    DexType enumType = invoke.inValues().get(0).getConstInstruction().asConstClass().getValue();
+    DexType enumType = invoke.inValues().get(0).getConstInstruction().asConstClass().getType();
     DexProgramClass enumClass = appView.definitionForProgramType(enumType);
     if (enumClass == null
         || !enumClass.isEnum()

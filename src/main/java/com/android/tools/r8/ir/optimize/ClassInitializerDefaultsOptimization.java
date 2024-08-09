@@ -563,7 +563,7 @@ public class ClassInitializerDefaultsOptimization {
       Value inValue = invoke.inValues().get(0);
       return !inValue.isPhi()
           && inValue.definition.isConstClass()
-          && inValue.definition.asConstClass().getValue() == clazz.type;
+          && inValue.definition.asConstClass().getType() == clazz.type;
     }
     return false;
   }

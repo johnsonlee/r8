@@ -68,15 +68,11 @@ public class ConstClass extends ConstInstruction {
 
   public static ConstClass copyOf(Value newValue, ConstClass original) {
     assert newValue != original.outValue();
-    return new ConstClass(newValue, original.getValue());
+    return new ConstClass(newValue, original.getType());
   }
 
   public Value dest() {
     return outValue;
-  }
-
-  public DexType getValue() {
-    return clazz;
   }
 
   @Override
@@ -123,7 +119,7 @@ public class ConstClass extends ConstInstruction {
       ProgramMethod context,
       AbstractValueSupplier abstractValueSupplier,
       SideEffectAssumption assumption) {
-    DexType baseType = getValue().toBaseType(appView.dexItemFactory());
+    DexType baseType = getType().toBaseType(appView.dexItemFactory());
     if (baseType.isPrimitiveType()) {
       return false;
     }

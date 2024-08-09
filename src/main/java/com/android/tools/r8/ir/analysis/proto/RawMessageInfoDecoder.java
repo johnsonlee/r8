@@ -202,7 +202,7 @@ public class RawMessageInfoDecoder {
       Instruction definition = root.definition;
       if (definition.isConstClass()) {
         ConstClass constClass = definition.asConstClass();
-        return new ProtoTypeObject(constClass.getValue());
+        return new ProtoTypeObject(constClass.getType());
       } else if (definition.isConstString()) {
         ConstString constString = definition.asConstString();
         DexEncodedField field =

@@ -163,7 +163,7 @@ public class ConstantCanonicalizer {
                 assert candidate.instructionTypeCanBeCanonicalized();
                 switch (candidate.opcode()) {
                   case CONST_CLASS:
-                    return candidate.asConstClass().getValue().hashCode();
+                    return candidate.asConstClass().getType().hashCode();
                   case CONST_NUMBER:
                     return Long.hashCode(candidate.asConstNumber().getRawValue())
                         + 13 * candidate.outType().hashCode();

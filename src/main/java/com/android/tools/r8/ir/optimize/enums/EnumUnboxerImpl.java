@@ -485,7 +485,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     //    MyEnum a = Enum.valueOf(MyEnum.class, "A");
     // - as a receiver for a name method, to allow unboxing of:
     //    MyEnum.class.getName();
-    DexType enumType = constClass.getValue();
+    DexType enumType = constClass.getType();
     if (!enumUnboxingCandidatesInfo.isCandidate(enumType)) {
       return;
     }

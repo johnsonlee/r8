@@ -33,7 +33,7 @@ public class InlinerUtils {
     if (monitorEnterValue.isPhi() || !monitorEnterValue.definition.isConstClass()) {
       nonConstantMonitorEnterValues.add(monitorEnterValue);
     } else {
-      constantMonitorEnterValues.add(monitorEnterValue.definition.asConstClass().getValue());
+      constantMonitorEnterValues.add(monitorEnterValue.definition.asConstClass().getType());
     }
   }
 }

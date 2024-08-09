@@ -245,7 +245,7 @@ public final class IdentifierNameStringUtils {
       if (!classValue.isConstClass()) {
         return null;
       }
-      DexType holderType = classValue.getConstInstruction().asConstClass().getValue();
+      DexType holderType = classValue.getConstInstruction().asConstClass().getType();
       if (holderType.isArrayType()) {
         // None of the fields or methods of an array type will be renamed, since they are all
         // declared in the library. Hence there is no need to handle this case.
@@ -262,7 +262,7 @@ public final class IdentifierNameStringUtils {
         if (!fieldTypeValue.isConstClass()) {
           return null;
         }
-        DexType fieldType = fieldTypeValue.getConstInstruction().asConstClass().getValue();
+        DexType fieldType = fieldTypeValue.getConstInstruction().asConstClass().getType();
         return IdentifierNameStringLookupResult.fromUncategorized(
             inferFieldInHolder(holder, dexString.toString(), fieldType));
       }
@@ -419,7 +419,7 @@ public final class IdentifierNameStringUtils {
       return null;
     }
     if (value.isConstant() && value.getConstInstruction().isConstClass()) {
-      return value.getConstInstruction().asConstClass().getValue();
+      return value.getConstInstruction().asConstClass().getType();
     }
     if (value.definition.isStaticGet()) {
       return factory.primitiveTypesBoxedTypeFields.boxedFieldTypeToPrimitiveType(

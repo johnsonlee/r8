@@ -722,7 +722,7 @@ public class LensCodeRewriter {
               Instruction replacement =
                   new InstructionReplacer(code, current, iterator, affectedPhis)
                       .replaceInstructionIfTypeChanged(
-                          constClass.getValue(),
+                          constClass.getType(),
                           (t, v) ->
                               t.isPrimitiveType() || t.isVoidType()
                                   ? StaticGet.builder()
