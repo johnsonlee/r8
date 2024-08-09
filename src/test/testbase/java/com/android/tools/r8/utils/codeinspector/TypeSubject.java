@@ -41,6 +41,10 @@ public class TypeSubject extends Subject {
     throw new Unreachable("Cannot determine if a type is synthetic");
   }
 
+  public boolean is(Class<?> clazz) {
+    return is(clazz.getTypeName());
+  }
+
   public boolean is(String type) {
     return dexType.equals(codeInspector.toDexType(type));
   }
