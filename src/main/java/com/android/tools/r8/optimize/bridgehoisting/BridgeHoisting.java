@@ -26,13 +26,13 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -102,38 +102,42 @@ public class BridgeHoisting {
         eligibleSubclasses.add(subclass);
       }
     }
-    for (Wrapper<DexMethod> candidate : getCandidatesForHoisting(eligibleSubclasses)) {
-      hoistBridgeIfPossible(candidate.get(), clazz, eligibleSubclasses);
+    for (ProgramMethod candidate : getCandidatesForHoisting(eligibleSubclasses)) {
+      hoistBridgeIfPossible(candidate, clazz, eligibleSubclasses);
     }
   }
 
-  private Set<Wrapper<DexMethod>> getCandidatesForHoisting(List<DexProgramClass> subclasses) {
+  private Collection<ProgramMethod> getCandidatesForHoisting(List<DexProgramClass> subclasses) {
     Equivalence<DexMethod> equivalence = MethodSignatureEquivalence.get();
-    Set<Wrapper<DexMethod>> candidates = new HashSet<>();
+    Map<Wrapper<DexMethod>, ProgramMethod> candidates = new LinkedHashMap<>();
     for (DexProgramClass subclass : subclasses) {
-      for (DexEncodedMethod method : subclass.virtualMethods()) {
+      for (ProgramMethod method : subclass.virtualProgramMethods()) {
+        if (appView.getKeepInfo(method).isPinned(appView.options())) {
+          continue;
+        }
         BridgeInfo bridgeInfo = method.getOptimizationInfo().getBridgeInfo();
         if (bridgeInfo != null && bridgeInfo.isVirtualBridgeInfo()) {
-          candidates.add(equivalence.wrap(method.getReference()));
+          candidates.put(equivalence.wrap(method.getReference()), method);
         }
       }
     }
-    return candidates;
+    return candidates.values();
   }
 
   private void hoistBridgeIfPossible(
-      DexMethod method, DexProgramClass clazz, List<DexProgramClass> subclasses) {
+      ProgramMethod method, DexProgramClass clazz, List<DexProgramClass> subclasses) {
     // If the method is defined on the parent class, we cannot hoist the bridge.
     // TODO(b/153147967): If the declared method is abstract, we could replace it by the bridge.
     //  Add a test.
-    if (clazz.lookupProgramMethod(method) != null) {
+    DexMethod methodReference = method.getReference();
+    if (clazz.lookupProgramMethod(methodReference) != null) {
       return;
     }
 
     // Bail out if the bridge is also declared in the parent class. In that case, hoisting would
     // change the behavior of calling the bridge on an instance of the parent class.
     MethodResolutionResult res =
-        appView.appInfo().resolveMethodOnClass(clazz.getSuperType(), method);
+        appView.appInfo().resolveMethodOnClass(clazz.getSuperType(), methodReference);
     if (res.isSingleResolution()) {
       if (!res.getResolvedMethod().isAbstract()) {
         return;
@@ -147,10 +151,13 @@ public class BridgeHoisting {
     // implicitly defined by the signature of the invoke-virtual instruction).
     Map<Wrapper<DexMethod>, List<DexProgramClass>> eligibleVirtualInvokeBridges = new HashMap<>();
     for (DexProgramClass subclass : subclasses) {
-      DexEncodedMethod definition = subclass.lookupVirtualMethod(method);
+      DexEncodedMethod definition = subclass.lookupVirtualMethod(methodReference);
       if (definition == null) {
         DexEncodedMethod resolutionTarget =
-            appView.appInfo().resolveMethodOnClassLegacy(subclass, method).getSingleTarget();
+            appView
+                .appInfo()
+                .resolveMethodOnClassLegacy(subclass, methodReference)
+                .getSingleTarget();
         if (resolutionTarget == null || resolutionTarget.isAbstract()) {
           // The fact that this class does not declare the bridge (or the bridge is abstract) should
           // not prevent us from hoisting the bridge.
@@ -208,7 +215,7 @@ public class BridgeHoisting {
 
     // Choose one of the bridge definitions as the one that we will be moving to the superclass.
     List<ProgramMethod> eligibleBridgeMethods =
-        getBridgesEligibleForHoisting(eligibleSubclasses, method);
+        getBridgesEligibleForHoisting(eligibleSubclasses, methodReference);
     ProgramMethod representative = eligibleBridgeMethods.iterator().next();
 
     // Guard against accessibility issues.
@@ -234,8 +241,7 @@ public class BridgeHoisting {
     feedback.setBridgeInfo(representative, new VirtualBridgeInfo(methodToInvoke));
 
     // Move the bridge method to the super class, and record this in the graph lens.
-    DexMethod newMethodReference =
-        appView.dexItemFactory().createMethod(clazz.type, method.proto, method.name);
+    DexMethod newMethodReference = methodReference.withHolder(clazz, appView.dexItemFactory());
     DexEncodedMethod newMethod =
         representative
             .getDefinition()
@@ -250,9 +256,8 @@ public class BridgeHoisting {
         representative.getReference());
 
     // Remove all of the bridges in the eligible subclasses.
-    assert !appView.appInfo().isPinnedWithDefinitionLookup(method);
     for (DexProgramClass subclass : eligibleSubclasses) {
-      DexEncodedMethod removed = subclass.removeMethod(method);
+      DexEncodedMethod removed = subclass.removeMethod(methodReference);
       assert removed != null;
     }
   }
