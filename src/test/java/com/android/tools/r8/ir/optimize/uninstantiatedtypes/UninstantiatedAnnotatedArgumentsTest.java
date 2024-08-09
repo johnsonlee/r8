@@ -72,7 +72,7 @@ public class UninstantiatedAnnotatedArgumentsTest extends TestBase {
         .enableNoParameterReorderingAnnotations()
         .enableUnusedArgumentAnnotations()
         // TODO(b/123060011): Mapping not working in presence of argument removal.
-        .minification(keepUninstantiatedArguments)
+        .addDontObfuscateUnless(keepUninstantiatedArguments)
         .setMinApi(parameters)
         .compile()
         .inspect(this::verifyOutput)

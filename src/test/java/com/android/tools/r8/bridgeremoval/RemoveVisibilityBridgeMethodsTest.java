@@ -43,7 +43,7 @@ public class RemoveVisibilityBridgeMethodsTest extends TestBase {
         .addInnerClasses(RemoveVisibilityBridgeMethodsTest.class)
         .addKeepMainRule(Main.class)
         .allowAccessModification()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(parameters)
         .compile()
         .inspect(this::inspect)
@@ -106,7 +106,7 @@ public class RemoveVisibilityBridgeMethodsTest extends TestBase {
         .addKeepMainRule(mainClass.name)
         .addOptionsModification(options -> options.inlinerOptions().enableInlining = false)
         .allowAccessModification()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(parameters)
         .compile()
         .inspect(

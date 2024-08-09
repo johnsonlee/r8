@@ -75,7 +75,7 @@ public abstract class UnusedArgumentsTestBase extends TestBase {
         .addProgramClasses(getTestClass())
         .addProgramClasses(getAdditionalClasses())
         .addKeepMainRule(getTestClass())
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .addOptionsModification(options -> options.enableSideEffectAnalysis = false)
         .apply(this::configure)
         .run(parameters.getRuntime(), getTestClass())

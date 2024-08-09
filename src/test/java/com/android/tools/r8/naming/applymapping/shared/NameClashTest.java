@@ -120,7 +120,7 @@ public class NameClashTest extends TestBase {
         .addProgramFiles(prgJarThatUsesOriginalLib)
         .addKeepMainRule(MAIN)
         .addKeepRules("-applymapping " + mappingFile)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .run(MAIN)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -133,7 +133,7 @@ public class NameClashTest extends TestBase {
         .addProgramFiles(prgJarThatUsesOriginalLib)
         .addKeepMainRule(MAIN)
         .addKeepRules("-applymapping " + mappingFile)
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .compile()
         .run(MAIN)
@@ -146,7 +146,7 @@ public class NameClashTest extends TestBase {
         .addProgramFiles(prgJarThatUsesOriginalLib)
         .addKeepMainRule(MAIN)
         .addKeepRules("-applymapping " + mappingFile)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .run(MAIN)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -158,7 +158,7 @@ public class NameClashTest extends TestBase {
         .addProgramFiles(prgJarThatUsesOriginalLib)
         .addKeepMainRule(MAIN)
         .addKeepRules("-applymapping " + mappingFile)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .run(MAIN)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -170,7 +170,7 @@ public class NameClashTest extends TestBase {
         .addProgramFiles(prgJarThatUsesMinifiedLib)
         .addKeepMainRule(MAIN)
         .addKeepRules("-applymapping " + mappingFile)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .run(MAIN)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);

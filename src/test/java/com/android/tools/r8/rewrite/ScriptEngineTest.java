@@ -89,7 +89,7 @@ public class ScriptEngineTest extends ScriptEngineTestBase {
             // TODO(b/136633154): This should work both with and without -dontobfuscate.
             .addDontObfuscate()
             // TODO(b/136633154): This should work both with and without -dontshrink.
-            .noTreeShaking()
+            .addDontShrink()
             .compile()
             .applyIf(
                 parameters.isDexRuntime(),

@@ -100,7 +100,7 @@ public class DefaultLambdaWithSelfReferenceTestRunner extends DebugTestBase {
         .addProgramClassesAndInnerClasses(CLASS)
         .setMinApi(parameters)
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepAllAttributes()
         .debug()
         .compile()

@@ -113,7 +113,7 @@ public class DexItemBasedConstStringCanonicalizationTest extends GetNameTestBase
         testForR8(parameters.getBackend())
             .addProgramClasses(MAIN, CanonicalizationTestClass.class)
             .addKeepMainRule(MAIN)
-            .minification(enableMinification)
+            .addDontObfuscateUnless(enableMinification)
             .setMinApi(parameters)
             .addOptionsModification(this::configure)
             .run(parameters.getRuntime(), MAIN)

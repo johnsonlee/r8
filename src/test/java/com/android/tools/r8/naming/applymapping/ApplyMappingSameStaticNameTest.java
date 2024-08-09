@@ -59,7 +59,7 @@ public class ApplyMappingSameStaticNameTest extends TestBase {
   @Test
   public void test_b131532229() throws Exception {
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addLibraryClasses(A.class, B.class)
         .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
         .addProgramClasses(C.class)

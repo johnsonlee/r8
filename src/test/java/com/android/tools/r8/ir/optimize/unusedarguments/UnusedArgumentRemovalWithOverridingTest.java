@@ -50,7 +50,7 @@ public class UnusedArgumentRemovalWithOverridingTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .enableInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(parameters)
         .compile()
         .inspect(this::verify)

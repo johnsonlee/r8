@@ -53,7 +53,7 @@ public class CollisionWithLibraryMethodsTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .enableNoMethodStaticizingAnnotations()
         .enableInliningAnnotations()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(parameters)
         .compile()
         .inspect(this::verify)

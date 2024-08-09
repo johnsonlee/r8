@@ -86,7 +86,7 @@ public class ApplyMappingInterfaceTest extends TestBase {
         .addKeepAllClassesRule()
         .addApplyMapping(libraryCompileResult.getProguardMap())
         .setMinApi(parameters)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .addRunClasspathFiles(libraryCompileResult.writeToZip())
         .run(parameters.getRuntime(), testClass)

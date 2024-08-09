@@ -83,8 +83,8 @@ public class LocalClassRenamingTest extends TestBase {
         .addProgramClasses(TestMain.class)
         .addKeepMainRule(TestMain.class)
         .addKeepAttributes("Signature", "InnerClasses")
-        .noTreeShaking()
-        .minification(enableMinification)
+        .addDontShrink()
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .compile()
         .inspect(

@@ -152,7 +152,7 @@ public class ApplyMappingVirtualInvokeTest extends TestBase {
       throws ExecutionException, IOException, CompilationFailedException {
     R8TestCompileResult libraryCompileResult = compilationResults.apply(parameters);
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addProgramClasses(PROGRAM_CLASSES)
         .addApplyMapping(libraryCompileResult.getProguardMap())

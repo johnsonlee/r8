@@ -70,7 +70,7 @@ public class LambdaToSysOutPrintlnDuplicationTest extends TestBase {
         .addProgramClasses(CLASSES)
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
-        .minification(minify)
+        .addDontObfuscateUnless(minify)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics);

@@ -46,7 +46,7 @@ public class StackTraceWithPcAndJumboStringTestRunner extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramClasses(getTestClass())
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepAttributeLineNumberTable()
         .addKeepMainRule(getTestClass())
         .setMinApi(parameters)

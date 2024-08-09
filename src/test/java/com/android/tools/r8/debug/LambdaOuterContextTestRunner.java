@@ -60,7 +60,7 @@ public class LambdaOuterContextTestRunner extends DebugTestBase {
         .addProgramClassesAndInnerClasses(CLASS)
         .debug()
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), CLASS)
         .assertSuccessWithOutput(EXPECTED)

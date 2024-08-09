@@ -45,7 +45,7 @@ public class ApplyMappingRotateNameClashTest extends TestBase {
         .addLibraryFiles(parameters.getDefaultRuntimeLibrary())
         .addProgramClasses(C.class)
         .addKeepMainRule(C.class)
-        .noTreeShaking()
+        .addDontShrink()
         .addApplyMapping(
             StringUtils.lines(
                 A.class.getTypeName() + " -> " + B.class.getTypeName() + ":",

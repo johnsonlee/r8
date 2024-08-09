@@ -54,7 +54,7 @@ public class MinificationMixedCaseAndNumbersTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(MinificationMixedCaseAndNumbersTest.class)
         .addKeepMainRule(Main.class)
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepRules(
             "-dontusemixedcaseclassnames", "-keeppackagenames com.android.tools.r8.naming")
         .setMinApi(parameters)

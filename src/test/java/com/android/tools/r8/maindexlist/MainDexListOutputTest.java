@@ -99,7 +99,7 @@ public class MainDexListOutputTest extends TestBase {
     Path mainDexListOutput = temp.getRoot().toPath().resolve("main-dex-output.txt");
     testForR8(Backend.DEX)
         .addProgramClasses(HelloWorldMain.class)
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .setMinApi(AndroidApiLevel.K)
         .addMainDexRuleFiles(mainDexRules)

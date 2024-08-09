@@ -102,7 +102,7 @@ public class ApplyMappingAfterHorizontalMergingFieldTest extends TestBase {
         != inspector.clazz(LibraryB.class).isPresent());
 
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addProgramClasses(PROGRAM_CLASSES)
         .addApplyMapping(libraryResult.getProguardMap())

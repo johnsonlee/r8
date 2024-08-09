@@ -67,7 +67,7 @@ public class GetNameInClassInitializerTest extends GetNameTestBase {
         .enableInliningAnnotations()
         .addKeepMainRule(MAIN)
         .addKeepRules("-keep class **.GetNameClinit*")
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .addOptionsModification(this::configure)
         .run(parameters.getRuntime(), MAIN)
@@ -83,7 +83,7 @@ public class GetNameInClassInitializerTest extends GetNameTestBase {
             .enableInliningAnnotations()
             .addKeepMainRule(MAIN)
             .addKeepRules("-keep,allowobfuscation class **.GetNameClinit*")
-            .minification(enableMinification)
+            .addDontObfuscateUnless(enableMinification)
             .setMinApi(parameters)
             .addOptionsModification(this::configure)
             .compile();

@@ -86,7 +86,7 @@ public class KotlinDebugInfoTestRunner extends TestBase {
         .apply(configuration)
         .debug()
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .run(parameters.getRuntime(), className)
         .assertSuccessWithOutput(runInput.stdout);

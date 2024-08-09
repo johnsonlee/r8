@@ -43,7 +43,7 @@ public class DifferentParameterCountSingleLineCodeTestRunner extends TestBase {
         .addProgramClasses(CLASS)
         .addKeepMainRule(CLASS)
         // Keep all the methods but allow renaming.
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepAttributeLineNumberTable()
         .addKeepAttributeSourceFile()
         .addKeepRules("-renamesourcefileattribute " + (customSourceFile ? "X" : "SourceFile"))

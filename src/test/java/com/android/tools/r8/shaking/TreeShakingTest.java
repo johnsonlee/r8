@@ -166,7 +166,7 @@ public abstract class TreeShakingTest extends TestBase {
                     ToolHelper.getAppBuilder(b.getBuilder())
                         .addProgramFiles(Paths.get(programFile)))
             .enableProguardTestOptions()
-            .minification(minify.isMinify())
+            .addDontObfuscateUnless(minify.isMinify())
             .setMinApi(parameters)
             .addKeepRuleFiles(
                 ListUtils.map(

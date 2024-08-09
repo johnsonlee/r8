@@ -9,7 +9,6 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,7 +84,7 @@ public class LambdaInStacktraceTest extends TestBase {
             .addKeepMainRule(TestRunner.class)
             .addKeepAttributeSourceFile()
             .addKeepRules("-renamesourcefileattribute SourceFile")
-            .noTreeShaking()
+            .addDontShrink()
             .addDontOptimize()
             .run(parameters.getRuntime(), TestRunner.class, Boolean.toString(isDalvik))
             .assertSuccess()

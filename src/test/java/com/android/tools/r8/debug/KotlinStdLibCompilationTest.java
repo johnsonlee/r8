@@ -80,7 +80,7 @@ public class KotlinStdLibCompilationTest extends TestBase {
         .addKeepAllAttributes()
         .allowDiagnosticWarningMessages()
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .setMode(CompilationMode.DEBUG)
         .setMinApi(parameters)
         .applyIf(

@@ -145,7 +145,7 @@ public class ApplyMappingTest extends TestBase {
             .addProgramFiles(NAMING001_JAR)
             .addKeepRuleFiles(Paths.get(ToolHelper.EXAMPLES_DIR, "naming001", "keep-rules-106.txt"))
             .addDontOptimize()
-            .noTreeShaking()
+            .addDontShrink()
             .setMinApi(parameters)
             .compile()
             .inspector();

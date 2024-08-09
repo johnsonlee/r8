@@ -229,7 +229,7 @@ public class InnerClassNameTestRunner extends TestBase {
             .addKeepAttributeInnerClassesAndEnclosingMethod()
             .addProgramClassFileData(InnerClassNameTestDump.dump(config, parameters))
             .allowDiagnosticInfoMessages(hasMalformedInnerClassAttribute())
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .addOptionsModification(
                 options -> {
                   options.disableInnerClassSeparatorValidationWhenRepackaging = true;

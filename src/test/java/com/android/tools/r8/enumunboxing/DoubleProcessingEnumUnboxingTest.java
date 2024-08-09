@@ -61,7 +61,7 @@ public class DoubleProcessingEnumUnboxingTest extends EnumUnboxingTestBase {
             .addKeepRules(enumKeepRules.getKeepRules())
             .enableNeverClassInliningAnnotations()
             .enableInliningAnnotations()
-            .minification(minification)
+            .addDontObfuscateUnless(minification)
             .compile()
             .writeToZip();
     // Compile the app with the lib.

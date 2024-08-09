@@ -85,7 +85,7 @@ public class MainDexListWhyAreYouKeeping extends TestBase {
   public void runTestWithR8(GraphConsumer consumer, String rule) throws Exception {
     R8FullTestBuilder builder =
         testForR8(Backend.DEX)
-            .noTreeShaking()
+            .addDontShrink()
             .addDontObfuscate()
             .setMinApi(AndroidApiLevel.K)
             .addProgramClasses(CLASSES)

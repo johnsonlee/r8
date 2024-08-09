@@ -89,7 +89,7 @@ public class DefaultInterfaceMethodTest extends TestBase {
     }
 
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addProgramClasses(ProgramClass.class)
         .addClasspathClasses(LibraryInterface.class)
         .addApplyMapping(libraryResult.getProguardMap())

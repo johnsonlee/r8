@@ -35,7 +35,7 @@ public class B132897042 extends TestBase {
                 "-assumevalues class" + LibClass.class.getName() + " {",
                 "  static int SDK_INT return 1..28;",
                 "}"))
-        .noTreeShaking()
+        .addDontShrink()
         .setMinApi(parameters)
         .compile()
         .assertNoMessages();

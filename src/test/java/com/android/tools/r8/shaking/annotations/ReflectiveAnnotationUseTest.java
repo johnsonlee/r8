@@ -102,7 +102,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
             .addKeepRules(KEEP_ANNOTATIONS)
             .addKeepRules("-keep @interface " + ANNOTATION_NAME + " {", "  *;", "}")
             .allowDiagnosticWarningMessages()
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .assertAllWarningMessagesMatch(
@@ -143,7 +143,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
                 "  java.lang.String *f2();",
                 "}")
             .allowDiagnosticWarningMessages()
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .assertAllWarningMessagesMatch(
@@ -181,7 +181,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
             .addKeepMainRule(MAIN_CLASS_NAME)
             .addKeepRules(KEEP_ANNOTATIONS)
             .allowDiagnosticWarningMessages()
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .assertAllWarningMessagesMatch(
@@ -218,7 +218,7 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
             .allowDiagnosticWarningMessages()
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .assertAllWarningMessagesMatch(

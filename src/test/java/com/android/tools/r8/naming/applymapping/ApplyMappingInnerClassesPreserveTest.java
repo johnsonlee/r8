@@ -50,7 +50,7 @@ public class ApplyMappingInnerClassesPreserveTest extends TestBase {
         .addApplyMapping(libraryCompileResult.getProguardMap())
         .addKeepAttributes("EnclosingMethod", "InnerClasses")
         .setMinApi(parameters)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .addRunClasspathFiles(libraryCompileResult.writeToZip())
         .run(parameters.getRuntime(), ProgramClassWithSimpleLibraryReference.class)

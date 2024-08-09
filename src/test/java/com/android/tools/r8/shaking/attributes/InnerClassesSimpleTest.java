@@ -40,7 +40,7 @@ public class InnerClassesSimpleTest extends TestBase {
             .addInnerClasses(getClass())
             .addKeepMainRule(Main.class)
             .addKeepPackageNamesRule(getClass().getPackage())
-            .noTreeShaking()
+            .addDontShrink()
             .applyIf(!minify, TestShrinkerBuilder::addDontObfuscate)
             .compile()
             .writeToZip();

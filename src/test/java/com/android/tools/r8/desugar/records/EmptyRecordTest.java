@@ -81,7 +81,7 @@ public class EmptyRecordTest extends TestBase {
         .applyIf(
             parameters.isCfRuntime(),
             testBuilder -> testBuilder.addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp)))
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .applyIf(enableRepackaging, b -> b.addKeepRules("-repackageclasses p"))
         .setMinApi(parameters)
         .compile()

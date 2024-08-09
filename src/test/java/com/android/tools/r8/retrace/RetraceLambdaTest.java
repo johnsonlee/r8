@@ -98,7 +98,7 @@ public class RetraceLambdaTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addKeepPackageNamesRule(getClass().getPackage())
-        .noTreeShaking()
+        .addDontShrink()
         .addDontOptimize()
         .addKeepAttributeSourceFile()
         .addKeepAttributeLineNumberTable()

@@ -58,7 +58,7 @@ public class LoadInvokeLoadOptimizationTestRunner extends DebugTestBase {
   @Test
   public void testR8() throws Throwable {
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addKeepRules("-keepattributes SourceFile,LineNumberTable")
         .addProgramClasses(CLASS)

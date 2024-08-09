@@ -58,7 +58,7 @@ public class CheckDiscardedTest extends TestBase {
                   UnusedClass.class, UsedClass.class, Main.class, WillBeGone.class, WillStay.class)
               .addKeepMainRule(Main.class)
               .addKeepRules(checkDiscardRule(checkMembers, annotation))
-              .minification(minify)
+              .addDontObfuscateUnless(minify)
               .addOptionsModification(this::noInlining)
               .compile();
       assertNull(onCompilationFailure);

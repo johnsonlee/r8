@@ -95,7 +95,7 @@ public class EnclosingMethodTest extends TestBase {
         .addKeepMainRule(MAIN)
         .addKeepRules("-keep class **.GetName*")
         .addKeepRules("-keepattributes InnerClasses,EnclosingMethod")
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutput(OUTPUT_WITH_SHRUNK_ATTRIBUTES);

@@ -50,7 +50,7 @@ public class ForNameInterfaceTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(ForNameInterfaceTest.class)
         .addKeepMainRule(Main.class)
-        .minification(false)
+        .addDontObfuscate()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(

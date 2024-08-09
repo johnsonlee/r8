@@ -74,7 +74,7 @@ public class ApplyMappingInterfaceInvokeTest extends TestBase {
         .addClasspathClasses(classPathClasses)
         .addProgramClasses(TestApp.class)
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .addApplyMapping(libraryResult.getProguardMap())
         .setMinApi(parameters)
         .compile()

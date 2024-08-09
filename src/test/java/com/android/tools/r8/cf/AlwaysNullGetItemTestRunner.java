@@ -39,7 +39,7 @@ public class AlwaysNullGetItemTestRunner extends TestBase {
         .addProgramClassesAndInnerClasses(CLASS)
         .debug()
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), CLASS)

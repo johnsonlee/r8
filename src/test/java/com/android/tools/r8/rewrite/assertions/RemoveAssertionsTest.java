@@ -197,7 +197,7 @@ public class RemoveAssertionsTest extends TestBase {
     return testForR8(getStaticTemp(), Backend.CF)
         .addProgramClasses(ClassWithAssertions.class)
         .debug()
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addAssertionsConfiguration(transformation)
         .compile();
@@ -221,7 +221,7 @@ public class RemoveAssertionsTest extends TestBase {
         .addProgramClasses(ChromuimAssertionHookMock.class)
         .setMinApi(AndroidApiLevel.B)
         .debug()
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .setMinApi(minApi)
         .compile();
@@ -350,7 +350,7 @@ public class RemoveAssertionsTest extends TestBase {
             .addProgramClasses(ClassWithAssertions.class)
             .debug()
             .setMinApi(minApi)
-            .noTreeShaking()
+            .addDontShrink()
             .addDontObfuscate()
             .compile()
             .writeToZip();

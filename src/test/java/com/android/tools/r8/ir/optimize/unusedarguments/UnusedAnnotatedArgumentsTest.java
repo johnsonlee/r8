@@ -70,7 +70,7 @@ public class UnusedAnnotatedArgumentsTest extends TestBase {
         .enableConstantArgumentAnnotations()
         .enableUnusedArgumentAnnotations(keepUnusedArguments)
         // TODO(b/123060011): Mapping not working in presence of unused argument removal.
-        .minification(keepUnusedArguments)
+        .addDontObfuscateUnless(keepUnusedArguments)
         .setMinApi(parameters)
         .compile()
         .inspect(this::verifyOutput)

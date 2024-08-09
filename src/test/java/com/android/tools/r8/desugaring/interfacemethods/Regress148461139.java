@@ -33,7 +33,7 @@ public class Regress148461139 extends TestBase {
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(Condition.class)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .inspect(i -> assertTrue(i.clazz(Condition.class).isAbstract()));
   }

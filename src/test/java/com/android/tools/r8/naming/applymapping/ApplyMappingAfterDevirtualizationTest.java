@@ -125,7 +125,7 @@ public class ApplyMappingAfterDevirtualizationTest extends TestBase {
     assertThat(inspector.clazz(LibInterfaceB.class), not(isPresent()));
 
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addProgramClasses(PROGRAM_CLASSES)
         .addApplyMapping(libraryResult.getProguardMap())
@@ -158,7 +158,7 @@ public class ApplyMappingAfterDevirtualizationTest extends TestBase {
     assertThat(inspector.clazz(LibInterfaceB.class), not(isPresent()));
 
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addProgramClasses(PROGRAM_CLASSES)
         .addApplyMapping(libraryResult.getProguardMap())

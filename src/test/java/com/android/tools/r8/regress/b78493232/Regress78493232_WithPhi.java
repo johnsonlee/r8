@@ -10,6 +10,7 @@ import static org.hamcrest.CoreMatchers.startsWith;
 
 import com.android.tools.r8.AsmTestBase;
 import com.android.tools.r8.D8TestRunResult;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -88,7 +89,7 @@ public class Regress78493232_WithPhi extends AsmTestBase {
             .addProgramClasses(CLASSES)
             .addProgramClassFileData(CLASS_BYTES)
             .allowDiagnosticWarningMessages()
-            .treeShaking(treeShake)
+            .applyIf(!treeShake, R8FullTestBuilder::addDontShrink)
             .addDontObfuscate()
             .setMinApi(parameters)
             .addOptionsModification(options -> options.testing.readInputStackMaps = false)

@@ -102,7 +102,7 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
                 "}")
             .allowDiagnosticWarningMessages()
             .enableProguardTestOptions()
-            .minification(minification)
+            .addDontObfuscateUnless(minification)
             .compile()
             .assertAllWarningMessagesMatch(
                 equalTo("Resource 'META-INF/MANIFEST.MF' already exists."));
@@ -172,7 +172,7 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
                     "}"))
             .addNeverSingleCallerInlineAnnotations()
             .allowDiagnosticWarningMessages()
-            .minification(minification)
+            .addDontObfuscateUnless(minification)
             .compile()
             .assertAllWarningMessagesMatch(
                 equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))

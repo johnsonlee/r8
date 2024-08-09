@@ -91,7 +91,7 @@ public class KeepDeserializeLambdaMethodTestRunner extends TestBase {
           // TODO(b/148836254): Support deserialized lambdas without the need of additional rules.
           "-keep class * { private static synthetic void lambda$*(); }");
     } else {
-      builder.addDontObfuscate().noTreeShaking();
+      builder.addDontObfuscate().addDontShrink();
     }
     builder
         .run(parameters.getRuntime(), getMainClass())

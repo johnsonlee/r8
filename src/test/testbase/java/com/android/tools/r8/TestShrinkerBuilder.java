@@ -15,7 +15,6 @@ import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.FileUtils;
-import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -35,9 +34,6 @@ public abstract class TestShrinkerBuilder<
         T extends TestShrinkerBuilder<C, B, CR, RR, T>>
     extends TestCompilerBuilder<C, B, CR, RR, T> {
 
-  protected OptionalBool enableTreeShaking = OptionalBool.UNKNOWN;
-  protected OptionalBool enableMinification = OptionalBool.UNKNOWN;
-
   private final Set<Class<? extends Annotation>> addedTestingAnnotations =
       Sets.newIdentityHashSet();
 
@@ -46,10 +42,6 @@ public abstract class TestShrinkerBuilder<
   }
 
   public boolean isProguardTestBuilder() {
-    return false;
-  }
-
-  public boolean isR8TestBuilder() {
     return false;
   }
 
@@ -90,25 +82,6 @@ public abstract class TestShrinkerBuilder<
     return backend == Backend.DEX ? super.getMinApiLevel() : -1;
   }
 
-  public T treeShaking(boolean enable) {
-    enableTreeShaking = OptionalBool.of(enable);
-    return self();
-  }
-
-  public T noTreeShaking() {
-    return treeShaking(false);
-  }
-
-  public T minification(boolean enable) {
-    enableMinification = OptionalBool.of(enable);
-    return self();
-  }
-
-  @Deprecated
-  public T noMinification() {
-    return minification(false);
-  }
-
   public T addClassObfuscationDictionary(String... names) throws IOException {
     Path path = getState().getNewTempFolder().resolve("classobfuscationdictionary.txt");
     FileUtils.writeTextFile(path, StringUtils.join(" ", names));
@@ -138,6 +111,13 @@ public abstract class TestShrinkerBuilder<
         "-keep,allowaccessmodification,allowannotationremoval,allowoptimization,allowshrinking"
             + " class "
             + clazz.getTypeName());
+  }
+
+  public T addDontObfuscateUnless(boolean enableMinification) {
+    if (!enableMinification) {
+      return addDontObfuscate();
+    }
+    return self();
   }
 
   public T addDontOptimize() {

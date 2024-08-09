@@ -94,7 +94,7 @@ public class IfRuleWithFieldAnnotation extends TestBase {
         .addProgramClasses(Foo.class, Bar.class, SerializedName.class, FooNotCallingBar.class)
         .addDontWarn(getClass())
         .addKeepMainRule(FooNotCallingBar.class)
-        .noMinification()
+        .addDontObfuscate()
         .addKeepRules(CONDITIONAL_KEEP_RULE)
         .compile()
         .inspect(
@@ -113,7 +113,7 @@ public class IfRuleWithFieldAnnotation extends TestBase {
         .addProgramClasses(Foo.class, Bar.class, SerializedName.class, FooNotCallingBar.class)
         .addDontWarn(getClass())
         .addKeepMainRule(FooNotCallingBar.class)
-        .noMinification()
+        .addDontObfuscate()
         .compile()
         .inspect(
             codeInspector -> {

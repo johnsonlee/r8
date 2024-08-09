@@ -59,7 +59,7 @@ public class PrintSeedsWithDeserializeLambdaMethodTest extends TestBase {
         .addPrintSeeds()
         .allowStdoutMessages()
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .run(parameters.getRuntime(), getMainClass())
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkPresenceOfDeserializedLambdas);

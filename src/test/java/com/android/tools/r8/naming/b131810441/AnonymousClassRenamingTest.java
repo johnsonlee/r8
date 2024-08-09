@@ -50,7 +50,7 @@ public class AnonymousClassRenamingTest extends TestBase {
         .addKeepMainRule(TestMain.class)
         .addKeepAttributes("InnerClasses", "EnclosingMethod")
         .enableInliningAnnotations()
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestMain.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)

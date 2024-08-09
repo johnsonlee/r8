@@ -50,7 +50,7 @@ public class CheckDiscardedOverriddenMethodTest extends TestBase {
           .enableNeverClassInliningAnnotations()
           .enableInliningAnnotations()
           .enableNoVerticalClassMergingAnnotations()
-          .minification(minification)
+          .addDontObfuscateUnless(minification)
           .setMinApi(parameters)
           // Asserting that -checkdiscard is not giving any information out on an un-removed
           // sub-type member.

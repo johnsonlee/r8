@@ -72,7 +72,7 @@ public class LambdaStaticInstanceFieldDuplicationTest extends TestBase {
         // Prevent R8 from eliminating the lambdas by keeping the application of them.
         .addKeepClassAndMembersRules(Accept.class)
         .setMinApi(parameters)
-        .minification(minify)
+        .addDontObfuscateUnless(minify)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics);

@@ -116,7 +116,7 @@ public class MissingEnclosingMethodTest extends TestBase {
         .apply(config::addInnerClasses)
         .addKeepMainRule(DataClassUser.class)
         .addKeepAttributes("Signature", "InnerClasses", "EnclosingMethod")
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), DataClassUser.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);

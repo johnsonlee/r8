@@ -56,7 +56,7 @@ public class NestConstructorRemovedArgTest extends TestBase {
   public void testRemoveArgConstructorNestsR8NoTreeShaking() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepMainRule(MAIN_CLASS)
         .addDontObfuscate()
         .setMinApi(parameters)

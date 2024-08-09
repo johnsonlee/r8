@@ -55,7 +55,7 @@ public class TryRangeTestRunner extends TestBase {
         .addKeepMainRule(TryRangeTest.class)
         .setMode(CompilationMode.RELEASE)
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .enableInliningAnnotations()
         .addOptionsModification(o -> o.enableLoadStoreOptimization = false)
         .run(parameters.getRuntime(), TryRangeTest.class)
@@ -70,7 +70,7 @@ public class TryRangeTestRunner extends TestBase {
             .addKeepMainRule(TryRangeTestLimitRange.class)
             .setMode(CompilationMode.RELEASE)
             .addDontObfuscate()
-            .noTreeShaking()
+            .addDontShrink()
             .enableInliningAnnotations()
             .addOptionsModification(
                 o -> {

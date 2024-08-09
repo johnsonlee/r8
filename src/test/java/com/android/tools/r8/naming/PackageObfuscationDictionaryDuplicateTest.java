@@ -46,7 +46,7 @@ public class PackageObfuscationDictionaryDuplicateTest extends TestBase {
     FileUtils.writeTextFile(dictionary, "a");
     testForR8(parameters.getBackend())
         .addProgramClassesAndInnerClasses(Top.class, A.class, C.class)
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepRules("-packageobfuscationdictionary " + dictionary.toString())
         .addKeepMainRule(C.class)
         .setMinApi(parameters)

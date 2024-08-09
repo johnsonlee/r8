@@ -62,7 +62,7 @@ public class UnusedArgumentsCollisionTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .enableNoMethodStaticizingAnnotations()
         .enableNoVerticalClassMergingAnnotations()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(parameters)
         .compile()
         .inspect(this::verifyUnusedArgumentsRemovedAndNoCollisions)

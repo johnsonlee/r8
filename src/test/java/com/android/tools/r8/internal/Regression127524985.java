@@ -68,7 +68,7 @@ public class Regression127524985 extends TestBase {
     assumeTrue(parameters.isCfRuntime());
     testForR8(parameters.getBackend())
         .debug()
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addKeepAllAttributes()
         .addKeepRules("-dontwarn")

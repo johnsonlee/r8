@@ -50,6 +50,7 @@ public class TiviTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(Backend.DEX)
         .addProgramFiles(outDirectory.resolve("program.jar"))
+        .addOptionsModification(options -> options.getTestingOptions().allowCodeReplacement = false)
         .apply(this::configure)
         .compile();
   }

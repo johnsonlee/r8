@@ -52,7 +52,7 @@ public class MockitoTest extends TestBase {
             .addProgramFiles(MOCKITO_INTERFACE_JAR)
             .addKeepRuleFiles(flagToKeepTestRunner)
             .addDontWarn("org.mockito.**")
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .inspector();
@@ -71,7 +71,7 @@ public class MockitoTest extends TestBase {
             .addProgramFiles(MOCKITO_INTERFACE_JAR)
             .addKeepRuleFiles(flagToKeepInterfaceConditionally)
             .addDontWarn("org.mockito.**")
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .inspector();

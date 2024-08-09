@@ -155,7 +155,7 @@ public class Jdk8272564Test extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramFiles(Jdk8272564.jar())
         .setMinApi(parameters)
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepClassAndMembersRules(Jdk8272564.Main.typeName())
         .run(parameters.getRuntime(), Jdk8272564.Main.typeName())
         .inspect(this::assertJdk8272564NotFixedCodeR8)

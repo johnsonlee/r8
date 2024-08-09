@@ -110,12 +110,6 @@ public class ProguardTestBuilder
       command.add(outJar.toString());
       command.add("-printmapping");
       command.add(mapFile.toString());
-      if (enableTreeShaking.isFalse()) {
-        command.add("-dontshrink");
-      }
-      if (enableMinification.isFalse()) {
-        command.add("-dontobfuscate");
-      }
       ProcessBuilder pbuilder = new ProcessBuilder(command);
       ProcessResult result = ToolHelper.runProcess(pbuilder, getStdoutForTesting());
       if (result.exitCode != 0) {

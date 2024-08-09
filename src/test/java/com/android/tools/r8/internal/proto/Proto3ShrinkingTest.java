@@ -68,7 +68,7 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
         .enableProtoShrinking()
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .compile()
         .assertAllInfoMessagesMatch(
@@ -120,7 +120,7 @@ public class Proto3ShrinkingTest extends ProtoShrinkingTestBase {
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
         .enableProtoShrinking()
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .setMinApi(parameters)
         .compile()
         .assertAllInfoMessagesMatch(

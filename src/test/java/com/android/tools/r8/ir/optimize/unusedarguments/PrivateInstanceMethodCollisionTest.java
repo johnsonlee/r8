@@ -67,7 +67,7 @@ public class PrivateInstanceMethodCollisionTest extends TestBase {
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoMethodStaticizingAnnotations()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .allowAccessModification(allowAccessModification)
         .applyIf(
             allowAccessModification,

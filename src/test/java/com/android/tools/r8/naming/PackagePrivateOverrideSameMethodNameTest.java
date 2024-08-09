@@ -63,7 +63,7 @@ public class PackagePrivateOverrideSameMethodNameTest extends TestBase {
             .setMinApi(parameters)
             .enableInliningAnnotations()
             .enableNeverClassInliningAnnotations()
-            .minification(minification)
+            .addDontObfuscateUnless(minification)
             .run(parameters.getRuntime(), Main.class)
             .apply(this::assertSuccessOutput);
     if (parameters.isDexRuntime() && parameters.getDexRuntimeVersion().isDalvik()) {

@@ -70,7 +70,7 @@ public class B124357885Test extends TestBase {
                             + " { *** test(); }"))
             .enableInliningAnnotations()
             .enableKeepUnusedReturnValueAnnotations()
-            .minification(minification)
+            .addDontObfuscateUnless(minification)
             .setMinApi(parameters)
             .compile()
             .inspect(

@@ -42,7 +42,7 @@ public class FunctionTest extends TestBase {
   public void testR8Working() throws Exception {
     testForR8(parameters.getBackend())
         .addKeepMainRule(TestClass.class)
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .enableInliningAnnotations()
         .addInnerClasses(FunctionTest.class)

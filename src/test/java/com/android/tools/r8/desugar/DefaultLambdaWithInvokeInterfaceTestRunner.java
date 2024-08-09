@@ -55,7 +55,7 @@ public class DefaultLambdaWithInvokeInterfaceTestRunner extends DebugTestBase {
         testForR8(Backend.CF)
             .addProgramClassesAndInnerClasses(CLASS)
             .addDontObfuscate()
-            .noTreeShaking()
+            .addDontShrink()
             .debug()
             .compile();
     compileResult

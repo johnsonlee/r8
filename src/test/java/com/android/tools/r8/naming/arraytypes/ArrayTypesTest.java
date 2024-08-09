@@ -68,7 +68,7 @@ public class ArrayTypesTest extends TestBase {
 
   private void runR8Test(boolean enableMinification) throws Exception {
     testForR8(parameters.getBackend())
-        .minification(enableMinification)
+        .addDontObfuscateUnless(enableMinification)
         .addProgramClasses(Main.class, A.class)
         .addProgramClassFileData(generateTestClass())
         .addKeepMainRule(Main.class)
@@ -103,7 +103,7 @@ public class ArrayTypesTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepRules("-applymapping " + mappingFile.toAbsolutePath())
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(expectedOutput);

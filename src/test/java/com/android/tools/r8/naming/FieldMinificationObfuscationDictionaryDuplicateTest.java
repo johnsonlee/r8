@@ -45,7 +45,7 @@ public class FieldMinificationObfuscationDictionaryDuplicateTest extends TestBas
     FileUtils.writeTextFile(dictionary, "a");
     testForR8(parameters.getBackend())
         .addProgramClasses(A.class)
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepRules("-obfuscationdictionary " + dictionary.toString())
         .addKeepMainRule(A.class)
         .setMinApi(parameters)

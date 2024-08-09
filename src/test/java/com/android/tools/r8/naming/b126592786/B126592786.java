@@ -42,7 +42,7 @@ public class B126592786 extends TestBase {
   public void runTest(boolean genericTypeLive) throws Exception {
     Class<?> mainClass = genericTypeLive ? MainGenericTypeLive.class : MainGenericTypeNotLive.class;
     testForR8(parameters.getBackend())
-        .minification(minify)
+        .addDontObfuscateUnless(minify)
         .addProgramClasses(GetClassUtil.class, A.class, GenericType.class, mainClass, Marker.class)
         .addKeepMainRule(mainClass)
         .addKeepRules(

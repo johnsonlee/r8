@@ -54,7 +54,7 @@ public class WhyAreYouKeepingOverriddenMethodTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .enableInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(AndroidApiLevel.B)
         // Redirect the compilers stdout to intercept the '-whyareyoukeeping' output
         .collectStdout()
@@ -72,7 +72,7 @@ public class WhyAreYouKeepingOverriddenMethodTest extends TestBase {
         .enableNeverClassInliningAnnotations()
         .enableInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .setMinApi(AndroidApiLevel.B)
         .setKeptGraphConsumer(graphConsumer)
         .compile();

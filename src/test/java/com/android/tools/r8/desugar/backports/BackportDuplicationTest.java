@@ -90,7 +90,7 @@ public class BackportDuplicationTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .addKeepClassAndMembersRules(MiniAssert.class)
         .setMinApi(parameters)
-        .minification(minify)
+        .addDontObfuscateUnless(minify)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
         .inspect(this::checkNoOriginalsAndNoInternalSynthetics);

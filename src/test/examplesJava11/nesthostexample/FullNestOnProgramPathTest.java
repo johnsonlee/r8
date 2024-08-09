@@ -106,7 +106,7 @@ public class FullNestOnProgramPathTest extends TestBase {
     parameters.assumeR8TestParameters();
     R8TestCompileResult compileResult =
         testForR8(parameters.getBackend())
-            .noTreeShaking()
+            .addDontShrink()
             .addDontObfuscate()
             .addKeepAllAttributes()
             .addOptionsModification(options -> options.enableNestReduction = false)
@@ -134,7 +134,7 @@ public class FullNestOnProgramPathTest extends TestBase {
     parameters.assumeR8TestParameters();
     for (Class<?> clazz : NEST_MAIN_RESULT.keySet()) {
       testForR8(parameters.getBackend())
-          .noTreeShaking()
+          .addDontShrink()
           .addDontObfuscate()
           .addKeepAllAttributes()
           .setMinApi(parameters)

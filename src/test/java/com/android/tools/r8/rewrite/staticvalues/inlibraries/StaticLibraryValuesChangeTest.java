@@ -85,7 +85,7 @@ public class StaticLibraryValuesChangeTest extends TestBase {
             PreloadedClassFileProvider.fromClassData(
                 DescriptorUtils.javaTypeToDescriptor(LibraryClass.class.getName()),
                 compileTimeLibrary.buildClasses().get(0)))
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .compile()
         // Merge the compiled TestMain with the runtime version of LibraryClass.

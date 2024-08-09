@@ -59,7 +59,7 @@ public class EnumMinificationKotlinTest extends KotlinTestBase {
             .addKeepMainRule(MAIN_CLASS_NAME)
             .addKeepClassRulesWithAllowObfuscation(ENUM_CLASS_NAME)
             .allowDiagnosticWarningMessages()
-            .minification(minify)
+            .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
             .assertAllWarningMessagesMatch(

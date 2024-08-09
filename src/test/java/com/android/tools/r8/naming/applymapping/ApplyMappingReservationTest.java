@@ -48,7 +48,7 @@ public class ApplyMappingReservationTest extends TestBase {
         .addKeepMainRule(Runner.class)
         .addApplyMapping(R.class.getTypeName() + " -> " + R.class.getTypeName() + ":")
         .setMinApi(parameters)
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .addRunClasspathFiles(libraryCompileResult.writeToZip())
         .run(parameters.getRuntime(), Runner.class)

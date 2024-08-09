@@ -125,7 +125,7 @@ public class NestAttributesUpdateTest extends TestBase {
       throws Exception {
     testForR8(parameters.getBackend())
         .addKeepMainRule(mainClass)
-        .minification(minification)
+        .addDontObfuscateUnless(minification)
         .addOptionsModification(
             options -> {
               // Disable optimizations else additional classes are removed since they become unused.

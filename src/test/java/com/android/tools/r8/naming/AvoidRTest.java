@@ -61,7 +61,7 @@ public class AvoidRTest extends JasminTestBase {
     builder.addProgramClassFileData(jasminBuilder.buildClasses());
     Set<String> usedDescriptors = new HashSet<>();
     builder
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepRules("-classobfuscationdictionary " + dictionary)
         .compile()
         .inspect(
@@ -89,7 +89,7 @@ public class AvoidRTest extends JasminTestBase {
     builder.addProgramClassFileData(jasminBuilder.buildClasses());
     Set<String> usedNames = new HashSet<>();
     builder
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .inspect(
             codeInspector -> {
@@ -122,7 +122,7 @@ public class AvoidRTest extends JasminTestBase {
     builder.addProgramClassFileData(jasminBuilder.buildClasses());
     Set<String> usedDescriptors = new HashSet<>();
     builder
-        .noTreeShaking()
+        .addDontShrink()
         .addKeepRules(keepRule)
         .compile()
         .inspect(

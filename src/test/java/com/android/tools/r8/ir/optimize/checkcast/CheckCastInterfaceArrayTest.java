@@ -44,7 +44,7 @@ public class CheckCastInterfaceArrayTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED);

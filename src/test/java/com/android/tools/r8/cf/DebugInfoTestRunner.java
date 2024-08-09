@@ -60,7 +60,7 @@ public class DebugInfoTestRunner extends TestBase {
   private R8FullTestBuilder builder() {
     return testForR8(parameters.getBackend())
         .debug()
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .addOptionsModification(o -> o.invalidDebugInfoFatal = true)
         .setMinApi(parameters);

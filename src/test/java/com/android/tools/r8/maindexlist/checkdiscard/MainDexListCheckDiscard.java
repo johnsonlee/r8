@@ -54,7 +54,7 @@ public class MainDexListCheckDiscard extends TestBase {
         .setMinApi(AndroidApiLevel.K)
         .addMainDexRules(keepMainProguardConfiguration(HelloWorldMain.class))
         .addMainDexRules(checkDiscardRule)
-        .noTreeShaking()
+        .addDontShrink()
         .addDontObfuscate()
         .compile();
   }

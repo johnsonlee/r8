@@ -45,7 +45,7 @@ public class CloserTestRunner extends TestBase {
         .addKeepMainRule(CloserTest.class)
         .setMode(CompilationMode.RELEASE)
         .addDontObfuscate()
-        .noTreeShaking()
+        .addDontShrink()
         .enableInliningAnnotations()
         .compile()
         .run(CloserTest.class)
