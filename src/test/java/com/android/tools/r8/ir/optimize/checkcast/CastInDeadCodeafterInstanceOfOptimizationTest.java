@@ -8,7 +8,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -41,14 +40,12 @@ public class CastInDeadCodeafterInstanceOfOptimizationTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    AssertUtils.assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(TestClass.class)
-                .setMinApi(parameters)
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutput(EXPECTED_OUTPUT));
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {

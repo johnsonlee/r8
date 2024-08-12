@@ -274,8 +274,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     if (checkCast.isSafeCheckCast()
         || checkCast
             .getFirstOperand()
-            .getDynamicType(appViewWithLiveness)
-            .getDynamicUpperBoundType()
+            .getDynamicUpperBoundType(appViewWithLiveness)
             .lessThanOrEqualUpToNullability(castTypeLattice, appView)) {
       TypeElement useType =
           TypeUtils.computeUseType(appViewWithLiveness, context, checkCast.outValue());
