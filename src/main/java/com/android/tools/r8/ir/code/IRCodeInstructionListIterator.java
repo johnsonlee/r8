@@ -35,6 +35,10 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
     this.instructionIterator = blockIterator.next().listIterator(code);
   }
 
+  public IRCode getCode() {
+    return code;
+  }
+
   @Override
   public Value insertConstNumberInstruction(
       IRCode code, InternalOptions options, long value, TypeElement type) {
@@ -244,9 +248,23 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
         code, blockIterator, instructionsToAdd, options);
   }
 
+  public void addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+      Collection<? extends Instruction> instructionsToAdd, InternalOptions options) {
+    instructionIterator =
+        instructionIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+            code, blockIterator, instructionsToAdd, options);
+  }
+
   @Override
   public void remove() {
     instructionIterator.remove();
+  }
+
+  public void removeRemainingInBlockIgnoreOutValue() {
+    while (instructionIterator.hasNext()) {
+      instructionIterator.next();
+      instructionIterator.removeInstructionIgnoreOutValue();
+    }
   }
 
   @Override

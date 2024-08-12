@@ -249,6 +249,8 @@ public class DexItemFactory {
 
   public final DexString runtimeExceptionDescriptor = createString("Ljava/lang/RuntimeException;");
   public final DexString assertionErrorDescriptor = createString("Ljava/lang/AssertionError;");
+  public final DexString noSuchElementExceptionDescriptor =
+      createString("Ljava/util/NoSuchElementException;");
   public final DexString charSequenceDescriptor = createString("Ljava/lang/CharSequence;");
   public final DexString charSequenceArrayDescriptor = createString("[Ljava/lang/CharSequence;");
   public final DexString stringDescriptor = createString("Ljava/lang/String;");
@@ -575,6 +577,11 @@ public class DexItemFactory {
   public final DexType runtimeExceptionType = createStaticallyKnownType(runtimeExceptionDescriptor);
   public final DexType assertionErrorType = createStaticallyKnownType(assertionErrorDescriptor);
   public final DexType throwableType = createStaticallyKnownType(throwableDescriptor);
+  public final DexType noSuchElementExceptionType =
+      createStaticallyKnownType(noSuchElementExceptionDescriptor);
+  public final DexMethod noSuchElementExceptionInit =
+      createInstanceInitializer(noSuchElementExceptionType);
+
   public final DexType illegalAccessErrorType =
       createStaticallyKnownType(illegalAccessErrorDescriptor);
   public final DexType illegalArgumentExceptionType =
@@ -870,6 +877,7 @@ public class DexItemFactory {
 
   public final ObjectMethodsMembers objectMethodsMembers = new ObjectMethodsMembers();
   public final ServiceLoaderMethods serviceLoaderMethods = new ServiceLoaderMethods();
+  public final IteratorMethods iteratorMethods = new IteratorMethods();
   public final StringConcatFactoryMembers stringConcatFactoryMembers =
       new StringConcatFactoryMembers();
 
@@ -2657,6 +2665,12 @@ public class DexItemFactory {
     public boolean isLoadMethod(DexMethod method) {
       return method == load || method == loadWithClassLoader || method == loadInstalled;
     }
+  }
+
+  public class IteratorMethods {
+    public final DexMethod hasNext =
+        createMethod(iteratorType, createProto(booleanType), "hasNext");
+    public final DexMethod next = createMethod(iteratorType, createProto(objectType), "next");
   }
 
   private static <T extends DexItem> T canonicalize(Map<T, T> map, T item) {
