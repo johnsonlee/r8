@@ -3,50 +3,68 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.analysis.path;
 
-import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.TransferFunctionResult;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeBuilder;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 
 public class PathConstraintAnalysisTransferFunction
     implements AbstractTransferFunction<BasicBlock, Instruction, PathConstraintAnalysisState> {
 
+  private final ComputationTreeBuilder computationTreeBuilder;
+
+  PathConstraintAnalysisTransferFunction(AbstractValueFactory abstractValueFactory) {
+    computationTreeBuilder = new ComputationTreeBuilder(abstractValueFactory);
+  }
+
   @Override
   public TransferFunctionResult<PathConstraintAnalysisState> apply(
       Instruction instruction, PathConstraintAnalysisState state) {
-    // TODO(b/302281503)
-    throw new Unimplemented();
-  }
-
-  @Override
-  public TransferFunctionResult<PathConstraintAnalysisState> applyBlock(
-      BasicBlock basicBlock, PathConstraintAnalysisState state) {
-    // TODO(b/302281503)
-    throw new Unimplemented();
-  }
-
-  @Override
-  public PathConstraintAnalysisState computeInitialState(
-      BasicBlock entryBlock, PathConstraintAnalysisState bottom) {
-    // TODO(b/302281503)
-    throw new Unimplemented();
+    // Instructions normally to not change the current path constraint.
+    //
+    // One exception is when information can be deduced from throwing instructions that succeed.
+    // For example, if the instruction `arg.method()` succeeds then it can be inferred that the
+    // subsequent instruction is only executed if `arg != null`.
+    return state;
   }
 
   @Override
   public PathConstraintAnalysisState computeBlockEntryState(
-      BasicBlock basicBlock,
-      BasicBlock predecessor,
-      PathConstraintAnalysisState predecessorExitState) {
-    // TODO(b/302281503)
-    throw new Unimplemented();
+      BasicBlock block, BasicBlock predecessor, PathConstraintAnalysisState predecessorExitState) {
+    if (predecessorExitState.isUnknown()) {
+      return predecessorExitState;
+    }
+    // We currently only amend the path constraint in presence of if-instructions.
+    If theIf = predecessor.exit().asIf();
+    if (theIf != null) {
+      // TODO(b/302281503): Ensure the computed computation tree is cached in the builder so that
+      //  we do not rebuild the tree over-and-over again during the execution of this (worklist)
+      //  analysis.
+      ComputationTreeNode newPathConstraint = computationTreeBuilder.buildComputationTree(theIf);
+      if (!newPathConstraint.isUnknown()) {
+        boolean negate = block != theIf.getTrueTarget();
+        return predecessorExitState.add(newPathConstraint, negate);
+      }
+    }
+    return predecessorExitState;
   }
 
   @Override
-  public boolean shouldTransferExceptionalControlFlowFromInstruction(
-      BasicBlock throwBlock, Instruction throwInstruction) {
-    // TODO(b/302281503)
-    throw new Unimplemented();
+  public PathConstraintAnalysisState computeExceptionalBlockEntryState(
+      BasicBlock block,
+      DexType guard,
+      BasicBlock throwBlock,
+      Instruction throwInstruction,
+      PathConstraintAnalysisState throwState) {
+    // For the purpose of this analysis we don't (?) care much about the path constraints for blocks
+    // that are reached from catch handlers. Therefore, we currently set the state to UNKNOWN for
+    // all blocks that can be reached from a catch handler.
+    return PathConstraintAnalysisState.unknown();
   }
 }

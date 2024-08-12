@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.analysis.path.state;
 
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -47,6 +48,44 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
       Set<ComputationTreeNode> pathConstraints, Set<ComputationTreeNode> negatedPathConstraints) {
     this.pathConstraints = pathConstraints;
     this.negatedPathConstraints = negatedPathConstraints;
+  }
+
+  static ConcretePathConstraintAnalysisState create(
+      ComputationTreeNode pathConstraint, boolean negate) {
+    Set<ComputationTreeNode> pathConstraints = Collections.singleton(pathConstraint);
+    if (negate) {
+      return new ConcretePathConstraintAnalysisState(Collections.emptySet(), pathConstraints);
+    } else {
+      return new ConcretePathConstraintAnalysisState(pathConstraints, Collections.emptySet());
+    }
+  }
+
+  @Override
+  public PathConstraintAnalysisState add(ComputationTreeNode pathConstraint, boolean negate) {
+    if (negate) {
+      if (negatedPathConstraints.contains(pathConstraint)) {
+        return this;
+      }
+      return new ConcretePathConstraintAnalysisState(
+          pathConstraints, add(pathConstraint, negatedPathConstraints));
+    } else {
+      if (pathConstraints.contains(pathConstraint)) {
+        return this;
+      }
+      return new ConcretePathConstraintAnalysisState(
+          add(pathConstraint, pathConstraints), negatedPathConstraints);
+    }
+  }
+
+  private static Set<ComputationTreeNode> add(
+      ComputationTreeNode pathConstraint, Set<ComputationTreeNode> pathConstraints) {
+    if (pathConstraints.isEmpty()) {
+      return Collections.singleton(pathConstraint);
+    }
+    assert !pathConstraints.contains(pathConstraint);
+    Set<ComputationTreeNode> newPathConstraints = new HashSet<>(pathConstraints);
+    newPathConstraints.add(pathConstraint);
+    return newPathConstraints;
   }
 
   @Override

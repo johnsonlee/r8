@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.analysis.path.state;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractState;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 
 public abstract class PathConstraintAnalysisState
     extends AbstractState<PathConstraintAnalysisState> {
@@ -16,6 +17,9 @@ public abstract class PathConstraintAnalysisState
   public static UnknownPathConstraintAnalysisState unknown() {
     return UnknownPathConstraintAnalysisState.getInstance();
   }
+
+  public abstract PathConstraintAnalysisState add(
+      ComputationTreeNode pathConstraint, boolean negate);
 
   public boolean isBottom() {
     return false;

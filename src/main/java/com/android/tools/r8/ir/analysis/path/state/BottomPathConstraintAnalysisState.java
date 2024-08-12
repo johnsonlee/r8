@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.analysis.path.state;
 
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+
 public class BottomPathConstraintAnalysisState extends PathConstraintAnalysisState {
 
   private static final BottomPathConstraintAnalysisState INSTANCE =
@@ -12,6 +14,11 @@ public class BottomPathConstraintAnalysisState extends PathConstraintAnalysisSta
 
   static BottomPathConstraintAnalysisState getInstance() {
     return INSTANCE;
+  }
+
+  @Override
+  public PathConstraintAnalysisState add(ComputationTreeNode pathConstraint, boolean negate) {
+    return ConcretePathConstraintAnalysisState.create(pathConstraint, negate);
   }
 
   @Override
