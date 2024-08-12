@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
+import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorCodeScanner;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
@@ -25,16 +26,12 @@ public class ArgumentPropagatorCodeScannerForComposableFunctions
   }
 
   @Override
-  protected void addTemporaryMethodState(
-      InvokeMethod invoke,
-      ProgramMethod resolvedMethod,
+  public void scan(
+      ProgramMethod method,
+      IRCode code,
       AbstractValueSupplier abstractValueSupplier,
-      ProgramMethod context,
       Timing timing) {
-    ComposableCallGraphNode node = callGraph.getNodes().get(resolvedMethod);
-    if (node != null && node.isComposable()) {
-      super.addTemporaryMethodState(invoke, resolvedMethod, abstractValueSupplier, context, timing);
-    }
+    new CodeScanner(abstractValueSupplier, code, method).scan(timing);
   }
 
   @Override
@@ -42,5 +39,22 @@ public class ArgumentPropagatorCodeScannerForComposableFunctions
       DexType staticType, MethodParameter methodParameter, ProgramMethod method) {
     // We haven't defined the virtual root mapping, so we can't tell.
     return false;
+  }
+
+  private class CodeScanner extends ArgumentPropagatorCodeScanner.CodeScanner {
+
+    protected CodeScanner(
+        AbstractValueSupplier abstractValueSupplier, IRCode code, ProgramMethod method) {
+      super(abstractValueSupplier, code, method);
+    }
+
+    @Override
+    protected void addTemporaryMethodState(
+        InvokeMethod invoke, ProgramMethod resolvedMethod, Timing timing) {
+      ComposableCallGraphNode node = callGraph.getNodes().get(resolvedMethod);
+      if (node != null && node.isComposable()) {
+        super.addTemporaryMethodState(invoke, resolvedMethod, timing);
+      }
+    }
   }
 }
