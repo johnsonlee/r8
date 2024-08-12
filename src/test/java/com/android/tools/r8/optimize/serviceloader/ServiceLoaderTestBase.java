@@ -32,30 +32,17 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ServiceLoaderTestBase extends TestBase {
-  private static final DiagnosticsConsumer<CompilationFailedException> REWRITER_DIAGNOSTICS =
+  protected final TestParameters parameters;
+  protected DataResourceConsumerForTesting dataResourceConsumer;
+  protected static final DiagnosticsConsumer<CompilationFailedException> REWRITER_DIAGNOSTICS =
       diagnostics ->
           diagnostics
               .assertOnlyInfos()
               .assertAllInfosMatch(
                   DiagnosticsMatcher.diagnosticType(ServiceLoaderRewriterDiagnostic.class));
 
-  protected final TestParameters parameters;
-  protected final boolean enableRewriting;
-  protected DataResourceConsumerForTesting dataResourceConsumer;
-  protected final DiagnosticsConsumer<CompilationFailedException> expectedDiagnostics;
-
   public ServiceLoaderTestBase(TestParameters parameters) {
-    this(parameters, true);
-  }
-
-  public ServiceLoaderTestBase(TestParameters parameters, boolean enableRewriting) {
     this.parameters = parameters;
-    this.enableRewriting = enableRewriting;
-    if (enableRewriting) {
-      expectedDiagnostics = REWRITER_DIAGNOSTICS;
-    } else {
-      expectedDiagnostics = diagnostics -> diagnostics.assertNoInfos();
-    }
   }
 
   public static long getServiceLoaderLoads(CodeInspector inspector) {
@@ -78,6 +65,10 @@ public class ServiceLoaderTestBase extends TestBase {
     assertTrue(classSubject.isPresent());
     classSubject.forAllMethods(
         method -> assertThat(method, not(invokesMethodWithName("getClassLoader"))));
+  }
+
+  public static void verifyNoServiceLoaderLoads(CodeInspector inspector) {
+    inspector.allClasses().forEach(ServiceLoaderTestBase::verifyNoServiceLoaderLoads);
   }
 
   public static void verifyNoServiceLoaderLoads(ClassSubject classSubject) {
@@ -137,11 +128,11 @@ public class ServiceLoaderTestBase extends TestBase {
                 o -> {
                   dataResourceConsumer = new DataResourceConsumerForTesting(o.dataResourceConsumer);
                   o.dataResourceConsumer = dataResourceConsumer;
-                  o.enableServiceLoaderRewriting = enableRewriting;
                 })
             // Enables ServiceLoader optimization failure diagnostics.
             .enableExperimentalWhyAreYouNotInlining()
-            .addKeepRules("-whyareyounotinlining class java.util.ServiceLoader { *** load(...); }");
+            .addKeepRules(
+                "-whyareyounotinlining class java.util.ServiceLoader { *** load(...); }");
     if (implClasses.length > 0) {
       String implLines =
           Arrays.stream(implClasses)

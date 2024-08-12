@@ -12,37 +12,29 @@ import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.DexItemFactory.IteratorMethods;
 import com.android.tools.r8.graph.DexItemFactory.ServiceLoaderMethods;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.IRCodeInstructionListIterator;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InvokeDirect;
-import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
-import com.android.tools.r8.ir.code.NewInstance;
-import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ListUtils;
-import com.android.tools.r8.utils.WorkList;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,16 +70,11 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
 
   private final AndroidApiLevelCompute apiLevelCompute;
   private final ServiceLoaderMethods serviceLoaderMethods;
-  private final IteratorMethods iteratorMethods;
-  private final boolean hasAssumeNoSideEffects;
 
   public ServiceLoaderRewriter(AppView<?> appView) {
     super(appView);
     this.apiLevelCompute = appView.apiLevelCompute();
     this.serviceLoaderMethods = appView.dexItemFactory().serviceLoaderMethods;
-    this.iteratorMethods = appView.dexItemFactory().iteratorMethods;
-    hasAssumeNoSideEffects =
-        appView.getAssumeInfoCollection().isSideEffectFree(serviceLoaderMethods.load);
   }
 
   @Override
@@ -116,396 +103,170 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       IRCode code,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
+    InstructionListIterator instructionIterator = code.instructionListIterator();
     // Create a map from service type to loader methods local to this context since two
     // service loader calls to the same type in different methods and in the same wave can race.
     Map<DexType, DexEncodedMethod> synthesizedServiceLoaders = new IdentityHashMap<>();
-    IRCodeInstructionListIterator iterator = code.instructionListIterator();
-    Map<Instruction, Instruction> replacements = new HashMap<>();
-    Map<Instruction, List<Instruction>> replacementExtras = new HashMap<>();
+    while (instructionIterator.hasNext()) {
+      Instruction instruction = instructionIterator.next();
 
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-
-      // Find ServiceLoader.load() calls.
-      InvokeStatic invokeInstr = instruction.asInvokeStatic();
-      if (invokeInstr == null
-          || !serviceLoaderMethods.isLoadMethod(invokeInstr.getInvokedMethod())) {
+      // Check if instruction is an invoke static on the desired form of ServiceLoader.load.
+      if (!instruction.isInvokeStatic()) {
         continue;
       }
 
-      // See if it can be optimized.
-      ServiceLoaderLoadResult loadResult = analyzeServiceLoaderLoad(code, invokeInstr);
-      if (loadResult == null) {
+      InvokeStatic serviceLoaderLoad = instruction.asInvokeStatic();
+      DexMethod invokedMethod = serviceLoaderLoad.getInvokedMethod();
+      if (!serviceLoaderMethods.isLoadMethod(invokedMethod)) {
         continue;
       }
-      // See if there is a subsequent iterator() call that can be optimized.
-      DirectRewriteResult directRewriteResult = analyzeForDirectRewrite(loadResult);
 
-      // Remove ServiceLoader.load()
-      replacements.put(loadResult.loadInvoke, code.createConstNull());
-      // Remove getClassLoader() if we are about to remove all users.
-      if (loadResult.classLoaderInvoke != null
-          && loadResult.classLoaderInvoke.outValue().aliasedUsers().stream()
-              .allMatch(ins -> ins.isAssume() || replacements.containsKey(ins))) {
-        replacements.put(loadResult.classLoaderInvoke, code.createConstNull());
-      }
-      if (directRewriteResult != null) {
-        populateDirectRewriteChanges(
-            code, replacements, replacementExtras, loadResult, directRewriteResult);
-      } else {
-        populateSyntheticChanges(
-            code,
-            methodProcessor,
-            methodProcessingContext,
-            synthesizedServiceLoaders,
-            replacements,
-            loadResult);
-      }
-    }
-
-    if (replacements.isEmpty()) {
-      return CodeRewriterResult.NO_CHANGE;
-    }
-
-    AffectedValues affectedValues = new AffectedValues();
-    iterator = code.instructionListIterator();
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-      Instruction replacement = replacements.get(instruction);
-      if (replacement == null) {
+      // Check that the first argument is a const class.
+      Value argument = serviceLoaderLoad.getFirstArgument().getAliasedValue();
+      if (!argument.isDefinedByInstructionSatisfying(Instruction::isConstClass)) {
+        report(code.context(), null, "The service loader type could not be determined");
         continue;
       }
-      iterator.replaceCurrentInstruction(replacement, affectedValues);
-      List<Instruction> extras = replacementExtras.get(instruction);
-      if (extras != null) {
-        iterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(extras, options);
-        if (ListUtils.last(extras).isThrow()) {
-          iterator.removeRemainingInBlockIgnoreOutValue();
+
+      ConstClass constClass = argument.getDefinition().asConstClass();
+      DexType serviceType = constClass.getType();
+      if (invokedMethod.isNotIdenticalTo(serviceLoaderMethods.loadWithClassLoader)) {
+        report(
+            code.context(),
+            serviceType,
+            "Inlining is only supported for `java.util.ServiceLoader.load(java.lang.Class,"
+                + " java.lang.ClassLoader)`");
+        continue;
+      }
+
+      String invalidUserMessage =
+          "The returned ServiceLoader instance must only be used in a call to `java.util.Iterator"
+              + " java.lang.ServiceLoader.iterator()`";
+      Value serviceLoaderLoadOut = serviceLoaderLoad.outValue();
+      if (!serviceLoaderLoadOut.hasSingleUniqueUser() || serviceLoaderLoadOut.hasPhiUsers()) {
+        report(code.context(), serviceType, invalidUserMessage);
+        continue;
+      }
+
+      // Check that the only user is a call to iterator().
+      InvokeVirtual singleUniqueUser = serviceLoaderLoadOut.singleUniqueUser().asInvokeVirtual();
+      if (singleUniqueUser == null
+          || singleUniqueUser.getInvokedMethod().isNotIdenticalTo(serviceLoaderMethods.iterator)) {
+        report(code.context(), serviceType, invalidUserMessage + ", but found other usages");
+        continue;
+      }
+
+      // Check that the service is not kept.
+      if (appView().appInfo().isPinnedWithDefinitionLookup(constClass.getType())) {
+        report(code.context(), serviceType, "The service loader type is kept");
+        continue;
+      }
+
+      // Check that ClassLoader used is the ClassLoader defined for the service configuration
+      // that we are instantiating or NULL.
+      Value classLoaderValue = serviceLoaderLoad.getLastArgument().getAliasedValue();
+      if (classLoaderValue.isPhi()) {
+        report(
+            code.context(),
+            serviceType,
+            "The java.lang.ClassLoader argument must be defined locally as null or "
+                + serviceType
+                + ".class.getClassLoader()");
+        continue;
+      }
+      boolean isNullClassLoader = classLoaderValue.getType().isNullType();
+      InvokeVirtual classLoaderInvoke = classLoaderValue.getDefinition().asInvokeVirtual();
+      boolean isGetClassLoaderOnConstClass =
+          classLoaderInvoke != null
+              && classLoaderInvoke.arguments().size() == 1
+              && classLoaderInvoke.getReceiver().getAliasedValue().isConstClass()
+              && classLoaderInvoke
+                  .getReceiver()
+                  .getAliasedValue()
+                  .getDefinition()
+                  .asConstClass()
+                  .getType()
+                  .isIdenticalTo(serviceType);
+      if (!isNullClassLoader && !isGetClassLoaderOnConstClass) {
+        report(
+            code.context(),
+            serviceType,
+            "The java.lang.ClassLoader argument must be defined locally as null or "
+                + serviceType
+                + ".class.getClassLoader()");
+        continue;
+      }
+
+      // Check that the service is configured in the META-INF/services.
+      AppServices appServices = appView.appServices();
+      List<DexType> dexTypes = appServices.serviceImplementationsFor(constClass.getType());
+      List<DexClass> classes = new ArrayList<>(dexTypes.size());
+      for (DexType serviceImpl : dexTypes) {
+        DexClass serviceImplementation = appView.definitionFor(serviceImpl);
+        if (serviceImplementation == null) {
+          report(
+              code.context(),
+              serviceType,
+              "Unable to find definition for service implementation " + serviceImpl.getTypeName());
+          break;
         }
+        if (!appView().appInfo().isSubtype(serviceImpl, serviceType)) {
+          report(
+              code.context(),
+              serviceType,
+              "Implementation is not a subtype of the service: " + serviceImpl.getTypeName());
+          break;
+        }
+        DexEncodedMethod method = serviceImplementation.getDefaultInitializer();
+        if (method == null) {
+          report(
+              code.context(),
+              serviceType,
+              "Implementation has no default constructor: " + serviceImpl.getTypeName());
+          break;
+        }
+        if (!method.getAccessFlags().wasPublic()) {
+          // A non-public constructor causes a ServiceConfigurationError on APIs 24 & 25 (Nougat).
+          // Check the original access flag to not change app behavior if R8 publicized the method.
+          report(
+              code.context(),
+              serviceType,
+              "Implementation's default constructor is not public: " + serviceImpl.getTypeName());
+          break;
+        }
+        classes.add(serviceImplementation);
       }
-    }
+      if (dexTypes.size() != classes.size()) {
+        continue;
+      }
 
-    code.removeUnreachableBlocks(affectedValues, ConsumerUtils.emptyConsumer());
-    code.removeRedundantBlocks();
-    affectedValues.narrowingWithAssumeRemoval(appView, code);
+      // Check that we are not service loading anything from a feature into base.
+      if (hasServiceImplementationInDifferentFeature(code, serviceType, isNullClassLoader)) {
+        continue;
+      }
+
+      // We can perform the rewrite of the ServiceLoader.load call.
+      DexEncodedMethod synthesizedMethod =
+          synthesizedServiceLoaders.computeIfAbsent(
+              constClass.getType(),
+              service -> {
+                DexEncodedMethod addedMethod =
+                    createSynthesizedMethod(
+                        service, classes, methodProcessor, methodProcessingContext);
+                if (appView.options().isGeneratingClassFiles()) {
+                  addedMethod.upgradeClassFileVersion(
+                      code.context().getDefinition().getClassFileVersion());
+                }
+                return addedMethod;
+              });
+
+      new Rewriter(code, instructionIterator, serviceLoaderLoad)
+          .perform(classLoaderInvoke, synthesizedMethod.getReference());
+    }
     assert code.isConsistentSSA(appView);
-
-    return CodeRewriterResult.HAS_CHANGED;
-  }
-
-  private void populateSyntheticChanges(
-      IRCode code,
-      MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext,
-      Map<DexType, DexEncodedMethod> synthesizedServiceLoaders,
-      Map<Instruction, Instruction> replacements,
-      ServiceLoaderLoadResult loadResult) {
-    DexEncodedMethod synthesizedMethod =
-        synthesizedServiceLoaders.computeIfAbsent(
-            loadResult.serviceType,
-            service -> {
-              DexEncodedMethod addedMethod =
-                  createSynthesizedMethod(
-                      service, loadResult.implClasses, methodProcessor, methodProcessingContext);
-              if (appView.options().isGeneratingClassFiles()) {
-                addedMethod.upgradeClassFileVersion(
-                    code.context().getDefinition().getClassFileVersion());
-              }
-              return addedMethod;
-            });
-    InvokeStatic synthesizedInvoke =
-        new InvokeStatic(
-            synthesizedMethod.getReference(),
-            loadResult.iteratorInvoke.outValue(),
-            Collections.emptyList());
-    replacements.put(loadResult.iteratorInvoke, synthesizedInvoke);
-  }
-
-  private void populateDirectRewriteChanges(
-      IRCode code,
-      Map<Instruction, Instruction> replacements,
-      Map<Instruction, List<Instruction>> replacementExtras,
-      ServiceLoaderLoadResult loadResult,
-      DirectRewriteResult directRewriteResult) {
-    // Remove ServiceLoader.iterator()
-    replacements.put(loadResult.iteratorInvoke, code.createConstNull());
-
-    // Iterator.hasNext() --> true / false
-    if (directRewriteResult.hasNextInstr != null) {
-      replacements.put(
-          directRewriteResult.hasNextInstr,
-          code.createBooleanConstant(!loadResult.implClasses.isEmpty()));
-    }
-    if (directRewriteResult.nextInstr != null) {
-      Position position = directRewriteResult.nextInstr.getPosition();
-      if (loadResult.implClasses.isEmpty()) {
-        // Iterator.next() -> null
-        replacements.put(directRewriteResult.nextInstr, code.createConstNull());
-
-        // throw new NoSuchElementException()
-        NewInstance newInstanceInstr =
-            new NewInstance(
-                dexItemFactory.noSuchElementExceptionType,
-                code.createValue(
-                    dexItemFactory.noSuchElementExceptionType.toNonNullTypeElement(appView)));
-        InvokeDirect initInstr =
-            new InvokeDirect(
-                dexItemFactory.noSuchElementExceptionInit,
-                null,
-                List.of(newInstanceInstr.outValue()));
-        Throw throwInstr = new Throw(newInstanceInstr.outValue());
-
-        newInstanceInstr.setPosition(position);
-        initInstr.setPosition(position);
-        throwInstr.setPosition(position);
-        replacementExtras.put(
-            directRewriteResult.nextInstr, List.of(newInstanceInstr, initInstr, throwInstr));
-      } else {
-        // Iterator.next() -> new ServiceImpl()
-        DexType clazz = loadResult.implClasses.get(0).getType();
-        NewInstance newInstance =
-            new NewInstance(
-                clazz,
-                code.createValue(
-                    clazz.toNonNullTypeElement(appView),
-                    directRewriteResult.nextInstr.getLocalInfo()));
-        replacements.put(directRewriteResult.nextInstr, newInstance);
-        InvokeDirect initInstr =
-            new InvokeDirect(
-                dexItemFactory.createInstanceInitializer(clazz),
-                null,
-                List.of(newInstance.outValue()));
-        initInstr.setPosition(position);
-        replacementExtras.put(directRewriteResult.nextInstr, List.of(initInstr));
-      }
-    }
-  }
-
-  private ServiceLoaderLoadResult analyzeServiceLoaderLoad(IRCode code, InvokeStatic invokeInstr) {
-    // Check that the first argument is a const class.
-    Value argument = invokeInstr.getFirstArgument().getAliasedValue();
-    if (!argument.isDefinedByInstructionSatisfying(Instruction::isConstClass)) {
-      report(code.context(), null, "The service loader type could not be determined");
-      return null;
-    }
-
-    ConstClass constClass = argument.getDefinition().asConstClass();
-    DexType serviceType = constClass.getType();
-    if (invokeInstr.getInvokedMethod().isNotIdenticalTo(serviceLoaderMethods.loadWithClassLoader)) {
-      report(
-          code.context(),
-          serviceType,
-          "Inlining is only supported for `java.util.ServiceLoader.load(java.lang.Class,"
-              + " java.lang.ClassLoader)`");
-      return null;
-    }
-
-    String invalidUserMessage =
-        "The returned ServiceLoader instance must only be used in a call to `java.util.Iterator"
-            + " java.lang.ServiceLoader.iterator()`";
-    Value serviceLoaderLoadOut = invokeInstr.outValue();
-    if (!serviceLoaderLoadOut.hasSingleUniqueUser() || serviceLoaderLoadOut.hasPhiUsers()) {
-      report(code.context(), serviceType, invalidUserMessage);
-      return null;
-    }
-
-    // Check that the only user is a call to iterator().
-    InvokeVirtual iteratorInvoke = serviceLoaderLoadOut.singleUniqueUser().asInvokeVirtual();
-    if (iteratorInvoke == null
-        || iteratorInvoke.getInvokedMethod().isNotIdenticalTo(serviceLoaderMethods.iterator)) {
-      report(code.context(), serviceType, invalidUserMessage + ", but found other usages");
-      return null;
-    }
-
-    // Check that the service is not kept.
-    if (appView().appInfo().isPinnedWithDefinitionLookup(serviceType)) {
-      report(code.context(), serviceType, "The service loader type is kept");
-      return null;
-    }
-
-    // Check that ClassLoader used is the ClassLoader defined for the service configuration
-    // that we are instantiating or NULL.
-    Value classLoaderValue = invokeInstr.getLastArgument().getAliasedValue();
-    if (classLoaderValue.isPhi()) {
-      report(
-          code.context(),
-          serviceType,
-          "The java.lang.ClassLoader argument must be defined locally as null or "
-              + serviceType
-              + ".class.getClassLoader()");
-      return null;
-    }
-    boolean isNullClassLoader = classLoaderValue.getType().isNullType();
-    InvokeVirtual classLoaderInvoke = classLoaderValue.getDefinition().asInvokeVirtual();
-    boolean isGetClassLoaderOnConstClass =
-        classLoaderInvoke != null
-            && classLoaderInvoke.arguments().size() == 1
-            && classLoaderInvoke.getReceiver().getAliasedValue().isConstClass()
-            && classLoaderInvoke
-                .getReceiver()
-                .getAliasedValue()
-                .getDefinition()
-                .asConstClass()
-                .getType()
-                .isIdenticalTo(serviceType);
-    if (!isNullClassLoader && !isGetClassLoaderOnConstClass) {
-      report(
-          code.context(),
-          serviceType,
-          "The java.lang.ClassLoader argument must be defined locally as null or "
-              + serviceType
-              + ".class.getClassLoader()");
-      return null;
-    }
-
-    // Check that we are not service loading anything from a feature into base.
-    AppServices appServices = appView.appServices();
-    // Check that we are not service loading anything from a feature into base.
-    if (hasServiceImplementationInDifferentFeature(code, serviceType, isNullClassLoader)) {
-      return null;
-    }
-
-    List<DexType> dexTypes = appServices.serviceImplementationsFor(serviceType);
-    List<DexClass> implClasses = new ArrayList<>(dexTypes.size());
-    for (DexType serviceImpl : dexTypes) {
-      DexClass serviceImplementation = appView.definitionFor(serviceImpl);
-      if (serviceImplementation == null) {
-        report(
-            code.context(),
-            serviceType,
-            "Unable to find definition for service implementation " + serviceImpl.getTypeName());
-        return null;
-      }
-      if (appView.isSubtype(serviceImpl, serviceType).isFalse()) {
-        report(
-            code.context(),
-            serviceType,
-            "Implementation is not a subtype of the service: " + serviceImpl.getTypeName());
-        return null;
-      }
-      DexEncodedMethod method = serviceImplementation.getDefaultInitializer();
-      if (method == null) {
-        report(
-            code.context(),
-            serviceType,
-            "Implementation has no default constructor: " + serviceImpl.getTypeName());
-        return null;
-      }
-      if (!method.getAccessFlags().wasPublic()) {
-        // A non-public constructor causes a ServiceConfigurationError on APIs 24 & 25 (Nougat).
-        report(
-            code.context(),
-            serviceType,
-            "Implementation's default constructor is not public: " + serviceImpl.getTypeName());
-        return null;
-      }
-      implClasses.add(serviceImplementation);
-    }
-
-    return new ServiceLoaderLoadResult(
-        invokeInstr, classLoaderInvoke, serviceType, implClasses, iteratorInvoke);
-  }
-
-  /**
-   * Checks that:
-   *
-   * <pre>
-   *   * -assumenosideeffects for ServiceLoader.load() is set.
-   *   * ServiceLoader.iterator() is used only by a single .hasNext() and/or .next()
-   *   * .iterator(), .hasNext(), and .next() are all in the same try/catch.
-   *   * .hasNext() never comes after a call to .next()
-   *   * .hasNext() and .next() are not in a loop.
-   * </pre>
-   */
-  private DirectRewriteResult analyzeForDirectRewrite(ServiceLoaderLoadResult loadResult) {
-    // Require -assumenosideeffects class java.util.ServiceLoader { java.lang.Object load(...); }
-    // because this direct rewriting does not wrap exceptions in ServiceConfigurationError.
-    if (!hasAssumeNoSideEffects) {
-      return null;
-    }
-    InvokeVirtual iteratorInvoke = loadResult.iteratorInvoke;
-
-    if (iteratorInvoke.outValue().hasPhiUsers()) {
-      return null;
-    }
-    InvokeMethod hasNextInstr = null;
-    InvokeMethod nextInstr = null;
-    // We only bother to support a single call to hasNext() and next(), and they must appear within
-    // the same try/catch.
-    for (Instruction user : iteratorInvoke.outValue().aliasedUsers()) {
-      if (user.isAssume()) {
-        if (user.outValue().hasPhiUsers()) {
-          return null;
-        }
-        continue;
-      }
-      if (!user.getBlock().hasEquivalentCatchHandlers(iteratorInvoke.getBlock())) {
-        return null;
-      }
-      InvokeMethod curCall = user.asInvokeMethod();
-      if (curCall == null) {
-        return null;
-      }
-      if (curCall.getInvokedMethod().isIdenticalTo(iteratorMethods.hasNext)) {
-        if (hasNextInstr != null) {
-          return null;
-        }
-        hasNextInstr = curCall;
-      } else if (curCall.getInvokedMethod().isIdenticalTo(iteratorMethods.next)) {
-        if (nextInstr != null) {
-          return null;
-        }
-        nextInstr = curCall;
-      } else {
-        return null;
-      }
-    }
-
-    BasicBlock iteratorBlock = iteratorInvoke.getBlock();
-    BasicBlock hasNextBlock = hasNextInstr != null ? hasNextInstr.getBlock() : null;
-    BasicBlock nextBlock = nextInstr != null ? nextInstr.getBlock() : null;
-    if (hasNextBlock != null && nextBlock != null) {
-      // See if hasNext() is reachable after next().
-      if (hasNextBlock == nextBlock) {
-        if (nextBlock.iterator(nextInstr).nextUntil(hasNextInstr) != null) {
-          return null;
-        }
-      } else if (hasPredecessorPathTo(iteratorBlock, hasNextBlock, nextBlock)) {
-        return null;
-      }
-    }
-
-    // Make sure each instruction can be run at most once (no loops).
-    if (hasNextBlock != null && loopExists(iteratorBlock, hasNextBlock)) {
-      return null;
-    }
-    if (nextBlock != null && loopExists(iteratorBlock, nextBlock)) {
-      return null;
-    }
-
-    return new DirectRewriteResult(hasNextInstr, nextInstr);
-  }
-
-  private static boolean loopExists(BasicBlock subgraphEntryBlock, BasicBlock targetBlock) {
-    return hasPredecessorPathTo(subgraphEntryBlock, targetBlock, targetBlock);
-  }
-
-  private static boolean hasPredecessorPathTo(
-      BasicBlock subgraphEntryBlock, BasicBlock subgraphExitBlock, BasicBlock targetBlock) {
-    if (subgraphEntryBlock == subgraphExitBlock) {
-      return false;
-    }
-    WorkList<BasicBlock> workList = WorkList.newIdentityWorkList();
-    workList.markAsSeen(subgraphEntryBlock);
-    workList.addIfNotSeen(subgraphExitBlock.getPredecessors());
-    while (workList.hasNext()) {
-      BasicBlock curBlock = workList.next();
-      if (curBlock == targetBlock) {
-        return true;
-      }
-      workList.addIfNotSeen(curBlock.getPredecessors());
-    }
-    return false;
+    return synthesizedServiceLoaders.isEmpty()
+        ? CodeRewriterResult.NO_CHANGE
+        : CodeRewriterResult.HAS_CHANGED;
   }
 
   private void report(ProgramMethod method, DexType serviceLoaderType, String message) {
@@ -614,34 +375,77 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     return method.getDefinition();
   }
 
-  private static class ServiceLoaderLoadResult {
-    public final InvokeStatic loadInvoke;
-    public final InvokeVirtual classLoaderInvoke;
-    public final DexType serviceType;
-    public final List<DexClass> implClasses;
-    public final InvokeVirtual iteratorInvoke;
+  /**
+   * Rewriter assumes that the code is of the form:
+   *
+   * <pre>
+   * ConstClass         v1 <- X
+   * ConstClass         v2 <- X or NULL
+   * Invoke-Virtual     v3 <- v2; method: java.lang.ClassLoader java.lang.Class.getClassLoader()
+   * Invoke-Static      v4 <- v1, v3; method: java.util.ServiceLoader java.util.ServiceLoader
+   *     .load(java.lang.Class, java.lang.ClassLoader)
+   * Invoke-Virtual     v5 <- v4; method: java.util.Iterator java.util.ServiceLoader.iterator()
+   * </pre>
+   *
+   * and rewrites it to:
+   *
+   * <pre>
+   * Invoke-Static      v5 <- ; method: java.util.Iterator syn(X)()
+   * </pre>
+   *
+   * where syn(X) is the synthesized method generated for the service class.
+   *
+   * <p>We rely on the DeadCodeRemover to remove the ConstClasses and any aliased values no longer
+   * used.
+   */
+  private static class Rewriter {
 
-    public ServiceLoaderLoadResult(
-        InvokeStatic loadInvoke,
-        InvokeVirtual classLoaderInvoke,
-        DexType serviceType,
-        List<DexClass> implClasses,
-        InvokeVirtual iteratorInvoke) {
-      this.loadInvoke = loadInvoke;
-      this.classLoaderInvoke = classLoaderInvoke;
-      this.serviceType = serviceType;
-      this.implClasses = implClasses;
-      this.iteratorInvoke = iteratorInvoke;
+    private final IRCode code;
+    private final InvokeStatic serviceLoaderLoad;
+
+    private final InstructionListIterator iterator;
+
+    Rewriter(IRCode code, InstructionListIterator iterator, InvokeStatic serviceLoaderLoad) {
+      this.iterator = iterator;
+      this.code = code;
+      this.serviceLoaderLoad = serviceLoaderLoad;
+    }
+
+    public void perform(InvokeVirtual classLoaderInvoke, DexMethod method) {
+      // Remove the ClassLoader call since this can throw and will not be removed otherwise.
+      if (classLoaderInvoke != null) {
+        BooleanBox allClassLoaderUsersAreServiceLoaders =
+            new BooleanBox(!classLoaderInvoke.outValue().hasPhiUsers());
+        classLoaderInvoke
+            .outValue()
+            .aliasedUsers()
+            .forEach(user -> allClassLoaderUsersAreServiceLoaders.and(user == serviceLoaderLoad));
+        if (allClassLoaderUsersAreServiceLoaders.get()) {
+          clearGetClassLoader(classLoaderInvoke);
+          iterator.nextUntil(i -> i == serviceLoaderLoad);
+        }
       }
-  }
 
-  private static class DirectRewriteResult {
-    public final InvokeMethod nextInstr;
-    public final InvokeMethod hasNextInstr;
+      // Remove the ServiceLoader.load call.
+      InvokeVirtual serviceLoaderIterator =
+          serviceLoaderLoad.outValue().singleUniqueUser().asInvokeVirtual();
+      iterator.replaceCurrentInstruction(code.createConstNull());
 
-    public DirectRewriteResult(InvokeMethod hasNextInstr, InvokeMethod nextInstr) {
-      this.hasNextInstr = hasNextInstr;
-      this.nextInstr = nextInstr;
+      // Find the iterator instruction and replace it.
+      iterator.nextUntil(x -> x == serviceLoaderIterator);
+      InvokeStatic synthesizedInvoke =
+          new InvokeStatic(method, serviceLoaderIterator.outValue(), ImmutableList.of());
+      iterator.replaceCurrentInstruction(synthesizedInvoke);
+    }
+
+    private void clearGetClassLoader(InvokeVirtual classLoaderInvoke) {
+      while (iterator.hasPrevious()) {
+        Instruction instruction = iterator.previous();
+        if (instruction == classLoaderInvoke) {
+          iterator.replaceCurrentInstruction(code.createConstNull());
+          break;
+        }
+      }
     }
   }
 }

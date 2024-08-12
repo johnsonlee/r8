@@ -70,7 +70,7 @@ public class ServiceWithFeatureNullClassLoaderTest extends ServiceLoaderTestBase
             .enableInliningAnnotations()
             .addKeepMainRule(MainRunner.class)
             .allowDiagnosticInfoMessages()
-            .compileWithExpectedDiagnostics(expectedDiagnostics);
+            .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS);
 
     CodeInspector inspector = result.featureInspector();
     assertEquals(getServiceLoaderLoads(inspector), 1);

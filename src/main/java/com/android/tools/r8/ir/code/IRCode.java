@@ -1109,7 +1109,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     return new IRCodeInstructionIterator(this);
   }
 
-  public IRCodeInstructionListIterator instructionListIterator() {
+  public InstructionListIterator instructionListIterator() {
     return new IRCodeInstructionListIterator(this);
   }
 
@@ -1239,14 +1239,6 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
 
   public ConstNumber createFloatConstant(float value, DebugLocalInfo local) {
     return createNumberConstant(Float.floatToIntBits(value), TypeElement.getFloat(), local);
-  }
-
-  public ConstNumber createBooleanConstant(boolean value) {
-    return createBooleanConstant(value, null);
-  }
-
-  public ConstNumber createBooleanConstant(boolean value, DebugLocalInfo local) {
-    return createNumberConstant(value ? 1 : 0, TypeElement.getInt(), local);
   }
 
   public ConstNumber createIntConstant(int value) {

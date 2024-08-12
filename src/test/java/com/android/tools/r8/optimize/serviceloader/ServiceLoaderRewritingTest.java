@@ -6,15 +6,13 @@ package com.android.tools.r8.optimize.serviceloader;
 
 import static com.android.tools.r8.ToolHelper.DexVm.Version.V7_0_0;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.io.IOException;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -150,28 +148,13 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     }
   }
 
-  @Parameterized.Parameters(name = "{0}, enableRewriting: {1}")
-  public static List<Object[]> data() {
-    return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(), BooleanUtils.values());
+  @Parameterized.Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  public ServiceLoaderRewritingTest(TestParameters parameters, boolean enableRewriting) {
-    super(parameters, enableRewriting);
-  }
-
-  private void expectRewritten(CodeInspector inspector) {
-    long found = getServiceLoaderLoads(inspector);
-    if (enableRewriting) {
-      assertEquals(0, found);
-    } else {
-      assertNotEquals(0, found);
-    }
-  }
-
-  private boolean isDexV7() {
-    // Runtime uses boot classloader rather than system classloader on this version.
-    return parameters.isDexRuntime() && parameters.getDexRuntimeVersion() == V7_0_0;
+  public ServiceLoaderRewritingTest(TestParameters parameters) {
+    super(parameters);
   }
 
   @Test
@@ -182,48 +165,37 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
         .compile()
         .run(parameters.getRuntime(), MainRunner.class)
         .assertFailureWithErrorThatThrows(NoSuchElementException.class)
-        .inspectFailure(this::expectRewritten);
+        .inspectFailure(inspector -> assertEquals(0, getServiceLoaderLoads(inspector)));
   }
 
   @Test
-  public void testRewritings() throws Exception {
+  public void testRewritings() throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(MainRunner.class)
         .compile()
         .run(parameters.getRuntime(), MainRunner.class)
-        .applyIf(
-            !isDexV7(),
-            runResult ->
-                runResult
-                    .assertSuccessWithOutput(EXPECTED_OUTPUT)
-                    .inspect(
-                        inspector -> {
-                          expectRewritten(inspector);
-                          verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
-                        }),
-            runResult ->
-                runResult.assertFailureWithErrorThatThrows(ServiceConfigurationError.class));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT)
+        .inspect(
+            inspector -> {
+              List<String> lines = dataResourceConsumer.get("META-INF/services/com.example.Foo");
+              assertEquals(0, getServiceLoaderLoads(inspector));
+              verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
+            });
   }
 
   @Test
-  public void testRewritingWithMultiple() throws Exception {
+  public void testRewritingWithMultiple()
+      throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(Service.class, ServiceImpl.class, ServiceImpl2.class)
         .addKeepMainRule(MainRunner.class)
         .compile()
         .run(parameters.getRuntime(), MainRunner.class)
-        .applyIf(
-            !isDexV7(),
-            runResult ->
-                runResult
-                    .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("Hello World 2!"))
-                    .inspect(
-                        inspector -> {
-                          expectRewritten(inspector);
-                          verifyServiceMetaInf(
-                              inspector, Service.class, ServiceImpl.class, ServiceImpl2.class);
-                        }),
-            runResult ->
-                runResult.assertFailureWithErrorThatThrows(ServiceConfigurationError.class));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("Hello World 2!"))
+        .inspect(
+            inspector -> {
+              assertEquals(0, getServiceLoaderLoads(inspector));
+              verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class, ServiceImpl2.class);
+            });
   }
 
   @Test
@@ -236,7 +208,7 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
         .assertSuccessWithOutput(StringUtils.lines("Hello World!"))
         .inspect(
             inspector -> {
-              expectRewritten(inspector);
+              assertEquals(0, getServiceLoaderLoads(inspector));
               verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class, ServiceImpl2.class);
             });
   }
@@ -245,8 +217,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
   public void testDoNoRewrite() throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(OtherRunner.class)
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), OtherRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(
@@ -261,8 +233,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
       throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(Service.class, ServiceImplNoDefaultConstructor.class)
         .addKeepMainRule(MainRunner.class)
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertFailureWithErrorThatThrows(ServiceConfigurationError.class);
   }
@@ -272,8 +244,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
       throws IOException, CompilationFailedException, ExecutionException {
     serviceLoaderTest(Service.class, MainRunner.class)
         .addKeepMainRule(MainRunner.class)
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertFailureWithErrorThatThrows(ServiceConfigurationError.class);
   }
@@ -284,11 +256,11 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     // This throws a ServiceConfigurationError only on Android 7.
     serviceLoaderTest(Service.class, ServiceImplNonPublicConstructor.class)
         .addKeepMainRule(MainRunner.class)
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), MainRunner.class)
         .applyIf(
-            !isDexV7(),
+            parameters.isCfRuntime() || parameters.getDexRuntimeVersion() != V7_0_0,
             runResult -> runResult.assertSuccessWithOutput(EXPECTED_OUTPUT),
             runResult ->
                 runResult.assertFailureWithErrorThatThrows(ServiceConfigurationError.class));
@@ -301,8 +273,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
         .addKeepMainRule(EscapingRunner.class)
         .enableInliningAnnotations()
         .addDontObfuscate()
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), EscapingRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(
@@ -318,8 +290,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(LoadWhereClassLoaderIsPhi.class)
         .enableInliningAnnotations()
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), LoadWhereClassLoaderIsPhi.class)
         .assertSuccessWithOutputLines("Hello World!")
         .inspect(
@@ -340,8 +312,8 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
     serviceLoaderTest(Service.class, ServiceImpl.class)
         .addKeepMainRule(MainRunner.class)
         .addKeepClassRules(Service.class)
-        .allowDiagnosticInfoMessages(enableRewriting)
-        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .allowDiagnosticInfoMessages()
+        .compileWithExpectedDiagnostics(REWRITER_DIAGNOSTICS)
         .run(parameters.getRuntime(), MainRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(

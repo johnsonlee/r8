@@ -76,10 +76,10 @@ public class ServiceLoaderMultipleCallsSameMethodTest extends ServiceLoaderTestB
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
         .inspect(
             inspector -> {
-              verifyNoServiceLoaderLoads(inspector.clazz(MainRunner.class));
+              verifyNoServiceLoaderLoads(inspector);
               verifyNoClassLoaders(inspector);
               verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
-              // Check the synthesized service loader method is a single shared method.
+              // Check the synthesize service loader method is a single shared method.
               // Due to minification we just check there is only a single synthetic class with a
               // single static method.
               boolean found = false;
