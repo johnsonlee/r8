@@ -7,12 +7,18 @@ import static com.android.tools.r8.utils.BitUtils.INTEGER_SHIFT_MASK;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.utils.BitUtils;
 
 public class AbstractCalculator {
 
   public static AbstractValue andIntegers(
       AppView<?> appView, AbstractValue left, AbstractValue right) {
+    return andIntegers(appView.abstractValueFactory(), left, right);
+  }
+
+  public static AbstractValue andIntegers(
+      AbstractValueFactory abstractValueFactory, AbstractValue left, AbstractValue right) {
     if (left.isZero()) {
       return left;
     }
@@ -22,25 +28,21 @@ public class AbstractCalculator {
     if (left.isSingleNumberValue() && right.isSingleNumberValue()) {
       int result =
           left.asSingleNumberValue().getIntValue() & right.asSingleNumberValue().getIntValue();
-      return appView.abstractValueFactory().createUncheckedSingleNumberValue(result);
+      return abstractValueFactory.createUncheckedSingleNumberValue(result);
     }
     if (left.hasDefinitelySetAndUnsetBitsInformation()
         && right.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(
-              left.getDefinitelySetIntBits() & right.getDefinitelySetIntBits(),
-              left.getDefinitelyUnsetIntBits() | right.getDefinitelyUnsetIntBits());
+      return abstractValueFactory.createDefiniteBitsNumberValue(
+          left.getDefinitelySetIntBits() & right.getDefinitelySetIntBits(),
+          left.getDefinitelyUnsetIntBits() | right.getDefinitelyUnsetIntBits());
     }
     if (left.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(0, left.getDefinitelyUnsetIntBits());
+      return abstractValueFactory.createDefiniteBitsNumberValue(
+          0, left.getDefinitelyUnsetIntBits());
     }
     if (right.hasDefinitelySetAndUnsetBitsInformation()) {
-      return appView
-          .abstractValueFactory()
-          .createDefiniteBitsNumberValue(0, right.getDefinitelyUnsetIntBits());
+      return abstractValueFactory.createDefiniteBitsNumberValue(
+          0, right.getDefinitelyUnsetIntBits());
     }
     return AbstractValue.unknown();
   }

@@ -4,14 +4,63 @@
 package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 
 public enum IfType {
-  EQ,
-  GE,
-  GT,
-  LE,
-  LT,
-  NE;
+  EQ {
+    @Override
+    public AbstractValue evaluate(
+        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
+      return abstractValueFactory.createSingleBooleanValue(operand.getValue() == 0);
+    }
+  },
+  GE {
+    @Override
+    public AbstractValue evaluate(
+        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
+      return abstractValueFactory.createSingleBooleanValue(operand.getValue() >= 0);
+    }
+  },
+  GT {
+    @Override
+    public AbstractValue evaluate(
+        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
+      return abstractValueFactory.createSingleBooleanValue(operand.getValue() > 0);
+    }
+  },
+  LE {
+    @Override
+    public AbstractValue evaluate(
+        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
+      return abstractValueFactory.createSingleBooleanValue(operand.getValue() <= 0);
+    }
+  },
+  LT {
+    @Override
+    public AbstractValue evaluate(
+        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
+      return abstractValueFactory.createSingleBooleanValue(operand.getValue() < 0);
+    }
+  },
+  NE {
+    @Override
+    public AbstractValue evaluate(
+        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
+      return abstractValueFactory.createSingleBooleanValue(operand.getValue() != 0);
+    }
+  };
+
+  public AbstractValue evaluate(AbstractValue operand, AbstractValueFactory abstractValueFactory) {
+    if (operand.isSingleNumberValue()) {
+      return evaluate(operand.asSingleNumberValue(), abstractValueFactory);
+    }
+    return AbstractValue.unknown();
+  }
+
+  public abstract AbstractValue evaluate(
+      SingleNumberValue operand, AbstractValueFactory abstractValueFactory);
 
   public boolean isEqualsOrNotEquals() {
     return this == EQ || this == NE;

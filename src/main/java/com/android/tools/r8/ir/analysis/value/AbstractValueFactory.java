@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.objectstate.KnownLengthArrayState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.naming.dexitembasedstring.NameComputationInfo;
+import com.android.tools.r8.utils.BooleanUtils;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AbstractValueFactory {
@@ -100,6 +101,10 @@ public class AbstractValueFactory {
     return state.isEmpty()
         ? new SingleStatelessFieldValue(field)
         : new SingleStatefulFieldValue(field, state);
+  }
+
+  public SingleNumberValue createSingleBooleanValue(boolean value) {
+    return createUncheckedSingleNumberValue(BooleanUtils.intValue(value));
   }
 
   public SingleNumberValue createSingleNumberValue(long value, TypeElement type) {

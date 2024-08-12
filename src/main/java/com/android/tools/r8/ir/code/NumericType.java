@@ -16,6 +16,10 @@ public enum NumericType {
   FLOAT,
   DOUBLE;
 
+  public boolean isInt() {
+    return this == INT;
+  }
+
   public DexType toDexType(DexItemFactory factory) {
     switch (this) {
       case BYTE:

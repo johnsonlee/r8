@@ -339,13 +339,16 @@ public class ConstNumber extends ConstInstruction {
   @Override
   public AbstractValue getAbstractValue(
       AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
+    return getAbstractValue(appView.abstractValueFactory());
+  }
+
+  public AbstractValue getAbstractValue(AbstractValueFactory abstractValueFactory) {
     if (outValue.hasLocalInfo()) {
       return AbstractValue.unknown();
     }
-    AbstractValueFactory factory = appView.abstractValueFactory();
     return getOutType().isReferenceType()
-        ? factory.createNullValue(getOutType())
-        : factory.createSingleNumberValue(value, getOutType());
+        ? abstractValueFactory.createNullValue(getOutType())
+        : abstractValueFactory.createSingleNumberValue(value, getOutType());
   }
 
   @Override
