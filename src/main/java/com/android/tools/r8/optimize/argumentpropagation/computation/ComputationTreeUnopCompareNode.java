@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.IfType;
+import java.util.Objects;
 import java.util.function.IntFunction;
 
 public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
@@ -29,5 +30,22 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
       IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory) {
     AbstractValue operandValue = operand.evaluate(argumentAssignment, abstractValueFactory);
     return type.evaluate(operandValue, abstractValueFactory);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof ComputationTreeUnopCompareNode)) {
+      return false;
+    }
+    ComputationTreeUnopCompareNode node = (ComputationTreeUnopCompareNode) obj;
+    return type == node.type && internalIsEqualTo(node);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), operand, type);
   }
 }

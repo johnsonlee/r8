@@ -5,7 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.ir.code.NumericType;
 
-public abstract class ComputationTreeLogicalBinopNode implements ComputationTreeNode {
+public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBaseNode {
 
   final ComputationTreeNode left;
   final ComputationTreeNode right;
@@ -18,5 +18,9 @@ public abstract class ComputationTreeLogicalBinopNode implements ComputationTree
 
   public NumericType getNumericType() {
     return NumericType.INT;
+  }
+
+  boolean internalIsEqualTo(ComputationTreeLogicalBinopNode node) {
+    return left.equals(node.left) && right.equals(node.right);
   }
 }

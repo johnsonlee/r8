@@ -3,12 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
-public abstract class ComputationTreeUnopNode implements ComputationTreeNode {
+public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
 
   final ComputationTreeNode operand;
 
   ComputationTreeUnopNode(ComputationTreeNode operand) {
     assert !operand.isUnknown();
     this.operand = operand;
+  }
+
+  boolean internalIsEqualTo(ComputationTreeUnopNode node) {
+    return operand.equals(node.operand);
   }
 }
