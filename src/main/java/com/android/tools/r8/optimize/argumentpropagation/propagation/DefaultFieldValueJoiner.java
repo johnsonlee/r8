@@ -25,7 +25,6 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteReferenceTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
@@ -121,12 +120,9 @@ public class DefaultFieldValueJoiner {
             if (state.isUnknown()) {
               return;
             }
-            if (state.isReferenceState()) {
-              ConcreteReferenceTypeValueState referenceState = state.asReferenceState();
-              if (referenceState.getDynamicType().getNullability().isNullable()
-                  && referenceState.getAbstractValue(appView).isUnknown()) {
-                return;
-              }
+            if (state.isReferenceState()
+                && state.asReferenceState().getNullability().isNullable()) {
+              return;
             }
             fieldsOfInterest
                 .computeIfAbsent(field.getHolder(), ignoreKey(ArrayList::new))
