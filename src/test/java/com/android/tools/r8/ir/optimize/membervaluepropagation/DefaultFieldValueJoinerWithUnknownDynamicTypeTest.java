@@ -43,8 +43,7 @@ public class DefaultFieldValueJoinerWithUnknownDynamicTypeTest extends TestBase 
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/358629308): Should succeed.
-        .assertFailureWithErrorThatThrows(RuntimeException.class);
+        .assertSuccessWithEmptyOutput();
   }
 
   @NeverClassInline
