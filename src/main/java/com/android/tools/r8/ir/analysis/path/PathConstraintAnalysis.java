@@ -37,10 +37,11 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 public class PathConstraintAnalysis
     extends IntraproceduralDataflowAnalysis<PathConstraintAnalysisState> {
 
-  public PathConstraintAnalysis(
-      AppView<AppInfoWithLiveness> appView,
-      IRCode code,
-      PathConstraintAnalysisTransferFunction transfer) {
-    super(appView, PathConstraintAnalysisState.bottom(), code, transfer);
+  public PathConstraintAnalysis(AppView<AppInfoWithLiveness> appView, IRCode code) {
+    super(
+        appView,
+        PathConstraintAnalysisState.bottom(),
+        code,
+        new PathConstraintAnalysisTransferFunction(appView.abstractValueFactory()));
   }
 }

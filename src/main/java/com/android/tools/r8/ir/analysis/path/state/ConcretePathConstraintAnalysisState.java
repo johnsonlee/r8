@@ -88,6 +88,19 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
     return newPathConstraints;
   }
 
+  public Set<ComputationTreeNode> getPathConstraints() {
+    return pathConstraints;
+  }
+
+  public Set<ComputationTreeNode> getNegatedPathConstraints() {
+    return negatedPathConstraints;
+  }
+
+  @Override
+  public boolean isConcrete() {
+    return true;
+  }
+
   @Override
   public ConcretePathConstraintAnalysisState asConcreteState() {
     return this;

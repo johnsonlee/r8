@@ -25,6 +25,10 @@ public abstract class PathConstraintAnalysisState
     return false;
   }
 
+  public boolean isConcrete() {
+    return false;
+  }
+
   public boolean isUnknown() {
     return false;
   }

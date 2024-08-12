@@ -44,6 +44,10 @@ public abstract class DataflowAnalysisResult {
       this.blockExitStates = blockExitStates;
     }
 
+    public StateType getBlockExitState(Block block) {
+      return blockExitStates.get(block);
+    }
+
     public StateType join(AppView<?> appView) {
       StateType result = null;
       for (StateType blockExitState : blockExitStates.values()) {
