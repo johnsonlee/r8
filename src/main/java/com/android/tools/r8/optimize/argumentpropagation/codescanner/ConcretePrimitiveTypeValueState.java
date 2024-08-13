@@ -13,6 +13,7 @@ import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.SetUtils;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
 
@@ -44,8 +45,8 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   }
 
   @Override
-  public ConcretePrimitiveTypeValueState mutableCopy() {
-    return new ConcretePrimitiveTypeValueState(abstractValue, copyInFlow());
+  public ConcretePrimitiveTypeValueState internalMutableCopy(Supplier<Set<InFlow>> inFlowSupplier) {
+    return new ConcretePrimitiveTypeValueState(abstractValue, inFlowSupplier.get());
   }
 
   public NonEmptyValueState mutableJoin(
@@ -108,8 +109,8 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   }
 
   @Override
-  public boolean isEffectivelyBottom() {
-    return abstractValue.isBottom() && !hasInFlow();
+  public boolean isEffectivelyBottomIgnoringInFlow() {
+    return abstractValue.isBottom();
   }
 
   @Override

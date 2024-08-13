@@ -37,6 +37,11 @@ public class UnknownValueState extends NonEmptyValueState {
   }
 
   @Override
+  public ValueState mutableCopyWithoutInFlow() {
+    return this;
+  }
+
+  @Override
   public UnknownValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ValueState inState,

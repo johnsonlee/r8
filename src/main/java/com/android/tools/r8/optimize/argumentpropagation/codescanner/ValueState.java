@@ -118,6 +118,8 @@ public abstract class ValueState {
 
   public abstract ValueState mutableCopy();
 
+  public abstract ValueState mutableCopyWithoutInFlow();
+
   public final ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ValueState inState,

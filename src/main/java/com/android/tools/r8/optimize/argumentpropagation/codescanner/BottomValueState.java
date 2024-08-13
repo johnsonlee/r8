@@ -26,4 +26,9 @@ public abstract class BottomValueState extends ValueState {
   public final ValueState mutableCopy() {
     return this;
   }
+
+  @Override
+  public ValueState mutableCopyWithoutInFlow() {
+    return this;
+  }
 }

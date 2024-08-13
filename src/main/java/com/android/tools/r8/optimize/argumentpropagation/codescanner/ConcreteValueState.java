@@ -13,6 +13,7 @@ import com.android.tools.r8.utils.Action;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public abstract class ConcreteValueState extends NonEmptyValueState {
 
@@ -87,7 +88,11 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
 
   public abstract ConcreteParameterStateKind getKind();
 
-  public abstract boolean isEffectivelyBottom();
+  public final boolean isEffectivelyBottom() {
+    return isEffectivelyBottomIgnoringInFlow() && !hasInFlow();
+  }
+
+  public abstract boolean isEffectivelyBottomIgnoringInFlow();
 
   public abstract boolean isEffectivelyUnknown();
 
@@ -99,6 +104,23 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
   @Override
   public ConcreteValueState asConcrete() {
     return this;
+  }
+
+  @Override
+  public final ConcreteValueState mutableCopy() {
+    return internalMutableCopy(this::copyInFlow);
+  }
+
+  protected abstract ConcreteValueState internalMutableCopy(Supplier<Set<InFlow>> inFlowSupplier);
+
+  @Override
+  public ValueState mutableCopyWithoutInFlow() {
+    if (isEffectivelyBottomIgnoringInFlow()) {
+      return getCorrespondingBottom();
+    }
+    ConcreteValueState result = internalMutableCopy(Collections::emptySet);
+    assert !result.isEffectivelyBottom();
+    return result;
   }
 
   @Override

@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.SetUtils;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState {
 
@@ -83,8 +84,8 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
-  public boolean isEffectivelyBottom() {
-    return nullability.isBottom() && !hasInFlow();
+  public boolean isEffectivelyBottomIgnoringInFlow() {
+    return nullability.isBottom();
   }
 
   @Override
@@ -93,8 +94,8 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
-  public ValueState mutableCopy() {
-    return new ConcreteArrayTypeValueState(nullability, copyInFlow());
+  public ConcreteArrayTypeValueState internalMutableCopy(Supplier<Set<InFlow>> inFlowSupplier) {
+    return new ConcreteArrayTypeValueState(nullability, inFlowSupplier.get());
   }
 
   public NonEmptyValueState mutableJoin(

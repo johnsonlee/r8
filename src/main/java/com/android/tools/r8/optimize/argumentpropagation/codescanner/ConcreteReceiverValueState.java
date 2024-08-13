@@ -14,6 +14,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Supplier;
 
 public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState {
 
@@ -71,8 +72,8 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   }
 
   @Override
-  public boolean isEffectivelyBottom() {
-    return dynamicType.isBottom() && !hasInFlow();
+  public boolean isEffectivelyBottomIgnoringInFlow() {
+    return dynamicType.isBottom();
   }
 
   @Override
@@ -92,8 +93,8 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   }
 
   @Override
-  public ValueState mutableCopy() {
-    return new ConcreteReceiverValueState(dynamicType, copyInFlow());
+  public ConcreteReceiverValueState internalMutableCopy(Supplier<Set<InFlow>> inFlowSupplier) {
+    return new ConcreteReceiverValueState(dynamicType, inFlowSupplier.get());
   }
 
   @Override
