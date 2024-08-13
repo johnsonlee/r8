@@ -36,7 +36,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
-import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
+import com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaringEventConsumer;
 import com.android.tools.r8.jar.CfApplicationWriter;
@@ -182,7 +182,7 @@ public class GlobalSyntheticsGenerator {
 
     List<ProgramMethod> methodsToProcess = new ArrayList<>();
     // Add global synthetic class for records.
-    RecordDesugaring.ensureRecordClassHelper(
+    RecordTagSynthesizer.ensureRecordClassHelper(
         appView,
         synthesizingContext,
         recordTagClass -> recordTagClass.programMethods().forEach(methodsToProcess::add),

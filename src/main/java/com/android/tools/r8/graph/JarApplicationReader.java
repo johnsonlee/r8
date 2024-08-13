@@ -4,7 +4,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.graph.DexMethodHandle.MethodHandleType;
-import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
+import com.android.tools.r8.ir.desugar.records.RecordInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -162,14 +162,15 @@ public class JarApplicationReader {
   }
 
   public void checkFieldForRecord(DexField dexField, ClassKind<?> classKind) {
-    if (options.shouldDesugarRecords() && RecordDesugaring.refersToRecord(dexField, getFactory())) {
+    if (options.shouldDesugarRecords()
+        && RecordInstructionDesugaring.refersToRecord(dexField, getFactory())) {
       addRecordWitness(dexField.getHolderType(), classKind);
     }
   }
 
   public void checkMethodForRecord(DexMethod dexMethod, ClassKind<?> classKind) {
     if (options.shouldDesugarRecords()
-        && RecordDesugaring.refersToRecord(dexMethod, getFactory())) {
+        && RecordInstructionDesugaring.refersToRecord(dexMethod, getFactory())) {
       addRecordWitness(dexMethod.getHolderType(), classKind);
     }
   }
