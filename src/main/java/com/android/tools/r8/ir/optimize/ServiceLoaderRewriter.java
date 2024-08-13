@@ -38,6 +38,7 @@ import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.desugar.ServiceLoaderSourceCode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.DominatorChecker;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.WorkList;
 import java.util.ArrayList;
@@ -231,9 +232,9 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     replacements.put(loadResult.iteratorInvoke, code.createConstNull());
 
     // Iterator.hasNext() --> true / false
-    if (directRewriteResult.hasNextInstr != null) {
+    if (directRewriteResult.priorHasNextInstr != null) {
       replacements.put(
-          directRewriteResult.hasNextInstr,
+          directRewriteResult.priorHasNextInstr,
           code.createBooleanConstant(!loadResult.implClasses.isEmpty()));
     }
     if (directRewriteResult.nextInstr != null) {
@@ -278,6 +279,11 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
         initInstr.setPosition(position);
         replacementExtras.put(directRewriteResult.nextInstr, List.of(initInstr));
       }
+    }
+    if (directRewriteResult.subsequentHasNextInstr != null) {
+      replacements.put(
+          directRewriteResult.subsequentHasNextInstr,
+          code.createBooleanConstant(loadResult.implClasses.size() > 1));
     }
   }
 
@@ -428,8 +434,9 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     if (iteratorInvoke.outValue().hasPhiUsers()) {
       return null;
     }
-    InvokeMethod hasNextInstr = null;
+    InvokeMethod priorHasNextInstr = null;
     InvokeMethod nextInstr = null;
+    InvokeMethod subsequentHasNextInstr = null;
     // We only bother to support a single call to hasNext() and next(), and they must appear within
     // the same try/catch.
     for (Instruction user : iteratorInvoke.outValue().aliasedUsers()) {
@@ -447,10 +454,14 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
         return null;
       }
       if (curCall.getInvokedMethod().isIdenticalTo(iteratorMethods.hasNext)) {
-        if (hasNextInstr != null) {
+        if (subsequentHasNextInstr != null) {
           return null;
         }
-        hasNextInstr = curCall;
+        if (priorHasNextInstr != null) {
+          subsequentHasNextInstr = curCall;
+        } else {
+          priorHasNextInstr = curCall;
+        }
       } else if (curCall.getInvokedMethod().isIdenticalTo(iteratorMethods.next)) {
         if (nextInstr != null) {
           return null;
@@ -461,29 +472,58 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       }
     }
 
+    // Figure out which hasNext is the first one.
     BasicBlock iteratorBlock = iteratorInvoke.getBlock();
-    BasicBlock hasNextBlock = hasNextInstr != null ? hasNextInstr.getBlock() : null;
+    BasicBlock priorHasNextBlock = priorHasNextInstr != null ? priorHasNextInstr.getBlock() : null;
+    BasicBlock subsequentHasNextBlock =
+        subsequentHasNextInstr != null ? subsequentHasNextInstr.getBlock() : null;
     BasicBlock nextBlock = nextInstr != null ? nextInstr.getBlock() : null;
-    if (hasNextBlock != null && nextBlock != null) {
-      // See if hasNext() is reachable after next().
-      if (hasNextBlock == nextBlock) {
-        if (nextBlock.iterator(nextInstr).nextUntil(hasNextInstr) != null) {
+    if (priorHasNextBlock != null && nextBlock != null) {
+      if (subsequentHasNextBlock != null) {
+        if (priorHasNextBlock == subsequentHasNextBlock) {
+          // This would be odd, since hasNext() is usually used in conditionals.
           return null;
         }
-      } else if (hasPredecessorPathTo(iteratorBlock, hasNextBlock, nextBlock)) {
+        // Make sure subsequentHasNextBlock and priorHasNextBlock are not reversed.
+        if (hasPredecessorPathTo(iteratorBlock, priorHasNextBlock, subsequentHasNextBlock)) {
+          InvokeMethod tmp = priorHasNextInstr;
+          priorHasNextInstr = subsequentHasNextInstr;
+          subsequentHasNextInstr = tmp;
+          priorHasNextBlock = subsequentHasNextBlock;
+          subsequentHasNextBlock = subsequentHasNextInstr.getBlock();
+        }
+        // Ensure the second hasNext() comes after the call to next().
+        if (nextBlock == subsequentHasNextBlock) {
+          if (nextBlock.iterator(nextInstr).nextUntil(subsequentHasNextInstr) == null) {
+            return null;
+          }
+        } else if (!DominatorChecker.check(iteratorBlock, subsequentHasNextBlock, nextBlock)) {
+          return null;
+        }
+      }
+
+      // Ensure the first hasNext() is not after next().
+      if (priorHasNextBlock == nextBlock) {
+        if (nextBlock.iterator(nextInstr).nextUntil(priorHasNextInstr) != null) {
+          return null;
+        }
+      } else if (hasPredecessorPathTo(iteratorBlock, priorHasNextBlock, nextBlock)) {
         return null;
       }
     }
 
     // Make sure each instruction can be run at most once (no loops).
-    if (hasNextBlock != null && loopExists(iteratorBlock, hasNextBlock)) {
+    if (priorHasNextBlock != null && loopExists(iteratorBlock, priorHasNextBlock)) {
       return null;
     }
     if (nextBlock != null && loopExists(iteratorBlock, nextBlock)) {
       return null;
     }
+    if (subsequentHasNextBlock != null && loopExists(iteratorBlock, subsequentHasNextBlock)) {
+      return null;
+    }
 
-    return new DirectRewriteResult(hasNextInstr, nextInstr);
+    return new DirectRewriteResult(priorHasNextInstr, nextInstr, subsequentHasNextInstr);
   }
 
   private static boolean loopExists(BasicBlock subgraphEntryBlock, BasicBlock targetBlock) {
@@ -494,6 +534,9 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       BasicBlock subgraphEntryBlock, BasicBlock subgraphExitBlock, BasicBlock targetBlock) {
     if (subgraphEntryBlock == subgraphExitBlock) {
       return false;
+    }
+    if (subgraphEntryBlock == targetBlock) {
+      return true;
     }
     WorkList<BasicBlock> workList = WorkList.newIdentityWorkList();
     workList.markAsSeen(subgraphEntryBlock);
@@ -636,12 +679,17 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
   }
 
   private static class DirectRewriteResult {
+    public final InvokeMethod priorHasNextInstr;
     public final InvokeMethod nextInstr;
-    public final InvokeMethod hasNextInstr;
+    public final InvokeMethod subsequentHasNextInstr;
 
-    public DirectRewriteResult(InvokeMethod hasNextInstr, InvokeMethod nextInstr) {
-      this.hasNextInstr = hasNextInstr;
+    public DirectRewriteResult(
+        InvokeMethod priorHasNextInstr,
+        InvokeMethod nextInstr,
+        InvokeMethod subsequentHasNextInstr) {
+      this.priorHasNextInstr = priorHasNextInstr;
       this.nextInstr = nextInstr;
+      this.subsequentHasNextInstr = subsequentHasNextInstr;
     }
   }
 }

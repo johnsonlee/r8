@@ -61,6 +61,28 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
     }
   }
 
+  public static class SubsequentHasNextRunner {
+    public static void main(String[] args) {
+      Iterator<Service> iterator =
+          ServiceLoader.load(Service.class, Service.class.getClassLoader()).iterator();
+      if (iterator.hasNext()) {
+        iterator.next().print();
+        System.out.println("" + iterator.hasNext());
+      }
+    }
+  }
+
+  public static class SubsequentHasNextRunnerNonDominating {
+    public static void main(String[] args) {
+      Iterator<Service> iterator =
+          ServiceLoader.load(Service.class, Service.class.getClassLoader()).iterator();
+      if (iterator.hasNext()) {
+        iterator.next().print();
+      }
+      System.out.println("" + iterator.hasNext());
+    }
+  }
+
   public static class MultipleCallsRunner {
     public static void main(String[] args) {
       Iterator<Service> iterator =
@@ -76,6 +98,7 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
       Iterator<Service> iterator =
           ServiceLoader.load(Service.class, Service.class.getClassLoader()).iterator();
 
+      // We optimize a subsequent hasNext() only when a prior hasNext() exists.
       iterator.next().print();
       if (iterator.hasNext()) {
         System.out.println("not reached");
@@ -187,6 +210,36 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
   }
 
   @Test
+  public void testRewritingWithSubsequentHasNext_oneImpl()
+      throws IOException, CompilationFailedException, ExecutionException {
+    doTest(ServiceImpl.class)
+        .addKeepMainRule(SubsequentHasNextRunner.class)
+        .compile()
+        .run(parameters.getRuntime(), SubsequentHasNextRunner.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + "false\n")
+        .inspect(
+            inspector -> {
+              assertIteratorPresent(inspector, false);
+              verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
+            });
+  }
+
+  @Test
+  public void testRewritingWithSubsequentHasNext_twoImpls()
+      throws IOException, CompilationFailedException, ExecutionException {
+    doTest(ServiceImpl.class, ServiceImpl2.class)
+        .addKeepMainRule(SubsequentHasNextRunner.class)
+        .compile()
+        .run(parameters.getRuntime(), SubsequentHasNextRunner.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + "true\n")
+        .inspect(
+            inspector -> {
+              assertIteratorPresent(inspector, false);
+              verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class, ServiceImpl2.class);
+            });
+  }
+
+  @Test
   public void testDoNotRewriteMultipleCalls()
       throws IOException, CompilationFailedException, ExecutionException {
     doTest(ServiceImpl.class)
@@ -269,6 +322,21 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
         .compile()
         .run(parameters.getRuntime(), PhiRunner.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT)
+        .inspect(
+            inspector -> {
+              assertIteratorPresent(inspector, true);
+              verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
+            });
+  }
+
+  @Test
+  public void testDoNotRewriteNonDominatedSubsequentHasNext()
+      throws IOException, CompilationFailedException, ExecutionException {
+    doTest(ServiceImpl.class)
+        .addKeepMainRule(SubsequentHasNextRunnerNonDominating.class)
+        .compile()
+        .run(parameters.getRuntime(), SubsequentHasNextRunnerNonDominating.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + "false\n")
         .inspect(
             inspector -> {
               assertIteratorPresent(inspector, true);
