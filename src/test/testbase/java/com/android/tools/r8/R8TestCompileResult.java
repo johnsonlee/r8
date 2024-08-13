@@ -195,6 +195,20 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
     return self();
   }
 
+  public <E extends Throwable> R8TestCompileResult assertResourceFile(String name, boolean present)
+      throws IOException {
+    assertNotNull(resourceShrinkerOutput);
+    assertEquals(ZipUtils.containsEntry(resourceShrinkerOutput, name), present);
+    return self();
+  }
+
+  public <E extends Throwable> R8TestCompileResult assertFeatureResourceFile(
+      String name, boolean present, String featureName) throws IOException {
+    Path path = resourceShrinkerOutputForFeatures.get(featureName);
+    assertEquals(ZipUtils.containsEntry(path, name), present);
+    return self();
+  }
+
   public String dumpResources() throws IOException {
     ProcessResult processResult = AndroidResourceTestingUtils.dumpWithAapt2(resourceShrinkerOutput);
     assert processResult.exitCode == 0;
