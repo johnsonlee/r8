@@ -37,6 +37,8 @@ import java.io.StringReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +50,8 @@ import org.xml.sax.SAXException;
 
 public class LegacyResourceShrinker {
   private final Map<String, byte[]> dexInputs;
-  private final List<PathAndBytes> resFolderInputs;
-  private final List<PathAndBytes> xmlInputs;
+  private final Collection<PathAndBytes> resFolderInputs;
+  private final Collection<PathAndBytes> xmlInputs;
   private List<String> proguardMapStrings;
   private final List<PathAndBytes> manifest;
   private final Map<PathAndBytes, FeatureSplit> resourceTables;
@@ -57,8 +59,8 @@ public class LegacyResourceShrinker {
   public static class Builder {
 
     private final Map<String, byte[]> dexInputs = new HashMap<>();
-    private final List<PathAndBytes> resFolderInputs = new ArrayList<>();
-    private final List<PathAndBytes> xmlInputs = new ArrayList<>();
+    private final Map<Path, PathAndBytes> resFolderInputs = new HashMap<>();
+    private final Map<Path, PathAndBytes> xmlInputs = new HashMap<>();
 
     private final List<PathAndBytes> manifests = new ArrayList<>();
     private final Map<PathAndBytes, FeatureSplit> resourceTables = new HashMap<>();
@@ -88,19 +90,34 @@ public class LegacyResourceShrinker {
     }
 
     public Builder addResFolderInput(Path path, byte[] bytes) {
-      resFolderInputs.add(new PathAndBytes(bytes, path));
+      PathAndBytes existing = resFolderInputs.get(path);
+      if (existing != null) {
+        assert Arrays.equals(existing.getBytes(), bytes);
+      } else {
+        resFolderInputs.put(path, new PathAndBytes(bytes, path));
+      }
       return this;
     }
 
     public Builder addXmlInput(Path path, byte[] bytes) {
-      xmlInputs.add(new PathAndBytes(bytes, path));
+      PathAndBytes existing = xmlInputs.get(path);
+      if (existing != null) {
+        assert Arrays.equals(existing.getBytes(), bytes);
+      } else {
+        xmlInputs.put(path, new PathAndBytes(bytes, path));
+      }
       return this;
     }
 
     public LegacyResourceShrinker build() {
       assert manifests != null && resourceTables != null;
       return new LegacyResourceShrinker(
-          dexInputs, resFolderInputs, manifests, resourceTables, xmlInputs, proguardMapStrings);
+          dexInputs,
+          resFolderInputs.values(),
+          manifests,
+          resourceTables,
+          xmlInputs.values(),
+          proguardMapStrings);
     }
 
     public void setProguardMapStrings(List<String> proguardMapStrings) {
@@ -110,10 +127,10 @@ public class LegacyResourceShrinker {
 
   private LegacyResourceShrinker(
       Map<String, byte[]> dexInputs,
-      List<PathAndBytes> resFolderInputs,
+      Collection<PathAndBytes> resFolderInputs,
       List<PathAndBytes> manifests,
       Map<PathAndBytes, FeatureSplit> resourceTables,
-      List<PathAndBytes> xmlInputs,
+      Collection<PathAndBytes> xmlInputs,
       List<String> proguardMapStrings) {
     this.dexInputs = dexInputs;
     this.resFolderInputs = resFolderInputs;

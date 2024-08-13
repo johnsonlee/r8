@@ -59,7 +59,7 @@ public class R8ResourceShrinkerState {
   private final Map<String, Supplier<InputStream>> resfileProviders = new HashMap<>();
   private final Map<ResourceTable, FeatureSplit> resourceTables = new HashMap<>();
   private ClassReferenceCallback enqueuerCallback;
-  private Map<Integer, String> resourceIdToXmlFiles;
+  private Map<Integer, List<String>> resourceIdToXmlFiles;
   private Set<String> packageNames;
   private final Set<String> seenNoneClassValues = new HashSet<>();
   private final Set<Integer> seenResourceIds = new HashSet<>();
@@ -208,10 +208,12 @@ public class R8ResourceShrinkerState {
   }
 
   private void traceXmlForResourceId(int id) {
-    String xmlFile = getResourceIdToXmlFiles().get(id);
-    if (xmlFile != null) {
-      InputStream inputStream = xmlFileProviders.get(xmlFile).get();
-      traceXml(xmlFile, inputStream);
+    List<String> xmlFiles = getResourceIdToXmlFiles().get(id);
+    if (xmlFiles != null) {
+      for (String xmlFile : xmlFiles) {
+        InputStream inputStream = xmlFileProviders.get(xmlFile).get();
+        traceXml(xmlFile, inputStream);
+      }
     }
   }
 
@@ -255,7 +257,7 @@ public class R8ResourceShrinkerState {
     element.getChildList().forEach(e -> visitNode(e, xmlName));
   }
 
-  public Map<Integer, String> getResourceIdToXmlFiles() {
+  public Map<Integer, List<String>> getResourceIdToXmlFiles() {
     if (resourceIdToXmlFiles == null) {
       resourceIdToXmlFiles = new HashMap<>();
       for (ResourceTable resourceTable : resourceTables.keySet()) {
@@ -271,7 +273,9 @@ public class R8ResourceShrinkerState {
                       FileReference file = item.getFile();
                       if (file.getType() == FileReference.Type.PROTO_XML) {
                         int id = ResourceTableUtilKt.toIdentifier(packageEntry, type, entry);
-                        resourceIdToXmlFiles.put(id, file.getPath());
+                        resourceIdToXmlFiles
+                            .computeIfAbsent(id, unused -> new ArrayList<>())
+                            .add(file.getPath());
                       }
                     }
                   }

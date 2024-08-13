@@ -293,6 +293,8 @@ public class AndroidResourceTestingUtils {
     private final Map<String, Integer> styleables = new TreeMap<>();
     private final Map<String, byte[]> drawables = new TreeMap<>();
     private final Map<String, String> xmlFiles = new TreeMap<>();
+    // Used for xml files that we hard code to -v24
+    private final Map<String, String> apiSpecificXmlFiles = new TreeMap<>();
     private final Map<String, String> rawXmlFiles = new TreeMap<>();
     private final List<Class<?>> classesToRemap = new ArrayList<>();
     private int packageId = 0x7f;
@@ -304,8 +306,15 @@ public class AndroidResourceTestingUtils {
     // These R classes will be used to rewrite the namespace and class names on the aapt2
     // generated names.
     public AndroidTestResourceBuilder addRClassInitializeWithDefaultValues(Class<?>... rClasses) {
+      return addRClassInitializeWithDefaultValues(true, rClasses);
+    }
+
+    public AndroidTestResourceBuilder addRClassInitializeWithDefaultValues(
+        boolean addRClass, Class<?>... rClasses) {
       for (Class<?> rClass : rClasses) {
-        classesToRemap.add(rClass);
+        if (addRClass) {
+          classesToRemap.add(rClass);
+        }
         RClassType rClassType = RClassType.fromClass(rClass);
         for (Field declaredField : rClass.getDeclaredFields()) {
           String name = declaredField.getName();
@@ -361,6 +370,11 @@ public class AndroidResourceTestingUtils {
 
     public AndroidTestResourceBuilder addXml(String name, String content) {
       xmlFiles.put(name, content);
+      return this;
+    }
+
+    public AndroidTestResourceBuilder addApiSpecificXml(String name, String content) {
+      apiSpecificXmlFiles.put(name, content);
       return this;
     }
 
@@ -431,6 +445,13 @@ public class AndroidResourceTestingUtils {
       if (xmlFiles.size() > 0) {
         File xmlFolder = temp.newFolder("res", "xml");
         for (Entry<String, String> entry : xmlFiles.entrySet()) {
+          FileUtils.writeTextFile(xmlFolder.toPath().resolve(entry.getKey()), entry.getValue());
+        }
+      }
+
+      if (apiSpecificXmlFiles.size() > 0) {
+        File xmlFolder = temp.newFolder("res", "xml-v24");
+        for (Entry<String, String> entry : apiSpecificXmlFiles.entrySet()) {
           FileUtils.writeTextFile(xmlFolder.toPath().resolve(entry.getKey()), entry.getValue());
         }
       }
