@@ -7,7 +7,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import com.android.tools.r8.optimize.compose.ArgumentPropagatorComposeModeling;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
@@ -25,7 +25,7 @@ public class ArgumentPropagatorCodeScannerModeling {
             : null;
   }
 
-  ValueState modelParameterStateForArgumentToFunction(
+  NonEmptyValueState modelParameterStateForArgumentToFunction(
       InvokeMethod invoke,
       ProgramMethod singleTarget,
       int argumentIndex,

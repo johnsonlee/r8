@@ -23,8 +23,8 @@ import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.OrAbstractFunction;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.Iterables;
@@ -93,7 +93,7 @@ public class ArgumentPropagatorComposeModeling {
    *   }
    * </pre>
    */
-  public ValueState modelParameterStateForChangedOrDefaultArgumentToComposableFunction(
+  public NonEmptyValueState modelParameterStateForChangedOrDefaultArgumentToComposableFunction(
       InvokeMethod invoke,
       ProgramMethod singleTarget,
       int argumentIndex,

@@ -724,7 +724,7 @@ public class ArgumentPropagatorCodeScanner {
         int argumentIndex,
         Value argument,
         ConcreteMonomorphicMethodStateOrBottom existingMethodState) {
-      ValueState modeledState =
+      NonEmptyValueState modeledState =
           modeling.modelParameterStateForArgumentToFunction(
               invoke, singleTarget, argumentIndex, argument, context);
       if (modeledState != null) {
