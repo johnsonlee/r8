@@ -8,17 +8,14 @@ import static com.android.tools.r8.cf.code.CfStackInstruction.Opcode.Dup;
 import static com.android.tools.r8.cf.code.CfStackInstruction.Opcode.Swap;
 import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.isInvokeDynamicOnRecord;
 import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.parseInvokeDynamicOnRecord;
-import static com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer.ensureRecordClass;
 
 import com.android.tools.r8.cf.code.CfConstClass;
 import com.android.tools.r8.cf.code.CfConstString;
 import com.android.tools.r8.cf.code.CfDexItemBasedConstString;
-import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
 import com.android.tools.r8.cf.code.CfStackInstruction;
-import com.android.tools.r8.cf.code.CfTypeInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
@@ -52,27 +49,15 @@ import org.objectweb.asm.Opcodes;
 
 public class RecordInstructionDesugaring implements CfInstructionDesugaring {
 
-  private final AppView<?> appView;
-  private final DexItemFactory factory;
+  final AppView<?> appView;
+  final DexItemFactory factory;
   private final DexProto recordToStringHelperProto;
   private final DexProto recordHashCodeHelperProto;
 
   public static final String GET_FIELDS_AS_OBJECTS_METHOD_NAME = "$record$getFieldsAsObjects";
   public static final String EQUALS_RECORD_METHOD_NAME = "$record$equals";
 
-  public static RecordInstructionDesugaring create(AppView<?> appView) {
-    return appView.options().shouldDesugarRecords()
-        ? new RecordInstructionDesugaring(appView)
-        : null;
-  }
-
-  public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
-    RecordCfMethods.registerSynthesizedCodeReferences(factory);
-    RecordGetFieldsAsObjectsCfCodeProvider.registerSynthesizedCodeReferences(factory);
-    RecordEqualsCfCodeProvider.registerSynthesizedCodeReferences(factory);
-  }
-
-  private RecordInstructionDesugaring(AppView<?> appView) {
+  RecordInstructionDesugaring(AppView<?> appView) {
     this.appView = appView;
     factory = appView.dexItemFactory();
     recordToStringHelperProto =
@@ -80,6 +65,24 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
             factory.stringType, factory.objectArrayType, factory.classType, factory.stringType);
     recordHashCodeHelperProto =
         factory.createProto(factory.intType, factory.classType, factory.objectArrayType);
+  }
+
+  public static RecordInstructionDesugaring create(AppView<?> appView) {
+    switch (appView.options().desugarRecordState()) {
+      case OFF:
+        return null;
+      case PARTIAL:
+        return new RecordInstructionDesugaring(appView);
+      case FULL:
+        return new RecordFullInstructionDesugaring(appView);
+    }
+    throw new Unreachable();
+  }
+
+  public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
+    RecordCfMethods.registerSynthesizedCodeReferences(factory);
+    RecordGetFieldsAsObjectsCfCodeProvider.registerSynthesizedCodeReferences(factory);
+    RecordEqualsCfCodeProvider.registerSynthesizedCodeReferences(factory);
   }
 
   @Override
@@ -116,47 +119,6 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     throw new Unreachable("Invoke dynamic needs record desugaring but could not be desugared.");
   }
 
-  @Override
-  public void scan(
-      ProgramMethod programMethod, CfInstructionDesugaringEventConsumer eventConsumer) {
-    CfCode cfCode = programMethod.getDefinition().getCode().asCfCode();
-    for (CfInstruction instruction : cfCode.getInstructions()) {
-      scanInstruction(instruction, eventConsumer, programMethod);
-    }
-  }
-
-  // The record rewriter scans the cf instructions to figure out if the record class needs to
-  // be added in the output. the analysis cannot be done in desugarInstruction because the analysis
-  // does not rewrite any instruction, and desugarInstruction is expected to rewrite at least one
-  // instruction for assertions to be valid.
-  private void scanInstruction(
-      CfInstruction instruction,
-      CfInstructionDesugaringEventConsumer eventConsumer,
-      ProgramMethod context) {
-    assert !instruction.isInitClass();
-    if (instruction.isInvoke()) {
-      CfInvoke cfInvoke = instruction.asInvoke();
-      if (refersToRecord(cfInvoke.getMethod(), factory)) {
-        ensureRecordClass(eventConsumer, context, appView);
-      }
-      return;
-    }
-    if (instruction.isFieldInstruction()) {
-      CfFieldInstruction fieldInstruction = instruction.asFieldInstruction();
-      if (refersToRecord(fieldInstruction.getField(), factory)) {
-        ensureRecordClass(eventConsumer, context, appView);
-      }
-      return;
-    }
-    if (instruction.isTypeInstruction()) {
-      CfTypeInstruction typeInstruction = instruction.asTypeInstruction();
-      if (refersToRecord(typeInstruction.getType(), factory)) {
-        ensureRecordClass(eventConsumer, context, appView);
-      }
-      return;
-    }
-    // TODO(b/179146128): Analyse MethodHandle and MethodType.
-  }
 
   @Override
   @SuppressWarnings("ReferenceEquality")
@@ -170,9 +132,9 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     }
     if (instruction.isInvoke()) {
       CfInvoke cfInvoke = instruction.asInvoke();
-      if (needsDesugaring(cfInvoke.getMethod(), cfInvoke.isInvokeSuper(context.getHolderType()))) {
-        DexMethod newMethod =
-            rewriteMethod(cfInvoke.getMethod(), cfInvoke.isInvokeSuper(context.getHolderType()));
+      boolean invokeSuper = cfInvoke.isInvokeSuper(context.getHolderType());
+      if (needsDesugaring(cfInvoke.getMethod(), invokeSuper)) {
+        DexMethod newMethod = rewriteMethod(cfInvoke.getMethod(), invokeSuper);
         assert newMethod != cfInvoke.getMethod();
         return desugarInvoke(cfInvoke, newMethod);
       } else {
@@ -404,39 +366,6 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     eventConsumer.acceptRecordToStringHelperMethod(programMethod, context);
     instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, programMethod.getReference(), false));
     return instructions;
-  }
-
-  public static boolean refersToRecord(DexField field, DexItemFactory factory) {
-    assert !refersToRecord(field.holder, factory) : "The java.lang.Record class has no fields.";
-    return refersToRecord(field.type, factory);
-  }
-
-  public static boolean refersToRecord(DexMethod method, DexItemFactory factory) {
-    if (refersToRecord(method.holder, factory)) {
-      return true;
-    }
-    return refersToRecord(method.proto, factory);
-  }
-
-  private static boolean refersToRecord(DexProto proto, DexItemFactory factory) {
-    if (refersToRecord(proto.returnType, factory)) {
-      return true;
-    }
-    return refersToRecord(proto.parameters.values, factory);
-  }
-
-  private static boolean refersToRecord(DexType[] types, DexItemFactory factory) {
-    for (DexType type : types) {
-      if (refersToRecord(type, factory)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private static boolean refersToRecord(DexType type, DexItemFactory factory) {
-    return type == factory.recordType;
   }
 
   @SuppressWarnings("ReferenceEquality")

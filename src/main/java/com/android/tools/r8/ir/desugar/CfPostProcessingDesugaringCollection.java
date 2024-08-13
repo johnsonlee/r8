@@ -10,7 +10,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredL
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarerPostProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterPostProcessor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
-import com.android.tools.r8.ir.desugar.records.RecordDesugaring;
+import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -72,7 +72,7 @@ public abstract class CfPostProcessingDesugaringCollection {
       if (apiCallbackSynthesizor != null) {
         desugarings.add(apiCallbackSynthesizor);
       }
-      RecordDesugaring recordRewriter = RecordDesugaring.create(appView);
+      RecordClassDesugaring recordRewriter = RecordClassDesugaring.create(appView);
       if (recordRewriter != null) {
         desugarings.add(recordRewriter);
       }

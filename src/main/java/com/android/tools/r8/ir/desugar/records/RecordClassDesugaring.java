@@ -22,16 +22,19 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-public class RecordDesugaring implements CfClassSynthesizerDesugaring, CfPostProcessingDesugaring {
+public class RecordClassDesugaring
+    implements CfClassSynthesizerDesugaring, CfPostProcessingDesugaring {
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
 
-  public static RecordDesugaring create(AppView<?> appView) {
-    return appView.options().shouldDesugarRecords() ? new RecordDesugaring(appView) : null;
+  public static RecordClassDesugaring create(AppView<?> appView) {
+    return appView.options().desugarRecordState().isFull()
+        ? new RecordClassDesugaring(appView)
+        : null;
   }
 
-  private RecordDesugaring(AppView<?> appView) {
+  private RecordClassDesugaring(AppView<?> appView) {
     this.appView = appView;
     factory = appView.dexItemFactory();
   }

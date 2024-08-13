@@ -327,7 +327,7 @@ public class R8 {
       if (options.enableEnumUnboxing) {
         EnumUnboxingCfMethods.registerSynthesizedCodeReferences(appView.dexItemFactory());
       }
-      if (options.shouldDesugarRecords()) {
+      if (options.desugarRecordState().isNotOff()) {
         RecordInstructionDesugaring.registerSynthesizedCodeReferences(appView.dexItemFactory());
       }
       if (options.shouldDesugarVarHandle()) {

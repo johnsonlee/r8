@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.profile.art.completeness;
 
-import static com.android.tools.r8.ir.desugar.records.RecordInstructionDesugaring.EQUALS_RECORD_METHOD_NAME;
-import static com.android.tools.r8.ir.desugar.records.RecordInstructionDesugaring.GET_FIELDS_AS_OBJECTS_METHOD_NAME;
+import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.EQUALS_RECORD_METHOD_NAME;
+import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.GET_FIELDS_AS_OBJECTS_METHOD_NAME;
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.ifThen;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;

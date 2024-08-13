@@ -699,8 +699,31 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return !canUseNestBasedAccess();
   }
 
-  public boolean shouldDesugarRecords() {
-    return desugarState.isOn() && !canUseRecords();
+  public enum DesugarRecordState {
+    OFF,
+    PARTIAL,
+    FULL;
+
+    public boolean isFull() {
+      return this == FULL;
+    }
+
+    public boolean isNotOff() {
+      return this != OFF;
+    }
+  }
+
+  public boolean recordPartialDesugaring =
+      System.getProperty("com.android.tools.r8.recordPartialDesugaring") != null;
+
+  public DesugarRecordState desugarRecordState() {
+    if (desugarState.isOff()) {
+      return DesugarRecordState.OFF;
+    }
+    if (!canUseRecords()) {
+      return DesugarRecordState.FULL;
+    }
+    return recordPartialDesugaring ? DesugarRecordState.PARTIAL : DesugarRecordState.OFF;
   }
 
   public boolean canUseDesugarBufferCovariantReturnType() {

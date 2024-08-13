@@ -21,7 +21,7 @@ public class RecordRewritingNamingLens extends NonIdentityNamingLens {
   private final NamingLens namingLens;
 
   public static NamingLens createRecordRewritingNamingLens(AppView<?> appView) {
-    if (appView.options().shouldDesugarRecords()
+    if (appView.options().desugarRecordState().isFull()
         && appView
                 .appInfo()
                 .definitionForWithoutExistenceAssert(appView.dexItemFactory().recordType)
