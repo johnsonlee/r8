@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.IF;
 
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
@@ -17,13 +18,21 @@ import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 
 public class ComputationTreeBuilder {
 
   private final AbstractValueFactory abstractValueFactory;
+  private final ProgramMethod method;
+  private final MethodParameterFactory methodParameterFactory;
 
-  public ComputationTreeBuilder(AbstractValueFactory abstractValueFactory) {
+  public ComputationTreeBuilder(
+      AbstractValueFactory abstractValueFactory,
+      ProgramMethod method,
+      MethodParameterFactory methodParameterFactory) {
     this.abstractValueFactory = abstractValueFactory;
+    this.method = method;
+    this.methodParameterFactory = methodParameterFactory;
   }
 
   // TODO(b/302281503): "Long lived" computation trees (i.e., the ones that survive past the IR
@@ -44,7 +53,7 @@ public class ComputationTreeBuilder {
         {
           Argument argument = instruction.asArgument();
           if (argument.getOutType().isInt()) {
-            return ComputationTreeArgumentNode.create(argument.getIndex());
+            return methodParameterFactory.create(method, argument.getIndex());
           }
           break;
         }

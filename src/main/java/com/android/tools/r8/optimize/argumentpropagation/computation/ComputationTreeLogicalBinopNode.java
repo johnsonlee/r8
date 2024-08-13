@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.ir.code.NumericType;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 
 public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBaseNode {
 
@@ -18,6 +19,15 @@ public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBas
 
   public NumericType getNumericType() {
     return NumericType.INT;
+  }
+
+  @Override
+  public final MethodParameter getSingleOpenVariable() {
+    MethodParameter openVariable = left.getSingleOpenVariable();
+    if (openVariable != null) {
+      return right.getSingleOpenVariable() == null ? openVariable : null;
+    }
+    return right.getSingleOpenVariable();
   }
 
   boolean internalIsEqualTo(ComputationTreeLogicalBinopNode node) {

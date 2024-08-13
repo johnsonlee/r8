@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysi
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeUnopCompareNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -50,7 +51,8 @@ public class PathConstraintAnalysisUnitTest extends TestBase {
     CodeInspector inspector = new CodeInspector(app);
     IRCode code =
         inspector.clazz(Main.class).uniqueMethodWithOriginalName("greet").buildIR(appView);
-    PathConstraintAnalysis analysis = new PathConstraintAnalysis(appView, code);
+    PathConstraintAnalysis analysis =
+        new PathConstraintAnalysis(appView, code, new MethodParameterFactory());
     DataflowAnalysisResult result = analysis.run(code.entryBlock());
     assertTrue(result.isSuccessfulAnalysisResult());
     SuccessfulDataflowAnalysisResult<BasicBlock, PathConstraintAnalysisState> successfulResult =

@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.function.IntFunction;
@@ -27,6 +28,11 @@ public abstract class AbstractValue implements ComputationTreeNode {
   public AbstractValue evaluate(
       IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory) {
     return this;
+  }
+
+  @Override
+  public MethodParameter getSingleOpenVariable() {
+    return null;
   }
 
   public abstract boolean isNonTrivial();

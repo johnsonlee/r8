@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.IntraproceduralDataflowAnalysis;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 /**
@@ -37,11 +38,15 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 public class PathConstraintAnalysis
     extends IntraproceduralDataflowAnalysis<PathConstraintAnalysisState> {
 
-  public PathConstraintAnalysis(AppView<AppInfoWithLiveness> appView, IRCode code) {
+  public PathConstraintAnalysis(
+      AppView<AppInfoWithLiveness> appView,
+      IRCode code,
+      MethodParameterFactory methodParameterFactory) {
     super(
         appView,
         PathConstraintAnalysisState.bottom(),
         code,
-        new PathConstraintAnalysisTransferFunction(appView.abstractValueFactory()));
+        new PathConstraintAnalysisTransferFunction(
+            appView.abstractValueFactory(), code.context(), methodParameterFactory));
   }
 }

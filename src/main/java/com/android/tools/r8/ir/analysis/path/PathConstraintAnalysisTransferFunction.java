@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.analysis.path;
 
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.TransferFunctionResult;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
@@ -11,6 +12,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeBuilder;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 
@@ -19,8 +21,12 @@ public class PathConstraintAnalysisTransferFunction
 
   private final ComputationTreeBuilder computationTreeBuilder;
 
-  PathConstraintAnalysisTransferFunction(AbstractValueFactory abstractValueFactory) {
-    computationTreeBuilder = new ComputationTreeBuilder(abstractValueFactory);
+  PathConstraintAnalysisTransferFunction(
+      AbstractValueFactory abstractValueFactory,
+      ProgramMethod method,
+      MethodParameterFactory methodParameterFactory) {
+    computationTreeBuilder =
+        new ComputationTreeBuilder(abstractValueFactory, method, methodParameterFactory);
   }
 
   @Override

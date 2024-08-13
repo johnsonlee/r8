@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import java.util.function.IntFunction;
 
 /**
@@ -15,6 +16,8 @@ public interface ComputationTreeNode {
   /** Evaluates the current computation tree on the given argument assignment. */
   AbstractValue evaluate(
       IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory);
+
+  MethodParameter getSingleOpenVariable();
 
   default boolean isUnknown() {
     return false;

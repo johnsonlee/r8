@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+
 public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
 
   final ComputationTreeNode operand;
@@ -10,6 +12,11 @@ public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
   ComputationTreeUnopNode(ComputationTreeNode operand) {
     assert !operand.isUnknown();
     this.operand = operand;
+  }
+
+  @Override
+  public MethodParameter getSingleOpenVariable() {
+    return operand.getSingleOpenVariable();
   }
 
   boolean internalIsEqualTo(ComputationTreeUnopNode node) {
