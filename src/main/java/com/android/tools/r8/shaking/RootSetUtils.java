@@ -1931,6 +1931,9 @@ public class RootSetUtils {
       if (!options.isShrinking()) {
         return;
       }
+      if (options.ignoreUnusedProguardRules) {
+        return;
+      }
       List<ProguardConfigurationRule> rules = options.getProguardConfiguration().getRules();
       if (rules == null) {
         return;

@@ -930,6 +930,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return testing.readInputStackMaps ? testing.readInputStackMaps : isGeneratingClassFiles();
   }
 
+  public boolean ignoreUnusedProguardRules = false;
   public boolean ignoreMissingClasses = false;
   public boolean reportMissingClassesInEnclosingMethodAttribute = false;
   public boolean reportMissingClassesInInnerClassAttributes = false;

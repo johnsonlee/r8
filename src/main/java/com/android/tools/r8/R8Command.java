@@ -1324,6 +1324,7 @@ public final class R8Command extends BaseCompilerCommand {
     internal.loadAllClassDefinitions = l8Shrinking;
     if (l8Shrinking) {
       internal.apiModelingOptions().disableStubbingOfClasses();
+      internal.ignoreUnusedProguardRules = true;
     }
     internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
