@@ -34,7 +34,7 @@ public interface AbstractFunction extends InFlow {
       ConcreteValueState inState);
 
   /** Returns true if the given {@param inFlow} is a declared input of this abstract function. */
-  boolean containsBaseInFlow(BaseInFlow inFlow);
+  boolean verifyContainsBaseInFlow(BaseInFlow inFlow);
 
   /**
    * Returns the program field or parameter graph nodes that this function depends on. Upon any

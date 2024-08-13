@@ -42,13 +42,13 @@ public interface FlowGraphStateProvider {
 
       @Override
       public ValueState getState(DexField field) {
-        assert abstractFunction.containsBaseInFlow(new FieldValue(field));
+        assert abstractFunction.verifyContainsBaseInFlow(new FieldValue(field));
         return flowGraph.getState(field);
       }
 
       @Override
       public ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider) {
-        assert abstractFunction.containsBaseInFlow(inFlow);
+        assert abstractFunction.verifyContainsBaseInFlow(inFlow);
         return flowGraph.getState(inFlow, defaultStateProvider);
       }
     };

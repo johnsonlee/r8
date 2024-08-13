@@ -43,12 +43,14 @@ public class OrAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean containsBaseInFlow(BaseInFlow otherInFlow) {
+  public boolean verifyContainsBaseInFlow(BaseInFlow otherInFlow) {
     if (inFlow.isAbstractFunction()) {
-      return inFlow.asAbstractFunction().containsBaseInFlow(otherInFlow);
+      assert inFlow.asAbstractFunction().verifyContainsBaseInFlow(otherInFlow);
+    } else {
+      assert inFlow.isBaseInFlow();
+      assert inFlow.equals(otherInFlow);
     }
-    assert inFlow.isBaseInFlow();
-    return inFlow.equals(otherInFlow);
+    return true;
   }
 
   @Override

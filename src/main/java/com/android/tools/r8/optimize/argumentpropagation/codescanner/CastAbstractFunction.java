@@ -28,8 +28,9 @@ public class CastAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean containsBaseInFlow(BaseInFlow inFlow) {
-    return inFlow.equals(this.inFlow);
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert inFlow.equals(this.inFlow);
+    return true;
   }
 
   @Override

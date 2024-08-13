@@ -26,7 +26,7 @@ public class IdentityAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean containsBaseInFlow(BaseInFlow inFlow) {
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
     throw new Unreachable();
   }
 

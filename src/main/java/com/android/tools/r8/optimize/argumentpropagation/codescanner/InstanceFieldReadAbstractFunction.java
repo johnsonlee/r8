@@ -47,8 +47,9 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean containsBaseInFlow(BaseInFlow inFlow) {
-    return inFlow.equals(receiver) || inFlow.isFieldValue(field);
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert inFlow.equals(receiver) || inFlow.isFieldValue(field);
+    return true;
   }
 
   @Override
