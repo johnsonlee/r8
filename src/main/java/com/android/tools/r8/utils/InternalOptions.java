@@ -1186,6 +1186,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     List<DexType> sortedKeys =
         ListUtils.sort(warningLibraryProgramDuplicates.keySet(), DexType::compareTo);
     for (DexType key : sortedKeys) {
+      // Allow for suppression of the duplicates with -dontwarn
+      if (appViewWithLiveness.getDontWarnConfiguration().matches(key)) {
+        continue;
+      }
       // If the type has been pruned from the program then don't issue a diagnostic.
       if (DexProgramClass.asProgramClassOrNull(
               appViewWithLiveness.appInfo().definitionForWithoutExistenceAssert(key))
