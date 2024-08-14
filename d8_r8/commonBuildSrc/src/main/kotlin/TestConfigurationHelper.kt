@@ -2,8 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
+import java.nio.charset.StandardCharsets
 import java.util.Date
 import java.util.concurrent.TimeUnit
 import org.gradle.api.Project
@@ -44,6 +46,9 @@ class TestConfigurationHelper {
         out.append("\n\n--------------------------------------\n")
         out.append("OBFUSCATED STACKTRACE\n")
         out.append("--------------------------------------\n")
+        var baos = ByteArrayOutputStream();
+        exception.printStackTrace(PrintStream(baos, true, StandardCharsets.UTF_8))
+        out.append(baos.toString())
       }
       return out.toString()
     }
