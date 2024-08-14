@@ -4,12 +4,32 @@
 
 package com.android.tools.r8.ir.optimize.outliner;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.dex.code.DexAddInt;
+import com.android.tools.r8.dex.code.DexAddInt2Addr;
+import com.android.tools.r8.dex.code.DexMulInt;
+import com.android.tools.r8.dex.code.DexMulInt2Addr;
+import com.android.tools.r8.dex.code.DexReturn;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.AssertUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.CodeMatchers;
+import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -29,24 +49,71 @@ public class MultipleOutlinesInMethodWithExceptionHandlerTest extends TestBase {
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("18");
 
+  private void validateOutlining(CodeInspector inspector) {
+    // Validate that an outline of mul, mul, add has been created and called twice in m.
+    ClassSubject outlineClass =
+        inspector.clazz(SyntheticItemsTestUtils.syntheticOutlineClass(TestClass.class, 0));
+    assertThat(outlineClass, isPresent());
+    MethodSubject outline0Method =
+        outlineClass.method(
+            "int",
+            SyntheticItemsTestUtils.syntheticMethodName(),
+            ImmutableList.of("int", "int", "int", "int"));
+    assertThat(outline0Method, isPresent());
+    // Only check the content if instructions fo DEX.
+    if (parameters.isDexRuntime()) {
+      Map<Class<?>, Class<?>> map =
+          ImmutableMap.of(
+              DexMulInt2Addr.class, DexMulInt.class, DexAddInt2Addr.class, DexAddInt.class);
+      List<Class<?>> instructionClasses =
+          outline0Method
+              .streamInstructions()
+              .map(instruction -> instruction.asDexInstruction().getInstruction().getClass())
+              .map(instructionClass -> map.getOrDefault(instructionClass, instructionClass))
+              .collect(Collectors.toList());
+      assertEquals(
+          ImmutableList.of(DexMulInt.class, DexMulInt.class, DexAddInt.class, DexReturn.class),
+          instructionClasses);
+    }
+    ClassSubject classSubject = inspector.clazz(TestClass.class);
+    MethodSubject methodSubject = classSubject.uniqueMethodWithOriginalName("m");
+    List<InstructionSubject> outlineInvokes =
+        methodSubject
+            .streamInstructions()
+            .filter(CodeMatchers.isInvokeWithTarget(outline0Method))
+            .collect(Collectors.toList());
+    assertEquals(2, outlineInvokes.size());
+    // Check that both outlines invoked are covered by the catch handler.
+    methodSubject
+        .iterateTryCatches()
+        .forEachRemaining(
+            tryCatchSubject -> {
+              outlineInvokes.removeIf(
+                  instructionSubject ->
+                      tryCatchSubject
+                          .getRange()
+                          .includes(instructionSubject.getOffset(methodSubject)));
+            });
+    assertTrue(outlineInvokes.isEmpty());
+  }
+
   @Test
   public void testR8() throws Exception {
-    AssertUtils.assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(TestClass.class)
-                .setMinApi(parameters)
-                .enableInliningAnnotations()
-                .addOptionsModification(
-                    options -> {
-                      // To trigger outlining.
-                      options.outline.threshold = 2;
-                      options.outline.maxSize = 3;
-                    })
-                .compile()
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutput(EXPECTED_OUTPUT));
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters)
+        .enableInliningAnnotations()
+        .addOptionsModification(
+            options -> {
+              // To trigger outlining.
+              options.outline.threshold = 2;
+              options.outline.maxSize = 3;
+            })
+        .compile()
+        .inspect(this::validateOutlining)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {

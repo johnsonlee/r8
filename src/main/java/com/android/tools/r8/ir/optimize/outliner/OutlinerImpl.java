@@ -34,6 +34,7 @@ import com.android.tools.r8.ir.code.Add;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlock.ThrowingInfo;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.Binop;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.Div;
@@ -89,7 +90,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -1648,24 +1648,26 @@ public class OutlinerImpl extends Outliner {
     if (!toRemove.isEmpty()) {
       assert !invokesToOutlineMethods.isEmpty();
       // Scan over the entire code to remove outline instructions.
-      ListIterator<BasicBlock> blocksIterator = code.listIterator();
+      BasicBlockIterator blocksIterator = code.listIterator();
       while (blocksIterator.hasNext()) {
         BasicBlock block = blocksIterator.next();
         InstructionListIterator instructionListIterator = block.listIterator(code);
         instructionListIterator.forEachRemaining(
             instruction -> {
-              if (toRemove.contains(instruction)) {
+              if (toRemove.remove(instruction)) {
                 instructionListIterator.removeInstructionIgnoreOutValue();
               } else if (invokesToOutlineMethods.contains(instruction)
                   && block.hasCatchHandlers()) {
                 // If the inserted invoke is inserted in a block with handlers, split the block
                 // after the inserted invoke.
-                instructionListIterator.split(code, blocksIterator);
+                instructionListIterator.splitCopyCatchHandlers(
+                    code, blocksIterator, appView.options(), ignored -> block);
               }
             });
       }
       code.removeRedundantBlocks();
     }
+    assert toRemove.isEmpty();
     code.removeRedundantBlocks();
     assert code.isConsistentSSA(appView);
   }
