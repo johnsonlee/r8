@@ -49,10 +49,8 @@ public class PathConstraintAnalysisTransferFunction
     // We currently only amend the path constraint in presence of if-instructions.
     If theIf = predecessor.exit().asIf();
     if (theIf != null) {
-      // TODO(b/302281503): Ensure the computed computation tree is cached in the builder so that
-      //  we do not rebuild the tree over-and-over again during the execution of this (worklist)
-      //  analysis.
-      ComputationTreeNode newPathConstraint = computationTreeBuilder.buildComputationTree(theIf);
+      ComputationTreeNode newPathConstraint =
+          computationTreeBuilder.getOrBuildComputationTree(theIf);
       if (!newPathConstraint.isUnknown()) {
         boolean negate = block != theIf.getTrueTarget();
         return predecessorExitState.add(newPathConstraint, negate);

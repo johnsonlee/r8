@@ -19,12 +19,16 @@ import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 public class ComputationTreeBuilder {
 
   private final AbstractValueFactory abstractValueFactory;
   private final ProgramMethod method;
   private final MethodParameterFactory methodParameterFactory;
+
+  private final Map<Instruction, ComputationTreeNode> cache = new IdentityHashMap<>();
 
   public ComputationTreeBuilder(
       AbstractValueFactory abstractValueFactory,
@@ -37,10 +41,17 @@ public class ComputationTreeBuilder {
 
   // TODO(b/302281503): "Long lived" computation trees (i.e., the ones that survive past the IR
   //  conversion of the current method) should be canonicalized.
-  // TODO(b/302281503): If we start building larger computation trees then make sure to the
-  //  computation trees for intermediate instructions to ensure that we do not build the computation
-  //  tree for a given instruction more than once.
-  public ComputationTreeNode buildComputationTree(Instruction instruction) {
+  public ComputationTreeNode getOrBuildComputationTree(Instruction instruction) {
+    ComputationTreeNode existing = cache.get(instruction);
+    if (existing != null) {
+      return existing;
+    }
+    ComputationTreeNode result = buildComputationTree(instruction);
+    cache.put(instruction, result);
+    return result;
+  }
+
+  private ComputationTreeNode buildComputationTree(Instruction instruction) {
     switch (instruction.opcode()) {
       case AND:
         {
@@ -84,7 +95,7 @@ public class ComputationTreeBuilder {
     if (value.isPhi()) {
       return unknown();
     }
-    return buildComputationTree(value.getDefinition());
+    return getOrBuildComputationTree(value.getDefinition());
   }
 
   private static UnknownValue unknown() {
