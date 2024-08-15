@@ -88,8 +88,7 @@ public class RecordComponentSignatureTest extends TestBase {
         .addProgramClassFileData(PROGRAM_DATA)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            !isRecordsDesugaredForD8(parameters),
-            // Current Art 14 build does not support the java.lang.Record class.
+            parameters.isCfRuntime(),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r ->
                 r.assertSuccessWithOutput(
@@ -100,7 +99,7 @@ public class RecordComponentSignatureTest extends TestBase {
                         inspector -> {
                           ClassSubject person =
                               inspector.clazz("records.RecordWithSignature$Person");
-                          if (!isRecordsDesugaredForD8(parameters)) {
+                          if (parameters.isCfRuntime()) {
                             assertEquals(2, person.getFinalRecordComponents().size());
 
                             assertEquals(
@@ -159,7 +158,7 @@ public class RecordComponentSignatureTest extends TestBase {
             runtimeWithRecordsSupport(parameters.getRuntime()),
             r ->
                 r.assertSuccessWithOutput(
-                    isRecordsDesugaredForR8(parameters)
+                    parameters.isDexRuntime()
                         ? EXPECTED_RESULT_DESUGARED_NATIVE_RECORD_SUPPORT
                         : EXPECTED_RESULT_R8),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT_DESUGARED_NO_NATIVE_RECORDS_SUPPORT));

@@ -4,12 +4,13 @@
 
 package com.android.tools.r8.desugar.records;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.LibraryFilesHelper;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
@@ -89,7 +90,11 @@ public class RecordTestUtils {
     }
   }
 
-  public static void assertNoJavaLangRecord(CodeInspector inspector) {
-    assertThat(inspector.clazz("java.lang.Record"), isAbsent());
+  public static void assertNoJavaLangRecord(CodeInspector inspector, TestParameters parameters) {
+    if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.V)) {
+      assertFalse(inspector.clazz("java.lang.RecordTag").isPresent());
+    } else {
+      assertFalse(inspector.clazz("java.lang.Record").isPresent());
+    }
   }
 }

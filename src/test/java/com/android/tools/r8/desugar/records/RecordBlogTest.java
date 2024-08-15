@@ -83,7 +83,7 @@ public class RecordBlogTest extends TestBase {
         .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            isRecordsDesugaredForD8(parameters)
+            isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(computeOutput(REFERENCE_OUTPUT_FORMAT)),
             r -> r.assertFailureWithErrorThatThrows(ClassNotFoundException.class));

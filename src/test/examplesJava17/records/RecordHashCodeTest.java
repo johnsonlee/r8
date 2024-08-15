@@ -57,7 +57,7 @@ public class RecordHashCodeTest extends TestBase {
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
-            isRecordsDesugaredForD8(parameters)
+            isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));

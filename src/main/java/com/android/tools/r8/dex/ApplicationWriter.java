@@ -877,7 +877,7 @@ public class ApplicationWriter {
               clazz.getPermittedSubclassAttributes(), options.itemFactory));
     }
 
-    if (clazz.isRecord() && options.canUseRecords()) {
+    if (clazz.isRecord() && options.emitRecordAnnotationsInDex) {
       annotations.add(DexAnnotation.createRecordAnnotation(clazz, appView));
     }
 

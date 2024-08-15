@@ -119,7 +119,6 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     throw new Unreachable("Invoke dynamic needs record desugaring but could not be desugared.");
   }
 
-
   @Override
   @SuppressWarnings("ReferenceEquality")
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {

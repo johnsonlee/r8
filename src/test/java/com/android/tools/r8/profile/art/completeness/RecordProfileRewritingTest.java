@@ -102,7 +102,7 @@ public class RecordProfileRewritingTest extends TestBase {
                     options -> options.testing.disableRecordApplicationReaderMap = true))
         .run(parameters.getRuntime(), MAIN_REFERENCE.getTypeName())
         .applyIf(
-            isRecordsDesugaredForD8(parameters)
+            isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r -> r.assertFailureWithErrorThatThrows(ClassNotFoundException.class));
@@ -168,7 +168,8 @@ public class RecordProfileRewritingTest extends TestBase {
         false,
         false,
         parameters.canUseNestBasedAccessesWhenDesugaring(),
-        !isRecordsDesugaredForD8(parameters));
+        !isRecordsFullyDesugaredForD8(parameters),
+        false);
   }
 
   private void inspectR8(ArtProfileInspector profileInspector, CodeInspector inspector) {
@@ -179,7 +180,8 @@ public class RecordProfileRewritingTest extends TestBase {
         parameters.canHaveNonReboundConstructorInvoke(),
         true,
         parameters.canUseNestBasedAccesses(),
-        !isRecordsDesugaredForR8(parameters));
+        !isRecordsFullyDesugaredForR8(parameters),
+        parameters.isCfRuntime());
   }
 
   private void inspect(
@@ -189,7 +191,8 @@ public class RecordProfileRewritingTest extends TestBase {
       boolean canHaveNonReboundConstructorInvoke,
       boolean canMergeRecordTag,
       boolean canUseNestBasedAccesses,
-      boolean canUseRecords) {
+      boolean partialDesugaring,
+      boolean recordDesugaringIsOff) { // Record desugaring is partial or full.
     ClassSubject mainClassSubject = inspector.clazz(MAIN_REFERENCE);
     assertThat(mainClassSubject, isPresent());
 
@@ -197,7 +200,7 @@ public class RecordProfileRewritingTest extends TestBase {
     assertThat(mainMethodSubject, isPresent());
 
     ClassSubject recordTagClassSubject = inspector.clazz(recordClassReference);
-    assertThat(recordTagClassSubject, isAbsentIf(canMergeRecordTag || canUseRecords));
+    assertThat(recordTagClassSubject, isAbsentIf(canMergeRecordTag || partialDesugaring));
     if (recordTagClassSubject.isPresent()) {
       assertEquals(1, recordTagClassSubject.allMethods().size());
     }
@@ -208,19 +211,20 @@ public class RecordProfileRewritingTest extends TestBase {
     ClassSubject personRecordClassSubject = inspector.clazz(PERSON_REFERENCE);
     assertThat(personRecordClassSubject, isPresent());
     assertEquals(
-        canUseRecords
+        partialDesugaring
             ? inspector.getTypeSubject(RECORD_REFERENCE.getTypeName())
             : canMergeRecordTag
                 ? inspector.getTypeSubject(Object.class.getTypeName())
                 : recordTagClassSubject.asTypeSubject(),
         personRecordClassSubject.getSuperType());
     assertEquals(
-        canUseRecords ? 6 : canMergeRecordTag ? 11 : 10,
+        recordDesugaringIsOff ? 6 : (canMergeRecordTag && !partialDesugaring) ? 11 : 10,
         personRecordClassSubject.allMethods().size());
 
     MethodSubject personDefaultInstanceInitializerSubject = personRecordClassSubject.init();
     assertThat(
-        personDefaultInstanceInitializerSubject, isPresentIf(canMergeRecordTag && !canUseRecords));
+        personDefaultInstanceInitializerSubject,
+        isPresentIf(canMergeRecordTag && !partialDesugaring));
 
     MethodSubject personInstanceInitializerSubject =
         canMergeRecordTag
@@ -253,51 +257,54 @@ public class RecordProfileRewritingTest extends TestBase {
     // boolean equals(Object)
     MethodSubject getFieldsAsObjectsMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName(GET_FIELDS_AS_OBJECTS_METHOD_NAME);
-    assertThat(getFieldsAsObjectsMethodSubject, isAbsentIf(canUseRecords));
+    assertThat(getFieldsAsObjectsMethodSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject equalsHelperMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName(EQUALS_RECORD_METHOD_NAME);
-    assertThat(equalsHelperMethodSubject, isAbsentIf(canUseRecords));
+    assertThat(equalsHelperMethodSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject equalsMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName("equals");
     assertThat(equalsMethodSubject, isPresent());
     assertThat(
-        equalsMethodSubject, ifThen(!canUseRecords, invokesMethod(equalsHelperMethodSubject)));
+        equalsMethodSubject,
+        ifThen(!recordDesugaringIsOff, invokesMethod(equalsHelperMethodSubject)));
 
     // int hashCode()
     ClassSubject hashCodeHelperClassSubject =
         inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 1));
-    assertThat(hashCodeHelperClassSubject, isAbsentIf(canUseRecords));
+    assertThat(hashCodeHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject hashCodeHelperMethodSubject = hashCodeHelperClassSubject.uniqueMethod();
-    assertThat(hashCodeHelperMethodSubject, isAbsentIf(canUseRecords));
+    assertThat(hashCodeHelperMethodSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject hashCodeMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName("hashCode");
     assertThat(hashCodeMethodSubject, isPresent());
     assertThat(
         hashCodeMethodSubject,
-        ifThen(!canUseRecords, invokesMethod(getFieldsAsObjectsMethodSubject)));
+        ifThen(!recordDesugaringIsOff, invokesMethod(getFieldsAsObjectsMethodSubject)));
     assertThat(
-        hashCodeMethodSubject, ifThen(!canUseRecords, invokesMethod(hashCodeHelperMethodSubject)));
+        hashCodeMethodSubject,
+        ifThen(!recordDesugaringIsOff, invokesMethod(hashCodeHelperMethodSubject)));
 
     // String toString()
     ClassSubject toStringHelperClassSubject =
         inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 0));
-    assertThat(toStringHelperClassSubject, isAbsentIf(canUseRecords));
+    assertThat(toStringHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject toStringHelperMethodSubject = toStringHelperClassSubject.uniqueMethod();
-    assertThat(toStringHelperMethodSubject, isAbsentIf(canUseRecords));
+    assertThat(toStringHelperMethodSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject toStringMethodSubject =
         personRecordClassSubject.uniqueMethodWithOriginalName("toString");
     assertThat(toStringMethodSubject, isPresent());
     assertThat(
         toStringMethodSubject,
-        ifThen(!canUseRecords, invokesMethod(getFieldsAsObjectsMethodSubject)));
+        ifThen(!recordDesugaringIsOff, invokesMethod(getFieldsAsObjectsMethodSubject)));
     assertThat(
-        toStringMethodSubject, ifThen(!canUseRecords, invokesMethod(toStringHelperMethodSubject)));
+        toStringMethodSubject,
+        ifThen(!recordDesugaringIsOff, invokesMethod(toStringHelperMethodSubject)));
 
     profileInspector
         .assertContainsClassRules(mainClassSubject, personRecordClassSubject)
@@ -315,22 +322,22 @@ public class RecordProfileRewritingTest extends TestBase {
                 i.assertContainsMethodRules(
                     nameNestAccessorMethodSubject, ageNestAccessorMethodSubject))
         .applyIf(
-            canMergeRecordTag && !canUseRecords,
+            canMergeRecordTag && !partialDesugaring,
             i -> i.assertContainsMethodRule(personDefaultInstanceInitializerSubject))
         .applyIf(
-            !canUseRecords,
+            !canMergeRecordTag && !partialDesugaring,
+            j ->
+                j.assertContainsClassRules(recordTagClassSubject)
+                    .assertContainsMethodRule(recordTagInstanceInitializerSubject))
+        .applyIf(
+            !recordDesugaringIsOff,
             i ->
                 i.assertContainsClassRules(hashCodeHelperClassSubject, toStringHelperClassSubject)
                     .assertContainsMethodRules(
                         equalsHelperMethodSubject,
                         getFieldsAsObjectsMethodSubject,
                         hashCodeHelperMethodSubject,
-                        toStringHelperMethodSubject)
-                    .applyIf(
-                        !canMergeRecordTag,
-                        j ->
-                            j.assertContainsClassRules(recordTagClassSubject)
-                                .assertContainsMethodRule(recordTagInstanceInitializerSubject)))
+                        toStringHelperMethodSubject))
         .assertContainsNoOtherRules();
   }
 }

@@ -16,7 +16,7 @@ public abstract class ApplicationReaderMap {
 
   public static ApplicationReaderMap getInstance(InternalOptions options) {
     ApplicationReaderMap result = new EmptyMap();
-    if (options.desugarRecordState().isNotOff()
+    if (options.desugarRecordState().isFull()
         && !options.testing.disableRecordApplicationReaderMap) {
       result = new RecordMap(options.dexItemFactory());
     }

@@ -20,6 +20,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,11 +45,9 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
           "true",
           "false",
           "false",
-          "%s[%s=Jane Doe, %s=42]");
+          "%s[name=Jane Doe, age=42]");
   private static final String EXPECTED_RESULT_D8 =
-      String.format(EXPECTED_RESULT, "Empty", "Person", "name", "age");
-  private static final String EXPECTED_RESULT_R8 =
-      String.format(EXPECTED_RESULT, "a", "b", "name", "age");
+      String.format(EXPECTED_RESULT, "Empty", "Person");
 
   private final TestParameters parameters;
 
@@ -86,11 +85,12 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
             .setMinApi(parameters)
             .compile()
             .writeToZip();
-    if (isRecordsDesugaredForD8(parameters)) {
+    if (isRecordsFullyDesugaredForR8(parameters)) {
       assertTrue(ZipUtils.containsEntry(desugared, "com/android/tools/r8/RecordTag.class"));
     } else {
       assertFalse(ZipUtils.containsEntry(desugared, "com/android/tools/r8/RecordTag.class"));
     }
+    String[] minifiedNames = {null, null};
     testForR8(parameters.getBackend())
         .addProgramFiles(desugared)
         .setMinApi(parameters)
@@ -98,9 +98,10 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
         .allowDiagnosticMessages()
         .compileWithExpectedDiagnostics(
             // Class com.android.tools.r8.RecordTag in desugared input is seen as java.lang.Record
-            // when reading causing the duplicate class.
+            // when reading causing the duplicate class. From Android V the issue is solved by
+            // partial desugaring.
             diagnostics -> {
-              if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.U)) {
+              if (parameters.getApiLevel().isEqualTo(AndroidApiLevel.U)) {
                 diagnostics
                     .assertNoErrors()
                     .assertInfosMatch(
@@ -116,7 +117,18 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
                 diagnostics.assertNoMessages();
               }
             })
+        .inspect(
+            i -> {
+              minifiedNames[0] = extractSimpleFinalName(i, "records.RecordInvokeCustom$Empty");
+              minifiedNames[1] = extractSimpleFinalName(i, "records.RecordInvokeCustom$Person");
+            })
         .run(parameters.getRuntime(), MAIN_TYPE)
-        .assertSuccessWithOutput(EXPECTED_RESULT_R8);
+        .assertSuccessWithOutput(
+            String.format(EXPECTED_RESULT, minifiedNames[0], minifiedNames[1]));
+  }
+
+  private static String extractSimpleFinalName(CodeInspector i, String name) {
+    String finalName = i.clazz(name).getFinalName();
+    return finalName.split("\\.")[1];
   }
 }

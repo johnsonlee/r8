@@ -1761,19 +1761,14 @@ public class TestBase {
     throw new Unreachable();
   }
 
-  public static boolean isRecordsDesugaredForD8(TestParameters parameters) {
+  public static boolean isRecordsFullyDesugaredForD8(TestParameters parameters) {
     assert parameters.getApiLevel() != null;
-    // TODO(b/293591931): Return true for some API level when records are stable in Platform
-    //  (expecting Android V) using TestBase.apiLevelWithRecordSupport().
-    return true;
+    return parameters.getApiLevel().isLessThan(AndroidApiLevel.V);
   }
 
-  public static boolean isRecordsDesugaredForR8(TestParameters parameters) {
+  public static boolean isRecordsFullyDesugaredForR8(TestParameters parameters) {
     assert parameters.getApiLevel() != null;
-    // TODO(b/293591931): Also return true for some API level when records are stable in Platform
-    //  (expecting Android V) using TestBase.apiLevelWithRecordSupport(). Note that R8 with class
-    //  file output never performs desugaring.
-    return !parameters.getRuntime().isCf();
+    return !parameters.getRuntime().isCf() && isRecordsFullyDesugaredForD8(parameters);
   }
 
   public static boolean canUseJavaUtilObjects(TestParameters parameters) {

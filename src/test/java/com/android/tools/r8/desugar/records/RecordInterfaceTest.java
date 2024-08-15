@@ -66,7 +66,7 @@ public class RecordInterfaceTest extends TestBase {
         .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            isRecordsDesugaredForD8(parameters)
+            isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
@@ -81,7 +81,7 @@ public class RecordInterfaceTest extends TestBase {
     testForD8()
         .addProgramFiles(path)
         .applyIf(
-            isRecordsDesugaredForD8(parameters),
+            isRecordsFullyDesugaredForD8(parameters),
             b ->
                 b.getBuilder()
                     .addGlobalSyntheticsResourceProviders(globals.getIndexedModeProvider()),
@@ -105,7 +105,7 @@ public class RecordInterfaceTest extends TestBase {
     testForD8()
         .addProgramFiles(path)
         .applyIf(
-            isRecordsDesugaredForD8(parameters),
+            isRecordsFullyDesugaredForD8(parameters),
             b ->
                 b.getBuilder()
                     .addGlobalSyntheticsResourceProviders(globals.getIndexedModeProvider()),

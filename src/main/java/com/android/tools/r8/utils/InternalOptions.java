@@ -510,8 +510,12 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // TODO(b/293591931): Remove this flag when records are stable in Platform
   //  Flag to allow record annotations in DEX. See b/231930852 for context.
-  private final boolean emitRecordAnnotationsInDex =
+  public boolean emitRecordAnnotationsInDex =
       System.getProperty("com.android.tools.r8.emitRecordAnnotationsInDex") != null;
+  // This flag to allows platform to disable partial desugaring, so when the annotation is set
+  // platform can use the invoke-dynamic for records.
+  public boolean recordPartialDesugaring =
+      System.getProperty("com.android.tools.r8.disableRecordPartialDesugaring") == null;
 
   // Flag to allow nest annotations in DEX. See b/231930852 for context.
   public boolean emitNestAnnotationsInDex =
@@ -713,17 +717,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     }
   }
 
-  public boolean recordPartialDesugaring =
-      System.getProperty("com.android.tools.r8.recordPartialDesugaring") != null;
-
   public DesugarRecordState desugarRecordState() {
     if (desugarState.isOff()) {
       return DesugarRecordState.OFF;
     }
-    if (!canUseRecords()) {
-      return DesugarRecordState.FULL;
+    // The class java.lang.Record is present from U with a GC issue so we enable from V.
+    if (hasFeaturePresentFrom(AndroidApiLevel.V) && recordPartialDesugaring) {
+      return DesugarRecordState.PARTIAL;
     }
-    return recordPartialDesugaring ? DesugarRecordState.PARTIAL : DesugarRecordState.OFF;
+    return emitRecordAnnotationsInDex ? DesugarRecordState.OFF : DesugarRecordState.FULL;
   }
 
   public boolean canUseDesugarBufferCovariantReturnType() {
@@ -2737,10 +2739,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean canUseNestBasedAccess() {
     return (hasFeaturePresentFrom(null) || emitNestAnnotationsInDex) && !forceNestDesugaring;
-  }
-
-  public boolean canUseRecords() {
-    return hasFeaturePresentFrom(null) || emitRecordAnnotationsInDex;
   }
 
   public boolean canUseSealedClasses() {

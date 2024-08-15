@@ -20,7 +20,7 @@ public class EmptyRecordAnnotationTest extends TestBase {
   private static final String RECORD_NAME = "EmptyRecordAnnotation";
   private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
   private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
-  private static final String EXPECTED_RESULT_NATIVE_RECORD =
+  private static final String EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD =
       StringUtils.lines("class java.lang.Record", "class records.EmptyRecordAnnotation$Empty");
   private static final String EXPECTED_RESULT_DESUGARED_RECORD =
       StringUtils.lines(
@@ -47,7 +47,7 @@ public class EmptyRecordAnnotationTest extends TestBase {
     testForJvm(parameters)
         .addProgramClassFileData(PROGRAM_DATA)
         .run(parameters.getRuntime(), MAIN_TYPE)
-        .assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_RECORD);
+        .assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD);
   }
 
   @Test
@@ -59,9 +59,9 @@ public class EmptyRecordAnnotationTest extends TestBase {
         .compile()
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            isRecordsDesugaredForD8(parameters),
+            isRecordsFullyDesugaredForD8(parameters),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT_DESUGARED_RECORD),
-            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_RECORD));
+            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD));
   }
 
   @Test
@@ -77,14 +77,14 @@ public class EmptyRecordAnnotationTest extends TestBase {
         .addKeepMainRule(MAIN_TYPE)
         // This is used to avoid renaming com.android.tools.r8.RecordTag.
         .applyIf(
-            isRecordsDesugaredForR8(parameters),
+            isRecordsFullyDesugaredForR8(parameters),
             b -> b.addKeepRules("-keep class java.lang.Record"))
         .compile()
         .applyIf(parameters.isCfRuntime(), r -> r.inspect(RecordTestUtils::assertRecordsAreRecords))
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            isRecordsDesugaredForR8(parameters),
+            isRecordsFullyDesugaredForR8(parameters),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT_DESUGARED_RECORD),
-            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_RECORD));
+            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD));
   }
 }

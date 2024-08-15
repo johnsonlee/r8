@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.desugar.records;
 
+import static com.android.tools.r8.desugar.records.RecordTestUtils.assertNoJavaLangRecord;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -81,11 +82,11 @@ public class SimpleRecordTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .inspectWithOptions(
-            RecordTestUtils::assertNoJavaLangRecord,
+            i -> assertNoJavaLangRecord(i, parameters),
             options -> options.testing.disableRecordApplicationReaderMap = true)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            isRecordsDesugaredForD8(parameters)
+            isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
@@ -100,7 +101,8 @@ public class SimpleRecordTest extends TestBase {
     Path path = compileIntermediate(globals);
     testForD8()
         .addProgramFiles(path)
-        .apply(
+        .applyIf(
+            isRecordsFullyDesugaredForD8(parameters),
             b ->
                 b.getBuilder()
                     .addGlobalSyntheticsResourceProviders(globals.getIndexedModeProvider()))
@@ -119,7 +121,8 @@ public class SimpleRecordTest extends TestBase {
     // In Android Studio they disable desugaring at this point to improve build speed.
     testForD8()
         .addProgramFiles(path)
-        .apply(
+        .applyIf(
+            isRecordsFullyDesugaredForD8(parameters),
             b ->
                 b.getBuilder()
                     .addGlobalSyntheticsResourceProviders(globals.getIndexedModeProvider()))
@@ -161,10 +164,7 @@ public class SimpleRecordTest extends TestBase {
           .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .inspect(
-              inspector -> {
-                inspector.clazz("records.SimpleRecord$Person").isRenamed();
-              })
+          .inspect(inspector -> inspector.clazz("records.SimpleRecord$Person").isRenamed())
           .run(parameters.getRuntime(), MAIN_TYPE)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
@@ -172,7 +172,7 @@ public class SimpleRecordTest extends TestBase {
     builder
         .compile()
         .inspectWithOptions(
-            RecordTestUtils::assertNoJavaLangRecord,
+            i -> assertNoJavaLangRecord(i, parameters),
             options -> options.testing.disableRecordApplicationReaderMap = true)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT);
@@ -201,7 +201,7 @@ public class SimpleRecordTest extends TestBase {
     builder
         .compile()
         .inspectWithOptions(
-            RecordTestUtils::assertNoJavaLangRecord,
+            i -> assertNoJavaLangRecord(i, parameters),
             options -> options.testing.disableRecordApplicationReaderMap = true)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .assertSuccessWithOutput(EXPECTED_RESULT);

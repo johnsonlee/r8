@@ -202,6 +202,9 @@ public class RecordComponentAnnotationsTest extends TestBase {
   @Parameter(1)
   public Boolean keepAnnotations;
 
+  // Enable once records are no longer partially desugared on platform.
+  public boolean recordDesugaringIsOffOnDex = false;
+
   @Parameters(name = "{0}, keepAnnotations: {1}")
   public static List<Object[]> data() {
     return buildParameters(
@@ -234,7 +237,7 @@ public class RecordComponentAnnotationsTest extends TestBase {
         .addProgramClassFileData(PROGRAM_DATA)
         .run(parameters.getRuntime(), MAIN_TYPE)
         .applyIf(
-            isRecordsDesugaredForD8(parameters),
+            parameters.isDexRuntime(),
             r ->
                 r.assertSuccessWithOutput(
                     runtimeWithRecordsSupport(parameters.getRuntime())
@@ -306,7 +309,7 @@ public class RecordComponentAnnotationsTest extends TestBase {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(PROGRAM_DATA)
-        // TODO(b/231930852): Change to android.jar for Androud U when that contains
+        // TODO(b/231930852): Change to android.jar for Android U when that contains
         // java.lang.Record.
         .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
         .addKeepMainRule(MAIN_TYPE)
@@ -323,7 +326,7 @@ public class RecordComponentAnnotationsTest extends TestBase {
               ClassSubject person = inspector.clazz("records.RecordWithAnnotations$Person");
               FieldSubject name = person.uniqueFieldWithOriginalName("name");
               FieldSubject age = person.uniqueFieldWithOriginalName("age");
-              if (!isRecordsDesugaredForR8(parameters)) {
+              if (parameters.isCfRuntime()) {
                 assertEquals(2, person.getFinalRecordComponents().size());
 
                 assertEquals(
@@ -376,7 +379,7 @@ public class RecordComponentAnnotationsTest extends TestBase {
                     keepAnnotations
                         ? JVM_EXPECTED_RESULT_R8
                         : JVM_EXPECTED_RESULT_R8_NO_KEEP_ANNOTATIONS),
-            !isRecordsDesugaredForR8(parameters),
+            recordDesugaringIsOffOnDex,
             r ->
                 r.assertSuccessWithOutput(
                     keepAnnotations
