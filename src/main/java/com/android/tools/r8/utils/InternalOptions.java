@@ -2436,7 +2436,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean addCallEdgesForLibraryInvokes = false;
 
     public boolean allowClassInliningOfSynthetics = true;
-    public boolean allowCodeReplacement = true;
+    public boolean allowCodeReplacement =
+        SystemPropertyUtils.parseSystemPropertyOrDefault(
+            "com.android.tools.r8.allowCodeReplacement", true);
     public boolean allowInjectedAnnotationMethods = false;
     public boolean allowInliningOfOutlines = true;
     public boolean allowInliningOfSynthetics = true;
