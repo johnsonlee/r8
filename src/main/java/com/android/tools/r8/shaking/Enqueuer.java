@@ -2360,20 +2360,25 @@ public class Enqueuer {
   private void processDeferredAnnotations(
       Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>> deferredAnnotations,
       Function<ProgramDefinition, AnnotatedKind> kindProvider) {
+    // Collect annotations to process as processing the annotation can modify liveAnnotations.
+    Set<Map<DexAnnotation, List<ProgramDefinition>>> toProcess = Sets.newIdentityHashSet();
     for (DexType annotationType : liveAnnotations) {
       Map<DexAnnotation, List<ProgramDefinition>> annotations =
           deferredAnnotations.remove(annotationType);
       if (annotations != null) {
         assert annotations.keySet().stream()
             .allMatch(annotation -> annotationType.isIdenticalTo(annotation.getAnnotationType()));
-        annotations.forEach(
-            (annotation, annotatedItems) ->
-                annotatedItems.forEach(
-                    annotatedItem ->
-                        processAnnotation(
-                            annotatedItem, annotation, kindProvider.apply(annotatedItem))));
+        toProcess.add(annotations);
       }
     }
+    toProcess.forEach(
+        annotations ->
+            annotations.forEach(
+                (annotation, annotatedItems) ->
+                    annotatedItems.forEach(
+                        annotatedItem ->
+                            processAnnotation(
+                                annotatedItem, annotation, kindProvider.apply(annotatedItem)))));
   }
 
   private void ensureMethodsContinueToWidenAccess(ClassDefinition clazz) {
