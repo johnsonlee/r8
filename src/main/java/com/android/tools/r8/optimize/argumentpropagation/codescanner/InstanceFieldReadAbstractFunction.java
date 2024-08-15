@@ -69,8 +69,8 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean hasSingleInFlow() {
-    return false;
+  public boolean usesFlowGraphStateProvider() {
+    return true;
   }
 
   @Override

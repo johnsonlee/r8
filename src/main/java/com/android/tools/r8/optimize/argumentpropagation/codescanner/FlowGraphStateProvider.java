@@ -15,44 +15,44 @@ public interface FlowGraphStateProvider {
     if (!InternalOptions.assertionsEnabled()) {
       return flowGraph;
     }
-    // If the abstract function is a canonical function, or the abstract function has a single
-    // declared input, we should never perform any state lookups.
-    if (abstractFunction.hasSingleInFlow()) {
-      assert abstractFunction.isIdentity()
-          || abstractFunction.isCastAbstractFunction()
-          || abstractFunction.isUnknownAbstractFunction()
-          || abstractFunction.isUpdateChangedFlagsAbstractFunction();
+    // If the abstract function needs to perform state lookups, we restrict state lookups to the
+    // declared base in flow. This is important for arriving at the correct fix point.
+    if (abstractFunction.usesFlowGraphStateProvider()) {
+      assert abstractFunction.isIfThenElseAbstractFunction()
+          || abstractFunction.isInstanceFieldReadAbstractFunction();
       return new FlowGraphStateProvider() {
 
         @Override
         public ValueState getState(DexField field) {
-          throw new Unreachable();
+          assert abstractFunction.verifyContainsBaseInFlow(new FieldValue(field));
+          return flowGraph.getState(field);
         }
 
         @Override
         public ValueState getState(
             MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
-          throw new Unreachable();
+          assert abstractFunction.verifyContainsBaseInFlow(methodParameter);
+          return flowGraph.getState(methodParameter, defaultStateProvider);
         }
       };
     }
-    // Otherwise, restrict state lookups to the declared base in flow. This is required for arriving
-    // at the correct fix point.
-    assert abstractFunction.isIfThenElseAbstractFunction()
-        || abstractFunction.isInstanceFieldReadAbstractFunction();
+    // Otherwise, the abstract function is a canonical function, or the abstract function has a
+    // single declared input, meaning we should never perform any state lookups.
+    assert abstractFunction.isIdentity()
+        || abstractFunction.isCastAbstractFunction()
+        || abstractFunction.isUnknownAbstractFunction()
+        || abstractFunction.isUpdateChangedFlagsAbstractFunction();
     return new FlowGraphStateProvider() {
 
       @Override
       public ValueState getState(DexField field) {
-        assert abstractFunction.verifyContainsBaseInFlow(new FieldValue(field));
-        return flowGraph.getState(field);
+        throw new Unreachable();
       }
 
       @Override
       public ValueState getState(
           MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
-        assert abstractFunction.verifyContainsBaseInFlow(methodParameter);
-        return flowGraph.getState(methodParameter, defaultStateProvider);
+        throw new Unreachable();
       }
     };
   }

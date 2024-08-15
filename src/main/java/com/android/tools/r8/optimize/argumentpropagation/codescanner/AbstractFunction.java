@@ -42,8 +42,8 @@ public interface AbstractFunction extends InFlow {
    */
   Iterable<BaseInFlow> getBaseInFlow();
 
-  default boolean hasSingleInFlow() {
-    return true;
+  default boolean usesFlowGraphStateProvider() {
+    return false;
   }
 
   @Override

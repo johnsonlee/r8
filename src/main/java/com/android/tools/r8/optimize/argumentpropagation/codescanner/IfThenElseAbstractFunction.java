@@ -128,10 +128,8 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean hasSingleInFlow() {
-    // TODO(b/302281503): This method is used to determine if arbitrary state lookup is allowed.
-    //  Rename this method.
-    return false;
+  public boolean usesFlowGraphStateProvider() {
+    return true;
   }
 
   @Override

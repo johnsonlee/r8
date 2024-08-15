@@ -84,16 +84,14 @@ public class InFlowPropagatorDebugUtils {
       FlowGraphStateProvider flowGraphStateProvider) {
     if (successorNode.getDebug()) {
       List<String> transferFunctionDependencies = new ArrayList<>();
-      if (!transferFunction.hasSingleInFlow()) {
-        transferFunctionDependencies.add("");
-        transferFunctionDependencies.add("TRANSFER FN INPUTS:");
-        for (BaseInFlow transferFunctionDependency : transferFunction.getBaseInFlow()) {
-          if (!node.equalsBaseInFlow(transferFunctionDependency)) {
-            ValueState transferFunctionDependencyState =
-                flowGraphStateProvider.getState(transferFunctionDependency, null);
-            transferFunctionDependencies.add("  DEP: " + transferFunctionDependency);
-            transferFunctionDependencies.add("  DEP STATE: " + transferFunctionDependencyState);
-          }
+      transferFunctionDependencies.add("");
+      transferFunctionDependencies.add("TRANSFER FN INPUTS:");
+      for (BaseInFlow transferFunctionDependency : transferFunction.getBaseInFlow()) {
+        if (!node.equalsBaseInFlow(transferFunctionDependency)) {
+          ValueState transferFunctionDependencyState =
+              flowGraphStateProvider.getState(transferFunctionDependency, null);
+          transferFunctionDependencies.add("  DEP: " + transferFunctionDependency);
+          transferFunctionDependencies.add("  DEP STATE: " + transferFunctionDependencyState);
         }
       }
       ValueState newSuccessorState = successorNode.getState();
