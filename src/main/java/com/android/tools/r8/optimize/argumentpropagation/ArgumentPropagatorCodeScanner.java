@@ -229,6 +229,9 @@ public class ArgumentPropagatorCodeScanner {
     protected final IRCode code;
     protected final ProgramMethod context;
 
+    private SuccessfulDataflowAnalysisResult<BasicBlock, PathConstraintAnalysisState>
+        pathConstraintAnalysisResult;
+
     protected CodeScanner(
         AbstractValueSupplier abstractValueSupplier, IRCode code, ProgramMethod method) {
       this.abstractValueSupplier = abstractValueSupplier;
@@ -402,15 +405,10 @@ public class ArgumentPropagatorCodeScanner {
       if (phi.getOperands().size() != 2 || !phi.hasOperandThatMatches(Value::isArgument)) {
         return null;
       }
-      PathConstraintAnalysis analysis =
-          new PathConstraintAnalysis(appView, code, methodParameterFactory);
-      SuccessfulDataflowAnalysisResult<BasicBlock, PathConstraintAnalysisState> result =
-          analysis.run(code.entryBlock()).asSuccessfulAnalysisResult();
-      assert result != null;
       ConcretePathConstraintAnalysisState leftPredecessorPathConstraint =
-          result.getBlockExitState(phi.getBlock().getPredecessors().get(0)).asConcreteState();
+          getPathConstraint(phi.getBlock().getPredecessors().get(0)).asConcreteState();
       ConcretePathConstraintAnalysisState rightPredecessorPathConstraint =
-          result.getBlockExitState(phi.getBlock().getPredecessors().get(1)).asConcreteState();
+          getPathConstraint(phi.getBlock().getPredecessors().get(1)).asConcreteState();
       if (leftPredecessorPathConstraint == null || rightPredecessorPathConstraint == null) {
         return null;
       }
@@ -876,6 +874,16 @@ public class ArgumentPropagatorCodeScanner {
         assert parameterType.isPrimitiveType();
         return ConcretePrimitiveTypeValueState.create(abstractValue);
       }
+    }
+
+    private PathConstraintAnalysisState getPathConstraint(BasicBlock block) {
+      if (pathConstraintAnalysisResult == null) {
+        PathConstraintAnalysis analysis =
+            new PathConstraintAnalysis(appView, code, methodParameterFactory);
+        pathConstraintAnalysisResult = analysis.run(code.entryBlock()).asSuccessfulAnalysisResult();
+        assert pathConstraintAnalysisResult != null;
+      }
+      return pathConstraintAnalysisResult.getBlockExitState(block);
     }
 
     @SuppressWarnings("ReferenceEquality")
