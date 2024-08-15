@@ -106,6 +106,29 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
     return this;
   }
 
+  // TODO(b/302281503): Consider returning the list of differentiating path constraints.
+  //  For example, if we have the condition X & Y, then we may not know anything about X but we
+  //  could know something about Y. Add a test showing this.
+  // TODO(b/302281503): Add a field `inactivePathConstraints` and ensure that pathConstraints and
+  //  negatedPathConstraints are disjoint. This way (1) we reduce the size of the sets and (2)
+  //  this does not need to check if each path constraint is not in the negated set.
+  public ComputationTreeNode getDifferentiatingPathConstraint(
+      ConcretePathConstraintAnalysisState other) {
+    for (ComputationTreeNode pathConstraint : pathConstraints) {
+      if (!negatedPathConstraints.contains(pathConstraint)
+          && other.negatedPathConstraints.contains(pathConstraint)) {
+        return pathConstraint;
+      }
+    }
+    for (ComputationTreeNode negatedPathConstraint : negatedPathConstraints) {
+      if (!pathConstraints.contains(negatedPathConstraint)
+          && other.pathConstraints.contains(negatedPathConstraint)) {
+        return negatedPathConstraint;
+      }
+    }
+    return null;
+  }
+
   public ConcretePathConstraintAnalysisState join(ConcretePathConstraintAnalysisState other) {
     Set<ComputationTreeNode> newPathConstraints = join(pathConstraints, other.pathConstraints);
     Set<ComputationTreeNode> newNegatedPathConstraints =
@@ -143,8 +166,13 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
       return false;
     }
     ConcretePathConstraintAnalysisState state = (ConcretePathConstraintAnalysisState) obj;
-    return pathConstraints.equals(state.pathConstraints)
-        && negatedPathConstraints.equals(state.negatedPathConstraints);
+    return equals(state.pathConstraints, state.negatedPathConstraints);
+  }
+
+  public boolean equals(
+      Set<ComputationTreeNode> pathConstraints, Set<ComputationTreeNode> negatedPathConstraints) {
+    return this.pathConstraints.equals(pathConstraints)
+        && this.negatedPathConstraints.equals(negatedPathConstraints);
   }
 
   public boolean identical(

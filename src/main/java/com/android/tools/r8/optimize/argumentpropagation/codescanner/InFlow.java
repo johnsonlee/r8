@@ -57,6 +57,14 @@ public interface InFlow extends Comparable<InFlow> {
     return null;
   }
 
+  default boolean isIfThenElseAbstractFunction() {
+    return false;
+  }
+
+  default IfThenElseAbstractFunction asIfThenElseAbstractFunction() {
+    return null;
+  }
+
   default boolean isInstanceFieldReadAbstractFunction() {
     return false;
   }

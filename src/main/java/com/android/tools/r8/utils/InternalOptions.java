@@ -2454,6 +2454,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableDeadSwitchCaseElimination = true;
     public boolean enableEnqueuerDeferredTracingForReferenceFields =
         System.getProperty("com.android.tools.r8.disableEnqueuerDeferredTracing") == null;
+    public boolean enableIfThenElseAbstractFunction = false;
     public boolean enableInvokeSuperToInvokeVirtualRewriting = true;
     public boolean enableLegacyClassDefOrdering =
         System.getProperty("com.android.tools.r8.enableLegacyClassDefOrdering") != null;

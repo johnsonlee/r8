@@ -9,9 +9,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.ir.conversion.IRConverter;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
@@ -97,21 +95,15 @@ public class FlowGraph extends BidirectedGraph<FlowGraphNode> implements FlowGra
   }
 
   @Override
-  public ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider) {
-    if (inFlow.isFieldValue()) {
-      FieldValue fieldValue = inFlow.asFieldValue();
-      return getState(fieldValue.getField());
-    } else {
-      assert inFlow.isMethodParameter();
-      MethodParameter methodParameter = inFlow.asMethodParameter();
-      FlowGraphParameterNode parameterNode =
-          parameterNodes
-              .getOrDefault(methodParameter.getMethod(), Int2ReferenceMaps.emptyMap())
-              .get(methodParameter.getIndex());
-      if (parameterNode != null) {
-        return parameterNode.getState();
-      }
-      return defaultStateProvider.get();
+  public ValueState getState(
+      MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
+    FlowGraphParameterNode parameterNode =
+        parameterNodes
+            .getOrDefault(methodParameter.getMethod(), Int2ReferenceMaps.emptyMap())
+            .get(methodParameter.getIndex());
+    if (parameterNode != null) {
+      return parameterNode.getState();
     }
+    return defaultStateProvider.get();
   }
 }

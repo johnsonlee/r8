@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.callsites;
 
-import static com.android.tools.r8.utils.codeinspector.CodeMatchers.isInvokeWithTarget;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -41,6 +41,8 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
+        .addOptionsModification(
+            options -> options.getTestingOptions().enableIfThenElseAbstractFunction = true)
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -52,24 +54,23 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
               ClassSubject lambdaClassSubject =
                   inspector.clazz(SyntheticItemsTestUtils.syntheticLambdaClass(Main.class, 0));
               assertThat(lambdaClassSubject, isPresent());
-              // TODO(b/302281503): Lambda should not capture the two constant string arguments.
-              assertEquals(2, lambdaClassSubject.allInstanceFields().size());
+              assertEquals(0, lambdaClassSubject.allInstanceFields().size());
 
               MethodSubject lambdaInitSubject = lambdaClassSubject.uniqueInstanceInitializer();
-              assertThat(lambdaInitSubject, isPresent());
-              // TODO(b/302281503): Lambda should not capture the two constant string arguments.
-              assertEquals(2, lambdaInitSubject.getParameters().size());
-              assertTrue(lambdaInitSubject.getParameter(0).is(String.class));
-              assertTrue(lambdaInitSubject.getParameter(1).is(String.class));
+              assertThat(
+                  lambdaInitSubject,
+                  isAbsentIf(parameters.canInitNewInstanceUsingSuperclassConstructor()));
+              if (lambdaInitSubject.isPresent()) {
+                assertEquals(0, lambdaInitSubject.getParameters().size());
+              }
 
               MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
               assertThat(mainMethodSubject, isPresent());
-              // TODO(b/302281503): This argument should be removed as a result of constant
-              //  propagation into the restartableMethod.
               assertTrue(
                   mainMethodSubject
                       .streamInstructions()
-                      .anyMatch(instruction -> instruction.isConstString("DefaultValueNeverUsed")));
+                      .noneMatch(
+                          instruction -> instruction.isConstString("DefaultValueNeverUsed")));
               // TODO(b/302281503): This argument is never used and should be removed.
               assertTrue(
                   mainMethodSubject
@@ -96,11 +97,6 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
                       .streamInstructions()
                       .anyMatch(
                           instruction -> instruction.isConstString("DefaultValueAlwaysUsed")));
-              assertTrue(
-                  restartableMethodSubject
-                      .streamInstructions()
-                      .anyMatch(
-                          instruction -> isInvokeWithTarget(lambdaInitSubject).test(instruction)));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(

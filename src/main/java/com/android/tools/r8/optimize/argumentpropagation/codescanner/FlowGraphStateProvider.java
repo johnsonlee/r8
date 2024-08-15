@@ -30,14 +30,16 @@ public interface FlowGraphStateProvider {
         }
 
         @Override
-        public ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider) {
+        public ValueState getState(
+            MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
           throw new Unreachable();
         }
       };
     }
     // Otherwise, restrict state lookups to the declared base in flow. This is required for arriving
     // at the correct fix point.
-    assert abstractFunction.isInstanceFieldReadAbstractFunction();
+    assert abstractFunction.isIfThenElseAbstractFunction()
+        || abstractFunction.isInstanceFieldReadAbstractFunction();
     return new FlowGraphStateProvider() {
 
       @Override
@@ -47,14 +49,24 @@ public interface FlowGraphStateProvider {
       }
 
       @Override
-      public ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider) {
-        assert abstractFunction.verifyContainsBaseInFlow(inFlow);
-        return flowGraph.getState(inFlow, defaultStateProvider);
+      public ValueState getState(
+          MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
+        assert abstractFunction.verifyContainsBaseInFlow(methodParameter);
+        return flowGraph.getState(methodParameter, defaultStateProvider);
       }
     };
   }
 
   ValueState getState(DexField field);
 
-  ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider);
+  ValueState getState(MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider);
+
+  default ValueState getState(BaseInFlow inFlow, Supplier<ValueState> defaultStateProvider) {
+    if (inFlow.isFieldValue()) {
+      return getState(inFlow.asFieldValue().getField());
+    } else {
+      assert inFlow.isMethodParameter();
+      return getState(inFlow.asMethodParameter(), defaultStateProvider);
+    }
+  }
 }

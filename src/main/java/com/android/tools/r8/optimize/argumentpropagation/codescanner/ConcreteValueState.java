@@ -175,4 +175,11 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
     return inFlow != null
         && inFlow.size() > appView.options().callSiteOptimizationOptions().getMaxInFlowSize();
   }
+
+  public boolean verifyOnlyBaseInFlow() {
+    for (InFlow inFlow : inFlow) {
+      assert inFlow.isBaseInFlow();
+    }
+    return true;
+  }
 }
