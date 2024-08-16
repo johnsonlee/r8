@@ -18,16 +18,17 @@ package com.android.build.shrinker
 
 import java.io.File
 import java.io.PrintWriter
+import java.util.function.Supplier
 
 interface ShrinkerDebugReporter : AutoCloseable {
-    fun debug(f: () -> String)
-    fun info(f: () -> String)
+    fun debug(f: Supplier<String>)
+    fun info(f: Supplier<String>)
 }
 
 object NoDebugReporter : ShrinkerDebugReporter {
-    override fun debug(f: () -> String) = Unit
+    override fun debug(f: Supplier<String>) = Unit
 
-    override fun info(f: () -> String) = Unit
+    override fun info(f: Supplier<String>) = Unit
 
     override fun close() = Unit
 }
@@ -36,12 +37,12 @@ class FileReporter(
     reportFile: File
 ) : ShrinkerDebugReporter {
     private val writer: PrintWriter = reportFile.let { PrintWriter(it) }
-    override fun debug(f: () -> String) {
-        writer.println(f())
+    override fun debug(f: Supplier<String>) {
+        writer.println(f.get())
     }
 
-    override fun info(f: () -> String) {
-        writer.println(f())
+    override fun info(f: Supplier<String>) {
+        writer.println(f.get())
     }
 
     override fun close() {
@@ -56,14 +57,14 @@ class LoggerAndFileDebugReporter(
 ) : ShrinkerDebugReporter {
     private val writer: PrintWriter? = reportFile?.let { PrintWriter(it) }
 
-    override fun debug(f: () -> String) {
-        val message = f()
+     override fun debug(f: Supplier<String>) {
+        val message = f.get()
         writer?.println(message)
         logDebug(message)
     }
 
-    override fun info(f: () -> String) {
-        val message = f()
+    override fun info(f: Supplier<String>) {
+        val message = f.get()
         writer?.println(message)
         logInfo(message)
     }

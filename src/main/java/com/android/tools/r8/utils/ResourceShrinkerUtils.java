@@ -3,21 +3,28 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import com.android.build.shrinker.NoDebugReporter;
+import com.android.build.shrinker.ShrinkerDebugReporter;
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
 import com.android.tools.r8.AndroidResourceInput;
+import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.graph.AppView;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.function.Supplier;
 
 public class ResourceShrinkerUtils {
 
   public static R8ResourceShrinkerState createResourceShrinkerState(AppView<?> appView) {
+    InternalOptions options = appView.options();
     R8ResourceShrinkerState state =
         new R8ResourceShrinkerState(
-            exception -> appView.reporter().fatalError(new ExceptionDiagnostic(exception)));
-    InternalOptions options = appView.options();
+            exception -> appView.reporter().fatalError(new ExceptionDiagnostic(exception)),
+            shrinkerDebugReporterFromStringConsumer(
+                options.resourceShrinkerConfiguration.getDebugConsumer(), appView.reporter()));
     if (options.resourceShrinkerConfiguration.isOptimizedShrinking()
         && options.androidResourceProvider != null) {
       try {
@@ -75,6 +82,29 @@ public class ResourceShrinkerUtils {
           break;
       }
     }
+  }
+
+  public static ShrinkerDebugReporter shrinkerDebugReporterFromStringConsumer(
+      StringConsumer consumer, DiagnosticsHandler diagnosticsHandler) {
+    if (consumer == null) {
+      return NoDebugReporter.INSTANCE;
+    }
+    return new ShrinkerDebugReporter() {
+      @Override
+      public void debug(Supplier<String> logSupplier) {
+        consumer.accept(logSupplier.get(), diagnosticsHandler);
+      }
+
+      @Override
+      public void info(Supplier<String> logProducer) {
+        consumer.accept(logProducer.get(), diagnosticsHandler);
+      }
+
+      @Override
+      public void close() throws Exception {
+        consumer.finished(diagnosticsHandler);
+      }
+    };
   }
 
   private static InputStream wrapThrowingInputStreamResource(

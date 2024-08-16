@@ -30,14 +30,17 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 @KeepForApi
 public class ResourceShrinkerConfiguration {
   public static ResourceShrinkerConfiguration DEFAULT_CONFIGURATION =
-      new ResourceShrinkerConfiguration(false, true);
+      new ResourceShrinkerConfiguration(false, true, null);
 
   private final boolean optimizedShrinking;
   private final boolean preciseShrinking;
+  private final StringConsumer debugConsumer;
 
-  private ResourceShrinkerConfiguration(boolean optimizedShrinking, boolean preciseShrinking) {
+  private ResourceShrinkerConfiguration(
+      boolean optimizedShrinking, boolean preciseShrinking, StringConsumer debugConsumer) {
     this.optimizedShrinking = optimizedShrinking;
     this.preciseShrinking = preciseShrinking;
+    this.debugConsumer = debugConsumer;
   }
 
   public static Builder builder(DiagnosticsHandler handler) {
@@ -52,6 +55,10 @@ public class ResourceShrinkerConfiguration {
     return preciseShrinking;
   }
 
+  public StringConsumer getDebugConsumer() {
+    return debugConsumer;
+  }
+
   /**
    * Builder for constructing a ResourceShrinkerConfiguration.
    *
@@ -63,6 +70,7 @@ public class ResourceShrinkerConfiguration {
 
     private boolean optimizedShrinking = false;
     private boolean preciseShrinking = true;
+    private StringConsumer debugConsumer;
 
     private Builder() {}
 
@@ -82,6 +90,11 @@ public class ResourceShrinkerConfiguration {
       return this;
     }
 
+    public Builder setDebugConsumer(StringConsumer consumer) {
+      this.debugConsumer = consumer;
+      return this;
+    }
+
     /**
      * Disable precise shrinking.
      *
@@ -97,7 +110,7 @@ public class ResourceShrinkerConfiguration {
 
     /** Build and return the {@link ResourceShrinkerConfiguration} */
     public ResourceShrinkerConfiguration build() {
-      return new ResourceShrinkerConfiguration(optimizedShrinking, preciseShrinking);
+      return new ResourceShrinkerConfiguration(optimizedShrinking, preciseShrinking, debugConsumer);
     }
   }
 }

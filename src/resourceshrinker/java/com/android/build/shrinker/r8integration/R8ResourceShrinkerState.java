@@ -16,7 +16,6 @@ import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.XmlAttribute;
 import com.android.aapt.Resources.XmlElement;
 import com.android.aapt.Resources.XmlNode;
-import com.android.build.shrinker.NoDebugReporter;
 import com.android.build.shrinker.ResourceShrinkerImplKt;
 import com.android.build.shrinker.ResourceShrinkerModel;
 import com.android.build.shrinker.ResourceTableUtilKt;
@@ -69,8 +68,10 @@ public class R8ResourceShrinkerState {
     boolean tryClass(String possibleClass, Origin xmlFileOrigin);
   }
 
-  public R8ResourceShrinkerState(Function<Exception, RuntimeException> errorHandler) {
-    r8ResourceShrinkerModel = new R8ResourceShrinkerModel(NoDebugReporter.INSTANCE, true);
+  public R8ResourceShrinkerState(
+      Function<Exception, RuntimeException> errorHandler,
+      ShrinkerDebugReporter shrinkerDebugReporter) {
+    r8ResourceShrinkerModel = new R8ResourceShrinkerModel(shrinkerDebugReporter, true);
     this.errorHandler = errorHandler;
   }
 

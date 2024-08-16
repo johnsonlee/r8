@@ -10,9 +10,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.aapt.Resources.ResourceTable;
 import com.android.aapt.Resources.XmlNode;
-import com.android.build.shrinker.NoDebugReporter;
 import com.android.build.shrinker.ResourceShrinkerImplKt;
 import com.android.build.shrinker.ResourceTableUtilKt;
+import com.android.build.shrinker.ShrinkerDebugReporter;
 import com.android.build.shrinker.graph.ProtoResourcesGraphBuilder;
 import com.android.build.shrinker.obfuscation.ProguardMappingsRecorder;
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState.R8ResourceShrinkerModel;
@@ -53,6 +53,7 @@ public class LegacyResourceShrinker {
   private final Collection<PathAndBytes> resFolderInputs;
   private final Collection<PathAndBytes> xmlInputs;
   private List<String> proguardMapStrings;
+  private final ShrinkerDebugReporter debugReporter;
   private final List<PathAndBytes> manifest;
   private final Map<PathAndBytes, FeatureSplit> resourceTables;
 
@@ -65,6 +66,7 @@ public class LegacyResourceShrinker {
     private final List<PathAndBytes> manifests = new ArrayList<>();
     private final Map<PathAndBytes, FeatureSplit> resourceTables = new HashMap<>();
     private List<String> proguardMapStrings;
+    private ShrinkerDebugReporter debugReporter;
 
     private Builder() {}
 
@@ -117,11 +119,17 @@ public class LegacyResourceShrinker {
           manifests,
           resourceTables,
           xmlInputs.values(),
-          proguardMapStrings);
+          proguardMapStrings,
+          debugReporter);
     }
 
     public void setProguardMapStrings(List<String> proguardMapStrings) {
       this.proguardMapStrings = proguardMapStrings;
+    }
+
+    public Builder setShrinkerDebugReporter(ShrinkerDebugReporter debugReporter) {
+      this.debugReporter = debugReporter;
+      return this;
     }
   }
 
@@ -131,13 +139,15 @@ public class LegacyResourceShrinker {
       List<PathAndBytes> manifests,
       Map<PathAndBytes, FeatureSplit> resourceTables,
       Collection<PathAndBytes> xmlInputs,
-      List<String> proguardMapStrings) {
+      List<String> proguardMapStrings,
+      ShrinkerDebugReporter debugReporter) {
     this.dexInputs = dexInputs;
     this.resFolderInputs = resFolderInputs;
     this.manifest = manifests;
     this.resourceTables = resourceTables;
     this.xmlInputs = xmlInputs;
     this.proguardMapStrings = proguardMapStrings;
+    this.debugReporter = debugReporter;
   }
 
   public static Builder builder() {
@@ -145,7 +155,7 @@ public class LegacyResourceShrinker {
   }
 
   public ShrinkerResult run() throws IOException, ParserConfigurationException, SAXException {
-    R8ResourceShrinkerModel model = new R8ResourceShrinkerModel(NoDebugReporter.INSTANCE, true);
+    R8ResourceShrinkerModel model = new R8ResourceShrinkerModel(debugReporter, true);
     for (PathAndBytes pathAndBytes : resourceTables.keySet()) {
       ResourceTable loadedResourceTable = ResourceTable.parseFrom(pathAndBytes.bytes);
       model.instantiateFromResourceTable(loadedResourceTable, false);
@@ -156,7 +166,7 @@ public class LegacyResourceShrinker {
     }
     for (Entry<String, byte[]> entry : dexInputs.entrySet()) {
       // The analysis needs an origin for the dex files, synthesize an easy recognizable one.
-      Path inMemoryR8 = Paths.get("in_memory_r8_" + entry.getKey() + ".dex");
+      Path inMemoryR8 = Paths.get("in_memory_r8_" + entry.getKey());
       R8ResourceShrinker.runResourceShrinkerAnalysis(
           entry.getValue(), inMemoryR8, new DexFileAnalysisCallback(inMemoryR8, model));
     }
@@ -188,11 +198,19 @@ public class LegacyResourceShrinker {
     ResourceStore resourceStore = model.getResourceStore();
     resourceStore.processToolsAttributes();
     model.keepPossiblyReferencedResources();
+    debugReporter.debug(model.getResourceStore()::dumpResourceModel);
     // Transitively mark the reachable resources in the model.
     // Finds unused resources in provided resources collection.
     // Marks all used resources as 'reachable' in original collection.
     List<Resource> unusedResources =
-        ResourcesUtil.findUnusedResources(model.getResourceStore().getResources(), x -> {});
+        ResourcesUtil.findUnusedResources(
+            model.getResourceStore().getResources(),
+            roots -> {
+              debugReporter.debug(() -> "The root reachable resources are:");
+              roots.forEach(root -> debugReporter.debug(() -> " " + root));
+            });
+    debugReporter.debug(() -> "Unused resources are: ");
+    unusedResources.forEach(unused -> debugReporter.debug(() -> " " + unused));
     ImmutableSet.Builder<String> resEntriesToKeep = new ImmutableSet.Builder<>();
     for (PathAndBytes xmlInput : Iterables.concat(xmlInputs, resFolderInputs)) {
       if (ResourceShrinkerImplKt.isJarPathReachable(resourceStore, xmlInput.path.toString())) {

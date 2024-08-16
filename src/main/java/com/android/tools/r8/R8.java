@@ -114,6 +114,7 @@ import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
+import com.android.tools.r8.utils.ResourceShrinkerUtils;
 import com.android.tools.r8.utils.SelfRetraceTest;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
@@ -968,6 +969,9 @@ public class R8 {
       if (options.androidResourceProguardMapStrings != null) {
         resourceShrinkerBuilder.setProguardMapStrings(options.androidResourceProguardMapStrings);
       }
+      resourceShrinkerBuilder.setShrinkerDebugReporter(
+          ResourceShrinkerUtils.shrinkerDebugReporterFromStringConsumer(
+              options.resourceShrinkerConfiguration.getDebugConsumer(), reporter));
       LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
       ShrinkerResult shrinkerResult;
       if (options.resourceShrinkerConfiguration.isOptimizedShrinking()) {
