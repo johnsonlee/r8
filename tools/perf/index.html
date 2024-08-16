@@ -133,6 +133,16 @@
                             .first()
                             .code_size
                         : NaN);
+        const composableCodeSizeData =
+            filteredCommits.map(
+                (c, i) =>
+                    selectedBenchmark in filteredCommits[i].benchmarks
+                        ? filteredCommits[i]
+                            .benchmarks[selectedBenchmark]
+                            .results
+                            .first()
+                            .composable_code_size
+                        : NaN);
         const codeSizeScatterData = [];
         for (const commit of filteredCommits.values()) {
           if (!(selectedBenchmark in commit.benchmarks)) {
@@ -196,6 +206,23 @@
           },
           {
             benchmark: selectedBenchmark,
+            type: 'line',
+            label: 'Composable size',
+            data: composableCodeSizeData,
+            tension: 0.1,
+            segment: {
+              borderColor: ctx =>
+                  skipped(
+                      ctx,
+                      myChart
+                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
+                          : undefined),
+              borderDash: ctx => skipped(ctx, [6, 6]),
+            },
+            spanGaps: true
+          },
+          {
+            benchmark: selectedBenchmark,
             type: 'scatter',
             label: 'Nondeterminism',
             data: codeSizeScatterData,
@@ -238,7 +265,7 @@
 
     // Legend tracking.
     const legends =
-        new Set(['Code size', 'Nondeterminism', 'Runtime', 'Runtime variance']);
+        new Set(['Code size', 'Composable size', 'Nondeterminism', 'Runtime', 'Runtime variance']);
     const selectedLegends =
         new Set(
               unescape(window.location.hash.substring(1))
