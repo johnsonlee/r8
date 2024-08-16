@@ -9,13 +9,15 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import java.io.PrintStream;
 import java.util.Set;
+import java.util.function.LongConsumer;
 
 public class BenchmarkResultsSingle implements BenchmarkResults {
 
-  private String name;
+  private final String name;
   private final Set<BenchmarkMetric> metrics;
   private final LongList runtimeResults = new LongArrayList();
   private final LongList codeSizeResults = new LongArrayList();
+  private final LongList composableCodeSizeResults = new LongArrayList();
 
   public BenchmarkResultsSingle(String name, Set<BenchmarkMetric> metrics) {
     this.name = name;
@@ -28,6 +30,10 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
 
   public LongList getCodeSizeResults() {
     return codeSizeResults;
+  }
+
+  public LongList getComposableCodeSizeResults() {
+    return composableCodeSizeResults;
   }
 
   public LongList getRuntimeResults() {
@@ -44,6 +50,15 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   public void addCodeSizeResult(long result) {
     verifyMetric(BenchmarkMetric.CodeSize, metrics.contains(BenchmarkMetric.CodeSize), true);
     codeSizeResults.add(result);
+  }
+
+  @Override
+  public void addComposableCodeSizeResult(long result) {
+    verifyMetric(
+        BenchmarkMetric.ComposableCodeSize,
+        metrics.contains(BenchmarkMetric.ComposableCodeSize),
+        true);
+    composableCodeSizeResults.add(result);
   }
 
   @Override
@@ -78,6 +93,10 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
         BenchmarkMetric.CodeSize,
         metrics.contains(BenchmarkMetric.CodeSize),
         !codeSizeResults.isEmpty());
+    verifyMetric(
+        BenchmarkMetric.ComposableCodeSize,
+        metrics.contains(BenchmarkMetric.ComposableCodeSize),
+        !composableCodeSizeResults.isEmpty());
   }
 
   private void printRunTime(long duration) {
@@ -89,6 +108,11 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     System.out.println(BenchmarkResults.prettyMetric(name, BenchmarkMetric.CodeSize, "" + bytes));
   }
 
+  private void printComposableCodeSize(long bytes) {
+    System.out.println(
+        BenchmarkResults.prettyMetric(name, BenchmarkMetric.ComposableCodeSize, "" + bytes));
+  }
+
   @Override
   public void printResults(ResultMode mode, boolean failOnCodeSizeDifferences) {
     verifyConfigAndResults();
@@ -97,6 +121,13 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
       long result = mode == ResultMode.SUM ? sum : sum / runtimeResults.size();
       printRunTime(result);
     }
+    printCodeSizeResults(codeSizeResults, failOnCodeSizeDifferences, this::printCodeSize);
+    printCodeSizeResults(
+        composableCodeSizeResults, failOnCodeSizeDifferences, this::printComposableCodeSize);
+  }
+
+  private static void printCodeSizeResults(
+      LongList codeSizeResults, boolean failOnCodeSizeDifferences, LongConsumer printer) {
     if (!codeSizeResults.isEmpty()) {
       long size = codeSizeResults.getLong(0);
       if (failOnCodeSizeDifferences) {
@@ -107,7 +138,7 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
           }
         }
       }
-      printCodeSize(size);
+      printer.accept(size);
     }
   }
 

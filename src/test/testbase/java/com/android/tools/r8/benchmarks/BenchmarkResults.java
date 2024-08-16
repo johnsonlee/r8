@@ -13,6 +13,8 @@ public interface BenchmarkResults {
   // Append a code size result. This is always assumed to be identical if called multiple times.
   void addCodeSizeResult(long result);
 
+  void addComposableCodeSizeResult(long result);
+
   // Append a resource size result. This is always assumed to be identical if called multiple times.
   void addResourceSizeResult(long result);
 

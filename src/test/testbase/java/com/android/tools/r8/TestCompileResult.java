@@ -20,6 +20,7 @@ import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.debug.DebugTestConfig;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -720,5 +721,10 @@ public abstract class TestCompileResult<
   public CR benchmarkCodeSize(BenchmarkResults results) throws IOException, ResourceException {
     results.addCodeSizeResult(app.applicationSize());
     return self();
+  }
+
+  public CR benchmarkComposableCodeSize(BenchmarkResults results)
+      throws IOException, ResourceException {
+    throw new Unimplemented();
   }
 }

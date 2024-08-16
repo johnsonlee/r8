@@ -18,7 +18,9 @@ GOLEM_BUILD_TARGETS_TESTS = [
     utils.GRADLE_TASK_TESTBASE_WITH_APPLY_MAPPING_JAR,
     utils.GRADLE_TASK_TEST_DEPS_JAR
 ]
-GOLEM_BUILD_TARGETS = [utils.GRADLE_TASK_R8LIB] + GOLEM_BUILD_TARGETS_TESTS
+GOLEM_BUILD_TARGETS = [
+    utils.GRADLE_TASK_R8LIB, utils.GRADLE_TASK_KEEP_ANNO_JAR
+] + GOLEM_BUILD_TARGETS_TESTS
 
 
 def get_golem_resource_path(benchmark):
@@ -46,6 +48,13 @@ def parse_options(argv):
         required=True,
         # These should 1:1 with benchmarks/BenchmarkTarget.java
         choices=['d8', 'r8-full', 'r8-force', 'r8-compat'])
+    result.add_argument(
+        '--debug-agent',
+        '--debug_agent',
+        help=
+        'Enable Java debug agent and suspend compilation (default disabled)',
+        default=False,
+        action='store_true')
     result.add_argument('--nolib',
                         '--no-lib',
                         '--no-r8lib',
@@ -119,7 +128,8 @@ def main(argv, temp):
             utils.GRADLE_TASK_TEST_JAR, utils.GRADLE_TASK_TEST_DEPS_JAR,
             utils.GRADLE_TASK_TEST_UNZIP_TESTBASE
         ]
-        buildTargets = [utils.GRADLE_TASK_R8] + testBuildTargets
+        buildTargets = [utils.GRADLE_TASK_R8, utils.GRADLE_TASK_KEEP_ANNO_JAR
+                       ] + testBuildTargets
         r8jar = utils.R8_JAR
         testjars = [
             utils.R8_TESTS_JAR, utils.R8_TESTS_DEPS_JAR, utils.R8_TESTBASE_JAR
@@ -157,7 +167,8 @@ def run(options, r8jar, testjars):
     cmd = [
         jdk.GetJavaExecutable(jdkhome), '-Xms8g', '-Xmx8g',
         '-XX:+TieredCompilation', '-XX:TieredStopAtLevel=4',
-        '-DBENCHMARK_IGNORE_CODE_SIZE_DIFFERENCES'
+        '-DBENCHMARK_IGNORE_CODE_SIZE_DIFFERENCES',
+        f'-DBUILD_PROP_KEEPANNO_RUNTIME_PATH={utils.REPO_ROOT}/d8_r8/keepanno/build/classes/java/main'
     ]
     if options.enable_assertions:
         cmd.append('-ea')
@@ -175,6 +186,10 @@ def run(options, r8jar, testjars):
     if options.output:
         cmd.append(f'-DBENCHMARK_OUTPUT={options.output}')
     cmd.extend(['-cp', ':'.join([r8jar] + testjars)])
+    if options.debug_agent:
+        cmd.append(
+            '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
+        )
     cmd.extend([
         'com.android.tools.r8.benchmarks.BenchmarkMainEntryRunner',
         options.benchmark,

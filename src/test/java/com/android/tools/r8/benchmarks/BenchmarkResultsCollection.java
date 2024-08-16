@@ -24,22 +24,25 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
   @Override
   public void addRuntimeResult(long result) {
     throw new BenchmarkConfigError(
-        "Unexpected attempt to add a runtime result to a the root of a benchmark with"
-            + " sub-benchmarks");
+        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
   }
 
   @Override
   public void addCodeSizeResult(long result) {
     throw new BenchmarkConfigError(
-        "Unexpected attempt to add a runtime result to a the root of a benchmark with"
-            + " sub-benchmarks");
+        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
+  }
+
+  @Override
+  public void addComposableCodeSizeResult(long result) {
+    throw new BenchmarkConfigError(
+        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
   }
 
   @Override
   public void addResourceSizeResult(long result) {
     throw new BenchmarkConfigError(
-        "Unexpected attempt to add a runtime result to a the root of a benchmark with"
-            + " sub-benchmarks");
+        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
   }
 
   @Override

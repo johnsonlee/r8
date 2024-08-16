@@ -50,7 +50,7 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return self();
   }
 
-  public T applyIf(boolean value, ThrowableConsumer<T> consumer) {
+  public T applyIf(boolean value, ThrowableConsumer<? super T> consumer) {
     T self = self();
     if (value) {
       consumer.acceptWithRuntimeException(self);
