@@ -323,9 +323,7 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
   @Override
   public R8TestCompileResult benchmarkComposableCodeSize(BenchmarkResults results)
       throws IOException {
-    CodeInspector inspector = inspector();
-    assertThat(inspector.clazz("androidx.compose.runtime.Composable"), isPresent());
-    int composableCodeSize = getComposableCodeSize(inspector);
+    int composableCodeSize = getComposableCodeSize(inspector());
     for (Path feature : features) {
       composableCodeSize += getComposableCodeSize(featureInspector(feature));
     }
