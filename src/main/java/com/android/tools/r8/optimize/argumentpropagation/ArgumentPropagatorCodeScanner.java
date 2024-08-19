@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
-
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -39,6 +38,7 @@ import com.android.tools.r8.ir.code.InvokeCustom;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
@@ -58,6 +58,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.IfThenElseAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InstanceFieldReadAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
@@ -80,6 +81,8 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -134,6 +137,8 @@ public class ArgumentPropagatorCodeScanner {
   private final MethodStateCollectionByReference methodStates =
       MethodStateCollectionByReference.createConcurrent();
 
+  private final InFlowComparator.Builder inFlowComparatorBuilder = InFlowComparator.builder();
+
   public ArgumentPropagatorCodeScanner(AppView<AppInfoWithLiveness> appView) {
     this(appView, new ArgumentPropagatorReprocessingCriteriaCollection(appView));
   }
@@ -164,6 +169,10 @@ public class ArgumentPropagatorCodeScanner {
 
   DexMethod getVirtualRootMethod(ProgramMethod method) {
     return virtualRootMethods.get(method.getReference());
+  }
+
+  InFlowComparator getInFlowComparator() {
+    return inFlowComparatorBuilder.build();
   }
 
   // TODO(b/296030319): Allow lookups in the FieldStateCollection using DexField keys to avoid the
@@ -231,6 +240,7 @@ public class ArgumentPropagatorCodeScanner {
 
     private SuccessfulDataflowAnalysisResult<BasicBlock, PathConstraintAnalysisState>
         pathConstraintAnalysisResult;
+    private Object2IntMap<Phi> phiNumbering = null;
 
     protected CodeScanner(
         AbstractValueSupplier abstractValueSupplier, IRCode code, ProgramMethod method) {
@@ -359,6 +369,9 @@ public class ArgumentPropagatorCodeScanner {
     // If the value is an argument of the enclosing method or defined by a field-get, then clearly
     // we have no information about its abstract value (yet). Instead of treating this as having an
     // unknown runtime value, we instead record a flow constraint.
+    // TODO(b/302281503): Cache computed in flow so that we do not compute the same in flow for the
+    //  same value multiple times.
+    // TODO(b/302281503): Canonicalize computed in flow.
     private InFlow computeInFlow(
         DexType staticType,
         Value value,
@@ -420,10 +433,34 @@ public class ArgumentPropagatorCodeScanner {
       }
       NonEmptyValueState leftValue = valueStateSupplier.apply(phi.getOperand(0));
       NonEmptyValueState rightValue = valueStateSupplier.apply(phi.getOperand(1));
-      if (leftPredecessorPathConstraint.isNegated(condition)) {
-        return new IfThenElseAbstractFunction(condition, rightValue, leftValue);
+      IfThenElseAbstractFunction result =
+          leftPredecessorPathConstraint.isNegated(condition)
+              ? new IfThenElseAbstractFunction(condition, rightValue, leftValue)
+              : new IfThenElseAbstractFunction(condition, leftValue, rightValue);
+      recordIfThenElsePosition(result, phi);
+      return result;
+    }
+
+    private void recordIfThenElsePosition(
+        IfThenElseAbstractFunction ifThenElseAbstractFunction, Phi phi) {
+      inFlowComparatorBuilder.addIfThenElsePosition(
+          ifThenElseAbstractFunction,
+          SourcePosition.builder()
+              .setMethod(code.context().getReference())
+              .setLine(getOrCreatePhiNumbering().getInt(phi))
+              .build());
+    }
+
+    private Object2IntMap<Phi> getOrCreatePhiNumbering() {
+      if (phiNumbering == null) {
+        phiNumbering = new Object2IntOpenHashMap<>();
+        for (BasicBlock block : code.getBlocks()) {
+          for (Phi phi : block.getPhis()) {
+            phiNumbering.put(phi, phiNumbering.size());
+          }
+        }
       }
-      return new IfThenElseAbstractFunction(condition, leftValue, rightValue);
+      return phiNumbering;
     }
 
     private InFlow castBaseInFlow(InFlow inFlow, Value value) {

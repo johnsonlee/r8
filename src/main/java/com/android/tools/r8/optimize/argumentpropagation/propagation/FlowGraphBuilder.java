@@ -22,6 +22,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteVal
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValue;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
@@ -32,7 +33,6 @@ import com.android.tools.r8.utils.TraversalContinuation;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -42,6 +42,7 @@ public class FlowGraphBuilder {
   private final IRConverter converter;
   private final FieldStateCollection fieldStates;
   private final MethodStateCollectionByReference methodStates;
+  private final InFlowComparator inFlowComparator;
 
   private final LinkedHashMap<DexField, FlowGraphFieldNode> fieldNodes = new LinkedHashMap<>();
   private final LinkedHashMap<DexMethod, Int2ReferenceMap<FlowGraphParameterNode>> parameterNodes =
@@ -51,15 +52,18 @@ public class FlowGraphBuilder {
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
       FieldStateCollection fieldStates,
-      MethodStateCollectionByReference methodStates) {
+      MethodStateCollectionByReference methodStates,
+      InFlowComparator inFlowComparator) {
     this.appView = appView;
     this.converter = converter;
     this.fieldStates = fieldStates;
     this.methodStates = methodStates;
+    this.inFlowComparator = inFlowComparator;
   }
 
   public FlowGraphBuilder addClasses() {
     appView.appInfo().classesWithDeterministicOrder().forEach(this::add);
+    inFlowComparator.clear();
     return this;
   }
 
@@ -96,7 +100,7 @@ public class FlowGraphBuilder {
 
     FlowGraphFieldNode node = getOrCreateFieldNode(field, concreteFieldState);
     List<InFlow> inFlowWithDeterministicOrder =
-        ListUtils.sort(concreteFieldState.getInFlow(), Comparator.naturalOrder());
+        ListUtils.sort(concreteFieldState.getInFlow(), inFlowComparator);
     for (InFlow inFlow : inFlowWithDeterministicOrder) {
       if (addInFlow(inFlow, node).shouldBreak()) {
         assert node.isUnknown();
@@ -143,7 +147,9 @@ public class FlowGraphBuilder {
     }
 
     FlowGraphParameterNode node = getOrCreateParameterNode(method, parameterIndex, methodState);
-    for (InFlow inFlow : concreteParameterState.getInFlow()) {
+    List<InFlow> inFlowWithDeterministicOrder =
+        ListUtils.sort(concreteParameterState.getInFlow(), inFlowComparator);
+    for (InFlow inFlow : inFlowWithDeterministicOrder) {
       if (addInFlow(inFlow, node).shouldBreak()) {
         assert node.isUnknown();
         break;

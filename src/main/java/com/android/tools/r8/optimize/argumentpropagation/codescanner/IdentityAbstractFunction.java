@@ -41,7 +41,7 @@ public class IdentityAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow inFlow) {
+  public int internalCompareToSameKind(InFlow inFlow, InFlowComparator comparator) {
     assert this == inFlow;
     return 0;
   }

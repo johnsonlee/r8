@@ -44,10 +44,12 @@ public class CastAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow other) {
+  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
     CastAbstractFunction fn = other.asCastAbstractFunction();
     if (inFlow != fn.inFlow) {
-      return inFlow.compareTo(fn.inFlow);
+      int result = inFlow.compareTo(fn.inFlow, comparator);
+      assert result != 0;
+      return result;
     }
     return type.compareTo(fn.type);
   }

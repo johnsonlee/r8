@@ -63,7 +63,7 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow other) {
+  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
     MethodParameter methodParameter = other.asMethodParameter();
     int result = method.compareTo(methodParameter.method);
     if (result == 0) {

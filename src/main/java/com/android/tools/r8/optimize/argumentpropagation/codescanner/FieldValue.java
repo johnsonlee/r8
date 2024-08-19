@@ -25,7 +25,7 @@ public class FieldValue implements BaseInFlow {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow other) {
+  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
     return field.compareTo(other.asFieldValue().getField());
   }
 

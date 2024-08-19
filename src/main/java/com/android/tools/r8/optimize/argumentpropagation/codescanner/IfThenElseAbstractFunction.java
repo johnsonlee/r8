@@ -6,10 +6,12 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Represents a ternary expression (exp ? u : v). The {@link #condition} is an expression containing
@@ -133,9 +135,11 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow inFlow) {
-    // TODO(b/302281503): Find a way to make this comparable.
-    return hashCode() - inFlow.hashCode();
+  public int internalCompareToSameKind(InFlow inFlow, InFlowComparator comparator) {
+    SourcePosition position = comparator.getIfThenElsePosition(this);
+    SourcePosition otherPosition =
+        comparator.getIfThenElsePosition(inFlow.asIfThenElseAbstractFunction());
+    return position.compareTo(otherPosition);
   }
 
   @Override
@@ -151,5 +155,24 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
   @Override
   public InFlowKind getKind() {
     return InFlowKind.ABSTRACT_FUNCTION_IF_THEN_ELSE;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof IfThenElseAbstractFunction)) {
+      return false;
+    }
+    IfThenElseAbstractFunction fn = (IfThenElseAbstractFunction) obj;
+    return condition.equals(fn.condition)
+        && thenState.equals(fn.thenState)
+        && elseState.equals(fn.elseState);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), condition, thenState, elseState);
   }
 }

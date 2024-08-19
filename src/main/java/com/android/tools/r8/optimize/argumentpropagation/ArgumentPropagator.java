@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.VirtualRootMethodsAnalysis;
@@ -249,6 +250,7 @@ public class ArgumentPropagator {
     assert appView.isAllCodeProcessed();
     FieldStateCollection fieldStates = codeScanner.getFieldStates();
     MethodStateCollectionByReference methodStates = codeScanner.getMethodStates();
+    InFlowComparator inFlowComparator = codeScanner.getInFlowComparator();
     appView.testing().argumentPropagatorEventConsumer.acceptCodeScannerResult(methodStates);
     codeScanner = null;
 
@@ -261,6 +263,7 @@ public class ArgumentPropagator {
             immediateSubtypingInfo,
             fieldStates,
             methodStates,
+            inFlowComparator,
             stronglyConnectedProgramComponents,
             interfaceDispatchOutsideProgram)
         .propagateOptimizationInfo(

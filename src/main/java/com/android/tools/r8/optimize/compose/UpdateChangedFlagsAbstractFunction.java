@@ -14,6 +14,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePri
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowKind;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.OrAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
@@ -131,8 +132,8 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow other) {
-    return inFlow.compareTo(other.asUpdateChangedFlagsAbstractFunction().inFlow);
+  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
+    return inFlow.compareTo(other.asUpdateChangedFlagsAbstractFunction().inFlow, comparator);
   }
 
   @Override

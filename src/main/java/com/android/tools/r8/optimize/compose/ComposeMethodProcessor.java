@@ -30,6 +30,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMon
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
@@ -95,9 +96,15 @@ public class ComposeMethodProcessor extends MethodProcessor {
       throws ExecutionException {
     prepareForInFlowPropagator();
 
+    InFlowComparator emptyComparator = InFlowComparator.builder().build();
     InFlowPropagator inFlowPropagator =
         new InFlowPropagator(
-            appView, null, converter, codeScanner.getFieldStates(), codeScanner.getMethodStates()) {
+            appView,
+            null,
+            converter,
+            codeScanner.getFieldStates(),
+            codeScanner.getMethodStates(),
+            emptyComparator) {
 
           @Override
           protected DefaultFieldValueJoiner createDefaultFieldValueJoiner(

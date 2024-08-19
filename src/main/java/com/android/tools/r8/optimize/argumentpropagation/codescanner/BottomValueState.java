@@ -31,4 +31,14 @@ public abstract class BottomValueState extends ValueState {
   public ValueState mutableCopyWithoutInFlow() {
     return this;
   }
+
+  @Override
+  public final boolean equals(Object obj) {
+    return this == obj;
+  }
+
+  @Override
+  public final int hashCode() {
+    return System.identityHashCode(this);
+  }
 }

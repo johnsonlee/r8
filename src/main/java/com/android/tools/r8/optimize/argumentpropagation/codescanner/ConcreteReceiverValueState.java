@@ -13,6 +13,7 @@ import com.android.tools.r8.optimize.argumentpropagation.utils.WideningUtils;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -144,6 +145,23 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
 
   public ConcreteReceiverValueState withDynamicType(DynamicType dynamicType) {
     return new ConcreteReceiverValueState(dynamicType, copyInFlow());
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof ConcreteReceiverValueState)) {
+      return false;
+    }
+    ConcreteReceiverValueState state = (ConcreteReceiverValueState) obj;
+    return dynamicType.equals(state.dynamicType) && getInFlow().equals(state.getInFlow());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), dynamicType, getInFlow());
   }
 
   @Override

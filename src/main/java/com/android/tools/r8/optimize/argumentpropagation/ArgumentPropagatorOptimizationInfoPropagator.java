@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.ir.conversion.PrimaryR8IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InterfaceMethodArgumentPropagator;
@@ -34,6 +35,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
   private final PrimaryR8IRConverter converter;
   private final FieldStateCollection fieldStates;
   private final MethodStateCollectionByReference methodStates;
+  private final InFlowComparator inFlowComparator;
 
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
   private final List<Set<DexProgramClass>> stronglyConnectedProgramComponents;
@@ -47,6 +49,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       FieldStateCollection fieldStates,
       MethodStateCollectionByReference methodStates,
+      InFlowComparator inFlowComparator,
       List<Set<DexProgramClass>> stronglyConnectedProgramComponents,
       BiConsumer<Set<DexProgramClass>, DexMethodSignature> interfaceDispatchOutsideProgram) {
     this.appView = appView;
@@ -54,6 +57,7 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
     this.immediateSubtypingInfo = immediateSubtypingInfo;
     this.fieldStates = fieldStates;
     this.methodStates = methodStates;
+    this.inFlowComparator = inFlowComparator;
     this.stronglyConnectedProgramComponents = stronglyConnectedProgramComponents;
     this.interfaceDispatchOutsideProgram = interfaceDispatchOutsideProgram;
   }
@@ -79,7 +83,8 @@ public class ArgumentPropagatorOptimizationInfoPropagator {
             classesWithSingleCallerInlinedInstanceInitializers,
             converter,
             fieldStates,
-            methodStates)
+            methodStates,
+            inFlowComparator)
         .run(executorService);
     timing.end();
   }

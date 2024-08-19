@@ -14,6 +14,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.SetUtils;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -133,6 +134,23 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
     Nullability oldNullability = nullability;
     nullability = nullability.join(otherNullability);
     return nullability != oldNullability;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof ConcreteArrayTypeValueState)) {
+      return false;
+    }
+    ConcreteArrayTypeValueState state = (ConcreteArrayTypeValueState) obj;
+    return nullability.equals(state.nullability) && getInFlow().equals(state.getInFlow());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), nullability, getInFlow());
   }
 
   @Override

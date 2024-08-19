@@ -24,6 +24,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMon
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
@@ -48,19 +49,22 @@ public class InFlowPropagator {
   final IRConverter converter;
   protected final FieldStateCollection fieldStates;
   final MethodStateCollectionByReference methodStates;
+  final InFlowComparator inFlowComparator;
 
   public InFlowPropagator(
       AppView<AppInfoWithLiveness> appView,
       Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers,
       IRConverter converter,
       FieldStateCollection fieldStates,
-      MethodStateCollectionByReference methodStates) {
+      MethodStateCollectionByReference methodStates,
+      InFlowComparator inFlowComparator) {
     this.appView = appView;
     this.classesWithSingleCallerInlinedInstanceInitializers =
         classesWithSingleCallerInlinedInstanceInitializers;
     this.converter = converter;
     this.fieldStates = fieldStates;
     this.methodStates = methodStates;
+    this.inFlowComparator = inFlowComparator;
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
@@ -97,7 +101,7 @@ public class InFlowPropagator {
     // Build a graph with an edge from parameter p -> parameter p' if all argument information for p
     // must be included in the argument information for p'.
     FlowGraph flowGraph =
-        FlowGraph.builder(appView, converter, fieldStates, methodStates)
+        FlowGraph.builder(appView, converter, fieldStates, methodStates, inFlowComparator)
             .addClasses()
             .clearInFlow()
             .build();

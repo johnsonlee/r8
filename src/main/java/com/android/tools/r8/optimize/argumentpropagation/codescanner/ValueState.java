@@ -136,4 +136,10 @@ public abstract class ValueState {
       DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction);
+
+  @Override
+  public abstract boolean equals(Object obj);
+
+  @Override
+  public abstract int hashCode();
 }

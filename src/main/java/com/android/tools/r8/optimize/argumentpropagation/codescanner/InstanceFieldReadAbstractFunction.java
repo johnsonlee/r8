@@ -74,9 +74,9 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow other) {
+  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
     InstanceFieldReadAbstractFunction fn = other.asInstanceFieldReadAbstractFunction();
-    int result = receiver.compareTo(fn.receiver);
+    int result = receiver.compareTo(fn.receiver, comparator);
     if (result == 0) {
       result = field.compareTo(fn.field);
     }

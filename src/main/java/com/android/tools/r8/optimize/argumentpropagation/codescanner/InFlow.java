@@ -7,17 +7,16 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.optimize.compose.UpdateChangedFlagsAbstractFunction;
 
-public interface InFlow extends Comparable<InFlow> {
+public interface InFlow {
 
-  @Override
-  default int compareTo(InFlow inFlow) {
+  default int compareTo(InFlow inFlow, InFlowComparator comparator) {
     if (getKind() == inFlow.getKind()) {
-      return internalCompareToSameKind(inFlow);
+      return internalCompareToSameKind(inFlow, comparator);
     }
     return getKind().ordinal() - inFlow.getKind().ordinal();
   }
 
-  int internalCompareToSameKind(InFlow inFlow);
+  int internalCompareToSameKind(InFlow inFlow, InFlowComparator comparator);
 
   InFlowKind getKind();
 

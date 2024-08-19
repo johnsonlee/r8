@@ -67,9 +67,9 @@ public class OrAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public int internalCompareToSameKind(InFlow other) {
+  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
     OrAbstractFunction fn = other.asOrAbstractFunction();
-    int result = inFlow.compareTo(fn.inFlow);
+    int result = inFlow.compareTo(fn.inFlow, comparator);
     if (result == 0) {
       result = constant.getIntValue() - fn.constant.getIntValue();
     }

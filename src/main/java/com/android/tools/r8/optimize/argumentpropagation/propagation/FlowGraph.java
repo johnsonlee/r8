@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
@@ -58,8 +59,9 @@ public class FlowGraph extends BidirectedGraph<FlowGraphNode> implements FlowGra
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
       FieldStateCollection fieldStates,
-      MethodStateCollectionByReference methodStates) {
-    return new FlowGraphBuilder(appView, converter, fieldStates, methodStates);
+      MethodStateCollectionByReference methodStates,
+      InFlowComparator inFlowComparator) {
+    return new FlowGraphBuilder(appView, converter, fieldStates, methodStates, inFlowComparator);
   }
 
   @Override

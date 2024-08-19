@@ -15,6 +15,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.SetUtils;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -186,6 +187,25 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
 
   public ConcreteClassTypeValueState withDynamicType(DynamicType dynamicType) {
     return new ConcreteClassTypeValueState(abstractValue, dynamicType, copyInFlow());
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof ConcreteClassTypeValueState)) {
+      return false;
+    }
+    ConcreteClassTypeValueState state = (ConcreteClassTypeValueState) obj;
+    return abstractValue.equals(state.abstractValue)
+        && dynamicType.equals(state.dynamicType)
+        && getInFlow().equals(state.getInFlow());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), abstractValue, dynamicType, getInFlow());
   }
 
   @Override
