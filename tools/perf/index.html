@@ -193,6 +193,7 @@
             label: 'Code size',
             data: codeSizeData,
             tension: 0.1,
+            yAxisID: 'y',
             segment: {
               borderColor: ctx =>
                   skipped(
@@ -210,6 +211,7 @@
             label: 'Composable size',
             data: composableCodeSizeData,
             tension: 0.1,
+            yAxisID: 'y_composable_code_size',
             segment: {
               borderColor: ctx =>
                   skipped(
@@ -235,7 +237,7 @@
             label: 'Runtime',
             data: runtimeData,
             tension: 0.1,
-            yAxisID: 'y2',
+            yAxisID: 'y_runtime',
             segment: {
               borderColor: ctx =>
                   skipped(
@@ -252,7 +254,7 @@
             type: 'scatter',
             label: 'Runtime variance',
             data: runtimeScatterData,
-            yAxisID: 'y2'
+            yAxisID: 'y_runtime'
           }
         ]);
       }
@@ -344,13 +346,20 @@
             text: 'Code size (bytes)'
           }
         },
-        y2: {
+        y_runtime: {
           position: 'right',
           title: {
             display: true,
             text: 'Runtime (seconds)'
           }
-        }
+        },
+        y_composable_code_size: {
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Composable code size (bytes)'
+          }
+        },
       }
     };
 
@@ -367,7 +376,7 @@
     };
 
     // Setup chart navigation.
-    var zoom = { left: 0, right: commits.length };
+    var zoom = { left: Math.max(0, commits.length - 75), right: commits.length };
     for (const urlOption of urlOptions.values()) {
       if (urlOption.startsWith('L')) {
         var left = parseInt(urlOption.substring(1));
@@ -446,6 +455,13 @@
           const datasetMeta = myChart.getDatasetMeta(datasetIndex);
           datasetMeta.hidden = !selectedLegends.has(datasetMeta.label);
         }
+
+        // Update scales.
+        options.scales.y.display = selectedLegends.has('Code size');
+        options.scales.y_composable_code_size.display = selectedLegends.has('Composable size');
+        options.scales.y_runtime.display =
+            selectedLegends.has('Runtime') || selectedLegends.has('Runtime variance');
+
         // Update chart.
         myChart.update();
       }
