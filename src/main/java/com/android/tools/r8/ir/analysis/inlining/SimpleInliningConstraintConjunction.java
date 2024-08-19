@@ -15,14 +15,22 @@ import java.util.List;
 
 public class SimpleInliningConstraintConjunction extends SimpleInliningConstraint {
 
+  private static final int MAX_SIZE = 3;
+
   private final List<SimpleInliningConstraint> constraints;
 
-  public SimpleInliningConstraintConjunction(List<SimpleInliningConstraint> constraints) {
+  private SimpleInliningConstraintConjunction(List<SimpleInliningConstraint> constraints) {
     assert constraints.size() > 1;
     assert constraints.stream().noneMatch(SimpleInliningConstraint::isAlways);
     assert constraints.stream().noneMatch(SimpleInliningConstraint::isConjunction);
     assert constraints.stream().noneMatch(SimpleInliningConstraint::isNever);
     this.constraints = constraints;
+  }
+
+  public static SimpleInliningConstraint create(List<SimpleInliningConstraint> constraints) {
+    return constraints.size() <= MAX_SIZE
+        ? new SimpleInliningConstraintConjunction(constraints)
+        : NeverSimpleInliningConstraint.getInstance();
   }
 
   SimpleInliningConstraint add(SimpleInliningConstraint constraint) {
@@ -32,16 +40,15 @@ public class SimpleInliningConstraintConjunction extends SimpleInliningConstrain
       return addAll(constraint.asConjunction());
     }
     assert constraint.isArgumentConstraint() || constraint.isDisjunction();
-    return new SimpleInliningConstraintConjunction(
+    return create(
         ImmutableList.<SimpleInliningConstraint>builder()
             .addAll(constraints)
             .add(constraint)
             .build());
   }
 
-  public SimpleInliningConstraintConjunction addAll(
-      SimpleInliningConstraintConjunction conjunction) {
-    return new SimpleInliningConstraintConjunction(
+  public SimpleInliningConstraint addAll(SimpleInliningConstraintConjunction conjunction) {
+    return create(
         ImmutableList.<SimpleInliningConstraint>builder()
             .addAll(constraints)
             .addAll(conjunction.constraints)
@@ -103,6 +110,6 @@ public class SimpleInliningConstraintConjunction extends SimpleInliningConstrain
       return NeverSimpleInliningConstraint.getInstance();
     }
 
-    return new SimpleInliningConstraintConjunction(rewrittenConstraints);
+    return create(rewrittenConstraints);
   }
 }

@@ -61,7 +61,7 @@ public abstract class SimpleInliningConstraint {
     }
     assert isArgumentConstraint() || isDisjunction();
     assert other.isArgumentConstraint() || other.isDisjunction();
-    return new SimpleInliningConstraintConjunction(ImmutableList.of(this, other));
+    return SimpleInliningConstraintConjunction.create(ImmutableList.of(this, other));
   }
 
   public final SimpleInliningConstraintWithDepth lazyMeet(
@@ -90,7 +90,7 @@ public abstract class SimpleInliningConstraint {
     }
     assert isArgumentConstraint() || isConjunction();
     assert other.isArgumentConstraint() || other.isConjunction();
-    return new SimpleInliningConstraintDisjunction(ImmutableList.of(this, other));
+    return SimpleInliningConstraintDisjunction.create(ImmutableList.of(this, other));
   }
 
   public abstract SimpleInliningConstraint fixupAfterParametersChanged(
