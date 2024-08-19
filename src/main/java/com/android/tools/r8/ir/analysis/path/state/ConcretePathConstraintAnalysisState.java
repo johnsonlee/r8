@@ -4,10 +4,11 @@
 package com.android.tools.r8.ir.analysis.path.state;
 
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+import com.android.tools.r8.utils.CollectionUtils;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Represents a non-trivial (neither bottom nor top) path constraint that must be satisfied to reach
@@ -16,19 +17,18 @@ import java.util.Set;
  * <p>The state should be interpreted as follows:
  *
  * <ol>
- *   <li>If a path constraint is BOTH in {@link #pathConstraints} AND {@link
- *       #negatedPathConstraints} then the path constraint should be IGNORED.
- *   <li>If a path constraint is ONLY in {@link #pathConstraints} then the current program point can
- *       only be reached if the path constraint is satisfied.
- *   <li>If a path constraint is ONLY in {@link #negatedPathConstraints} then the current program
- *       point can only be reached if the path constraint is NOT satisfied.
+ *   <li>If a path constraint is DISABLED then the path constraint should be IGNORED.
+ *   <li>If a path constraint is POSITIVE then the current program point can only be reached if the
+ *       path constraint is satisfied.
+ *   <li>If a path constraint is NEGATIVE then the current program point can only be reached if the
+ *       path constraint is NOT satisfied.
  * </ol>
  *
- * <p>Example: In the below example, when entering the IF-THEN branch, we add the path constraint
- * [(flags & 1) != 0] to {@link #pathConstraints}. When entering the (empty) IF-ELSE branch, we add
- * the same path constraint to {@link #negatedPathConstraints}. When reaching the return block, the
- * two path constraint states are joined, resulting in the state where {@link #pathConstraints} and
- * {@link #negatedPathConstraints} both contains the constraint [(flags & 1) != 0].
+ * <p>Example: In the below example, when entering the IF-THEN branch, we add [(flags & 1) != 0] as
+ * a POSITIVE path constraint to {@link #pathConstraints}. When entering the (empty) IF-ELSE branch,
+ * we add the same expression as a NEGATIVE path constraint to {@link #pathConstraints}. When
+ * reaching the return block, the two path constraint states are joined, resulting in the state
+ * where the constraint [(flags & 1) != 0] is DISABLED.
  *
  * <pre>
  *   static Object Foo(Object o, int flags) {
@@ -41,59 +41,39 @@ import java.util.Set;
  */
 public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisState {
 
-  private final Set<ComputationTreeNode> pathConstraints;
-  private final Set<ComputationTreeNode> negatedPathConstraints;
+  // TODO(b/302281503): Consider changing this to an ImmutableMap.
+  private final Map<ComputationTreeNode, PathConstraintKind> pathConstraints;
 
   ConcretePathConstraintAnalysisState(
-      Set<ComputationTreeNode> pathConstraints, Set<ComputationTreeNode> negatedPathConstraints) {
+      Map<ComputationTreeNode, PathConstraintKind> pathConstraints) {
     this.pathConstraints = pathConstraints;
-    this.negatedPathConstraints = negatedPathConstraints;
+    assert !isEffectivelyBottom();
   }
 
   static ConcretePathConstraintAnalysisState create(
       ComputationTreeNode pathConstraint, boolean negate) {
-    Set<ComputationTreeNode> pathConstraints = Collections.singleton(pathConstraint);
-    if (negate) {
-      return new ConcretePathConstraintAnalysisState(Collections.emptySet(), pathConstraints);
-    } else {
-      return new ConcretePathConstraintAnalysisState(pathConstraints, Collections.emptySet());
-    }
+    return new ConcretePathConstraintAnalysisState(
+        Collections.singletonMap(pathConstraint, PathConstraintKind.get(negate)));
   }
 
   @Override
   public PathConstraintAnalysisState add(ComputationTreeNode pathConstraint, boolean negate) {
-    if (negate) {
-      if (negatedPathConstraints.contains(pathConstraint)) {
-        return this;
-      }
-      return new ConcretePathConstraintAnalysisState(
-          pathConstraints, add(pathConstraint, negatedPathConstraints));
-    } else {
-      if (pathConstraints.contains(pathConstraint)) {
-        return this;
-      }
-      return new ConcretePathConstraintAnalysisState(
-          add(pathConstraint, pathConstraints), negatedPathConstraints);
+    if (pathConstraints.get(pathConstraint) == PathConstraintKind.DISABLED) {
+      // There is a loop.
+      return this;
     }
+    // No jumps can dominate the entry of their own block, so when adding the condition of a jump
+    // this cannot currently be active.
+    assert !pathConstraints.containsKey(pathConstraint);
+    Map<ComputationTreeNode, PathConstraintKind> newPathConstraints =
+        new HashMap<>(pathConstraints.size() + 1);
+    newPathConstraints.putAll(pathConstraints);
+    newPathConstraints.put(pathConstraint, PathConstraintKind.get(negate));
+    return new ConcretePathConstraintAnalysisState(newPathConstraints);
   }
 
-  private static Set<ComputationTreeNode> add(
-      ComputationTreeNode pathConstraint, Set<ComputationTreeNode> pathConstraints) {
-    if (pathConstraints.isEmpty()) {
-      return Collections.singleton(pathConstraint);
-    }
-    assert !pathConstraints.contains(pathConstraint);
-    Set<ComputationTreeNode> newPathConstraints = new HashSet<>(pathConstraints);
-    newPathConstraints.add(pathConstraint);
-    return newPathConstraints;
-  }
-
-  public Set<ComputationTreeNode> getPathConstraints() {
+  public Map<ComputationTreeNode, PathConstraintKind> getPathConstraintsForTesting() {
     return pathConstraints;
-  }
-
-  public Set<ComputationTreeNode> getNegatedPathConstraints() {
-    return negatedPathConstraints;
   }
 
   @Override
@@ -106,54 +86,70 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
     return this;
   }
 
+  private boolean isEffectivelyBottom() {
+    return pathConstraints.isEmpty();
+  }
+
+  public boolean isNegated(ComputationTreeNode pathConstraint) {
+    PathConstraintKind kind = pathConstraints.get(pathConstraint);
+    assert kind != null;
+    assert kind != PathConstraintKind.DISABLED;
+    return kind == PathConstraintKind.NEGATIVE;
+  }
+
   // TODO(b/302281503): Consider returning the list of differentiating path constraints.
   //  For example, if we have the condition X & Y, then we may not know anything about X but we
   //  could know something about Y. Add a test showing this.
-  // TODO(b/302281503): Add a field `inactivePathConstraints` and ensure that pathConstraints and
-  //  negatedPathConstraints are disjoint. This way (1) we reduce the size of the sets and (2)
-  //  this does not need to check if each path constraint is not in the negated set.
   public ComputationTreeNode getDifferentiatingPathConstraint(
       ConcretePathConstraintAnalysisState other) {
-    for (ComputationTreeNode pathConstraint : pathConstraints) {
-      if (!negatedPathConstraints.contains(pathConstraint)
-          && other.negatedPathConstraints.contains(pathConstraint)) {
-        return pathConstraint;
+    for (Entry<ComputationTreeNode, PathConstraintKind> entry : pathConstraints.entrySet()) {
+      ComputationTreeNode pathConstraint = entry.getKey();
+      PathConstraintKind kind = entry.getValue();
+      if (kind == PathConstraintKind.DISABLED) {
+        continue;
       }
-    }
-    for (ComputationTreeNode negatedPathConstraint : negatedPathConstraints) {
-      if (!pathConstraints.contains(negatedPathConstraint)
-          && other.pathConstraints.contains(negatedPathConstraint)) {
-        return negatedPathConstraint;
+      PathConstraintKind otherKind = other.pathConstraints.get(pathConstraint);
+      if (otherKind != null && kind.isNegation(otherKind)) {
+        return pathConstraint;
       }
     }
     return null;
   }
 
   public ConcretePathConstraintAnalysisState join(ConcretePathConstraintAnalysisState other) {
-    Set<ComputationTreeNode> newPathConstraints = join(pathConstraints, other.pathConstraints);
-    Set<ComputationTreeNode> newNegatedPathConstraints =
-        join(negatedPathConstraints, other.negatedPathConstraints);
-    if (identical(newPathConstraints, newNegatedPathConstraints)) {
+    Map<ComputationTreeNode, PathConstraintKind> newPathConstraints = join(other, null);
+    newPathConstraints = other.join(this, newPathConstraints);
+    if (newPathConstraints == null) {
+      assert equals(other);
       return this;
     }
-    if (other.identical(newPathConstraints, newNegatedPathConstraints)) {
-      return other;
-    }
-    return new ConcretePathConstraintAnalysisState(newPathConstraints, newNegatedPathConstraints);
+    return new ConcretePathConstraintAnalysisState(newPathConstraints);
   }
 
-  private static Set<ComputationTreeNode> join(
-      Set<ComputationTreeNode> pathConstraints, Set<ComputationTreeNode> otherPathConstraints) {
-    if (pathConstraints.isEmpty()) {
-      return otherPathConstraints;
+  private Map<ComputationTreeNode, PathConstraintKind> join(
+      ConcretePathConstraintAnalysisState other,
+      Map<ComputationTreeNode, PathConstraintKind> newPathConstraints) {
+    for (Entry<ComputationTreeNode, PathConstraintKind> entry : pathConstraints.entrySet()) {
+      ComputationTreeNode pathConstraint = entry.getKey();
+      PathConstraintKind kind = entry.getValue();
+      PathConstraintKind otherKind =
+          other.pathConstraints.getOrDefault(pathConstraint, PathConstraintKind.DISABLED);
+      PathConstraintKind joinKind = kind.join(otherKind);
+      if (newPathConstraints == null) {
+        if (joinKind == kind) {
+          continue;
+        }
+        // We need to make a change. Allocate the new result.
+        Map<ComputationTreeNode, PathConstraintKind> copy =
+            new HashMap<>(pathConstraints.size() + other.pathConstraints.size());
+        CollectionUtils.<Entry<ComputationTreeNode, PathConstraintKind>>forEachUntilExclusive(
+            pathConstraints.entrySet(),
+            previousEntry -> copy.put(previousEntry.getKey(), previousEntry.getValue()),
+            maybeEntry -> maybeEntry.getKey() == pathConstraint);
+        newPathConstraints = copy;
+      }
+      newPathConstraints.put(pathConstraint, joinKind);
     }
-    if (otherPathConstraints.isEmpty()) {
-      return pathConstraints;
-    }
-    Set<ComputationTreeNode> newPathConstraints =
-        new HashSet<>(pathConstraints.size() + otherPathConstraints.size());
-    newPathConstraints.addAll(pathConstraints);
-    newPathConstraints.addAll(otherPathConstraints);
     return newPathConstraints;
   }
 
@@ -166,23 +162,11 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
       return false;
     }
     ConcretePathConstraintAnalysisState state = (ConcretePathConstraintAnalysisState) obj;
-    return equals(state.pathConstraints, state.negatedPathConstraints);
-  }
-
-  public boolean equals(
-      Set<ComputationTreeNode> pathConstraints, Set<ComputationTreeNode> negatedPathConstraints) {
-    return this.pathConstraints.equals(pathConstraints)
-        && this.negatedPathConstraints.equals(negatedPathConstraints);
-  }
-
-  public boolean identical(
-      Set<ComputationTreeNode> pathConstraints, Set<ComputationTreeNode> negatedPathConstraints) {
-    return this.pathConstraints == pathConstraints
-        && this.negatedPathConstraints == negatedPathConstraints;
+    return pathConstraints.equals(state.pathConstraints);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(pathConstraints, negatedPathConstraints);
+    return pathConstraints.hashCode();
   }
 }

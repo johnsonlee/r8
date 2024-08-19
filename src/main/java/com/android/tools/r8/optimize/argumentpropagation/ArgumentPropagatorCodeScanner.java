@@ -420,7 +420,7 @@ public class ArgumentPropagatorCodeScanner {
       }
       NonEmptyValueState leftValue = valueStateSupplier.apply(phi.getOperand(0));
       NonEmptyValueState rightValue = valueStateSupplier.apply(phi.getOperand(1));
-      if (leftPredecessorPathConstraint.getNegatedPathConstraints().contains(condition)) {
+      if (leftPredecessorPathConstraint.isNegated(condition)) {
         return new IfThenElseAbstractFunction(condition, rightValue, leftValue);
       }
       return new IfThenElseAbstractFunction(condition, leftValue, rightValue);

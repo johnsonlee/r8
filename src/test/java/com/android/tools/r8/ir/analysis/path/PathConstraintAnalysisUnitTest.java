@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalys
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.SuccessfulDataflowAnalysisResult;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
+import com.android.tools.r8.ir.analysis.path.state.PathConstraintKind;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
@@ -23,6 +24,9 @@ import com.android.tools.r8.optimize.argumentpropagation.computation.Computation
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -69,11 +73,12 @@ public class PathConstraintAnalysisUnitTest extends TestBase {
     assertTrue(thenConstraint.isConcrete());
 
     ConcretePathConstraintAnalysisState concreteThenConstraint = thenConstraint.asConcreteState();
-    assertEquals(1, concreteThenConstraint.getPathConstraints().size());
-    assertEquals(0, concreteThenConstraint.getNegatedPathConstraints().size());
+    assertEquals(1, getPositivePathConstraints(concreteThenConstraint).size());
+    assertEquals(0, getNegativePathConstraints(concreteThenConstraint).size());
+    assertEquals(0, getDisabledPathConstraints(concreteThenConstraint).size());
 
     ComputationTreeNode thenPathConstraint =
-        concreteThenConstraint.getPathConstraints().iterator().next();
+        getPositivePathConstraints(concreteThenConstraint).iterator().next();
     assertTrue(thenPathConstraint instanceof ComputationTreeUnopCompareNode);
 
     // Inspect ELSE state.
@@ -82,11 +87,12 @@ public class PathConstraintAnalysisUnitTest extends TestBase {
     assertTrue(elseConstraint.isConcrete());
 
     ConcretePathConstraintAnalysisState concreteElseConstraint = elseConstraint.asConcreteState();
-    assertEquals(0, concreteElseConstraint.getPathConstraints().size());
-    assertEquals(1, concreteElseConstraint.getNegatedPathConstraints().size());
+    assertEquals(0, getPositivePathConstraints(concreteElseConstraint).size());
+    assertEquals(1, getNegativePathConstraints(concreteElseConstraint).size());
+    assertEquals(0, getDisabledPathConstraints(concreteElseConstraint).size());
 
     ComputationTreeNode elsePathConstraint =
-        concreteElseConstraint.getNegatedPathConstraints().iterator().next();
+        getNegativePathConstraints(concreteElseConstraint).iterator().next();
     assertEquals(thenPathConstraint, elsePathConstraint);
 
     // Inspect RETURN state.
@@ -96,10 +102,36 @@ public class PathConstraintAnalysisUnitTest extends TestBase {
 
     ConcretePathConstraintAnalysisState concreteReturnConstraint =
         returnConstraint.asConcreteState();
-    assertEquals(1, concreteReturnConstraint.getPathConstraints().size());
-    assertEquals(
-        concreteReturnConstraint.getPathConstraints(),
-        concreteReturnConstraint.getNegatedPathConstraints());
+    assertEquals(0, getPositivePathConstraints(concreteReturnConstraint).size());
+    assertEquals(0, getNegativePathConstraints(concreteReturnConstraint).size());
+    assertEquals(1, getDisabledPathConstraints(concreteReturnConstraint).size());
+
+    ComputationTreeNode returnPathConstraint =
+        getDisabledPathConstraints(concreteReturnConstraint).iterator().next();
+    assertEquals(thenPathConstraint, returnPathConstraint);
+  }
+
+  private Set<ComputationTreeNode> getPositivePathConstraints(
+      ConcretePathConstraintAnalysisState state) {
+    return getPathConstraintsOfKind(state, PathConstraintKind.POSITIVE);
+  }
+
+  private Set<ComputationTreeNode> getNegativePathConstraints(
+      ConcretePathConstraintAnalysisState state) {
+    return getPathConstraintsOfKind(state, PathConstraintKind.NEGATIVE);
+  }
+
+  private Set<ComputationTreeNode> getDisabledPathConstraints(
+      ConcretePathConstraintAnalysisState state) {
+    return getPathConstraintsOfKind(state, PathConstraintKind.DISABLED);
+  }
+
+  private Set<ComputationTreeNode> getPathConstraintsOfKind(
+      ConcretePathConstraintAnalysisState state, PathConstraintKind kind) {
+    return state.getPathConstraintsForTesting().entrySet().stream()
+        .filter(entry -> entry.getValue() == kind)
+        .map(Entry::getKey)
+        .collect(Collectors.toSet());
   }
 
   static class Main {
