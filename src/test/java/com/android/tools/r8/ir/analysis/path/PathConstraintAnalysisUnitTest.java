@@ -65,7 +65,10 @@ public class PathConstraintAnalysisUnitTest extends TestBase {
     // Inspect ENTRY state.
     PathConstraintAnalysisState entryConstraint =
         successfulResult.getBlockExitState(code.entryBlock());
-    assertTrue(entryConstraint.isBottom());
+    assertTrue(entryConstraint.isConcrete());
+
+    ConcretePathConstraintAnalysisState concreteEntryConstraint = entryConstraint.asConcreteState();
+    assertTrue(concreteEntryConstraint.getPathConstraintsForTesting().isEmpty());
 
     // Inspect THEN state.
     PathConstraintAnalysisState thenConstraint =
