@@ -52,13 +52,10 @@ def run(args):
         print("Building desugared library")
         bazel = os.path.join(utils.BAZEL_TOOL, 'lib', 'bazel', 'bin', 'bazel')
         with utils.ChangedWorkingDirectory(checkout_dir):
-            for target in [
-                    ':desugar_jdk_libs_jdk11', '//jdk11/src:java_base_chm_only'
-            ]:
-                subprocess.check_call([
-                    bazel, '--bazelrc=/dev/null', 'build',
-                    '--spawn_strategy=local', '--verbose_failures', target
-                ])
+            subprocess.check_call([
+                bazel, '--bazelrc=/dev/null', 'build',
+                '--spawn_strategy=local', '--verbose_failures', ':desugar_jdk_libs_jdk11'
+            ])
 
         openjdk_dir = join('third_party', 'openjdk')
         openjdk_subdir = 'desugar_jdk_libs_11'
@@ -72,11 +69,9 @@ def run(args):
         os.remove(join(openjdk_dir, openjdk_subdir + '.tar.gz'))
         os.remove(join(openjdk_dir, openjdk_subdir + '.tar.gz.sha1'))
         os.mkdir(dest_dir)
-        for s in [(join(src_dir, 'd8_java_base_selected_with_addon.jar'),
-                   join(dest_dir, 'desugar_jdk_libs.jar')),
-                  (join(src_dir, 'java_base_chm_only.jar'),
-                   join(dest_dir, 'desugar_jdk_libs_chm_only.jar'))]:
-            shutil.copyfile(s[0], s[1])
+        shutil.copyfile(
+            join(src_dir, 'd8_java_base_selected_with_addon.jar'),
+            join(dest_dir, 'desugar_jdk_libs.jar'))
         for f in metadata_files:
             shutil.copyfile(join(tmp_dir, f), join(dest_dir, f))
         desugar_jdk_libs_hash = os.path.join(dest_dir, 'desugar_jdk_libs_hash')
