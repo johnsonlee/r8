@@ -216,7 +216,7 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
         .addKeepMainRule(SubsequentHasNextRunner.class)
         .compile()
         .run(parameters.getRuntime(), SubsequentHasNextRunner.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT + "false\n")
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("false"))
         .inspect(
             inspector -> {
               assertIteratorPresent(inspector, false);
@@ -231,7 +231,7 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
         .addKeepMainRule(SubsequentHasNextRunner.class)
         .compile()
         .run(parameters.getRuntime(), SubsequentHasNextRunner.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT + "true\n")
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("true"))
         .inspect(
             inspector -> {
               assertIteratorPresent(inspector, false);
@@ -336,7 +336,7 @@ public class ServiceLoaderRewritingWithAssumeNoSideEffectsTest extends ServiceLo
         .addKeepMainRule(SubsequentHasNextRunnerNonDominating.class)
         .compile()
         .run(parameters.getRuntime(), SubsequentHasNextRunnerNonDominating.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT + "false\n")
+        .assertSuccessWithOutput(EXPECTED_OUTPUT + StringUtils.lines("false"))
         .inspect(
             inspector -> {
               assertIteratorPresent(inspector, true);
