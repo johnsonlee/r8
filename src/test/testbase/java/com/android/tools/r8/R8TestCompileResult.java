@@ -13,7 +13,7 @@ import com.android.tools.r8.androidresources.AndroidResourceTestingUtils;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.ResourceTableInspector;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
-import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
@@ -22,7 +22,6 @@ import com.android.tools.r8.shaking.CollectingGraphConsumer;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.FileUtils;
-import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingBiConsumer;
 import com.android.tools.r8.utils.ThrowingConsumer;
@@ -324,24 +323,27 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
   @Override
   public R8TestCompileResult benchmarkComposableCodeSize(BenchmarkResults results)
       throws IOException {
-    if (!features.isEmpty()) {
-      throw new Unimplemented();
-    }
     CodeInspector inspector = inspector();
-    ClassSubject annotationClassSubject = inspector.clazz("androidx.compose.runtime.Composable");
-    assertThat(annotationClassSubject, isPresent());
-    IntBox composableCodeSize = new IntBox();
+    assertThat(inspector.clazz("androidx.compose.runtime.Composable"), isPresent());
+    int composableCodeSize = getComposableCodeSize(inspector);
+    for (Path feature : features) {
+      composableCodeSize += getComposableCodeSize(featureInspector(feature));
+    }
+    results.addComposableCodeSizeResult(composableCodeSize);
+    return self();
+  }
+
+  private int getComposableCodeSize(CodeInspector inspector) {
+    DexType composableType =
+        inspector.getFactory().createType("Landroidx/compose/runtime/Composable;");
+    int composableCodeSize = 0;
     for (FoundClassSubject classSubject : inspector.allClasses()) {
       for (ProgramMethod method : classSubject.getDexProgramClass().directProgramMethods()) {
-        if (method
-            .getAnnotations()
-            .hasAnnotation(annotationClassSubject.getDexProgramClass().getType())) {
-          composableCodeSize.increment(
-              method.getDefinition().getCode().asDexCode().codeSizeInBytes());
+        if (method.getAnnotations().hasAnnotation(composableType)) {
+          composableCodeSize += method.getDefinition().getCode().asDexCode().codeSizeInBytes();
         }
       }
     }
-    results.addComposableCodeSizeResult(composableCodeSize.get());
-    return self();
+    return composableCodeSize;
   }
 }
