@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>R8 perf</title>
+  <link rel="stylesheet" href="stylesheet.css">
 </head>
 <body>
   <div id="benchmark-selectors"></div>
@@ -20,6 +21,7 @@
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
   <script type="module">
     // Utility methods.
     Array.prototype.any = function(predicate) {
@@ -90,7 +92,9 @@
       }
     }
     if (selectedBenchmarks.size == 0) {
-      selectedBenchmarks.add(benchmarks.values().next().value);
+      const randomBenchmarkIndex = Math.floor(Math.random() * benchmarks.size);
+      const randomBenchmark = Array.from(benchmarks)[randomBenchmarkIndex];
+      selectedBenchmarks.add(randomBenchmark);
     }
     for (const benchmark of benchmarks.values()) {
       const input = document.createElement('input');
@@ -192,6 +196,10 @@
             type: 'line',
             label: 'Code size',
             data: codeSizeData,
+            datalabels: {
+              align: 'end',
+              anchor: 'end'
+            },
             tension: 0.1,
             yAxisID: 'y',
             segment: {
@@ -210,6 +218,10 @@
             type: 'line',
             label: 'Composable size',
             data: composableCodeSizeData,
+            datalabels: {
+              align: 'start',
+              anchor: 'start'
+            },
             tension: 0.1,
             yAxisID: 'y_composable_code_size',
             segment: {
@@ -228,6 +240,11 @@
             type: 'scatter',
             label: 'Nondeterminism',
             data: codeSizeScatterData,
+            datalabels: {
+              labels: {
+                value: null
+              }
+            },
             radius: 6,
             pointBackgroundColor: 'red'
           },
@@ -236,6 +253,11 @@
             type: 'line',
             label: 'Runtime',
             data: runtimeData,
+            datalabels: {
+              labels: {
+                value: null
+              }
+            },
             tension: 0.1,
             yAxisID: 'y_runtime',
             segment: {
@@ -254,6 +276,11 @@
             type: 'scatter',
             label: 'Runtime variance',
             data: runtimeScatterData,
+            datalabels: {
+              labels: {
+                value: null
+              }
+            },
             yAxisID: 'y_runtime'
           }
         ]);
@@ -275,6 +302,21 @@
                   .filter(l => legends.has(l)));
     if (selectedLegends.size == 0) {
       legends.forEach(l => selectedLegends.add(l));
+      selectedLegends.delete('Runtime variance')
+    }
+
+    function getDataPercentageChange(context) {
+      var i = context.dataIndex;
+      var value = context.dataset.data[i];
+      var j = i;
+      var previousValue;
+      do {
+        if (j == 0) {
+          return null;
+        }
+        previousValue = context.dataset.data[--j];
+      } while (previousValue === undefined || isNaN(previousValue));
+      return (value - previousValue) / previousValue * 100;
     }
 
     // Chart options.
@@ -283,9 +325,32 @@
           event.native.target.style.cursor =
               chartElement[0] ? 'pointer' : 'default',
       plugins: {
+        datalabels: {
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          borderColor: 'rgba(128, 128, 128, 0.7)',
+          borderRadius: 4,
+          borderWidth: 1,
+          color: context => getDataPercentageChange(context) < 0 ? 'green' : 'red',
+          display: context => {
+            var percentageChange = getDataPercentageChange(context);
+            return percentageChange !== null && Math.abs(percentageChange) >= 0.1;
+          },
+          font: {
+            size: 20,
+            weight: 'bold'
+          },
+          offset: 8,
+          formatter: (value, context) => {
+            var percentageChange = getDataPercentageChange(context);
+            var percentageChangeTwoDecimals = Math.round(percentageChange * 100) / 100;
+            var glyph = percentageChange < 0 ? '▼' : '▲';
+            return glyph + ' ' + percentageChangeTwoDecimals + '%';
+          },
+          padding: 6
+        },
         legend: {
           labels: {
-            filter: function(legendItem, data) {
+            filter: (legendItem, data) => {
               // Only retain the legends for the first selected benchmark. If
               // multiple benchmarks are selected, then use the legends of the
               // first selected benchmark to control all selected benchmarks.
@@ -294,7 +359,7 @@
               return legendItem.datasetIndex < numUniqueLegends;
             },
           },
-          onClick: function legendClickHandler(e, legendItem, legend) {
+          onClick: (e, legendItem, legend) => {
             const clickedLegend = legendItem.text;
             if (selectedLegends.has(clickedLegend)) {
               selectedLegends.delete(clickedLegend);
@@ -306,7 +371,7 @@
         },
         tooltip: {
           callbacks: {
-            title: (context) => {
+            title: context => {
               const elementInfo = context[0];
               var commit;
               if (elementInfo.dataset.type == 'line') {
@@ -317,7 +382,7 @@
               }
               return commit.title;
             },
-            footer: (context) => {
+            footer: context => {
               const elementInfo = context[0];
               var commit;
               if (elementInfo.dataset.type == 'line') {
@@ -364,7 +429,7 @@
     };
 
     // Setup click handler.
-    canvas.onclick = function (event) {
+    canvas.onclick = event => {
       const points =
           myChart.getElementsAtEventForMode(
               event, 'nearest', { intersect: true }, true);
@@ -394,7 +459,7 @@
       }
     }
 
-    showMoreLeft.onclick = function (event) {
+    showMoreLeft.onclick = event => {
       if (zoom.left == 0) {
         return;
       }
@@ -406,7 +471,7 @@
       updateChart(true, false);
     };
 
-    showLessLeft.onclick = function (event) {
+    showLessLeft.onclick = event => {
       const currentSize = zoom.right - zoom.left;
       zoom.left = zoom.left + Math.floor(currentSize / 2);
       if (zoom.left >= zoom.right) {
@@ -415,7 +480,7 @@
       updateChart(true, false);
     };
 
-    showLessRight.onclick = function (event) {
+    showLessRight.onclick = event => {
       if (zoom.right == 0) {
         return;
       }
@@ -427,7 +492,7 @@
       updateChart(true, false);
     };
 
-    showMoreRight.onclick = function (event) {
+    showMoreRight.onclick = event => {
       const currentSize = zoom.right - zoom.left;
       zoom.right = zoom.right + currentSize;
       if (zoom.right > commits.length) {
@@ -509,7 +574,8 @@
     // Create chart.
     const myChart = new Chart(canvas, {
       data: getData(),
-      options: options
+      options: options,
+      plugins: [ChartDataLabels]
     });
 
     // Hide disabled legends.
