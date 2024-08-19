@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import static junit.framework.TestCase.assertFalse;
+
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
@@ -285,10 +287,7 @@ public class AppDumpBenchmarkBuilder {
                           })
                       .apply(configuration)
                       .applyIf(
-                          environment
-                              .getConfig()
-                              .getMetrics()
-                              .contains(BenchmarkMetric.ComposableCodeSize),
+                          environment.getConfig().containsComposableCodeSizeMetric(),
                           getKeepComposableAnnotationsConfiguration())
                       .applyIf(
                           enableResourceShrinking,
@@ -297,15 +296,13 @@ public class AppDumpBenchmarkBuilder {
                                   .setAndroidResourcesFromPath(dump.getAndroidResources()))
                       .applyIf(
                           enableResourceShrinking,
-                          r ->
-                              r.benchmarkCompile(
-                                      results.getSubResults(builder.nameForRuntimePart()))
-                                  .benchmarkCodeSize(
-                                      results.getSubResults(builder.nameForCodePart()))
-                                  .benchmarkComposableCodeSize(
-                                      results.getSubResults(builder.nameForComposableCodePart()))
-                                  .benchmarkResourceSize(
-                                      results.getSubResults(builder.nameForResourcePart())),
+                          r -> {
+                            assertFalse(environment.getConfig().containsComposableCodeSizeMetric());
+                            r.benchmarkCompile(results.getSubResults(builder.nameForRuntimePart()))
+                                .benchmarkCodeSize(results.getSubResults(builder.nameForCodePart()))
+                                .benchmarkResourceSize(
+                                    results.getSubResults(builder.nameForResourcePart()));
+                          },
                           r ->
                               r.benchmarkCompile(results)
                                   .benchmarkCodeSize(results)

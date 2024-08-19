@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import com.android.tools.r8.utils.IterableUtils;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -237,6 +239,16 @@ public class BenchmarkConfig {
     this.dependencies = dependencies;
     this.timeout = timeout;
     this.measureWarmup = measureWarmup;
+  }
+
+  public boolean containsMetric(BenchmarkMetric metric) {
+    Iterable<BenchmarkMetric> metrics =
+        isSingleBenchmark() ? getMetrics() : IterableUtils.flatten(getSubBenchmarks().values());
+    return Iterables.contains(metrics, metric);
+  }
+
+  public boolean containsComposableCodeSizeMetric() {
+    return containsMetric(BenchmarkMetric.ComposableCodeSize);
   }
 
   public BenchmarkIdentifier getIdentifier() {
