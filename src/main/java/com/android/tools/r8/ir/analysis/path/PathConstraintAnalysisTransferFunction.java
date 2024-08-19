@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.TransferFunctionResult;
+import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -38,6 +39,14 @@ public class PathConstraintAnalysisTransferFunction
     // For example, if the instruction `arg.method()` succeeds then it can be inferred that the
     // subsequent instruction is only executed if `arg != null`.
     return state;
+  }
+
+  @Override
+  public PathConstraintAnalysisState computeInitialState(
+      BasicBlock entryBlock, PathConstraintAnalysisState bottom) {
+    // Intentionally returns an empty state instead of BOTTOM, as BOTTOM is used to represent the
+    // path constraint for unreachable program points.
+    return new ConcretePathConstraintAnalysisState();
   }
 
   @Override

@@ -105,7 +105,7 @@ public class NumberFromIntervalValue extends NonConstantNumberValue {
 
   @Override
   public int hashCode() {
-    int hash = 31 * (31 * (31 + Long.hashCode(minInclusive)) + Long.hashCode(maxInclusive));
+    int hash = 31 * (31 + Long.hashCode(minInclusive)) + Long.hashCode(maxInclusive);
     assert hash == Objects.hash(minInclusive, maxInclusive);
     return hash;
   }

@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.analysis.path.state;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
-import com.android.tools.r8.utils.CollectionUtils;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,10 +44,13 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
   // TODO(b/302281503): Consider changing this to an ImmutableMap.
   private final Map<ComputationTreeNode, PathConstraintKind> pathConstraints;
 
+  public ConcretePathConstraintAnalysisState() {
+    this.pathConstraints = Collections.emptyMap();
+  }
+
   ConcretePathConstraintAnalysisState(
       Map<ComputationTreeNode, PathConstraintKind> pathConstraints) {
     this.pathConstraints = pathConstraints;
-    assert !isEffectivelyBottom();
   }
 
   static ConcretePathConstraintAnalysisState create(
@@ -58,13 +61,23 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
 
   @Override
   public PathConstraintAnalysisState add(ComputationTreeNode pathConstraint, boolean negate) {
-    if (pathConstraints.get(pathConstraint) == PathConstraintKind.DISABLED) {
-      // There is a loop.
-      return this;
+    PathConstraintKind previousKind = pathConstraints.get(pathConstraint);
+    if (previousKind != null) {
+      if (previousKind == PathConstraintKind.DISABLED) {
+        // There is a loop.
+        return this;
+      }
+      if (previousKind == PathConstraintKind.get(negate)) {
+        // This branch is dominated by a previous if-condition that has the same branch condition,
+        // e.g., if (x) { if (x) { ...
+        return this;
+      }
+      // This branch is dominated by a previous if-condition that has the negated branch condition,
+      // e.g., if (x) { if (!x) { ...
+      return bottom();
     }
     // No jumps can dominate the entry of their own block, so when adding the condition of a jump
     // this cannot currently be active.
-    assert !pathConstraints.containsKey(pathConstraint);
     Map<ComputationTreeNode, PathConstraintKind> newPathConstraints =
         new HashMap<>(pathConstraints.size() + 1);
     newPathConstraints.putAll(pathConstraints);
@@ -86,8 +99,35 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
     return this;
   }
 
-  private boolean isEffectivelyBottom() {
-    return pathConstraints.isEmpty();
+  @Override
+  public boolean isGreaterThanOrEquals(AppView<?> appView, PathConstraintAnalysisState state) {
+    if (state.isConcrete()) {
+      return isGreaterThanOrEquals(state.asConcreteState());
+    }
+    return super.isGreaterThanOrEquals(appView, state);
+  }
+
+  private boolean isGreaterThanOrEquals(ConcretePathConstraintAnalysisState other) {
+    // The current state must contain all keys of the other state.
+    if (pathConstraints.size() < other.pathConstraints.size()) {
+      return false;
+    }
+    for (ComputationTreeNode otherPathConstraint : other.pathConstraints.keySet()) {
+      if (!pathConstraints.containsKey(otherPathConstraint)) {
+        return false;
+      }
+    }
+    // The current path constraint kinds must be the join of the kinds.
+    for (Entry<ComputationTreeNode, PathConstraintKind> entry : pathConstraints.entrySet()) {
+      ComputationTreeNode pathConstraint = entry.getKey();
+      PathConstraintKind kind = entry.getValue();
+      PathConstraintKind otherKind = other.pathConstraints.get(pathConstraint);
+      PathConstraintKind joinKind = kind.join(otherKind);
+      if (kind != joinKind) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public boolean isNegated(ComputationTreeNode pathConstraint) {
@@ -117,40 +157,29 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
   }
 
   public ConcretePathConstraintAnalysisState join(ConcretePathConstraintAnalysisState other) {
-    Map<ComputationTreeNode, PathConstraintKind> newPathConstraints = join(other, null);
-    newPathConstraints = other.join(this, newPathConstraints);
-    if (newPathConstraints == null) {
-      assert equals(other);
+    if (isGreaterThanOrEquals(other)) {
       return this;
     }
+    if (other.isGreaterThanOrEquals(this)) {
+      return other;
+    }
+    Map<ComputationTreeNode, PathConstraintKind> newPathConstraints =
+        new HashMap<>(pathConstraints.size() + other.pathConstraints.size());
+    join(other, newPathConstraints);
+    other.join(this, newPathConstraints);
     return new ConcretePathConstraintAnalysisState(newPathConstraints);
   }
 
-  private Map<ComputationTreeNode, PathConstraintKind> join(
+  private void join(
       ConcretePathConstraintAnalysisState other,
       Map<ComputationTreeNode, PathConstraintKind> newPathConstraints) {
     for (Entry<ComputationTreeNode, PathConstraintKind> entry : pathConstraints.entrySet()) {
       ComputationTreeNode pathConstraint = entry.getKey();
       PathConstraintKind kind = entry.getValue();
-      PathConstraintKind otherKind =
-          other.pathConstraints.getOrDefault(pathConstraint, PathConstraintKind.DISABLED);
+      PathConstraintKind otherKind = other.pathConstraints.get(pathConstraint);
       PathConstraintKind joinKind = kind.join(otherKind);
-      if (newPathConstraints == null) {
-        if (joinKind == kind) {
-          continue;
-        }
-        // We need to make a change. Allocate the new result.
-        Map<ComputationTreeNode, PathConstraintKind> copy =
-            new HashMap<>(pathConstraints.size() + other.pathConstraints.size());
-        CollectionUtils.<Entry<ComputationTreeNode, PathConstraintKind>>forEachUntilExclusive(
-            pathConstraints.entrySet(),
-            previousEntry -> copy.put(previousEntry.getKey(), previousEntry.getValue()),
-            maybeEntry -> maybeEntry.getKey() == pathConstraint);
-        newPathConstraints = copy;
-      }
       newPathConstraints.put(pathConstraint, joinKind);
     }
-    return newPathConstraints;
   }
 
   @Override
