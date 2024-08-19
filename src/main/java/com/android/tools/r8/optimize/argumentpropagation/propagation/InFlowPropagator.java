@@ -346,7 +346,7 @@ public class InFlowPropagator {
             ValueState state = node.getState();
             ValueState previousState = fieldStates.set(field, state);
             assert state.isUnknown()
-                    || state == previousState
+                    || state.identical(previousState)
                     || (state.isConcrete() && previousState.isBottom())
                 : "Expected current state to be >= previous state";
           });

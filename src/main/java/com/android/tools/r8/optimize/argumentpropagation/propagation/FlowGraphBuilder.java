@@ -265,7 +265,7 @@ public class FlowGraphBuilder {
       fieldStates.remove(field);
       FlowGraphFieldNode node = getFieldNode(field);
       if (node != null && !node.getState().isUnknown()) {
-        assert node.getState() == concreteFieldState;
+        assert node.getState().identical(concreteFieldState);
         node.setState(concreteFieldStateOrBottom);
       }
     }
@@ -281,7 +281,7 @@ public class FlowGraphBuilder {
           ValueState concreteParameterStateOrBottom = concreteParameterState.clearInFlow();
           FlowGraphParameterNode node = getParameterNode(method, i);
           if (node != null && !node.getState().isUnknown()) {
-            assert node.getState() == concreteParameterState;
+            assert node.getState().identical(concreteParameterState);
             node.setState(concreteParameterStateOrBottom);
           }
         }

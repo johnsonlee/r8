@@ -47,7 +47,7 @@ public abstract class FlowGraphNode {
             getStaticType(),
             StateCloner.getCloner(),
             onChangedAction);
-    if (newState != oldState) {
+    if (!newState.identical(oldState)) {
       setState(newState);
       onChangedAction.execute();
     }
