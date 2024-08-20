@@ -173,10 +173,13 @@ public class AndroidResourceTestingUtils {
   public static class AndroidTestResource {
     private final AndroidTestRClass rClass;
     private final Path resourceZip;
+    private final List<String> additionalKeepRuleFiles;
 
-    AndroidTestResource(AndroidTestRClass rClass, Path resourceZip) {
+    AndroidTestResource(
+        AndroidTestRClass rClass, Path resourceZip, List<String> additionalRawXmlFiles) {
       this.rClass = rClass;
       this.resourceZip = resourceZip;
+      this.additionalKeepRuleFiles = additionalRawXmlFiles;
     }
 
     public AndroidTestRClass getRClass() {
@@ -185,6 +188,10 @@ public class AndroidResourceTestingUtils {
 
     public Path getResourceZip() {
       return resourceZip;
+    }
+
+    public List<String> getAdditionalKeepRuleFiles() {
+      return additionalKeepRuleFiles;
     }
   }
 
@@ -296,6 +303,7 @@ public class AndroidResourceTestingUtils {
     // Used for xml files that we hard code to -v24
     private final Map<String, String> apiSpecificXmlFiles = new TreeMap<>();
     private final Map<String, String> rawXmlFiles = new TreeMap<>();
+    private final List<String> keepRuleFiles = new ArrayList<>();
     private final List<Class<?>> classesToRemap = new ArrayList<>();
     private int packageId = 0x7f;
     private String packageName;
@@ -379,7 +387,16 @@ public class AndroidResourceTestingUtils {
     }
 
     public AndroidTestResourceBuilder addKeepXmlFor(String... resourceReferences) {
-      addRawXml("keep.xml", String.format(KEEP_XML, String.join(",", resourceReferences)));
+      addRawXml("keep.xml", getKeepXmlContent(resourceReferences));
+      return this;
+    }
+
+    private static String getKeepXmlContent(String[] resourceReferences) {
+      return String.format(KEEP_XML, String.join(",", resourceReferences));
+    }
+
+    public AndroidTestResourceBuilder addExplicitKeepRuleFileFor(String... resourceReferences) {
+      keepRuleFiles.add(getKeepXmlContent(resourceReferences));
       return this;
     }
 
@@ -546,7 +563,7 @@ public class AndroidResourceTestingUtils {
             }
           });
       return new AndroidTestResource(
-          new AndroidTestRClass(rClassJavaFile, rewrittenRClassFiles), output);
+          new AndroidTestRClass(rClassJavaFile, rewrittenRClassFiles), output, keepRuleFiles);
     }
 
     private String createOverlayableXml() {

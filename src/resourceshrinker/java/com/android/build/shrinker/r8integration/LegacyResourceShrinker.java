@@ -52,6 +52,7 @@ public class LegacyResourceShrinker {
   private final Map<String, byte[]> dexInputs;
   private final Collection<PathAndBytes> resFolderInputs;
   private final Collection<PathAndBytes> xmlInputs;
+  private final List<byte[]> keepRuleInput;
   private List<String> proguardMapStrings;
   private final ShrinkerDebugReporter debugReporter;
   private final List<PathAndBytes> manifest;
@@ -62,6 +63,7 @@ public class LegacyResourceShrinker {
     private final Map<String, byte[]> dexInputs = new HashMap<>();
     private final Map<Path, PathAndBytes> resFolderInputs = new HashMap<>();
     private final Map<Path, PathAndBytes> xmlInputs = new HashMap<>();
+    private final List<byte[]> keepRuleInput = new ArrayList<>();
 
     private final List<PathAndBytes> manifests = new ArrayList<>();
     private final Map<PathAndBytes, FeatureSplit> resourceTables = new HashMap<>();
@@ -88,6 +90,11 @@ public class LegacyResourceShrinker {
 
     public Builder addDexInput(String classesLocation, byte[] bytes) {
       dexInputs.put(classesLocation, bytes);
+      return this;
+    }
+
+    public Builder addKeepRuleInput(byte[] bytes) {
+      keepRuleInput.add(bytes);
       return this;
     }
 
@@ -119,6 +126,7 @@ public class LegacyResourceShrinker {
           manifests,
           resourceTables,
           xmlInputs.values(),
+          keepRuleInput,
           proguardMapStrings,
           debugReporter);
     }
@@ -139,6 +147,7 @@ public class LegacyResourceShrinker {
       List<PathAndBytes> manifests,
       Map<PathAndBytes, FeatureSplit> resourceTables,
       Collection<PathAndBytes> xmlInputs,
+      List<byte[]> additionalRawXmlInputs,
       List<String> proguardMapStrings,
       ShrinkerDebugReporter debugReporter) {
     this.dexInputs = dexInputs;
@@ -146,6 +155,7 @@ public class LegacyResourceShrinker {
     this.manifest = manifests;
     this.resourceTables = resourceTables;
     this.xmlInputs = xmlInputs;
+    this.keepRuleInput = additionalRawXmlInputs;
     this.proguardMapStrings = proguardMapStrings;
     this.debugReporter = debugReporter;
   }
@@ -174,10 +184,8 @@ public class LegacyResourceShrinker {
       ProtoAndroidManifestUsageRecorderKt.recordUsagesFromNode(
           XmlNode.parseFrom(pathAndBytes.bytes), model);
     }
-    for (PathAndBytes xmlInput : xmlInputs) {
-      if (xmlInput.path.startsWith("res/raw")) {
-        ToolsAttributeUsageRecorderKt.processRawXml(getUtfReader(xmlInput.getBytes()), model);
-      }
+    for (byte[] keepBytes : keepRuleInput) {
+      ToolsAttributeUsageRecorderKt.processRawXml(getUtfReader(keepBytes), model);
     }
 
     ImmutableMap<String, PathAndBytes> resFolderMappings =

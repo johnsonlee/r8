@@ -7,13 +7,13 @@ import com.android.build.shrinker.NoDebugReporter;
 import com.android.build.shrinker.ShrinkerDebugReporter;
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
 import com.android.tools.r8.AndroidResourceInput;
+import com.android.tools.r8.AndroidResourceProvider;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.graph.AppView;
 import java.io.InputStream;
-import java.util.Collection;
 import java.util.function.Supplier;
 
 public class ResourceShrinkerUtils {
@@ -28,20 +28,12 @@ public class ResourceShrinkerUtils {
     if (options.resourceShrinkerConfiguration.isOptimizedShrinking()
         && options.androidResourceProvider != null) {
       try {
-        addResources(
-            appView,
-            state,
-            options.androidResourceProvider.getAndroidResources(),
-            FeatureSplit.BASE);
+        addResources(appView, state, options.androidResourceProvider, FeatureSplit.BASE);
         if (options.hasFeatureSplitConfiguration()) {
           for (FeatureSplit featureSplit :
               options.getFeatureSplitConfiguration().getFeatureSplits()) {
             if (featureSplit.getAndroidResourceProvider() != null) {
-              addResources(
-                  appView,
-                  state,
-                  featureSplit.getAndroidResourceProvider().getAndroidResources(),
-                  featureSplit);
+              addResources(appView, state, featureSplit.getAndroidResourceProvider(), featureSplit);
             }
           }
         }
@@ -56,10 +48,10 @@ public class ResourceShrinkerUtils {
   private static void addResources(
       AppView<?> appView,
       R8ResourceShrinkerState state,
-      Collection<AndroidResourceInput> androidResources,
+      AndroidResourceProvider androidResourceProvider,
       FeatureSplit featureSplit)
       throws ResourceException {
-    for (AndroidResourceInput androidResource : androidResources) {
+    for (AndroidResourceInput androidResource : androidResourceProvider.getAndroidResources()) {
       switch (androidResource.getKind()) {
         case MANIFEST:
           state.addManifestProvider(
@@ -72,6 +64,10 @@ public class ResourceShrinkerUtils {
           state.addXmlFileProvider(
               () -> wrapThrowingInputStreamResource(appView, androidResource),
               androidResource.getPath().location());
+          break;
+        case KEEP_RULE_FILE:
+          state.addKeepRuleRileProvider(
+              () -> wrapThrowingInputStreamResource(appView, androidResource));
           break;
         case RES_FOLDER_FILE:
           state.addResFileProvider(

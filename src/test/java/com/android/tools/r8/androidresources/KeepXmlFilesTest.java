@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
@@ -36,6 +37,7 @@ public class KeepXmlFilesTest extends TestBase {
     return new AndroidTestResourceBuilder()
         .withSimpleManifestAndAppNameString()
         .addKeepXmlFor("@string/bar", "@drawable/foobar")
+        .addExplicitKeepRuleFileFor("@drawable/barfoo")
         .addRClassInitializeWithDefaultValues(R.string.class, R.drawable.class)
         .build(temp);
   }
@@ -47,7 +49,7 @@ public class KeepXmlFilesTest extends TestBase {
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
-        .applyIf(optimized, b -> b.enableOptimizedShrinking())
+        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
@@ -57,6 +59,8 @@ public class KeepXmlFilesTest extends TestBase {
               resourceTableInspector.assertContainsResourceWithName("string", "foo");
               // Referenced from keep.xml
               resourceTableInspector.assertContainsResourceWithName("drawable", "foobar");
+              // Referenced from additional keep xml files
+              resourceTableInspector.assertContainsResourceWithName("drawable", "barfoo");
               resourceTableInspector.assertDoesNotContainResourceWithName(
                   "string", "unused_string");
               resourceTableInspector.assertDoesNotContainResourceWithName(
@@ -86,6 +90,7 @@ public class KeepXmlFilesTest extends TestBase {
 
     public static class drawable {
       public static int foobar;
+      public static int barfoo;
       public static int unused_drawable;
     }
   }

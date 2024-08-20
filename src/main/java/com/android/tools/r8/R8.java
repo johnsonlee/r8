@@ -1028,6 +1028,9 @@ public class R8 {
                   shrinkerResult.getResourceTableInProtoFormat(featureSplit)),
               reporter);
           break;
+        case KEEP_RULE_FILE:
+          // Intentionally not written
+          break;
         case RES_FOLDER_FILE:
         case XML_FILE:
           if (toKeep.contains(androidResource.getPath().location())) {
@@ -1062,6 +1065,9 @@ public class R8 {
             break;
           case XML_FILE:
             resourceShrinkerBuilder.addXmlInput(path, bytes);
+            break;
+          case KEEP_RULE_FILE:
+            resourceShrinkerBuilder.addKeepRuleInput(bytes);
             break;
           case UNKNOWN:
             break;

@@ -35,6 +35,7 @@ public class ArchiveProtoAndroidResourceProvider implements AndroidResourceProvi
   private static final String MANIFEST_NAME = "AndroidManifest.xml";
   private static final String RESOURCE_TABLE = "resources.pb";
   private static final String RES_FOLDER = "res/";
+  private static final String RES_RAW_FOLDER = RES_FOLDER + "raw/";
   private static final String XML_SUFFIX = ".xml";
 
   /**
@@ -56,13 +57,24 @@ public class ArchiveProtoAndroidResourceProvider implements AndroidResourceProvi
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
         String name = entry.getName();
+        Kind kind = getKindFromName(name);
         ByteAndroidResourceInput resource =
             new ByteAndroidResourceInput(
                 name,
-                getKindFromName(name),
+                kind,
                 ByteStreams.toByteArray(zipFile.getInputStream(entry)),
                 new ArchiveEntryOrigin(name, origin));
         resources.add(resource);
+        // We explicitly add any res/raw folder xml file also as a keep rule file.
+        if (kind == Kind.XML_FILE && name.startsWith(RES_RAW_FOLDER)) {
+          ByteAndroidResourceInput keepResource =
+              new ByteAndroidResourceInput(
+                  name,
+                  Kind.KEEP_RULE_FILE,
+                  ByteStreams.toByteArray(zipFile.getInputStream(entry)),
+                  new ArchiveEntryOrigin(name, origin));
+          resources.add(keepResource);
+        }
       }
       return resources;
     } catch (IOException e) {

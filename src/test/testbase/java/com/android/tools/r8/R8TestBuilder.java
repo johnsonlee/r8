@@ -47,8 +47,11 @@ import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.SourceFileTemplateProvider;
 import com.android.tools.r8.utils.codeinspector.Matchers;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -982,13 +985,56 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       AndroidTestResource testResource, Path output, List<byte[]> classFileData) {
     Path resources = testResource.getResourceZip();
     resourceShrinkerOutput = output;
-    getBuilder()
-        .setAndroidResourceProvider(
-            new ArchiveProtoAndroidResourceProvider(resources, new PathOrigin(resources)));
+    ArchiveProtoAndroidResourceProvider provider = getResourceProvider(testResource);
+    getBuilder().setAndroidResourceProvider(provider);
     getBuilder()
         .setAndroidResourceConsumer(new ArchiveProtoAndroidResourceConsumer(output, resources));
 
     return addProgramClassFileData(classFileData);
+  }
+
+  private static ArchiveProtoAndroidResourceProvider getResourceProvider(
+      AndroidTestResource testResource) {
+    Path resources = testResource.getResourceZip();
+    if (testResource.getAdditionalKeepRuleFiles().isEmpty()) {
+      return new ArchiveProtoAndroidResourceProvider(resources, new PathOrigin(resources));
+    }
+    ArchiveProtoAndroidResourceProvider provider =
+        new ArchiveProtoAndroidResourceProvider(resources, new PathOrigin(resources)) {
+          @Override
+          public Collection<AndroidResourceInput> getAndroidResources() throws ResourceException {
+            ArrayList<AndroidResourceInput> resourceInputs =
+                new ArrayList<>(super.getAndroidResources());
+            resourceInputs.addAll(
+                testResource.getAdditionalKeepRuleFiles().stream()
+                    .map(
+                        s ->
+                            new AndroidResourceInput() {
+                              @Override
+                              public Origin getOrigin() {
+                                return Origin.unknown();
+                              }
+
+                              @Override
+                              public ResourcePath getPath() {
+                                return () -> "keep/rule/path";
+                              }
+
+                              @Override
+                              public Kind getKind() {
+                                return Kind.KEEP_RULE_FILE;
+                              }
+
+                              @Override
+                              public InputStream getByteStream() throws ResourceException {
+                                return new ByteArrayInputStream(s.getBytes(StandardCharsets.UTF_8));
+                              }
+                            })
+                    .collect(Collectors.toList()));
+            return resourceInputs;
+          }
+        };
+    return provider;
   }
 
   public T setAndroidResourcesFromPath(Path input) throws IOException {

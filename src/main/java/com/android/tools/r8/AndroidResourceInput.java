@@ -23,11 +23,13 @@ public interface AndroidResourceInput extends Resource {
     MANIFEST,
     // The resource table, in proto format.
     RESOURCE_TABLE,
-    // An xml file within the res folder, in proto format if not inside res/raw, otherwise
-    // in UTF-8 format.
+    // An xml file within the res folder, in proto format if not inside res/raw.
     XML_FILE,
     // Any other binary file withing the res folder.
     RES_FOLDER_FILE,
+    // A xml file in text format which should be parsed for keep/discard rules. The files is not
+    // required to include rules. The files will NOT be copied to the output provider.
+    KEEP_RULE_FILE,
     // Other files are ignored, but copied through
     UNKNOWN
   }
