@@ -78,23 +78,15 @@ public abstract class MethodConversionOptions {
 
   public abstract boolean isGeneratingDex();
 
-  public abstract boolean isPeepholeOptimizationsEnabled();
-
   public abstract boolean shouldFinalizeAfterLensCodeRewriter();
 
   public static class MutableMethodConversionOptions extends MethodConversionOptions {
 
     private final Target target;
-    private boolean enablePeepholeOptimizations = true;
     private boolean finalizeAfterLensCodeRewriter;
 
     private MutableMethodConversionOptions(Target target) {
       this.target = target;
-    }
-
-    public void disablePeepholeOptimizations(MethodProcessor methodProcessor) {
-      assert methodProcessor.isPrimaryMethodProcessor();
-      enablePeepholeOptimizations = false;
     }
 
     public MutableMethodConversionOptions setFinalizeAfterLensCodeRewriter() {
@@ -115,11 +107,6 @@ public abstract class MethodConversionOptions {
     @Override
     public boolean isGeneratingDex() {
       return target == Target.DEX;
-    }
-
-    @Override
-    public boolean isPeepholeOptimizationsEnabled() {
-      return enablePeepholeOptimizations;
     }
 
     @Override
@@ -146,11 +133,6 @@ public abstract class MethodConversionOptions {
 
     @Override
     public boolean isGeneratingDex() {
-      throw new Unreachable();
-    }
-
-    @Override
-    public boolean isPeepholeOptimizationsEnabled() {
       throw new Unreachable();
     }
   }

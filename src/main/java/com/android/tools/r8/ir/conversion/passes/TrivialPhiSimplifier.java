@@ -14,7 +14,6 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Phi;
-import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
 import com.google.common.collect.Sets;
 import java.util.List;
@@ -22,34 +21,22 @@ import java.util.Set;
 
 public class TrivialPhiSimplifier {
 
-  public static void replaceUnusedArgumentTrivialPhis(UnusedArgument unusedArgument) {
-    replaceTrivialPhis(unusedArgument.outValue());
-    for (Phi phiUser : unusedArgument.outValue().uniquePhiUsers()) {
-      phiUser.removeTrivialPhi();
-    }
-    assert !unusedArgument.outValue().hasPhiUsers();
-  }
-
-  @SuppressWarnings("ReferenceEquality")
   public static void ensureDirectStringNewToInit(AppView<?> appView, IRCode code) {
     boolean changed = false;
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    for (Instruction instruction : code.instructions()) {
-      if (instruction.isInvokeDirect()) {
-        InvokeDirect invoke = instruction.asInvokeDirect();
-        DexMethod method = invoke.getInvokedMethod();
-        if (dexItemFactory.isConstructor(method)
-            && method.holder == dexItemFactory.stringType
-            && invoke.getReceiver().isPhi()) {
-          NewInstance newInstance = findNewInstance(invoke.getReceiver().asPhi());
-          replaceTrivialPhis(newInstance.outValue());
-          if (invoke.getReceiver().isPhi()) {
-            throw new CompilationError(
-                "Failed to remove trivial phis between new-instance and <init>");
-          }
-          newInstance.markNoSpilling();
-          changed = true;
+    for (InvokeDirect invoke : code.<InvokeDirect>instructions(Instruction::isInvokeDirect)) {
+      DexMethod method = invoke.getInvokedMethod();
+      if (dexItemFactory.isConstructor(method)
+          && method.getHolderType().isIdenticalTo(dexItemFactory.stringType)
+          && invoke.getReceiver().isPhi()) {
+        NewInstance newInstance = findNewInstance(invoke.getReceiver().asPhi());
+        replaceTrivialPhis(newInstance.outValue());
+        if (invoke.getReceiver().isPhi()) {
+          throw new CompilationError(
+              "Failed to remove trivial phis between new-instance and <init>");
         }
+        newInstance.markNoSpilling();
+        changed = true;
       }
     }
     assert !changed || code.isConsistentSSA(appView);

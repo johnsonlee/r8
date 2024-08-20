@@ -107,7 +107,6 @@ import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.UnusedArgument;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.ir.conversion.passes.TrivialPhiSimplifier;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import com.android.tools.r8.optimize.MemberRebindingAnalysis;
@@ -232,15 +231,6 @@ public class LensCodeRewriter {
       CustomLensCodeRewriter customLensCodeRewriter = graphLens.getCustomLensCodeRewriter();
       affectedPhis.addAll(
           customLensCodeRewriter.rewriteCode(code, methodProcessor, prototypeChanges, graphLens));
-    }
-    if (!unusedArguments.isEmpty()) {
-      for (UnusedArgument unusedArgument : unusedArguments) {
-        if (unusedArgument.outValue().hasPhiUsers()) {
-          // See b/240282988: We can end up in situations where the second round of IR processing
-          // introduce phis for irreducible control flow, we need to resolve them.
-          TrivialPhiSimplifier.replaceUnusedArgumentTrivialPhis(unusedArgument);
-        }
-      }
     }
     rewritePartialDefault(
         code,

@@ -76,14 +76,12 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
     registerAllocator.allocateRegisters();
     timing.end();
     TrivialGotosCollapser trivialGotosCollapser = new TrivialGotosCollapser(appView);
-    if (code.getConversionOptions().isPeepholeOptimizationsEnabled()) {
-      timing.begin("Peephole optimize");
-      for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
-        trivialGotosCollapser.run(code, timing);
-        PeepholeOptimizer.optimize(appView, code, registerAllocator);
-      }
-      timing.end();
+    timing.begin("Peephole optimize");
+    for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
+      trivialGotosCollapser.run(code, timing);
+      PeepholeOptimizer.optimize(appView, code, registerAllocator);
     }
+    timing.end();
     timing.begin("Clean up");
     CodeRewriter.removeUnneededMovesOnExitingPaths(code, registerAllocator);
     trivialGotosCollapser.run(code, timing);

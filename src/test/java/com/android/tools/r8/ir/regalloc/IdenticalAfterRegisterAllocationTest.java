@@ -146,11 +146,6 @@ public class IdenticalAfterRegisterAllocationTest {
               }
 
               @Override
-              public boolean isPeepholeOptimizationsEnabled() {
-                return false;
-              }
-
-              @Override
               public boolean shouldFinalizeAfterLensCodeRewriter() {
                 return false;
               }

@@ -12,7 +12,7 @@ import com.android.tools.r8.ir.analysis.fieldvalueanalysis.StaticFieldValues;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.conversion.PostMethodProcessor.Builder;
+import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackDelayed;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
@@ -41,13 +41,10 @@ public abstract class EnumUnboxer {
 
   public abstract void recordEnumState(DexProgramClass clazz, StaticFieldValues staticFieldValues);
 
-  public abstract void rewriteWithLens();
-
-  @SuppressWarnings("BadImport")
   public abstract void unboxEnums(
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
-      Builder postMethodProcessorBuilder,
+      PostMethodProcessor.Builder postMethodProcessorBuilder,
       ExecutorService executorService,
       OptimizationFeedbackDelayed feedback,
       Timing timing)

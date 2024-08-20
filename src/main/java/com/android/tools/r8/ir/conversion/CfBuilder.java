@@ -204,13 +204,10 @@ public class CfBuilder {
 
     TrivialGotosCollapser trivialGotosCollapser = new TrivialGotosCollapser(appView);
     timing.begin("BasicBlock peephole optimizations");
-    if (code.getConversionOptions().isPeepholeOptimizationsEnabled()) {
-      for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
-        trivialGotosCollapser.run(code, timing);
-        PeepholeOptimizer.removeIdenticalPredecessorBlocks(code, registerAllocator);
-        PeepholeOptimizer.shareIdenticalBlockSuffix(
-            code, registerAllocator, SUFFIX_SHARING_OVERHEAD);
-      }
+    for (int i = 0; i < PEEPHOLE_OPTIMIZATION_PASSES; i++) {
+      trivialGotosCollapser.run(code, timing);
+      PeepholeOptimizer.removeIdenticalPredecessorBlocks(code, registerAllocator);
+      PeepholeOptimizer.shareIdenticalBlockSuffix(code, registerAllocator, SUFFIX_SHARING_OVERHEAD);
     }
     timing.end();
 

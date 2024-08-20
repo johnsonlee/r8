@@ -36,6 +36,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexItemFactory.ClassMethods;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -79,7 +80,7 @@ import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.conversion.PostMethodProcessor.Builder;
+import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap.EnumData;
 import com.android.tools.r8.ir.optimize.enums.EnumInstanceFieldData.EnumInstanceFieldKnownData;
@@ -156,10 +157,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   private final Map<DexType, EnumStaticFieldValues> staticFieldValuesMap =
       new ConcurrentHashMap<>();
 
-  // Methods depending on library modelisation need to be reprocessed so they are peephole
-  // optimized.
-  private LongLivedProgramMethodSetBuilder<ProgramMethodSet> methodsDependingOnLibraryModelisation;
-
   // Map from checkNotNull() methods to the enums that use the given method.
   private LongLivedProgramMethodMapBuilder<LongLivedClassSetBuilder<DexProgramClass>>
       checkNotNullMethodsBuilder;
@@ -217,10 +214,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       return true;
     }
     return false;
-  }
-
-  private void markMethodDependsOnLibraryModelisation(ProgramMethod method) {
-    methodsDependingOnLibraryModelisation.add(method, appView.graphLens());
   }
 
   private DexProgramClass getEnumUnboxingCandidateOrNull(TypeElement lattice) {
@@ -320,13 +313,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     if (!eligibleEnums.isEmpty()) {
       for (DexType eligibleEnum : eligibleEnums) {
         enumUnboxingCandidatesInfo.addMethodDependency(eligibleEnum, code.context());
-      }
-    }
-    // TODO(b/225838009): Remove this when always using LIR.
-    if (!appView.testing().canUseLir(appView)) {
-      if (methodsDependingOnLibraryModelisation.contains(code.context(), appView.graphLens())) {
-        code.mutateConversionOptions(
-            conversionOptions -> conversionOptions.disablePeepholeOptimizations(methodProcessor));
       }
     }
   }
@@ -507,7 +493,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     eligibleEnums.add(enumType);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean isLegitimateConstClassUser(
       Instruction user, ProgramMethod context, DexProgramClass enumClass) {
     if (user.isAssume()) {
@@ -523,11 +508,10 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       if (singleTarget == null) {
         return false;
       }
-      if (singleTarget.getReference() == factory.enumMembers.valueOf) {
+      if (singleTarget.getReference().isIdenticalTo(factory.enumMembers.valueOf)) {
         // The name data is required for the correct mapping from the enum name to the ordinal
         // in the valueOf utility method.
         addRequiredNameData(enumClass);
-        markMethodDependsOnLibraryModelisation(context);
         // The out-value must be cast before it is used, or an assume instruction must strengthen
         // its dynamic type, so that the out-value is analyzed by the enum unboxing analysis.
         if (invoke.hasOutValue()) {
@@ -546,7 +530,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
               }
             } else if (enumUser.isCheckCast()) {
               CheckCast checkCast = enumUser.asCheckCast();
-              if (checkCast.getType() == enumClass.getType()) {
+              if (checkCast.getType().isIdenticalTo(enumClass.getType())) {
                 // OK.
                 continue;
               }
@@ -556,9 +540,9 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         }
         return true;
       }
-      if (singleTarget.getReference()
-          == factory.javaLangReflectArrayMembers.newInstanceMethodWithDimensions) {
-        markMethodDependsOnLibraryModelisation(context);
+      if (singleTarget
+          .getReference()
+          .isIdenticalTo(factory.javaLangReflectArrayMembers.newInstanceMethodWithDimensions)) {
         return true;
       }
     }
@@ -566,7 +550,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     if (user.isInvokeVirtual()) {
       InvokeVirtual invoke = user.asInvokeVirtual();
       DexMethod invokedMethod = invoke.getInvokedMethod();
-      if (invokedMethod == factory.classMethods.desiredAssertionStatus) {
+      if (invokedMethod.isIdenticalTo(factory.classMethods.desiredAssertionStatus)) {
         // Only valid in the enum's class initializer, since the class constant must be rewritten
         // to LocalEnumUtility.class instead of int.class.
         return context.getDefinition().isClassInitializer() && context.getHolder() == enumClass;
@@ -584,11 +568,11 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         enumClass, factory.enumMembers.nameField);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean isUnboxableNameMethod(DexMethod method) {
-    return method == factory.classMethods.getName
-        || method == factory.classMethods.getCanonicalName
-        || method == factory.classMethods.getSimpleName;
+    ClassMethods classMethods = factory.classMethods;
+    return method.isIdenticalTo(classMethods.getName)
+        || method.isIdenticalTo(classMethods.getCanonicalName)
+        || method.isIdenticalTo(classMethods.getSimpleName);
   }
 
   private void addNullDependencies(IRCode code, Value nullValue, Set<DexType> eligibleEnums) {
@@ -676,24 +660,13 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     enumUnboxingCandidatesInfo =
         new EnumUnboxingCandidateAnalysis(appView, this)
             .findCandidates(graphLensForPrimaryOptimizationPass);
-    methodsDependingOnLibraryModelisation =
-        LongLivedProgramMethodSetBuilder.createConcurrentForIdentitySet(
-            graphLensForPrimaryOptimizationPass);
   }
 
   @Override
-  @SuppressWarnings("BadImport")
-  public void rewriteWithLens() {
-    methodsDependingOnLibraryModelisation =
-        methodsDependingOnLibraryModelisation.rewrittenWithLens(appView.graphLens());
-  }
-
-  @Override
-  @SuppressWarnings("BadImport")
   public void unboxEnums(
       AppView<AppInfoWithLiveness> appView,
       IRConverter converter,
-      Builder postMethodProcessorBuilder,
+      PostMethodProcessor.Builder postMethodProcessorBuilder,
       ExecutorService executorService,
       OptimizationFeedbackDelayed feedback,
       Timing timing)
@@ -762,12 +735,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
             dependencies
                 .rewrittenWithLens(appView)
                 .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods()))
-        .merge(
-            methodsDependingOnLibraryModelisation
-                .rewrittenWithLens(appView)
-                .removeAll(treeFixerResult.getPrunedItems().getRemovedMethods()))
         .addAll(treeFixerResult.getMethodsToProcess(), appView.graphLens());
-    methodsDependingOnLibraryModelisation.clear();
 
     updateOptimizationInfos(executorService, feedback, treeFixerResult, previousLens);
 
@@ -871,7 +839,6 @@ public class EnumUnboxerImpl extends EnumUnboxer {
     return enumDataMap;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private EnumDataMap analyzeEnumInstances() {
     ImmutableMap.Builder<DexType, DexType> enumSubtypes = ImmutableMap.builder();
     ImmutableMap.Builder<DexType, EnumData> builder = ImmutableMap.builder();
@@ -888,7 +855,7 @@ public class EnumUnboxerImpl extends EnumUnboxer {
             builder.put(enumClass.type, data);
             if (data.valuesTypes != null) {
               for (DexType value : data.valuesTypes.values()) {
-                if (value != enumClass.type) {
+                if (value.isNotIdenticalTo(enumClass.type)) {
                   enumSubtypes.put(value, enumClass.type);
                 }
               }
@@ -1487,20 +1454,13 @@ public class EnumUnboxerImpl extends EnumUnboxer {
       return Reason.INVALID_INVOKE;
     }
 
-    Reason reason =
-        analyzeLibraryInvoke(
-            invoke,
-            context,
-            enumClass,
-            enumValue,
-            singleTarget.getReference(),
-            singleTarget.getHolder());
-
-    if (reason == Reason.ELIGIBLE) {
-      markMethodDependsOnLibraryModelisation(context);
-    }
-
-    return reason;
+    return analyzeLibraryInvoke(
+        invoke,
+        context,
+        enumClass,
+        enumValue,
+        singleTarget.getReference(),
+        singleTarget.getHolder());
   }
 
   private Reason comparableAsUnboxedValues(InvokeMethod invoke) {
@@ -1770,6 +1730,5 @@ public class EnumUnboxerImpl extends EnumUnboxer {
   @Override
   public void onMethodCodePruned(ProgramMethod method) {
     enumUnboxingCandidatesInfo.addPrunedMethod(method);
-    methodsDependingOnLibraryModelisation.remove(method.getReference(), appView.graphLens());
   }
 }
