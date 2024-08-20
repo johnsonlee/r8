@@ -14,10 +14,8 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.SuccessfulDataflowAnalysisResult;
-import com.android.tools.r8.ir.analysis.path.PathConstraintAnalysis;
+import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
-import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -111,7 +109,7 @@ public class ArgumentPropagatorCodeScanner {
 
   private final FieldValueFactory fieldValueFactory = new FieldValueFactory();
 
-  private final MethodParameterFactory methodParameterFactory = new MethodParameterFactory();
+  final MethodParameterFactory methodParameterFactory = new MethodParameterFactory();
 
   private final Set<DexMethod> monomorphicVirtualMethods = Sets.newIdentityHashSet();
 
@@ -161,6 +159,10 @@ public class ArgumentPropagatorCodeScanner {
 
   public FieldStateCollection getFieldStates() {
     return fieldStates;
+  }
+
+  public MethodParameterFactory getMethodParameterFactory() {
+    return methodParameterFactory;
   }
 
   public MethodStateCollectionByReference getMethodStates() {
@@ -228,8 +230,9 @@ public class ArgumentPropagatorCodeScanner {
       ProgramMethod method,
       IRCode code,
       AbstractValueSupplier abstractValueSupplier,
+      PathConstraintSupplier pathConstraintSupplier,
       Timing timing) {
-    new CodeScanner(abstractValueSupplier, code, method).scan(timing);
+    new CodeScanner(abstractValueSupplier, code, method, pathConstraintSupplier).scan(timing);
   }
 
   protected class CodeScanner {
@@ -237,16 +240,19 @@ public class ArgumentPropagatorCodeScanner {
     protected final AbstractValueSupplier abstractValueSupplier;
     protected final IRCode code;
     protected final ProgramMethod context;
+    private final PathConstraintSupplier pathConstraintSupplier;
 
-    private SuccessfulDataflowAnalysisResult<BasicBlock, PathConstraintAnalysisState>
-        pathConstraintAnalysisResult;
     private Object2IntMap<Phi> phiNumbering = null;
 
     protected CodeScanner(
-        AbstractValueSupplier abstractValueSupplier, IRCode code, ProgramMethod method) {
+        AbstractValueSupplier abstractValueSupplier,
+        IRCode code,
+        ProgramMethod method,
+        PathConstraintSupplier pathConstraintSupplier) {
       this.abstractValueSupplier = abstractValueSupplier;
       this.code = code;
       this.context = method;
+      this.pathConstraintSupplier = pathConstraintSupplier;
     }
 
     public void scan(Timing timing) {
@@ -419,9 +425,13 @@ public class ArgumentPropagatorCodeScanner {
         return null;
       }
       ConcretePathConstraintAnalysisState leftPredecessorPathConstraint =
-          getPathConstraint(phi.getBlock().getPredecessors().get(0)).asConcreteState();
+          pathConstraintSupplier
+              .getPathConstraint(phi.getBlock().getPredecessors().get(0))
+              .asConcreteState();
       ConcretePathConstraintAnalysisState rightPredecessorPathConstraint =
-          getPathConstraint(phi.getBlock().getPredecessors().get(1)).asConcreteState();
+          pathConstraintSupplier
+              .getPathConstraint(phi.getBlock().getPredecessors().get(1))
+              .asConcreteState();
       if (leftPredecessorPathConstraint == null || rightPredecessorPathConstraint == null) {
         return null;
       }
@@ -911,16 +921,6 @@ public class ArgumentPropagatorCodeScanner {
         assert parameterType.isPrimitiveType();
         return ConcretePrimitiveTypeValueState.create(abstractValue);
       }
-    }
-
-    private PathConstraintAnalysisState getPathConstraint(BasicBlock block) {
-      if (pathConstraintAnalysisResult == null) {
-        PathConstraintAnalysis analysis =
-            new PathConstraintAnalysis(appView, code, methodParameterFactory);
-        pathConstraintAnalysisResult = analysis.run(code.entryBlock()).asSuccessfulAnalysisResult();
-        assert pathConstraintAnalysisResult != null;
-      }
-      return pathConstraintAnalysisResult.getBlockExitState(block);
     }
 
     @SuppressWarnings("ReferenceEquality")

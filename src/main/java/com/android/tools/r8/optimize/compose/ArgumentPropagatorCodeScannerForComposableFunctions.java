@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.compose;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InvokeMethod;
@@ -30,8 +31,9 @@ public class ArgumentPropagatorCodeScannerForComposableFunctions
       ProgramMethod method,
       IRCode code,
       AbstractValueSupplier abstractValueSupplier,
+      PathConstraintSupplier pathConstraintSupplier,
       Timing timing) {
-    new CodeScanner(abstractValueSupplier, code, method).scan(timing);
+    new CodeScanner(abstractValueSupplier, code, method, pathConstraintSupplier).scan(timing);
   }
 
   @Override
@@ -44,8 +46,11 @@ public class ArgumentPropagatorCodeScannerForComposableFunctions
   private class CodeScanner extends ArgumentPropagatorCodeScanner.CodeScanner {
 
     protected CodeScanner(
-        AbstractValueSupplier abstractValueSupplier, IRCode code, ProgramMethod method) {
-      super(abstractValueSupplier, code, method);
+        AbstractValueSupplier abstractValueSupplier,
+        IRCode code,
+        ProgramMethod method,
+        PathConstraintSupplier pathConstraintSupplier) {
+      super(abstractValueSupplier, code, method, pathConstraintSupplier);
     }
 
     @Override

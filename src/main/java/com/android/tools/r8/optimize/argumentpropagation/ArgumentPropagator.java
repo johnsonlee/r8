@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
+import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -128,7 +129,9 @@ public class ArgumentPropagator {
       assert methodProcessor.isPrimaryMethodProcessor();
       AbstractValueSupplier abstractValueSupplier =
           value -> value.getAbstractValue(appView, method);
-      codeScanner.scan(method, code, abstractValueSupplier, timing);
+      PathConstraintSupplier pathConstraintSupplier =
+          new PathConstraintSupplier(appView, code, codeScanner.getMethodParameterFactory());
+      codeScanner.scan(method, code, abstractValueSupplier, pathConstraintSupplier, timing);
 
       assert effectivelyUnusedArgumentsAnalysis != null;
       effectivelyUnusedArgumentsAnalysis.scan(method, code);

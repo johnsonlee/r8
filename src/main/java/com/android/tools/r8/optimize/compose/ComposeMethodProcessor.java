@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.constant.SparseConditionalConstantPropagation;
+import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.IRCode;
@@ -233,7 +234,9 @@ public class ComposeMethodProcessor extends MethodProcessor {
           assert abstractValue != null;
           return abstractValue;
         };
-    codeScanner.scan(method, code, abstractValueSupplier, timing);
+    PathConstraintSupplier pathConstraintSupplier =
+        new PathConstraintSupplier(appView, code, codeScanner.getMethodParameterFactory());
+    codeScanner.scan(method, code, abstractValueSupplier, pathConstraintSupplier, timing);
   }
 
   public boolean isProcessed(ComposableCallGraphNode node) {
