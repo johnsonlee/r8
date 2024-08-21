@@ -64,13 +64,13 @@ public class NestOnProgramOnClassPathTest extends TestBase {
     inner.inspect(
         inspector -> {
           assertThisNumberOfBridges(inspector, 3);
-          assertNestConstructor(inspector);
+          assertNoNestConstructor(inspector);
         });
     D8TestCompileResult host = compileClassesWithD8ProgramClasses(nestHost, nestHost);
     host.inspect(
         inspector -> {
           assertThisNumberOfBridges(inspector, 1);
-          assertNestConstructor(inspector);
+          assertInitArgumentClass(inspector);
         });
   }
 
@@ -100,8 +100,12 @@ public class NestOnProgramOnClassPathTest extends TestBase {
         .compile();
   }
 
-  private static void assertNestConstructor(CodeInspector inspector) {
+  private static void assertInitArgumentClass(CodeInspector inspector) {
     assertTrue(inspector.allClasses().stream().anyMatch(FoundClassSubject::isSynthetic));
+  }
+
+  private static void assertNoNestConstructor(CodeInspector inspector) {
+    assertTrue(inspector.allClasses().stream().noneMatch(FoundClassSubject::isSynthetic));
   }
 
   private static void assertThisNumberOfBridges(CodeInspector inspector, int numBridges) {

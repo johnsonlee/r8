@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.profile.rewriting;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaringEventConsumer;
@@ -38,12 +38,13 @@ public class ProfileRewritingNestBasedAccessDesugaringEventConsumer
   public void acceptNestConstructorBridge(
       ProgramMethod target,
       ProgramMethod bridge,
-      DexProgramClass argumentClass,
+      DexClass argumentClass,
       DexClassAndMethod context) {
     if (context.isProgramMethod()) {
       additionsCollection.applyIfContextIsInProfile(
           context.asProgramMethod(),
-          additionsBuilder -> additionsBuilder.addRule(argumentClass).addRule(bridge));
+          additionsBuilder ->
+              additionsBuilder.addRule(argumentClass.getReference()).addRule(bridge));
     } else {
       additionsCollection.accept(
           additions ->

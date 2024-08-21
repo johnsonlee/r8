@@ -45,7 +45,7 @@ public class NestInitArgumentContextTest extends TestBase {
         .inspect(
             inspector ->
                 assertEquals(
-                    5,
+                    1,
                     inspector.allClasses().stream()
                         .map(ClassSubject::getFinalName)
                         .filter(name -> name.endsWith("-IA"))
@@ -73,7 +73,7 @@ public class NestInitArgumentContextTest extends TestBase {
               .inspect(
                   inspector ->
                       assertEquals(
-                          1,
+                          0,
                           inspector.allClasses().stream()
                               .map(ClassSubject::getFinalName)
                               .filter(name -> name.endsWith("-IA"))
@@ -106,7 +106,7 @@ public class NestInitArgumentContextTest extends TestBase {
         .inspect(
             inspector ->
                 assertEquals(
-                    5,
+                    1,
                     inspector.allClasses().stream()
                         .map(ClassSubject::getFinalName)
                         .filter(name -> name.endsWith("-IA"))
