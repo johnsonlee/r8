@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.ArrayPut;
@@ -23,7 +24,6 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,17 +32,17 @@ import java.util.ListIterator;
 /** Used to shrink record field arrays in dex compilations */
 public class RecordFieldValuesRewriter {
 
-  private final AppView<AppInfoWithLiveness> appView;
+  private final AppView<?> appView;
   private final IRConverter irConverter;
 
-  public static RecordFieldValuesRewriter create(AppView<AppInfoWithLiveness> appView) {
+  public static RecordFieldValuesRewriter create(AppView<?> appView) {
     if (appView.enableWholeProgramOptimizations() && appView.options().isGeneratingDex()) {
       return new RecordFieldValuesRewriter(appView);
     }
     return null;
   }
 
-  private RecordFieldValuesRewriter(AppView<AppInfoWithLiveness> appView) {
+  private RecordFieldValuesRewriter(AppView<?> appView) {
     this.appView = appView;
     irConverter = new IRConverter(appView);
   }
@@ -50,18 +50,32 @@ public class RecordFieldValuesRewriter {
   // Called after final tree shaking, prune and minify field names and field values.
   // At least one instruction is a newRecordFieldArray.
   public void rewriteRecordFieldValues() {
-    for (DexMethod recordFieldValuesReference : appView.appInfo().recordFieldValuesReferences) {
-      DexClass dexClass =
-          appView.contextIndependentDefinitionFor(recordFieldValuesReference.getHolderType());
-      assert dexClass.isProgramClass();
-      ProgramMethod programMethod =
-          dexClass.asProgramClass().lookupProgramMethod(recordFieldValuesReference);
-      assert programMethod != null;
-      rewriteRecordFieldValues(programMethod);
+    if (appView.hasLiveness()) {
+      for (DexMethod recordFieldValuesReference :
+          appView.appInfo().withLiveness().recordFieldValuesReferences) {
+        DexClass dexClass =
+            appView.contextIndependentDefinitionFor(recordFieldValuesReference.getHolderType());
+        assert dexClass.isProgramClass();
+        ProgramMethod programMethod =
+            dexClass.asProgramClass().lookupProgramMethod(recordFieldValuesReference);
+        assert programMethod != null;
+        rewriteRecordFieldValues(programMethod, false);
+      }
+    } else {
+      // Without liveness, i.e., R8 called with -dontshrink, we take a slow path and exhaustively
+      // process all methods.
+      for (DexProgramClass clazz : appView.appInfo().classes()) {
+        clazz.forEachProgramMethod(
+            method -> {
+              if (method.getDefinition().hasCode()) {
+                rewriteRecordFieldValues(method, true);
+              }
+            });
+      }
     }
   }
 
-  public void rewriteRecordFieldValues(ProgramMethod programMethod) {
+  public void rewriteRecordFieldValues(ProgramMethod programMethod, boolean wide) {
     IRCode irCode =
         programMethod
             .getDefinition()
@@ -84,7 +98,7 @@ public class RecordFieldValuesRewriter {
         }
       }
     }
-    assert done;
+    assert wide || done;
     irConverter.removeDeadCodeAndFinalizeIR(
         irCode, OptimizationFeedbackIgnore.getInstance(), Timing.empty());
   }

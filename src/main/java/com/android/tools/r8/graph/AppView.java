@@ -951,6 +951,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return (AppView<AppInfo>) this;
   }
 
+  @SuppressWarnings("unchecked")
+  public AppView<AppInfo> unsafeWithoutClassHierarchy() {
+    return (AppView<AppInfo>) this;
+  }
+
   public boolean hasLiveness() {
     return appInfo().hasLiveness();
   }

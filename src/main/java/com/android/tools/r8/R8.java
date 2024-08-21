@@ -20,6 +20,7 @@ import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -678,9 +679,11 @@ public class R8 {
       timing.begin("Run postlude");
       performFinalMainDexTracing(appView, executorService);
 
-      if (appView.appInfo().hasLiveness()) {
+      // If there was a reference to java.lang.Record in the input, we rewrite the record values.
+      DexApplicationReadFlags flags = appView.appInfo().app().getFlags();
+      if (flags.hasReadRecordReferenceFromProgramClass()) {
         RecordFieldValuesRewriter recordFieldArrayRemover =
-            RecordFieldValuesRewriter.create(appView.withLiveness());
+            RecordFieldValuesRewriter.create(appView);
         if (recordFieldArrayRemover != null) {
           recordFieldArrayRemover.rewriteRecordFieldValues();
         }

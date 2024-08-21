@@ -83,6 +83,28 @@ public class RecordHashCodeTest extends TestBase {
     builder.run(parameters.getRuntime(), TestClass.class).assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
+  @Test
+  public void testR8DontShrinkDontObfuscate() throws Exception {
+    parameters.assumeR8TestParameters();
+    assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
+    R8FullTestBuilder builder =
+        testForR8(parameters.getBackend())
+            .addInnerClassesAndStrippedOuter(getClass())
+            .setMinApi(parameters)
+            .addDontShrink()
+            .addDontObfuscate()
+            .addInliningAnnotations()
+            .addKeepMainRule(TestClass.class);
+    if (parameters.isCfRuntime()) {
+      builder
+          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
+          .run(parameters.getRuntime(), TestClass.class)
+          .assertSuccessWithOutput(EXPECTED_RESULT);
+      return;
+    }
+    builder.run(parameters.getRuntime(), TestClass.class).assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
   public static class TestClass {
 
     record Person(String name, int age) {}

@@ -222,8 +222,7 @@ public class IRConverter {
                 && appView.options().canHaveVerifyErrorForUnknownUnusedReturnValue())
             ? new RemoveVerificationErrorForUnknownReturnedValues(appView)
             : null;
-    if (appView.enableWholeProgramOptimizations()) {
-      assert appView.appInfo().hasLiveness();
+    if (appView.enableWholeProgramOptimizations() && appView.appInfo().hasLiveness()) {
       assert appView.rootSet() != null;
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       assumeInserter = new AssumeInserter(appViewWithLiveness);
@@ -254,7 +253,10 @@ public class IRConverter {
           options.enableDevirtualization ? new Devirtualizer(appViewWithLiveness) : null;
       this.typeChecker = new TypeChecker(appViewWithLiveness, VerifyTypesHelper.create(appView));
     } else {
-      AppView<AppInfo> appViewWithoutClassHierarchy = appView.withoutClassHierarchy();
+      AppView<AppInfo> appViewWithoutClassHierarchy =
+          appView.enableWholeProgramOptimizations()
+              ? appView.unsafeWithoutClassHierarchy()
+              : appView.withoutClassHierarchy();
       this.assumeInserter = null;
       this.classInliner = null;
       this.dynamicTypeOptimization = null;
