@@ -50,17 +50,18 @@ public class NullSimpleInliningConstraint extends SimpleInliningArgumentConstrai
       return removedArgumentInfo.getSingleValue().isNull() && nullability.isDefinitelyNull()
           ? AlwaysSimpleInliningConstraint.getInstance()
           : NeverSimpleInliningConstraint.getInstance();
-    } else if (argumentInfo.isRewrittenTypeInfo()) {
+    }
+    int newArgumentIndex = changes.getNewArgumentIndex(getArgumentIndex());
+    if (argumentInfo.isRewrittenTypeInfo()) {
       RewrittenTypeInfo rewrittenTypeInfo = argumentInfo.asRewrittenTypeInfo();
       if (rewrittenTypeInfo.getNewType().isIntType()) {
         // Rewrite definitely-null constraints to definitely-zero constraints.
         return nullability.isDefinitelyNull()
-            ? factory.createEqualToNumberConstraint(getArgumentIndex(), 0)
-            : factory.createNotEqualToNumberConstraint(getArgumentIndex(), 0);
+            ? factory.createEqualToNumberConstraint(newArgumentIndex, 0)
+            : factory.createNotEqualToNumberConstraint(newArgumentIndex, 0);
       }
-      return this;
     }
-    return withArgumentIndex(changes.getNewArgumentIndex(getArgumentIndex()), factory);
+    return withArgumentIndex(newArgumentIndex, factory);
   }
 
   @Override
