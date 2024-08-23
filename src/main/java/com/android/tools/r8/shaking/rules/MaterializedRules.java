@@ -31,11 +31,11 @@ public class MaterializedRules {
   }
 
   public MaterializedRules rewriteWithLens(NonIdentityGraphLens lens) {
-    // The preconditions of these are not rewritten. We assume witnessing instructions
-    // to cary the original references to deem them effectively live.
+    // The conditional rules are not rewritten. We assume witnessing instructions to carry the
+    // original references to deem them effectively live.
     // TODO(b/323816623): Do we need to rewrite the consequent sets? Or would the constraints
     //  always ensure they remain if the keep info needs to be reapplied?
-    return this;
+    return new MaterializedRules(rootConsequences.rewrittenWithLens(lens), conditionalRules);
   }
 
   public ApplicableRulesEvaluator toApplicableRules() {
