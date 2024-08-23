@@ -7,7 +7,6 @@ package com.android.tools.r8.profile.rewriting;
 import static com.android.tools.r8.profile.rewriting.ProfileRewritingVarHandleDesugaringEventConsumerUtils.handleVarHandleDesugaringClassContext;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexMethod;
@@ -293,7 +292,7 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   public void acceptNestConstructorBridge(
       ProgramMethod target,
       ProgramMethod bridge,
-      DexClass argumentClass,
+      DexProgramClass argumentClass,
       DexClassAndMethod context) {
     nestBasedAccessDesugaringEventConsumer.acceptNestConstructorBridge(
         target, bridge, argumentClass, context);

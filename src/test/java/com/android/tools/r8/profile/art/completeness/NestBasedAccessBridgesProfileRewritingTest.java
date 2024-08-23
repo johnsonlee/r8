@@ -107,6 +107,7 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
     inspect(
         profileInspector,
         inspector,
+        false,
         parameters.canUseNestBasedAccessesWhenDesugaring(),
         false);
   }
@@ -116,6 +117,7 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
     inspect(
         profileInspector,
         inspector,
+        parameters.canHaveNonReboundConstructorInvoke(),
         parameters.canUseNestBasedAccesses(),
         true);
   }
@@ -123,6 +125,7 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
   private void inspect(
       ArtProfileInspector profileInspector,
       CodeInspector inspector,
+      boolean canHaveNonReboundConstructorInvoke,
       boolean canUseNestBasedAccesses,
       boolean isR8)
       throws Exception {
@@ -132,7 +135,7 @@ public class NestBasedAccessBridgesProfileRewritingTest extends TestBase {
     ClassSubject syntheticConstructorArgumentClassSubject =
         inspector.clazz(
             SyntheticItemsTestUtils.syntheticNestConstructorArgumentClass(
-                Reference.classFromClass(Main.class)));
+                Reference.classFromClass(NestMember.class)));
     assertThat(
         syntheticConstructorArgumentClassSubject, notIf(isPresent(), canUseNestBasedAccesses));
 

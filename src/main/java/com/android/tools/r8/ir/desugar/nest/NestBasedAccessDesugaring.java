@@ -232,7 +232,7 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
                     : AccessBridgeFactory.createMethodAccessorBridge(
                         bridgeAndTarget.getBridge(), targetMethod, dexItemFactory));
     if (targetMethod.getDefinition().isInstanceInitializer()) {
-      DexClass argumentClass = getConstructorArgumentClass(targetMethod);
+      DexProgramClass argumentClass = getConstructorArgumentClass(targetMethod).asProgramClass();
       eventConsumer.acceptNestConstructorBridge(targetMethod, bridgeMethod, argumentClass, context);
     } else {
       eventConsumer.acceptNestMethodBridge(targetMethod, bridgeMethod, context);
@@ -441,35 +441,29 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
   }
 
   private DexClass getConstructorArgumentClass(DexClassAndMethod constructor) {
-    return syntheticNestConstructorTypes.get(constructor.getHolder().getNestHost());
+    return syntheticNestConstructorTypes.get(constructor.getHolderType());
   }
 
   DexClass ensureConstructorArgumentClass(DexClassAndMethod constructor) {
     assert constructor.getDefinition().isInstanceInitializer();
-    assert constructor.isProgramMethod() || constructor.isClasspathMethod();
-    DexType hostType =
-        constructor.isProgramMethod()
-            ? constructor.asProgramMethod().getHolder().getNestHost()
-            : constructor.asClasspathMethod().getHolder().getNestHost();
-    DexClass host = appView.definitionFor(hostType);
     return syntheticNestConstructorTypes.computeIfAbsent(
-        hostType,
+        constructor.getHolderType(),
         holder -> {
-          if (host.isProgramClass()) {
+          if (constructor.isProgramMethod()) {
             return appView
                 .getSyntheticItems()
                 .createFixedClass(
                     kinds -> kinds.INIT_TYPE_ARGUMENT,
-                    host.asProgramClass(),
+                    constructor.asProgramMethod().getHolder(),
                     appView,
                     builder -> {});
           } else {
-            assert host.isClasspathClass();
+            assert constructor.isClasspathMethod();
             return appView
                 .getSyntheticItems()
                 .ensureFixedClasspathClass(
                     kinds -> kinds.INIT_TYPE_ARGUMENT,
-                    host.asClasspathClass(),
+                    constructor.asClasspathMethod().getHolder(),
                     appView,
                     ignored -> {},
                     ignored -> {});

@@ -6,7 +6,6 @@ package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexMethod;
@@ -289,7 +288,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void acceptNestConstructorBridge(
         ProgramMethod target,
         ProgramMethod bridge,
-        DexClass argumentClass,
+        DexProgramClass argumentClass,
         DexClassAndMethod context) {
       // Intentionally empty.
     }
@@ -723,7 +722,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     public void acceptNestConstructorBridge(
         ProgramMethod target,
         ProgramMethod bridge,
-        DexClass argumentClass,
+        DexProgramClass argumentClass,
         DexClassAndMethod context) {
       // Intentionally empty.
     }

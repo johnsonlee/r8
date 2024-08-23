@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
@@ -108,7 +109,7 @@ public class D8NestBasedAccessDesugaring extends NestBasedAccessDesugaring {
               public void acceptNestConstructorBridge(
                   ProgramMethod target,
                   ProgramMethod bridge,
-                  DexClass argumentClass,
+                  DexProgramClass argumentClass,
                   DexClassAndMethod context) {
                 methodProcessor.scheduleDesugaredMethodForProcessing(bridge);
               }
@@ -228,7 +229,8 @@ public class D8NestBasedAccessDesugaring extends NestBasedAccessDesugaring {
     private void ensureConstructorBridgeFromClasspathAccess(
         ProgramMethod method, NestBasedAccessDesugaringEventConsumer eventConsumer) {
       assert method.getDefinition().isInstanceInitializer();
-      DexClass constructorArgumentClass = ensureConstructorArgumentClass(method);
+      DexProgramClass constructorArgumentClass =
+          ensureConstructorArgumentClass(method).asProgramClass();
       DexMethod bridgeReference = getConstructorBridgeReference(method, constructorArgumentClass);
       synchronized (method.getHolder().getMethodCollection()) {
         if (method.getHolder().lookupMethod(bridgeReference) == null) {
