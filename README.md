@@ -68,6 +68,18 @@ The `tools/gradle.py` script will bootstrap using depot_tools to download
 a version of gradle to use for building on the first run. This will produce
 a jar file: `build/libs/r8.jar` which contains both R8 and D8.
 
+## Setting up IntelliJ
+
+Follow the instructions in the above section.
+
+1. Open the project `r8/d8_r8` in IntelliJ
+2. Navigate to "Settings" > "Build, Execution, Deployment" > "Build Tools" > "Gradle"
+   1. Select `r8/third_party/gradle` as "Local installation" in "Distribution" 
+   2. Select `r8/third_party/openjdk/jdk-11/linux` as "Gradle JVM"
+3. Sync the project using Gradle
+
+In order to run tests it may currently be necessary to run `tools/test.py` from the command line first.
+
 ## <a name="running-d8"></a>Running D8
 
 The D8 dexer has a simple command-line interface with only a few options.
