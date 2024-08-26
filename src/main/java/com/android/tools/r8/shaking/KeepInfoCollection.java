@@ -402,9 +402,18 @@ public abstract class KeepInfoCollection {
               return;
             }
             assert type.isIdenticalTo(newType)
-                || !info.isPinned(options)
-                || info.isMinificationAllowed(options)
-                || info.isRepackagingAllowed(options);
+                    || !info.isPinned(options)
+                    || info.isMinificationAllowed(options)
+                    || info.isRepackagingAllowed(options)
+                : type.toSourceString()
+                    + " -> "
+                    + newType.toSourceString()
+                    + ": isPinned: "
+                    + info.isPinned(options)
+                    + ", isMinificationAllowed: "
+                    + info.isMinificationAllowed(options)
+                    + ", isRepackagingAllowed: "
+                    + info.isRepackagingAllowed(options);
             KeepClassInfo previous = newClassInfo.put(newType, info);
             assert previous == null;
           });
