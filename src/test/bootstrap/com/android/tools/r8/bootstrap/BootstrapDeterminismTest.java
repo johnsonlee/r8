@@ -6,6 +6,7 @@ package com.android.tools.r8.bootstrap;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ClassFileConsumer;
+import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -51,6 +52,18 @@ public class BootstrapDeterminismTest extends TestBase {
     assertTrue(Files.exists(logDirectory.resolve("0.log")));
   }
 
+  @Test
+  public void testD8DeterminismWithChecksums() throws Exception {
+    Path logDirectory = temp.newFolder().toPath();
+    Path ref = compileD8WithChecksums(1, logDirectory);
+    for (int i = 2; i <= ITERATIONS; i++) {
+      Path next = compileD8WithChecksums(i, logDirectory);
+      assertProgramsEqual(ref, next);
+    }
+    // Check that setting the determinism checker wrote a log file.
+    assertTrue(Files.exists(logDirectory.resolve("0.log")));
+  }
+
   private Path compile(int iteration, Path logDirectory) throws Exception {
     System.out.println("= compiling " + iteration + "/" + ITERATIONS + " ======================");
     Path out = temp.newFolder().toPath().resolve("out.jar");
@@ -68,6 +81,27 @@ public class BootstrapDeterminismTest extends TestBase {
         .allowStderrMessages()
         .allowUnusedDontWarnPatterns()
         .setProgramConsumer(new ClassFileConsumer.ArchiveConsumer(out))
+        .compile();
+    return out;
+  }
+
+  private Path compileD8WithChecksums(int iteration, Path logDirectory) throws Exception {
+    System.out.println("= compiling d8 " + iteration + "/" + ITERATIONS + " =====================");
+    Path out = temp.newFolder().toPath().resolve("out.jar");
+    testForD8(Backend.DEX)
+        .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
+        .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
+        .addOptionsModification(
+            options -> {
+              options
+                  .getTestingOptions()
+                  .setDeterminismChecker(DeterminismChecker.createWithFileBacking(logDirectory));
+              // Ensure that we generate the same check sums, see b/359616078
+              options.encodeChecksums = true;
+            })
+        .allowStdoutMessages()
+        .allowStderrMessages()
+        .setProgramConsumer(new ArchiveConsumer(out))
         .compile();
     return out;
   }

@@ -26,6 +26,8 @@ import com.android.tools.r8.graph.RecordComponentInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.ReachabilitySensitiveValue;
+import com.android.tools.r8.utils.structural.HasherWrapper;
+import com.android.tools.r8.utils.structural.StructuralItem;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -186,11 +188,6 @@ public abstract class SyntheticClassBuilder<
         directMethods.add(method);
       }
     }
-    long checksum =
-        7 * (long) directMethods.hashCode()
-            + 11 * (long) virtualMethods.hashCode()
-            + 13 * (long) staticFields.hashCode()
-            + 17 * (long) instanceFields.hashCode();
     C clazz =
         getClassKind()
             .create(
@@ -214,7 +211,7 @@ public abstract class SyntheticClassBuilder<
                 DexEncodedMethod.EMPTY_ARRAY,
                 DexEncodedMethod.EMPTY_ARRAY,
                 factory.getSkipNameValidationForTesting(),
-                c -> checksum,
+                c -> getChecksum(),
                 null,
                 ReachabilitySensitiveValue.DISABLED);
     if (useSortedMethodBacking) {
@@ -223,5 +220,18 @@ public abstract class SyntheticClassBuilder<
     clazz.setDirectMethods(directMethods.toArray(DexEncodedMethod.EMPTY_ARRAY));
     clazz.setVirtualMethods(virtualMethods.toArray(DexEncodedMethod.EMPTY_ARRAY));
     return clazz;
+  }
+
+  private long getChecksum() {
+    return 7 * hashEntries(virtualMethods, directMethods)
+        + 13 * hashEntries(instanceFields, staticFields);
+  }
+
+  private <S extends StructuralItem<S>> long hashEntries(List<S>... entryLists) {
+    HasherWrapper hasherWrapper = HasherWrapper.murmur3128Hasher();
+    for (List<S> entryList : entryLists) {
+      entryList.stream().sorted().forEach(e -> e.hash(hasherWrapper));
+    }
+    return hasherWrapper.hash().hashCode();
   }
 }
