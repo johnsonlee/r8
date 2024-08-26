@@ -649,7 +649,8 @@ def prepare_desugar_library(args):
         # TODO(b/237636871): Cleanup and generalize.
         if (not (library_version.startswith('1.1') or
                  library_version.startswith('1.2') or
-                 library_version.startswith('2.0'))):
+                 library_version.startswith('2.0') or
+                 library_version.startswith('2.1'))):
             print(
                 "Release script does not support desugared library version %s" %
                 library_version)
@@ -658,7 +659,7 @@ def prepare_desugar_library(args):
         postfixes = ['']
         if library_version.startswith('1.2'):
             postfixes = ['_legacy']
-        if library_version.startswith('2.0'):
+        if library_version.startswith('2.0') or library_version.startswith('2.1'):
             postfixes = ['_minimal', '', '_nio']
 
         with utils.TempDir() as temp:
