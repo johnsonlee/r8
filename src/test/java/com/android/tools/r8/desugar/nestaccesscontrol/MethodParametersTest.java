@@ -91,9 +91,9 @@ public class MethodParametersTest extends TestBase {
             parameters.isCfRuntime(),
             result ->
                 result.assertSuccessWithOutputLines(
-                    "Outer$Inner-IA, 1",
-                    "int, Outer$Inner-IA, 2",
-                    "int, int, Outer$Inner-IA, 3",
+                    "Outer-IA, 1",
+                    "int, Outer-IA, 2",
+                    "int, int, Outer-IA, 3",
                     "int, int, 2",
                     "int, 1",
                     "0"),
@@ -102,9 +102,9 @@ public class MethodParametersTest extends TestBase {
                     "0",
                     "int, 1",
                     "int, int, 2",
-                    "int, int, Outer$Inner-IA, 3",
-                    "int, Outer$Inner-IA, 2",
-                    "Outer$Inner-IA, 1"));
+                    "int, int, Outer-IA, 3",
+                    "int, Outer-IA, 2",
+                    "Outer-IA, 1"));
   }
 
   @Test
