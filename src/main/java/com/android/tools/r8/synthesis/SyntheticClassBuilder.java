@@ -228,6 +228,7 @@ public abstract class SyntheticClassBuilder<
   }
 
   private <S extends StructuralItem<S>> long hashEntries(List<S>... entryLists) {
+    // Use a hasher that is stable across jvm runs.
     HasherWrapper hasherWrapper = HasherWrapper.murmur3128Hasher();
     for (List<S> entryList : entryLists) {
       entryList.stream().sorted().forEach(e -> e.hash(hasherWrapper));
