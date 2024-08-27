@@ -5,12 +5,11 @@
 package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
-import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK8_DESCRIPTOR;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_DESCRIPTOR;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.StringUtils;
@@ -30,21 +29,6 @@ public class DateTimeFormatterStandaloneMonthTest extends DesugaredLibraryTestBa
       StringUtils.lines(
           "1 - 1", "2 - 2", "3 - 3", "4 - 4", "5 - 5", "6 - 6", "7 - 7", "8 - 8", "9 - 9",
           "10 - 10", "11 - 11", "12 - 12");
-  private static final String expectedOutputLibJdk11 =
-      StringUtils.lines(
-          "Jan - January",
-          "Feb - February",
-          "Mar - March",
-          "Apr - April",
-          "May - May",
-          "Jun - June",
-          "Jul - July",
-          "Aug - August",
-          "Sep - September",
-          "Oct - October",
-          "Nov - November",
-          // TODO(b/323306225): December is missing.
-          " - ");
   private static final String expectedOutput =
       StringUtils.lines(
           "Jan - January",
@@ -90,15 +74,11 @@ public class DateTimeFormatterStandaloneMonthTest extends DesugaredLibraryTestBa
             .addKeepMainRule(TestClass.class)
             .run(parameters.getRuntime(), TestClass.class)
             .assertSuccess();
-    if (apiLevelWithJavaTime(parameters)) {
-      run.assertSuccessWithOutput(expectedOutput);
-    } else if (libraryDesugaringSpecification.getDescriptor() == JDK8_DESCRIPTOR) {
-      run.assertSuccessWithOutput(expectedOutputDesugaredLibJdk8);
-    } else if (parameters.getRuntime().asDex().getVersion().isEqualTo(Version.V4_0_4)) {
-      // Not sure why this works for Dalvik 4.0.4, but not really relevant.
+    if (apiLevelWithJavaTime(parameters)
+        || libraryDesugaringSpecification.getDescriptor() == JDK11_DESCRIPTOR) {
       run.assertSuccessWithOutput(expectedOutput);
     } else {
-      run.assertSuccessWithOutput(expectedOutputLibJdk11);
+      run.assertSuccessWithOutput(expectedOutputDesugaredLibJdk8);
     }
   }
 
