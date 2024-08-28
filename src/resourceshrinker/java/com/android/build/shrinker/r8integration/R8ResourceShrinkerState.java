@@ -64,6 +64,19 @@ public class R8ResourceShrinkerState {
   private final Set<String> seenNoneClassValues = new HashSet<>();
   private final Set<Integer> seenResourceIds = new HashSet<>();
 
+  private static final Set<String> SPECIAL_MANIFEST_ELEMENTS =
+      ImmutableSet.of(
+          "provider",
+          "activity",
+          "service",
+          "receiver",
+          "instrumentation",
+          "process",
+          "application");
+
+  private static final Set<String> SPECIAL_APPLICATION_ATTRIBUTES =
+      ImmutableSet.of("backupAgent", "appComponentFactory", "zygotePreloadName");
+
   @FunctionalInterface
   public interface ClassReferenceCallback {
     boolean tryClass(String possibleClass, Origin xmlFileOrigin);
@@ -226,7 +239,7 @@ public class R8ResourceShrinkerState {
   private void traceXml(String xmlFile, InputStream inputStream) {
     try {
       XmlNode xmlNode = XmlNode.parseFrom(inputStream);
-      visitNode(xmlNode, xmlFile);
+      visitNode(xmlNode, xmlFile, null);
       // Ensure that we trace the transitive reachable ids, without us having to iterate all
       // resources for the reachable marker.
       ProtoAndroidManifestUsageRecorderKt.recordUsagesFromNode(xmlNode, r8ResourceShrinkerModel)
@@ -236,7 +249,6 @@ public class R8ResourceShrinkerState {
       errorHandler.apply(e);
     }
   }
-
 
   private void tryEnqueuerOnString(String possibleClass, String xmlName) {
     // There are a lot of xml tags and attributes that are evaluated over and over, if it is
@@ -249,18 +261,51 @@ public class R8ResourceShrinkerState {
     }
   }
 
-  private void visitNode(XmlNode xmlNode, String xmlName) {
+  private void visitNode(XmlNode xmlNode, String xmlName, String manifestPackageName) {
     XmlElement element = xmlNode.getElement();
     tryEnqueuerOnString(element.getName(), xmlName);
+
     for (XmlAttribute xmlAttribute : element.getAttributeList()) {
+      if (xmlAttribute.getName().equals("package") && element.getName().equals("manifest")) {
+        // We are traversing a manifest, record the package name if we see it.
+        manifestPackageName = xmlAttribute.getValue();
+      }
       String value = xmlAttribute.getValue();
       tryEnqueuerOnString(value, xmlName);
       if (value.startsWith(".")) {
         // package specific names, e.g. context
         getPackageNames().forEach(s -> tryEnqueuerOnString(s + value, xmlName));
       }
+      if (manifestPackageName != null) {
+        // Manifest case
+        traceManifestSpecificValues(xmlName, manifestPackageName, xmlAttribute, element);
+      }
     }
-    element.getChildList().forEach(e -> visitNode(e, xmlName));
+    for (XmlNode node : element.getChildList()) {
+      visitNode(node, xmlName, manifestPackageName);
+    }
+  }
+
+  private void traceManifestSpecificValues(
+      String xmlName, String packageName, XmlAttribute xmlAttribute, XmlElement element) {
+    if (!SPECIAL_MANIFEST_ELEMENTS.contains(element.getName())) {
+      return;
+    }
+    // All elements can have package specific name attributes pointing at classes.
+    if (xmlAttribute.getName().equals("name")) {
+      tryEnqueuerOnString(getFullyQualifiedName(packageName, xmlAttribute), xmlName);
+    }
+    // Application elements have multiple special case attributes, where the value is potentially
+    // a class name (unqualified).
+    if (element.getName().equals("application")) {
+      if (SPECIAL_APPLICATION_ATTRIBUTES.contains(xmlAttribute.getName())) {
+        tryEnqueuerOnString(getFullyQualifiedName(packageName, xmlAttribute), xmlName);
+      }
+    }
+  }
+
+  private static String getFullyQualifiedName(String packageName, XmlAttribute xmlAttribute) {
+    return packageName + "." + xmlAttribute.getValue();
   }
 
   public Map<Integer, List<String>> getResourceIdToXmlFiles() {
