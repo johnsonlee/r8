@@ -7,6 +7,7 @@ import com.android.tools.r8.AndroidResourceInput.Kind;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.FileUtils;
 import com.google.common.io.ByteStreams;
 import java.io.ByteArrayInputStream;
@@ -47,6 +48,15 @@ public class ArchiveProtoAndroidResourceProvider implements AndroidResourceProvi
   public ArchiveProtoAndroidResourceProvider(Path archive, Origin origin) {
     this.archive = archive;
     this.origin = origin;
+  }
+
+  /**
+   * Creates an android resource provider from an archive.
+   *
+   * @param archive Zip archive to provide resources from.
+   */
+  public ArchiveProtoAndroidResourceProvider(Path archive) {
+    this(archive, new PathOrigin(archive));
   }
 
   @Override

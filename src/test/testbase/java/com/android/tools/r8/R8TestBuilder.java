@@ -966,9 +966,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
               Path resourceZip = testResource.getResourceZip();
               featureSplitGenerator
                   .setAndroidResourceConsumer(new ArchiveProtoAndroidResourceConsumer(outputFile))
-                  .setAndroidResourceProvider(
-                      new ArchiveProtoAndroidResourceProvider(
-                          resourceZip, new PathOrigin(resourceZip)))
+                  .setAndroidResourceProvider(new ArchiveProtoAndroidResourceProvider(resourceZip))
                   .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
 
               return featureSplitGenerator.build();
@@ -997,10 +995,10 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       AndroidTestResource testResource) {
     Path resources = testResource.getResourceZip();
     if (testResource.getAdditionalKeepRuleFiles().isEmpty()) {
-      return new ArchiveProtoAndroidResourceProvider(resources, new PathOrigin(resources));
+      return new ArchiveProtoAndroidResourceProvider(resources);
     }
     ArchiveProtoAndroidResourceProvider provider =
-        new ArchiveProtoAndroidResourceProvider(resources, new PathOrigin(resources)) {
+        new ArchiveProtoAndroidResourceProvider(resources) {
           @Override
           public Collection<AndroidResourceInput> getAndroidResources() throws ResourceException {
             ArrayList<AndroidResourceInput> resourceInputs =

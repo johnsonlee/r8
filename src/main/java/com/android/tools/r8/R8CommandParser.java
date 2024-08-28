@@ -308,8 +308,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
       } else if (arg.equals("--android-resources")) {
         Path inputPath = Paths.get(nextArg);
         Path outputPath = Paths.get(nextNextArg);
-        builder.setAndroidResourceProvider(
-            new ArchiveProtoAndroidResourceProvider(inputPath, new PathOrigin(inputPath)));
+        builder.setAndroidResourceProvider(new ArchiveProtoAndroidResourceProvider(inputPath));
         builder.setAndroidResourceConsumer(
             new ArchiveProtoAndroidResourceConsumer(outputPath, inputPath));
       } else if (arg.equals("--feature")) {
