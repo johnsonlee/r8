@@ -441,40 +441,70 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
   }
 
   private DexClass getConstructorArgumentClass(DexClassAndMethod constructor) {
-    return syntheticNestConstructorTypes.get(constructor.getHolder().getNestHost());
+    if (!appView.options().legacyNestDesugaringIAClasses) {
+      return syntheticNestConstructorTypes.get(constructor.getHolder().getNestHost());
+    } else {
+      return syntheticNestConstructorTypes.get(constructor.getHolderType());
+    }
   }
 
   DexClass ensureConstructorArgumentClass(DexClassAndMethod constructor) {
     assert constructor.getDefinition().isInstanceInitializer();
     assert constructor.isProgramMethod() || constructor.isClasspathMethod();
-    DexType hostType =
-        constructor.isProgramMethod()
-            ? constructor.asProgramMethod().getHolder().getNestHost()
-            : constructor.asClasspathMethod().getHolder().getNestHost();
-    DexClass host = appView.definitionFor(hostType);
-    return syntheticNestConstructorTypes.computeIfAbsent(
-        hostType,
-        holder -> {
-          if (host.isProgramClass()) {
-            return appView
-                .getSyntheticItems()
-                .createFixedClass(
-                    kinds -> kinds.INIT_TYPE_ARGUMENT,
-                    host.asProgramClass(),
-                    appView,
-                    builder -> {});
-          } else {
-            assert host.isClasspathClass();
-            return appView
-                .getSyntheticItems()
-                .ensureFixedClasspathClass(
-                    kinds -> kinds.INIT_TYPE_ARGUMENT,
-                    host.asClasspathClass(),
-                    appView,
-                    ignored -> {},
-                    ignored -> {});
-          }
-        });
+    if (!appView.options().legacyNestDesugaringIAClasses) {
+      DexType hostType =
+          constructor.isProgramMethod()
+              ? constructor.asProgramMethod().getHolder().getNestHost()
+              : constructor.asClasspathMethod().getHolder().getNestHost();
+      DexClass host = appView.definitionFor(hostType);
+      return syntheticNestConstructorTypes.computeIfAbsent(
+          hostType,
+          holder -> {
+            if (host.isProgramClass()) {
+              return appView
+                  .getSyntheticItems()
+                  .createFixedClass(
+                      kinds -> kinds.INIT_TYPE_ARGUMENT,
+                      host.asProgramClass(),
+                      appView,
+                      builder -> {});
+            } else {
+              assert host.isClasspathClass();
+              return appView
+                  .getSyntheticItems()
+                  .ensureFixedClasspathClass(
+                      kinds -> kinds.INIT_TYPE_ARGUMENT,
+                      host.asClasspathClass(),
+                      appView,
+                      ignored -> {},
+                      ignored -> {});
+            }
+          });
+    } else {
+      return syntheticNestConstructorTypes.computeIfAbsent(
+          constructor.getHolderType(),
+          holder -> {
+            if (constructor.isProgramMethod()) {
+              return appView
+                  .getSyntheticItems()
+                  .createFixedClass(
+                      kinds -> kinds.INIT_TYPE_ARGUMENT,
+                      constructor.asProgramMethod().getHolder(),
+                      appView,
+                      builder -> {});
+            } else {
+              assert constructor.isClasspathMethod();
+              return appView
+                  .getSyntheticItems()
+                  .ensureFixedClasspathClass(
+                      kinds -> kinds.INIT_TYPE_ARGUMENT,
+                      constructor.asClasspathMethod().getHolder(),
+                      appView,
+                      ignored -> {},
+                      ignored -> {});
+            }
+          });
+    }
   }
 
   DexMethod getConstructorBridgeReference(

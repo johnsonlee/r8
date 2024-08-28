@@ -523,6 +523,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // Flag to allow force nest desugaring, even if natively supported on the chosen API level.
   public boolean forceNestDesugaring =
       System.getProperty("com.android.tools.r8.forceNestDesugaring") != null;
+  // Flag to use legacy generation of -IA classes for nests (only for Platform until aosp/3241282
+  // lands).
+  public boolean legacyNestDesugaringIAClasses =
+      System.getProperty("com.android.tools.r8.legacyNestDesugaringIAClasses") != null;
 
   // TODO(b/293591931): Remove this flag.
   // Flag to allow permitted subclasses annotations in DEX. See b/231930852 for context.
