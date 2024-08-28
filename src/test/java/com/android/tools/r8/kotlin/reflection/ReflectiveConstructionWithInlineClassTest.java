@@ -119,6 +119,8 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
   @Test
   public void testR8KeepDataClass() throws Exception {
     configureR8(testForR8(parameters.getBackend()).addDontObfuscate())
+        // Add java.lang.invoke.LambdaMetafactory for class file generation.
+        .applyIf(parameters.isCfRuntime(), b -> b.addLibraryFiles(ToolHelper.getCoreLambdaStubs()))
         .compile()
         .assertNoErrorMessages()
         .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
@@ -130,6 +132,8 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
   public void testR8KeepDataClassAndInlineClass() throws Exception {
     configureR8(testForR8(parameters.getBackend()))
         .addKeepRules("-keep class " + PKG + ".Value { *; }")
+        // Add java.lang.invoke.LambdaMetafactory for class file generation.
+        .applyIf(parameters.isCfRuntime(), b -> b.addLibraryFiles(ToolHelper.getCoreLambdaStubs()))
         .compile()
         .assertNoErrorMessages()
         .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)

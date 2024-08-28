@@ -136,6 +136,19 @@ public class HorizontallyMergedClassesInspector {
     return this;
   }
 
+  public HorizontallyMergedClassesInspector applyIf(
+      boolean condition,
+      ThrowableConsumer<HorizontallyMergedClassesInspector> thenConsumer,
+      boolean elseIfCondition,
+      ThrowableConsumer<HorizontallyMergedClassesInspector> elseIfThenConsumer) {
+    if (condition) {
+      thenConsumer.acceptWithRuntimeException(this);
+    } else if (elseIfCondition) {
+      elseIfThenConsumer.acceptWithRuntimeException(this);
+    }
+    return this;
+  }
+
   public HorizontallyMergedClassesInspector assertMergedInto(Class<?> from, Class<?> target) {
     return assertMergedInto(toDexType(from), toDexType(target));
   }

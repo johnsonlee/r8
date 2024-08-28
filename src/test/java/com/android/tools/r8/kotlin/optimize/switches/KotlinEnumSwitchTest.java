@@ -55,6 +55,8 @@ public class KotlinEnumSwitchTest extends KotlinTestBase {
     testForR8(parameters.getBackend())
         // Use android.jar with java.lang.ClassValue.
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.U))
+        // Add java.lang.invoke.LambdaMetafactory for class file generation.
+        .applyIf(parameters.isCfRuntime(), b -> b.addLibraryFiles(ToolHelper.getCoreLambdaStubs()))
         .addProgramFiles(
             kotlinJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule("enumswitch.EnumSwitchKt")
