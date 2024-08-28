@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
@@ -41,7 +42,6 @@ import com.android.tools.r8.ir.conversion.passes.StringSwitchRemover;
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
 import com.android.tools.r8.ir.conversion.passes.TrivialPhiSimplifier;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
-import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.ir.optimize.AssertionErrorTwoArgsConstructorRewriter;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.AssumeInserter;

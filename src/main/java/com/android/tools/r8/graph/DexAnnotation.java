@@ -5,6 +5,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.graph.DexValue.DexValueAnnotation;
@@ -16,7 +17,6 @@ import com.android.tools.r8.graph.DexValue.DexValueNull;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
-import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;

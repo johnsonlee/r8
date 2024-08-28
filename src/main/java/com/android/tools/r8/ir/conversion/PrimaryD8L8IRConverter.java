@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor
 import static com.android.tools.r8.ir.desugar.lambda.D8LambdaDesugaring.rewriteEnclosingLambdaMethodAttributes;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformerEventConsumer;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
@@ -22,7 +23,6 @@ import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformerEventConsumer;
 import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceApplicationRewriter;

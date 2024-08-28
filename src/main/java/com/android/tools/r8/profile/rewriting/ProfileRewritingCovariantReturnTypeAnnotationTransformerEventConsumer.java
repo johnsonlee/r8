@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.profile.rewriting;
 
+import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformerEventConsumer;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformerEventConsumer;
 
 public class ProfileRewritingCovariantReturnTypeAnnotationTransformerEventConsumer
     implements CovariantReturnTypeAnnotationTransformerEventConsumer {
