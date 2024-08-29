@@ -44,8 +44,20 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     return codeSizeResults;
   }
 
+  public LongList getInstructionCodeSizeResults() {
+    return instructionCodeSizeResults;
+  }
+
   public LongList getComposableInstructionCodeSizeResults() {
     return composableInstructionCodeSizeResults;
+  }
+
+  public List<Int2ReferenceMap<SegmentInfo>> getDexSegmentsSizeResults() {
+    return dexSegmentsSizeResults;
+  }
+
+  public LongList getDex2OatSizeResult() {
+    return dex2OatSizeResult;
   }
 
   public LongList getRuntimeResults() {

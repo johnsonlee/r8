@@ -7,17 +7,48 @@
     "NowInAndroidApp": {
       "benchmark_name": "NowInAndroidApp",
       "results": [
-        { "code_size": 42, "runtime": 1 },
-        { "code_size": 42, "runtime": 2 },
-        { "code_size": 42, "runtime": 3 }
+        {
+          "code_size": 1,
+          "instruction_code_size": 2,
+          "composable_code_size": 3,
+          "oat_code_size": 4,
+          "runtime": 1
+        },
+        {
+          "code_size": 1,
+          "instruction_code_size": 2,
+          "composable_code_size": 3,
+          "oat_code_size": 4,
+          "runtime": 1
+        },
+        {
+          "code_size": 1,
+          "instruction_code_size": 2,
+          "composable_code_size": 3,
+          "oat_code_size": 4,
+          "runtime": 1
+        }
       ]
     },
     "TiviApp": {
       "benchmark_name": "TiviApp",
       "results": [
-        { "code_size": 84, "runtime": 4 },
-        { "code_size": 84, "runtime": 5 },
-        { "code_size": 84, "runtime": 6 }
+        {
+          "code_size": 1,
+          "instruction_code_size": 2,
+          "composable_code_size": 3,
+          "oat_code_size": 4,
+          "runtime": 1
+        },
+        {
+        },
+        {
+          "code_size": 1,
+          "instruction_code_size": 2,
+          "composable_code_size": 3,
+          "oat_code_size": 4,
+          "runtime": 1
+        }
       ]
     }
   }

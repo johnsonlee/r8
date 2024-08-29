@@ -121,6 +121,29 @@
       benchmarkSelectors.appendChild(label);
     }
 
+    function getSingleResult(benchmark, commit, resultName, resultIteration = 0) {
+      if (!(benchmark in commit.benchmarks)) {
+        return NaN;
+      }
+      const allResults = commit.benchmarks[benchmark].results;
+      const resultsForIteration = allResults[resultIteration];
+      // If a given iteration does not declare a result, then the result
+      // was the same as the first run.
+      if (resultIteration > 0 && !(resultName in resultsForIteration)) {
+        return allResults.first()[resultName];
+      }
+      return resultsForIteration[resultName];
+    }
+
+    function getAllResults(benchmark, commit, resultName) {
+      const result = [];
+      const allResults = commit.benchmarks[benchmark].results;
+      for (var iteration = 0; iteration < allResults.length; iteration++) {
+        result.push(getSingleResult(benchmark, commit, resultName, iteration));
+      }
+      return result;
+    }
+
     // Chart data provider.
     function getData() {
       const filteredCommits = commits.slice(zoom.left, zoom.right);
@@ -129,40 +152,28 @@
       for (const selectedBenchmark of selectedBenchmarks.values()) {
         const codeSizeData =
             filteredCommits.map(
-                (c, i) =>
-                    selectedBenchmark in filteredCommits[i].benchmarks
-                        ? filteredCommits[i]
-                            .benchmarks[selectedBenchmark]
-                            .results
-                            .first()
-                            .code_size
-                        : NaN);
-        const composableCodeSizeData =
+                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "code_size"));
+        const instructionCodeSizeData =
             filteredCommits.map(
-                (c, i) =>
-                    selectedBenchmark in filteredCommits[i].benchmarks
-                        ? filteredCommits[i]
-                            .benchmarks[selectedBenchmark]
-                            .results
-                            .first()
-                            .composable_code_size
-                        : NaN);
+                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "instruction_code_size"));
+        const composableInstructionCodeSizeData =
+            filteredCommits.map(
+                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "composable_code_size"));
+        const oatCodeSizeData =
+            filteredCommits.map(
+                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "oat_code_size"));
         const codeSizeScatterData = [];
         for (const commit of filteredCommits.values()) {
           if (!(selectedBenchmark in commit.benchmarks)) {
             continue;
           }
-          const codeSizes =
-              commit.benchmarks[selectedBenchmark].results.map(result => result.code_size)
-          const expectedCodeSize = codeSizes.first();
-          if (codeSizes.any(codeSize => codeSize != expectedCodeSize)) {
-            const seen = new Set();
-            seen.add(expectedCodeSize);
-            for (const codeSize of codeSizes.values()) {
-              if (!seen.has(codeSize)) {
-                codeSizeScatterData.push({ x: commit.index, y: codeSize });
-                seen.add(codeSize);
-              }
+          const seen = new Set();
+          seen.add(getSingleResult(selectedBenchmark, commit, "code_size"));
+          const codeSizes = getAllResults(selectedBenchmark, commit, "code_size")
+          for (const codeSize of codeSizes.values()) {
+            if (!seen.has(codeSize)) {
+              codeSizeScatterData.push({ x: commit.index, y: codeSize });
+              seen.add(codeSize);
             }
           }
         }
@@ -170,10 +181,7 @@
             filteredCommits.map(
                 (c, i) =>
                     selectedBenchmark in filteredCommits[i].benchmarks
-                        ? filteredCommits[i]
-                            .benchmarks[selectedBenchmark]
-                            .results
-                            .map(result => result.runtime)
+                        ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime")
                             .min()
                             .ns_to_s()
                         : NaN);
@@ -182,8 +190,7 @@
           if (!(selectedBenchmark in commit.benchmarks)) {
             continue;
           }
-          const runtimes =
-              commit.benchmarks[selectedBenchmark].results.map(result => result.runtime)
+          const runtimes = getAllResults(selectedBenchmark, commit, "runtime")
           for (const runtime of runtimes.values()) {
             runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
           }
@@ -194,7 +201,7 @@
           {
             benchmark: selectedBenchmark,
             type: 'line',
-            label: 'Code size',
+            label: 'Dex size',
             data: codeSizeData,
             datalabels: {
               align: 'end',
@@ -216,14 +223,58 @@
           {
             benchmark: selectedBenchmark,
             type: 'line',
+            label: 'Instruction size',
+            data: instructionCodeSizeData,
+            datalabels: {
+              align: 'end',
+              anchor: 'end'
+            },
+            tension: 0.1,
+            yAxisID: 'y_instruction_code_size',
+            segment: {
+              borderColor: ctx =>
+                  skipped(
+                      ctx,
+                      myChart
+                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
+                          : undefined),
+              borderDash: ctx => skipped(ctx, [6, 6]),
+            },
+            spanGaps: true
+          },
+          {
+            benchmark: selectedBenchmark,
+            type: 'line',
             label: 'Composable size',
-            data: composableCodeSizeData,
+            data: composableInstructionCodeSizeData,
             datalabels: {
               align: 'start',
               anchor: 'start'
             },
             tension: 0.1,
-            yAxisID: 'y_composable_code_size',
+            yAxisID: 'y_instruction_code_size',
+            segment: {
+              borderColor: ctx =>
+                  skipped(
+                      ctx,
+                      myChart
+                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
+                          : undefined),
+              borderDash: ctx => skipped(ctx, [6, 6]),
+            },
+            spanGaps: true
+          },
+          {
+            benchmark: selectedBenchmark,
+            type: 'line',
+            label: 'Oat size',
+            data: oatCodeSizeData,
+            datalabels: {
+              align: 'start',
+              anchor: 'start'
+            },
+            tension: 0.1,
+            yAxisID: 'y_oat_code_size',
             segment: {
               borderColor: ctx =>
                   skipped(
@@ -294,7 +345,7 @@
 
     // Legend tracking.
     const legends =
-        new Set(['Code size', 'Composable size', 'Nondeterminism', 'Runtime', 'Runtime variance']);
+        new Set(['Dex size', 'Instruction size', 'Composable size', 'Oat size', 'Nondeterminism', 'Runtime', 'Runtime variance']);
     const selectedLegends =
         new Set(
               unescape(window.location.hash.substring(1))
@@ -408,7 +459,7 @@
           position: 'left',
           title: {
             display: true,
-            text: 'Code size (bytes)'
+            text: 'Dex size (bytes)'
           }
         },
         y_runtime: {
@@ -418,13 +469,20 @@
             text: 'Runtime (seconds)'
           }
         },
-        y_composable_code_size: {
+        y_instruction_code_size: {
           position: 'left',
           title: {
             display: true,
-            text: 'Composable code size (bytes)'
+            text: 'Instruction size (bytes)'
           }
         },
+        y_oat_code_size: {
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Oat size (bytes)'
+          }
+        }
       }
     };
 
@@ -522,8 +580,10 @@
         }
 
         // Update scales.
-        options.scales.y.display = selectedLegends.has('Code size');
-        options.scales.y_composable_code_size.display = selectedLegends.has('Composable size');
+        options.scales.y.display = selectedLegends.has('Dex size');
+        options.scales.y_instruction_code_size.display =
+            selectedLegends.has('Instruction size') || selectedLegends.has('Composable size');
+        options.scales.y_oat_code_size.display = selectedLegends.has('Oat size');
         options.scales.y_runtime.display =
             selectedLegends.has('Runtime') || selectedLegends.has('Runtime variance');
 
