@@ -11,9 +11,9 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.ListUtils;
-import java.util.List;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Represents a ternary expression (exp ? u : v). The {@link #condition} is an expression containing
@@ -115,21 +115,25 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public Iterable<BaseInFlow> getBaseInFlow() {
-    List<BaseInFlow> baseInFlow = ListUtils.newArrayList(condition.getSingleOpenVariable());
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    TraversalContinuation<TB, TC> traversalContinuation = condition.traverseBaseInFlow(fn);
+    if (traversalContinuation.shouldBreak()) {
+      return traversalContinuation;
+    }
     if (thenState.isConcrete()) {
-      for (InFlow inFlow : thenState.asConcrete().getInFlow()) {
-        assert inFlow.isBaseInFlow();
-        baseInFlow.add(inFlow.asBaseInFlow());
+      traversalContinuation = thenState.asConcrete().traverseBaseInFlow(fn);
+      if (traversalContinuation.shouldBreak()) {
+        return traversalContinuation;
       }
     }
     if (elseState.isConcrete()) {
-      for (InFlow inFlow : elseState.asConcrete().getInFlow()) {
-        assert inFlow.isBaseInFlow();
-        baseInFlow.add(inFlow.asBaseInFlow());
+      traversalContinuation = elseState.asConcrete().traverseBaseInFlow(fn);
+      if (traversalContinuation.shouldBreak()) {
+        return traversalContinuation;
       }
     }
-    return baseInFlow;
+    return traversalContinuation;
   }
 
   @Override

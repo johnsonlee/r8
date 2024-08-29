@@ -40,10 +40,10 @@ import com.android.tools.r8.optimize.argumentpropagation.propagation.DefaultFiel
 import com.android.tools.r8.optimize.argumentpropagation.propagation.FlowGraph;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.InFlowPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.LazyBox;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.TraversalUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -182,11 +182,13 @@ public class ComposeMethodProcessor extends MethodProcessor {
       return;
     }
 
-    UpdateChangedFlagsAbstractFunction transferFunction = null;
+    UpdateChangedFlagsAbstractFunction transferFunction;
     if (parameterState.getInFlow().size() == 1) {
       transferFunction =
           Iterables.getOnlyElement(parameterState.getInFlow())
               .asUpdateChangedFlagsAbstractFunction();
+    } else {
+      transferFunction = null;
     }
     if (transferFunction == null) {
       methodState.setParameterState(parameterIndex, ValueState.unknown());
@@ -194,13 +196,10 @@ public class ComposeMethodProcessor extends MethodProcessor {
     }
 
     // This is a call to a composable function from a restart function.
-    Iterable<? extends BaseInFlow> baseInFlow = transferFunction.getBaseInFlow();
-    assert Iterables.size(baseInFlow) == 1;
-    BaseInFlow singleBaseInFlow = IterableUtils.first(baseInFlow);
-    assert singleBaseInFlow.isFieldValue();
-
+    assert TraversalUtils.isSingleton(transferFunction::traverseBaseInFlow);
+    BaseInFlow baseInFlow = TraversalUtils.getFirst(transferFunction::traverseBaseInFlow);
     ProgramField field =
-        asProgramFieldOrNull(appView.definitionFor(singleBaseInFlow.asFieldValue().getField()));
+        asProgramFieldOrNull(appView.definitionFor(baseInFlow.asFieldValue().getField()));
     assert field != null;
 
     // If the only input to the $$changed parameter of the Composable function is in-flow then skip.

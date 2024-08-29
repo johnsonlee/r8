@@ -6,11 +6,11 @@ package com.android.tools.r8.optimize.argumentpropagation.propagation;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.WorkList;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,14 +86,16 @@ public class InFlowPropagatorDebugUtils {
       List<String> transferFunctionDependencies = new ArrayList<>();
       transferFunctionDependencies.add("");
       transferFunctionDependencies.add("TRANSFER FN INPUTS:");
-      for (BaseInFlow transferFunctionDependency : transferFunction.getBaseInFlow()) {
-        if (!node.equalsBaseInFlow(transferFunctionDependency)) {
-          ValueState transferFunctionDependencyState =
-              flowGraphStateProvider.getState(transferFunctionDependency, null);
-          transferFunctionDependencies.add("  DEP: " + transferFunctionDependency);
-          transferFunctionDependencies.add("  DEP STATE: " + transferFunctionDependencyState);
-        }
-      }
+      transferFunction.traverseBaseInFlow(
+          transferFunctionDependency -> {
+            if (!node.equalsBaseInFlow(transferFunctionDependency)) {
+              ValueState transferFunctionDependencyState =
+                  flowGraphStateProvider.getState(transferFunctionDependency, null);
+              transferFunctionDependencies.add("  DEP: " + transferFunctionDependency);
+              transferFunctionDependencies.add("  DEP STATE: " + transferFunctionDependencyState);
+            }
+            return TraversalContinuation.doContinue();
+          });
       ValueState newSuccessorState = successorNode.getState();
       log(
           "PROPAGATE CONCRETE",

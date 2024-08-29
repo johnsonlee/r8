@@ -12,7 +12,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
-import java.util.Collections;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -42,8 +42,9 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   }
 
   @Override
-  public Iterable<BaseInFlow> getBaseInFlow() {
-    return Collections.singleton(this);
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    return fn.apply(this);
   }
 
   @Override

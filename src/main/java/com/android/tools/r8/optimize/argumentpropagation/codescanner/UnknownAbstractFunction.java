@@ -7,6 +7,8 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.TraversalContinuation;
+import java.util.function.Function;
 
 public class UnknownAbstractFunction implements AbstractFunction {
 
@@ -33,7 +35,8 @@ public class UnknownAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public Iterable<BaseInFlow> getBaseInFlow() {
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
     throw new Unreachable();
   }
 

@@ -7,8 +7,10 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueConstantPropagationJoiner;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -48,6 +50,16 @@ public class ComputationTreeLogicalBinopIntPhiNode extends ComputationTreeLogica
       AbstractValue rightValue = right.evaluate(appView, argumentAssignment);
       return joiner.join(leftValue, rightValue, TypeElement.getInt());
     }
+  }
+
+  @Override
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    TraversalContinuation<TB, TC> traversalContinuation = condition.traverseBaseInFlow(fn);
+    if (traversalContinuation.shouldContinue()) {
+      traversalContinuation = super.traverseBaseInFlow(fn);
+    }
+    return traversalContinuation;
   }
 
   @Override

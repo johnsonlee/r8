@@ -10,9 +10,11 @@ import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.Action;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public abstract class ConcreteValueState extends NonEmptyValueState {
@@ -82,6 +84,18 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
   public Set<InFlow> getInFlow() {
     assert inFlow.isEmpty() || inFlow instanceof HashSet<?>;
     return inFlow;
+  }
+
+  public final <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    TraversalContinuation<TB, TC> traversalContinuation = TraversalContinuation.doContinue();
+    for (InFlow inFlow : getInFlow()) {
+      traversalContinuation = inFlow.traverseBaseInFlow(fn);
+      if (traversalContinuation.shouldBreak()) {
+        break;
+      }
+    }
+    return traversalContinuation;
   }
 
   public abstract BottomValueState getCorrespondingBottom();

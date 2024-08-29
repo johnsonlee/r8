@@ -9,8 +9,9 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Encodes the `x | const` abstract function. This is currently used as part of the modeling of
@@ -46,21 +47,14 @@ public class OrAbstractFunction implements AbstractFunction {
 
   @Override
   public boolean verifyContainsBaseInFlow(BaseInFlow otherInFlow) {
-    if (inFlow.isAbstractFunction()) {
-      assert inFlow.asAbstractFunction().verifyContainsBaseInFlow(otherInFlow);
-    } else {
-      assert inFlow.isBaseInFlow();
-      assert inFlow.equals(otherInFlow);
-    }
+    assert inFlow.equals(otherInFlow);
     return true;
   }
 
   @Override
-  public Iterable<? extends BaseInFlow> getBaseInFlow() {
-    if (inFlow.isAbstractFunction()) {
-      return inFlow.asAbstractFunction().getBaseInFlow();
-    }
-    return IterableUtils.singleton(inFlow);
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    return fn.apply(inFlow);
   }
 
   @Override

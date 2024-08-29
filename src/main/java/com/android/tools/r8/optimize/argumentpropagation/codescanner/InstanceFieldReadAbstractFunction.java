@@ -8,7 +8,8 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.google.common.collect.Lists;
+import com.android.tools.r8.utils.TraversalContinuation;
+import java.util.function.Function;
 
 public class InstanceFieldReadAbstractFunction implements AbstractFunction {
 
@@ -55,8 +56,13 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public Iterable<BaseInFlow> getBaseInFlow() {
-    return Lists.newArrayList(receiver, new FieldValue(field));
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    TraversalContinuation<TB, TC> traversalContinuation = fn.apply(receiver);
+    if (traversalContinuation.shouldContinue()) {
+      traversalContinuation = fn.apply(new FieldValue(field));
+    }
+    return traversalContinuation;
   }
 
   private ValueState getFallbackState(FlowGraphStateProvider flowGraphStateProvider) {

@@ -16,8 +16,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowKind;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import java.util.Collections;
-import java.util.Set;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.function.Function;
 
 public abstract class AbstractValue implements ComputationTreeNode {
@@ -43,9 +42,10 @@ public abstract class AbstractValue implements ComputationTreeNode {
   }
 
   @Override
-  public Set<BaseInFlow> getBaseInFlow() {
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
     // Abstract values do not contain any open variables.
-    return Collections.emptySet();
+    return TraversalContinuation.doContinue();
   }
 
   @Override

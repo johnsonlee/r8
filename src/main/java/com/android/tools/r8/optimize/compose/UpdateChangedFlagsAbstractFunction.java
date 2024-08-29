@@ -20,8 +20,9 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowKind;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.OrAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
 
@@ -120,12 +121,9 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public Iterable<? extends BaseInFlow> getBaseInFlow() {
-    if (inFlow.isAbstractFunction()) {
-      return inFlow.asAbstractFunction().getBaseInFlow();
-    }
-    assert inFlow.isBaseInFlow();
-    return IterableUtils.singleton(inFlow.asBaseInFlow());
+  public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
+      Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
+    return inFlow.traverseBaseInFlow(fn);
   }
 
   @Override
