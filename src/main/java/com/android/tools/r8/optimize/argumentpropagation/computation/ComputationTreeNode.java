@@ -19,6 +19,10 @@ public interface ComputationTreeNode {
 
   MethodParameter getSingleOpenVariable();
 
+  default boolean isArgumentBitSetCompareNode() {
+    return false;
+  }
+
   default boolean isUnknown() {
     return false;
   }

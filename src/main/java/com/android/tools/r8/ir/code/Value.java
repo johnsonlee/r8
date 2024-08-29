@@ -371,8 +371,17 @@ public class Value implements Comparable<Value> {
   }
 
   public Instruction singleUniqueUser() {
-    assert ImmutableSet.copyOf(users).size() == 1;
-    return users.getFirst();
+    assert hasSingleUniqueUser();
+    return firstUser();
+  }
+
+  public boolean hasSingleUniquePhiUser() {
+    return uniquePhiUsers().size() == 1;
+  }
+
+  public Phi singleUniquePhiUser() {
+    assert hasSingleUniquePhiUser();
+    return firstPhiUser();
   }
 
   public Set<Instruction> aliasedUsers() {
@@ -395,6 +404,11 @@ public class Value implements Comparable<Value> {
         collectAliasedUsersViaAssume(configuration, user.outValue(), collectedUsers);
       }
     }
+  }
+
+  public Instruction firstUser() {
+    assert !users.isEmpty();
+    return users.getFirst();
   }
 
   public Phi firstPhiUser() {

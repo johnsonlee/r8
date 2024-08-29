@@ -5,7 +5,9 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.code.IfType;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import java.util.Objects;
 import java.util.function.IntFunction;
 
@@ -30,6 +32,20 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
       IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory) {
     AbstractValue operandValue = operand.evaluate(argumentAssignment, abstractValueFactory);
     return type.evaluate(operandValue, abstractValueFactory);
+  }
+
+  @Override
+  public boolean isArgumentBitSetCompareNode() {
+    if (!type.isEqualsOrNotEquals() || !(operand instanceof ComputationTreeLogicalBinopAndNode)) {
+      return false;
+    }
+    ComputationTreeLogicalBinopAndNode andOperand = (ComputationTreeLogicalBinopAndNode) operand;
+    return andOperand.left instanceof MethodParameter
+        && andOperand.right instanceof SingleNumberValue;
+  }
+
+  public ComputationTreeUnopCompareNode negate() {
+    return new ComputationTreeUnopCompareNode(operand, type.inverted());
   }
 
   @Override

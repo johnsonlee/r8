@@ -9,8 +9,11 @@ import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.dfs.DFSStack;
@@ -38,9 +41,33 @@ class EffectivelyUnusedArgumentsGraph {
 
   public static EffectivelyUnusedArgumentsGraph create(
       AppView<AppInfoWithLiveness> appView,
+      Map<MethodParameter, ComputationTreeNode> conditions,
       Map<MethodParameter, Set<MethodParameter>> constraints,
       PrunedItems prunedItems) {
     EffectivelyUnusedArgumentsGraph graph = new EffectivelyUnusedArgumentsGraph(appView);
+    conditions.forEach(
+        (methodParameter, condition) -> {
+          ProgramMethod method =
+              asProgramMethodOrNull(appView.definitionFor(methodParameter.getMethod()));
+          if (method == null) {
+            assert false;
+            return;
+          }
+          // Evaluate the condition. If the condition evaluates to true, then create a graph node
+          // for the method parameter and delete all constraints. As a result, the node will not
+          // have any successors, meaning it is effectively unused.
+          CallSiteOptimizationInfo optimizationInfo =
+              method.getOptimizationInfo().getArgumentInfos();
+          if (optimizationInfo.isConcreteCallSiteOptimizationInfo()) {
+            AbstractValue result =
+                condition.evaluate(
+                    optimizationInfo::getAbstractArgumentValue, appView.abstractValueFactory());
+            if (result.isTrue()) {
+              graph.getOrCreateNode(methodParameter);
+              constraints.remove(methodParameter);
+            }
+          }
+        });
     constraints.forEach(
         (methodParameter, constraintsForMethodParameter) -> {
           EffectivelyUnusedArgumentsGraphNode node = graph.getOrCreateNode(methodParameter);

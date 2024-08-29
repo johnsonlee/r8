@@ -370,6 +370,10 @@ public class BasicBlock {
     return predecessors.get(0);
   }
 
+  public BasicBlock getPredecessor(int i) {
+    return getPredecessors().get(i);
+  }
+
   public List<BasicBlock> getPredecessors() {
     return ListUtils.unmodifiableForTesting(predecessors);
   }

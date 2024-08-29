@@ -35,7 +35,6 @@ import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
 import static com.android.tools.r8.utils.ObjectUtils.getBooleanOrElse;
 
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -75,6 +74,7 @@ import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstMethodHandle;
 import com.android.tools.r8.ir.code.ConstMethodType;
+import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.DexItemBasedConstString;
 import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.FieldInstruction;
@@ -874,7 +874,7 @@ public class LensCodeRewriter {
       }
     }
     if (mayHaveUnreachableBlocks) {
-      code.removeUnreachableBlocks(affectedValues, prunedValue -> affectedPhis.remove(prunedValue));
+      code.removeUnreachableBlocks(affectedValues, affectedPhis::remove);
     }
     affectedValues.narrowingWithAssumeRemoval(appView, code);
     if (!affectedPhis.isEmpty()) {
@@ -884,7 +884,7 @@ public class LensCodeRewriter {
     nullCheckInserter.processWorklist();
     code.removeAllDeadAndTrivialPhis();
     code.removeRedundantBlocks();
-    removeUnusedArguments(method, code, unusedArguments);
+    removeUnusedArguments(code, unusedArguments);
 
     // Finalize cast and null check insertion.
     interfaceTypeToClassTypeRewriterHelper.processWorklist();
@@ -1075,16 +1075,31 @@ public class LensCodeRewriter {
     return replacement;
   }
 
-  private void removeUnusedArguments(
-      ProgramMethod method, IRCode code, Set<UnusedArgument> unusedArguments) {
+  private void removeUnusedArguments(IRCode code, Set<UnusedArgument> unusedArguments) {
+    AffectedValues affectedValues = new AffectedValues();
     for (UnusedArgument unusedArgument : unusedArguments) {
+      InstructionListIterator instructionIterator =
+          unusedArgument.getBlock().listIterator(code, unusedArgument);
       if (unusedArgument.outValue().hasAnyUsers()) {
-        throw new Unreachable("Unused argument with users in " + method.toSourceString());
+        // This is an unused argument with a default value. The unused argument is an operand of the
+        // phi. This use is eliminated after constant propagation + branch pruning. We eliminate the
+        // UnusedArgument instruction early by replacing it with a const 0.
+        assert unusedArgument.outValue().hasPhiUsers();
+        assert !unusedArgument.outValue().hasUsers();
+        assert !unusedArgument.outValue().hasDebugUsers();
+        TypeElement type = unusedArgument.outValue().getType();
+        instructionIterator.replaceCurrentInstruction(
+            ConstNumber.builder()
+                .setFreshOutValue(code, type.isReferenceType() ? TypeElement.getNull() : type)
+                .setPosition(Position.none())
+                .setValue(0)
+                .build(),
+            affectedValues);
+      } else {
+        instructionIterator.removeOrReplaceByDebugLocalRead();
       }
-      InstructionListIterator instructionIterator = unusedArgument.getBlock().listIterator(code);
-      instructionIterator.nextUntil(instruction -> instruction == unusedArgument);
-      instructionIterator.removeOrReplaceByDebugLocalRead();
     }
+    affectedValues.narrowingWithAssumeRemoval(appView, code);
   }
 
   private Deque<GraphLensInterval> getUnappliedLenses(ProgramMethod method) {

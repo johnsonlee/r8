@@ -134,7 +134,7 @@ public class ArgumentPropagator {
       codeScanner.scan(method, code, abstractValueSupplier, pathConstraintSupplier, timing);
 
       assert effectivelyUnusedArgumentsAnalysis != null;
-      effectivelyUnusedArgumentsAnalysis.scan(method, code);
+      effectivelyUnusedArgumentsAnalysis.scan(method, code, pathConstraintSupplier);
 
       assert reprocessingCriteriaCollection != null;
       reprocessingCriteriaCollection.analyzeArgumentUses(method, code);
