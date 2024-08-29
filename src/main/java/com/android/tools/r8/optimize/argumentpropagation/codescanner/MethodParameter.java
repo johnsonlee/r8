@@ -78,6 +78,11 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   }
 
   @Override
+  public boolean isComputationLeaf() {
+    return true;
+  }
+
+  @Override
   public boolean isMethodParameter() {
     return true;
   }
@@ -93,13 +98,16 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   }
 
   @Override
-  @SuppressWarnings({"EqualsGetClass", "ReferenceEquality"})
+  @SuppressWarnings("EqualsGetClass")
   public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
     if (obj == null || getClass() != obj.getClass()) {
       return false;
     }
     MethodParameter methodParameter = (MethodParameter) obj;
-    return method == methodParameter.method && index == methodParameter.index;
+    return method.isIdenticalTo(methodParameter.method) && index == methodParameter.index;
   }
 
   @Override

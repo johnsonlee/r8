@@ -15,12 +15,22 @@ public enum IfType {
         SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
       return abstractValueFactory.createSingleBooleanValue(operand.getValue() == 0);
     }
+
+    @Override
+    public String getSymbol() {
+      return "==";
+    }
   },
   GE {
     @Override
     public AbstractValue evaluate(
         SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
       return abstractValueFactory.createSingleBooleanValue(operand.getValue() >= 0);
+    }
+
+    @Override
+    public String getSymbol() {
+      return ">=";
     }
   },
   GT {
@@ -29,12 +39,22 @@ public enum IfType {
         SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
       return abstractValueFactory.createSingleBooleanValue(operand.getValue() > 0);
     }
+
+    @Override
+    public String getSymbol() {
+      return ">";
+    }
   },
   LE {
     @Override
     public AbstractValue evaluate(
         SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
       return abstractValueFactory.createSingleBooleanValue(operand.getValue() <= 0);
+    }
+
+    @Override
+    public String getSymbol() {
+      return "<=";
     }
   },
   LT {
@@ -43,12 +63,22 @@ public enum IfType {
         SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
       return abstractValueFactory.createSingleBooleanValue(operand.getValue() < 0);
     }
+
+    @Override
+    public String getSymbol() {
+      return "<";
+    }
   },
   NE {
     @Override
     public AbstractValue evaluate(
         SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
       return abstractValueFactory.createSingleBooleanValue(operand.getValue() != 0);
+    }
+
+    @Override
+    public String getSymbol() {
+      return "!=";
     }
   };
 
@@ -103,4 +133,6 @@ public enum IfType {
         throw new Unreachable("Unknown if condition type.");
     }
   }
+
+  public abstract String getSymbol();
 }

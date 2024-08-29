@@ -47,4 +47,9 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
   public int hashCode() {
     return Objects.hash(getClass(), left, right);
   }
+
+  @Override
+  public String toString() {
+    return left.toStringWithParenthesis() + " & " + right.toStringWithParenthesis();
+  }
 }

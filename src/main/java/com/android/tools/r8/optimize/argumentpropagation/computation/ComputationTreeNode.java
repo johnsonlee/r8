@@ -23,7 +23,17 @@ public interface ComputationTreeNode {
     return false;
   }
 
+  boolean isComputationLeaf();
+
   default boolean isUnknown() {
     return false;
+  }
+
+  default String toStringWithParenthesis() {
+    if (isComputationLeaf()) {
+      return toString();
+    } else {
+      return "(" + this + ")";
+    }
   }
 }

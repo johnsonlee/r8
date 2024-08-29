@@ -35,6 +35,11 @@ public abstract class AbstractValue implements ComputationTreeNode {
     return null;
   }
 
+  @Override
+  public final boolean isComputationLeaf() {
+    return true;
+  }
+
   public abstract boolean isNonTrivial();
 
   public boolean isSingleBoolean() {

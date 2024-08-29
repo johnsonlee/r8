@@ -9,8 +9,16 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 abstract class ComputationTreeBaseNode implements ComputationTreeNode {
 
   @Override
+  public final boolean isComputationLeaf() {
+    return false;
+  }
+
+  @Override
   public abstract boolean equals(Object obj);
 
   @Override
   public abstract int hashCode();
+
+  @Override
+  public abstract String toString();
 }

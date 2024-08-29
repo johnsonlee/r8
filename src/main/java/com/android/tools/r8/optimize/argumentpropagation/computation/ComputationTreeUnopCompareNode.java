@@ -64,4 +64,9 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
   public int hashCode() {
     return Objects.hash(getClass(), operand, type);
   }
+
+  @Override
+  public String toString() {
+    return operand.toStringWithParenthesis() + " " + type.getSymbol() + " 0";
+  }
 }
