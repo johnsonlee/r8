@@ -76,24 +76,31 @@ public final class CovariantReturnTypeAnnotationTransformer {
     this.references = new CovariantReturnTypeReferences(factory);
   }
 
+  public CovariantReturnTypeReferences getReferences() {
+    return references;
+  }
+
   public static void runIfNecessary(
       AppView<?> appView,
       IRConverter converter,
       CovariantReturnTypeAnnotationTransformerEventConsumer eventConsumer,
       ExecutorService executorService)
       throws ExecutionException {
+    if (shouldRun(appView)) {
+      new CovariantReturnTypeAnnotationTransformer(appView, converter)
+          .run(eventConsumer, executorService);
+    }
+  }
+
+  public static boolean shouldRun(AppView<?> appView) {
     if (!appView.options().processCovariantReturnTypeAnnotations) {
-      return;
+      return false;
     }
     assert !appView.options().isDesugaredLibraryCompilation();
     DexItemFactory factory = appView.dexItemFactory();
     DexString covariantReturnTypeDescriptor =
         factory.createString(CovariantReturnTypeReferences.COVARIANT_RETURN_TYPE_DESCRIPTOR);
-    if (factory.lookupType(covariantReturnTypeDescriptor) == null) {
-      return;
-    }
-    new CovariantReturnTypeAnnotationTransformer(appView, converter)
-        .run(eventConsumer, executorService);
+    return factory.lookupType(covariantReturnTypeDescriptor) != null;
   }
 
   private void run(
@@ -232,14 +239,6 @@ public final class CovariantReturnTypeAnnotationTransformer {
                               annotation.getAnnotationType())));
     }
     return covariantReturnTypes;
-  }
-
-  public boolean hasCovariantReturnTypeAnnotation(ProgramMethod method) {
-    return method
-        .getAnnotations()
-        .hasAnnotation(
-            annotation ->
-                references.isOneOfCovariantReturnTypeAnnotations(annotation.getAnnotationType()));
   }
 
   private void getCovariantReturnTypesFromAnnotation(

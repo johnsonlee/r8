@@ -22,11 +22,10 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
-import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer;
+import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeEnqueuerExtension;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
-import com.android.tools.r8.errors.NonKeptMethodWithCovariantReturnTypeAnnotationDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.IsolatedFeatureSplitsChecker;
@@ -480,10 +479,6 @@ public class Enqueuer {
   private final CfInstructionDesugaringCollection desugaring;
   private final ProgramMethodSet pendingCodeDesugaring = ProgramMethodSet.create();
 
-  private final CovariantReturnTypeAnnotationTransformer covariantReturnTypeAnnotationTransformer;
-  private final Map<DexProgramClass, List<ProgramMethod>> pendingCovariantReturnTypeDesugaring =
-      new IdentityHashMap<>();
-
   // Collections for tracing progress on interface method desugaring.
 
   // The pending method move set is all the methods that need to be moved to companions.
@@ -543,6 +538,7 @@ public class Enqueuer {
           shrinker -> registerAnalysis(shrinker.createEnqueuerAnalysis()));
       IsolatedFeatureSplitsChecker.register(appView, this);
       ResourceAccessAnalysis.register(appView, this);
+      CovariantReturnTypeEnqueuerExtension.register(appView, this);
     }
 
     targetedMethods = new LiveMethodsSet(graphReporter::registerMethod);
@@ -557,12 +553,9 @@ public class Enqueuer {
     if (mode.isInitialTreeShaking()) {
       desugaring = CfInstructionDesugaringCollection.create(appView, appView.apiLevelCompute());
       interfaceProcessor = InterfaceProcessor.create(appView);
-      covariantReturnTypeAnnotationTransformer =
-          new CovariantReturnTypeAnnotationTransformer(appView);
     } else {
       desugaring = CfInstructionDesugaringCollection.empty();
       interfaceProcessor = null;
-      covariantReturnTypeAnnotationTransformer = null;
     }
 
     objectAllocationInfoCollection =
@@ -4312,7 +4305,6 @@ public class Enqueuer {
     // registered first and no dependencies may exist among them.
     SyntheticAdditions additions = new SyntheticAdditions(appView.createProcessorContext());
     desugar(additions);
-    processCovariantReturnTypeAnnotations();
     synthesizeInterfaceMethodBridges();
     if (additions.isEmpty()) {
       return;
@@ -4335,11 +4327,6 @@ public class Enqueuer {
   }
 
   private boolean addToPendingDesugaring(ProgramMethod method) {
-    if (covariantReturnTypeAnnotationTransformer.hasCovariantReturnTypeAnnotation(method)) {
-      pendingCovariantReturnTypeDesugaring
-          .computeIfAbsent(method.getHolder(), ignoreKey(ArrayList::new))
-          .add(method);
-    }
     if (options.isInterfaceMethodDesugaringEnabled()) {
       if (mustMoveToInterfaceCompanionMethod(method)) {
         // TODO(b/199043500): Once "live moved methods" are tracked this can avoid the code check.
@@ -4472,44 +4459,6 @@ public class Enqueuer {
     synchronized (synthesizingContexts) {
       synthesizingContexts.put(closeMethod.getHolder(), context);
     }
-  }
-
-  private void processCovariantReturnTypeAnnotations() throws ExecutionException {
-    if (pendingCovariantReturnTypeDesugaring.isEmpty()) {
-      return;
-    }
-    ProgramMethodMap<Diagnostic> errors = ProgramMethodMap.createConcurrent();
-    covariantReturnTypeAnnotationTransformer.processMethods(
-        pendingCovariantReturnTypeDesugaring,
-        (bridge, target) -> {
-          KeepMethodInfo.Joiner bridgeKeepInfo =
-              getKeepInfoForCovariantReturnTypeBridge(target, errors);
-          keepInfo.registerCompilerSynthesizedMethod(bridge);
-          applyMinimumKeepInfoWhenLiveOrTargeted(bridge, bridgeKeepInfo);
-          profileCollectionAdditions.addMethodIfContextIsInProfile(bridge, target);
-        },
-        executorService);
-    errors.forEachValue(appView.reporter()::error);
-    pendingCovariantReturnTypeDesugaring.clear();
-  }
-
-  private KeepMethodInfo.Joiner getKeepInfoForCovariantReturnTypeBridge(
-      ProgramMethod target, ProgramMethodMap<Diagnostic> errors) {
-    KeepInfo.Joiner<?, ?, ?> targetKeepInfo =
-        appView
-            .rootSet()
-            .getDependentMinimumKeepInfo()
-            .getUnconditionalMinimumKeepInfoOrDefault(MinimumKeepInfoCollection.empty())
-            .getOrDefault(target.getReference(), null);
-    if (targetKeepInfo == null) {
-      targetKeepInfo = KeepMethodInfo.newEmptyJoiner();
-    }
-    if ((options.isMinifying() && targetKeepInfo.isMinificationAllowed())
-        || (options.isOptimizing() && targetKeepInfo.isOptimizationAllowed())
-        || (options.isShrinking() && targetKeepInfo.isShrinkingAllowed())) {
-      errors.computeIfAbsent(target, NonKeptMethodWithCovariantReturnTypeAnnotationDiagnostic::new);
-    }
-    return targetKeepInfo.asMethodJoiner();
   }
 
   private void synthesizeInterfaceMethodBridges() {
@@ -4860,7 +4809,9 @@ public class Enqueuer {
 
         // Notify each analysis that a fixpoint has been reached, and give each analysis an
         // opportunity to add items to the worklist.
-        analyses.forEach(analysis -> analysis.notifyFixpoint(this, worklist, timing));
+        for (EnqueuerAnalysis analysis : analyses) {
+          analysis.notifyFixpoint(this, worklist, executorService, timing);
+        }
         if (!worklist.isEmpty()) {
           continue;
         }

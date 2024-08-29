@@ -135,7 +135,11 @@ public class GeneratedMessageLiteBuilderShrinker {
     return new EnqueuerAnalysis() {
       @Override
       @SuppressWarnings("ReferenceEquality")
-      public void notifyFixpoint(Enqueuer enqueuer, EnqueuerWorklist worklist, Timing timing) {
+      public void notifyFixpoint(
+          Enqueuer enqueuer,
+          EnqueuerWorklist worklist,
+          ExecutorService executorService,
+          Timing timing) {
         builders.forEach(
             (builder, dynamicMethod) -> {
               if (seen.add(builder)) {

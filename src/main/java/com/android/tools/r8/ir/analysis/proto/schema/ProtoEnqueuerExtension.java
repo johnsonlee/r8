@@ -54,6 +54,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 
 // TODO(b/112437944): Handle cycles in the graph + add a test that fails with the current
@@ -179,7 +180,11 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
   }
 
   @Override
-  public void notifyFixpoint(Enqueuer enqueuer, EnqueuerWorklist worklist, Timing timing) {
+  public void notifyFixpoint(
+      Enqueuer enqueuer,
+      EnqueuerWorklist worklist,
+      ExecutorService executorService,
+      Timing timing) {
     timing.begin("[Proto] Extend fixpoint");
     populateExtensionGraph(enqueuer);
 

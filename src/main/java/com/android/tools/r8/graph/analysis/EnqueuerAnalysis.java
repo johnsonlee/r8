@@ -15,6 +15,8 @@ import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.Timing;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 public abstract class EnqueuerAnalysis {
 
@@ -57,7 +59,9 @@ public abstract class EnqueuerAnalysis {
    * Called when the Enqueuer reaches a fixpoint. This may happen multiple times, since each
    * analysis may enqueue items into the worklist upon the fixpoint using {@param worklist}.
    */
-  public void notifyFixpoint(Enqueuer enqueuer, EnqueuerWorklist worklist, Timing timing) {}
+  public void notifyFixpoint(
+      Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
+      throws ExecutionException {}
 
   /**
    * Called when the Enqueuer has reached the final fixpoint. Each analysis may use this callback to
