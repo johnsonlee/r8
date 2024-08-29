@@ -10,30 +10,12 @@ public class JetpackComposeOptions {
 
   private final InternalOptions options;
 
-  public boolean enableComposableOptimizationPass =
-      SystemPropertyUtils.parseSystemPropertyOrDefault(
-          "com.android.tools.r8.jetpackcompose.enableComposableOptimizationPass", false);
-
   public boolean enableModelingOfChangedArguments =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
           "com.android.tools.r8.jetpackcompose.enableModelingOfChangedArguments", false);
 
   public JetpackComposeOptions(InternalOptions options) {
     this.options = options;
-  }
-
-  public void enableAllOptimizations(boolean enable) {
-    enableComposableOptimizationPass = enable;
-    enableModelingOfChangedArguments = enable;
-  }
-
-  public boolean isAnyOptimizationsEnabled() {
-    return isComposableOptimizationPassEnabled()
-        || isModelingChangedArgumentsToComposableFunctions();
-  }
-
-  public boolean isComposableOptimizationPassEnabled() {
-    return isModelingChangedArgumentsToComposableFunctions() && enableComposableOptimizationPass;
   }
 
   public boolean isModelingChangedArgumentsToComposableFunctions() {

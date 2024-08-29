@@ -5,17 +5,8 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
-import com.android.tools.r8.optimize.compose.ComposeMethodProcessor;
 
 public abstract class MethodProcessor {
-
-  public boolean isComposeMethodProcessor() {
-    return false;
-  }
-
-  public ComposeMethodProcessor asComposeMethodProcessor() {
-    return null;
-  }
 
   public boolean isD8MethodProcessor() {
     return false;

@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.compose;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
@@ -12,6 +12,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -40,7 +41,23 @@ public class NestedComposableArgumentPropagationTest extends TestBase {
   enum ComposableFunction {
     A,
     B,
-    C
+    C;
+
+    public int getExpectedNumberOfIfInstructions() {
+      switch (this) {
+        case A:
+          // TODO(b/302281503): Should be 5.
+          return 7;
+        case B:
+          // TODO(b/302281503): Should be 5.
+          return 7;
+        case C:
+          // TODO(b/302281503): Should be 3.
+          return 5;
+        default:
+          throw new Unreachable();
+      }
+    }
   }
 
   static class CodeStats {
@@ -76,24 +93,15 @@ public class NestedComposableArgumentPropagationTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    EnumMap<ComposableFunction, CodeStats> defaultCodeStats = build(false);
-    EnumMap<ComposableFunction, CodeStats> optimizedCodeStats = build(true);
+    EnumMap<ComposableFunction, CodeStats> result = build();
     for (ComposableFunction composableFunction : ComposableFunction.values()) {
-      CodeStats defaultCodeStatsForFunction = defaultCodeStats.get(composableFunction);
-      CodeStats optimizedCodeStatsForFunction = optimizedCodeStats.get(composableFunction);
-      assertTrue(
-          composableFunction
-              + ": "
-              + defaultCodeStatsForFunction.numberOfIfInstructions
-              + " vs "
-              + optimizedCodeStatsForFunction.numberOfIfInstructions,
-          defaultCodeStatsForFunction.numberOfIfInstructions
-              > optimizedCodeStatsForFunction.numberOfIfInstructions);
+      CodeStats codeStats = result.get(composableFunction);
+      assertEquals(
+          composableFunction.getExpectedNumberOfIfInstructions(), codeStats.numberOfIfInstructions);
     }
   }
 
-  private EnumMap<ComposableFunction, CodeStats> build(boolean enableComposeOptimizations)
-      throws Exception {
+  private EnumMap<ComposableFunction, CodeStats> build() throws Exception {
     Box<ClassReference> mainActivityKtClassReference =
         new Box<>(Reference.classFromTypeName("com.example.MainActivityKt"));
     R8TestCompileResult compileResult =
@@ -114,12 +122,7 @@ public class NestedComposableArgumentPropagationTest extends TestBase {
                 updateMainActivityKt(
                     MinificationInspector::getTarget, mainActivityKtClassReference, true))
             .addOptionsModification(
-                options -> {
-                  options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces();
-                  options
-                      .getJetpackComposeOptions()
-                      .enableAllOptimizations(enableComposeOptimizations);
-                })
+                options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
             .setMinApi(AndroidApiLevel.N)
             .allowDiagnosticMessages()
             .allowUnnecessaryDontWarnWildcards()
