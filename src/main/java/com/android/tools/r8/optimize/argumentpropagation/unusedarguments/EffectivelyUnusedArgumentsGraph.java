@@ -60,8 +60,7 @@ class EffectivelyUnusedArgumentsGraph {
               method.getOptimizationInfo().getArgumentInfos();
           if (optimizationInfo.isConcreteCallSiteOptimizationInfo()) {
             AbstractValue result =
-                condition.evaluate(
-                    optimizationInfo::getAbstractArgumentValue, appView.abstractValueFactory());
+                condition.evaluate(appView, optimizationInfo::getAbstractArgumentValue);
             if (result.isTrue()) {
               graph.getOrCreateNode(methodParameter);
               constraints.remove(methodParameter);

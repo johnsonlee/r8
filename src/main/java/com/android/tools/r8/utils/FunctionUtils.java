@@ -41,4 +41,8 @@ public class FunctionUtils {
   public static <T, R> Function<T, R> ignoreArgument(Supplier<R> supplier) {
     return ignore -> supplier.get();
   }
+
+  public static <T, R> Function<T, R> supplyValue(R value) {
+    return ignore -> value;
+  }
 }

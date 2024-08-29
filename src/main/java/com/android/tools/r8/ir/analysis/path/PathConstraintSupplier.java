@@ -5,10 +5,13 @@ package com.android.tools.r8.ir.analysis.path;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.SuccessfulDataflowAnalysisResult;
+import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public class PathConstraintSupplier {
@@ -27,6 +30,20 @@ public class PathConstraintSupplier {
     this.appView = appView;
     this.code = code;
     this.methodParameterFactory = methodParameterFactory;
+  }
+
+  public ComputationTreeNode getDifferentiatingPathConstraint(
+      BasicBlock block, BasicBlock otherBlock) {
+    ConcretePathConstraintAnalysisState state = getPathConstraint(block).asConcreteState();
+    if (state == null) {
+      return AbstractValue.unknown();
+    }
+    ConcretePathConstraintAnalysisState otherState =
+        getPathConstraint(otherBlock).asConcreteState();
+    if (otherState == null) {
+      return AbstractValue.unknown();
+    }
+    return state.getDifferentiatingPathConstraint(otherState);
   }
 
   public PathConstraintAnalysisState getPathConstraint(BasicBlock block) {

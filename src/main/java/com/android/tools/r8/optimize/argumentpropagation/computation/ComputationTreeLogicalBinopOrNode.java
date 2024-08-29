@@ -11,9 +11,9 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Objects;
 import java.util.function.Function;
 
-public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBinopNode {
+public class ComputationTreeLogicalBinopOrNode extends ComputationTreeLogicalBinopNode {
 
-  private ComputationTreeLogicalBinopAndNode(ComputationTreeNode left, ComputationTreeNode right) {
+  private ComputationTreeLogicalBinopOrNode(ComputationTreeNode left, ComputationTreeNode right) {
     super(left, right);
   }
 
@@ -21,7 +21,7 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
     if (left.isUnknown() && right.isUnknown()) {
       return AbstractValue.unknown();
     }
-    return new ComputationTreeLogicalBinopAndNode(left, right);
+    return new ComputationTreeLogicalBinopOrNode(left, right);
   }
 
   @Override
@@ -30,8 +30,14 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
       Function<MethodParameter, AbstractValue> argumentAssignment) {
     assert getNumericType().isInt();
     AbstractValue leftValue = left.evaluate(appView, argumentAssignment);
+    if (leftValue.isBottom()) {
+      return leftValue;
+    }
     AbstractValue rightValue = right.evaluate(appView, argumentAssignment);
-    return AbstractCalculator.andIntegers(appView, leftValue, rightValue);
+    if (rightValue.isBottom()) {
+      return rightValue;
+    }
+    return AbstractCalculator.orIntegers(appView, leftValue, rightValue);
   }
 
   @Override
@@ -39,10 +45,10 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ComputationTreeLogicalBinopAndNode)) {
+    if (!(obj instanceof ComputationTreeLogicalBinopOrNode)) {
       return false;
     }
-    ComputationTreeLogicalBinopAndNode node = (ComputationTreeLogicalBinopAndNode) obj;
+    ComputationTreeLogicalBinopOrNode node = (ComputationTreeLogicalBinopOrNode) obj;
     return internalIsEqualTo(node);
   }
 
@@ -53,6 +59,6 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
 
   @Override
   public String toString() {
-    return left.toStringWithParenthesis() + " & " + right.toStringWithParenthesis();
+    return left.toStringWithParenthesis() + " | " + right.toStringWithParenthesis();
   }
 }

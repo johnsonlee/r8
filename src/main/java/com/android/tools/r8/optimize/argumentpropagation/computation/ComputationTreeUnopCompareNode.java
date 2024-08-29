@@ -3,13 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Objects;
-import java.util.function.IntFunction;
+import java.util.function.Function;
 
 public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
 
@@ -29,9 +30,10 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
 
   @Override
   public AbstractValue evaluate(
-      IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory) {
-    AbstractValue operandValue = operand.evaluate(argumentAssignment, abstractValueFactory);
-    return type.evaluate(operandValue, abstractValueFactory);
+      AppView<AppInfoWithLiveness> appView,
+      Function<MethodParameter, AbstractValue> argumentAssignment) {
+    AbstractValue operandValue = operand.evaluate(appView, argumentAssignment);
+    return type.evaluate(operandValue, appView);
   }
 
   @Override

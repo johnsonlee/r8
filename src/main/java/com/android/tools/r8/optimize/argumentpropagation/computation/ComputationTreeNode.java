@@ -3,10 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
-import java.util.function.IntFunction;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import java.util.function.Function;
 
 /**
  * Represents a computation tree with no open variables other than the arguments of a given method.
@@ -15,7 +16,8 @@ public interface ComputationTreeNode {
 
   /** Evaluates the current computation tree on the given argument assignment. */
   AbstractValue evaluate(
-      IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory);
+      AppView<AppInfoWithLiveness> appView,
+      Function<MethodParameter, AbstractValue> argumentAssignment);
 
   MethodParameter getSingleOpenVariable();
 

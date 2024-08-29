@@ -4,15 +4,16 @@
 
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.Objects;
-import java.util.function.IntFunction;
+import java.util.function.Function;
 
 public class MethodParameter implements BaseInFlow, ComputationTreeNode {
 
@@ -58,8 +59,9 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
 
   @Override
   public AbstractValue evaluate(
-      IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory) {
-    return argumentAssignment.apply(index);
+      AppView<AppInfoWithLiveness> appView,
+      Function<MethodParameter, AbstractValue> argumentAssignment) {
+    return argumentAssignment.apply(this);
   }
 
   @Override

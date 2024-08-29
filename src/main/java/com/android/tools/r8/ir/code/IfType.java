@@ -4,16 +4,15 @@
 package com.android.tools.r8.ir.code;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
-import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public enum IfType {
   EQ {
     @Override
-    public AbstractValue evaluate(
-        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
-      return abstractValueFactory.createSingleBooleanValue(operand.getValue() == 0);
+    public boolean evaluate(int operand) {
+      return operand == 0;
     }
 
     @Override
@@ -23,9 +22,8 @@ public enum IfType {
   },
   GE {
     @Override
-    public AbstractValue evaluate(
-        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
-      return abstractValueFactory.createSingleBooleanValue(operand.getValue() >= 0);
+    public boolean evaluate(int operand) {
+      return operand >= 0;
     }
 
     @Override
@@ -35,9 +33,8 @@ public enum IfType {
   },
   GT {
     @Override
-    public AbstractValue evaluate(
-        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
-      return abstractValueFactory.createSingleBooleanValue(operand.getValue() > 0);
+    public boolean evaluate(int operand) {
+      return operand > 0;
     }
 
     @Override
@@ -47,9 +44,8 @@ public enum IfType {
   },
   LE {
     @Override
-    public AbstractValue evaluate(
-        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
-      return abstractValueFactory.createSingleBooleanValue(operand.getValue() <= 0);
+    public boolean evaluate(int operand) {
+      return operand <= 0;
     }
 
     @Override
@@ -59,9 +55,8 @@ public enum IfType {
   },
   LT {
     @Override
-    public AbstractValue evaluate(
-        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
-      return abstractValueFactory.createSingleBooleanValue(operand.getValue() < 0);
+    public boolean evaluate(int operand) {
+      return operand < 0;
     }
 
     @Override
@@ -71,9 +66,8 @@ public enum IfType {
   },
   NE {
     @Override
-    public AbstractValue evaluate(
-        SingleNumberValue operand, AbstractValueFactory abstractValueFactory) {
-      return abstractValueFactory.createSingleBooleanValue(operand.getValue() != 0);
+    public boolean evaluate(int operand) {
+      return operand != 0;
     }
 
     @Override
@@ -82,15 +76,16 @@ public enum IfType {
     }
   };
 
-  public AbstractValue evaluate(AbstractValue operand, AbstractValueFactory abstractValueFactory) {
+  public AbstractValue evaluate(AbstractValue operand, AppView<AppInfoWithLiveness> appView) {
     if (operand.isSingleNumberValue()) {
-      return evaluate(operand.asSingleNumberValue(), abstractValueFactory);
+      int operandValue = operand.asSingleNumberValue().getIntValue();
+      boolean result = evaluate(operandValue);
+      return appView.abstractValueFactory().createSingleBooleanValue(result);
     }
     return AbstractValue.unknown();
   }
 
-  public abstract AbstractValue evaluate(
-      SingleNumberValue operand, AbstractValueFactory abstractValueFactory);
+  public abstract boolean evaluate(int operand);
 
   public boolean isEqualsOrNotEquals() {
     return this == EQ || this == NE;

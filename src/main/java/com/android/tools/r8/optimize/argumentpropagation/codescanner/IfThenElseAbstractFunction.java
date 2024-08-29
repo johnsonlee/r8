@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import static com.android.tools.r8.utils.FunctionUtils.supplyValue;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -77,7 +79,7 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
     AbstractValue variableValue = variableState.getAbstractValue(appView);
     // Since the condition is guaranteed to have a single open variable we simply return the
     // `variableValue` for any given argument index.
-    return condition.evaluate(i -> variableValue, appView.abstractValueFactory());
+    return condition.evaluate(appView, supplyValue(variableValue));
   }
 
   private ValueState resolveInFlow(

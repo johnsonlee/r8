@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize.info;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 
 // A flat lattice structure: TOP and a lattice element that holds accumulated argument info.
 public abstract class CallSiteOptimizationInfo {
@@ -30,6 +31,10 @@ public abstract class CallSiteOptimizationInfo {
   // The index exactly matches with in values of invocation, i.e., even including receiver.
   public AbstractValue getAbstractArgumentValue(int argIndex) {
     return UnknownValue.getInstance();
+  }
+
+  public final AbstractValue getAbstractArgumentValue(MethodParameter methodParameter) {
+    return getAbstractArgumentValue(methodParameter.getIndex());
   }
 
   // TODO(b/139249918): propagate classes that are guaranteed to be initialized.

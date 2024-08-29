@@ -12,7 +12,7 @@ import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import java.util.function.IntFunction;
+import java.util.function.Function;
 
 public abstract class AbstractValue implements ComputationTreeNode {
 
@@ -26,7 +26,8 @@ public abstract class AbstractValue implements ComputationTreeNode {
 
   @Override
   public AbstractValue evaluate(
-      IntFunction<AbstractValue> argumentAssignment, AbstractValueFactory abstractValueFactory) {
+      AppView<AppInfoWithLiveness> appView,
+      Function<MethodParameter, AbstractValue> argumentAssignment) {
     return this;
   }
 
