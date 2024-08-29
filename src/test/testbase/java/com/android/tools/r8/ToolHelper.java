@@ -102,6 +102,13 @@ import org.junit.rules.TemporaryFolder;
 public class ToolHelper {
 
   public static String getProjectRoot() {
+    String oracle = System.getProperty("REPO_ROOT");
+    if (oracle != null) {
+      if (!oracle.endsWith("/")) {
+        oracle = oracle + "/";
+      }
+      return oracle;
+    }
     String current = System.getProperty("user.dir");
     if (!current.contains("d8_r8")) {
       return "";

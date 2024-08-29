@@ -168,7 +168,9 @@ def run(options, r8jar, testjars):
         jdk.GetJavaExecutable(jdkhome), '-Xms8g', '-Xmx8g',
         '-XX:+TieredCompilation', '-XX:TieredStopAtLevel=4',
         '-DBENCHMARK_IGNORE_CODE_SIZE_DIFFERENCES',
-        f'-DBUILD_PROP_KEEPANNO_RUNTIME_PATH={utils.REPO_ROOT}/d8_r8/keepanno/build/classes/java/main'
+        f'-DBUILD_PROP_KEEPANNO_RUNTIME_PATH={utils.REPO_ROOT}/d8_r8/keepanno/build/classes/java/main',
+        # Since we change the working directory to a temp folder.
+        f'-DREPO_ROOT={utils.REPO_ROOT}'
     ]
     if options.enable_assertions:
         cmd.append('-ea')
