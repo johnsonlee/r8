@@ -8,13 +8,17 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import com.android.tools.r8.TestRuntime.DexRuntime;
+import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.ResourceTableInspector;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.benchmarks.InstructionCodeSizeResult;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
+import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
@@ -314,34 +318,63 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
   @Override
   public R8TestCompileResult benchmarkCodeSize(BenchmarkResults results)
       throws IOException, ResourceException {
-    int applicationSizeWithFeatures =
-        AndroidApp.builder(app).addProgramFiles(features).build().applicationSize();
-    results.addCodeSizeResult(applicationSizeWithFeatures);
+    if (results.isBenchmarkingCodeSize()) {
+      int applicationSizeWithFeatures =
+          AndroidApp.builder(app).addProgramFiles(features).build().applicationSize();
+      results.addCodeSizeResult(applicationSizeWithFeatures);
+    }
     return self();
   }
 
   @Override
-  public R8TestCompileResult benchmarkComposableCodeSize(BenchmarkResults results)
+  public R8TestCompileResult benchmarkInstructionCodeSize(BenchmarkResults results)
       throws IOException {
-    int composableCodeSize = getComposableCodeSize(inspector());
-    for (Path feature : features) {
-      composableCodeSize += getComposableCodeSize(featureInspector(feature));
+    if (results.isBenchmarkingCodeSize()) {
+      InstructionCodeSizeResult result = getComposableCodeSize(inspector());
+      for (Path feature : features) {
+        result.add(getComposableCodeSize(featureInspector(feature)));
+      }
+      results.addInstructionCodeSizeResult(result.instructionCodeSize);
+      results.addComposableInstructionCodeSizeResult(result.composableInstructionCodeSize);
     }
-    results.addComposableCodeSizeResult(composableCodeSize);
     return self();
   }
 
-  private int getComposableCodeSize(CodeInspector inspector) {
+  private InstructionCodeSizeResult getComposableCodeSize(CodeInspector inspector) {
     DexType composableType =
         inspector.getFactory().createType("Landroidx/compose/runtime/Composable;");
-    int composableCodeSize = 0;
+    InstructionCodeSizeResult result = new InstructionCodeSizeResult();
     for (FoundClassSubject classSubject : inspector.allClasses()) {
-      for (ProgramMethod method : classSubject.getDexProgramClass().directProgramMethods()) {
-        if (method.getAnnotations().hasAnnotation(composableType)) {
-          composableCodeSize += method.getDefinition().getCode().asDexCode().codeSizeInBytes();
+      DexProgramClass clazz = classSubject.getDexProgramClass();
+      for (DexEncodedMethod method : clazz.methods(DexEncodedMethod::hasCode)) {
+        int instructionCodeSize = method.getCode().asDexCode().codeSizeInBytes();
+        result.instructionCodeSize += instructionCodeSize;
+        if (method.annotations().hasAnnotation(composableType)) {
+          result.composableInstructionCodeSize += instructionCodeSize;
         }
       }
     }
-    return composableCodeSize;
+    return result;
+  }
+
+  @Override
+  public R8TestCompileResult benchmarkDexSegmentsCodeSize(BenchmarkResults results)
+      throws IOException, ResourceException {
+    if (results.isBenchmarkingCodeSize()) {
+      AndroidApp appWithFeatures =
+          features.isEmpty() ? app : AndroidApp.builder(app).addProgramFiles(features).build();
+      results.addDexSegmentsSizeResult(DexSegments.run(appWithFeatures));
+    }
+    return self();
+  }
+
+  @Override
+  public R8TestCompileResult benchmarkDex2OatCodeSize(BenchmarkResults results) throws IOException {
+    if (results.isBenchmarkingCodeSize()) {
+      Dex2OatTestRunResult dex2OatTestRunResult =
+          runDex2Oat(new DexRuntime(DexVm.Version.LATEST_DEX2OAT));
+      results.addDex2OatSizeResult(dex2OatTestRunResult.getOatSizeOrDefault(0));
+    }
+    return self();
   }
 }

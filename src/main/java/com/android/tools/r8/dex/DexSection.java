@@ -20,6 +20,29 @@ public class DexSection {
     this.end = -1;
   }
 
+  public static int[] getConstants() {
+    return new int[] {
+      Constants.TYPE_ENCODED_ARRAY_ITEM,
+      Constants.TYPE_HEADER_ITEM,
+      Constants.TYPE_DEBUG_INFO_ITEM,
+      Constants.TYPE_FIELD_ID_ITEM,
+      Constants.TYPE_ANNOTATION_SET_REF_LIST,
+      Constants.TYPE_STRING_ID_ITEM,
+      Constants.TYPE_MAP_LIST,
+      Constants.TYPE_PROTO_ID_ITEM,
+      Constants.TYPE_METHOD_ID_ITEM,
+      Constants.TYPE_TYPE_ID_ITEM,
+      Constants.TYPE_STRING_DATA_ITEM,
+      Constants.TYPE_CLASS_DATA_ITEM,
+      Constants.TYPE_TYPE_LIST,
+      Constants.TYPE_ANNOTATIONS_DIRECTORY_ITEM,
+      Constants.TYPE_ANNOTATION_ITEM,
+      Constants.TYPE_ANNOTATION_SET_ITEM,
+      Constants.TYPE_CLASS_DEF_ITEM,
+      Constants.TYPE_CODE_ITEM
+    };
+  }
+
   void setEnd(int end) {
     this.end = end;
   }

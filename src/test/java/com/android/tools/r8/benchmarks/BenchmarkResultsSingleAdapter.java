@@ -22,9 +22,10 @@ public class BenchmarkResultsSingleAdapter implements JsonSerializer<BenchmarkRe
         (codeSizeResult, iteration) -> {
           JsonObject resultObject = new JsonObject();
           resultObject.addProperty("code_size", codeSizeResult);
-          if (!result.getComposableCodeSizeResults().isEmpty()) {
+          if (!result.getComposableInstructionCodeSizeResults().isEmpty()) {
             resultObject.addProperty(
-                "composable_code_size", result.getComposableCodeSizeResults().getLong(iteration));
+                "composable_code_size",
+                result.getComposableInstructionCodeSizeResults().getLong(iteration));
           }
           resultObject.addProperty("runtime", result.getRuntimeResults().getLong(iteration));
           resultsArray.add(resultObject);

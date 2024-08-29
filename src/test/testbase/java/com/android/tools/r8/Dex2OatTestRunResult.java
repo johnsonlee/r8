@@ -8,14 +8,20 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.utils.AndroidApp;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 
 public class Dex2OatTestRunResult extends SingleTestRunResult<Dex2OatTestRunResult> {
 
+  private final Path oat;
+
   public Dex2OatTestRunResult(
-      AndroidApp app, TestRuntime runtime, ProcessResult result, TestState state) {
+      AndroidApp app, Path oat, TestRuntime runtime, ProcessResult result, TestState state) {
     super(app, runtime, result, state);
+    this.oat = oat;
   }
 
   @Override
@@ -44,13 +50,7 @@ public class Dex2OatTestRunResult extends SingleTestRunResult<Dex2OatTestRunResu
     return self();
   }
 
-  public Dex2OatTestRunResult assertVerificationErrors() {
-    assertSuccess();
-    Matcher<? super String> matcher = CoreMatchers.containsString("Verification error");
-    assertThat(
-        errorMessage("Run dex2oat did not produce verification errors.", matcher.toString()),
-        getStdErr(),
-        matcher);
-    return self();
+  public long getOatSizeOrDefault(long defaultValue) throws IOException {
+    return Files.exists(oat) ? Files.size(oat) : defaultValue;
   }
 }

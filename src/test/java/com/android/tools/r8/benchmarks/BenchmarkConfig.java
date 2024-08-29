@@ -168,8 +168,23 @@ public class BenchmarkConfig {
       return this;
     }
 
-    public Builder measureComposableCodeSize() {
-      metrics.add(BenchmarkMetric.ComposableCodeSize);
+    public Builder measureInstructionCodeSize() {
+      metrics.add(BenchmarkMetric.InstructionCodeSize);
+      return this;
+    }
+
+    public Builder measureComposableInstructionCodeSize() {
+      metrics.add(BenchmarkMetric.ComposableInstructionCodeSize);
+      return this;
+    }
+
+    public Builder measureDexSegmentsCodeSize() {
+      metrics.add(BenchmarkMetric.DexSegmentsCodeSize);
+      return this;
+    }
+
+    public Builder measureDex2OatCodeSize() {
+      metrics.add(BenchmarkMetric.Dex2OatCodeSize);
       return this;
     }
 
@@ -248,7 +263,7 @@ public class BenchmarkConfig {
   }
 
   public boolean containsComposableCodeSizeMetric() {
-    return containsMetric(BenchmarkMetric.ComposableCodeSize);
+    return containsMetric(BenchmarkMetric.ComposableInstructionCodeSize);
   }
 
   public BenchmarkIdentifier getIdentifier() {

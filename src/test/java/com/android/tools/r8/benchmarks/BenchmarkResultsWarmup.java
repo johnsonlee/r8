@@ -3,7 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.errors.Unreachable;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import java.io.PrintStream;
@@ -13,7 +16,6 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   private final String name;
   private final LongList runtimeResults = new LongArrayList();
   private long codeSizeResult = -1;
-  private long composableCodeSizeResult = -1;
   private long resourceSizeResult = -1;
 
   public BenchmarkResultsWarmup(String name) {
@@ -37,17 +39,27 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   }
 
   @Override
-  public void addComposableCodeSizeResult(long result) {
-    if (composableCodeSizeResult == -1) {
-      composableCodeSizeResult = result;
-    }
-    if (composableCodeSizeResult != result) {
-      throw new RuntimeException(
-          "Unexpected Composable code size difference: "
-              + result
-              + " and "
-              + composableCodeSizeResult);
-    }
+  public void addInstructionCodeSizeResult(long result) {
+    throw addSizeResultError();
+  }
+
+  @Override
+  public void addComposableInstructionCodeSizeResult(long result) {
+    throw addSizeResultError();
+  }
+
+  @Override
+  public void addDexSegmentsSizeResult(Int2ReferenceMap<SegmentInfo> result) {
+    throw addSizeResultError();
+  }
+
+  @Override
+  public void addDex2OatSizeResult(long result) {
+    throw addSizeResultError();
+  }
+
+  private Unreachable addSizeResultError() {
+    throw new Unreachable("Unexpected attempt to add size result for warmup run");
   }
 
   @Override
@@ -65,6 +77,11 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   public BenchmarkResults getSubResults(String name) {
     // When running warmups all results are amended to the single warmup result.
     return this;
+  }
+
+  @Override
+  public boolean isBenchmarkingCodeSize() {
+    return false;
   }
 
   @Override

@@ -715,7 +715,7 @@ public abstract class TestCompileResult<
     Path oatFile = tmp.resolve("out.oat");
     app.writeToZipForTesting(jarFile, OutputMode.DexIndexed);
     return new Dex2OatTestRunResult(
-        app, runtime, ToolHelper.runDex2OatRaw(jarFile, oatFile, vm), state);
+        app, oatFile, runtime, ToolHelper.runDex2OatRaw(jarFile, oatFile, vm), state);
   }
 
   public CR benchmarkCodeSize(BenchmarkResults results) throws IOException, ResourceException {
@@ -723,7 +723,17 @@ public abstract class TestCompileResult<
     return self();
   }
 
-  public CR benchmarkComposableCodeSize(BenchmarkResults results)
+  public CR benchmarkInstructionCodeSize(BenchmarkResults results)
+      throws IOException, ResourceException {
+    throw new Unimplemented();
+  }
+
+  public CR benchmarkDexSegmentsCodeSize(BenchmarkResults results)
+      throws IOException, ResourceException {
+    throw new Unimplemented();
+  }
+
+  public CR benchmarkDex2OatCodeSize(BenchmarkResults results)
       throws IOException, ResourceException {
     throw new Unimplemented();
   }

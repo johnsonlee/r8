@@ -388,6 +388,8 @@ public class ToolHelper {
       // TODO(b/204855476): Rename to DEFAULT alias once the checked in VM is removed.
       public static final Version NEW_DEFAULT = DEFAULT;
 
+      public static final Version LATEST_DEX2OAT = V12_0_0;
+
       Version(String shortName) {
         this.shortName = shortName;
       }

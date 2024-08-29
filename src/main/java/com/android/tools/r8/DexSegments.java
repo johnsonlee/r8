@@ -140,38 +140,20 @@ public class DexSegments {
     }
   }
 
-  public static Map<Integer, SegmentInfo> run(Command command)
+  public static Int2ReferenceMap<SegmentInfo> run(Command command)
       throws IOException, ResourceException {
     if (command.isPrintHelp()) {
       System.out.println(Command.USAGE_MESSAGE);
       return null;
     }
-    AndroidApp app = command.getInputApp();
+    return run(command.getInputApp());
+  }
 
+  public static Int2ReferenceMap<SegmentInfo> run(AndroidApp app)
+      throws IOException, ResourceException {
     Int2ReferenceMap<SegmentInfo> result = new Int2ReferenceLinkedOpenHashMap<>();
-    // Fill the results with all benchmark items otherwise golem may report missing benchmarks.
-    int[] benchmarks =
-        new int[] {
-          Constants.TYPE_ENCODED_ARRAY_ITEM,
-          Constants.TYPE_HEADER_ITEM,
-          Constants.TYPE_DEBUG_INFO_ITEM,
-          Constants.TYPE_FIELD_ID_ITEM,
-          Constants.TYPE_ANNOTATION_SET_REF_LIST,
-          Constants.TYPE_STRING_ID_ITEM,
-          Constants.TYPE_MAP_LIST,
-          Constants.TYPE_PROTO_ID_ITEM,
-          Constants.TYPE_METHOD_ID_ITEM,
-          Constants.TYPE_TYPE_ID_ITEM,
-          Constants.TYPE_STRING_DATA_ITEM,
-          Constants.TYPE_CLASS_DATA_ITEM,
-          Constants.TYPE_TYPE_LIST,
-          Constants.TYPE_ANNOTATIONS_DIRECTORY_ITEM,
-          Constants.TYPE_ANNOTATION_ITEM,
-          Constants.TYPE_ANNOTATION_SET_ITEM,
-          Constants.TYPE_CLASS_DEF_ITEM
-        };
-    for (int benchmark : benchmarks) {
-      result.computeIfAbsent(benchmark, (key) -> new SegmentInfo());
+    for (int benchmark : DexSection.getConstants()) {
+      result.put(benchmark, new SegmentInfo());
     }
     try (Closer closer = Closer.create()) {
       for (ProgramResource resource : app.computeAllProgramResources()) {
@@ -179,7 +161,8 @@ public class DexSegments {
           for (DexSection dexSection :
               DexParser.parseMapFrom(
                   closer.register(resource.getByteStream()), resource.getOrigin())) {
-            SegmentInfo info = result.computeIfAbsent(dexSection.type, (key) -> new SegmentInfo());
+            assert result.containsKey(dexSection.type) : dexSection.typeName();
+            SegmentInfo info = result.get(dexSection.type);
             info.increment(dexSection.length, dexSection.size());
           }
         }

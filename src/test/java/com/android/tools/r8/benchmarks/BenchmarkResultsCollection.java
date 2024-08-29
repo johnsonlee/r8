@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.errors.Unimplemented;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,24 +25,40 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
 
   @Override
   public void addRuntimeResult(long result) {
-    throw new BenchmarkConfigError(
-        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
+    throw error();
   }
 
   @Override
   public void addCodeSizeResult(long result) {
-    throw new BenchmarkConfigError(
-        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
+    throw error();
   }
 
   @Override
-  public void addComposableCodeSizeResult(long result) {
-    throw new BenchmarkConfigError(
-        "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
+  public void addInstructionCodeSizeResult(long result) {
+    throw error();
+  }
+
+  @Override
+  public void addComposableInstructionCodeSizeResult(long result) {
+    throw error();
+  }
+
+  @Override
+  public void addDexSegmentsSizeResult(Int2ReferenceMap<SegmentInfo> result) {
+    throw error();
+  }
+
+  @Override
+  public void addDex2OatSizeResult(long result) {
+    throw error();
   }
 
   @Override
   public void addResourceSizeResult(long result) {
+    throw error();
+  }
+
+  private BenchmarkConfigError error() {
     throw new BenchmarkConfigError(
         "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
   }

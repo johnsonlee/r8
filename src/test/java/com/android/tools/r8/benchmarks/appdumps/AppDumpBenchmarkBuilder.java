@@ -118,7 +118,10 @@ public class AppDumpBenchmarkBuilder {
         .addDependency(dumpDependency)
         .measureRunTime()
         .measureCodeSize()
-        .measureComposableCodeSize()
+        .measureInstructionCodeSize()
+        .measureComposableInstructionCodeSize()
+        .measureDexSegmentsCodeSize()
+        .measureDex2OatCodeSize()
         .setTimeout(10, TimeUnit.MINUTES)
         .build();
   }
@@ -306,7 +309,9 @@ public class AppDumpBenchmarkBuilder {
                           r ->
                               r.benchmarkCompile(results)
                                   .benchmarkCodeSize(results)
-                                  .benchmarkComposableCodeSize(results));
+                                  .benchmarkInstructionCodeSize(results)
+                                  .benchmarkDexSegmentsCodeSize(results)
+                                  .benchmarkDex2OatCodeSize(results));
                 });
   }
 
