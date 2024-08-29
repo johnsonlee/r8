@@ -5,7 +5,7 @@
 package com.android.tools.r8.androidapi;
 
 import static com.android.tools.r8.apimodel.JavaSourceCodePrinter.Type.fromType;
-import static com.android.tools.r8.ir.desugar.CovariantReturnTypeAnnotationTransformer.isCovariantReturnTypeAnnotation;
+import static com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer.isCovariantReturnTypeAnnotation;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
