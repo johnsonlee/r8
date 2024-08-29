@@ -26,7 +26,7 @@ import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnot
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
-import com.android.tools.r8.errors.Unimplemented;
+import com.android.tools.r8.errors.NonKeptMethodWithCovariantReturnTypeAnnotationDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.IsolatedFeatureSplitsChecker;
@@ -4475,19 +4475,26 @@ public class Enqueuer {
   }
 
   private void processCovariantReturnTypeAnnotations() throws ExecutionException {
+    if (pendingCovariantReturnTypeDesugaring.isEmpty()) {
+      return;
+    }
+    ProgramMethodMap<Diagnostic> errors = ProgramMethodMap.createConcurrent();
     covariantReturnTypeAnnotationTransformer.processMethods(
         pendingCovariantReturnTypeDesugaring,
         (bridge, target) -> {
-          KeepMethodInfo.Joiner bridgeKeepInfo = getKeepInfoForCovariantReturnTypeBridge(target);
+          KeepMethodInfo.Joiner bridgeKeepInfo =
+              getKeepInfoForCovariantReturnTypeBridge(target, errors);
           keepInfo.registerCompilerSynthesizedMethod(bridge);
           applyMinimumKeepInfoWhenLiveOrTargeted(bridge, bridgeKeepInfo);
           profileCollectionAdditions.addMethodIfContextIsInProfile(bridge, target);
         },
         executorService);
+    errors.forEachValue(appView.reporter()::error);
     pendingCovariantReturnTypeDesugaring.clear();
   }
 
-  private KeepMethodInfo.Joiner getKeepInfoForCovariantReturnTypeBridge(ProgramMethod target) {
+  private KeepMethodInfo.Joiner getKeepInfoForCovariantReturnTypeBridge(
+      ProgramMethod target, ProgramMethodMap<Diagnostic> errors) {
     KeepInfo.Joiner<?, ?, ?> targetKeepInfo =
         appView
             .rootSet()
@@ -4500,8 +4507,7 @@ public class Enqueuer {
     if ((options.isMinifying() && targetKeepInfo.isMinificationAllowed())
         || (options.isOptimizing() && targetKeepInfo.isOptimizationAllowed())
         || (options.isShrinking() && targetKeepInfo.isShrinkingAllowed())) {
-      // TODO(b/211362069): Report a fatal diagnostic explaining the problem.
-      throw new Unimplemented();
+      errors.computeIfAbsent(target, NonKeptMethodWithCovariantReturnTypeAnnotationDiagnostic::new);
     }
     return targetKeepInfo.asMethodJoiner();
   }

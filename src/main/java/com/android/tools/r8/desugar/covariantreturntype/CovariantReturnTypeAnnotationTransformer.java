@@ -119,9 +119,6 @@ public final class CovariantReturnTypeAnnotationTransformer {
       CovariantReturnTypeAnnotationTransformerEventConsumer eventConsumer,
       ExecutorService executorService)
       throws ExecutionException {
-    if (methodsToProcess.isEmpty()) {
-      return;
-    }
     ThreadUtils.processMap(
         methodsToProcess,
         (clazz, methods) -> {

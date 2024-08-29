@@ -3,18 +3,33 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.annotations;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.equalTo;
 
+import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompilerBuilder.DiagnosticsConsumer;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ThrowableConsumer;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.errors.NonKeptMethodWithCovariantReturnTypeAnnotationDiagnostic;
 import com.android.tools.r8.ir.desugar.annotations.CovariantReturnType.CovariantReturnTypes;
+import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.MethodReferenceUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import java.util.Map;
+import org.hamcrest.Matcher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -75,7 +90,8 @@ public class CovariantReturnTypeAnnotationTransformerR8Test extends TestBase {
             compileWithR8(
                 testBuilder ->
                     testBuilder.addKeepRules(
-                        "-keep,allowobfuscation public class * { public <methods>; }")));
+                        "-keep,allowobfuscation public class * { public <methods>; }"),
+                this::inspectDiagnostics));
   }
 
   @Test
@@ -85,7 +101,8 @@ public class CovariantReturnTypeAnnotationTransformerR8Test extends TestBase {
             compileWithR8(
                 testBuilder ->
                     testBuilder.addKeepRules(
-                        "-keep,allowoptimization public class * { public <methods>; }")));
+                        "-keep,allowoptimization public class * { public <methods>; }"),
+                this::inspectDiagnostics));
   }
 
   @Test
@@ -96,11 +113,19 @@ public class CovariantReturnTypeAnnotationTransformerR8Test extends TestBase {
                 testBuilder ->
                     testBuilder.addKeepRules(
                         "-if public class * -keep class <1> { public <methods>; }",
-                        "-keep public class *")));
+                        "-keep public class *"),
+                this::inspectDiagnostics));
   }
 
   private R8TestCompileResult compileWithR8(
       ThrowableConsumer<? super R8FullTestBuilder> configuration) throws Exception {
+    return compileWithR8(configuration, TestDiagnosticMessages::assertNoMessages);
+  }
+
+  private R8TestCompileResult compileWithR8(
+      ThrowableConsumer<? super R8FullTestBuilder> configuration,
+      DiagnosticsConsumer<?> diagnosticsConsumer)
+      throws Exception {
     return testForR8(parameters.getBackend())
         .addProgramClasses(A.class, D.class)
         .addProgramClassFileData(
@@ -138,7 +163,29 @@ public class CovariantReturnTypeAnnotationTransformerR8Test extends TestBase {
         .addOptionsModification(options -> options.processCovariantReturnTypeAnnotations = true)
         .apply(configuration)
         .setMinApi(parameters)
-        .compile();
+        .compileWithExpectedDiagnostics(diagnosticsConsumer);
+  }
+
+  private void inspectDiagnostics(TestDiagnosticMessages diagnostics) throws Exception {
+    List<MethodReference> methods =
+        ImmutableList.of(
+            Reference.methodFromMethod(B.class.getDeclaredMethod("method")),
+            Reference.methodFromMethod(C.class.getDeclaredMethod("method")),
+            Reference.methodFromMethod(F.class.getDeclaredMethod("method")));
+    List<String> messages =
+        ListUtils.map(
+            methods,
+            method ->
+                "Methods with @CovariantReturnType annotations should be kept, but was not: "
+                    + MethodReferenceUtils.toSourceString(method));
+    List<Matcher<Diagnostic>> matchers =
+        ListUtils.map(
+            messages,
+            message ->
+                allOf(
+                    diagnosticType(NonKeptMethodWithCovariantReturnTypeAnnotationDiagnostic.class),
+                    diagnosticMessage(equalTo(message))));
+    diagnostics.assertErrorsMatch(matchers);
   }
 
   private void testOnRuntime(R8TestCompileResult r8CompileResult) throws Exception {
