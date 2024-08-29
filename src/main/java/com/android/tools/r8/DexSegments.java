@@ -154,6 +154,11 @@ public class DexSegments {
     return run(command.getInputApp());
   }
 
+  public static Map<Integer, SegmentInfo> runForTesting(AndroidApp app)
+      throws IOException, ResourceException {
+    return run(app);
+  }
+
   public static Int2ReferenceMap<SegmentInfo> run(AndroidApp app)
       throws IOException, ResourceException {
     Int2ReferenceMap<SegmentInfo> result = new Int2ReferenceLinkedOpenHashMap<>();

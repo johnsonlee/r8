@@ -8,6 +8,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.TestRuntime.DexRuntime;
 import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -34,6 +35,8 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -363,9 +366,17 @@ public class R8TestCompileResult extends TestCompileResult<R8TestCompileResult, 
     if (results.isBenchmarkingCodeSize()) {
       AndroidApp appWithFeatures =
           features.isEmpty() ? app : AndroidApp.builder(app).addProgramFiles(features).build();
-      results.addDexSegmentsSizeResult(DexSegments.run(appWithFeatures));
+      results.addDexSegmentsSizeResult(runDexSegments(appWithFeatures));
     }
     return self();
+  }
+
+  private Int2ReferenceMap<SegmentInfo> runDexSegments(AndroidApp app)
+      throws IOException, ResourceException {
+    Map<Integer, SegmentInfo> result = DexSegments.runForTesting(app);
+    Int2ReferenceMap<SegmentInfo> rewrittenResult = new Int2ReferenceLinkedOpenHashMap<>();
+    rewrittenResult.putAll(result);
+    return rewrittenResult;
   }
 
   @Override
