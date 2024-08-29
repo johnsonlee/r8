@@ -44,9 +44,8 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   private Set<DexType> initializedClassesOnNormalExit =
       DefaultMethodOptimizationInfo.UNKNOWN_INITIALIZED_CLASSES_ON_NORMAL_EXIT;
   private int returnedArgument = DefaultMethodOptimizationInfo.UNKNOWN_RETURNED_ARGUMENT;
-  private AbstractFunction abstractFunction = AbstractFunction.unknown();
-  private AbstractValue abstractReturnValue =
-      DefaultMethodOptimizationInfo.UNKNOWN_ABSTRACT_RETURN_VALUE;
+  private AbstractFunction abstractFunction = AbstractValue.unknown();
+  private AbstractValue abstractReturnValue = AbstractValue.unknown();
   private ClassInlinerMethodConstraint classInlinerConstraint =
       ClassInlinerMethodConstraint.alwaysFalse();
   private boolean convertCheckNotNull = false;

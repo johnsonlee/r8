@@ -99,7 +99,7 @@ public interface InFlow {
     return null;
   }
 
-  default boolean isUnknownAbstractFunction() {
+  default boolean isUnknown() {
     return false;
   }
 

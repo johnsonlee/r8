@@ -77,7 +77,7 @@ public class MethodResolutionOptimizationInfo extends MethodOptimizationInfo {
 
   @Override
   public AbstractFunction getAbstractFunction() {
-    return AbstractFunction.unknown();
+    return AbstractValue.unknown();
   }
 
   @Override

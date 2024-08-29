@@ -81,10 +81,6 @@ public interface ComputationTreeNode extends AbstractFunction {
 
   boolean isComputationLeaf();
 
-  default boolean isUnknown() {
-    return false;
-  }
-
   default String toStringWithParenthesis() {
     if (isComputationLeaf()) {
       return toString();

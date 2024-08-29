@@ -40,7 +40,6 @@ public interface FlowGraphStateProvider {
     // single declared input, meaning we should never perform any state lookups.
     assert abstractFunction.isIdentity()
         || abstractFunction.isCastAbstractFunction()
-        || abstractFunction.isUnknownAbstractFunction()
         || abstractFunction.isUpdateChangedFlagsAbstractFunction();
     return new FlowGraphStateProvider() {
 

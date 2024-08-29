@@ -9,7 +9,6 @@ import com.android.tools.r8.ir.analysis.inlining.NeverSimpleInliningConstraint;
 import com.android.tools.r8.ir.analysis.inlining.SimpleInliningConstraint;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMethodConstraint;
@@ -33,7 +32,6 @@ public class DefaultMethodOptimizationInfo extends MethodOptimizationInfo {
   static final Set<DexType> UNKNOWN_INITIALIZED_CLASSES_ON_NORMAL_EXIT = ImmutableSet.of();
   static final int UNKNOWN_RETURNED_ARGUMENT = -1;
   static final boolean UNKNOWN_NEVER_RETURNS_NORMALLY = false;
-  static final AbstractValue UNKNOWN_ABSTRACT_RETURN_VALUE = UnknownValue.getInstance();
   static final boolean UNKNOWN_INITIALIZER_ENABLING_JAVA_ASSERTIONS = false;
   static final boolean UNKNOWN_MAY_HAVE_SIDE_EFFECTS = true;
   static final boolean UNKNOWN_RETURN_VALUE_ONLY_DEPENDS_ON_ARGUMENTS = false;
@@ -138,12 +136,12 @@ public class DefaultMethodOptimizationInfo extends MethodOptimizationInfo {
 
   @Override
   public AbstractFunction getAbstractFunction() {
-    return AbstractFunction.unknown();
+    return AbstractValue.unknown();
   }
 
   @Override
   public AbstractValue getAbstractReturnValue() {
-    return UNKNOWN_ABSTRACT_RETURN_VALUE;
+    return AbstractValue.unknown();
   }
 
   @Override

@@ -38,7 +38,6 @@ import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.CastAbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArrayTypeValueState;
@@ -356,7 +355,7 @@ public class ArgumentPropagatorCodeScanner {
         MethodParameter inParameter =
             methodParameterFactory.create(
                 context, valueRoot.getDefinition().asArgument().getIndex());
-        if (!widenBaseInFlow(staticType, inParameter, context).isUnknownAbstractFunction()) {
+        if (!widenBaseInFlow(staticType, inParameter, context).isUnknown()) {
           return inParameter;
         }
       } else if (valueRoot.isDefinedByInstructionSatisfying(Instruction::isFieldGet)) {
@@ -364,7 +363,7 @@ public class ArgumentPropagatorCodeScanner {
         ProgramField field = fieldGet.resolveField(appView, context).getProgramField();
         if (field != null) {
           FieldValue fieldValue = fieldValueFactory.create(field);
-          if (!widenBaseInFlow(staticType, fieldValue, context).isUnknownAbstractFunction()) {
+          if (!widenBaseInFlow(staticType, fieldValue, context).isUnknown()) {
             return fieldValue;
           }
         }
@@ -474,7 +473,7 @@ public class ArgumentPropagatorCodeScanner {
     }
 
     private InFlow castBaseInFlow(InFlow inFlow, Value value) {
-      if (inFlow.isUnknownAbstractFunction()) {
+      if (inFlow.isUnknown()) {
         return inFlow;
       }
       assert inFlow.isBaseInFlow();
@@ -489,12 +488,12 @@ public class ArgumentPropagatorCodeScanner {
     private InFlow widenBaseInFlow(DexType staticType, BaseInFlow inFlow, ProgramMethod context) {
       if (inFlow.isFieldValue()) {
         if (isFieldValueAlreadyUnknown(staticType, inFlow.asFieldValue().getField())) {
-          return AbstractFunction.unknown();
+          return AbstractValue.unknown();
         }
       } else {
         assert inFlow.isMethodParameter();
         if (isMethodParameterAlreadyUnknown(staticType, inFlow.asMethodParameter(), context)) {
-          return AbstractFunction.unknown();
+          return AbstractValue.unknown();
         }
       }
       return inFlow;
@@ -511,7 +510,7 @@ public class ArgumentPropagatorCodeScanner {
       if (inFlow == null) {
         return null;
       }
-      if (inFlow.isUnknownAbstractFunction()) {
+      if (inFlow.isUnknown()) {
         return ValueState.unknown();
       }
       assert inFlow.isBaseInFlow()

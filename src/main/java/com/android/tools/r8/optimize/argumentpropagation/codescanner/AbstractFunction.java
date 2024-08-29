@@ -13,10 +13,6 @@ public interface AbstractFunction extends InFlow {
     return IdentityAbstractFunction.get();
   }
 
-  static UnknownAbstractFunction unknown() {
-    return UnknownAbstractFunction.get();
-  }
-
   /**
    * Applies the current abstract function to its declared inputs (from {@link
    * #traverseBaseInFlow}).
