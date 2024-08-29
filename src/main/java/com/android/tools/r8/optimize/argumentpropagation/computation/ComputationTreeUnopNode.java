@@ -4,22 +4,16 @@
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.function.Function;
 
 public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
 
-  final ComputationTreeNode operand;
+  protected final ComputationTreeNode operand;
 
-  ComputationTreeUnopNode(ComputationTreeNode operand) {
+  protected ComputationTreeUnopNode(ComputationTreeNode operand) {
     assert !operand.isUnknown();
     this.operand = operand;
-  }
-
-  @Override
-  public boolean contains(ComputationTreeNode node) {
-    return equals(node) || operand.contains(node);
   }
 
   @Override
@@ -29,17 +23,11 @@ public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
   }
 
   @Override
-  public MethodParameter getSingleOpenVariable() {
+  public BaseInFlow getSingleOpenVariable() {
     return operand.getSingleOpenVariable();
   }
 
   boolean internalIsEqualTo(ComputationTreeUnopNode node) {
     return operand.equals(node.operand);
-  }
-
-  @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    assert operand.verifyContainsBaseInFlow(inFlow);
-    return true;
   }
 }

@@ -104,7 +104,7 @@ import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.kotlin.Kotlin.Intrinsics;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.compose.ComposeUtils;
-import com.android.tools.r8.optimize.compose.UpdateChangedFlagsAbstractFunction;
+import com.android.tools.r8.optimize.compose.ComputationTreeUnopUpdateChangedFlagsNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -755,10 +755,9 @@ public class MethodOptimizationInfoCollector {
   private void computeAbstractFunction(IRCode code, OptimizationFeedback feedback) {
     if (ComposeUtils.isUpdateChangedFlags(code, appView.dexItemFactory())) {
       MethodParameter methodParameter = new MethodParameter(code.context(), 0);
-      UpdateChangedFlagsAbstractFunction updateChangedFlagsAbstractFunction =
-          new UpdateChangedFlagsAbstractFunction(methodParameter);
-      feedback.setAbstractFunction(
-          code.context().getDefinition(), updateChangedFlagsAbstractFunction);
+      ComputationTreeUnopUpdateChangedFlagsNode node =
+          new ComputationTreeUnopUpdateChangedFlagsNode(methodParameter);
+      feedback.setAbstractFunction(code.context().getDefinition(), node);
     }
   }
 

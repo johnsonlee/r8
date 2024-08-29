@@ -13,6 +13,7 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionOrValue;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.IdentityHashMap;
@@ -23,6 +24,7 @@ public abstract class ComputationTreeBuilder {
   final AppView<AppInfoWithLiveness> appView;
   final IRCode code;
   final ProgramMethod method;
+  final FieldValueFactory fieldValueFactory;
   final MethodParameterFactory methodParameterFactory;
 
   private final Map<InstructionOrValue, ComputationTreeNode> cache = new IdentityHashMap<>();
@@ -31,10 +33,12 @@ public abstract class ComputationTreeBuilder {
       AppView<AppInfoWithLiveness> appView,
       IRCode code,
       ProgramMethod method,
+      FieldValueFactory fieldValueFactory,
       MethodParameterFactory methodParameterFactory) {
     this.appView = appView;
     this.code = code;
     this.method = method;
+    this.fieldValueFactory = fieldValueFactory;
     this.methodParameterFactory = methodParameterFactory;
   }
 

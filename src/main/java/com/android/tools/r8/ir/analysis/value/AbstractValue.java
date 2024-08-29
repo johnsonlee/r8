@@ -10,10 +10,10 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowKind;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.TraversalContinuation;
@@ -30,14 +30,8 @@ public abstract class AbstractValue implements ComputationTreeNode {
   }
 
   @Override
-  public boolean contains(ComputationTreeNode node) {
-    return equals(node);
-  }
-
-  @Override
   public AbstractValue evaluate(
-      AppView<AppInfoWithLiveness> appView,
-      Function<MethodParameter, AbstractValue> argumentAssignment) {
+      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
     return this;
   }
 
@@ -54,7 +48,7 @@ public abstract class AbstractValue implements ComputationTreeNode {
   }
 
   @Override
-  public MethodParameter getSingleOpenVariable() {
+  public BaseInFlow getSingleOpenVariable() {
     return null;
   }
 
@@ -352,10 +346,4 @@ public abstract class AbstractValue implements ComputationTreeNode {
 
   @Override
   public abstract String toString();
-
-  @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    assert false : "AbstractValue is not a variable";
-    return true;
-  }
 }

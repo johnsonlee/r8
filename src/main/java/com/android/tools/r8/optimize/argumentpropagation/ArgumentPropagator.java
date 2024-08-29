@@ -130,7 +130,11 @@ public class ArgumentPropagator {
       AbstractValueSupplier abstractValueSupplier =
           value -> value.getAbstractValue(appView, method);
       PathConstraintSupplier pathConstraintSupplier =
-          new PathConstraintSupplier(appView, code, codeScanner.getMethodParameterFactory());
+          new PathConstraintSupplier(
+              appView,
+              code,
+              codeScanner.getFieldValueFactory(),
+              codeScanner.getMethodParameterFactory());
       codeScanner.scan(method, code, abstractValueSupplier, pathConstraintSupplier, timing);
 
       assert effectivelyUnusedArgumentsAnalysis != null;

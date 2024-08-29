@@ -10,8 +10,8 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
-import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -56,11 +56,13 @@ class EffectivelyUnusedArgumentsGraph {
           // Evaluate the condition. If the condition evaluates to true, then create a graph node
           // for the method parameter and delete all constraints. As a result, the node will not
           // have any successors, meaning it is effectively unused.
-          CallSiteOptimizationInfo optimizationInfo =
-              method.getOptimizationInfo().getArgumentInfos();
-          if (optimizationInfo.isConcreteCallSiteOptimizationInfo()) {
-            AbstractValue result =
-                condition.evaluate(appView, optimizationInfo::getAbstractArgumentValue);
+          if (method
+              .getOptimizationInfo()
+              .getArgumentInfos()
+              .isConcreteCallSiteOptimizationInfo()) {
+            FlowGraphStateProvider flowGraphStateProvider =
+                FlowGraphStateProvider.createFromMethodOptimizationInfo(method);
+            AbstractValue result = condition.evaluate(appView, flowGraphStateProvider);
             if (result.isTrue()) {
               graph.getOrCreateNode(methodParameter);
               constraints.remove(methodParameter);

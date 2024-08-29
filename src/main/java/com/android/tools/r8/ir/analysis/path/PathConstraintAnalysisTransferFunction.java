@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.optimize.argumentpropagation.computation.DefaultComputationTreeBuilder;
@@ -28,9 +29,11 @@ public class PathConstraintAnalysisTransferFunction
       AppView<AppInfoWithLiveness> appView,
       IRCode code,
       ProgramMethod method,
+      FieldValueFactory fieldValueFactory,
       MethodParameterFactory methodParameterFactory) {
     computationTreeBuilder =
-        new DefaultComputationTreeBuilder(appView, code, method, methodParameterFactory);
+        new DefaultComputationTreeBuilder(
+            appView, code, method, fieldValueFactory, methodParameterFactory);
   }
 
   @Override

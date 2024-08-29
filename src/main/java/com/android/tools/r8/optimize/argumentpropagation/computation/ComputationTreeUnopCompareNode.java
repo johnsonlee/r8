@@ -7,11 +7,10 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.code.IfType;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Objects;
-import java.util.function.Function;
 
 public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
 
@@ -31,9 +30,8 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
 
   @Override
   public AbstractValue evaluate(
-      AppView<AppInfoWithLiveness> appView,
-      Function<MethodParameter, AbstractValue> argumentAssignment) {
-    AbstractValue operandValue = operand.evaluate(appView, argumentAssignment);
+      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
+    AbstractValue operandValue = operand.evaluate(appView, flowGraphStateProvider);
     if (operandValue.isBottom()) {
       return operandValue;
     }
@@ -74,11 +72,5 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
   @Override
   public String toString() {
     return operand.toStringWithParenthesis() + " " + type.getSymbol() + " 0";
-  }
-
-  @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    assert operand.verifyContainsBaseInFlow(inFlow);
-    return true;
   }
 }

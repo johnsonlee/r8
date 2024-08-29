@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
@@ -26,8 +27,9 @@ public class DefaultComputationTreeBuilder extends ComputationTreeBuilder {
       AppView<AppInfoWithLiveness> appView,
       IRCode code,
       ProgramMethod method,
+      FieldValueFactory fieldValueFactory,
       MethodParameterFactory methodParameterFactory) {
-    super(appView, code, method, methodParameterFactory);
+    super(appView, code, method, fieldValueFactory, methodParameterFactory);
   }
 
   @Override

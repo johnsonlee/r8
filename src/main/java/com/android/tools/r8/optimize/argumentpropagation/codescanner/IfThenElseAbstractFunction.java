@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
-import static com.android.tools.r8.utils.FunctionUtils.supplyValue;
-
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
@@ -47,7 +45,7 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
       FlowGraphStateProvider flowGraphStateProvider,
       ConcreteValueState inState,
       DexType outStaticType) {
-    AbstractValue conditionValue = evaluateCondition(appView, flowGraphStateProvider);
+    AbstractValue conditionValue = condition.evaluate(appView, flowGraphStateProvider);
     NonEmptyValueState resultState;
     if (conditionValue.isTrue()) {
       resultState = thenState;
@@ -65,22 +63,6 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
       return concreteResultState;
     }
     return resolveInFlow(appView, flowGraphStateProvider, concreteResultState, outStaticType);
-  }
-
-  private AbstractValue evaluateCondition(
-      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
-    MethodParameter openVariable = condition.getSingleOpenVariable();
-    assert openVariable != null;
-    ValueState variableState = flowGraphStateProvider.getState(openVariable, () -> null);
-    if (variableState == null) {
-      // TODO(b/302281503): Conservatively return unknown for now. Investigate exactly when this
-      //  happens and whether we can return something more precise instead of unknown.
-      return AbstractValue.unknown();
-    }
-    AbstractValue variableValue = variableState.getAbstractValue(appView);
-    // Since the condition is guaranteed to have a single open variable we simply return the
-    // `variableValue` for any given argument index.
-    return condition.evaluate(appView, supplyValue(variableValue));
   }
 
   private ValueState resolveInFlow(
@@ -105,12 +87,6 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
               appView, inFlowState, inStaticType, outStaticType, StateCloner.getCloner());
     }
     return resultStateWithoutInFlow;
-  }
-
-  @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    // TODO(b/302281503): Implement this.
-    return true;
   }
 
   @Override

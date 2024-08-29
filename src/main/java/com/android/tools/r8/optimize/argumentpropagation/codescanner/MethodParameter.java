@@ -32,15 +32,6 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
     this.isMethodStatic = isMethodStatic;
   }
 
-  public static MethodParameter createStatic(DexMethod method, int index) {
-    return new MethodParameter(method, index, true);
-  }
-
-  @Override
-  public boolean contains(ComputationTreeNode node) {
-    return equals(node);
-  }
-
   @Override
   public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
       Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
@@ -61,7 +52,7 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   }
 
   @Override
-  public MethodParameter getSingleOpenVariable() {
+  public BaseInFlow getSingleOpenVariable() {
     return this;
   }
 
@@ -71,9 +62,9 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
 
   @Override
   public AbstractValue evaluate(
-      AppView<AppInfoWithLiveness> appView,
-      Function<MethodParameter, AbstractValue> argumentAssignment) {
-    return argumentAssignment.apply(this);
+      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
+    ValueState state = flowGraphStateProvider.getState(this, () -> ValueState.bottom(getType()));
+    return state.getAbstractValue(appView);
   }
 
   @Override
@@ -132,12 +123,5 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   @Override
   public String toString() {
     return "MethodParameter(" + method + ", " + index + ")";
-  }
-
-  @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    assert inFlow.isMethodParameter();
-    assert equals(inFlow);
-    return true;
   }
 }

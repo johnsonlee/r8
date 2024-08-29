@@ -50,12 +50,6 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    assert inFlow.equals(receiver) || inFlow.isFieldValue(field);
-    return true;
-  }
-
-  @Override
   public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
       Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
     TraversalContinuation<TB, TC> traversalContinuation = fn.apply(receiver);

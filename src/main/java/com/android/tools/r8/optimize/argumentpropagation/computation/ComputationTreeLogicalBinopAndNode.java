@@ -6,10 +6,9 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Objects;
-import java.util.function.Function;
 
 public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBinopNode {
 
@@ -26,14 +25,13 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
 
   @Override
   public AbstractValue evaluate(
-      AppView<AppInfoWithLiveness> appView,
-      Function<MethodParameter, AbstractValue> argumentAssignment) {
+      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
     assert getNumericType().isInt();
-    AbstractValue leftValue = left.evaluate(appView, argumentAssignment);
+    AbstractValue leftValue = left.evaluate(appView, flowGraphStateProvider);
     if (leftValue.isBottom()) {
       return leftValue;
     }
-    AbstractValue rightValue = right.evaluate(appView, argumentAssignment);
+    AbstractValue rightValue = right.evaluate(appView, flowGraphStateProvider);
     if (rightValue.isBottom()) {
       return rightValue;
     }

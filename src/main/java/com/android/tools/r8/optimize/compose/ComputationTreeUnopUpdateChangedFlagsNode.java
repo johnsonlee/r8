@@ -4,59 +4,51 @@
 package com.android.tools.r8.optimize.compose;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
+import com.android.tools.r8.ir.analysis.value.DefiniteBitsNumberValue;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.AbstractFunction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowKind;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.OrAbstractFunction;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeUnopNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
 import java.util.function.Function;
 
-// TODO(b/302281503): Change this to implement ComputationTreeNode instead?
-public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
+public class ComputationTreeUnopUpdateChangedFlagsNode extends ComputationTreeUnopNode {
 
   private static final int changedLowBitMask = 0b001_001_001_001_001_001_001_001_001_001_0;
   private static final int changedHighBitMask = changedLowBitMask << 1;
   private static final int changedMask = ~(changedLowBitMask | changedHighBitMask);
 
-  private final InFlow inFlow;
+  public ComputationTreeUnopUpdateChangedFlagsNode(ComputationTreeNode operand) {
+    super(operand);
+  }
 
-  public UpdateChangedFlagsAbstractFunction(InFlow inFlow) {
-    this.inFlow = inFlow;
+  public static ComputationTreeNode create(ComputationTreeNode operand) {
+    if (operand.isUnknown()) {
+      return AbstractValue.unknown();
+    }
+    return new ComputationTreeUnopUpdateChangedFlagsNode(operand);
   }
 
   @Override
-  public ValueState apply(
-      AppView<AppInfoWithLiveness> appView,
-      FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState baseInState,
-      DexType outStaticType) {
-    ValueState inState;
-    if (inFlow.isAbstractFunction()) {
-      AbstractFunction orFunction = inFlow.asAbstractFunction();
-      assert orFunction instanceof OrAbstractFunction;
-      inState = orFunction.apply(appView, flowGraphStateProvider, baseInState, outStaticType);
+  public AbstractValue evaluate(
+      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
+    AbstractValue operandValue = operand.evaluate(appView, flowGraphStateProvider);
+    if (operandValue.isBottom()) {
+      return operandValue;
+    } else if (operandValue.isSingleNumberValue()) {
+      return evaluateConcrete(appView, operandValue.asSingleNumberValue().getIntValue());
+    } else if (operandValue.isDefiniteBitsNumberValue()) {
+      return evaluateAbstract(appView, operandValue.asDefiniteBitsNumberValue());
     } else {
-      inState = baseInState;
+      assert !operandValue.hasDefinitelySetAndUnsetBitsInformation();
+      return AbstractValue.unknown();
     }
-    if (!inState.isPrimitiveState()) {
-      assert inState.isBottom() || inState.isUnknown();
-      return inState;
-    }
-    AbstractValue result = apply(appView, inState.asPrimitiveState().getAbstractValue());
-    return ConcretePrimitiveTypeValueState.create(result);
   }
 
   /**
@@ -75,10 +67,8 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
    * }
    * </pre>
    */
-  private AbstractValue apply(AppView<AppInfoWithLiveness> appView, AbstractValue flagsValue) {
-    if (flagsValue.isSingleNumberValue()) {
-      return apply(appView, flagsValue.asSingleNumberValue().getIntValue());
-    }
+  private AbstractValue evaluateAbstract(
+      AppView<AppInfoWithLiveness> appView, DefiniteBitsNumberValue flags) {
     AbstractValueFactory factory = appView.abstractValueFactory();
     // Load constants.
     AbstractValue changedLowBitMaskValue =
@@ -88,11 +78,11 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
     AbstractValue changedMaskValue = factory.createUncheckedSingleNumberValue(changedMask);
     // Evaluate expression.
     AbstractValue lowBitsValue =
-        AbstractCalculator.andIntegers(appView, flagsValue, changedLowBitMaskValue);
+        AbstractCalculator.andIntegers(appView, flags, changedLowBitMaskValue);
     AbstractValue highBitsValue =
-        AbstractCalculator.andIntegers(appView, flagsValue, changedHighBitMaskValue);
+        AbstractCalculator.andIntegers(appView, flags, changedHighBitMaskValue);
     AbstractValue changedBitsValue =
-        AbstractCalculator.andIntegers(appView, flagsValue, changedMaskValue);
+        AbstractCalculator.andIntegers(appView, flags, changedMaskValue);
     return AbstractCalculator.orIntegers(
         appView,
         changedBitsValue,
@@ -102,7 +92,7 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
             appView, AbstractCalculator.shlIntegers(appView, lowBitsValue, 1), highBitsValue));
   }
 
-  private SingleNumberValue apply(AppView<AppInfoWithLiveness> appView, int flags) {
+  private SingleNumberValue evaluateConcrete(AppView<AppInfoWithLiveness> appView, int flags) {
     int lowBits = flags & changedLowBitMask;
     int highBits = flags & changedHighBitMask;
     int changedBits = flags & changedMask;
@@ -111,40 +101,14 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow otherInFlow) {
-    if (inFlow.isAbstractFunction()) {
-      assert inFlow.asAbstractFunction().verifyContainsBaseInFlow(otherInFlow);
-    } else {
-      assert inFlow.isBaseInFlow();
-      assert inFlow.equals(otherInFlow);
-    }
+  public boolean isUpdateChangedFlags() {
     return true;
   }
 
   @Override
   public <TB, TC> TraversalContinuation<TB, TC> traverseBaseInFlow(
       Function<? super BaseInFlow, TraversalContinuation<TB, TC>> fn) {
-    return inFlow.traverseBaseInFlow(fn);
-  }
-
-  @Override
-  public InFlowKind getKind() {
-    return InFlowKind.ABSTRACT_FUNCTION_UPDATE_CHANGED_FLAGS;
-  }
-
-  @Override
-  public int internalCompareToSameKind(InFlow other, InFlowComparator comparator) {
-    return inFlow.compareTo(other.asUpdateChangedFlagsAbstractFunction().inFlow, comparator);
-  }
-
-  @Override
-  public boolean isUpdateChangedFlagsAbstractFunction() {
-    return true;
-  }
-
-  @Override
-  public UpdateChangedFlagsAbstractFunction asUpdateChangedFlagsAbstractFunction() {
-    return this;
+    return operand.traverseBaseInFlow(fn);
   }
 
   @Override
@@ -156,12 +120,17 @@ public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
     if (obj == null || getClass() != obj.getClass()) {
       return false;
     }
-    UpdateChangedFlagsAbstractFunction fn = (UpdateChangedFlagsAbstractFunction) obj;
-    return inFlow.equals(fn.inFlow);
+    ComputationTreeUnopUpdateChangedFlagsNode fn = (ComputationTreeUnopUpdateChangedFlagsNode) obj;
+    return operand.equals(fn.operand);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getClass(), inFlow);
+    return Objects.hash(getClass(), operand);
+  }
+
+  @Override
+  public String toString() {
+    return "UpdateChangedFlags(" + operand + ")";
   }
 }

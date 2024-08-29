@@ -46,14 +46,10 @@ public class NestedComposableArgumentPropagationTest extends TestBase {
     public int getExpectedNumberOfIfInstructions() {
       switch (this) {
         case A:
-          // TODO(b/302281503): Should be 5.
-          return 7;
         case B:
-          // TODO(b/302281503): Should be 5.
-          return 7;
-        case C:
-          // TODO(b/302281503): Should be 3.
           return 5;
+        case C:
+          return 3;
         default:
           throw new Unreachable();
       }

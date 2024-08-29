@@ -8,7 +8,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueConstantPropagationJoiner;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
@@ -34,20 +34,19 @@ public class ComputationTreeLogicalBinopIntPhiNode extends ComputationTreeLogica
 
   @Override
   public AbstractValue evaluate(
-      AppView<AppInfoWithLiveness> appView,
-      Function<MethodParameter, AbstractValue> argumentAssignment) {
-    AbstractValue result = condition.evaluate(appView, argumentAssignment);
+      AppView<AppInfoWithLiveness> appView, FlowGraphStateProvider flowGraphStateProvider) {
+    AbstractValue result = condition.evaluate(appView, flowGraphStateProvider);
     if (result.isBottom()) {
       return AbstractValue.bottom();
     } else if (result.isTrue()) {
-      return left.evaluate(appView, argumentAssignment);
+      return left.evaluate(appView, flowGraphStateProvider);
     } else if (result.isFalse()) {
-      return right.evaluate(appView, argumentAssignment);
+      return right.evaluate(appView, flowGraphStateProvider);
     } else {
       AbstractValueConstantPropagationJoiner joiner =
           appView.getAbstractValueConstantPropagationJoiner();
-      AbstractValue leftValue = left.evaluate(appView, argumentAssignment);
-      AbstractValue rightValue = right.evaluate(appView, argumentAssignment);
+      AbstractValue leftValue = left.evaluate(appView, flowGraphStateProvider);
+      AbstractValue rightValue = right.evaluate(appView, flowGraphStateProvider);
       return joiner.join(leftValue, rightValue, TypeElement.getInt());
     }
   }

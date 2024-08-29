@@ -10,6 +10,7 @@ import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -18,6 +19,7 @@ public class PathConstraintSupplier {
 
   private final AppView<AppInfoWithLiveness> appView;
   private final IRCode code;
+  private final FieldValueFactory fieldValueFactory;
   private final MethodParameterFactory methodParameterFactory;
 
   private SuccessfulDataflowAnalysisResult<BasicBlock, PathConstraintAnalysisState>
@@ -26,9 +28,11 @@ public class PathConstraintSupplier {
   public PathConstraintSupplier(
       AppView<AppInfoWithLiveness> appView,
       IRCode code,
+      FieldValueFactory fieldValueFactory,
       MethodParameterFactory methodParameterFactory) {
     this.appView = appView;
     this.code = code;
+    this.fieldValueFactory = fieldValueFactory;
     this.methodParameterFactory = methodParameterFactory;
   }
 
@@ -49,7 +53,7 @@ public class PathConstraintSupplier {
   public PathConstraintAnalysisState getPathConstraint(BasicBlock block) {
     if (pathConstraintAnalysisResult == null) {
       PathConstraintAnalysis analysis =
-          new PathConstraintAnalysis(appView, code, methodParameterFactory);
+          new PathConstraintAnalysis(appView, code, fieldValueFactory, methodParameterFactory);
       pathConstraintAnalysisResult = analysis.run(code.entryBlock()).asSuccessfulAnalysisResult();
       assert pathConstraintAnalysisResult != null;
     }

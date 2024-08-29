@@ -6,6 +6,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.TraversalContinuation;
 
 public interface AbstractFunction extends InFlow {
 
@@ -32,9 +33,6 @@ public interface AbstractFunction extends InFlow {
       ConcreteValueState inState,
       DexType outStaticType);
 
-  /** Returns true if the given {@param inFlow} is a declared input of this abstract function. */
-  boolean verifyContainsBaseInFlow(BaseInFlow inFlow);
-
   default boolean usesFlowGraphStateProvider() {
     return false;
   }
@@ -51,5 +49,17 @@ public interface AbstractFunction extends InFlow {
 
   default boolean isIdentity() {
     return false;
+  }
+
+  default boolean isUpdateChangedFlags() {
+    return false;
+  }
+
+  /** Verifies that {@param stoppingCriterion} is a declared input of this abstract function. */
+  default boolean verifyContainsBaseInFlow(BaseInFlow stoppingCriterion) {
+    assert traverseBaseInFlow(
+            inFlow -> TraversalContinuation.breakIf(inFlow.equals(stoppingCriterion)))
+        .shouldBreak();
+    return true;
   }
 }

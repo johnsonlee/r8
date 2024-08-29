@@ -104,8 +104,6 @@ public class ArgumentPropagatorCodeScanner {
 
   private final AppView<AppInfoWithLiveness> appView;
 
-  private final ArgumentPropagatorCodeScannerModeling modeling;
-
   private final FieldValueFactory fieldValueFactory = new FieldValueFactory();
 
   final MethodParameterFactory methodParameterFactory = new MethodParameterFactory();
@@ -144,7 +142,6 @@ public class ArgumentPropagatorCodeScanner {
       AppView<AppInfoWithLiveness> appView,
       ArgumentPropagatorReprocessingCriteriaCollection reprocessingCriteriaCollection) {
     this.appView = appView;
-    this.modeling = new ArgumentPropagatorCodeScannerModeling(appView);
     this.reprocessingCriteriaCollection = reprocessingCriteriaCollection;
   }
 
@@ -158,6 +155,10 @@ public class ArgumentPropagatorCodeScanner {
 
   public FieldStateCollection getFieldStates() {
     return fieldStates;
+  }
+
+  public FieldValueFactory getFieldValueFactory() {
+    return fieldValueFactory;
   }
 
   public MethodParameterFactory getMethodParameterFactory() {
@@ -415,7 +416,12 @@ public class ArgumentPropagatorCodeScanner {
       } else if (target != null && appView.getComposeReferences().isComposable(target)) {
         ComputationTreeNode node =
             new ComposableComputationTreeBuilder(
-                    appView, code, code.context(), methodParameterFactory, pathConstraintSupplier)
+                    appView,
+                    code,
+                    code.context(),
+                    fieldValueFactory,
+                    methodParameterFactory,
+                    pathConstraintSupplier)
                 .getOrBuildComputationTree(value);
         if (!node.isComputationLeaf() && TraversalUtils.hasNext(node::traverseBaseInFlow)) {
           recordComputationTreePosition(node, value);
@@ -871,12 +877,6 @@ public class ArgumentPropagatorCodeScanner {
         ConcreteMonomorphicMethodStateOrBottom existingMethodState) {
       assert invoke.isInvokeStatic() || argumentIndex > 0;
       assert value == initialValue || initialValue.getAliasedValue().isPhi();
-      NonEmptyValueState modeledState =
-          modeling.modelParameterStateForArgumentToFunction(
-              invoke, singleTarget, argumentIndex, value, context);
-      if (modeledState != null) {
-        return modeledState;
-      }
 
       // Don't compute a state for this parameter if the stored state is already unknown.
       if (existingMethodState.isMonomorphic()

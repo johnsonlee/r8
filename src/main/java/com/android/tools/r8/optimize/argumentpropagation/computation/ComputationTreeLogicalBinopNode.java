@@ -5,7 +5,6 @@ package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
-import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.function.Function;
 
@@ -18,11 +17,6 @@ public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBas
     assert !left.isUnknown() || !right.isUnknown();
     this.left = left;
     this.right = right;
-  }
-
-  @Override
-  public boolean contains(ComputationTreeNode node) {
-    return equals(node) || left.contains(node) || right.contains(node);
   }
 
   @Override
@@ -40,8 +34,8 @@ public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBas
   }
 
   @Override
-  public final MethodParameter getSingleOpenVariable() {
-    MethodParameter openVariable = left.getSingleOpenVariable();
+  public final BaseInFlow getSingleOpenVariable() {
+    BaseInFlow openVariable = left.getSingleOpenVariable();
     if (openVariable != null) {
       return right.getSingleOpenVariable() == null ? openVariable : null;
     }
@@ -50,13 +44,5 @@ public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBas
 
   boolean internalIsEqualTo(ComputationTreeLogicalBinopNode node) {
     return left.equals(node.left) && right.equals(node.right);
-  }
-
-  @Override
-  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
-    assert inFlow.isMethodParameter();
-    MethodParameter methodParameter = inFlow.asMethodParameter();
-    assert left.contains(methodParameter) || right.verifyContainsBaseInFlow(inFlow);
-    return true;
   }
 }

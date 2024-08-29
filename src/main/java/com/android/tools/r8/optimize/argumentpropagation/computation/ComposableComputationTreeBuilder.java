@@ -7,9 +7,16 @@ import static com.android.tools.r8.ir.code.Opcodes.AND;
 import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
 import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
 import static com.android.tools.r8.ir.code.Opcodes.IF;
+import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_GET;
+import static com.android.tools.r8.ir.code.Opcodes.INVOKE_STATIC;
 import static com.android.tools.r8.ir.code.Opcodes.OR;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.code.And;
@@ -18,10 +25,14 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
+import com.android.tools.r8.ir.code.InstanceGet;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldValueFactory;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
+import com.android.tools.r8.optimize.compose.ComputationTreeUnopUpdateChangedFlagsNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.Sets;
 import java.util.Set;
@@ -40,9 +51,10 @@ public class ComposableComputationTreeBuilder extends ComputationTreeBuilder {
       AppView<AppInfoWithLiveness> appView,
       IRCode code,
       ProgramMethod method,
+      FieldValueFactory fieldValueFactory,
       MethodParameterFactory methodParameterFactory,
       PathConstraintSupplier pathConstraintSupplier) {
-    super(appView, code, method, methodParameterFactory);
+    super(appView, code, method, fieldValueFactory, methodParameterFactory);
     this.pathConstraintSupplier = pathConstraintSupplier;
   }
 
@@ -80,6 +92,45 @@ public class ComposableComputationTreeBuilder extends ComputationTreeBuilder {
             return ComputationTreeUnopCompareNode.create(operand, theIf.getType());
           }
           break;
+        }
+      case INSTANCE_GET:
+        {
+          InstanceGet instanceGet = instruction.asInstanceGet();
+          DexField reference = instanceGet.getField();
+          if (instanceGet.object().isThis() && reference.getType().isIntType()) {
+            ProgramField field = instanceGet.resolveField(appView, method).getProgramField();
+            if (field != null) {
+              return fieldValueFactory.create(field);
+            }
+          }
+          break;
+        }
+      case INVOKE_STATIC:
+        {
+          InvokeStatic invoke = instruction.asInvokeStatic();
+          DexMethod reference = invoke.getInvokedMethod();
+          if (reference.getArity() != 1
+              || !reference.getParameter(0).isIntType()
+              || !reference.getReturnType().isIntType()) {
+            break;
+          }
+          SingleResolutionResult<?> resolutionResult =
+              invoke.resolveMethod(appView, method).asSingleResolution();
+          if (resolutionResult == null) {
+            break;
+          }
+          DexClassAndMethod singleTarget =
+              resolutionResult
+                  .lookupDispatchTarget(appView, invoke, method)
+                  .getSingleDispatchTarget();
+          if (singleTarget == null) {
+            break;
+          }
+          if (!singleTarget.getOptimizationInfo().getAbstractFunction().isUpdateChangedFlags()) {
+            break;
+          }
+          ComputationTreeNode operand = getOrBuildComputationTree(invoke.getFirstArgument());
+          return ComputationTreeUnopUpdateChangedFlagsNode.create(operand);
         }
       case OR:
         {

@@ -5,6 +5,9 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.FlowGraph;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.function.Supplier;
@@ -39,9 +42,7 @@ public interface FlowGraphStateProvider {
     }
     // Otherwise, the abstract function is a canonical function, or the abstract function has a
     // single declared input, meaning we should never perform any state lookups.
-    assert abstractFunction.isIdentity()
-        || abstractFunction.isCastAbstractFunction()
-        || abstractFunction.isUpdateChangedFlagsAbstractFunction();
+    assert abstractFunction.isIdentity() || abstractFunction.isCastAbstractFunction();
     return new FlowGraphStateProvider() {
 
       @Override
@@ -53,6 +54,31 @@ public interface FlowGraphStateProvider {
       public ValueState getState(
           MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
         throw new Unreachable();
+      }
+    };
+  }
+
+  static FlowGraphStateProvider createFromMethodOptimizationInfo(ProgramMethod method) {
+    return new FlowGraphStateProvider() {
+
+      @Override
+      public ValueState getState(DexField field) {
+        return ValueState.unknown();
+      }
+
+      @Override
+      public ValueState getState(
+          MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
+        if (methodParameter.getMethod().isNotIdenticalTo(method.getReference())) {
+          return ValueState.unknown();
+        }
+        MethodOptimizationInfo optimizationInfo = method.getOptimizationInfo();
+        AbstractValue abstractValue =
+            optimizationInfo.getArgumentInfos().getAbstractArgumentValue(methodParameter);
+        if (abstractValue.isUnknown()) {
+          return ValueState.unknown();
+        }
+        return ConcreteValueState.create(methodParameter.getType(), abstractValue);
       }
     };
   }
