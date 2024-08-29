@@ -198,9 +198,9 @@ public class MethodMapBacking extends MethodCollectionBacking {
   }
 
   @Override
-  void addVirtualMethods(Collection<DexEncodedMethod> methods) {
-    for (DexEncodedMethod method : methods) {
-      addVirtualMethod(method);
+  <T> void addVirtualMethods(Collection<T> methods, Function<? super T, DexEncodedMethod> fn) {
+    for (T method : methods) {
+      addVirtualMethod(fn.apply(method));
     }
   }
 

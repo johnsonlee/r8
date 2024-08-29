@@ -372,7 +372,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     if (isAndroidPlatformBuild) {
       apiModelingOptions().disableApiModeling();
       disableBackportsAndReportIfTriggered = true;
-      addAndroidPlatformBuildToMarker = isAndroidPlatformBuild;
+      addAndroidPlatformBuildToMarker = true;
+      processCovariantReturnTypeAnnotations = true;
     }
   }
 
@@ -778,7 +779,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public OffOrAuto tryWithResourcesDesugaring = OffOrAuto.Auto;
   // Flag to turn on/off processing of @dalvik.annotation.codegen.CovariantReturnType and
   // @dalvik.annotation.codegen.CovariantReturnType$CovariantReturnTypes.
-  public boolean processCovariantReturnTypeAnnotations = true;
+  public boolean processCovariantReturnTypeAnnotations = false;
 
   public boolean loadAllClassDefinitions = false;
 

@@ -5,6 +5,9 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -12,7 +15,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class MethodCollection {
@@ -354,9 +356,21 @@ public class MethodCollection {
   }
 
   public void addVirtualMethods(Collection<DexEncodedMethod> methods) {
-    assert verifyCorrectnessOfMethodHolders(methods);
+    internalAddVirtualMethods(methods, Functions.identity());
+  }
+
+  public void addVirtualClassMethods(Collection<? extends DexClassAndMethod> methods) {
+    internalAddVirtualMethods(methods, DexClassAndMethod::getDefinition);
+  }
+
+  private <T> void internalAddVirtualMethods(
+      Collection<T> methods, Function<? super T, DexEncodedMethod> fn) {
+    if (methods.isEmpty()) {
+      return;
+    }
+    assert verifyCorrectnessOfMethodHolders(Iterables.transform(methods, fn));
     resetVirtualMethodCaches();
-    backing.addVirtualMethods(methods);
+    backing.addVirtualMethods(methods, fn);
   }
 
   public void clearVirtualMethods() {

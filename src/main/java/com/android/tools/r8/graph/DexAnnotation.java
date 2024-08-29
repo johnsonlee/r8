@@ -5,7 +5,6 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
-import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.graph.DexValue.DexValueAnnotation;
@@ -79,6 +78,10 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
     this.annotation = annotation;
   }
 
+  public DexEncodedAnnotation getAnnotation() {
+    return annotation;
+  }
+
   public boolean isTypeAnnotation() {
     return false;
   }
@@ -136,22 +139,21 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
     mixedItems.add(this);
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  public static boolean retainCompileTimeAnnotation(DexType annotation, InternalOptions options) {
+  public static boolean retainCompileTimeAnnotation(
+      DexType annotationType, InternalOptions options) {
     if (options.retainCompileTimeAnnotations) {
       return true;
     }
-    if (annotation == options.itemFactory.annotationSynthesizedClass
-        || annotation
-            .getDescriptor()
-            .startsWith(options.itemFactory.dalvikAnnotationOptimizationPrefix)) {
+    DexItemFactory factory = options.itemFactory;
+    if (annotationType.isIdenticalTo(factory.annotationSynthesizedClass)) {
       return true;
     }
-    if (options.processCovariantReturnTypeAnnotations) {
-      // @CovariantReturnType annotations are processed by CovariantReturnTypeAnnotationTransformer,
-      // they thus need to be read here and will then be removed as part of the processing.
-      return CovariantReturnTypeAnnotationTransformer.isCovariantReturnTypeAnnotation(
-          annotation, options.itemFactory);
+    DexString descriptor = annotationType.getDescriptor();
+    if (descriptor.startsWith(factory.dalvikAnnotationPrefix)) {
+      if (descriptor.startsWith(factory.dalvikAnnotationCodegenCovariantReturnTypePrefix)) {
+        return options.processCovariantReturnTypeAnnotations;
+      }
+      return descriptor.startsWith(factory.dalvikAnnotationOptimizationPrefix);
     }
     return false;
   }

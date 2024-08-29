@@ -4,11 +4,11 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.google.common.base.Function;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class MethodCollectionConcurrencyChecked extends MethodCollection {

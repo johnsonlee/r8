@@ -184,12 +184,12 @@ public class MethodArrayBacking extends MethodCollectionBacking {
   }
 
   @Override
-  void addVirtualMethods(Collection<DexEncodedMethod> methods) {
+  <T> void addVirtualMethods(Collection<T> methods, Function<? super T, DexEncodedMethod> fn) {
     DexEncodedMethod[] newMethods = new DexEncodedMethod[virtualMethods.length + methods.size()];
     System.arraycopy(virtualMethods, 0, newMethods, 0, virtualMethods.length);
     int i = virtualMethods.length;
-    for (DexEncodedMethod method : methods) {
-      newMethods[i] = method;
+    for (T method : methods) {
+      newMethods[i] = fn.apply(method);
       i++;
     }
     virtualMethods = newMethods;

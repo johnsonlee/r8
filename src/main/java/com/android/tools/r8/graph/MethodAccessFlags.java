@@ -152,8 +152,9 @@ public class MethodAccessFlags extends AccessFlags<MethodAccessFlags> {
     return isSet(Constants.ACC_BRIDGE);
   }
 
-  public void setBridge() {
+  public MethodAccessFlags setBridge() {
     set(Constants.ACC_BRIDGE);
+    return this;
   }
 
   public void unsetBridge() {
@@ -204,8 +205,9 @@ public class MethodAccessFlags extends AccessFlags<MethodAccessFlags> {
     promote(Constants.ACC_ABSTRACT);
   }
 
-  public void unsetAbstract() {
+  public MethodAccessFlags unsetAbstract() {
     unset(Constants.ACC_ABSTRACT);
+    return this;
   }
 
   public boolean isStrict() {

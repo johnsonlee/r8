@@ -156,9 +156,17 @@ public class DexAnnotationSet extends CachedHashValueDexItem
     return getFirstMatching(type) != null;
   }
 
+  public boolean hasAnnotation(Predicate<DexAnnotation> predicate) {
+    return getFirstMatching(predicate) != null;
+  }
+
   public DexAnnotation getFirstMatching(DexType type) {
+    return getFirstMatching(annotation -> annotation.getAnnotationType().isIdenticalTo(type));
+  }
+
+  public DexAnnotation getFirstMatching(Predicate<DexAnnotation> predicate) {
     for (DexAnnotation annotation : annotations) {
-      if (annotation.getAnnotationType().isIdenticalTo(type)) {
+      if (predicate.test(annotation)) {
         return annotation;
       }
     }

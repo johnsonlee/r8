@@ -755,11 +755,6 @@ public class DexProgramClass extends DexClass
     methodCollection.addMethod(method);
   }
 
-  public void replaceVirtualMethod(
-      DexMethod virtualMethod, Function<DexEncodedMethod, DexEncodedMethod> replacement) {
-    methodCollection.replaceVirtualMethod(virtualMethod, replacement);
-  }
-
   public void addExtraInterfaces(List<ClassTypeSignature> extraInterfaces, DexItemFactory factory) {
     if (extraInterfaces.isEmpty()) {
       return;

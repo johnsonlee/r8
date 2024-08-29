@@ -41,6 +41,10 @@ public class DexEncodedAnnotation extends DexItem implements StructuralItem<DexE
     return DexEncodedAnnotation::specify;
   }
 
+  public DexType getType() {
+    return type;
+  }
+
   public void collectIndexedItems(AppView<?> appView, IndexedItemCollection indexedItems) {
     type.collectIndexedItems(appView, indexedItems);
     for (DexAnnotationElement element : elements) {

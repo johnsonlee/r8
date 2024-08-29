@@ -12,7 +12,6 @@ import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.transformers.MethodTransformer;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -56,8 +55,7 @@ public class DalvikAnnotationOptimizationTest extends TestBase {
         BooleanUtils.values());
   }
 
-  private static final String dalvikOptimizationPrefix =
-      DexItemFactory.dalvikAnnotationOptimizationPrefixString;
+  private static final String dalvikOptimizationPrefix = "Ldalvik/annotation/optimization/";
   private static final String dalvikCodegenPrefix = "Ldalvik/annotation/codegen/";
   private static final String ourClassName =
       DescriptorUtils.javaTypeToDescriptor(DalvikAnnotationOptimizationTest.class.getTypeName());

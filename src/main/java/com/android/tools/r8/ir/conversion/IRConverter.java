@@ -4,7 +4,6 @@
 package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
-import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
@@ -120,7 +119,6 @@ public class IRConverter {
   protected final Inliner inliner;
   protected final IdentifierNameStringMarker identifierNameStringMarker;
   private final Devirtualizer devirtualizer;
-  protected final CovariantReturnTypeAnnotationTransformer covariantReturnTypeAnnotationTransformer;
   private final TypeChecker typeChecker;
   protected EnumUnboxer enumUnboxer;
   protected final NumberUnboxer numberUnboxer;
@@ -190,7 +188,6 @@ public class IRConverter {
       assert options.desugarState.isOn();
       this.instructionDesugaring =
           CfInstructionDesugaringCollection.create(appView, appView.apiLevelCompute());
-      this.covariantReturnTypeAnnotationTransformer = null;
       this.dynamicTypeOptimization = null;
       this.classInliner = null;
       this.fieldAccessAnalysis = null;
@@ -213,10 +210,6 @@ public class IRConverter {
         appView.enableWholeProgramOptimizations()
             ? CfInstructionDesugaringCollection.empty()
             : CfInstructionDesugaringCollection.create(appView, appView.apiLevelCompute());
-    this.covariantReturnTypeAnnotationTransformer =
-        options.processCovariantReturnTypeAnnotations
-            ? new CovariantReturnTypeAnnotationTransformer(appView, this)
-            : null;
     removeVerificationErrorForUnknownReturnedValues =
         (appView.options().apiModelingOptions().enableLibraryApiModeling
                 && appView.options().canHaveVerifyErrorForUnknownUnusedReturnValue())

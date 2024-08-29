@@ -81,8 +81,6 @@ public class DexItemFactory {
       "Lcom/android/tools/r8/DesugarMethodHandlesLookup;";
   public static final String methodHandlesLookupDescriptorString =
       "Ljava/lang/invoke/MethodHandles$Lookup;";
-  public static final String dalvikAnnotationOptimizationPrefixString =
-      "Ldalvik/annotation/optimization/";
   public static final String androidUtilSparseArrayDescriptorString = "Landroid/util/SparseArray;";
   public static final String androidContentResTypedArrayDescriptorString =
       "Landroid/content/res/TypedArray;";
@@ -380,8 +378,11 @@ public class DexItemFactory {
   public final DexString apiLevelString = createString("apiLevel");
 
   // Prefix for runtime affecting yet potential class-retained annotations.
+  public final DexString dalvikAnnotationPrefix = createString("Ldalvik/annotation/");
+  public final DexString dalvikAnnotationCodegenCovariantReturnTypePrefix =
+      createString("Ldalvik/annotation/codegen/CovariantReturnType");
   public final DexString dalvikAnnotationOptimizationPrefix =
-      createString(dalvikAnnotationOptimizationPrefixString);
+      createString("Ldalvik/annotation/optimization/");
 
   // Method names used on VarHandle.
   public final DexString getString = createString("get");
@@ -811,11 +812,6 @@ public class DexItemFactory {
   public final DexType annotationThrows = createStaticallyKnownType("Ldalvik/annotation/Throws;");
   public final DexType annotationSynthesizedClass =
       createStaticallyKnownType("Lcom/android/tools/r8/annotations/SynthesizedClassV2;");
-  public final DexType annotationCovariantReturnType =
-      createStaticallyKnownType("Ldalvik/annotation/codegen/CovariantReturnType;");
-  public final DexType annotationCovariantReturnTypes =
-      createStaticallyKnownType(
-          "Ldalvik/annotation/codegen/CovariantReturnType$CovariantReturnTypes;");
 
   public final String annotationReachabilitySensitiveDesc =
       "Ldalvik/annotation/optimization/ReachabilitySensitive;";

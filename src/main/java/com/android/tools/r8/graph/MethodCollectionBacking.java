@@ -6,6 +6,7 @@ package com.android.tools.r8.graph;
 import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.google.common.base.Functions;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -99,7 +100,12 @@ public abstract class MethodCollectionBacking {
 
   abstract void addDirectMethods(Collection<DexEncodedMethod> methods);
 
-  abstract void addVirtualMethods(Collection<DexEncodedMethod> methods);
+  final void addVirtualMethods(Collection<DexEncodedMethod> methods) {
+    addVirtualMethods(methods, Functions.identity());
+  }
+
+  abstract <T> void addVirtualMethods(
+      Collection<T> methods, Function<? super T, DexEncodedMethod> fn);
 
   // Removal methods.
 
