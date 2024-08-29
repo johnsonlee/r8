@@ -51,7 +51,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class Value implements Comparable<Value> {
+public class Value implements Comparable<Value>, InstructionOrValue {
 
   public void constrainType(
       ValueTypeConstraint constraint, ProgramMethod method, Reporter reporter) {
@@ -789,6 +789,11 @@ public class Value implements Comparable<Value> {
   }
 
   @Override
+  public Value asValue() {
+    return this;
+  }
+
+  @Override
   public int compareTo(Value value) {
     return Integer.compare(this.number, value.number);
   }
@@ -941,14 +946,6 @@ public class Value implements Comparable<Value> {
 
   public boolean isDefinedByInstructionSatisfying(Predicate<Instruction> predicate) {
     return predicate.test(definition);
-  }
-
-  public boolean isPhi() {
-    return false;
-  }
-
-  public Phi asPhi() {
-    return null;
   }
 
   /**
@@ -1120,6 +1117,7 @@ public class Value implements Comparable<Value> {
     return definition.hasBlock();
   }
 
+  @Override
   public BasicBlock getBlock() {
     return definition.getBlock();
   }

@@ -3,102 +3,76 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
-import static com.android.tools.r8.ir.code.Opcodes.AND;
-import static com.android.tools.r8.ir.code.Opcodes.ARGUMENT;
-import static com.android.tools.r8.ir.code.Opcodes.CONST_NUMBER;
-import static com.android.tools.r8.ir.code.Opcodes.IF;
-
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
-import com.android.tools.r8.ir.code.And;
-import com.android.tools.r8.ir.code.Argument;
-import com.android.tools.r8.ir.code.ConstNumber;
-import com.android.tools.r8.ir.code.If;
+import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InstructionOrValue;
+import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-public class ComputationTreeBuilder {
+public abstract class ComputationTreeBuilder {
 
-  private final AbstractValueFactory abstractValueFactory;
-  private final ProgramMethod method;
-  private final MethodParameterFactory methodParameterFactory;
+  final AppView<AppInfoWithLiveness> appView;
+  final IRCode code;
+  final ProgramMethod method;
+  final MethodParameterFactory methodParameterFactory;
 
-  private final Map<Instruction, ComputationTreeNode> cache = new IdentityHashMap<>();
+  private final Map<InstructionOrValue, ComputationTreeNode> cache = new IdentityHashMap<>();
 
   public ComputationTreeBuilder(
-      AbstractValueFactory abstractValueFactory,
+      AppView<AppInfoWithLiveness> appView,
+      IRCode code,
       ProgramMethod method,
       MethodParameterFactory methodParameterFactory) {
-    this.abstractValueFactory = abstractValueFactory;
+    this.appView = appView;
+    this.code = code;
     this.method = method;
     this.methodParameterFactory = methodParameterFactory;
   }
 
+  AbstractValueFactory factory() {
+    return appView.abstractValueFactory();
+  }
+
   // TODO(b/302281503): "Long lived" computation trees (i.e., the ones that survive past the IR
   //  conversion of the current method) should be canonicalized.
-  public ComputationTreeNode getOrBuildComputationTree(Instruction instruction) {
-    ComputationTreeNode existing = cache.get(instruction);
+  public final ComputationTreeNode getOrBuildComputationTree(
+      InstructionOrValue instructionOrValue) {
+    ComputationTreeNode existing = cache.get(instructionOrValue);
     if (existing != null) {
       return existing;
     }
-    ComputationTreeNode result = buildComputationTree(instruction);
-    cache.put(instruction, result);
+    ComputationTreeNode result = buildComputationTree(instructionOrValue);
+    cache.put(instructionOrValue, result);
     return result;
   }
 
-  private ComputationTreeNode buildComputationTree(Instruction instruction) {
-    switch (instruction.opcode()) {
-      case AND:
-        {
-          And and = instruction.asAnd();
-          ComputationTreeNode left = buildComputationTreeFromValue(and.leftValue());
-          ComputationTreeNode right = buildComputationTreeFromValue(and.rightValue());
-          return ComputationTreeLogicalBinopAndNode.create(left, right);
-        }
-      case ARGUMENT:
-        {
-          Argument argument = instruction.asArgument();
-          if (argument.getOutType().isInt()) {
-            return methodParameterFactory.create(method, argument.getIndex());
-          }
-          break;
-        }
-      case CONST_NUMBER:
-        {
-          ConstNumber constNumber = instruction.asConstNumber();
-          if (constNumber.getOutType().isInt()) {
-            return constNumber.getAbstractValue(abstractValueFactory);
-          }
-          break;
-        }
-      case IF:
-        {
-          If theIf = instruction.asIf();
-          if (theIf.isZeroTest()) {
-            ComputationTreeNode operand = buildComputationTreeFromValue(theIf.lhs());
-            return ComputationTreeUnopCompareNode.create(operand, theIf.getType());
-          }
-          break;
-        }
-      default:
-        break;
+  private ComputationTreeNode buildComputationTree(InstructionOrValue instructionOrValue) {
+    if (instructionOrValue.isInstruction()) {
+      return buildComputationTree(instructionOrValue.asInstruction());
+    } else {
+      Value value = instructionOrValue.asValue();
+      if (value.isPhi()) {
+        return buildComputationTree(value.asPhi());
+      } else {
+        return buildComputationTree(value.getDefinition());
+      }
     }
-    return AbstractValue.unknown();
   }
 
-  private ComputationTreeNode buildComputationTreeFromValue(Value value) {
-    if (value.isPhi()) {
-      return unknown();
-    }
-    return getOrBuildComputationTree(value.getDefinition());
-  }
+  abstract ComputationTreeNode buildComputationTree(Instruction instruction);
 
-  private static UnknownValue unknown() {
+  abstract ComputationTreeNode buildComputationTree(Phi phi);
+
+  static UnknownValue unknown() {
     return AbstractValue.unknown();
   }
 }

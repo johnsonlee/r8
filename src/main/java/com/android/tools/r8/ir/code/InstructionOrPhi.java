@@ -4,27 +4,4 @@
 
 package com.android.tools.r8.ir.code;
 
-public interface InstructionOrPhi {
-
-  default boolean isInstruction() {
-    return false;
-  }
-
-  default Instruction asInstruction() {
-    return null;
-  }
-
-  default boolean isPhi() {
-    return false;
-  }
-
-  default boolean isStackMapPhi() {
-    return false;
-  }
-
-  default Phi asPhi() {
-    return null;
-  }
-
-  BasicBlock getBlock();
-}
+public interface InstructionOrPhi extends InstructionOrValue {}

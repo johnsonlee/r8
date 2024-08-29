@@ -3,31 +3,34 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.analysis.path;
 
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractTransferFunction;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.TransferFunctionResult;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintAnalysisState;
-import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameterFactory;
-import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeBuilder;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+import com.android.tools.r8.optimize.argumentpropagation.computation.DefaultComputationTreeBuilder;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public class PathConstraintAnalysisTransferFunction
     implements AbstractTransferFunction<BasicBlock, Instruction, PathConstraintAnalysisState> {
 
-  private final ComputationTreeBuilder computationTreeBuilder;
+  private final DefaultComputationTreeBuilder computationTreeBuilder;
 
   PathConstraintAnalysisTransferFunction(
-      AbstractValueFactory abstractValueFactory,
+      AppView<AppInfoWithLiveness> appView,
+      IRCode code,
       ProgramMethod method,
       MethodParameterFactory methodParameterFactory) {
     computationTreeBuilder =
-        new ComputationTreeBuilder(abstractValueFactory, method, methodParameterFactory);
+        new DefaultComputationTreeBuilder(appView, code, method, methodParameterFactory);
   }
 
   @Override

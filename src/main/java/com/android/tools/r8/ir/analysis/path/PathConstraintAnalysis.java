@@ -47,6 +47,6 @@ public class PathConstraintAnalysis
         PathConstraintAnalysisState.bottom(),
         code,
         new PathConstraintAnalysisTransferFunction(
-            appView.abstractValueFactory(), code.context(), methodParameterFactory));
+            appView, code, code.context(), methodParameterFactory));
   }
 }
