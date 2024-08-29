@@ -4,12 +4,13 @@
 
 package com.android.tools.r8.kotlin.lambda;
 
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
 import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
@@ -70,13 +71,13 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
         KotlinLambdasInInput.create(getProgramFiles(), getTestName());
     assertEquals(
         kotlinParameters.getLambdaGeneration().isInvokeDynamic()
-                && kotlinParameters.getCompilerVersion() == KotlinCompilerVersion.KOTLIN_DEV
+                && kotlinParameters.getCompilerVersion().isLessThanOrEqualTo(KOTLINC_2_0_20)
             ? 8
             : 2,
         lambdasInInput.getNumberOfJStyleLambdas());
     assertEquals(
         kotlinParameters.getLambdaGeneration().isInvokeDynamic()
-            ? (kotlinParameters.getCompilerVersion() == KotlinCompilerVersion.KOTLIN_DEV ? 0 : 6)
+            ? (kotlinParameters.getCompilerVersion().isLessThanOrEqualTo(KOTLINC_2_0_20) ? 0 : 6)
             : 7,
         lambdasInInput.getNumberOfKStyleLambdas());
 
@@ -99,9 +100,7 @@ public class KotlinLambdaMergingSingletonTest extends KotlinTestBase {
   private void inspect(
       HorizontallyMergedClassesInspector inspector, KotlinLambdasInInput lambdasInInput) {
     // All J-style Kotlin lambdas should be merged into one class.
-    if (kotlinParameters
-        .getCompilerVersion()
-        .isLessThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_9_21)) {
+    if (kotlinParameters.getCompilerVersion().isLessThanOrEqualTo(KOTLINC_1_9_21)) {
       inspector.assertIsCompleteMergeGroup(lambdasInInput.getJStyleLambdas());
     } else {
       assertEquals(

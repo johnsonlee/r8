@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata;
 
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
 import static com.android.tools.r8.utils.DescriptorUtils.descriptorToJavaType;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isExtensionFunction;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
@@ -178,8 +179,11 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
   private String sealedClassErrorMessage() {
     if (kotlinParameters.isKotlinDev()) {
       return "a class can only extend a sealed class or interface declared in the same package";
+    } else if (kotlinParameters.is(KOTLINC_2_0_20)) {
+      return "extending sealed classes or interfaces from a different module is prohibited";
+    } else {
+      return "inheritance of sealed classes or interfaces from different module is prohibited";
     }
-    return "inheritance of sealed classes or interfaces from different module is prohibited";
   }
 
   private void inspectInvalid(CodeInspector inspector) {

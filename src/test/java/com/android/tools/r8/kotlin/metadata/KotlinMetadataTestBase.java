@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata;
 
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_0_20;
 import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static junit.framework.TestCase.assertNotNull;
@@ -181,13 +182,16 @@ public abstract class KotlinMetadataTestBase extends KotlinTestBase {
 
   protected String unresolvedReferenceMessage(KotlinTestParameters param, String ref) {
     if (param.isKotlinDev()) {
+      return "unresolved reference 'class " + ref + "'";
+    } else if (param.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_2_0_20)) {
       return "unresolved reference '" + ref + "'";
+    } else {
+      return "unresolved reference: " + ref;
     }
-    return "unresolved reference: " + ref;
   }
 
   protected String cannotAccessMessage(KotlinTestParameters param, String ref) {
-    if (param.isKotlinDev()) {
+    if (param.isNewerThanOrEqualTo(KOTLINC_2_0_20)) {
       return "cannot access 'class " + ref + " : Any'";
     }
     return "cannot access '" + ref + "'";
