@@ -66,7 +66,7 @@ public class StringPoolSizeWithLazyDexStringsTest extends TestBase {
 
   private void checkStringSegmentSize(R8TestCompileResult result) throws Exception {
     Map<Integer, SegmentInfo> segments =
-        DexSegments.run(Command.builder().addProgramFiles(result.writeToZip()).build());
+        DexSegments.runForTesting(Command.builder().addProgramFiles(result.writeToZip()).build());
     SegmentInfo stringInfo = segments.get(Constants.TYPE_STRING_ID_ITEM);
     assertEquals(8, stringInfo.getItemCount());
   }

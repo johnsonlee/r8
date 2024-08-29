@@ -140,6 +140,11 @@ public class DexSegments {
     }
   }
 
+  public static Map<Integer, SegmentInfo> runForTesting(Command command)
+      throws IOException, ResourceException {
+    return run(command);
+  }
+
   public static Int2ReferenceMap<SegmentInfo> run(Command command)
       throws IOException, ResourceException {
     if (command.isPrintHelp()) {
