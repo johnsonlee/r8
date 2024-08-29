@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.google.common.collect.Lists;
@@ -23,7 +24,8 @@ public class InstanceFieldReadAbstractFunction implements AbstractFunction {
   public ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState predecessorState) {
+      ConcreteValueState predecessorState,
+      DexType outStaticType) {
     ValueState state = flowGraphStateProvider.getState(receiver, () -> ValueState.bottom(field));
     if (state.isBottom()) {
       return ValueState.bottom(field);

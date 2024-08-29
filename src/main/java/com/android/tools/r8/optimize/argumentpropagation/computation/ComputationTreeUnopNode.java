@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 
 public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
@@ -15,11 +16,27 @@ public abstract class ComputationTreeUnopNode extends ComputationTreeBaseNode {
   }
 
   @Override
+  public boolean contains(ComputationTreeNode node) {
+    return equals(node) || operand.contains(node);
+  }
+
+  @Override
+  public Iterable<? extends BaseInFlow> getBaseInFlow() {
+    return operand.getBaseInFlow();
+  }
+
+  @Override
   public MethodParameter getSingleOpenVariable() {
     return operand.getSingleOpenVariable();
   }
 
   boolean internalIsEqualTo(ComputationTreeUnopNode node) {
     return operand.equals(node.operand);
+  }
+
+  @Override
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert operand.verifyContainsBaseInFlow(inFlow);
+    return true;
   }
 }

@@ -159,12 +159,12 @@ public class FlowGraphBuilder {
 
   // Returns BREAK if the current node has been set to unknown.
   private TraversalContinuation<?, ?> addInFlow(InFlow inFlow, FlowGraphNode node) {
-    if (inFlow.isAbstractFunction()) {
-      return addInFlow(inFlow.asAbstractFunction(), node);
-    } else if (inFlow.isFieldValue()) {
+    if (inFlow.isFieldValue()) {
       return addInFlow(inFlow.asFieldValue(), node);
     } else if (inFlow.isMethodParameter()) {
       return addInFlow(inFlow.asMethodParameter(), node);
+    } else if (inFlow.isAbstractFunction()) {
+      return addInFlow(inFlow.asAbstractFunction(), node);
     } else {
       throw new Unreachable(inFlow.getClass().getTypeName());
     }

@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.analysis.value.arithmetic.AbstractCalculator;
@@ -35,7 +36,8 @@ public class OrAbstractFunction implements AbstractFunction {
   public ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState inState) {
+      ConcreteValueState inState,
+      DexType outStaticType) {
     ConcretePrimitiveTypeValueState inPrimitiveState = inState.asPrimitiveState();
     AbstractValue result =
         AbstractCalculator.orIntegers(appView, inPrimitiveState.getAbstractValue(), constant);
@@ -54,7 +56,7 @@ public class OrAbstractFunction implements AbstractFunction {
   }
 
   @Override
-  public Iterable<BaseInFlow> getBaseInFlow() {
+  public Iterable<? extends BaseInFlow> getBaseInFlow() {
     if (inFlow.isAbstractFunction()) {
       return inFlow.asAbstractFunction().getBaseInFlow();
     }

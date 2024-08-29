@@ -253,7 +253,8 @@ public class InFlowPropagator {
       FlowGraphStateProvider flowGraphStateProvider =
           FlowGraphStateProvider.create(flowGraph, transferFunction);
       ValueState transferState =
-          transferFunction.apply(appView, flowGraphStateProvider, stateToPropagate);
+          transferFunction.apply(
+              appView, flowGraphStateProvider, stateToPropagate, successorNode.getStaticType());
       ValueState oldSuccessorStateForDebugging =
           successorNode.getDebug() ? successorNode.getState().mutableCopy() : null;
       if (transferState.isBottom()) {

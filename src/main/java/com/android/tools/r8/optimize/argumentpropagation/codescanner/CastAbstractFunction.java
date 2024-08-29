@@ -23,7 +23,8 @@ public class CastAbstractFunction implements AbstractFunction {
   public ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState predecessorState) {
+      ConcreteValueState predecessorState,
+      DexType outStaticType) {
     return predecessorState.asReferenceState().cast(appView, type);
   }
 

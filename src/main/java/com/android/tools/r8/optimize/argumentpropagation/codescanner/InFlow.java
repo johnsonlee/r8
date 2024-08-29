@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.optimize.compose.UpdateChangedFlagsAbstractFunction;
 
 public interface InFlow {
@@ -19,6 +20,14 @@ public interface InFlow {
   int internalCompareToSameKind(InFlow inFlow, InFlowComparator comparator);
 
   InFlowKind getKind();
+
+  default boolean isAbstractComputation() {
+    return false;
+  }
+
+  default ComputationTreeNode asAbstractComputation() {
+    return null;
+  }
 
   default boolean isAbstractFunction() {
     return false;

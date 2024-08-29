@@ -4,7 +4,10 @@
 package com.android.tools.r8.optimize.argumentpropagation.computation;
 
 import com.android.tools.r8.ir.code.NumericType;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
+import com.android.tools.r8.utils.SetUtils;
+import com.google.common.collect.Iterables;
 
 public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBaseNode {
 
@@ -15,6 +18,24 @@ public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBas
     assert !left.isUnknown() || !right.isUnknown();
     this.left = left;
     this.right = right;
+  }
+
+  @Override
+  public boolean contains(ComputationTreeNode node) {
+    return equals(node) || left.contains(node) || right.contains(node);
+  }
+
+  @Override
+  public Iterable<? extends BaseInFlow> getBaseInFlow() {
+    Iterable<? extends BaseInFlow> leftInFlow = left.getBaseInFlow();
+    Iterable<? extends BaseInFlow> rightInFlow = right.getBaseInFlow();
+    if (Iterables.isEmpty(leftInFlow)) {
+      return rightInFlow;
+    }
+    if (Iterables.isEmpty(rightInFlow)) {
+      return leftInFlow;
+    }
+    return SetUtils.unionHashSet(leftInFlow, rightInFlow);
   }
 
   public NumericType getNumericType() {
@@ -32,5 +53,13 @@ public abstract class ComputationTreeLogicalBinopNode extends ComputationTreeBas
 
   boolean internalIsEqualTo(ComputationTreeLogicalBinopNode node) {
     return left.equals(node.left) && right.equals(node.right);
+  }
+
+  @Override
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert inFlow.isMethodParameter();
+    MethodParameter methodParameter = inFlow.asMethodParameter();
+    assert left.contains(methodParameter) || right.verifyContainsBaseInFlow(inFlow);
+    return true;
   }
 }

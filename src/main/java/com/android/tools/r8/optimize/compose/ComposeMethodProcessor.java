@@ -194,7 +194,7 @@ public class ComposeMethodProcessor extends MethodProcessor {
     }
 
     // This is a call to a composable function from a restart function.
-    Iterable<BaseInFlow> baseInFlow = transferFunction.getBaseInFlow();
+    Iterable<? extends BaseInFlow> baseInFlow = transferFunction.getBaseInFlow();
     assert Iterables.size(baseInFlow) == 1;
     BaseInFlow singleBaseInFlow = IterableUtils.first(baseInFlow);
     assert singleBaseInFlow.isFieldValue();

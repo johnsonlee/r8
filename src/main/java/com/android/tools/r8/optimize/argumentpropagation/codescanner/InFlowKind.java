@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 public enum InFlowKind {
+  ABSTRACT_COMPUTATION,
   ABSTRACT_FUNCTION_CAST,
   ABSTRACT_FUNCTION_IDENTITY,
   ABSTRACT_FUNCTION_IF_THEN_ELSE,

@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleNumberValue;
 import com.android.tools.r8.ir.code.IfType;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Objects;
@@ -70,5 +71,11 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
   @Override
   public String toString() {
     return operand.toStringWithParenthesis() + " " + type.getSymbol() + " 0";
+  }
+
+  @Override
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert operand.verifyContainsBaseInFlow(inFlow);
+    return true;
   }
 }

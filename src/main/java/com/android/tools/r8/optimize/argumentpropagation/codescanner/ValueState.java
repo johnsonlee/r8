@@ -16,17 +16,20 @@ import com.android.tools.r8.utils.ObjectUtils;
 public abstract class ValueState {
 
   public static BottomValueState bottom(ProgramField field) {
-    return bottom(field.getReference());
+    return bottom(field.getType());
   }
 
   public static BottomValueState bottom(DexField field) {
-    DexType fieldType = field.getType();
-    if (fieldType.isArrayType()) {
+    return bottom(field.getType());
+  }
+
+  public static BottomValueState bottom(DexType type) {
+    if (type.isArrayType()) {
       return bottomArrayTypeState();
-    } else if (fieldType.isClassType()) {
+    } else if (type.isClassType()) {
       return bottomClassTypeState();
     } else {
-      assert fieldType.isPrimitiveType();
+      assert type.isPrimitiveType();
       return bottomPrimitiveTypeState();
     }
   }

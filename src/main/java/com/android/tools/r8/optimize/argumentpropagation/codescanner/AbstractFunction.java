@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public interface AbstractFunction extends InFlow {
@@ -31,7 +32,8 @@ public interface AbstractFunction extends InFlow {
   ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState inState);
+      ConcreteValueState inState,
+      DexType outStaticType);
 
   /** Returns true if the given {@param inFlow} is a declared input of this abstract function. */
   boolean verifyContainsBaseInFlow(BaseInFlow inFlow);
@@ -40,7 +42,7 @@ public interface AbstractFunction extends InFlow {
    * Returns the program field or parameter graph nodes that this function depends on. Upon any
    * change to the abstract state of any of these nodes this abstract function must be re-evaluated.
    */
-  Iterable<BaseInFlow> getBaseInFlow();
+  Iterable<? extends BaseInFlow> getBaseInFlow();
 
   default boolean usesFlowGraphStateProvider() {
     return false;

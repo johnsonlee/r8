@@ -5,6 +5,7 @@ package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
 public class IdentityAbstractFunction implements AbstractFunction {
@@ -21,7 +22,8 @@ public class IdentityAbstractFunction implements AbstractFunction {
   public ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState inState) {
+      ConcreteValueState inState,
+      DexType outStaticType) {
     return inState;
   }
 

@@ -44,7 +44,8 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
   public ValueState apply(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState inState) {
+      ConcreteValueState inState,
+      DexType outStaticType) {
     AbstractValue conditionValue = evaluateCondition(appView, flowGraphStateProvider);
     NonEmptyValueState resultState;
     if (conditionValue.isTrue()) {
@@ -62,7 +63,7 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
     if (!concreteResultState.hasInFlow()) {
       return concreteResultState;
     }
-    return resolveInFlow(appView, flowGraphStateProvider, concreteResultState);
+    return resolveInFlow(appView, flowGraphStateProvider, concreteResultState, outStaticType);
   }
 
   private AbstractValue evaluateCondition(
@@ -85,7 +86,8 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
   private ValueState resolveInFlow(
       AppView<AppInfoWithLiveness> appView,
       FlowGraphStateProvider flowGraphStateProvider,
-      ConcreteValueState resultStateWithInFlow) {
+      ConcreteValueState resultStateWithInFlow,
+      DexType outStaticType) {
     ValueState resultStateWithoutInFlow = resultStateWithInFlow.mutableCopyWithoutInFlow();
     for (InFlow inFlow : resultStateWithInFlow.getInFlow()) {
       // We currently only allow the primitive kinds of in flow (fields and method parameters) to
@@ -99,7 +101,6 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
       // TODO(b/302281503): The IfThenElseAbstractFunction is only used on input to base in flow.
       //  We should set  the `outStaticType` to the static type of the current field/parameter.
       DexType inStaticType = null;
-      DexType outStaticType = null;
       resultStateWithoutInFlow =
           resultStateWithoutInFlow.mutableJoin(
               appView, inFlowState, inStaticType, outStaticType, StateCloner.getCloner());

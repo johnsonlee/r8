@@ -12,6 +12,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -33,6 +34,16 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
 
   public static MethodParameter createStatic(DexMethod method, int index) {
     return new MethodParameter(method, index, true);
+  }
+
+  @Override
+  public boolean contains(ComputationTreeNode node) {
+    return equals(node);
+  }
+
+  @Override
+  public Iterable<BaseInFlow> getBaseInFlow() {
+    return Collections.singleton(this);
   }
 
   @Override
@@ -120,5 +131,12 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
   @Override
   public String toString() {
     return "MethodParameter(" + method + ", " + index + ")";
+  }
+
+  @Override
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert inFlow.isMethodParameter();
+    assert equals(inFlow);
+    return true;
   }
 }

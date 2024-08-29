@@ -9,9 +9,15 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.BaseInFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlow;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowComparator;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.InFlowKind;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import java.util.Collections;
+import java.util.Set;
 import java.util.function.Function;
 
 public abstract class AbstractValue implements ComputationTreeNode {
@@ -25,6 +31,11 @@ public abstract class AbstractValue implements ComputationTreeNode {
   }
 
   @Override
+  public boolean contains(ComputationTreeNode node) {
+    return equals(node);
+  }
+
+  @Override
   public AbstractValue evaluate(
       AppView<AppInfoWithLiveness> appView,
       Function<MethodParameter, AbstractValue> argumentAssignment) {
@@ -32,8 +43,24 @@ public abstract class AbstractValue implements ComputationTreeNode {
   }
 
   @Override
+  public Set<BaseInFlow> getBaseInFlow() {
+    // Abstract values do not contain any open variables.
+    return Collections.emptySet();
+  }
+
+  @Override
+  public InFlowKind getKind() {
+    throw new Unreachable();
+  }
+
+  @Override
   public MethodParameter getSingleOpenVariable() {
     return null;
+  }
+
+  @Override
+  public int internalCompareToSameKind(InFlow inFlow, InFlowComparator comparator) {
+    throw new Unreachable();
   }
 
   @Override
@@ -325,4 +352,10 @@ public abstract class AbstractValue implements ComputationTreeNode {
 
   @Override
   public abstract String toString();
+
+  @Override
+  public boolean verifyContainsBaseInFlow(BaseInFlow inFlow) {
+    assert false : "AbstractValue is not a variable";
+    return true;
+  }
 }

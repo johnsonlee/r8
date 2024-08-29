@@ -5,6 +5,7 @@
 package com.android.tools.r8.utils;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
@@ -147,6 +148,12 @@ public class SetUtils {
       return newSet;
     }
     return set;
+  }
+
+  public static <T> Set<T> unionHashSet(Iterable<? extends T> one, Iterable<? extends T> other) {
+    Set<T> union = Sets.newHashSet(one);
+    Iterables.addAll(union, other);
+    return union;
   }
 
   public static <T> Set<T> unionIdentityHashSet(Set<T> one, Set<T> other) {

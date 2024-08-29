@@ -4,16 +4,27 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.ir.code.Position.SourcePosition;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
 public class InFlowComparator implements Comparator<InFlow> {
 
+  private final Map<ComputationTreeNode, SourcePosition> computationTreePositions;
   private final Map<IfThenElseAbstractFunction, SourcePosition> ifThenElsePositions;
 
-  private InFlowComparator(Map<IfThenElseAbstractFunction, SourcePosition> ifThenElsePositions) {
+  private InFlowComparator(
+      Map<ComputationTreeNode, SourcePosition> computationTreePositions,
+      Map<IfThenElseAbstractFunction, SourcePosition> ifThenElsePositions) {
+    this.computationTreePositions = computationTreePositions;
     this.ifThenElsePositions = ifThenElsePositions;
+  }
+
+  public SourcePosition getComputationTreePosition(ComputationTreeNode computation) {
+    SourcePosition position = computationTreePositions.get(computation);
+    assert position != null;
+    return position;
   }
 
   public SourcePosition getIfThenElsePosition(IfThenElseAbstractFunction fn) {
@@ -37,8 +48,15 @@ public class InFlowComparator implements Comparator<InFlow> {
 
   public static class Builder {
 
+    private final Map<ComputationTreeNode, SourcePosition> computationTreePositions =
+        new HashMap<>();
     private final Map<IfThenElseAbstractFunction, SourcePosition> ifThenElsePositions =
         new HashMap<>();
+
+    public void addComputationTreePosition(
+        ComputationTreeNode computation, SourcePosition position) {
+      computationTreePositions.put(computation, position);
+    }
 
     public void addIfThenElsePosition(IfThenElseAbstractFunction fn, SourcePosition position) {
       synchronized (ifThenElsePositions) {
@@ -47,7 +65,7 @@ public class InFlowComparator implements Comparator<InFlow> {
     }
 
     public InFlowComparator build() {
-      return new InFlowComparator(ifThenElsePositions);
+      return new InFlowComparator(computationTreePositions, ifThenElsePositions);
     }
   }
 }
