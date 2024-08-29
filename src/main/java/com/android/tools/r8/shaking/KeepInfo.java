@@ -544,6 +544,10 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return builder.isCheckDiscardedEnabled();
     }
 
+    public boolean isMinificationAllowed() {
+      return builder.isMinificationAllowed();
+    }
+
     public boolean isOptimizationAllowed() {
       return builder.isOptimizationAllowed();
     }

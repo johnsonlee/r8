@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar.annotations.version2;
 
 import com.android.tools.r8.ir.desugar.annotations.CovariantReturnType;
 import com.android.tools.r8.ir.desugar.annotations.D;
+import com.android.tools.r8.ir.desugar.annotations.E;
 
 public class F extends E {
   @CovariantReturnType(returnType = E.class, presentAfter = 25)

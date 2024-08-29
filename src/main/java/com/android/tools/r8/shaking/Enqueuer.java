@@ -22,9 +22,11 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
+import com.android.tools.r8.desugar.covariantreturntype.CovariantReturnTypeAnnotationTransformer;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.IsolatedFeatureSplitsChecker;
@@ -478,6 +480,10 @@ public class Enqueuer {
   private final CfInstructionDesugaringCollection desugaring;
   private final ProgramMethodSet pendingCodeDesugaring = ProgramMethodSet.create();
 
+  private final CovariantReturnTypeAnnotationTransformer covariantReturnTypeAnnotationTransformer;
+  private final Map<DexProgramClass, List<ProgramMethod>> pendingCovariantReturnTypeDesugaring =
+      new IdentityHashMap<>();
+
   // Collections for tracing progress on interface method desugaring.
 
   // The pending method move set is all the methods that need to be moved to companions.
@@ -551,9 +557,12 @@ public class Enqueuer {
     if (mode.isInitialTreeShaking()) {
       desugaring = CfInstructionDesugaringCollection.create(appView, appView.apiLevelCompute());
       interfaceProcessor = InterfaceProcessor.create(appView);
+      covariantReturnTypeAnnotationTransformer =
+          new CovariantReturnTypeAnnotationTransformer(appView);
     } else {
       desugaring = CfInstructionDesugaringCollection.empty();
       interfaceProcessor = null;
+      covariantReturnTypeAnnotationTransformer = null;
     }
 
     objectAllocationInfoCollection =
@@ -4303,6 +4312,7 @@ public class Enqueuer {
     // registered first and no dependencies may exist among them.
     SyntheticAdditions additions = new SyntheticAdditions(appView.createProcessorContext());
     desugar(additions);
+    processCovariantReturnTypeAnnotations();
     synthesizeInterfaceMethodBridges();
     if (additions.isEmpty()) {
       return;
@@ -4325,6 +4335,11 @@ public class Enqueuer {
   }
 
   private boolean addToPendingDesugaring(ProgramMethod method) {
+    if (covariantReturnTypeAnnotationTransformer.hasCovariantReturnTypeAnnotation(method)) {
+      pendingCovariantReturnTypeDesugaring
+          .computeIfAbsent(method.getHolder(), ignoreKey(ArrayList::new))
+          .add(method);
+    }
     if (options.isInterfaceMethodDesugaringEnabled()) {
       if (mustMoveToInterfaceCompanionMethod(method)) {
         // TODO(b/199043500): Once "live moved methods" are tracked this can avoid the code check.
@@ -4457,6 +4472,38 @@ public class Enqueuer {
     synchronized (synthesizingContexts) {
       synthesizingContexts.put(closeMethod.getHolder(), context);
     }
+  }
+
+  private void processCovariantReturnTypeAnnotations() throws ExecutionException {
+    covariantReturnTypeAnnotationTransformer.processMethods(
+        pendingCovariantReturnTypeDesugaring,
+        (bridge, target) -> {
+          KeepMethodInfo.Joiner bridgeKeepInfo = getKeepInfoForCovariantReturnTypeBridge(target);
+          keepInfo.registerCompilerSynthesizedMethod(bridge);
+          applyMinimumKeepInfoWhenLiveOrTargeted(bridge, bridgeKeepInfo);
+          profileCollectionAdditions.addMethodIfContextIsInProfile(bridge, target);
+        },
+        executorService);
+    pendingCovariantReturnTypeDesugaring.clear();
+  }
+
+  private KeepMethodInfo.Joiner getKeepInfoForCovariantReturnTypeBridge(ProgramMethod target) {
+    KeepInfo.Joiner<?, ?, ?> targetKeepInfo =
+        appView
+            .rootSet()
+            .getDependentMinimumKeepInfo()
+            .getUnconditionalMinimumKeepInfoOrDefault(MinimumKeepInfoCollection.empty())
+            .getOrDefault(target.getReference(), null);
+    if (targetKeepInfo == null) {
+      targetKeepInfo = KeepMethodInfo.newEmptyJoiner();
+    }
+    if ((options.isMinifying() && targetKeepInfo.isMinificationAllowed())
+        || (options.isOptimizing() && targetKeepInfo.isOptimizationAllowed())
+        || (options.isShrinking() && targetKeepInfo.isShrinkingAllowed())) {
+      // TODO(b/211362069): Report a fatal diagnostic explaining the problem.
+      throw new Unimplemented();
+    }
+    return targetKeepInfo.asMethodJoiner();
   }
 
   private void synthesizeInterfaceMethodBridges() {

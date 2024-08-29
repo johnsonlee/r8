@@ -1089,27 +1089,67 @@ public class ClassFileTransformer {
         });
   }
 
-  public ClassFileTransformer replaceClassDescriptorInAnnotationDefault(
+  public ClassFileTransformer replaceClassDescriptorInAnnotations(
       String oldDescriptor, String newDescriptor) {
-    return addMethodTransformer(
-        new MethodTransformer() {
+    return replaceClassDescriptorInAnnotations(ImmutableMap.of(oldDescriptor, newDescriptor));
+  }
 
-          @Override
-          public AnnotationVisitor visitAnnotationDefault() {
-            return new AnnotationVisitor(ASM_VERSION, super.visitAnnotationDefault()) {
-              @Override
-              public void visit(String name, Object value) {
-                super.visit(name, value);
-              }
+  public ClassFileTransformer replaceClassDescriptorInAnnotations(Map<String, String> map) {
+    class AnnotationTransformer extends AnnotationVisitor {
 
-              @Override
-              public void visitEnum(String name, String descriptor, String value) {
-                super.visitEnum(
-                    name, descriptor.equals(oldDescriptor) ? newDescriptor : descriptor, value);
-              }
-            };
+      protected AnnotationTransformer(AnnotationVisitor annotationVisitor) {
+        super(ASM_VERSION, annotationVisitor);
+      }
+
+      @Override
+      public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+        return new AnnotationTransformer(
+            super.visitAnnotation(name, map.getOrDefault(descriptor, descriptor)));
+      }
+
+      @Override
+      public AnnotationVisitor visitArray(String name) {
+        return new AnnotationTransformer(super.visitArray(name));
+      }
+
+      @Override
+      public void visitEnum(String name, String descriptor, String value) {
+        super.visitEnum(name, map.getOrDefault(descriptor, descriptor), value);
+      }
+
+      @Override
+      public void visit(String name, Object value) {
+        if (value instanceof Type) {
+          Type type = (Type) value;
+          if (map.containsKey(type.getDescriptor())) {
+            value = Type.getType(map.get(type.getDescriptor()));
           }
-        });
+        }
+        super.visit(name, value);
+      }
+    }
+    return addClassTransformer(
+            new ClassTransformer() {
+              @Override
+              public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+                return new AnnotationTransformer(
+                    super.visitAnnotation(map.getOrDefault(descriptor, descriptor), visible));
+              }
+            })
+        .addMethodTransformer(
+            new MethodTransformer() {
+
+              @Override
+              public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+                return new AnnotationTransformer(
+                    super.visitAnnotation(map.getOrDefault(descriptor, descriptor), visible));
+              }
+
+              @Override
+              public AnnotationVisitor visitAnnotationDefault() {
+                return new AnnotationTransformer(super.visitAnnotationDefault());
+              }
+            });
   }
 
   public ClassFileTransformer replaceClassDescriptorInMethodInstructions(

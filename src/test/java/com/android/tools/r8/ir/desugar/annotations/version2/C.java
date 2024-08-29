@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.desugar.annotations.version2;
 
 import com.android.tools.r8.ir.desugar.annotations.A;
+import com.android.tools.r8.ir.desugar.annotations.B;
 import com.android.tools.r8.ir.desugar.annotations.CovariantReturnType;
 
 public class C extends B {

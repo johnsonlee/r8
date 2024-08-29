@@ -4,6 +4,7 @@
 package com.android.tools.r8.desugar.covariantreturntype;
 
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
@@ -24,9 +25,13 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessorEventConsumer;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.utils.ForEachable;
+import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.ThreadUtils;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -58,6 +63,11 @@ public final class CovariantReturnTypeAnnotationTransformer {
   private final IRConverter converter;
   private final DexItemFactory factory;
   private final CovariantReturnTypeReferences references;
+
+  public CovariantReturnTypeAnnotationTransformer(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    this(appView, null);
+  }
 
   private CovariantReturnTypeAnnotationTransformer(AppView<?> appView, IRConverter converter) {
     this.appView = appView;
@@ -101,6 +111,25 @@ public final class CovariantReturnTypeAnnotationTransformer {
         covariantReturnTypeMethods,
         MethodProcessorEventConsumer.empty(),
         MethodConversionOptions.forD8(appView),
+        executorService);
+  }
+
+  public void processMethods(
+      Map<DexProgramClass, List<ProgramMethod>> methodsToProcess,
+      CovariantReturnTypeAnnotationTransformerEventConsumer eventConsumer,
+      ExecutorService executorService)
+      throws ExecutionException {
+    if (methodsToProcess.isEmpty()) {
+      return;
+    }
+    ThreadUtils.processMap(
+        methodsToProcess,
+        (clazz, methods) -> {
+          List<ProgramMethod> sortedMethods =
+              ListUtils.destructiveSort(methods, Comparator.comparing(ProgramMethod::getReference));
+          processClass(clazz, sortedMethods::forEach, eventConsumer);
+        },
+        appView.options().getThreadingModule(),
         executorService);
   }
 
@@ -206,6 +235,14 @@ public final class CovariantReturnTypeAnnotationTransformer {
                               annotation.getAnnotationType())));
     }
     return covariantReturnTypes;
+  }
+
+  public boolean hasCovariantReturnTypeAnnotation(ProgramMethod method) {
+    return method
+        .getAnnotations()
+        .hasAnnotation(
+            annotation ->
+                references.isOneOfCovariantReturnTypeAnnotations(annotation.getAnnotationType()));
   }
 
   private void getCovariantReturnTypesFromAnnotation(

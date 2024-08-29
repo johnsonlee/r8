@@ -43,7 +43,7 @@ public class RepackageMissingTypeCollisionTest extends RepackageTestBase {
             transformer(A.class).setClassDescriptor(newADescriptor).transform(),
             transformer(Anno.class)
                 .replaceClassDescriptorInMembers(descriptor(Missing.class), newMissingDescriptor)
-                .replaceClassDescriptorInAnnotationDefault(
+                .replaceClassDescriptorInAnnotations(
                     descriptor(Missing.class), newMissingDescriptor)
                 .transform(),
             transformer(Main.class)
@@ -96,7 +96,7 @@ public class RepackageMissingTypeCollisionTest extends RepackageTestBase {
             transformer(A.class).setClassDescriptor(newADescriptor).transform(),
             transformer(Anno.class)
                 .replaceClassDescriptorInMembers(descriptor(Missing.class), newMissingDescriptor)
-                .replaceClassDescriptorInAnnotationDefault(
+                .replaceClassDescriptorInAnnotations(
                     descriptor(Missing.class), newMissingDescriptor)
                 .transform(),
             transformer(Main.class)
