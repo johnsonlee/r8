@@ -21,6 +21,7 @@ import java.util.function.Function;
  * true, then `u` is chosen. If the abstract value is false, then `v` is chosen. Otherwise, the
  * result is unknown.
  */
+// TODO(b/302281503): Replace this by a ComputationTreeNode.
 // TODO(b/302281503): Evaluate the impact of using the join of `u` and `v` instead of unknown when
 //  the condition does not evaluate to true or false.
 public class IfThenElseAbstractFunction implements AbstractFunction {
@@ -74,7 +75,6 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
     if (variableState == null) {
       // TODO(b/302281503): Conservatively return unknown for now. Investigate exactly when this
       //  happens and whether we can return something more precise instead of unknown.
-      assert false;
       return AbstractValue.unknown();
     }
     AbstractValue variableValue = variableState.getAbstractValue(appView);
@@ -95,7 +95,6 @@ public class IfThenElseAbstractFunction implements AbstractFunction {
       assert inFlow.isBaseInFlow();
       ValueState inFlowState = flowGraphStateProvider.getState(inFlow.asBaseInFlow(), () -> null);
       if (inFlowState == null) {
-        assert false;
         return ValueState.unknown();
       }
       // TODO(b/302281503): The IfThenElseAbstractFunction is only used on input to base in flow.

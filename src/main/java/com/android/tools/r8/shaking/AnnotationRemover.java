@@ -142,7 +142,7 @@ public class AnnotationRemover {
             .startsWith(options.itemFactory.dalvikAnnotationOptimizationPrefix)) {
           return true;
         }
-        if (isComposableAnnotationToRetain(appView, annotation, kind, mode, options)) {
+        if (isComposableAnnotationToRetain(appView, annotation, kind, mode)) {
           return true;
         }
         return shouldKeepNormalAnnotation(
@@ -309,13 +309,8 @@ public class AnnotationRemover {
   }
 
   private static boolean isComposableAnnotationToRetain(
-      AppView<?> appView,
-      DexAnnotation annotation,
-      AnnotatedKind kind,
-      Mode mode,
-      InternalOptions options) {
-    return options.getJetpackComposeOptions().isAnyOptimizationsEnabled()
-        && mode.isInitialTreeShaking()
+      AppView<?> appView, DexAnnotation annotation, AnnotatedKind kind, Mode mode) {
+    return mode.isInitialTreeShaking()
         && kind.isMethod()
         && annotation
             .getAnnotationType()

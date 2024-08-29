@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
@@ -26,7 +27,6 @@ import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
-import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.FieldPut;
@@ -65,6 +65,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyVal
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.StateCloner;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.UnknownMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
+import com.android.tools.r8.optimize.argumentpropagation.computation.ComposableComputationTreeBuilder;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.ArgumentPropagatorReprocessingCriteriaCollection;
 import com.android.tools.r8.optimize.argumentpropagation.reprocessingcriteria.MethodReprocessingCriteria;
@@ -76,10 +77,9 @@ import com.android.tools.r8.utils.DeterminismChecker;
 import com.android.tools.r8.utils.DeterminismChecker.LineCallback;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.TraversalUtils;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.google.common.collect.Sets;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -241,8 +241,6 @@ public class ArgumentPropagatorCodeScanner {
     protected final ProgramMethod context;
     private final PathConstraintSupplier pathConstraintSupplier;
 
-    private Object2IntMap<Phi> phiNumbering = null;
-
     protected CodeScanner(
         AbstractValueSupplier abstractValueSupplier,
         IRCode code,
@@ -319,6 +317,7 @@ public class ArgumentPropagatorCodeScanner {
       NonEmptyValueState inFlowState =
           computeInFlowState(
               field.getType(),
+              field,
               value,
               initialValue,
               context,
@@ -379,6 +378,7 @@ public class ArgumentPropagatorCodeScanner {
     // TODO(b/302281503): Canonicalize computed in flow.
     private InFlow computeInFlow(
         DexType staticType,
+        ProgramMember<?, ?> target,
         Value value,
         Value initialValue,
         ProgramMethod context,
@@ -410,16 +410,23 @@ public class ArgumentPropagatorCodeScanner {
         return castBaseInFlow(
             widenBaseInFlow(staticType, fieldValueFactory.create(field), context), value);
       } else if (value.isPhi()) {
+        // TODO(b/302281503): Replace IfThenElseAbstractFunction by ComputationTreeNode (?).
         return computeIfThenElseAbstractFunction(value.asPhi(), valueStateSupplier);
+      } else if (target != null && appView.getComposeReferences().isComposable(target)) {
+        ComputationTreeNode node =
+            new ComposableComputationTreeBuilder(
+                    appView, code, code.context(), methodParameterFactory, pathConstraintSupplier)
+                .getOrBuildComputationTree(value);
+        if (!node.isComputationLeaf() && TraversalUtils.hasNext(node::traverseBaseInFlow)) {
+          recordComputationTreePosition(node, value);
+          return node;
+        }
       }
       return null;
     }
 
     private IfThenElseAbstractFunction computeIfThenElseAbstractFunction(
         Phi phi, Function<Value, NonEmptyValueState> valueStateSupplier) {
-      if (!appView.testing().enableIfThenElseAbstractFunction) {
-        return null;
-      }
       if (phi.getOperands().size() != 2 || !phi.hasOperandThatMatches(Value::isArgument)) {
         return null;
       }
@@ -437,11 +444,14 @@ public class ArgumentPropagatorCodeScanner {
       ComputationTreeNode condition =
           leftPredecessorPathConstraint.getDifferentiatingPathConstraint(
               rightPredecessorPathConstraint);
-      if (condition == null || condition.getSingleOpenVariable() == null) {
+      if (condition.getSingleOpenVariable() == null) {
         return null;
       }
       NonEmptyValueState leftValue = valueStateSupplier.apply(phi.getOperand(0));
       NonEmptyValueState rightValue = valueStateSupplier.apply(phi.getOperand(1));
+      if (leftValue.isUnknown() && rightValue.isUnknown()) {
+        return null;
+      }
       IfThenElseAbstractFunction result =
           leftPredecessorPathConstraint.isNegated(condition)
               ? new IfThenElseAbstractFunction(condition, rightValue, leftValue)
@@ -450,26 +460,23 @@ public class ArgumentPropagatorCodeScanner {
       return result;
     }
 
+    private void recordComputationTreePosition(ComputationTreeNode computation, Value value) {
+      inFlowComparatorBuilder.addComputationTreePosition(
+          computation,
+          SourcePosition.builder()
+              .setMethod(code.context().getReference())
+              .setLine(value.getNumber())
+              .build());
+    }
+
     private void recordIfThenElsePosition(
         IfThenElseAbstractFunction ifThenElseAbstractFunction, Phi phi) {
       inFlowComparatorBuilder.addIfThenElsePosition(
           ifThenElseAbstractFunction,
           SourcePosition.builder()
               .setMethod(code.context().getReference())
-              .setLine(getOrCreatePhiNumbering().getInt(phi))
+              .setLine(phi.getNumber())
               .build());
-    }
-
-    private Object2IntMap<Phi> getOrCreatePhiNumbering() {
-      if (phiNumbering == null) {
-        phiNumbering = new Object2IntOpenHashMap<>();
-        for (BasicBlock block : code.getBlocks()) {
-          for (Phi phi : block.getPhis()) {
-            phiNumbering.put(phi, phiNumbering.size());
-          }
-        }
-      }
-      return phiNumbering;
     }
 
     private InFlow castBaseInFlow(InFlow inFlow, Value value) {
@@ -501,12 +508,14 @@ public class ArgumentPropagatorCodeScanner {
 
     private NonEmptyValueState computeInFlowState(
         DexType staticType,
+        ProgramMember<?, ?> target,
         Value value,
         Value initialValue,
         ProgramMethod context,
         Function<Value, NonEmptyValueState> valueStateSupplier) {
       assert value == initialValue || initialValue.getAliasedValue().isPhi();
-      InFlow inFlow = computeInFlow(staticType, value, initialValue, context, valueStateSupplier);
+      InFlow inFlow =
+          computeInFlow(staticType, target, value, initialValue, context, valueStateSupplier);
       if (inFlow == null) {
         return null;
       }
@@ -514,6 +523,7 @@ public class ArgumentPropagatorCodeScanner {
         return ValueState.unknown();
       }
       assert inFlow.isBaseInFlow()
+          || inFlow.isAbstractComputation()
           || inFlow.isCastAbstractFunction()
           || inFlow.isIfThenElseAbstractFunction()
           || inFlow.isInstanceFieldReadAbstractFunction();
@@ -859,6 +869,7 @@ public class ArgumentPropagatorCodeScanner {
         Value value,
         Value initialValue,
         ConcreteMonomorphicMethodStateOrBottom existingMethodState) {
+      assert invoke.isInvokeStatic() || argumentIndex > 0;
       assert value == initialValue || initialValue.getAliasedValue().isPhi();
       NonEmptyValueState modeledState =
           modeling.modelParameterStateForArgumentToFunction(
@@ -884,6 +895,7 @@ public class ArgumentPropagatorCodeScanner {
       NonEmptyValueState inFlowState =
           computeInFlowState(
               parameterType,
+              singleTarget,
               value,
               initialValue,
               context,

@@ -81,6 +81,11 @@ public interface ComputationTreeNode extends AbstractFunction {
 
   boolean isComputationLeaf();
 
+  @Override
+  default boolean usesFlowGraphStateProvider() {
+    return true;
+  }
+
   default String toStringWithParenthesis() {
     if (isComputationLeaf()) {
       return toString();

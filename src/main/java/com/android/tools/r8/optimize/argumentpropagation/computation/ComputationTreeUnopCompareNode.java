@@ -34,6 +34,9 @@ public class ComputationTreeUnopCompareNode extends ComputationTreeUnopNode {
       AppView<AppInfoWithLiveness> appView,
       Function<MethodParameter, AbstractValue> argumentAssignment) {
     AbstractValue operandValue = operand.evaluate(appView, argumentAssignment);
+    if (operandValue.isBottom()) {
+      return operandValue;
+    }
     return type.evaluate(operandValue, appView);
   }
 

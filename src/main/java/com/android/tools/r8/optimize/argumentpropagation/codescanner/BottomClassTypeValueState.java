@@ -60,7 +60,6 @@ public class BottomClassTypeValueState extends BottomValueState {
     if (outStaticType != null) {
       return WideningUtils.widenDynamicNonReceiverType(appView, joinedDynamicType, outStaticType);
     } else {
-      assert !joinedDynamicType.isUnknown();
       return joinedDynamicType;
     }
   }

@@ -24,6 +24,9 @@ public enum PathConstraintKind {
   }
 
   PathConstraintKind join(PathConstraintKind other) {
+    if (other == null) {
+      return this;
+    }
     return this == other ? this : DISABLED;
   }
 }

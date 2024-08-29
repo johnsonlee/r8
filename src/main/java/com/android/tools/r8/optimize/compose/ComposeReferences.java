@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.lens.GraphLens;
 
 public class ComposeReferences {
@@ -40,6 +41,11 @@ public class ComposeReferences {
     this.composableType = composableType;
     this.composerType = composerType;
     this.updatedChangedFlagsMethod = updatedChangedFlagsMethod;
+  }
+
+  public boolean isComposable(ProgramDefinition definition) {
+    return definition.isProgramMethod()
+        && definition.asProgramMethod().getAnnotations().hasAnnotation(composableType);
   }
 
   public ComposeReferences rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {

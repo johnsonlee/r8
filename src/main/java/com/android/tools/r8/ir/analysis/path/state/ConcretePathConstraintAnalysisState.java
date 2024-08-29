@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.analysis.path.state;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import java.util.Collections;
 import java.util.HashMap;
@@ -62,26 +63,22 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
   @Override
   public PathConstraintAnalysisState add(ComputationTreeNode pathConstraint, boolean negate) {
     PathConstraintKind previousKind = pathConstraints.get(pathConstraint);
+    PathConstraintKind newKind;
     if (previousKind != null) {
-      if (previousKind == PathConstraintKind.DISABLED) {
-        // There is a loop.
+      // There is a loop.
+      newKind = PathConstraintKind.DISABLED;
+      if (previousKind == newKind) {
         return this;
       }
-      if (previousKind == PathConstraintKind.get(negate)) {
-        // This branch is dominated by a previous if-condition that has the same branch condition,
-        // e.g., if (x) { if (x) { ...
-        return this;
-      }
-      // This branch is dominated by a previous if-condition that has the negated branch condition,
-      // e.g., if (x) { if (!x) { ...
-      return bottom();
+    } else {
+      newKind = PathConstraintKind.get(negate);
     }
     // No jumps can dominate the entry of their own block, so when adding the condition of a jump
     // this cannot currently be active.
     Map<ComputationTreeNode, PathConstraintKind> newPathConstraints =
         new HashMap<>(pathConstraints.size() + 1);
     newPathConstraints.putAll(pathConstraints);
-    newPathConstraints.put(pathConstraint, PathConstraintKind.get(negate));
+    newPathConstraints.put(pathConstraint, newKind);
     return new ConcretePathConstraintAnalysisState(newPathConstraints);
   }
 
@@ -153,7 +150,7 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
         return pathConstraint;
       }
     }
-    return null;
+    return AbstractValue.unknown();
   }
 
   public ConcretePathConstraintAnalysisState join(ConcretePathConstraintAnalysisState other) {

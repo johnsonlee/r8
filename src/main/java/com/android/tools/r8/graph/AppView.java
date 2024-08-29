@@ -534,7 +534,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public ComposeReferences getComposeReferences() {
-    assert options().getJetpackComposeOptions().isAnyOptimizationsEnabled();
     if (composeReferences == null) {
       composeReferences = new ComposeReferences(dexItemFactory());
     }

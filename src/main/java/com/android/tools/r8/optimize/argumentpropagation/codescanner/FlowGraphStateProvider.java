@@ -18,7 +18,8 @@ public interface FlowGraphStateProvider {
     // If the abstract function needs to perform state lookups, we restrict state lookups to the
     // declared base in flow. This is important for arriving at the correct fix point.
     if (abstractFunction.usesFlowGraphStateProvider()) {
-      assert abstractFunction.isIfThenElseAbstractFunction()
+      assert abstractFunction.isAbstractComputation()
+          || abstractFunction.isIfThenElseAbstractFunction()
           || abstractFunction.isInstanceFieldReadAbstractFunction();
       return new FlowGraphStateProvider() {
 

@@ -24,6 +24,7 @@ import com.android.tools.r8.utils.TraversalContinuation;
 import java.util.Objects;
 import java.util.function.Function;
 
+// TODO(b/302281503): Change this to implement ComputationTreeNode instead?
 public class UpdateChangedFlagsAbstractFunction implements AbstractFunction {
 
   private static final int changedLowBitMask = 0b001_001_001_001_001_001_001_001_001_001_0;

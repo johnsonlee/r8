@@ -41,8 +41,6 @@ public class RestartLambdaPropagationWithDefaultArgumentTest extends TestBase {
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> options.getTestingOptions().enableIfThenElseAbstractFunction = true)
         .enableInliningAnnotations()
         .setMinApi(parameters)
         .compile()

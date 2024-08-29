@@ -235,7 +235,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
     // Find a condition that can be used to distinguish program paths coming from the two
     // predecessors.
     ComputationTreeNode condition = leftState.getDifferentiatingPathConstraint(rightState);
-    if (condition == null || !condition.isArgumentBitSetCompareNode()) {
+    if (!condition.isArgumentBitSetCompareNode()) {
       return false;
     }
     // Extract the state corresponding to the program path where the argument is unused. If the

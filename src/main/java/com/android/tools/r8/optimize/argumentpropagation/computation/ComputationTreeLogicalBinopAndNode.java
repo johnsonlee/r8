@@ -30,7 +30,13 @@ public class ComputationTreeLogicalBinopAndNode extends ComputationTreeLogicalBi
       Function<MethodParameter, AbstractValue> argumentAssignment) {
     assert getNumericType().isInt();
     AbstractValue leftValue = left.evaluate(appView, argumentAssignment);
+    if (leftValue.isBottom()) {
+      return leftValue;
+    }
     AbstractValue rightValue = right.evaluate(appView, argumentAssignment);
+    if (rightValue.isBottom()) {
+      return rightValue;
+    }
     return AbstractCalculator.andIntegers(appView, leftValue, rightValue);
   }
 
