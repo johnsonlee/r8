@@ -155,7 +155,7 @@
                 (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "code_size"));
         const instructionCodeSizeData =
             filteredCommits.map(
-                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "instruction_code_size"));
+                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "ins_code_size"));
         const composableInstructionCodeSizeData =
             filteredCommits.map(
                 (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "composable_code_size"));
@@ -230,7 +230,7 @@
               anchor: 'end'
             },
             tension: 0.1,
-            yAxisID: 'y_instruction_code_size',
+            yAxisID: 'y_ins_code_size',
             segment: {
               borderColor: ctx =>
                   skipped(
@@ -252,7 +252,7 @@
               anchor: 'start'
             },
             tension: 0.1,
-            yAxisID: 'y_instruction_code_size',
+            yAxisID: 'y_ins_code_size',
             segment: {
               borderColor: ctx =>
                   skipped(
@@ -469,7 +469,7 @@
             text: 'Runtime (seconds)'
           }
         },
-        y_instruction_code_size: {
+        y_ins_code_size: {
           position: 'left',
           title: {
             display: true,
@@ -581,7 +581,7 @@
 
         // Update scales.
         options.scales.y.display = selectedLegends.has('Dex size');
-        options.scales.y_instruction_code_size.display =
+        options.scales.y_ins_code_size.display =
             selectedLegends.has('Instruction size') || selectedLegends.has('Composable size');
         options.scales.y_oat_code_size.display = selectedLegends.has('Oat size');
         options.scales.y_runtime.display =
