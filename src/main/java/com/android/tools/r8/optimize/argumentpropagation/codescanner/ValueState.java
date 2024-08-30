@@ -54,6 +54,29 @@ public abstract class ValueState {
     return UnknownValueState.get();
   }
 
+  public static UnusedValueState unused(DexType type) {
+    if (type.isArrayType()) {
+      return unusedArrayTypeState();
+    } else if (type.isClassType()) {
+      return unusedClassTypeState();
+    } else {
+      assert type.isPrimitiveType();
+      return unusedPrimitiveTypeState();
+    }
+  }
+
+  public static UnusedArrayTypeValueState unusedArrayTypeState() {
+    return UnusedArrayTypeValueState.get();
+  }
+
+  public static UnusedClassTypeValueState unusedClassTypeState() {
+    return UnusedClassTypeValueState.get();
+  }
+
+  public static UnusedPrimitiveTypeValueState unusedPrimitiveTypeState() {
+    return UnusedPrimitiveTypeValueState.get();
+  }
+
   public abstract AbstractValue getAbstractValue(AppView<AppInfoWithLiveness> appView);
 
   public boolean isArrayState() {
@@ -117,6 +140,10 @@ public abstract class ValueState {
   }
 
   public boolean isUnknown() {
+    return false;
+  }
+
+  public boolean isUnused() {
     return false;
   }
 

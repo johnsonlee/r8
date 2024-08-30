@@ -34,6 +34,10 @@ public class BottomArrayTypeValueState extends BottomValueState {
     if (inState.isUnknown()) {
       return inState;
     }
+    if (inState.isUnused()) {
+      assert inState.identical(unusedArrayTypeState());
+      return inState;
+    }
     assert inState.isConcrete();
     assert inState.asConcrete().isReferenceState();
     ConcreteReferenceTypeValueState concreteState = inState.asConcrete().asReferenceState();

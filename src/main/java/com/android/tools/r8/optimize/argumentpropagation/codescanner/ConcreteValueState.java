@@ -145,7 +145,7 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
       DexType outStaticType,
       StateCloner cloner,
       Action onChangedAction) {
-    if (inState.isBottom()) {
+    if (inState.isBottom() || inState.isUnused()) {
       return this;
     }
     if (inState.isUnknown()) {
