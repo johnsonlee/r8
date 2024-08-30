@@ -124,129 +124,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
 
   public void scan(
       ProgramMethod method, IRCode code, PathConstraintSupplier pathConstraintSupplier) {
-    // If this method is not subject to optimization, then don't compute effectively unused
-    // constraints for the method parameters.
-    if (isUnoptimizable(method)) {
-      return;
-    }
-    Iterator<Argument> argumentIterator = code.argumentIterator();
-    while (argumentIterator.hasNext()) {
-      Argument argument = argumentIterator.next();
-      Value argumentValue = argument.outValue();
-      computeEffectivelyUnusedConstraints(
-          method,
-          argument,
-          argumentValue,
-          pathConstraintSupplier,
-          effectivelyUnusedCondition -> {
-            MethodParameter methodParameter = new MethodParameter(method, argument.getIndex());
-            assert !conditions.containsKey(methodParameter);
-            conditions.put(methodParameter, effectivelyUnusedCondition);
-          },
-          effectivelyUnusedConstraints -> {
-            MethodParameter methodParameter = new MethodParameter(method, argument.getIndex());
-            assert !constraints.containsKey(methodParameter);
-            constraints.put(methodParameter, effectivelyUnusedConstraints);
-          });
-    }
-  }
-
-  private void computeEffectivelyUnusedConstraints(
-      ProgramMethod method,
-      Argument argument,
-      Value argumentValue,
-      PathConstraintSupplier pathConstraintSupplier,
-      Consumer<ComputationTreeNode> effectivelyUnusedConditionsConsumer,
-      Consumer<Set<MethodParameter>> effectivelyUnusedConstraintsConsumer) {
-    if (!ParameterRemovalUtils.canRemoveUnusedParameter(appView, method, argument.getIndex())) {
-      return;
-    }
-    if (!argumentValue.getType().isClassType() || argumentValue.hasDebugUsers()) {
-      return;
-    }
-    Value usedValue;
-    if (argumentValue.hasPhiUsers()) {
-      // If the argument has one or more phi users, we check if there is a single phi due to a
-      // default value for the argument. If so, we record this condition and mark the users of the
-      // phi as effectively unused argument constraints for the current argument.
-      if (!computeEffectivelyUnusedCondition(
-          argumentValue, pathConstraintSupplier, effectivelyUnusedConditionsConsumer)) {
-        return;
-      }
-      assert argumentValue.hasSingleUniquePhiUser();
-      Phi user = argumentValue.singleUniquePhiUser();
-      if (user.hasDebugUsers() || user.hasPhiUsers()) {
-        return;
-      }
-      usedValue = user;
-    } else {
-      usedValue = argumentValue;
-    }
-    Set<MethodParameter> effectivelyUnusedConstraints = new HashSet<>();
-    for (Instruction user : usedValue.uniqueUsers()) {
-      if (user.isInvokeMethod()) {
-        InvokeMethod invoke = user.asInvokeMethod();
-        ProgramMethod resolvedMethod =
-            appView
-                .appInfo()
-                .unsafeResolveMethodDueToDexFormatLegacy(invoke.getInvokedMethod())
-                .getResolvedProgramMethod();
-        if (resolvedMethod == null || isUnoptimizable(resolvedMethod)) {
-          return;
-        }
-        int dependentArgumentIndex =
-            ListUtils.uniqueIndexMatching(invoke.arguments(), value -> value == argumentValue);
-        if (dependentArgumentIndex < 0
-            || !ParameterRemovalUtils.canRemoveUnusedParameter(
-                appView, resolvedMethod, dependentArgumentIndex)) {
-          return;
-        }
-        effectivelyUnusedConstraints.add(
-            new MethodParameter(resolvedMethod, dependentArgumentIndex));
-      } else {
-        return;
-      }
-    }
-    if (!effectivelyUnusedConstraints.isEmpty()) {
-      effectivelyUnusedConstraintsConsumer.accept(effectivelyUnusedConstraints);
-    }
-  }
-
-  private boolean computeEffectivelyUnusedCondition(
-      Value argumentValue,
-      PathConstraintSupplier pathConstraintSupplier,
-      Consumer<ComputationTreeNode> effectivelyUnusedConditionsConsumer) {
-    assert argumentValue.hasPhiUsers();
-    if (argumentValue.hasUsers() || !argumentValue.hasSingleUniquePhiUser()) {
-      return false;
-    }
-    Phi phi = argumentValue.singleUniquePhiUser();
-    if (phi.getOperands().size() != 2) {
-      return false;
-    }
-    BasicBlock block = phi.getBlock();
-    ConcretePathConstraintAnalysisState leftState =
-        pathConstraintSupplier.getPathConstraint(block.getPredecessor(0)).asConcreteState();
-    ConcretePathConstraintAnalysisState rightState =
-        pathConstraintSupplier.getPathConstraint(block.getPredecessor(1)).asConcreteState();
-    if (leftState == null || rightState == null) {
-      return false;
-    }
-    // Find a condition that can be used to distinguish program paths coming from the two
-    // predecessors.
-    ComputationTreeNode condition = leftState.getDifferentiatingPathConstraint(rightState);
-    if (!condition.isArgumentBitSetCompareNode()) {
-      return false;
-    }
-    // Extract the state corresponding to the program path where the argument is unused. If the
-    // condition evaluates to false on this program path then negate the condition.
-    ConcretePathConstraintAnalysisState unusedState =
-        phi.getOperand(0) == argumentValue ? rightState : leftState;
-    if (unusedState.isNegated(condition)) {
-      condition = ((ComputationTreeUnopCompareNode) condition).negate();
-    }
-    effectivelyUnusedConditionsConsumer.accept(condition);
-    return true;
+    new Analyzer(method, code, pathConstraintSupplier).analyze();
   }
 
   public void computeEffectivelyUnusedArguments(PrunedItems prunedItems) {
@@ -283,17 +161,6 @@ public class EffectivelyUnusedArgumentsAnalysis {
     }
   }
 
-  private boolean isUnoptimizable(ProgramMethod method) {
-    if (method.getDefinition().belongsToDirectPool()) {
-      return !ParameterRemovalUtils.canRemoveUnusedParametersFrom(appView, method);
-    }
-    if (optimizableVirtualMethods.contains(method)) {
-      assert ParameterRemovalUtils.canRemoveUnusedParametersFrom(appView, method);
-      return false;
-    }
-    return true;
-  }
-
   public void onMethodPruned(ProgramMethod method) {
     onMethodCodePruned(method);
   }
@@ -305,6 +172,151 @@ public class EffectivelyUnusedArgumentsAnalysis {
       MethodParameter methodParameter = new MethodParameter(method, argumentIndex);
       conditions.remove(methodParameter);
       constraints.remove(methodParameter);
+    }
+  }
+
+  private class Analyzer {
+
+    private final ProgramMethod method;
+    private final IRCode code;
+    private final PathConstraintSupplier pathConstraintSupplier;
+
+    private Analyzer(
+        ProgramMethod method, IRCode code, PathConstraintSupplier pathConstraintSupplier) {
+      this.method = method;
+      this.code = code;
+      this.pathConstraintSupplier = pathConstraintSupplier;
+    }
+
+    void analyze() {
+      // If this method is not subject to optimization, then don't compute effectively unused
+      // constraints for the method parameters.
+      if (isUnoptimizable(method)) {
+        return;
+      }
+      Iterator<Argument> argumentIterator = code.argumentIterator();
+      while (argumentIterator.hasNext()) {
+        Argument argument = argumentIterator.next();
+        Value argumentValue = argument.outValue();
+        computeEffectivelyUnusedConstraints(
+            argument,
+            argumentValue,
+            effectivelyUnusedCondition -> {
+              MethodParameter methodParameter = new MethodParameter(method, argument.getIndex());
+              assert !conditions.containsKey(methodParameter);
+              conditions.put(methodParameter, effectivelyUnusedCondition);
+            },
+            effectivelyUnusedConstraints -> {
+              MethodParameter methodParameter = new MethodParameter(method, argument.getIndex());
+              assert !constraints.containsKey(methodParameter);
+              constraints.put(methodParameter, effectivelyUnusedConstraints);
+            });
+      }
+    }
+
+    private void computeEffectivelyUnusedConstraints(
+        Argument argument,
+        Value argumentValue,
+        Consumer<ComputationTreeNode> effectivelyUnusedConditionsConsumer,
+        Consumer<Set<MethodParameter>> effectivelyUnusedConstraintsConsumer) {
+      if (!ParameterRemovalUtils.canRemoveUnusedParameter(appView, method, argument.getIndex())) {
+        return;
+      }
+      if (!argumentValue.getType().isClassType() || argumentValue.hasDebugUsers()) {
+        return;
+      }
+      Value usedValue;
+      if (argumentValue.hasPhiUsers()) {
+        // If the argument has one or more phi users, we check if there is a single phi due to a
+        // default value for the argument. If so, we record this condition and mark the users of the
+        // phi as effectively unused argument constraints for the current argument.
+        if (!computeEffectivelyUnusedCondition(
+            argumentValue, effectivelyUnusedConditionsConsumer)) {
+          return;
+        }
+        assert argumentValue.hasSingleUniquePhiUser();
+        Phi user = argumentValue.singleUniquePhiUser();
+        if (user.hasDebugUsers() || user.hasPhiUsers()) {
+          return;
+        }
+        usedValue = user;
+      } else {
+        usedValue = argumentValue;
+      }
+      Set<MethodParameter> effectivelyUnusedConstraints = new HashSet<>();
+      for (Instruction user : usedValue.uniqueUsers()) {
+        if (user.isInvokeMethod()) {
+          InvokeMethod invoke = user.asInvokeMethod();
+          ProgramMethod resolvedMethod =
+              appView
+                  .appInfo()
+                  .unsafeResolveMethodDueToDexFormatLegacy(invoke.getInvokedMethod())
+                  .getResolvedProgramMethod();
+          if (resolvedMethod == null || isUnoptimizable(resolvedMethod)) {
+            return;
+          }
+          int dependentArgumentIndex =
+              ListUtils.uniqueIndexMatching(invoke.arguments(), value -> value == argumentValue);
+          if (dependentArgumentIndex < 0
+              || !ParameterRemovalUtils.canRemoveUnusedParameter(
+                  appView, resolvedMethod, dependentArgumentIndex)) {
+            return;
+          }
+          effectivelyUnusedConstraints.add(
+              new MethodParameter(resolvedMethod, dependentArgumentIndex));
+        } else {
+          return;
+        }
+      }
+      if (!effectivelyUnusedConstraints.isEmpty()) {
+        effectivelyUnusedConstraintsConsumer.accept(effectivelyUnusedConstraints);
+      }
+    }
+
+    private boolean computeEffectivelyUnusedCondition(
+        Value argumentValue, Consumer<ComputationTreeNode> effectivelyUnusedConditionsConsumer) {
+      assert argumentValue.hasPhiUsers();
+      if (argumentValue.hasUsers() || !argumentValue.hasSingleUniquePhiUser()) {
+        return false;
+      }
+      Phi phi = argumentValue.singleUniquePhiUser();
+      if (phi.getOperands().size() != 2) {
+        return false;
+      }
+      BasicBlock block = phi.getBlock();
+      ConcretePathConstraintAnalysisState leftState =
+          pathConstraintSupplier.getPathConstraint(block.getPredecessor(0)).asConcreteState();
+      ConcretePathConstraintAnalysisState rightState =
+          pathConstraintSupplier.getPathConstraint(block.getPredecessor(1)).asConcreteState();
+      if (leftState == null || rightState == null) {
+        return false;
+      }
+      // Find a condition that can be used to distinguish program paths coming from the two
+      // predecessors.
+      ComputationTreeNode condition = leftState.getDifferentiatingPathConstraint(rightState);
+      if (!condition.isArgumentBitSetCompareNode()) {
+        return false;
+      }
+      // Extract the state corresponding to the program path where the argument is unused. If the
+      // condition evaluates to false on this program path then negate the condition.
+      ConcretePathConstraintAnalysisState unusedState =
+          phi.getOperand(0) == argumentValue ? rightState : leftState;
+      if (unusedState.isNegated(condition)) {
+        condition = ((ComputationTreeUnopCompareNode) condition).negate();
+      }
+      effectivelyUnusedConditionsConsumer.accept(condition);
+      return true;
+    }
+
+    private boolean isUnoptimizable(ProgramMethod method) {
+      if (method.getDefinition().belongsToDirectPool()) {
+        return !ParameterRemovalUtils.canRemoveUnusedParametersFrom(appView, method);
+      }
+      if (optimizableVirtualMethods.contains(method)) {
+        assert ParameterRemovalUtils.canRemoveUnusedParametersFrom(appView, method);
+        return false;
+      }
+      return true;
     }
   }
 }
