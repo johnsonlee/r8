@@ -437,6 +437,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean enableSideEffectAnalysis = true;
   public boolean enableDeterminismAnalysis = true;
   public boolean enableServiceLoaderRewriting = true;
+  public boolean allowServiceLoaderRewritingPinnedTypes =
+      System.getProperty("com.android.tools.r8.allowServiceLoaderRewritingPinnedTypes") != null;
   public boolean enableNameReflectionOptimization = true;
   public boolean enableStringConcatenationOptimization = true;
   // Enabled only for R8 (not D8).

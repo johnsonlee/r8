@@ -324,7 +324,8 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     }
 
     // Check that the service is not kept.
-    if (appView().appInfo().isPinnedWithDefinitionLookup(serviceType)) {
+    if (!options.allowServiceLoaderRewritingPinnedTypes
+        && appView().appInfo().isPinnedWithDefinitionLookup(serviceType)) {
       report(code.context(), serviceType, "The service loader type is kept");
       return null;
     }
