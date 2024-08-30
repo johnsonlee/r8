@@ -319,9 +319,19 @@ def bot_symlinks():
     if not os.path.exists("tools/linux/art-7.0.0/lib/libncurses.so.5"):
         os.symlink("/usr/lib/i386-linux-gnu/libncurses.so.6",
                    art7 + "/lib/libncurses.so.5")
+    if not os.path.exists("tools/linux/art-7.0.0/lib/libtinfo.so.5"):
+        # We don't have libtinfo, but this is never used, so we just need
+        # a valid 32bit library file.
+        os.symlink("/usr/lib/i386-linux-gnu/libncurses.so.6",
+                   art7 + "/lib/libtinfo.so.5")
     if not os.path.exists("tools/linux/art-7.0.0/lib64/libncurses.so.5"):
         os.symlink("/usr/lib/x86_64-linux-gnu/libncurses.so.6",
                    art7 + "/lib64/libncurses.so.5")
+    if not os.path.exists("tools/linux/art-7.0.0/lib64/libtinfo.so.5"):
+        # We don't have libtinfo, but this is never used, so we just need
+        # a valid 64bit library file.
+        os.symlink("/usr/lib/x86_64-linux-gnu/libncurses.so.6",
+                   art7 + "/lib64/libtinfo.so.5")
 
 def Main():
     (options, args) = ParseOptions()
