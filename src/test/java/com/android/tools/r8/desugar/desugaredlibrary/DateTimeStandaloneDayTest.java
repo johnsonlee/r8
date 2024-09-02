@@ -5,6 +5,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 
 import com.android.tools.r8.TestParameters;
@@ -24,8 +25,8 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DateTimeStandaloneDayTest extends DesugaredLibraryTestBase {
 
-  // TODO(b/362277530): Replace expected output when desugared library is updated.
-  private static final String EXPECTED_OUTPUT_TO_FIX =
+  // Standalone weekday names is only supported inn JDK-11 desugared library, see b/362277530.
+  private static final String EXPECTED_OUTPUT_TO_JDK8 =
       StringUtils.lines("1", "2", "3", "4", "5", "6", "7");
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines(
@@ -58,10 +59,11 @@ public class DateTimeStandaloneDayTest extends DesugaredLibraryTestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutputIf(
-            parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O), EXPECTED_OUTPUT)
-        .assertSuccessWithOutputIf(
-            parameters.getApiLevel().isLessThan(AndroidApiLevel.O), EXPECTED_OUTPUT_TO_FIX);
+        .applyIf(
+            libraryDesugaringSpecification == JDK11
+                || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT_TO_JDK8));
   }
 
   public static void main(String[] args) {
