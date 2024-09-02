@@ -80,6 +80,7 @@ public class VirtualFile {
   private final DexString primaryClassDescriptor;
   private final DexString primaryClassSynthesizingContextDescriptor;
   private DebugRepresentation debugRepresentation;
+  private boolean startup = false;
 
   VirtualFile(int id, AppView<?> appView) {
     this(id, appView, null, null, StartupProfile.empty());
@@ -167,6 +168,14 @@ public class VirtualFile {
   public DebugRepresentation getDebugRepresentation() {
     assert debugRepresentation != null;
     return debugRepresentation;
+  }
+
+  public void setStartup() {
+    startup = true;
+  }
+
+  public boolean isStartup() {
+    return startup;
   }
 
   public static String deriveCommonPrefixAndSanityCheck(List<String> fileNames) {
@@ -1466,6 +1475,7 @@ public class VirtualFile {
       boolean isSingleStartupDexFile = hasSpaceForTransaction(virtualFile, options);
       if (isSingleStartupDexFile) {
         virtualFile.commitTransaction();
+        virtualFile.setStartup();
       } else {
         virtualFile.abortTransaction();
 
@@ -1473,6 +1483,7 @@ public class VirtualFile {
         MultiStartupDexDistributor distributor =
             MultiStartupDexDistributor.get(options, startupProfile);
         distributor.distribute(classPartioning.getStartupClasses(), this, virtualFile, cycler);
+        cycler.filesForDistribution.forEach(VirtualFile::setStartup);
 
         options.reporter.warning(
             createStartupClassesOverflowDiagnostic(cycler.filesForDistribution.size()));

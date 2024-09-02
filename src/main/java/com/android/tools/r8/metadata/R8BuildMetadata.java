@@ -4,14 +4,51 @@
 package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
 
 @KeepForApi
 public interface R8BuildMetadata {
 
   static R8BuildMetadata fromJson(String json) {
-    return new Gson().fromJson(json, R8BuildMetadataImpl.class);
+    return new GsonBuilder()
+        .excludeFieldsWithoutExposeAnnotation()
+        .registerTypeAdapter(R8Options.class, deserializeTo(R8OptionsImpl.class))
+        .registerTypeAdapter(
+            R8BaselineProfileRewritingOptions.class,
+            deserializeTo(R8BaselineProfileRewritingOptionsImpl.class))
+        .registerTypeAdapter(
+            R8KeepAttributesOptions.class, deserializeTo(R8KeepAttributesOptionsImpl.class))
+        .registerTypeAdapter(
+            R8ResourceOptimizationOptions.class,
+            deserializeTo(R8ResourceOptimizationOptionsImpl.class))
+        .registerTypeAdapter(
+            R8StartupOptimizationOptions.class,
+            deserializeTo(R8StartupOptimizationOptionsImpl.class))
+        .create()
+        .fromJson(json, R8BuildMetadataImpl.class);
   }
+
+  private static <T> JsonDeserializer<T> deserializeTo(Class<T> implClass) {
+    return (element, type, context) -> context.deserialize(element, implClass);
+  }
+
+  R8Options getOptions();
+
+  /**
+   * @return null if baseline profile rewriting is disabled.
+   */
+  R8BaselineProfileRewritingOptions getBaselineProfileRewritingOptions();
+
+  /**
+   * @return null if resource optimization is disabled.
+   */
+  R8ResourceOptimizationOptions getResourceOptimizationOptions();
+
+  /**
+   * @return null if startup optimization is disabled.
+   */
+  R8StartupOptimizationOptions getStartupOptizationOptions();
 
   String getVersion();
 

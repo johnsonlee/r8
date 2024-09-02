@@ -56,15 +56,7 @@ public class ProguardKeepAttributes {
   public boolean stackMapTable = false;
   public boolean permittedSubclasses = false;
 
-  private ProguardKeepAttributes() {
-  }
-
-  public static ProguardKeepAttributes filterOnlySignatures() {
-    ProguardKeepAttributes result = new ProguardKeepAttributes();
-    result.applyPatterns(KEEP_ALL);
-    result.signature = false;
-    return result;
-  }
+  private ProguardKeepAttributes() {}
 
   /**
    * Implements ProGuards attribute matching rules.

@@ -4,13 +4,24 @@
 package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.Version;
+import com.android.tools.r8.dex.VirtualFile;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.utils.InternalOptions;
+import java.util.List;
 
 public class BuildMetadataFactory {
 
-  @SuppressWarnings("UnusedVariable")
-  public static R8BuildMetadata create(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return R8BuildMetadataImpl.builder().setVersion(Version.LABEL).build();
+  public static R8BuildMetadata create(
+      AppView<? extends AppInfoWithClassHierarchy> appView, List<VirtualFile> virtualFiles) {
+    InternalOptions options = appView.options();
+    return R8BuildMetadataImpl.builder()
+        .setOptions(new R8OptionsImpl(options))
+        .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingOptionsImpl.create(options))
+        .setResourceOptimizationOptions(R8ResourceOptimizationOptionsImpl.create(options))
+        .setStartupOptimizationOptions(
+            R8StartupOptimizationOptionsImpl.create(options, virtualFiles))
+        .setVersion(Version.LABEL)
+        .build();
   }
 }
