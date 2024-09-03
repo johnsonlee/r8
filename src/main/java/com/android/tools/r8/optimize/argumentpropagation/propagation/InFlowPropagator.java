@@ -21,6 +21,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteArr
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteClassTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMethodState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteMonomorphicMethodState;
+import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcretePrimitiveTypeValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ConcreteValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateCollection;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
@@ -161,7 +162,7 @@ public class InFlowPropagator {
   }
 
   private void propagate(FlowGraph flowGraph, FlowGraphNode node, Deque<FlowGraphNode> worklist) {
-    if (node.isBottom()) {
+    if (node.isBottom() || node.isUnused()) {
       return;
     }
     if (node.isUnknown()) {
@@ -336,6 +337,30 @@ public class InFlowPropagator {
       methodStates.set(method, MethodState.bottom());
     } else if (monomorphicMethodState.isEffectivelyUnknown()) {
       methodStates.set(method, MethodState.unknown());
+    } else {
+      // Replace unused parameters by the constant null.
+      for (int i = 0; i < monomorphicMethodState.getParameterStates().size(); i++) {
+        ValueState parameterState = monomorphicMethodState.getParameterState(i);
+        if (parameterState.isUnused()) {
+          DexType type = method.getArgumentType(i);
+          assert parameterState.identical(ValueState.unused(type));
+          ConcreteValueState replacement;
+          if (type.isArrayType()) {
+            replacement = new ConcreteArrayTypeValueState(Nullability.definitelyNull());
+          } else if (type.isClassType()) {
+            replacement =
+                new ConcreteClassTypeValueState(
+                    appView.abstractValueFactory().createUncheckedNullValue(),
+                    DynamicType.definitelyNull());
+          } else {
+            assert type.isPrimitiveType();
+            replacement =
+                new ConcretePrimitiveTypeValueState(
+                    appView.abstractValueFactory().createZeroValue());
+          }
+          monomorphicMethodState.setParameterState(i, replacement);
+        }
+      }
     }
   }
 

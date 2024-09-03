@@ -4,11 +4,14 @@
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.propagation.FlowGraph;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.function.Supplier;
 
@@ -75,6 +78,34 @@ public interface FlowGraphStateProvider {
         MethodOptimizationInfo optimizationInfo = method.getOptimizationInfo();
         AbstractValue abstractValue =
             optimizationInfo.getArgumentInfos().getAbstractArgumentValue(methodParameter);
+        if (abstractValue.isUnknown()) {
+          return ValueState.unknown();
+        }
+        return ConcreteValueState.create(methodParameter.getType(), abstractValue);
+      }
+    };
+  }
+
+  static FlowGraphStateProvider createFromInvoke(
+      AppView<AppInfoWithLiveness> appView,
+      InvokeMethod invoke,
+      ProgramMethod singleTarget,
+      ProgramMethod context) {
+    return new FlowGraphStateProvider() {
+
+      @Override
+      public ValueState getState(DexField field) {
+        return ValueState.unknown();
+      }
+
+      @Override
+      public ValueState getState(
+          MethodParameter methodParameter, Supplier<ValueState> defaultStateProvider) {
+        if (methodParameter.getMethod().isNotIdenticalTo(singleTarget.getReference())) {
+          return ValueState.unknown();
+        }
+        AbstractValue abstractValue =
+            invoke.getArgument(methodParameter.getIndex()).getAbstractValue(appView, context);
         if (abstractValue.isUnknown()) {
           return ValueState.unknown();
         }

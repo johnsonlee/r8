@@ -132,7 +132,7 @@ public class FlowGraphBuilder {
       ValueState parameterState) {
     // No need to create nodes for parameters with no in-parameters and parameters we don't know
     // anything about.
-    if (parameterState.isBottom() || parameterState.isUnknown()) {
+    if (parameterState.isBottom() || parameterState.isUnknown() || parameterState.isUnused()) {
       return;
     }
 

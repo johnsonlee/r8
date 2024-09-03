@@ -160,6 +160,10 @@ public abstract class FlowGraphNode {
     return getState().isUnknown();
   }
 
+  boolean isUnused() {
+    return getState().isUnused();
+  }
+
   // No need to enqueue the affected node if it is already in the worklist or if it does not have
   // any successors (i.e., the successor is a leaf).
   void addToWorkList(Deque<FlowGraphNode> worklist) {
