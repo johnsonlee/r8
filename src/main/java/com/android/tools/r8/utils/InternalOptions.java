@@ -704,6 +704,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     if (desugarGraphConsumer != null) {
       desugarGraphConsumer.finished();
     }
+    if (resourceShrinkerConfiguration.getDebugConsumer() != null) {
+      resourceShrinkerConfiguration.getDebugConsumer().finished(reporter);
+    }
   }
 
   public boolean shouldDesugarNests() {

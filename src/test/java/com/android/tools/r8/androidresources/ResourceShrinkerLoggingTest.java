@@ -6,10 +6,13 @@ package com.android.tools.r8.androidresources;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +50,7 @@ public class ResourceShrinkerLoggingTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     StringBuilder log = new StringBuilder();
+    BooleanBox finished = new BooleanBox(false);
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(FooBar.class)
@@ -59,7 +63,17 @@ public class ResourceShrinkerLoggingTest extends TestBase {
                             configurationBuilder.enableOptimizedShrinkingWithR8();
                           }
                           configurationBuilder.setDebugConsumer(
-                              (string, handler) -> log.append(string + "\n"));
+                              new StringConsumer() {
+                                @Override
+                                public void accept(String string, DiagnosticsHandler handler) {
+                                  log.append(string + "\n");
+                                }
+
+                                @Override
+                                public void finished(DiagnosticsHandler handler) {
+                                  finished.set(true);
+                                }
+                              });
                           return configurationBuilder.build();
                         }))
         .addAndroidResources(getTestResources(temp))
@@ -79,6 +93,7 @@ public class ResourceShrinkerLoggingTest extends TestBase {
         .assertSuccess();
     // TODO(b/360284664): Add (non compatible) logging for optimized shrinking
     if (!optimized) {
+      assertTrue(finished.get());
       // Consistent with the old AGP embedded shrinker
       List<String> strings = StringUtils.splitLines(log.toString());
       // string:bar reachable from code
