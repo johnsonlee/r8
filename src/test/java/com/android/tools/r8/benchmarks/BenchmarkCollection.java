@@ -10,7 +10,6 @@ import com.android.tools.r8.benchmarks.appdumps.ComposeSamplesBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.NowInAndroidBenchmarks;
 import com.android.tools.r8.benchmarks.appdumps.TiviBenchmarks;
 import com.android.tools.r8.benchmarks.desugaredlib.L8Benchmark;
-import com.android.tools.r8.benchmarks.desugaredlib.LegacyDesugaredLibraryBenchmark;
 import com.android.tools.r8.benchmarks.helloworld.HelloWorldBenchmark;
 import com.android.tools.r8.benchmarks.retrace.RetraceStackTraceBenchmark;
 import java.io.IOException;
@@ -64,7 +63,6 @@ public class BenchmarkCollection {
     // Every benchmark that should be active on golem must be setup in this method.
     return new BenchmarkCollection(
         HelloWorldBenchmark.configs(),
-        LegacyDesugaredLibraryBenchmark.configs(),
         L8Benchmark.configs(),
         NowInAndroidBenchmarks.configs(),
         TiviBenchmarks.configs(),
