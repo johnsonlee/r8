@@ -66,7 +66,7 @@ public class ResourceShrinkerLoggingTest extends TestBase {
                               new StringConsumer() {
                                 @Override
                                 public void accept(String string, DiagnosticsHandler handler) {
-                                  log.append(string + "\n");
+                                  log.append(string);
                                 }
 
                                 @Override

@@ -88,12 +88,16 @@ public class ResourceShrinkerUtils {
     return new ShrinkerDebugReporter() {
       @Override
       public void debug(Supplier<String> logSupplier) {
-        consumer.accept(logSupplier.get(), diagnosticsHandler);
+        // The default usage of shrinkerdebug in the legacy resource shrinker does not add
+        // new lines. Add these to make it consistent with the normal usage of StringConsumer.
+        consumer.accept(logSupplier.get() + "\n", diagnosticsHandler);
       }
 
       @Override
       public void info(Supplier<String> logProducer) {
-        consumer.accept(logProducer.get(), diagnosticsHandler);
+        // The default usage of shrinkerdebug in the legacy resource shrinker does not add
+        // new lines. Add these to make it consistent with the normal usage of StringConsumer.
+        consumer.accept(logProducer.get() + "\n", diagnosticsHandler);
       }
 
       @Override
