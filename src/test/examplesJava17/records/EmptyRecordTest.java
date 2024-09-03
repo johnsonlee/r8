@@ -2,10 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
 import static org.junit.Assume.assumeFalse;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -21,13 +22,10 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class EmptyRecordTest extends TestBase {
 
-  private static final String RECORD_NAME = "EmptyRecord";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String EXPECTED_RESULT_D8 = StringUtils.lines("Empty[]");
   private static final String EXPECTED_RESULT_R8_MINIFICATION = StringUtils.lines("a[]");
   private static final String EXPECTED_RESULT_R8_NO_MINIFICATION =
-      StringUtils.lines("EmptyRecord$Empty[]");
+      StringUtils.lines("EmptyRecordTest$Empty[]");
 
   @Parameter(0)
   public boolean enableMinification;
@@ -55,8 +53,8 @@ public class EmptyRecordTest extends TestBase {
     assumeFalse("Only applicable for R8", enableMinification);
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
   }
 
@@ -64,10 +62,10 @@ public class EmptyRecordTest extends TestBase {
   public void testD8() throws Exception {
     assumeFalse("Only applicable for R8", enableMinification || enableRepackaging);
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .compile()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
   }
 
@@ -76,11 +74,11 @@ public class EmptyRecordTest extends TestBase {
     parameters.assumeDexRuntime();
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
-        .addKeepMainRule(MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addKeepMainRule(TestClass.class)
         .applyIf(
             parameters.isCfRuntime(),
-            testBuilder -> testBuilder.addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp)))
+            testBuilder -> testBuilder.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .addDontObfuscateUnless(enableMinification)
         .applyIf(enableRepackaging, b -> b.addKeepRules("-repackageclasses p"))
         .setMinApi(parameters)
@@ -88,10 +86,19 @@ public class EmptyRecordTest extends TestBase {
         .applyIf(
             parameters.isCfRuntime(),
             compileResult -> compileResult.inspect(RecordTestUtils::assertRecordsAreRecords))
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(
             enableMinification
                 ? EXPECTED_RESULT_R8_MINIFICATION
                 : EXPECTED_RESULT_R8_NO_MINIFICATION);
+  }
+
+  record Empty() {}
+
+  public class TestClass {
+
+    public static void main(String[] args) {
+      System.out.println(new Empty());
+    }
   }
 }
