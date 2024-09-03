@@ -191,7 +191,7 @@ def main():
                                                       download_options, temp)
         for benchmark in options.benchmarks:
             targets = [options.target
-                      ] if options.target else BENCHMARKS[benchmark].targets
+                      ] if options.target else BENCHMARKS[benchmark]['targets']
             for target in targets:
                 if options.skip_if_output_exists:
                     if options.outdir:
