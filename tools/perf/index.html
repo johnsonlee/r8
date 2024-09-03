@@ -22,352 +22,215 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="extensions.js"></script>
+  <script src="utils.js"></script>
   <script type="module">
-    // Utility methods.
-    Array.prototype.any = function(predicate) {
-      for (const element of this.values()) {
-        if (predicate(element)) {
-          return true;
-        }
-      }
-      return false;
-    };
-    Array.prototype.first = function() {
-      return this[0];
-    };
-    Array.prototype.avg = function() {
-      return this.reduce(function(x, y) { return x + y; }, 0) / this.length;
-    };
-    Array.prototype.min = function() {
-      return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null);
-    };
-    Array.prototype.reverseInPlace = function() {
-      for (var i = 0; i < Math.floor(this.length / 2); i++) {
-        var temp = this[i];
-        this[i] = this[this.length - i - 1];
-        this[this.length - i - 1] = temp;
-      }
-    };
-    Number.prototype.ns_to_s = function() {
-      const seconds = this/10E8;
-      const seconds_with_one_decimal = Math.round(seconds*10)/10;
-      return seconds;
-    };
-
-    // Import and reverse commits so that newest are last.
-    import commits from "./benchmark_data.json" with { type: "json" };
-    commits.reverseInPlace();
-
-    // Amend the commits with their unique index.
-    for (var i = 0; i < commits.length; i++) {
-      commits[i].index = i;
-    }
-
-    // DOM references.
-    const benchmarkSelectors = document.getElementById('benchmark-selectors');
-    const canvas = document.getElementById('myChart');
-    const showMoreLeft = document.getElementById('show-more-left');
-    const showLessLeft = document.getElementById('show-less-left');
-    const showLessRight = document.getElementById('show-less-right');
-    const showMoreRight = document.getElementById('show-more-right');
-
-    // Initialize benchmark selectors.
-    const benchmarks = new Set();
-    for (const commit of commits.values()) {
-      for (const benchmark in commit.benchmarks) {
-          benchmarks.add(benchmark);
-      }
-    }
-    const selectedBenchmarks = new Set();
-    const urlOptions = unescape(window.location.hash.substring(1)).split(',');
-    for (const benchmark of benchmarks.values()) {
-      for (const filter of urlOptions.values()) {
-        if (filter) {
-          const match = benchmark.match(new RegExp(filter.replace("*", ".*")));
-          if (match) {
-            selectedBenchmarks.add(benchmark);
-            break;
-          }
-        }
-      }
-    }
-    if (selectedBenchmarks.size == 0) {
-      const randomBenchmarkIndex = Math.floor(Math.random() * benchmarks.size);
-      const randomBenchmark = Array.from(benchmarks)[randomBenchmarkIndex];
-      selectedBenchmarks.add(randomBenchmark);
-    }
-    for (const benchmark of benchmarks.values()) {
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.name = 'benchmark';
-      input.id = benchmark;
-      input.value = benchmark;
-      input.checked = selectedBenchmarks.has(benchmark);
-      input.onchange = function (e) {
-        if (e.target.checked) {
-          selectedBenchmarks.add(e.target.value);
-        } else {
-          selectedBenchmarks.delete(e.target.value);
-        }
-        updateChart(true, false);
-      };
-
-      const label = document.createElement('label');
-      label.id = benchmark + 'Label';
-      label.htmlFor = benchmark;
-      label.innerHTML = benchmark;
-
-      benchmarkSelectors.appendChild(input);
-      benchmarkSelectors.appendChild(label);
-    }
-
-    function getSingleResult(benchmark, commit, resultName, resultIteration = 0) {
-      if (!(benchmark in commit.benchmarks)) {
-        return NaN;
-      }
-      const allResults = commit.benchmarks[benchmark].results;
-      const resultsForIteration = allResults[resultIteration];
-      // If a given iteration does not declare a result, then the result
-      // was the same as the first run.
-      if (resultIteration > 0 && !(resultName in resultsForIteration)) {
-        return allResults.first()[resultName];
-      }
-      return resultsForIteration[resultName];
-    }
-
-    function getAllResults(benchmark, commit, resultName) {
-      const result = [];
-      const allResults = commit.benchmarks[benchmark].results;
-      for (var iteration = 0; iteration < allResults.length; iteration++) {
-        result.push(getSingleResult(benchmark, commit, resultName, iteration));
-      }
-      return result;
-    }
+    import chart from "./chart.js";
+    import dom from "./dom.js";
+    import scales from "./scales.js";
+    import state from "./state.js";
 
     // Chart data provider.
-    function getData() {
-      const filteredCommits = commits.slice(zoom.left, zoom.right);
+    function getData(filteredCommits) {
       const labels = filteredCommits.map((c, i) => c.index);
-      const datasets = [];
-      for (const selectedBenchmark of selectedBenchmarks.values()) {
-        const codeSizeData =
-            filteredCommits.map(
-                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "code_size"));
-        const instructionCodeSizeData =
-            filteredCommits.map(
-                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "ins_code_size"));
-        const composableInstructionCodeSizeData =
-            filteredCommits.map(
-                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "composable_code_size"));
-        const oatCodeSizeData =
-            filteredCommits.map(
-                (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "oat_code_size"));
-        const codeSizeScatterData = [];
-        for (const commit of filteredCommits.values()) {
-          if (!(selectedBenchmark in commit.benchmarks)) {
-            continue;
-          }
-          const seen = new Set();
-          seen.add(getSingleResult(selectedBenchmark, commit, "code_size"));
-          const codeSizes = getAllResults(selectedBenchmark, commit, "code_size")
-          for (const codeSize of codeSizes.values()) {
-            if (!seen.has(codeSize)) {
-              codeSizeScatterData.push({ x: commit.index, y: codeSize });
-              seen.add(codeSize);
-            }
-          }
-        }
-        const runtimeData =
-            filteredCommits.map(
-                (c, i) =>
-                    selectedBenchmark in filteredCommits[i].benchmarks
-                        ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime")
-                            .min()
-                            .ns_to_s()
-                        : NaN);
-        const runtimeScatterData = [];
-        for (const commit of filteredCommits.values()) {
-          if (!(selectedBenchmark in commit.benchmarks)) {
-            continue;
-          }
-          const runtimes = getAllResults(selectedBenchmark, commit, "runtime")
-          for (const runtime of runtimes.values()) {
-            runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
-          }
-        }
-
-        const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
-        datasets.push(...[
-          {
-            benchmark: selectedBenchmark,
-            type: 'line',
-            label: 'Dex size',
-            data: codeSizeData,
-            datalabels: {
-              align: 'end',
-              anchor: 'end'
-            },
-            tension: 0.1,
-            yAxisID: 'y',
-            segment: {
-              borderColor: ctx =>
-                  skipped(
-                      ctx,
-                      myChart
-                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
-                          : undefined),
-              borderDash: ctx => skipped(ctx, [6, 6]),
-            },
-            spanGaps: true
-          },
-          {
-            benchmark: selectedBenchmark,
-            type: 'line',
-            label: 'Instruction size',
-            data: instructionCodeSizeData,
-            datalabels: {
-              align: 'end',
-              anchor: 'end'
-            },
-            tension: 0.1,
-            yAxisID: 'y_ins_code_size',
-            segment: {
-              borderColor: ctx =>
-                  skipped(
-                      ctx,
-                      myChart
-                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
-                          : undefined),
-              borderDash: ctx => skipped(ctx, [6, 6]),
-            },
-            spanGaps: true
-          },
-          {
-            benchmark: selectedBenchmark,
-            type: 'line',
-            label: 'Composable size',
-            data: composableInstructionCodeSizeData,
-            datalabels: {
-              align: 'start',
-              anchor: 'start'
-            },
-            tension: 0.1,
-            yAxisID: 'y_ins_code_size',
-            segment: {
-              borderColor: ctx =>
-                  skipped(
-                      ctx,
-                      myChart
-                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
-                          : undefined),
-              borderDash: ctx => skipped(ctx, [6, 6]),
-            },
-            spanGaps: true
-          },
-          {
-            benchmark: selectedBenchmark,
-            type: 'line',
-            label: 'Oat size',
-            data: oatCodeSizeData,
-            datalabels: {
-              align: 'start',
-              anchor: 'start'
-            },
-            tension: 0.1,
-            yAxisID: 'y_oat_code_size',
-            segment: {
-              borderColor: ctx =>
-                  skipped(
-                      ctx,
-                      myChart
-                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
-                          : undefined),
-              borderDash: ctx => skipped(ctx, [6, 6]),
-            },
-            spanGaps: true
-          },
-          {
-            benchmark: selectedBenchmark,
-            type: 'scatter',
-            label: 'Nondeterminism',
-            data: codeSizeScatterData,
-            datalabels: {
-              labels: {
-                value: null
-              }
-            },
-            radius: 6,
-            pointBackgroundColor: 'red'
-          },
-          {
-            benchmark: selectedBenchmark,
-            type: 'line',
-            label: 'Runtime',
-            data: runtimeData,
-            datalabels: {
-              labels: {
-                value: null
-              }
-            },
-            tension: 0.1,
-            yAxisID: 'y_runtime',
-            segment: {
-              borderColor: ctx =>
-                  skipped(
-                      ctx,
-                      myChart
-                          ? myChart.data.datasets[ctx.datasetIndex].backgroundColor
-                          : undefined),
-              borderDash: ctx => skipped(ctx, [6, 6]),
-            },
-            spanGaps: true
-          },
-          {
-            benchmark: selectedBenchmark,
-            type: 'scatter',
-            label: 'Runtime variance',
-            data: runtimeScatterData,
-            datalabels: {
-              labels: {
-                value: null
-              }
-            },
-            yAxisID: 'y_runtime'
-          }
-        ]);
-      }
-
+      const datasets = getDatasets(filteredCommits);
       return {
         labels: labels,
-        datasets: datasets,
+        datasets: datasets
       };
     }
 
-    // Legend tracking.
-    const legends =
-        new Set(['Dex size', 'Instruction size', 'Composable size', 'Oat size', 'Nondeterminism', 'Runtime', 'Runtime variance']);
-    const selectedLegends =
-        new Set(
-              unescape(window.location.hash.substring(1))
-                  .split(',')
-                  .filter(l => legends.has(l)));
-    if (selectedLegends.size == 0) {
-      legends.forEach(l => selectedLegends.add(l));
-      selectedLegends.delete('Runtime variance')
-    }
+    function getDatasets(filteredCommits) {
+      const datasets = [];
+      state.forEachSelectedBenchmark(
+        selectedBenchmark => {
+          const codeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "code_size"));
+          const instructionCodeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "ins_code_size"));
+          const composableInstructionCodeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "composable_code_size"));
+          const oatCodeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "oat_code_size"));
+          const codeSizeScatterData = [];
+          for (const commit of filteredCommits.values()) {
+            if (!(selectedBenchmark in commit.benchmarks)) {
+              continue;
+            }
+            const seen = new Set();
+            seen.add(getSingleResult(selectedBenchmark, commit, "code_size"));
+            const codeSizes = getAllResults(selectedBenchmark, commit, "code_size")
+            for (const codeSize of codeSizes.values()) {
+              if (!seen.has(codeSize)) {
+                codeSizeScatterData.push({ x: commit.index, y: codeSize });
+                seen.add(codeSize);
+              }
+            }
+          }
+          const runtimeData =
+              filteredCommits.map(
+                  (c, i) =>
+                      selectedBenchmark in filteredCommits[i].benchmarks
+                          ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime")
+                              .min()
+                              .ns_to_s()
+                          : NaN);
+          const runtimeScatterData = [];
+          for (const commit of filteredCommits.values()) {
+            if (!(selectedBenchmark in commit.benchmarks)) {
+              continue;
+            }
+            const runtimes = getAllResults(selectedBenchmark, commit, "runtime")
+            for (const runtime of runtimes.values()) {
+              runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
+            }
+          }
 
-    function getDataPercentageChange(context) {
-      var i = context.dataIndex;
-      var value = context.dataset.data[i];
-      var j = i;
-      var previousValue;
-      do {
-        if (j == 0) {
-          return null;
-        }
-        previousValue = context.dataset.data[--j];
-      } while (previousValue === undefined || isNaN(previousValue));
-      return (value - previousValue) / previousValue * 100;
+          const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
+          datasets.push(...[
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Dex size',
+              data: codeSizeData,
+              datalabels: {
+                align: 'end',
+                anchor: 'end'
+              },
+              tension: 0.1,
+              yAxisID: 'y',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Instruction size',
+              data: instructionCodeSizeData,
+              datalabels: {
+                align: 'end',
+                anchor: 'end'
+              },
+              tension: 0.1,
+              yAxisID: 'y_ins_code_size',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Composable size',
+              data: composableInstructionCodeSizeData,
+              datalabels: {
+                align: 'start',
+                anchor: 'start'
+              },
+              tension: 0.1,
+              yAxisID: 'y_ins_code_size',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Oat size',
+              data: oatCodeSizeData,
+              datalabels: {
+                align: 'start',
+                anchor: 'start'
+              },
+              tension: 0.1,
+              yAxisID: 'y_oat_code_size',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'scatter',
+              label: 'Nondeterminism',
+              data: codeSizeScatterData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              radius: 6,
+              pointBackgroundColor: 'red'
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Runtime',
+              data: runtimeData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              tension: 0.1,
+              yAxisID: 'y_runtime',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'scatter',
+              label: 'Runtime variance',
+              data: runtimeScatterData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              yAxisID: 'y_runtime'
+            }
+          ]);
+        });
+      return datasets;
     }
 
     // Chart options.
@@ -381,9 +244,9 @@
           borderColor: 'rgba(128, 128, 128, 0.7)',
           borderRadius: 4,
           borderWidth: 1,
-          color: context => getDataPercentageChange(context) < 0 ? 'green' : 'red',
+          color: context => chart.getDataPercentageChange(context) < 0 ? 'green' : 'red',
           display: context => {
-            var percentageChange = getDataPercentageChange(context);
+            var percentageChange = chart.getDataPercentageChange(context);
             return percentageChange !== null && Math.abs(percentageChange) >= 0.1;
           },
           font: {
@@ -391,12 +254,7 @@
             weight: 'bold'
           },
           offset: 8,
-          formatter: (value, context) => {
-            var percentageChange = getDataPercentageChange(context);
-            var percentageChangeTwoDecimals = Math.round(percentageChange * 100) / 100;
-            var glyph = percentageChange < 0 ? '▼' : '▲';
-            return glyph + ' ' + percentageChangeTwoDecimals + '%';
-          },
+          formatter: chart.getDataLabelFormatter,
           padding: 6
         },
         legend: {
@@ -406,18 +264,18 @@
               // multiple benchmarks are selected, then use the legends of the
               // first selected benchmark to control all selected benchmarks.
               const numUniqueLegends =
-                  data.datasets.length / selectedBenchmarks.size;
+                  data.datasets.length / state.selectedBenchmarks.size;
               return legendItem.datasetIndex < numUniqueLegends;
             },
           },
           onClick: (e, legendItem, legend) => {
             const clickedLegend = legendItem.text;
-            if (selectedLegends.has(clickedLegend)) {
-              selectedLegends.delete(clickedLegend);
+            if (state.selectedLegends.has(clickedLegend)) {
+              state.selectedLegends.delete(clickedLegend);
             } else {
-              selectedLegends.add(clickedLegend);
+              state.selectedLegends.add(clickedLegend);
             }
-            updateChart(false, true);
+            chart.update(false, true);
           },
         },
         tooltip: {
@@ -426,7 +284,7 @@
               const elementInfo = context[0];
               var commit;
               if (elementInfo.dataset.type == 'line') {
-                commit = commits[zoom.left + elementInfo.dataIndex];
+                commit = commits[state.zoom.left + elementInfo.dataIndex];
               } else {
                 console.assert(elementInfo.dataset.type == 'scatter');
                 commit = commits[elementInfo.raw.x];
@@ -437,12 +295,12 @@
               const elementInfo = context[0];
               var commit;
               if (elementInfo.dataset.type == 'line') {
-                commit = commits[zoom.left + elementInfo.dataIndex];
+                commit = commits[state.zoom.left + elementInfo.dataIndex];
               } else {
                 console.assert(elementInfo.dataset.type == 'scatter');
                 commit = commits[elementInfo.raw.x];
               }
-              const dataset = myChart.data.datasets[elementInfo.datasetIndex];
+              const dataset = chart.get().data.datasets[elementInfo.datasetIndex];
               return `App: ${dataset.benchmark}\n`
                   + `Author: ${commit.author}\n`
                   + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
@@ -453,197 +311,25 @@
         }
       },
       responsive: true,
-      scales: {
-        x: {},
-        y: {
-          position: 'left',
-          title: {
-            display: true,
-            text: 'Dex size (bytes)'
-          }
-        },
-        y_runtime: {
-          position: 'right',
-          title: {
-            display: true,
-            text: 'Runtime (seconds)'
-          }
-        },
-        y_ins_code_size: {
-          position: 'left',
-          title: {
-            display: true,
-            text: 'Instruction size (bytes)'
-          }
-        },
-        y_oat_code_size: {
-          position: 'left',
-          title: {
-            display: true,
-            text: 'Oat size (bytes)'
-          }
-        }
-      }
+      scales: scales.get()
     };
 
-    // Setup click handler.
-    canvas.onclick = event => {
-      const points =
-          myChart.getElementsAtEventForMode(
-              event, 'nearest', { intersect: true }, true);
-      if (points.length > 0) {
-        const point = points[0];
-        const commit = commits[point.index];
-        window.open('https://r8.googlesource.com/r8/+/' + commit.hash, '_blank');
-      }
-    };
-
-    // Setup chart navigation.
-    var zoom = { left: Math.max(0, commits.length - 75), right: commits.length };
-    for (const urlOption of urlOptions.values()) {
-      if (urlOption.startsWith('L')) {
-        var left = parseInt(urlOption.substring(1));
-        if (isNaN(left)) {
-          continue;
-        }
-        left = left >= 0 ? left : commits.length + left;
-        if (left < 0) {
-          zoom.left = 0;
-        } else if (left >= commits.length) {
-          zoom.left = commits.length - 1;
-        } else {
-          zoom.left = left;
-        }
-      }
-    }
-
-    showMoreLeft.onclick = event => {
-      if (zoom.left == 0) {
-        return;
-      }
-      const currentSize = zoom.right - zoom.left;
-      zoom.left = zoom.left - currentSize;
-      if (zoom.left < 0) {
-        zoom.left = 0;
-      }
-      updateChart(true, false);
-    };
-
-    showLessLeft.onclick = event => {
-      const currentSize = zoom.right - zoom.left;
-      zoom.left = zoom.left + Math.floor(currentSize / 2);
-      if (zoom.left >= zoom.right) {
-        zoom.left = zoom.right - 1;
-      }
-      updateChart(true, false);
-    };
-
-    showLessRight.onclick = event => {
-      if (zoom.right == 0) {
-        return;
-      }
-      const currentSize = zoom.right - zoom.left;
-      zoom.right = zoom.right - Math.floor(currentSize / 2);
-      if (zoom.right < zoom.left) {
-        zoom.right = zoom.left;
-      }
-      updateChart(true, false);
-    };
-
-    showMoreRight.onclick = event => {
-      const currentSize = zoom.right - zoom.left;
-      zoom.right = zoom.right + currentSize;
-      if (zoom.right > commits.length) {
-        zoom.right = commits.length;
-      }
-      updateChart(true, false);
-    };
-
-    function updateChart(dataChanged, legendsChanged) {
-      console.assert(zoom.left <= zoom.right);
-
-      // Update datasets.
-      if (dataChanged) {
-        const newData = getData();
-        Object.assign(myChart.data, newData);
-        // Update chart.
-        myChart.update();
-      }
-
-      // Update legends.
-      if (legendsChanged || (dataChanged && selectedLegends.size < legends.size)) {
-        for (var datasetIndex = 0;
-            datasetIndex < myChart.data.datasets.length;
-            datasetIndex++) {
-          const datasetMeta = myChart.getDatasetMeta(datasetIndex);
-          datasetMeta.hidden = !selectedLegends.has(datasetMeta.label);
-        }
-
-        // Update scales.
-        options.scales.y.display = selectedLegends.has('Dex size');
-        options.scales.y_ins_code_size.display =
-            selectedLegends.has('Instruction size') || selectedLegends.has('Composable size');
-        options.scales.y_oat_code_size.display = selectedLegends.has('Oat size');
-        options.scales.y_runtime.display =
-            selectedLegends.has('Runtime') || selectedLegends.has('Runtime variance');
-
-        // Update chart.
-        myChart.update();
-      }
-
-
-      // Update checkbox colors.
-      const benchmarkColors = {};
-      for (var datasetIndex = 0;
-          datasetIndex < myChart.data.datasets.length;
-          datasetIndex++) {
-        if (myChart.getDatasetMeta(datasetIndex).hidden) {
-          continue;
-        }
-        const dataset = myChart.data.datasets[datasetIndex];
-        const benchmark = dataset.benchmark;
-        const benchmarkColor = dataset.borderColor;
-        if (!(benchmark in benchmarkColors)) {
-          benchmarkColors[benchmark] = benchmarkColor;
-        }
-      }
-      for (const benchmark of benchmarks.values()) {
-        const benchmarkLabel = document.getElementById(benchmark + 'Label');
-        const benchmarkColor = benchmarkColors[benchmark] || '#000000';
-        const benchmarkFontWeight = benchmark in benchmarkColors ? 'bold' : 'normal';
-        benchmarkLabel.style.color = benchmarkColor;
-        benchmarkLabel.style.fontWeight = benchmarkFontWeight;
-      }
-
-      // Update navigation.
-      showMoreLeft.disabled = zoom.left == 0;
-      showLessLeft.disabled = zoom.left == zoom.right - 1;
-      showLessRight.disabled = zoom.left == zoom.right - 1;
-      showMoreRight.disabled = zoom.right == commits.length;
-
-      // Update hash.
-      window.location.hash =
-          Array.from(selectedBenchmarks)
-              .concat(
-                  selectedLegends.size == legends.size
-                      ? []
-                      : Array.from(selectedLegends))
-              .join(',');
-    }
-
-    // Create chart.
-    const myChart = new Chart(canvas, {
-      data: getData(),
-      options: options,
-      plugins: [ChartDataLabels]
+    const commits = await state.importCommits("./benchmark_data.json");
+    state.initializeBenchmarks();
+    state.initializeLegends({
+      'Dex size': { default: true },
+      'Instruction size': { default: true },
+      'Composable size': { default: true },
+      'Oat size': { default: true },
+      'Nondeterminism': { default: true },
+      'Runtime': { default: true },
+      'Runtime variance': { default: false }
     });
-
-    // Hide disabled legends.
-    if (selectedLegends.size < legends.size) {
-      updateChart(false, true);
-    } else {
-      updateChart(false, false);
-    }
+    state.initializeZoom();
+    dom.initializeBenchmarkSelectors();
+    dom.initializeChartNavigation();
+    chart.setDataProvider(getData);
+    chart.initializeChart(options);
   </script>
 </body>
 </html>

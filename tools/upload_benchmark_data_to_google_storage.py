@@ -16,7 +16,17 @@ APPS = perf.APPS
 TARGETS = ['r8-full']
 NUM_COMMITS = 1000
 
-INDEX_HTML = os.path.join(utils.TOOLS_DIR, 'perf/index.html')
+FILES = [
+    'chart.js',
+    'dom.js',
+    'extensions.js',
+    'index.html',
+    'scales.js',
+    'state.js',
+    'stylesheet.css',
+    'url.js',
+    'utils.js'
+]
 
 
 def DownloadCloudBucket(dest):
@@ -94,7 +104,10 @@ def run():
         perf.ArchiveOutputFile(benchmark_data_file,
                                'benchmark_data.json',
                                header='Cache-Control:no-store')
-        perf.ArchiveOutputFile(INDEX_HTML, 'index.html')
+        for file in FILES:
+            dest = os.path.join(utils.TOOLS_DIR, 'perf', file)
+            perf.ArchiveOutputFile(dest, file)
+
 
 
 def main():
