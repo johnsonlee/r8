@@ -134,7 +134,7 @@ def run():
         # Write output files to public bucket.
         ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json')
         ArchiveBenchmarkResults(
-            retrace_benchmark_data, 'retrace_benchmark_data.json'
+            retrace_benchmark_data, 'retrace_benchmark_data.json')
 
         # Write remaining files to public bucket.
         for file in FILES:
