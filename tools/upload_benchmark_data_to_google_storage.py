@@ -12,7 +12,7 @@ import utils
 
 import sys
 
-APPS = perf.APPS
+BENCHMARKS = perf.BENCHMARKS
 TARGETS = ['r8-full']
 NUM_COMMITS = 1000
 
@@ -67,15 +67,15 @@ def run():
         benchmark_data = []
         for commit in commits:
             benchmarks = {}
-            for app in APPS:
+            for benchmark in BENCHMARKS:
                 for target in TARGETS:
-                    filename = perf.GetArtifactLocation(app, target,
+                    filename = perf.GetArtifactLocation(benchmark, target,
                                                         commit.hash(),
                                                         'result.json')
-                    app_benchmark_data = ParseJsonFromCloudStorage(
+                    single_benchmark_data = ParseJsonFromCloudStorage(
                         filename, local_bucket)
-                    if app_benchmark_data:
-                        benchmarks[app] = app_benchmark_data
+                    if single_benchmark_data:
+                        benchmarks[benchmark] = single_benchmark_data
             if benchmarks or benchmark_data:
                 benchmark_data.append({
                     'author': commit.author_name(),
