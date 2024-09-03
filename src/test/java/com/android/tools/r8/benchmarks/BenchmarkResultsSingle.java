@@ -242,6 +242,10 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
     printer.accept(size);
   }
 
+  public int size() {
+    return runtimeResults.size();
+  }
+
   @Override
   public void writeResults(PrintStream out) {
     Gson gson =

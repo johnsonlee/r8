@@ -20,7 +20,7 @@ public class BenchmarkResultsSingleAdapter implements JsonSerializer<BenchmarkRe
   public JsonElement serialize(
       BenchmarkResultsSingle result, Type type, JsonSerializationContext jsonSerializationContext) {
     JsonArray resultsArray = new JsonArray();
-    for (int iteration = 0; iteration < result.getCodeSizeResults().size(); iteration++) {
+    for (int iteration = 0; iteration < result.size(); iteration++) {
       JsonObject resultObject = new JsonObject();
       addPropertyIfValueDifferentFromRepresentative(
           resultObject,
