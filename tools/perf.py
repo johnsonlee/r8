@@ -15,11 +15,44 @@ import utils
 if utils.is_bot():
     import upload_benchmark_data_to_google_storage
 
-BENCHMARKS = [
-    'ChromeApp', 'CraneApp', 'JetLaggedApp', 'JetNewsApp', 'JetCasterApp',
-    'JetChatApp', 'JetSnackApp', 'NowInAndroidApp', 'OwlApp', 'ReplyApp',
-    'TiviApp'
-]
+BENCHMARKS = {
+    'ChromeApp': {
+        'targets': ['r8-full']
+    },
+    'CraneApp': {
+        'targets': ['r8-full']
+    },
+    'JetLaggedApp': {
+        'targets': ['r8-full']
+    },
+    'JetNewsApp': {
+        'targets': ['r8-full']
+    },
+    'JetCasterApp': {
+        'targets': ['r8-full']
+    },
+    'JetChatApp': {
+        'targets': ['r8-full']
+    },
+    'JetSnackApp': {
+        'targets': ['r8-full']
+    },
+    'NowInAndroidApp': {
+        'targets': ['r8-full']
+    },
+    'OwlApp': {
+        'targets': ['r8-full']
+    },
+    'R8': {
+        'targets': ['retrace']
+    },
+    'ReplyApp': {
+        'targets': ['r8-full']
+    },
+    'TiviApp': {
+        'targets': ['r8-full']
+    },
+}
 BUCKET = "r8-perf-results"
 SAMPLE_BENCHMARK_RESULT_JSON = {
     'benchmark_name': '<benchmark_name>',
@@ -54,10 +87,10 @@ def ParseOptions():
                         help='Skip if output exists.',
                         action='store_true',
                         default=False)
-    result.add_argument('--target',
-                        help='Specific target to run on.',
-                        default='r8-full',
-                        choices=['d8', 'r8-full', 'r8-force', 'r8-compat'])
+    result.add_argument(
+        '--target',
+        help='Specific target to run on.',
+        choices=['d8', 'r8-full', 'r8-force', 'r8-compat', 'retrace'])
     result.add_argument('--verbose',
                         help='To enable verbose logging.',
                         action='store_true',
@@ -67,7 +100,7 @@ def ParseOptions():
                         help='Use R8 hash for the run (default local build)',
                         default=None)
     options, args = result.parse_known_args()
-    options.benchmarks = options.benchmark or BENCHMARKS
+    options.benchmarks = options.benchmark or BENCHMARKS.keys()
     options.quiet = not options.verbose
     del options.benchmark
     return options, args
@@ -75,13 +108,14 @@ def ParseOptions():
 
 def Build(options):
     utils.Print('Building', quiet=options.quiet)
-    build_cmd = GetRunCmd('N/A', options, ['--iterations', '0'])
+    target = options.target or 'r8-full'
+    build_cmd = GetRunCmd('N/A', target, options, ['--iterations', '0'])
     subprocess.check_call(build_cmd)
 
 
-def GetRunCmd(benchmark, options, args):
+def GetRunCmd(benchmark, target, options, args):
     base_cmd = [
-        'tools/run_benchmark.py', '--benchmark', benchmark, '--target', options.target
+        'tools/run_benchmark.py', '--benchmark', benchmark, '--target', target
     ]
     if options.verbose:
         base_cmd.append('--verbose')
@@ -156,60 +190,68 @@ def main():
             r8jar = compiledump.download_distribution(options.version,
                                                       download_options, temp)
         for benchmark in options.benchmarks:
-            if options.skip_if_output_exists:
-                if options.outdir:
-                    raise NotImplementedError
-                output = GetGSLocation(
-                    GetArtifactLocation(benchmark, options.target, options.version,
-                                        'result.json'))
-                if utils.cloud_storage_exists(output):
-                    print(f'Skipping run, {output} already exists.')
+            targets = [options.target
+                      ] if options.target else BENCHMARKS[benchmark].targets
+            for target in targets:
+                if options.skip_if_output_exists:
+                    if options.outdir:
+                        raise NotImplementedError
+                    output = GetGSLocation(
+                        GetArtifactLocation(benchmark, target, options.version,
+                                            'result.json'))
+                    if utils.cloud_storage_exists(output):
+                        print(f'Skipping run, {output} already exists.')
+                        continue
+
+                # Run benchmark.
+                benchmark_result_json_files = []
+                failed = False
+                for i in range(options.iterations):
+                    utils.Print(
+                        f'Benchmarking {benchmark} ({i+1}/{options.iterations})',
+                        quiet=options.quiet)
+                    benchhmark_result_file = os.path.join(
+                        temp, f'result_file_{i}')
+                    iteration_cmd = GetRunCmd(benchmark, target, options, [
+                        '--iterations',
+                        str(options.iterations_inner), '--output',
+                        benchhmark_result_file, '--no-build'
+                    ])
+                    try:
+                        subprocess.check_call(iteration_cmd)
+                        benchmark_result_json_files.append(
+                            benchhmark_result_file)
+                    except subprocess.CalledProcessError as e:
+                        failed = True
+                        any_failed = True
+                        break
+
+                if failed:
                     continue
 
-            # Run benchmark.
-            benchmark_result_json_files = []
-            failed = False
-            for i in range(options.iterations):
-                utils.Print(f'Benchmarking {benchmark} ({i+1}/{options.iterations})',
-                            quiet=options.quiet)
-                benchhmark_result_file = os.path.join(temp, f'result_file_{i}')
-                iteration_cmd = GetRunCmd(benchmark, options, [
-                    '--iterations',
-                    str(options.iterations_inner), '--output',
-                    benchhmark_result_file, '--no-build'
-                ])
-                try:
-                    subprocess.check_call(iteration_cmd)
-                    benchmark_result_json_files.append(benchhmark_result_file)
-                except subprocess.CalledProcessError as e:
-                    failed = True
-                    any_failed = True
-                    break
-
-            if failed:
-                continue
-
-            # Merge results and write output.
-            result_file = os.path.join(temp, 'result_file')
-            with open(result_file, 'w') as f:
-                json.dump(
-                    MergeBenchmarkResultJsonFiles(benchmark_result_json_files),
-                    f)
-            ArchiveOutputFile(result_file,
-                              GetArtifactLocation(benchmark, options.target,
-                                                  options.version,
-                                                  'result.json'),
-                              outdir=options.outdir)
-
-            # Write metadata.
-            if utils.is_bot():
-                meta_file = os.path.join(temp, "meta")
-                with open(meta_file, 'w') as f:
-                    f.write("Produced by: " + os.environ.get('SWARMING_BOT_ID'))
-                ArchiveOutputFile(meta_file,
-                                  GetArtifactLocation(benchmark, options.target,
-                                                      options.version, 'meta'),
+                # Merge results and write output.
+                result_file = os.path.join(temp, 'result_file')
+                with open(result_file, 'w') as f:
+                    json.dump(
+                        MergeBenchmarkResultJsonFiles(
+                            benchmark_result_json_files), f)
+                ArchiveOutputFile(result_file,
+                                  GetArtifactLocation(benchmark, target,
+                                                      options.version,
+                                                      'result.json'),
                                   outdir=options.outdir)
+
+                # Write metadata.
+                if utils.is_bot():
+                    meta_file = os.path.join(temp, "meta")
+                    with open(meta_file, 'w') as f:
+                        f.write("Produced by: " +
+                                os.environ.get('SWARMING_BOT_ID'))
+                    ArchiveOutputFile(meta_file,
+                                      GetArtifactLocation(
+                                          benchmark, target, options.version,
+                                          'meta'),
+                                      outdir=options.outdir)
 
     if utils.is_bot():
         upload_benchmark_data_to_google_storage.run()

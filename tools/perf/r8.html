@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>R8 perf</title>
+  <link rel="stylesheet" href="stylesheet.css">
+</head>
+<body>
+  <div id="benchmark-selectors"></div>
+  <div>
+      <canvas id="myChart"></canvas>
+  </div>
+  <div>
+    <div style="float: left; width: 50%">
+      <button type="button" id="show-more-left" disabled>⇐</button>
+      <button type="button" id="show-less-left">⇒</button>
+    </div>
+    <div style="float: left; text-align: right; width: 50%">
+      <button type="button" id="show-less-right">⇐</button>
+      <button type="button" id="show-more-right" disabled>⇒</button>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="extensions.js"></script>
+  <script src="utils.js"></script>
+  <script type="module">
+    import chart from "./chart.js";
+    import dom from "./dom.js";
+    import scales from "./scales.js";
+    import state from "./state.js";
+
+    // Chart data provider.
+    function getData(filteredCommits) {
+      const labels = filteredCommits.map((c, i) => c.index);
+      const datasets = getDatasets(filteredCommits);
+      return {
+        labels: labels,
+        datasets: datasets
+      };
+    }
+
+    function getDatasets(filteredCommits) {
+      const datasets = [];
+      state.forEachSelectedBenchmark(
+        selectedBenchmark => {
+          const codeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "code_size"));
+          const instructionCodeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "ins_code_size"));
+          const composableInstructionCodeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "composable_code_size"));
+          const oatCodeSizeData =
+              filteredCommits.map(
+                  (c, i) => getSingleResult(selectedBenchmark, filteredCommits[i], "oat_code_size"));
+          const codeSizeScatterData = [];
+          for (const commit of filteredCommits.values()) {
+            if (!(selectedBenchmark in commit.benchmarks)) {
+              continue;
+            }
+            const seen = new Set();
+            seen.add(getSingleResult(selectedBenchmark, commit, "code_size"));
+            const codeSizes = getAllResults(selectedBenchmark, commit, "code_size")
+            for (const codeSize of codeSizes.values()) {
+              if (!seen.has(codeSize)) {
+                codeSizeScatterData.push({ x: commit.index, y: codeSize });
+                seen.add(codeSize);
+              }
+            }
+          }
+          const runtimeData =
+              filteredCommits.map(
+                  (c, i) =>
+                      selectedBenchmark in filteredCommits[i].benchmarks
+                          ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime")
+                              .min()
+                              .ns_to_s()
+                          : NaN);
+          const runtimeScatterData = [];
+          for (const commit of filteredCommits.values()) {
+            if (!(selectedBenchmark in commit.benchmarks)) {
+              continue;
+            }
+            const runtimes = getAllResults(selectedBenchmark, commit, "runtime")
+            for (const runtime of runtimes.values()) {
+              runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
+            }
+          }
+
+          const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
+          datasets.push(...[
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Dex size',
+              data: codeSizeData,
+              datalabels: {
+                align: 'end',
+                anchor: 'end'
+              },
+              tension: 0.1,
+              yAxisID: 'y',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Instruction size',
+              data: instructionCodeSizeData,
+              datalabels: {
+                align: 'end',
+                anchor: 'end'
+              },
+              tension: 0.1,
+              yAxisID: 'y_ins_code_size',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Composable size',
+              data: composableInstructionCodeSizeData,
+              datalabels: {
+                align: 'start',
+                anchor: 'start'
+              },
+              tension: 0.1,
+              yAxisID: 'y_ins_code_size',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Oat size',
+              data: oatCodeSizeData,
+              datalabels: {
+                align: 'start',
+                anchor: 'start'
+              },
+              tension: 0.1,
+              yAxisID: 'y_oat_code_size',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'scatter',
+              label: 'Nondeterminism',
+              data: codeSizeScatterData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              radius: 6,
+              pointBackgroundColor: 'red'
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Runtime',
+              data: runtimeData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              tension: 0.1,
+              yAxisID: 'y_runtime',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'scatter',
+              label: 'Runtime variance',
+              data: runtimeScatterData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              yAxisID: 'y_runtime'
+            }
+          ]);
+        });
+      return datasets;
+    }
+
+    // Chart options.
+    const options = {
+      onHover: (event, chartElement) =>
+          event.native.target.style.cursor =
+              chartElement[0] ? 'pointer' : 'default',
+      plugins: {
+        datalabels: {
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          borderColor: 'rgba(128, 128, 128, 0.7)',
+          borderRadius: 4,
+          borderWidth: 1,
+          color: context => chart.getDataPercentageChange(context) < 0 ? 'green' : 'red',
+          display: context => {
+            var percentageChange = chart.getDataPercentageChange(context);
+            return percentageChange !== null && Math.abs(percentageChange) >= 0.1;
+          },
+          font: {
+            size: 20,
+            weight: 'bold'
+          },
+          offset: 8,
+          formatter: chart.getDataLabelFormatter,
+          padding: 6
+        },
+        legend: {
+          labels: {
+            filter: (legendItem, data) => {
+              // Only retain the legends for the first selected benchmark. If
+              // multiple benchmarks are selected, then use the legends of the
+              // first selected benchmark to control all selected benchmarks.
+              const numUniqueLegends =
+                  data.datasets.length / state.selectedBenchmarks.size;
+              return legendItem.datasetIndex < numUniqueLegends;
+            },
+          },
+          onClick: (e, legendItem, legend) => {
+            const clickedLegend = legendItem.text;
+            if (state.selectedLegends.has(clickedLegend)) {
+              state.selectedLegends.delete(clickedLegend);
+            } else {
+              state.selectedLegends.add(clickedLegend);
+            }
+            chart.update(false, true);
+          },
+        },
+        tooltip: {
+          callbacks: {
+            title: context => {
+              const elementInfo = context[0];
+              var commit;
+              if (elementInfo.dataset.type == 'line') {
+                commit = commits[state.zoom.left + elementInfo.dataIndex];
+              } else {
+                console.assert(elementInfo.dataset.type == 'scatter');
+                commit = commits[elementInfo.raw.x];
+              }
+              return commit.title;
+            },
+            footer: context => {
+              const elementInfo = context[0];
+              var commit;
+              if (elementInfo.dataset.type == 'line') {
+                commit = commits[state.zoom.left + elementInfo.dataIndex];
+              } else {
+                console.assert(elementInfo.dataset.type == 'scatter');
+                commit = commits[elementInfo.raw.x];
+              }
+              const dataset = chart.get().data.datasets[elementInfo.datasetIndex];
+              return `App: ${dataset.benchmark}\n`
+                  + `Author: ${commit.author}\n`
+                  + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
+                  + `Hash: ${commit.hash}\n`
+                  + `Index: ${commit.index}`;
+            }
+          }
+        }
+      },
+      responsive: true,
+      scales: scales.get()
+    };
+
+    const commits = await state.importCommits("./r8_benchmark_data.json");
+    state.initializeBenchmarks();
+    state.initializeLegends({
+      'Dex size': { default: true },
+      'Instruction size': { default: true },
+      'Composable size': { default: true },
+      'Oat size': { default: true },
+      'Nondeterminism': { default: true },
+      'Runtime': { default: true },
+      'Runtime variance': { default: false }
+    });
+    state.initializeZoom();
+    dom.initializeBenchmarkSelectors();
+    dom.initializeChartNavigation();
+    chart.setDataProvider(getData);
+    chart.initializeChart(options);
+  </script>
+</body>
+</html>

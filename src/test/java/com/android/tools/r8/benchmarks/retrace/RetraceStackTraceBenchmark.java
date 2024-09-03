@@ -46,8 +46,8 @@ public class RetraceStackTraceBenchmark extends BenchmarkBase {
     return ImmutableList.<BenchmarkConfig>builder()
         .add(
             BenchmarkConfig.builder()
-                .setName("RetraceStackTraceWithProguardMap")
-                .setTarget(BenchmarkTarget.R8_NON_COMPAT)
+                .setName("R8")
+                .setTarget(BenchmarkTarget.RETRACE)
                 .measureRunTime()
                 .setMethod(benchmarkRetrace())
                 .setFromRevision(12266)

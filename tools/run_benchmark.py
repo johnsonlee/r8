@@ -47,7 +47,7 @@ def parse_options(argv):
         help='The test target to run',
         required=True,
         # These should 1:1 with benchmarks/BenchmarkTarget.java
-        choices=['d8', 'r8-full', 'r8-force', 'r8-compat'])
+        choices=['d8', 'r8-full', 'r8-force', 'r8-compat', 'retrace'])
     result.add_argument(
         '--debug-agent',
         '--debug_agent',
@@ -165,8 +165,11 @@ def main(argv, temp):
 def run(options, r8jar, testjars):
     jdkhome = get_jdk_home(options, options.benchmark)
     cmd = [
-        jdk.GetJavaExecutable(jdkhome), '-Xms8g', '-Xmx8g',
-        '-XX:+TieredCompilation', '-XX:TieredStopAtLevel=4',
+        jdk.GetJavaExecutable(jdkhome),
+        '-Xms8g',
+        '-Xmx8g',
+        '-XX:+TieredCompilation',
+        '-XX:TieredStopAtLevel=4',
         '-DBENCHMARK_IGNORE_CODE_SIZE_DIFFERENCES',
         f'-DBUILD_PROP_KEEPANNO_RUNTIME_PATH={utils.REPO_ROOT}/d8_r8/keepanno/build/classes/java/main',
         # Since we change the working directory to a temp folder.
