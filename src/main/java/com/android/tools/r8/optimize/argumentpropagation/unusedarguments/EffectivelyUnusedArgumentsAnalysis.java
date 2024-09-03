@@ -227,7 +227,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
       if (!ParameterRemovalUtils.canRemoveUnusedParameter(appView, method, argument.getIndex())) {
         return;
       }
-      if (!argumentValue.getType().isClassType() || argumentValue.hasDebugUsers()) {
+      if (argumentValue.hasDebugUsers()) {
         return;
       }
       Value usedValue;
