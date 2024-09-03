@@ -28,7 +28,7 @@ function forEachSelectedBenchmark(callback) {
 }
 
 function importCommits(url) {
-  return import("./benchmark_data.json", { with: { type: "json" }})
+  return import(url, { with: { type: "json" }})
       .then(module => {
         commits = module.default;
         commits.reverseInPlace();

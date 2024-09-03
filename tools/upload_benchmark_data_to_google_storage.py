@@ -17,16 +17,8 @@ TARGETS = ['r8-full']
 NUM_COMMITS = 1000
 
 FILES = [
-    'chart.js',
-    'dom.js',
-    'extensions.js',
-    'r8.html',
-    'retrace.html',
-    'scales.js',
-    'state.js',
-    'stylesheet.css',
-    'url.js',
-    'utils.js'
+    'chart.js', 'dom.js', 'extensions.js', 'r8.html', 'retrace.html',
+    'scales.js', 'state.js', 'stylesheet.css', 'url.js', 'utils.js'
 ]
 
 
@@ -51,15 +43,13 @@ def ParseJsonFromCloudStorage(filename, local_bucket):
             return None
 
 
-def RecordBenchmarkResult(
-        commit, benchmark, benchmark_info, target, benchmarks):
-    if not target in benchmark_info.targets:
+def RecordBenchmarkResult(commit, benchmark, benchmark_info, local_bucket,
+                          target, benchmarks):
+    if not target in benchmark_info['targets']:
         return
-    filename = perf.GetArtifactLocation(benchmark, target,
-                                        commit.hash(),
+    filename = perf.GetArtifactLocation(benchmark, target, commit.hash(),
                                         'result.json')
-    benchmark_data = ParseJsonFromCloudStorage(
-        filename, local_bucket)
+    benchmark_data = ParseJsonFromCloudStorage(filename, local_bucket)
     if benchmark_data:
         benchmarks[benchmark] = benchmark_data
 
@@ -86,7 +76,7 @@ def TrimBenchmarkResults(benchmark_data):
     return benchmark_data[0:new_benchmark_data_len]
 
 
-def ArchiveBenchmarkResults(benchmark_data, dest):
+def ArchiveBenchmarkResults(benchmark_data, dest, temp):
     # Serialize JSON to temp file.
     benchmark_data_file = os.path.join(temp, dest)
     with open(benchmark_data_file, 'w') as f:
@@ -118,23 +108,24 @@ def run():
             r8_benchmarks = {}
             retrace_benchmarks = {}
             for benchmark, benchmark_info in BENCHMARKS.items():
-                RecordBenchmarkResult(
-                    commit, benchmark, benchmark_info, 'r8-full', r8_benchmarks)
-                RecordBenchmarkResult(
-                    commit, benchmark, benchmark_info, 'retrace',
-                    retrace_benchmarks)
-            RecordBenchmarkResults(commmit, r8_benchmarks, r8_benchmark_data)
-            RecordBenchmarkResults(
-                commmit, retrace_benchmarks, retrace_benchmark_data)
+                RecordBenchmarkResult(commit, benchmark, benchmark_info,
+                                      local_bucket, 'r8-full', r8_benchmarks)
+                RecordBenchmarkResult(commit, benchmark, benchmark_info,
+                                      local_bucket, 'retrace',
+                                      retrace_benchmarks)
+            RecordBenchmarkResults(commit, r8_benchmarks, r8_benchmark_data)
+            RecordBenchmarkResults(commit, retrace_benchmarks,
+                                   retrace_benchmark_data)
 
         # Trim data.
         r8_benchmark_data = TrimBenchmarkResults(r8_benchmark_data)
         retrace_benchmark_data = TrimBenchmarkResults(retrace_benchmark_data)
 
         # Write output files to public bucket.
-        ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json')
-        ArchiveBenchmarkResults(
-            retrace_benchmark_data, 'retrace_benchmark_data.json')
+        ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json',
+                                temp)
+        ArchiveBenchmarkResults(retrace_benchmark_data,
+                                'retrace_benchmark_data.json', temp)
 
         # Write remaining files to public bucket.
         for file in FILES:
