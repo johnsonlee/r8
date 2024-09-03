@@ -2,8 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -14,20 +15,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class UnusedRecordReflectionTest extends TestBase {
+public class UnusedRecordFieldTest extends TestBase {
 
-  private static final String RECORD_NAME = "UnusedRecordReflection";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
-  private static final String EXPECTED_RESULT = StringUtils.lines("null", "null");
+  private static final String EXPECTED_RESULT = StringUtils.lines("Hello!");
 
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
+  @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
@@ -37,21 +34,21 @@ public class UnusedRecordReflectionTest extends TestBase {
   }
 
   @Test
-  public void testD8AndJvm() throws Exception {
+  public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), UnusedRecordField.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
-    }
+  }
 
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .compile()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), UnusedRecordField.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
@@ -60,19 +57,34 @@ public class UnusedRecordReflectionTest extends TestBase {
     parameters.assumeR8TestParameters();
     R8FullTestBuilder builder =
         testForR8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .setMinApi(parameters)
-            .addKeepRules("-keep class records.UnusedRecordReflection { *; }")
-            .addKeepMainRule(MAIN_TYPE);
+            .addKeepRules("-keep class records.UnusedRecordFieldTest$UnusedRecordField { *; }")
+            .addKeepMainRule(UnusedRecordField.class);
     if (parameters.isCfRuntime()) {
       builder
-          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .run(parameters.getRuntime(), MAIN_TYPE)
+          .run(parameters.getRuntime(), UnusedRecordField.class)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
     }
-    builder.run(parameters.getRuntime(), MAIN_TYPE).assertSuccessWithOutput(EXPECTED_RESULT);
+    builder
+        .run(parameters.getRuntime(), UnusedRecordField.class)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  public static class UnusedRecordField {
+
+    Record unusedInstanceField;
+
+    void printHello() {
+      System.out.println("Hello!");
+    }
+
+    public static void main(String[] args) {
+      new UnusedRecordField().printHello();
+    }
   }
 }
