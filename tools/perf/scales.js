@@ -4,46 +4,66 @@
 import state from "./state.js";
 
 function get() {
-  return {
-    x: {},
-    y: {
+  const scales = {};
+  scales.x = {};
+  if (state.hasLegend('Dex size')) {
+    scales.y = {
       position: 'left',
       title: {
         display: true,
         text: 'Dex size (bytes)'
       }
-    },
-    y_runtime: {
-      position: 'right',
-      title: {
-        display: true,
-        text: 'Runtime (seconds)'
-      }
-    },
-    y_ins_code_size: {
+    };
+  } else {
+    console.assert(!state.hasLegend('Instruction size'));
+    console.assert(!state.hasLegend('Composable size'));
+    console.assert(!state.hasLegend('Oat size'));
+  }
+  console.assert(state.hasLegend('Runtime'));
+  console.assert(state.hasLegend('Runtime variance'));
+  scales.y_runtime = {
+    position: state.hasLegend('Dex size') ? 'right' : 'left',
+    title: {
+      display: true,
+      text: 'Runtime (seconds)'
+    }
+  };
+  if (state.hasLegend('Instruction size') || state.hasLegend('Composable size')) {
+    scales.y_ins_code_size = {
       position: 'left',
       title: {
         display: true,
         text: 'Instruction size (bytes)'
       }
-    },
-    y_oat_code_size: {
+    };
+  }
+  if (state.hasLegend('Oat size')) {
+    scales.y_oat_code_size = {
       position: 'left',
       title: {
         display: true,
         text: 'Oat size (bytes)'
       }
-    }
-  };;
+    };
+  }
+  return scales;
 }
 
 function update(scales) {
-  scales.y.display = state.isLegendSelected('Dex size');
-  scales.y_ins_code_size.display =
-      state.isLegendSelected('Instruction size') || state.isLegendSelected('Composable size');
-  scales.y_oat_code_size.display = state.isLegendSelected('Oat size');
-  scales.y_runtime.display =
-      state.isLegendSelected('Runtime') || state.isLegendSelected('Runtime variance');
+  if (scales.y) {
+    scales.y.display = state.isLegendSelected('Dex size');
+  }
+  if (scales.y_ins_code_size) {
+    scales.y_ins_code_size.display =
+        state.isLegendSelected('Instruction size') || state.isLegendSelected('Composable size');
+  }
+  if (scales.y_oat_code_size) {
+    scales.y_oat_code_size.display = state.isLegendSelected('Oat size');
+  }
+  if (scales.y_runtime) {
+    scales.y_runtime.display =
+        state.isLegendSelected('Runtime') || state.isLegendSelected('Runtime variance');
+  }
 }
 
 export default {

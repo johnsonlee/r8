@@ -27,6 +27,10 @@ function forEachSelectedBenchmark(callback) {
   });
 }
 
+function hasLegend(legend) {
+  return legends.has(legend);
+}
+
 function importCommits(url) {
   return import(url, { with: { type: "json" }})
       .then(module => {
@@ -107,6 +111,7 @@ export default {
   selectedLegends: selectedLegends,
   forEachBenchmark: forEachBenchmark,
   forEachSelectedBenchmark: forEachSelectedBenchmark,
+  hasLegend: hasLegend,
   initializeBenchmarks: initializeBenchmarks,
   initializeLegends: initializeLegends,
   initializeZoom: initializeZoom,

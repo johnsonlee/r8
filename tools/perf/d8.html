@@ -30,6 +30,18 @@
     import scales from "./scales.js";
     import state from "./state.js";
 
+    const commits = await state.importCommits("./d8_benchmark_data.json");
+    state.initializeBenchmarks();
+    state.initializeLegends({
+      'Dex size': { default: true },
+      'Nondeterminism': { default: true },
+      'Runtime': { default: true },
+      'Runtime variance': { default: false }
+    });
+    state.initializeZoom();
+    dom.initializeBenchmarkSelectors();
+    dom.initializeChartNavigation();
+
     // Chart data provider.
     function getData(filteredCommits) {
       const labels = filteredCommits.map((c, i) => c.index);
@@ -239,17 +251,6 @@
       scales: scales.get()
     };
 
-    const commits = await state.importCommits("./d8_benchmark_data.json");
-    state.initializeBenchmarks();
-    state.initializeLegends({
-      'Dex size': { default: true },
-      'Nondeterminism': { default: true },
-      'Runtime': { default: true },
-      'Runtime variance': { default: false }
-    });
-    state.initializeZoom();
-    dom.initializeBenchmarkSelectors();
-    dom.initializeChartNavigation();
     chart.setDataProvider(getData);
     chart.initializeChart(options);
   </script>
