@@ -31,6 +31,7 @@ val resourceShrinkerSourcesTask = projectTask("resourceshrinker", "sourcesJar")
 val javaTestBaseJarTask = projectTask("testbase", "testJar")
 val javaTestBaseDepsJar = projectTask("testbase", "depsJar")
 val java8TestJarTask = projectTask("tests_java_8", "testJar")
+val java11TestJarTask = projectTask("tests_java_11", "testJar")
 val bootstrapTestsDepsJarTask = projectTask("tests_bootstrap", "depsJar")
 val bootstrapTestJarTask = projectTask("tests_bootstrap", "testJar")
 val testsJava8SourceSetDependenciesTask = projectTask("tests_java_8", "sourceSetDependencyTask")
@@ -61,8 +62,10 @@ tasks {
 
   val packageTests by registering(Jar::class) {
     dependsOn(java8TestJarTask)
+    dependsOn(java11TestJarTask)
     dependsOn(bootstrapTestJarTask)
     from(java8TestJarTask.outputs.files.map(::zipTree))
+    from(java11TestJarTask.outputs.files.map(::zipTree))
     from(bootstrapTestJarTask.outputs.files.map(::zipTree))
     exclude("META-INF/*.kotlin_module", "**/*.kotlin_metadata")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
@@ -136,18 +139,17 @@ tasks {
             targetJarProvider)
     testJarProviders.forEach(::dependsOn)
     val mainDepsJar = mainDepsJarTask.getSingleOutputFile()
-    val rtJar = resolve(ThirdPartyDeps.java8Runtime, "rt.jar").getSingleFile()
     val r8WithRelocatedDepsJar = r8WithRelocatedDepsTask.getSingleOutputFile()
     val targetJar = targetJarProvider.getSingleOutputFile()
     val testDepsJar = packageTestDeps.getSingleOutputFile()
-    inputs.files(mainDepsJar, rtJar, r8WithRelocatedDepsJar, targetJar, testDepsJar)
+    inputs.files(mainDepsJar, r8WithRelocatedDepsJar, targetJar, testDepsJar)
     inputs.files(testJarProviders.map{it.getSingleOutputFile()})
     val output = file(Paths.get("build", "libs", artifactName))
     outputs.file(output)
     val argList = mutableListOf("--keep-rules",
                     "--allowobfuscation",
                     "--lib",
-                    "$rtJar",
+                    "${org.gradle.internal.jvm.Jvm.current().getJavaHome()}",
                     "--lib",
                     "$mainDepsJar",
                     "--lib",
@@ -285,20 +287,19 @@ tasks {
             testJarProvider,
             packageTestBaseExcludeKeep)
     val keepRulesFile = keepRulesFileProvider.getSingleOutputFile()
-    val rtJar = resolve(ThirdPartyDeps.java8Runtime, "rt.jar").getSingleFile()
     val r8Jar = r8JarProvider.getSingleOutputFile()
     val r8WithRelocatedDepsJar = r8WithRelocatedDepsTask.getSingleOutputFile()
     val testBaseJar = packageTestBaseExcludeKeep.getSingleOutputFile()
     val testDepsJar = packageTestDeps.getSingleOutputFile()
     val testJar = testJarProvider.getSingleOutputFile()
-    inputs.files(keepRulesFile, rtJar, r8Jar, r8WithRelocatedDepsJar, testDepsJar, testJar)
+    inputs.files(keepRulesFile, r8Jar, r8WithRelocatedDepsJar, testDepsJar, testJar)
     val outputJar = getRoot().resolveAll("build", "libs", artifactName)
     outputs.file(outputJar)
     val args = mutableListOf(
       "--classfile",
       "--debug",
       "--lib",
-      "$rtJar",
+      "${org.gradle.internal.jvm.Jvm.current().getJavaHome()}",
       "--classpath",
       "$r8Jar",
       "--classpath",

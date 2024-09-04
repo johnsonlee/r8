@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.shaking.b169045091;
+package nesthostexample.b169045091;
 
 import static com.android.tools.r8.references.Reference.INT;
 import static org.junit.Assert.assertTrue;
@@ -17,16 +17,10 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.shaking.b169045091.B169045091.TestClass;
 import com.android.tools.r8.shaking.b169045091.examples.NestHost;
 import com.android.tools.r8.shaking.b169045091.examples.NestHost.NestMember;
 import com.android.tools.r8.shaking.b169045091.examples.NonNestMember;
 import com.android.tools.r8.utils.AndroidApp;
-import com.android.tools.r8.utils.DescriptorUtils;
-import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,11 +28,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestMemberAccessibilityTest extends TestBase {
-
-  private final Path TEST_DIRECTORY =
-      Paths.get(ToolHelper.getExamplesJava11BuildDir())
-          .resolve(
-              DescriptorUtils.getBinaryNameFromJavaType(NestHost.class.getPackage().getName()));
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -54,8 +43,9 @@ public class NestMemberAccessibilityTest extends TestBase {
     AppView<AppInfoWithLiveness> appView =
         computeAppViewWithLiveness(
             AndroidApp.builder()
-                .addProgramFiles(getProgramFiles())
-                .addClassProgramData(getNestHostClassFileData())
+                .addClassProgramData(ToolHelper.getClassAsBytes(NestHost.NestMember.class))
+                .addClassProgramData(ToolHelper.getClassAsBytes(NonNestMember.class))
+                .addClassProgramData(getNestHostClassTransformed())
                 .build(),
             TestClass.class);
     AppInfoWithLiveness appInfo = appView.appInfo();
@@ -117,16 +107,12 @@ public class NestMemberAccessibilityTest extends TestBase {
             .isFalse());
   }
 
-  private List<Path> getProgramFiles() {
-    return ImmutableList.of(
-        TEST_DIRECTORY.resolve("NestHost$NestMember.class"),
-        TEST_DIRECTORY.resolve("NonNestMember.class"));
+  private byte[] getNestHostClassTransformed() throws Exception {
+    return transformer(NestHost.class).setPrivate(NestHost.class.getDeclaredField("f")).transform();
   }
 
-  private byte[] getNestHostClassFileData() throws Exception {
-    return transformer(
-            TEST_DIRECTORY.resolve("NestHost.class"), Reference.classFromClass(NestHost.class))
-        .setPrivate(NestHost.class.getDeclaredField("f"))
-        .transform();
+  public static class TestClass {
+
+    public static void main(String[] args) {}
   }
 }

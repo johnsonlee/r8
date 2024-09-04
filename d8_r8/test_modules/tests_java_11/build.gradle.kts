@@ -56,5 +56,13 @@ tasks {
     systemProperty("TESTBASE_DATA_LOCATION",
                    testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
   }
+
+  val testJar by registering(Jar::class) {
+    from(sourceSets.test.get().output)
+    // TODO(b/296486206): Seems like IntelliJ has a problem depending on test source sets. Renaming
+    //  this from the default name (tests_java_8.jar) will allow IntelliJ to find the resources in
+    //  the jar and not show red underlines. However, navigation to base classes will not work.
+    archiveFileName.set("not_named_tests_java_11.jar")
+  }
 }
 
