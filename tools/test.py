@@ -264,6 +264,10 @@ def ParseOptions():
                         help='Pass --no-daemon to the gradle run',
                         default=False,
                         action='store_true')
+    result.add_argument('--low-priority',
+                        help='Run gradle with priority=low (higher niceness)',
+                        default=False,
+                        action='store_true')
     result.add_argument(
         '--kotlin-compiler-dev',
         help='Specify to download a kotlin dev compiler and run '
@@ -383,6 +387,9 @@ def Main():
     if options.no_daemon or utils.is_bot():
         # Bots don't like dangling processes.
         gradle_args.append('--no-daemon')
+
+    if options.low_priority:
+        gradle_args.append('--priority=low')
 
     # Set all necessary Gradle properties and options first.
     if options.shard_count:
