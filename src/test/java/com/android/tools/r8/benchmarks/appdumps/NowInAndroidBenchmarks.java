@@ -38,6 +38,12 @@ public class NowInAndroidBenchmarks extends BenchmarkBase {
             .setFromRevision(16017)
             .buildBatchD8(),
         AppDumpBenchmarkBuilder.builder()
+            .setName("NowInAndroidAppNoJ$")
+            .setDumpDependencyPath(dump)
+            .setEnableLibraryDesugaring(false)
+            .setFromRevision(16017)
+            .buildBatchD8(),
+        AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidApp")
             .setDumpDependencyPath(dump)
             .setFromRevision(16017)

@@ -50,7 +50,10 @@ BENCHMARKS = {
         'targets': ['r8-full']
     },
     'NowInAndroidApp': {
-        'targets': ['r8-full']
+        'targets': ['d8', 'r8-full']
+    },
+    'NowInAndroidAppNoJ$': {
+        'targets': ['d8']
     },
     'OwlApp': {
         'targets': ['r8-full']
