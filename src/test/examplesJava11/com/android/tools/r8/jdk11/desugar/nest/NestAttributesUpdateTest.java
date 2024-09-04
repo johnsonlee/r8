@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package nesthostexample;
+package com.android.tools.r8.jdk11.desugar.nest;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
@@ -31,7 +31,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestAttributesUpdateTest extends TestBase {
-  private static final String PACKAGE_NAME = "nesthostexample.";
 
   private static final Class<?> MERGING_OUTER_CLASS = BasicNestHostClassMerging.class;
   private static final Class<?> PRUNING_OUTER_CLASS = BasicNestHostTreePruning.class;
@@ -133,7 +132,7 @@ public class NestAttributesUpdateTest extends TestBase {
             })
         .addProgramClassesAndInnerClasses(outerNestClass)
         .applyIf(parameters.isCfRuntime(), Jdk9TestUtils.addJdk9LibraryFiles(temp))
-        .addKeepPackageNamesRule("nesthostexample")
+        .addKeepPackageNamesRule(getClass().getPackageName())
         .addInliningAnnotations()
         .apply(testBuilderConsumer)
         .compile()
@@ -154,19 +153,25 @@ public class NestAttributesUpdateTest extends TestBase {
         if (clazz.isNestHost()) {
           // All members are present with the clazz as host
           for (NestMemberClassAttribute attr : clazz.getNestMembersClassAttributes()) {
-            String memberName = attr.getNestMember().getName();
-            ClassSubject inner = inspector.clazz(PACKAGE_NAME + memberName);
+            ClassSubject inner = inspector.clazz(attr.getNestMember().toSourceString());
             assertNotNull(
-                "The nest member " + memberName + " of " + clazz.type.getName() + " is missing",
+                "The nest member "
+                    + attr.getNestMember().toSourceString()
+                    + " of "
+                    + clazz.type.toSourceString()
+                    + " is missing",
                 inner.getDexProgramClass());
             assertSame(inner.getDexProgramClass().getNestHost(), clazz.type);
           }
         } else {
           // Nest host is present and with the clazz as member
-          String hostName = clazz.getNestHost().getName();
-          ClassSubject host = inspector.clazz(PACKAGE_NAME + hostName);
+          ClassSubject host = inspector.clazz(clazz.getNestHost().toSourceString());
           assertNotNull(
-              "The nest host " + hostName + " of " + clazz.type.getName() + " is missing",
+              "The nest host "
+                  + clazz.getNestHost().toSourceString()
+                  + " of "
+                  + clazz.type.toSourceString()
+                  + " is missing",
               host.getDexProgramClass());
           assertTrue(
               host.getDexProgramClass().getNestMembersClassAttributes().stream()

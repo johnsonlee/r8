@@ -2,9 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package nesthostexample;
+package com.android.tools.r8.jdk11.desugar.nest;
 
-import static nesthostexample.BasicNestHostWithInnerClassConstructors.getExpectedResult;
+import static com.android.tools.r8.jdk11.desugar.nest.BasicNestHostWithInnerClassConstructors.getExpectedResult;
 
 import com.android.tools.r8.Jdk9TestUtils;
 import com.android.tools.r8.TestBase;
