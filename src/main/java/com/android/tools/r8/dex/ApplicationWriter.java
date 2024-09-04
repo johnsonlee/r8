@@ -756,8 +756,9 @@ public class ApplicationWriter {
 
               @Override
               public void visit(DataEntryResource file) {
-                if (resourceAdapter.isService(file)) {
-                  // META-INF/services resources are handled below.
+                if ("META-INF/MANIFEST.MF".equals(file.getName())) {
+                  // Many android library input .jar files contain a MANIFEST.MF. It does not make
+                  // sense to propagate them since they are manifests of the input libraries.
                   return;
                 }
                 if (kotlinModuleSynthesizer.isKotlinModuleFile(file)) {
