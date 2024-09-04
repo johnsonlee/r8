@@ -83,10 +83,8 @@ public class ArgumentPropagator {
 
     reprocessingCriteriaCollection = new ArgumentPropagatorReprocessingCriteriaCollection(appView);
     classesWithSingleCallerInlinedInstanceInitializers = ConcurrentHashMap.newKeySet();
+    codeScanner = new ArgumentPropagatorCodeScanner(appView, reprocessingCriteriaCollection);
     effectivelyUnusedArgumentsAnalysis = new EffectivelyUnusedArgumentsAnalysis(appView);
-    codeScanner =
-        new ArgumentPropagatorCodeScanner(
-            appView, effectivelyUnusedArgumentsAnalysis, reprocessingCriteriaCollection);
 
     ImmediateProgramSubtypingInfo immediateSubtypingInfo =
         ImmediateProgramSubtypingInfo.create(appView);
@@ -137,8 +135,7 @@ public class ArgumentPropagator {
               code,
               codeScanner.getFieldValueFactory(),
               codeScanner.getMethodParameterFactory());
-      codeScanner.scan(
-          method, code, methodProcessor, abstractValueSupplier, pathConstraintSupplier, timing);
+      codeScanner.scan(method, code, abstractValueSupplier, pathConstraintSupplier, timing);
 
       assert effectivelyUnusedArgumentsAnalysis != null;
       effectivelyUnusedArgumentsAnalysis.scan(method, code, pathConstraintSupplier);
