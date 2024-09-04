@@ -13,6 +13,7 @@ import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.profile.art.ArtProfileConsumerUtils;
 import com.android.tools.r8.profile.art.ArtProfileProviderUtils;
 import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
+import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.FlagFile;
 import com.android.tools.r8.utils.MapIdTemplateProvider;
 import com.android.tools.r8.utils.SourceFileTemplateProvider;
@@ -395,7 +396,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
             }
             for (Path inputPath : featureSplitConfig.inputJars) {
               featureSplitGenerator.addProgramResourceProvider(
-                  ArchiveProgramResourceProvider.fromArchive(inputPath));
+                  ArchiveResourceProvider.fromArchive(inputPath, false));
             }
             if (featureSplitConfig.inputResources != null) {
               featureSplitGenerator.setAndroidResourceProvider(
