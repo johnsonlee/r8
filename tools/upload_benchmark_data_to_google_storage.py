@@ -17,7 +17,7 @@ TARGETS = ['r8-full']
 NUM_COMMITS = 1000
 
 FILES = [
-    'chart.js', 'dom.js', 'extensions.js', 'r8.html', 'retrace.html',
+    'chart.js', 'd8.html', 'dom.js', 'extensions.js', 'r8.html', 'retrace.html',
     'scales.js', 'state.js', 'stylesheet.css', 'url.js', 'utils.js'
 ]
 
@@ -102,26 +102,34 @@ def run():
 
         # Aggregate all the result.json files into a single file that has the
         # same format as tools/perf/benchmark_data.json.
+        d8_benchmark_data = []
         r8_benchmark_data = []
         retrace_benchmark_data = []
         for commit in commits:
+            d8_benchmarks = {}
             r8_benchmarks = {}
             retrace_benchmarks = {}
             for benchmark, benchmark_info in BENCHMARKS.items():
+                RecordBenchmarkResult(commit, benchmark, benchmark_info,
+                                      local_bucket, 'd8', d8_benchmarks)
                 RecordBenchmarkResult(commit, benchmark, benchmark_info,
                                       local_bucket, 'r8-full', r8_benchmarks)
                 RecordBenchmarkResult(commit, benchmark, benchmark_info,
                                       local_bucket, 'retrace',
                                       retrace_benchmarks)
+            RecordBenchmarkResults(commit, d8_benchmarks, d8_benchmark_data)
             RecordBenchmarkResults(commit, r8_benchmarks, r8_benchmark_data)
             RecordBenchmarkResults(commit, retrace_benchmarks,
                                    retrace_benchmark_data)
 
         # Trim data.
+        d8_benchmark_data = TrimBenchmarkResults(d8_benchmark_data)
         r8_benchmark_data = TrimBenchmarkResults(r8_benchmark_data)
         retrace_benchmark_data = TrimBenchmarkResults(retrace_benchmark_data)
 
         # Write output files to public bucket.
+        ArchiveBenchmarkResults(d8_benchmark_data, 'd8_benchmark_data.json',
+                                temp)
         ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json',
                                 temp)
         ArchiveBenchmarkResults(retrace_benchmark_data,

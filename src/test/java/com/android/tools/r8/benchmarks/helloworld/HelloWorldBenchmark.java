@@ -40,7 +40,7 @@ public class HelloWorldBenchmark extends BenchmarkBase {
   public static List<BenchmarkConfig> configs() {
     Builder<BenchmarkConfig> benchmarks = ImmutableList.builder();
     makeBenchmark(BenchmarkTarget.D8, HelloWorldBenchmark::benchmarkD8, benchmarks);
-    makeBenchmark(BenchmarkTarget.R8_NON_COMPAT, HelloWorldBenchmark::benchmarkR8, benchmarks);
+    makeBenchmark(BenchmarkTarget.R8, HelloWorldBenchmark::benchmarkR8, benchmarks);
     return benchmarks.build();
   }
 
@@ -60,7 +60,7 @@ public class HelloWorldBenchmark extends BenchmarkBase {
 
     public String getName() {
       // The name include each non-target option for the variants to ensure unique benchmarks.
-      String backendString = backend.isCf() ? "Cf" : "Dex";
+      String backendString = backend.isCf() ? "Cf" : "";
       String libraryString = library != null ? "" : "NoLib";
       return "HelloWorld" + backendString + libraryString;
     }

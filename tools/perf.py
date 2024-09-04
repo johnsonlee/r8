@@ -22,6 +22,18 @@ BENCHMARKS = {
     'CraneApp': {
         'targets': ['r8-full']
     },
+    'HelloWorld': {
+        'targets': ['d8']
+    },
+    'HelloWorldNoLib': {
+        'targets': ['d8']
+    },
+    'HelloWorldCf': {
+        'targets': ['d8']
+    },
+    'HelloWorldCfNoLib': {
+        'targets': ['d8']
+    },
     'JetLaggedApp': {
         'targets': ['r8-full']
     },

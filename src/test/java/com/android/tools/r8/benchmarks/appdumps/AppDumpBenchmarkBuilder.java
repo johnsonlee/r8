@@ -111,7 +111,7 @@ public class AppDumpBenchmarkBuilder {
     verify();
     return BenchmarkConfig.builder()
         .setName(name)
-        .setTarget(BenchmarkTarget.R8_NON_COMPAT)
+        .setTarget(BenchmarkTarget.R8)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
         .setMethod(runR8(this, configuration))
         .setFromRevision(fromRevision)
@@ -130,7 +130,7 @@ public class AppDumpBenchmarkBuilder {
     verify();
     return BenchmarkConfig.builder()
         .setName(name)
-        .setTarget(BenchmarkTarget.R8_NON_COMPAT)
+        .setTarget(BenchmarkTarget.R8)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
         .setMethod(runR8WithResourceShrinking(this, getDefaultR8Configuration()))
         .setFromRevision(fromRevision)
