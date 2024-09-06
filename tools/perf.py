@@ -275,7 +275,7 @@ def main():
                         if sub_benchmarks_for_target:
                             for sub_benchmark in sub_benchmarks_for_target:
                                 sub_benchmark_result_file = os.path.join(
-                                    benchmark_result_file, sub_benchmark)
+                                    benchmark_result_file, benchmark + sub_benchmark)
                                 benchmark_result_json_files[
                                     sub_benchmark].append(
                                         sub_benchmark_result_file)
