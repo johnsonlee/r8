@@ -4,9 +4,6 @@
 package com.android.tools.r8.benchmarks;
 
 import com.android.tools.r8.benchmarks.BenchmarkResults.ResultMode;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.nio.file.Files;
 
 public class BenchmarkRunner {
 
@@ -87,7 +84,7 @@ public class BenchmarkRunner {
     printMetaInfo("benchmark", getBenchmarkIterations(), benchmarkTotalTime);
     results.printResults(resultMode, environment.failOnCodeSizeDifferences());
     if (environment.hasOutputPath()) {
-      writeResults(results);
+      results.writeResults(environment.getOutputPath());
     }
     System.out.println();
   }
@@ -96,12 +93,5 @@ public class BenchmarkRunner {
     System.out.println("  " + kind + " reporting mode: " + resultMode);
     System.out.println("  " + kind + " iterations: " + iterations);
     System.out.println("  " + kind + " total time: " + BenchmarkResults.prettyTime(totalTime));
-  }
-
-  private void writeResults(BenchmarkResults results) throws IOException {
-    try (PrintStream printStream =
-        new PrintStream(Files.newOutputStream(environment.getOutputPath()))) {
-      results.writeResults(printStream);
-    }
   }
 }

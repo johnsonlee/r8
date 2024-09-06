@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 
 public class ListUtils {
@@ -243,6 +244,14 @@ public class ListUtils {
     ArrayList<T> list = new ArrayList<>(size);
     for (int i = 0; i < size; i++) {
       list.add(element);
+    }
+    return list;
+  }
+
+  public static <T> ArrayList<T> newInitializedArrayList(int size, IntFunction<T> fn) {
+    ArrayList<T> list = new ArrayList<>(size);
+    for (int i = 0; i < size; i++) {
+      list.add(fn.apply(i));
     }
     return list;
   }

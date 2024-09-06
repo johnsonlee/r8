@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.dex.DexSection;
 import com.google.gson.Gson;
@@ -10,7 +13,10 @@ import com.google.gson.GsonBuilder;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -113,6 +119,21 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   @Override
   public void addResourceSizeResult(long result) {
     addCodeSizeResult(result);
+  }
+
+  @Override
+  public void doAverage() {
+    assertFalse(runtimeResults.isEmpty());
+    long averageRuntimeResult =
+        Math.round(runtimeResults.stream().mapToLong(Long::longValue).average().orElse(0));
+    runtimeResults.clear();
+    addRuntimeResult(averageRuntimeResult);
+
+    assertTrue(codeSizeResults.isEmpty());
+    assertTrue(instructionCodeSizeResults.isEmpty());
+    assertTrue(composableInstructionCodeSizeResults.isEmpty());
+    assertTrue(dex2OatSizeResult.isEmpty());
+    assertTrue(dexSegmentsSizeResults.isEmpty());
   }
 
   @Override
@@ -247,11 +268,14 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   }
 
   @Override
-  public void writeResults(PrintStream out) {
-    Gson gson =
-        new GsonBuilder()
-            .registerTypeAdapter(BenchmarkResultsSingle.class, new BenchmarkResultsSingleAdapter())
-            .create();
-    out.print(gson.toJson(this));
+  public void writeResults(Path path) throws IOException {
+    try (PrintStream out = new PrintStream(Files.newOutputStream(path))) {
+      Gson gson =
+          new GsonBuilder()
+              .registerTypeAdapter(
+                  BenchmarkResultsSingle.class, new BenchmarkResultsSingleAdapter())
+              .create();
+      out.print(gson.toJson(this));
+    }
   }
 }

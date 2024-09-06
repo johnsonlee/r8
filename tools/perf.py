@@ -55,6 +55,12 @@ BENCHMARKS = {
     'NowInAndroidAppNoJ$': {
         'targets': ['d8']
     },
+    'NowInAndroidAppIncremental': {
+        'targets': ['d8'],
+        'subBenchmarks': {
+            'd8': ['Dex', 'Merge']
+        }
+    },
     'OwlApp': {
         'targets': ['r8-full']
     },
@@ -177,6 +183,17 @@ def GetGSLocation(filename, bucket=BUCKET):
     return f'gs://{bucket}/{filename}'
 
 
+def ArchiveBenchmarkResult(benchmark, target, benchmark_result_json_files,
+                           options, temp):
+    result_file = os.path.join(temp, 'result_file')
+    with open(result_file, 'w') as f:
+        json.dump(MergeBenchmarkResultJsonFiles(benchmark_result_json_files), f)
+    ArchiveOutputFile(result_file,
+                      GetArtifactLocation(benchmark, target, options.version,
+                                          'result.json'),
+                      outdir=options.outdir)
+
+
 def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None):
     if outdir:
         dest_in_outdir = os.path.join(outdir, dest)
@@ -205,10 +222,15 @@ def main():
             r8jar = compiledump.download_distribution(options.version,
                                                       download_options, temp)
         for benchmark in options.benchmarks:
+            benchmark_info = BENCHMARKS[benchmark]
             targets = [options.target
-                      ] if options.target else BENCHMARKS[benchmark]['targets']
+                      ] if options.target else benchmark_info['targets']
             for target in targets:
+                sub_benchmarks = benchmark_info.get('subBenchmarks', {})
+                sub_benchmarks_for_target = sub_benchmarks.get(target, [])
+
                 if options.skip_if_output_exists:
+                    assert len(sub_benchmarks_for_target) == 0, 'Unimplemented'
                     if options.outdir:
                         raise NotImplementedError
                     output = GetGSLocation(
@@ -219,23 +241,41 @@ def main():
                         continue
 
                 # Run benchmark.
-                benchmark_result_json_files = []
+                if sub_benchmarks_for_target:
+                    benchmark_result_json_files = {}
+                    for sub_benchmark in sub_benchmarks_for_target:
+                        benchmark_result_json_files[sub_benchmark] = []
+                else:
+                    benchmark_result_json_files = []
                 failed = False
                 for i in range(options.iterations):
                     utils.Print(
                         f'Benchmarking {benchmark} ({i+1}/{options.iterations})',
                         quiet=options.quiet)
-                    benchhmark_result_file = os.path.join(
-                        temp, f'result_file_{i}')
+                    if sub_benchmarks_for_target:
+                        benchmark_result_file = os.path.join(
+                            temp, f'result_{i}')
+                        os.makedirs(benchmark_result_file)
+                    else:
+                        benchmark_result_file = os.path.join(
+                            temp, f'result_file_{i}')
                     iteration_cmd = GetRunCmd(benchmark, target, options, [
                         '--iterations',
                         str(options.iterations_inner), '--output',
-                        benchhmark_result_file, '--no-build'
+                        benchmark_result_file, '--no-build'
                     ])
                     try:
                         subprocess.check_call(iteration_cmd)
-                        benchmark_result_json_files.append(
-                            benchhmark_result_file)
+                        if sub_benchmarks_for_target:
+                            for sub_benchmark in sub_benchmarks_for_target:
+                                sub_benchmark_result_file = os.path.join(
+                                    benchmark_result_file, sub_benchmark)
+                                benchmark_result_json_files[
+                                    sub_benchmark].append(
+                                        sub_benchmark_result_file)
+                        else:
+                            benchmark_result_json_files.append(
+                                benchmark_result_file)
                     except subprocess.CalledProcessError as e:
                         failed = True
                         any_failed = True
@@ -245,16 +285,16 @@ def main():
                     continue
 
                 # Merge results and write output.
-                result_file = os.path.join(temp, 'result_file')
-                with open(result_file, 'w') as f:
-                    json.dump(
-                        MergeBenchmarkResultJsonFiles(
-                            benchmark_result_json_files), f)
-                ArchiveOutputFile(result_file,
-                                  GetArtifactLocation(benchmark, target,
-                                                      options.version,
-                                                      'result.json'),
-                                  outdir=options.outdir)
+                if sub_benchmarks_for_target:
+                    for sub_benchmark in sub_benchmarks:
+                        ArchiveBenchmarkResult(
+                            benchmark + sub_benchmark, target,
+                            benchmark_result_json_files[sub_benchmark], options,
+                            temp)
+                else:
+                    ArchiveBenchmarkResult(benchmark, target,
+                                           benchmark_result_json_files, options,
+                                           temp)
 
                 # Write metadata.
                 if utils.is_bot():

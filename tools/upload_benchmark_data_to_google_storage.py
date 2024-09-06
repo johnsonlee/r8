@@ -47,6 +47,19 @@ def RecordBenchmarkResult(commit, benchmark, benchmark_info, local_bucket,
                           target, benchmarks):
     if not target in benchmark_info['targets']:
         return
+    sub_benchmarks = benchmark_info.get('subBenchmarks', {})
+    sub_benchmarks_for_target = sub_benchmarks.get(target, [])
+    if sub_benchmarks_for_target:
+        for sub_benchmark in sub_benchmarks_for_target:
+            RecordSingleBenchmarkResult(commit, benchmark + sub_benchmark,
+                                        local_bucket, target, benchmarks)
+    else:
+        RecordSingleBenchmarkResult(commit, benchmark, local_bucket, target,
+                                    benchmarks)
+
+
+def RecordSingleBenchmarkResult(commit, benchmark, local_bucket, target,
+                                benchmarks):
     filename = perf.GetArtifactLocation(benchmark, target, commit.hash(),
                                         'result.json')
     benchmark_data = ParseJsonFromCloudStorage(filename, local_bucket)

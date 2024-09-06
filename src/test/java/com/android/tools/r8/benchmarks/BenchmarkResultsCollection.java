@@ -6,11 +6,13 @@ package com.android.tools.r8.benchmarks;
 import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.errors.Unimplemented;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
-import java.io.PrintStream;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 public class BenchmarkResultsCollection implements BenchmarkResults {
@@ -58,6 +60,11 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
     throw error();
   }
 
+  @Override
+  public void doAverage() {
+    throw new Unimplemented();
+  }
+
   private BenchmarkConfigError error() {
     throw new BenchmarkConfigError(
         "Unexpected attempt to add a result to a the root of a benchmark with sub-benchmarks");
@@ -79,7 +86,11 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
   }
 
   @Override
-  public void writeResults(PrintStream out) {
-    throw new Unimplemented();
+  public void writeResults(Path path) throws IOException {
+    for (Entry<String, BenchmarkResultsSingle> entry : results.entrySet()) {
+      String name = entry.getKey();
+      BenchmarkResultsSingle result = entry.getValue();
+      result.writeResults(path.resolve(name));
+    }
   }
 }

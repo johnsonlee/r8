@@ -6,7 +6,8 @@ package com.android.tools.r8.benchmarks;
 import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.utils.StringUtils;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
-import java.io.PrintStream;
+import java.io.IOException;
+import java.nio.file.Path;
 
 public interface BenchmarkResults {
 
@@ -27,6 +28,8 @@ public interface BenchmarkResults {
   // Append a resource size result. This is always assumed to be identical if called multiple times.
   void addResourceSizeResult(long result);
 
+  void doAverage();
+
   // Get the results collection for a "sub-benchmark" when defining a group of benchmarks.
   // This will throw if called on a benchmark without sub-benchmarks.
   BenchmarkResults getSubResults(String name);
@@ -37,7 +40,7 @@ public interface BenchmarkResults {
 
   void printResults(ResultMode resultMode, boolean failOnCodeSizeDifferences);
 
-  void writeResults(PrintStream out);
+  void writeResults(Path path) throws IOException;
 
   static String prettyTime(long nanoTime) {
     return "" + (nanoTime / 1000000) + " ms";

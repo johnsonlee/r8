@@ -44,6 +44,12 @@ public class NowInAndroidBenchmarks extends BenchmarkBase {
             .setFromRevision(16017)
             .buildBatchD8(),
         AppDumpBenchmarkBuilder.builder()
+            .setName("NowInAndroidAppIncremental")
+            .setDumpDependencyPath(dump)
+            .setFromRevision(16017)
+            .addProgramPackages("com/google/samples/apps/nowinandroid")
+            .buildIncrementalD8(),
+        AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidApp")
             .setDumpDependencyPath(dump)
             .setFromRevision(16017)

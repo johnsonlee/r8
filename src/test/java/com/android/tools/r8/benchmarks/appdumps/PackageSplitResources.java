@@ -4,6 +4,7 @@
 package com.android.tools.r8.benchmarks.appdumps;
 
 import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import java.io.File;
 import java.io.IOException;
@@ -15,34 +16,33 @@ import org.junit.rules.TemporaryFolder;
 
 public class PackageSplitResources {
 
-  private final List<Path> packageFiles;
-  private final List<Path> otherFiles;
+  private final List<List<Path>> shards;
 
-  public PackageSplitResources(List<Path> packageFiles, List<Path> otherFiles) {
-    this.packageFiles = packageFiles;
-    this.otherFiles = otherFiles;
+  public PackageSplitResources(List<List<Path>> shards) {
+    this.shards = shards;
   }
 
   public static PackageSplitResources create(
-      TemporaryFolder temp, Path archive, List<String> packagePrefixes) throws IOException {
+      TemporaryFolder temp, Path archive, List<String> packagePrefixes, int numShards)
+      throws IOException {
     Path unzipDir = temp.newFolder().toPath();
     ZipUtils.unzip(archive, unzipDir);
-    List<Path> packageFiles = new ArrayList<>();
-    List<Path> otherFiles = new ArrayList<>();
+    List<List<Path>> shards = ListUtils.newInitializedArrayList(numShards, i -> new ArrayList<>());
     Files.walk(unzipDir)
         .forEachOrdered(
             file -> {
               if (FileUtils.isClassFile(file)) {
                 Path relative = unzipDir.relativize(file);
                 if (isInPackagePrefixes(relative, packagePrefixes)) {
-                  packageFiles.add(file);
-                } else {
-                  otherFiles.add(file);
+                  String packageDir =
+                      relative.getParent() != null ? relative.getParent().toString() : "";
+                  int shard = Math.abs(packageDir.hashCode() % numShards);
+                  shards.get(shard).add(file);
                 }
               }
             });
 
-    return new PackageSplitResources(packageFiles, otherFiles);
+    return new PackageSplitResources(shards);
   }
 
   private static boolean isInPackagePrefixes(Path file, List<String> programPackages) {
@@ -58,11 +58,7 @@ public class PackageSplitResources {
     return false;
   }
 
-  public List<Path> getPackageFiles() {
-    return packageFiles;
-  }
-
-  public List<Path> getOtherFiles() {
-    return otherFiles;
+  public List<List<Path>> getShards() {
+    return shards;
   }
 }

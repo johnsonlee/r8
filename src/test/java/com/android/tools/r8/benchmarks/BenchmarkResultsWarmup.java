@@ -3,13 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks;
 
+import static org.junit.Assert.assertFalse;
+
 import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
-import java.io.PrintStream;
+import java.nio.file.Path;
 
 public class BenchmarkResultsWarmup implements BenchmarkResults {
 
@@ -74,6 +76,15 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   }
 
   @Override
+  public void doAverage() {
+    assertFalse(runtimeResults.isEmpty());
+    long averageRuntimeResult =
+        Math.round(runtimeResults.stream().mapToLong(Long::longValue).average().orElse(0));
+    runtimeResults.clear();
+    addRuntimeResult(averageRuntimeResult);
+  }
+
+  @Override
   public BenchmarkResults getSubResults(String name) {
     // When running warmups all results are amended to the single warmup result.
     return this;
@@ -97,7 +108,7 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   }
 
   @Override
-  public void writeResults(PrintStream out) {
+  public void writeResults(Path path) {
     throw new Unimplemented();
   }
 }

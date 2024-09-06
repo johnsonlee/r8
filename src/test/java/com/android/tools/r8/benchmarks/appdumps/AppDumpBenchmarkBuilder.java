@@ -161,8 +161,7 @@ public class AppDumpBenchmarkBuilder {
         .setMethod(runIncrementalD8(this))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
-        .addSubBenchmark(nameForLibraryPart(), BenchmarkMetric.RunTimeRaw)
-        .addSubBenchmark(nameForProgramPart(), BenchmarkMetric.RunTimeRaw)
+        .addSubBenchmark(nameForDexPart(), BenchmarkMetric.RunTimeRaw)
         .addSubBenchmark(nameForMergePart(), BenchmarkMetric.RunTimeRaw)
         .setTimeout(10, TimeUnit.MINUTES)
         .build();
@@ -187,16 +186,8 @@ public class AppDumpBenchmarkBuilder {
     return name + "Code";
   }
 
-  private String nameForComposableCodePart() {
-    return name + "ComposableCode";
-  }
-
-  private String nameForLibraryPart() {
-    return name + "Library";
-  }
-
-  private String nameForProgramPart() {
-    return name + "Program";
+  private String nameForDexPart() {
+    return name + "Dex";
   }
 
   private String nameForResourcePart() {
@@ -348,38 +339,45 @@ public class AppDumpBenchmarkBuilder {
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
                   DumpOptions dumpProperties = dump.getBuildProperties();
+
+                  int numShards = 1;
                   PackageSplitResources resources =
                       PackageSplitResources.create(
-                          environment.getTemp(), dump.getProgramArchive(), builder.programPackages);
-                  if (resources.getPackageFiles().isEmpty()) {
-                    throw new RuntimeException("Unexpected empty set of program package files");
+                          environment.getTemp(),
+                          dump.getProgramArchive(),
+                          builder.programPackages,
+                          numShards);
+
+                  // Compile all files to a single DEX file.
+                  List<List<Path>> compiledShards = new ArrayList<>();
+                  for (List<Path> shard : resources.getShards()) {
+                    List<Path> compiledShard = new ArrayList<>(shard.size());
+                    for (Path programFile : shard) {
+                      TestBase.testForD8(environment.getTemp())
+                          .addProgramFiles(programFile)
+                          .addClasspathFiles(dump.getProgramArchive())
+                          .addLibraryFiles(dump.getLibraryArchive())
+                          .applyIf(
+                              builder.enableLibraryDesugaring, b -> addDesugaredLibrary(b, dump))
+                          .debug()
+                          .setIntermediate(true)
+                          .setMinApi(dumpProperties.getMinApi())
+                          .benchmarkCompile(results.getSubResults(builder.nameForDexPart()))
+                          .writeToZip(compiledShard::add);
+                    }
+                    compiledShards.add(compiledShard);
                   }
+                  results.getSubResults(builder.nameForDexPart()).doAverage();
 
-                  TestBase.testForD8(environment.getTemp(), Backend.DEX)
-                      .addProgramFiles(resources.getOtherFiles())
-                      .addLibraryFiles(dump.getLibraryArchive())
-                      .setMinApi(dumpProperties.getMinApi())
-                      .benchmarkCompile(results.getSubResults(builder.nameForLibraryPart()));
-
-                  List<Path> programOutputs = new ArrayList<>();
-                  for (Path programFile : resources.getPackageFiles()) {
-                    programOutputs.add(
-                        TestBase.testForD8(environment.getTemp(), Backend.DEX)
-                            .addProgramFiles(programFile)
-                            .addClasspathFiles(dump.getProgramArchive())
-                            .addLibraryFiles(dump.getLibraryArchive())
-                            .setMinApi(dumpProperties.getMinApi())
-                            .apply(b -> addDesugaredLibrary(b, dump))
-                            .setIntermediate(true)
-                            .benchmarkCompile(results.getSubResults(builder.nameForProgramPart()))
-                            .writeToZip());
+                  // Merge each compiled shard.
+                  for (List<Path> compiledShard : compiledShards) {
+                    TestBase.testForD8(environment.getTemp())
+                        .addProgramFiles(compiledShard)
+                        .addLibraryFiles(dump.getLibraryArchive())
+                        .debug()
+                        .setMinApi(dumpProperties.getMinApi())
+                        .benchmarkCompile(results.getSubResults(builder.nameForMergePart()));
                   }
-
-                  TestBase.testForD8(environment.getTemp(), Backend.DEX)
-                      .addProgramFiles(programOutputs)
-                      .addLibraryFiles(dump.getLibraryArchive())
-                      .setMinApi(dumpProperties.getMinApi())
-                      .benchmarkCompile(results.getSubResults(builder.nameForMergePart()));
                 });
   }
 }
