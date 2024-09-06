@@ -52,13 +52,19 @@ BENCHMARKS = {
     'NowInAndroidApp': {
         'targets': ['d8', 'r8-full']
     },
-    'NowInAndroidAppNoJ$': {
-        'targets': ['d8']
-    },
     'NowInAndroidAppIncremental': {
         'targets': ['d8'],
         'subBenchmarks': {
             'd8': ['Dex', 'Merge']
+        }
+    },
+    'NowInAndroidAppNoJ$': {
+        'targets': ['d8']
+    },
+    'NowInAndroidAppNoJ$Incremental': {
+        'targets': ['d8'],
+        'subBenchmarks': {
+            'd8': ['Dex']
         }
     },
     'OwlApp': {
