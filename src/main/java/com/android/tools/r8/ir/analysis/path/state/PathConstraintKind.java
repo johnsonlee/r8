@@ -29,4 +29,18 @@ public enum PathConstraintKind {
     }
     return this == other ? this : DISABLED;
   }
+
+  PathConstraintKind meet(PathConstraintKind other) {
+    assert other != null;
+    if (this == other) {
+      return this;
+    }
+    if (this == DISABLED) {
+      return other;
+    }
+    if (other == DISABLED) {
+      return this;
+    }
+    return DISABLED;
+  }
 }

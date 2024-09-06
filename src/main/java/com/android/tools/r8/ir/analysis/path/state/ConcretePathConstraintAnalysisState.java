@@ -6,8 +6,10 @@ package com.android.tools.r8.ir.analysis.path.state;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
+import com.android.tools.r8.utils.MapUtils;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -43,7 +45,21 @@ import java.util.Map.Entry;
 public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisState {
 
   // TODO(b/302281503): Consider changing this to an ImmutableMap.
-  private final Map<ComputationTreeNode, PathConstraintKind> pathConstraints;
+  // We use an IdentityHashMap during the execution of the analysis. This is important for the
+  // ability to handle control flow with repeated branches such as the following:
+  //
+  //   1. if ((arg & 1) != 0) { ... }
+  //   2. ...
+  //   3. if ((arg & 1) != 0) { ... }
+  //
+  // By using a HashMap backing, after the join point at line 2, we would map the path constraint
+  // `(arg & 1) != 0` to DISABLED. Since the constraint of the IF-condition in line 3 is the same,
+  // this constraint would continue to be mapped to DISABLED in both the else- and then-branch.
+  //
+  // We want to ensure that we have the path constraint `(arg & 1) != 0` mapped to POSITIVE and
+  // NEGATIVE in the then- and else-branch of the branch in line 3, respectively. This is achieved
+  // using a IdentityHashMap as we then no longer conflate the conditions of the two branches.
+  private Map<ComputationTreeNode, PathConstraintKind> pathConstraints;
 
   public ConcretePathConstraintAnalysisState() {
     this.pathConstraints = Collections.emptyMap();
@@ -76,7 +92,7 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
     // No jumps can dominate the entry of their own block, so when adding the condition of a jump
     // this cannot currently be active.
     Map<ComputationTreeNode, PathConstraintKind> newPathConstraints =
-        new HashMap<>(pathConstraints.size() + 1);
+        new IdentityHashMap<>(pathConstraints.size() + 1);
     newPathConstraints.putAll(pathConstraints);
     newPathConstraints.put(pathConstraint, newKind);
     return new ConcretePathConstraintAnalysisState(newPathConstraints);
@@ -94,6 +110,22 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
   @Override
   public ConcretePathConstraintAnalysisState asConcreteState() {
     return this;
+  }
+
+  public void ensureHashMapBacking() {
+    if (pathConstraints.isEmpty()) {
+      assert pathConstraints == Collections.<ComputationTreeNode, PathConstraintKind>emptyMap();
+    } else if (!(pathConstraints instanceof HashMap)) {
+      assert pathConstraints instanceof IdentityHashMap;
+      // Copy to a HashMap.
+      pathConstraints =
+          MapUtils.transform(
+              pathConstraints,
+              HashMap::new,
+              pathConstraint -> pathConstraint,
+              kind -> kind,
+              (pathConstraint, kind, otherKind) -> kind.meet(otherKind));
+    }
   }
 
   @Override
@@ -153,6 +185,10 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
     return AbstractValue.unknown();
   }
 
+  public PathConstraintKind getKind(ComputationTreeNode pathConstraint) {
+    return pathConstraints.get(pathConstraint);
+  }
+
   public ConcretePathConstraintAnalysisState join(ConcretePathConstraintAnalysisState other) {
     if (isGreaterThanOrEquals(other)) {
       return this;
@@ -161,7 +197,7 @@ public class ConcretePathConstraintAnalysisState extends PathConstraintAnalysisS
       return other;
     }
     Map<ComputationTreeNode, PathConstraintKind> newPathConstraints =
-        new HashMap<>(pathConstraints.size() + other.pathConstraints.size());
+        new IdentityHashMap<>(pathConstraints.size() + other.pathConstraints.size());
     join(other, newPathConstraints);
     other.join(this, newPathConstraints);
     return new ConcretePathConstraintAnalysisState(newPathConstraints);

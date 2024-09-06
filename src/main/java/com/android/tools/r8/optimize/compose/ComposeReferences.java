@@ -12,19 +12,13 @@ import com.android.tools.r8.graph.lens.GraphLens;
 
 public class ComposeReferences {
 
-  public final DexString changedFieldName;
-
+  public final DexString skipToGroupEndName;
   public final DexType composableType;
-  public final DexType composerType;
-
   public final DexMethod updatedChangedFlagsMethod;
 
   public ComposeReferences(DexItemFactory factory) {
-    changedFieldName = factory.createString("$$changed");
-
+    skipToGroupEndName = factory.createString("skipToGroupEnd");
     composableType = factory.createType("Landroidx/compose/runtime/Composable;");
-    composerType = factory.createType("Landroidx/compose/runtime/Composer;");
-
     updatedChangedFlagsMethod =
         factory.createMethod(
             factory.createType("Landroidx/compose/runtime/RecomposeScopeImplKt;"),
@@ -33,13 +27,9 @@ public class ComposeReferences {
   }
 
   public ComposeReferences(
-      DexString changedFieldName,
-      DexType composableType,
-      DexType composerType,
-      DexMethod updatedChangedFlagsMethod) {
-    this.changedFieldName = changedFieldName;
+      DexString skipToGroupEndName, DexType composableType, DexMethod updatedChangedFlagsMethod) {
+    this.skipToGroupEndName = skipToGroupEndName;
     this.composableType = composableType;
-    this.composerType = composerType;
     this.updatedChangedFlagsMethod = updatedChangedFlagsMethod;
   }
 
@@ -50,9 +40,8 @@ public class ComposeReferences {
 
   public ComposeReferences rewrittenWithLens(GraphLens graphLens, GraphLens codeLens) {
     return new ComposeReferences(
-        changedFieldName,
+        skipToGroupEndName,
         graphLens.lookupClassType(composableType, codeLens),
-        graphLens.lookupClassType(composerType, codeLens),
         graphLens.getRenamedMethodSignature(updatedChangedFlagsMethod, codeLens));
   }
 }

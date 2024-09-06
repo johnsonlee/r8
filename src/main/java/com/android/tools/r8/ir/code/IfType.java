@@ -77,6 +77,9 @@ public enum IfType {
   };
 
   public AbstractValue evaluate(AbstractValue operand, AppView<AppInfoWithLiveness> appView) {
+    if (operand.isBottom()) {
+      return AbstractValue.bottom();
+    }
     if (operand.isSingleNumberValue()) {
       int operandValue = operand.asSingleNumberValue().getIntValue();
       boolean result = evaluate(operandValue);

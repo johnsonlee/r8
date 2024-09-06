@@ -13,22 +13,27 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
+import com.android.tools.r8.ir.analysis.path.state.PathConstraintKind;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InvokeVirtual;
+import com.android.tools.r8.ir.code.LazyDominatorTree;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParameter;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeUnopCompareNode;
 import com.android.tools.r8.optimize.argumentpropagation.utils.ParameterRemovalUtils;
+import com.android.tools.r8.optimize.compose.ComposeReferences;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.google.common.collect.Sets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -88,6 +93,12 @@ public class EffectivelyUnusedArgumentsAnalysis {
   // for the method parameter p to be effectively unused.
   private final Map<MethodParameter, Set<MethodParameter>> constraints = new ConcurrentHashMap<>();
 
+  // Maps Composable parameters to a condition. If the condition evaluates to true for a given
+  // invoke, then the argument to this method parameter can be ignored. Note that this does not
+  // imply that the method parameter is unused and can be removed.
+  private final Map<MethodParameter, ComputationTreeNode> ignoreComposableArgumentConditions =
+      new ConcurrentHashMap<>();
+
   // Set of virtual methods that can definitely be optimized.
   //
   // We conservatively exclude virtual methods with dynamic dispatch from this set, since the
@@ -100,6 +111,10 @@ public class EffectivelyUnusedArgumentsAnalysis {
   }
 
   public ComputationTreeNode getEffectivelyUnusedCondition(MethodParameter methodParameter) {
+    if (ignoreComposableArgumentConditions.containsKey(methodParameter)) {
+      assert appView.options().callSiteOptimizationOptions().isComposableArgumentRemovalEnabled();
+      return ignoreComposableArgumentConditions.get(methodParameter);
+    }
     return conditions.getOrDefault(methodParameter, AbstractValue.unknown());
   }
 
@@ -186,6 +201,8 @@ public class EffectivelyUnusedArgumentsAnalysis {
     private final IRCode code;
     private final PathConstraintSupplier pathConstraintSupplier;
 
+    private Set<BasicBlock> skipToGroupEndBlocks;
+
     private Analyzer(
         ProgramMethod method, IRCode code, PathConstraintSupplier pathConstraintSupplier) {
       this.method = method;
@@ -231,7 +248,7 @@ public class EffectivelyUnusedArgumentsAnalysis {
         return;
       }
       Value usedValue;
-      if (argumentValue.hasPhiUsers()) {
+      if (argumentValue.hasSingleUniquePhiUser()) {
         // If the argument has one or more phi users, we check if there is a single phi due to a
         // default value for the argument. If so, we record this condition and mark the users of the
         // phi as effectively unused argument constraints for the current argument.
@@ -239,12 +256,14 @@ public class EffectivelyUnusedArgumentsAnalysis {
             argumentValue, effectivelyUnusedConditionsConsumer)) {
           return;
         }
-        assert argumentValue.hasSingleUniquePhiUser();
         Phi user = argumentValue.singleUniquePhiUser();
         if (user.hasDebugUsers() || user.hasPhiUsers()) {
           return;
         }
         usedValue = user;
+      } else if (argumentValue.hasPhiUsers()) {
+        computeIgnoreComposableArgumentCondition(argument, argumentValue);
+        return;
       } else {
         usedValue = argumentValue;
       }
@@ -280,13 +299,22 @@ public class EffectivelyUnusedArgumentsAnalysis {
 
     private boolean computeEffectivelyUnusedCondition(
         Value argumentValue, Consumer<ComputationTreeNode> effectivelyUnusedConditionsConsumer) {
-      assert argumentValue.hasPhiUsers();
-      if (argumentValue.hasUsers() || !argumentValue.hasSingleUniquePhiUser()) {
+      assert argumentValue.hasSingleUniquePhiUser();
+      if (argumentValue.hasUsers()) {
         return false;
       }
       Phi phi = argumentValue.singleUniquePhiUser();
-      if (phi.getOperands().size() != 2) {
+      ComputationTreeNode condition = getUnusedCondition(argumentValue, phi);
+      if (condition == null) {
         return false;
+      }
+      effectivelyUnusedConditionsConsumer.accept(condition);
+      return true;
+    }
+
+    private ComputationTreeUnopCompareNode getUnusedCondition(Value argumentValue, Phi phi) {
+      if (phi.getOperands().size() != 2) {
+        return null;
       }
       BasicBlock block = phi.getBlock();
       ConcretePathConstraintAnalysisState leftState =
@@ -294,23 +322,92 @@ public class EffectivelyUnusedArgumentsAnalysis {
       ConcretePathConstraintAnalysisState rightState =
           pathConstraintSupplier.getPathConstraint(block.getPredecessor(1)).asConcreteState();
       if (leftState == null || rightState == null) {
-        return false;
+        return null;
       }
       // Find a condition that can be used to distinguish program paths coming from the two
       // predecessors.
       ComputationTreeNode condition = leftState.getDifferentiatingPathConstraint(rightState);
-      if (!condition.isArgumentBitSetCompareNode()) {
-        return false;
+      if (condition == null || !condition.isArgumentBitSetCompareNode()) {
+        return null;
       }
       // Extract the state corresponding to the program path where the argument is unused. If the
       // condition evaluates to false on this program path then negate the condition.
+      ComputationTreeUnopCompareNode compareCondition = (ComputationTreeUnopCompareNode) condition;
       ConcretePathConstraintAnalysisState unusedState =
           phi.getOperand(0) == argumentValue ? rightState : leftState;
-      if (unusedState.isNegated(condition)) {
-        condition = ((ComputationTreeUnopCompareNode) condition).negate();
+      if (unusedState.isNegated(compareCondition)) {
+        compareCondition = compareCondition.negate();
       }
-      effectivelyUnusedConditionsConsumer.accept(condition);
-      return true;
+      return compareCondition;
+    }
+
+    private void computeIgnoreComposableArgumentCondition(Argument argument, Value argumentValue) {
+      if (!appView.options().callSiteOptimizationOptions().isComposableArgumentRemovalEnabled()
+          || !appView.getComposeReferences().isComposable(method)) {
+        return;
+      }
+      Phi phi = getSingleUniquePhiUserInComposableIgnoringSkipToGroupEndPaths(argumentValue);
+      if (phi == null) {
+        return;
+      }
+      ComputationTreeUnopCompareNode condition = getUnusedCondition(argumentValue, phi);
+      if (condition == null) {
+        return;
+      }
+      for (Instruction user : argumentValue.uniqueUsers()) {
+        ConcretePathConstraintAnalysisState pathConstraint =
+            pathConstraintSupplier.getPathConstraint(user.getBlock()).asConcreteState();
+        if (pathConstraint == null) {
+          return;
+        }
+        pathConstraint.ensureHashMapBacking();
+        // Check that the condition being true implies that this use is unreachable.
+        if (pathConstraint.getKind(condition) == PathConstraintKind.NEGATIVE
+            || pathConstraint.getKind(condition.negate()) == PathConstraintKind.POSITIVE) {
+          continue;
+        }
+        return;
+      }
+      ignoreComposableArgumentConditions.put(
+          new MethodParameter(method, argument.getIndex()), condition);
+    }
+
+    private Phi getSingleUniquePhiUserInComposableIgnoringSkipToGroupEndPaths(Value argumentValue) {
+      assert appView.options().callSiteOptimizationOptions().isComposableArgumentRemovalEnabled();
+      assert appView.getComposeReferences().isComposable(method);
+      Phi result = null;
+      for (Phi phi : argumentValue.uniquePhiUsers()) {
+        for (int operandIndex = 0; operandIndex < phi.getOperands().size(); operandIndex++) {
+          Value operand = phi.getOperand(operandIndex);
+          if (operand != argumentValue
+              || ignoreComposablePath(phi.getBlock().getPredecessor(operandIndex))) {
+            continue;
+          }
+          if (result != null) {
+            return null;
+          }
+          result = phi;
+          break;
+        }
+      }
+      return result;
+    }
+
+    private boolean ignoreComposablePath(BasicBlock block) {
+      assert appView.options().callSiteOptimizationOptions().isComposableArgumentRemovalEnabled();
+      assert appView.getComposeReferences().isComposable(method);
+      if (skipToGroupEndBlocks == null) {
+        skipToGroupEndBlocks = Sets.newIdentityHashSet();
+        LazyDominatorTree dominatorTree = new LazyDominatorTree(code);
+        ComposeReferences references = appView.getComposeReferences();
+        for (InvokeVirtual invoke :
+            code.<InvokeVirtual>instructions(Instruction::isInvokeVirtual)) {
+          if (invoke.getInvokedMethod().getName().isIdenticalTo(references.skipToGroupEndName)) {
+            skipToGroupEndBlocks.addAll(dominatorTree.get().dominatedBlocks(invoke.getBlock()));
+          }
+        }
+      }
+      return skipToGroupEndBlocks.contains(block);
     }
 
     private boolean isUnoptimizable(ProgramMethod method) {

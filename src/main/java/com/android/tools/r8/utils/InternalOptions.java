@@ -1719,6 +1719,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public class CallSiteOptimizationOptions {
 
     private boolean enabled = true;
+    // Unsound optimization for Composable argument removal. Do not enable except for running
+    // experiments.
+    private boolean enableComposableArgumentRemoval =
+        SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault(
+            "com.android.tools.r8.enableComposableArgumentRemoval", false);
     private boolean enableMethodStaticizing = true;
 
     private boolean forceSyntheticsForInstanceInitializers = false;
@@ -1736,6 +1741,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         return false;
       }
       return enabled;
+    }
+
+    public boolean isComposableArgumentRemovalEnabled() {
+      return enableComposableArgumentRemoval;
     }
 
     public boolean isForceSyntheticsForInstanceInitializersEnabled() {
