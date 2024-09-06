@@ -55,6 +55,17 @@ public abstract class ConcreteValueState extends NonEmptyValueState {
     }
   }
 
+  public static ConcreteValueState create(DexType staticType, Set<InFlow> inFlow) {
+    if (staticType.isArrayType()) {
+      return new ConcreteArrayTypeValueState(inFlow);
+    } else if (staticType.isClassType()) {
+      return new ConcreteClassTypeValueState(inFlow);
+    } else {
+      assert staticType.isPrimitiveType();
+      return new ConcretePrimitiveTypeValueState(inFlow);
+    }
+  }
+
   public ValueState clearInFlow() {
     if (hasInFlow()) {
       internalClearInFlow();

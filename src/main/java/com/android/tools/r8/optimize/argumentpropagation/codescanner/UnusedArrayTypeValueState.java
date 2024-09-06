@@ -19,7 +19,7 @@ public class UnusedArrayTypeValueState extends UnusedValueState {
   }
 
   @Override
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ValueState inState,
       DexType inStaticType,
@@ -30,13 +30,14 @@ public class UnusedArrayTypeValueState extends UnusedValueState {
       return this;
     }
     if (inState.isUnknown()) {
-      return inState;
+      return unknown();
     }
     assert inState.isConcrete();
     assert inState.asConcrete().isReferenceState();
-    ValueState result =
+    NonEmptyValueState result =
         bottomArrayTypeState()
-            .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction);
+            .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction)
+            .asNonEmpty();
     if (result.isConcrete()) {
       return result.asConcrete().mutableJoinUnused(this);
     } else {

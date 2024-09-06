@@ -32,7 +32,11 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   }
 
   public ConcretePrimitiveTypeValueState(InFlow inFlow) {
-    this(AbstractValue.bottom(), SetUtils.newHashSet(inFlow));
+    this(SetUtils.newHashSet(inFlow));
+  }
+
+  public ConcretePrimitiveTypeValueState(Set<InFlow> inFlow) {
+    this(AbstractValue.bottom(), inFlow);
   }
 
   public static NonEmptyValueState create(AbstractValue abstractValue) {

@@ -25,7 +25,11 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   private DynamicType dynamicType;
 
   public ConcreteClassTypeValueState(InFlow inFlow) {
-    this(AbstractValue.bottom(), DynamicType.bottom(), SetUtils.newHashSet(inFlow));
+    this(SetUtils.newHashSet(inFlow));
+  }
+
+  public ConcreteClassTypeValueState(Set<InFlow> inFlow) {
+    this(AbstractValue.bottom(), DynamicType.bottom(), inFlow);
   }
 
   public ConcreteClassTypeValueState(AbstractValue abstractValue, DynamicType dynamicType) {

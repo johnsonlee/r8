@@ -23,7 +23,11 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   private Nullability nullability;
 
   public ConcreteArrayTypeValueState(InFlow inFlow) {
-    this(Nullability.bottom(), SetUtils.newHashSet(inFlow));
+    this(SetUtils.newHashSet(inFlow));
+  }
+
+  public ConcreteArrayTypeValueState(Set<InFlow> inFlow) {
+    this(Nullability.bottom(), inFlow);
   }
 
   public ConcreteArrayTypeValueState(Nullability nullability) {

@@ -19,7 +19,7 @@ public class UnusedPrimitiveTypeValueState extends UnusedValueState {
   }
 
   @Override
-  public ValueState mutableJoin(
+  public NonEmptyValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ValueState inState,
       DexType inStaticType,
@@ -30,7 +30,7 @@ public class UnusedPrimitiveTypeValueState extends UnusedValueState {
       return this;
     }
     if (inState.isUnknown()) {
-      return inState;
+      return unknown();
     }
     assert inState.isConcrete();
     assert inState.asConcrete().isPrimitiveState();

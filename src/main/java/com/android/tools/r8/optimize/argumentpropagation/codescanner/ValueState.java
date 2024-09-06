@@ -155,7 +155,7 @@ public abstract class ValueState {
 
   public abstract ValueState mutableCopyWithoutInFlow();
 
-  public final ValueState mutableJoin(
+  public ValueState mutableJoin(
       AppView<AppInfoWithLiveness> appView,
       ValueState inState,
       DexType inStaticType,

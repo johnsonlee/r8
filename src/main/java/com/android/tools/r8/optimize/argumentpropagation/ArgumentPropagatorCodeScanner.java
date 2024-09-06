@@ -26,6 +26,7 @@ import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
+import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.FieldGet;
@@ -81,11 +82,14 @@ import com.android.tools.r8.utils.DeterminismChecker.LineCallback;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalUtils;
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -540,18 +544,64 @@ public class ArgumentPropagatorCodeScanner {
       assert value == initialValue || initialValue.getAliasedValue().isPhi();
       InFlow inFlow =
           computeInFlow(staticType, target, value, initialValue, context, valueStateSupplier);
-      if (inFlow == null) {
+      if (inFlow != null && !inFlow.isUnknown()) {
+        assert inFlow.isBaseInFlow()
+            || inFlow.isAbstractComputation()
+            || inFlow.isCastAbstractFunction()
+            || inFlow.isIfThenElseAbstractFunction()
+            || inFlow.isInstanceFieldReadAbstractFunction();
+        return ConcreteValueState.create(staticType, inFlow);
+      }
+      if (value.isPhi()) {
+        return computePhiState(value.asPhi(), staticType, context, valueStateSupplier);
+      }
+      return null;
+    }
+
+    private NonEmptyValueState computePhiState(
+        Phi phi,
+        DexType staticType,
+        ProgramMethod context,
+        Function<Value, NonEmptyValueState> valueStateSupplier) {
+      // TODO(b/302281503): Consider extending this to include field edges as well.
+      Set<Argument> arguments = Sets.newIdentityHashSet();
+      Set<Value> nonArguments = Sets.newIdentityHashSet();
+      WorkList.newIdentityWorkList(phi)
+          .process(
+              (currentPhi, worklist) -> {
+                for (Value operand : currentPhi.getOperands()) {
+                  if (operand.isPhi()) {
+                    worklist.addIfNotSeen(operand.asPhi());
+                  } else if (operand.isArgument()) {
+                    arguments.add(operand.getDefinition().asArgument());
+                  } else {
+                    nonArguments.add(operand);
+                  }
+                }
+              });
+      if (arguments.isEmpty()) {
         return null;
       }
-      if (inFlow.isUnknown()) {
-        return ValueState.unknown();
+      Set<InFlow> inFlow = new HashSet<>(arguments.size());
+      for (Argument argument : arguments) {
+        inFlow.add(methodParameterFactory.create(context, argument.getIndex()));
       }
-      assert inFlow.isBaseInFlow()
-          || inFlow.isAbstractComputation()
-          || inFlow.isCastAbstractFunction()
-          || inFlow.isIfThenElseAbstractFunction()
-          || inFlow.isInstanceFieldReadAbstractFunction();
-      return ConcreteValueState.create(staticType, inFlow);
+      NonEmptyValueState state = ConcreteValueState.create(staticType, inFlow);
+      List<Value> sortedNonArguments =
+          ListUtils.sort(nonArguments, Comparator.comparingInt(Value::getNumber));
+      for (Value nonArgument : sortedNonArguments) {
+        state =
+            state.mutableJoin(
+                appView,
+                valueStateSupplier.apply(nonArgument),
+                null,
+                staticType,
+                StateCloner.getIdentity());
+        if (state.isUnknown()) {
+          break;
+        }
+      }
+      return state;
     }
 
     // Strengthens the abstract value of static final fields to a (self-)SingleFieldValue when the
