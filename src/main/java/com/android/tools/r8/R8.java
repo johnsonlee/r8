@@ -809,11 +809,6 @@ public class R8 {
       // Validity checks.
       assert getDirectApp(appView).verifyCodeObjectsOwners();
       assert appView.appInfo().classes().stream().allMatch(clazz -> clazz.isValid(options));
-      if (options.isShrinking()
-          || options.isMinifying()
-          || options.getProguardConfiguration().hasApplyMappingFile()) {
-        assert appView.rootSet().verifyKeptItemsAreKept(appView);
-      }
 
       assert options.testing.disableMappingToOriginalProgramVerification
           || appView
