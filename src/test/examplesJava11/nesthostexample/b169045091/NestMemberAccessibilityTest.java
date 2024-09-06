@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.jdk11.desugar.nest.b169045091;
+package nesthostexample.b169045091;
 
 import static com.android.tools.r8.references.Reference.INT;
 import static org.junit.Assert.assertTrue;
@@ -15,9 +15,11 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.jdk11.desugar.nest.b169045091.NestHost.NestMember;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.b169045091.examples.NestHost;
+import com.android.tools.r8.shaking.b169045091.examples.NestHost.NestMember;
+import com.android.tools.r8.shaking.b169045091.examples.NonNestMember;
 import com.android.tools.r8.utils.AndroidApp;
 import org.junit.Test;
 import org.junit.runner.RunWith;
