@@ -292,7 +292,7 @@ def main():
 
                 # Merge results and write output.
                 if sub_benchmarks_for_target:
-                    for sub_benchmark in sub_benchmarks:
+                    for sub_benchmark in sub_benchmarks_for_target:
                         ArchiveBenchmarkResult(
                             benchmark + sub_benchmark, target,
                             benchmark_result_json_files[sub_benchmark], options,
