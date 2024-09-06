@@ -322,12 +322,10 @@ public abstract class TestCompilerBuilder<
           };
     }
 
-    boolean enableCompletenessCheckForTesting =
-        (isD8TestBuilder() || isR8TestBuilder()) && !isBenchmarkRunner;
-    addOptionsModification(
-        o ->
-            o.getArtProfileOptions()
-                .setEnableCompletenessCheckForTesting(enableCompletenessCheckForTesting));
+    if (isD8TestBuilder() || isR8TestBuilder()) {
+      addOptionsModification(
+          o -> o.getArtProfileOptions().setEnableCompletenessCheckForTesting(!isBenchmarkRunner));
+    }
 
     builder.setOptimizeMultidexForLinearAlloc(optimizeMultidexForLinearAlloc);
     if (useDefaultRuntimeLibrary) {
