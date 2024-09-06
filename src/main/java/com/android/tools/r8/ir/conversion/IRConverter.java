@@ -216,7 +216,6 @@ public class IRConverter {
             ? new RemoveVerificationErrorForUnknownReturnedValues(appView)
             : null;
     if (appView.enableWholeProgramOptimizations() && appView.appInfo().hasLiveness()) {
-      assert appView.rootSet() != null;
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       assumeInserter = new AssumeInserter(appViewWithLiveness);
       this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness);

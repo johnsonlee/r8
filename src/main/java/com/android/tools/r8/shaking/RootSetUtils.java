@@ -46,7 +46,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteBuilderShrinker;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
@@ -120,7 +119,6 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection.createConcurrent();
     private final LinkedHashMap<DexReference, DexReference> reasonAsked = new LinkedHashMap<>();
     private final Set<DexMethod> alwaysInline = Sets.newIdentityHashSet();
-    private final Set<DexMethod> bypassClinitforInlining = Sets.newIdentityHashSet();
     private final Set<DexMethod> whyAreYouNotInlining = Sets.newIdentityHashSet();
     private final Set<DexMethod> reprocess = Sets.newIdentityHashSet();
     private final PredicateSet<DexType> alwaysClassInline = new PredicateSet<>();
@@ -404,21 +402,19 @@ public class RootSetUtils {
       appView.withGeneratedMessageLiteShrinker(
           shrinker -> shrinker.extendRootSet(dependentMinimumKeepInfo));
       appView.withGeneratedMessageLiteBuilderShrinker(
-          shrinker -> shrinker.extendRootSet(dependentMinimumKeepInfo));
-      if (appView.options().protoShrinking().enableGeneratedMessageLiteBuilderShrinking) {
-        GeneratedMessageLiteBuilderShrinker.addInliningHeuristicsForBuilderInlining(
-            appView,
-            subtypingInfo,
-            alwaysClassInline,
-            alwaysInline,
-            bypassClinitforInlining,
-            dependentMinimumKeepInfo);
-      }
+          shrinker ->
+              shrinker
+                  .addInliningHeuristicsForBuilderInlining(
+                      appView,
+                      subtypingInfo,
+                      alwaysClassInline,
+                      alwaysInline,
+                      dependentMinimumKeepInfo)
+                  .extendRootSet(dependentMinimumKeepInfo));
       return new RootSet(
           dependentMinimumKeepInfo,
           ImmutableList.copyOf(reasonAsked.values()),
           alwaysInline,
-          bypassClinitforInlining,
           whyAreYouNotInlining,
           reprocess,
           alwaysClassInline,
@@ -1889,7 +1885,6 @@ public class RootSetUtils {
 
     public final ImmutableList<DexReference> reasonAsked;
     public final Set<DexMethod> alwaysInline;
-    public final Set<DexMethod> bypassClinitForInlining;
     public final Set<DexMethod> whyAreYouNotInlining;
     public final Set<DexMethod> reprocess;
     public final PredicateSet<DexType> alwaysClassInline;
@@ -1901,7 +1896,6 @@ public class RootSetUtils {
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
         ImmutableList<DexReference> reasonAsked,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> bypassClinitForInlining,
         Set<DexMethod> whyAreYouNotInlining,
         Set<DexMethod> reprocess,
         PredicateSet<DexType> alwaysClassInline,
@@ -1918,7 +1912,6 @@ public class RootSetUtils {
           pendingMethodMoveInverse);
       this.reasonAsked = reasonAsked;
       this.alwaysInline = alwaysInline;
-      this.bypassClinitForInlining = bypassClinitForInlining;
       this.whyAreYouNotInlining = whyAreYouNotInlining;
       this.reprocess = reprocess;
       this.alwaysClassInline = alwaysClassInline;
@@ -2030,7 +2023,6 @@ public class RootSetUtils {
                 getDependentMinimumKeepInfo().rewrittenWithLens(graphLens, timing),
                 reasonAsked,
                 alwaysInline,
-                bypassClinitForInlining,
                 whyAreYouNotInlining,
                 reprocess,
                 alwaysClassInline,
@@ -2329,7 +2321,6 @@ public class RootSetUtils {
       super(
           dependentMinimumKeepInfo,
           reasonAsked,
-          Collections.emptySet(),
           Collections.emptySet(),
           Collections.emptySet(),
           Collections.emptySet(),

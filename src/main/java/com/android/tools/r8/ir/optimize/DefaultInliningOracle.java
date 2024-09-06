@@ -623,7 +623,10 @@ public class DefaultInliningOracle implements InliningOracle {
       return true;
     }
 
-    if (appView.rootSet().bypassClinitForInlining.contains(target.getReference())) {
+    boolean bypassClinitForInlining =
+        appView.withGeneratedMessageLiteBuilderShrinker(
+            shrinker -> shrinker.bypassClinitForInlining(target), false);
+    if (bypassClinitForInlining) {
       return true;
     }
 

@@ -71,6 +71,7 @@ public class GeneratedMessageLiteBuilderShrinker {
   private final boolean enableAggressiveBuilderOptimization;
 
   private final Map<DexProgramClass, ProgramMethod> builders = new IdentityHashMap<>();
+  private final Set<DexMethod> bypassClinitForInlining = Sets.newIdentityHashSet();
 
   GeneratedMessageLiteBuilderShrinker(
       AppView<? extends AppInfoWithClassHierarchy> appView, ProtoReferences references) {
@@ -341,20 +342,23 @@ public class GeneratedMessageLiteBuilderShrinker {
         code, OptimizationFeedbackSimple.getInstance(), Timing.empty());
   }
 
-  public static void addInliningHeuristicsForBuilderInlining(
+  public GeneratedMessageLiteBuilderShrinker addInliningHeuristicsForBuilderInlining(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       SubtypingInfo subtypingInfo,
       PredicateSet<DexType> alwaysClassInline,
       Set<DexMethod> alwaysInline,
-      Set<DexMethod> bypassClinitforInlining,
       DependentMinimumKeepInfoCollection dependentMinimumKeepInfo) {
     new RootSetExtension(
             appView,
             alwaysClassInline,
             alwaysInline,
-            bypassClinitforInlining,
             dependentMinimumKeepInfo)
         .extend(subtypingInfo);
+    return this;
+  }
+
+  public boolean bypassClinitForInlining(ProgramMethod method) {
+    return bypassClinitForInlining.contains(method.getReference());
   }
 
   public void extendRootSet(DependentMinimumKeepInfoCollection dependentMinimumKeepInfo) {
@@ -468,27 +472,24 @@ public class GeneratedMessageLiteBuilderShrinker {
     affectedValues.narrowingWithAssumeRemoval(appView, code);
   }
 
-  private static class RootSetExtension {
+  private class RootSetExtension {
 
     private final AppView<? extends AppInfoWithClassHierarchy> appView;
     private final ProtoReferences references;
 
     private final PredicateSet<DexType> alwaysClassInline;
     private final Set<DexMethod> alwaysInline;
-    private final Set<DexMethod> bypassClinitforInlining;
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo;
 
     RootSetExtension(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         PredicateSet<DexType> alwaysClassInline,
         Set<DexMethod> alwaysInline,
-        Set<DexMethod> bypassClinitforInlining,
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo) {
       this.appView = appView;
       this.references = appView.protoShrinker().references;
       this.alwaysClassInline = alwaysClassInline;
       this.alwaysInline = alwaysInline;
-      this.bypassClinitforInlining = bypassClinitforInlining;
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
     }
 
@@ -501,7 +502,7 @@ public class GeneratedMessageLiteBuilderShrinker {
       neverMergeMessageLite();
 
       // * extends GeneratedMessageLite heuristics.
-      bypassClinitforInliningNewBuilderMethods(subtypingInfo);
+      bypassClinitForInliningNewBuilderMethods(subtypingInfo);
 
       // GeneratedMessageLite$Builder heuristics.
       alwaysInlineBuildPartialFromGeneratedMessageLiteExtendableBuilder();
@@ -516,16 +517,15 @@ public class GeneratedMessageLiteBuilderShrinker {
                   .isStrictSubtypeOf(type, references.generatedMessageLiteBuilderType));
     }
 
-    @SuppressWarnings("ReferenceEquality")
-    private void bypassClinitforInliningNewBuilderMethods(SubtypingInfo subtypingInfo) {
+    private void bypassClinitForInliningNewBuilderMethods(SubtypingInfo subtypingInfo) {
       for (DexType type : subtypingInfo.subtypes(references.generatedMessageLiteType)) {
         DexProgramClass clazz = appView.definitionFor(type).asProgramClass();
         if (clazz != null) {
           DexEncodedMethod newBuilderMethod =
               clazz.lookupDirectMethod(
-                  method -> method.getReference().name == references.newBuilderMethodName);
+                  method -> method.getName().isIdenticalTo(references.newBuilderMethodName));
           if (newBuilderMethod != null) {
-            bypassClinitforInlining.add(newBuilderMethod.getReference());
+            bypassClinitForInlining.add(newBuilderMethod.getReference());
           }
         }
       }

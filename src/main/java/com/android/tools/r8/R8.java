@@ -610,8 +610,6 @@ public class R8 {
                   options.reporter, options.usageInformationConsumer);
             }
 
-            new BridgeHoisting(appViewWithLiveness).run(executorService, timing);
-
             assert Inliner.verifyAllSingleCallerMethodsHaveBeenPruned(appViewWithLiveness);
             assert Inliner.verifyAllMultiCallerInlinedMethodsHaveBeenPruned(appView);
 
@@ -629,6 +627,9 @@ public class R8 {
                 options,
                 timing,
                 executorService);
+            appView.setRootSet(null);
+
+            new BridgeHoisting(appViewWithLiveness).run(executorService, timing);
 
             // Remove annotations that refer to types that no longer exist.
             AnnotationRemover.builder(Mode.FINAL_TREE_SHAKING)
