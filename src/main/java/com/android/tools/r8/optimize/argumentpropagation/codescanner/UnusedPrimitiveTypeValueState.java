@@ -34,8 +34,7 @@ public class UnusedPrimitiveTypeValueState extends UnusedValueState {
     }
     assert inState.isConcrete();
     assert inState.asConcrete().isPrimitiveState();
-    return ValueState.bottomPrimitiveTypeState()
-        .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction);
+    return cloner.mutableCopy(inState.asPrimitiveState()).mutableJoinUnused(this);
   }
 
   @Override

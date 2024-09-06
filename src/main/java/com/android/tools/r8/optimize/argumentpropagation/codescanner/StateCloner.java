@@ -27,9 +27,10 @@ public abstract class StateCloner {
           return methodState.mutableCopy();
         }
 
+        @SuppressWarnings("unchecked")
         @Override
-        public ValueState mutableCopy(ValueState parameterState) {
-          return parameterState.mutableCopy();
+        public <T extends ValueState> T mutableCopy(T parameterState) {
+          return (T) parameterState.mutableCopy();
         }
       };
 
@@ -41,7 +42,7 @@ public abstract class StateCloner {
         }
 
         @Override
-        public ValueState mutableCopy(ValueState parameterState) {
+        public <T extends ValueState> T mutableCopy(T parameterState) {
           return parameterState;
         }
       };
@@ -56,5 +57,5 @@ public abstract class StateCloner {
 
   public abstract MethodState mutableCopy(MethodState methodState);
 
-  public abstract ValueState mutableCopy(ValueState parameterState);
+  public abstract <T extends ValueState> T mutableCopy(T parameterState);
 }

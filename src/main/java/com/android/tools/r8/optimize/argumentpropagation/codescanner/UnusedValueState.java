@@ -22,6 +22,11 @@ public abstract class UnusedValueState extends NonEmptyValueState {
   }
 
   @Override
+  public final UnusedValueState asUnused() {
+    return this;
+  }
+
+  @Override
   public final ValueState mutableCopy() {
     return this;
   }

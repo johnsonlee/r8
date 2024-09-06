@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.optimize.argumentpropagation.codescanner;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
@@ -54,6 +55,12 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
   @Override
   public BottomValueState getCorrespondingBottom() {
     return bottomReceiverParameter();
+  }
+
+  @Override
+  public UnusedValueState getCorrespondingUnused() {
+    // We currently don't generate unused states for receivers.
+    throw new Unreachable();
   }
 
   @Override
@@ -117,7 +124,8 @@ public class ConcreteReceiverValueState extends ConcreteReferenceTypeValueState 
     if (widenInFlow(appView)) {
       return unknown();
     }
-    if (dynamicTypeChanged || inFlowChanged) {
+    boolean unusedChanged = mutableJoinUnused(inState);
+    if (dynamicTypeChanged || inFlowChanged || unusedChanged) {
       onChangedAction.execute();
     }
     return this;

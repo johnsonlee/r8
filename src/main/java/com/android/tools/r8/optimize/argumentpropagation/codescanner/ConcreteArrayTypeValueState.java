@@ -65,6 +65,11 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
+  public UnusedValueState getCorrespondingUnused() {
+    return unusedArrayTypeState();
+  }
+
+  @Override
   public ConcreteParameterStateKind getKind() {
     return ConcreteParameterStateKind.ARRAY;
   }
@@ -124,7 +129,8 @@ public class ConcreteArrayTypeValueState extends ConcreteReferenceTypeValueState
     if (widenInFlow(appView)) {
       return unknown();
     }
-    if (nullabilityChanged || inFlowChanged) {
+    boolean unusedChanged = mutableJoinUnused(inState);
+    if (nullabilityChanged || inFlowChanged || unusedChanged) {
       onChangedAction.execute();
     }
     return this;

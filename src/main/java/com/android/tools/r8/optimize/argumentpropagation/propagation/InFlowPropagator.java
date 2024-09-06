@@ -258,7 +258,7 @@ public class InFlowPropagator {
               appView, flowGraphStateProvider, stateToPropagate, successorNode.getStaticType());
       ValueState oldSuccessorStateForDebugging =
           successorNode.getDebug() ? successorNode.getState().mutableCopy() : null;
-      if (transferState.isBottom()) {
+      if (transferState.isBottom() || transferState.isUnused()) {
         // Nothing to propagate.
       } else if (transferState.isUnknown()) {
         successorNode.setStateToUnknown();
@@ -359,6 +359,8 @@ public class InFlowPropagator {
                     appView.abstractValueFactory().createZeroValue());
           }
           monomorphicMethodState.setParameterState(i, replacement);
+        } else {
+          assert !parameterState.isConcrete() || !parameterState.asConcrete().isEffectivelyUnused();
         }
       }
     }

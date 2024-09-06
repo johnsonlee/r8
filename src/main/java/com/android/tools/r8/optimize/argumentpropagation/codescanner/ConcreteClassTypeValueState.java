@@ -82,6 +82,11 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
   }
 
   @Override
+  public UnusedValueState getCorrespondingUnused() {
+    return unusedClassTypeState();
+  }
+
+  @Override
   public DynamicType getDynamicType() {
     return dynamicType;
   }
@@ -155,7 +160,8 @@ public class ConcreteClassTypeValueState extends ConcreteReferenceTypeValueState
     if (widenInFlow(appView)) {
       return unknown();
     }
-    if (abstractValueChanged || dynamicTypeChanged || inFlowChanged) {
+    boolean unusedChanged = mutableJoinUnused(inState);
+    if (abstractValueChanged || dynamicTypeChanged || inFlowChanged || unusedChanged) {
       onChangedAction.execute();
     }
     return this;

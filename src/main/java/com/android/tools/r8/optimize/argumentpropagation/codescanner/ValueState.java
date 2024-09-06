@@ -147,6 +147,10 @@ public abstract class ValueState {
     return false;
   }
 
+  public UnusedValueState asUnused() {
+    return null;
+  }
+
   public abstract ValueState mutableCopy();
 
   public abstract ValueState mutableCopyWithoutInFlow();

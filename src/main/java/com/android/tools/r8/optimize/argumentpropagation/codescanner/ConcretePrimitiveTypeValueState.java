@@ -74,7 +74,8 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
     if (widenInFlow(appView)) {
       return unknown();
     }
-    if (abstractValueChanged || inFlowChanged) {
+    boolean unusedChanged = mutableJoinUnused(state);
+    if (abstractValueChanged || inFlowChanged || unusedChanged) {
       onChangedAction.execute();
     }
     return this;
@@ -102,6 +103,11 @@ public class ConcretePrimitiveTypeValueState extends ConcreteValueState {
   @Override
   public BottomValueState getCorrespondingBottom() {
     return bottomPrimitiveTypeState();
+  }
+
+  @Override
+  public UnusedValueState getCorrespondingUnused() {
+    return unusedPrimitiveTypeState();
   }
 
   @Override

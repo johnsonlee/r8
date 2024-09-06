@@ -34,8 +34,15 @@ public class UnusedArrayTypeValueState extends UnusedValueState {
     }
     assert inState.isConcrete();
     assert inState.asConcrete().isReferenceState();
-    return ValueState.bottomArrayTypeState()
-        .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction);
+    ValueState result =
+        bottomArrayTypeState()
+            .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction);
+    if (result.isConcrete()) {
+      return result.asConcrete().mutableJoinUnused(this);
+    } else {
+      assert result.isUnknown();
+      return result;
+    }
   }
 
   @Override

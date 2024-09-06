@@ -34,8 +34,15 @@ public class UnusedClassTypeValueState extends UnusedValueState {
     }
     assert inState.isConcrete();
     assert inState.asConcrete().isReferenceState();
-    return ValueState.bottomClassTypeState()
-        .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction);
+    ValueState result =
+        bottomClassTypeState()
+            .mutableJoin(appView, inState, inStaticType, outStaticType, cloner, onChangedAction);
+    if (result.isConcrete()) {
+      return result.asConcrete().mutableJoinUnused(this);
+    } else {
+      assert result.isUnknown();
+      return result;
+    }
   }
 
   @Override
