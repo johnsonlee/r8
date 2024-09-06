@@ -28,21 +28,17 @@ public class FeatureSplitConfiguration {
   }
 
   public static class DataResourceProvidersAndConsumer {
-    private final Set<DataResourceProvider> providers;
-    private final DataResourceConsumer consumer;
+    public final FeatureSplit featureSplit;
+    public final Set<DataResourceProvider> providers;
+    public final DataResourceConsumer consumer;
 
     public DataResourceProvidersAndConsumer(
-        Set<DataResourceProvider> providers, DataResourceConsumer consumer) {
+        FeatureSplit featureSplit,
+        Set<DataResourceProvider> providers,
+        DataResourceConsumer consumer) {
+      this.featureSplit = featureSplit;
       this.providers = providers;
       this.consumer = consumer;
-    }
-
-    public Set<DataResourceProvider> getProviders() {
-      return providers;
-    }
-
-    public DataResourceConsumer getConsumer() {
-      return consumer;
     }
   }
 
@@ -63,7 +59,8 @@ public class FeatureSplitConfiguration {
         }
         if (!dataResourceProviders.isEmpty()) {
           result.add(
-              new DataResourceProvidersAndConsumer(dataResourceProviders, dataResourceConsumer));
+              new DataResourceProvidersAndConsumer(
+                  featureSplit, dataResourceProviders, dataResourceConsumer));
         }
       }
     }

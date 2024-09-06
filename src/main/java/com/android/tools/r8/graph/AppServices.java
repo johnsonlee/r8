@@ -164,12 +164,13 @@ public class AppServices {
     return true;
   }
 
-  public void visit(BiConsumer<DexType, List<DexType>> consumer) {
+  public void visit(FeatureSplit split, BiConsumer<DexType, List<DexType>> consumer) {
     services.forEach(
         (type, featureImpls) -> {
-          ImmutableList.Builder<DexType> builder = ImmutableList.builder();
-          featureImpls.values().forEach(builder::addAll);
-          consumer.accept(type, builder.build());
+          List<DexType> implsInSplit = featureImpls.get(split);
+          if (implsInSplit != null) {
+            consumer.accept(type, implsInSplit);
+          }
         });
   }
 

@@ -194,9 +194,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
             feature1Inspector -> assertThat(feature1Inspector.clazz(Feature1I.class), isPresent()),
             feature2Inspector -> assertThat(feature2Inspector.clazz(Feature2I.class), isPresent()))
         .apply(compileResult -> compileResult.addRunClasspathFiles(compileResult.getFeature(1)))
-        .run(parameters.getRuntime(), Base.class)
-        // TODO(b/160889305): This should work.
-        .assertFailureWithErrorThatMatches(containsString("java.lang.ClassNotFoundException"));
+        .run(parameters.getRuntime(), Base.class);
   }
 
   public interface I {

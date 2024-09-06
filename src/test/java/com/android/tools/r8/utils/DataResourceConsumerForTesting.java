@@ -38,7 +38,7 @@ public class DataResourceConsumerForTesting implements DataResourceConsumer {
 
   @Override
   public void accept(DataEntryResource file, DiagnosticsHandler diagnosticsHandler) {
-    assertFalse(resources.containsKey(file.getName()));
+    assertFalse("Added twice: " + file.getName(), resources.containsKey(file.getName()));
     try {
       byte[] bytes = ByteStreams.toByteArray(file.getByteStream());
       String contents = new String(bytes, Charset.defaultCharset());

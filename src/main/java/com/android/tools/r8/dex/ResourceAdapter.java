@@ -100,10 +100,6 @@ public class ResourceAdapter {
         && filter.matches(file.getName());
   }
 
-  public boolean isService(DataEntryResource file) {
-    return file.getName().startsWith(AppServices.SERVICE_DIRECTORY_NAME);
-  }
-
   private String adaptFileName(DataEntryResource file) {
     FileNameAdapter adapter =
         file.getName().startsWith(AppServices.SERVICE_DIRECTORY_NAME)
