@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
@@ -96,6 +97,10 @@ public class EffectivelyUnusedArgumentsAnalysis {
 
   public EffectivelyUnusedArgumentsAnalysis(AppView<AppInfoWithLiveness> appView) {
     this.appView = appView;
+  }
+
+  public ComputationTreeNode getEffectivelyUnusedCondition(MethodParameter methodParameter) {
+    return conditions.getOrDefault(methodParameter, AbstractValue.unknown());
   }
 
   public void initializeOptimizableVirtualMethods(Set<DexProgramClass> stronglyConnectedComponent) {
