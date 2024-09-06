@@ -83,6 +83,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalUtils;
 import com.android.tools.r8.utils.WorkList;
+import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.google.common.collect.Sets;
 import java.io.IOException;
@@ -133,6 +134,9 @@ public class ArgumentPropagatorCodeScanner {
    * value and dynamic type.
    */
   private final FieldStateCollection fieldStates = FieldStateCollection.createConcurrent();
+
+  private final ProgramFieldSet newlyUnknownFieldsInCurrentWave =
+      ProgramFieldSet.createConcurrent();
 
   /**
    * The abstract program state for this optimization. Intuitively maps each parameter to its
@@ -204,7 +208,9 @@ public class ArgumentPropagatorCodeScanner {
     // Only allow early graph pruning when the two nodes have the same type. If the given field is
     // unknown, but flows to a field or method parameter with a less precise type, we still want
     // this type propagation to happen.
-    return fieldStates.get(field).isUnknown() && field.getType().isIdenticalTo(staticType);
+    return fieldStates.get(field).isUnknown()
+        && field.getType().isIdenticalTo(staticType)
+        && !newlyUnknownFieldsInCurrentWave.contains(field);
   }
 
   protected boolean isMethodParameterAlreadyUnknown(
@@ -252,6 +258,10 @@ public class ArgumentPropagatorCodeScanner {
       Timing timing) {
     new CodeScanner(abstractValueSupplier, code, method, methodProcessor, pathConstraintSupplier)
         .scan(timing);
+  }
+
+  public void waveDone() {
+    newlyUnknownFieldsInCurrentWave.clear();
   }
 
   protected class CodeScanner {
@@ -315,7 +325,8 @@ public class ArgumentPropagatorCodeScanner {
                     StateCloner.getCloner(),
                     Action.empty());
             return narrowFieldState(field, newFieldState);
-          });
+          },
+          () -> newlyUnknownFieldsInCurrentWave.add(field));
       timing.end();
     }
 

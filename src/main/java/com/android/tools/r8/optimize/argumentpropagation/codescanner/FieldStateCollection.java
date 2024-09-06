@@ -56,12 +56,25 @@ public class FieldStateCollection {
       Supplier<NonEmptyValueState> fieldStateSupplier,
       Timing timing,
       BiFunction<ConcreteValueState, ConcreteValueState, NonEmptyValueState> joiner) {
+    return addTemporaryFieldState(field, fieldStateSupplier, timing, joiner, Action.empty());
+  }
+
+  public NonEmptyValueState addTemporaryFieldState(
+      ProgramField field,
+      Supplier<NonEmptyValueState> fieldStateSupplier,
+      Timing timing,
+      BiFunction<ConcreteValueState, ConcreteValueState, NonEmptyValueState> joiner,
+      Action unknownTransitionHandler) {
     ValueState joinState =
         fieldStates.compute(
             field,
             (f, existingFieldState) -> {
               if (existingFieldState == null) {
-                return fieldStateSupplier.get();
+                NonEmptyValueState result = fieldStateSupplier.get();
+                if (result.isUnknown()) {
+                  unknownTransitionHandler.execute();
+                }
+                return result;
               }
               assert !existingFieldState.isBottom();
               if (existingFieldState.isUnknown()) {
@@ -69,6 +82,7 @@ public class FieldStateCollection {
               }
               NonEmptyValueState fieldStateToAdd = fieldStateSupplier.get();
               if (fieldStateToAdd.isUnknown()) {
+                unknownTransitionHandler.execute();
                 return fieldStateToAdd;
               }
               timing.begin("Join temporary field state");
@@ -76,6 +90,9 @@ public class FieldStateCollection {
               ConcreteValueState concreteFieldStateToAdd = fieldStateToAdd.asConcrete();
               NonEmptyValueState joinResult =
                   joiner.apply(existingConcreteFieldState, concreteFieldStateToAdd);
+              if (joinResult.isUnknown()) {
+                unknownTransitionHandler.execute();
+              }
               timing.end();
               return joinResult;
             });

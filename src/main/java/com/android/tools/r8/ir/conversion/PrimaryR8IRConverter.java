@@ -255,7 +255,7 @@ public class PrimaryR8IRConverter extends IRConverter {
     if (fieldAccessAnalysis != null && fieldAccessAnalysis.fieldAssignmentTracker() != null) {
       fieldAccessAnalysis.fieldAssignmentTracker().waveDone(wave, delayedOptimizationFeedback);
     }
-    appView.withArgumentPropagator(ArgumentPropagator::publishDelayedReprocessingCriteria);
+    appView.withArgumentPropagator(ArgumentPropagator::waveDone);
     if (appView.options().protoShrinking().enableRemoveProtoEnumSwitchMap()) {
       appView.protoShrinker().protoEnumSwitchMapRemover.updateVisibleStaticFieldValues();
     }

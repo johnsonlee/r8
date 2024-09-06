@@ -170,6 +170,13 @@ public class ArgumentPropagator {
     reprocessingCriteriaCollection.publishDelayedReprocessingCriteria();
   }
 
+  public void waveDone() {
+    if (codeScanner != null) {
+      codeScanner.waveDone();
+    }
+    publishDelayedReprocessingCriteria();
+  }
+
   public void transferArgumentInformation(ProgramMethod from, ProgramMethod to) {
     assert codeScanner != null;
     MethodStateCollectionByReference methodStates = codeScanner.getMethodStates();
