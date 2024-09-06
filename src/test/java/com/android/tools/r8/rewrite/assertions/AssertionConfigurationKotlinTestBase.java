@@ -144,14 +144,8 @@ public class AssertionConfigurationKotlinTestBase extends KotlinTestBase {
         .addKeepClassAndMembersRules(class1, class2)
         .setMinApi(parameters)
         .apply(builderConsumer)
-        .allowDiagnosticWarningMessages(!kotlinStdlibAsLibrary)
         .addRunClasspathFiles(kotlinStdlibLibraryForRuntime())
         .compile()
-        .applyIf(
-            !kotlinStdlibAsLibrary,
-            result ->
-                result.assertAllWarningMessagesMatch(
-                    equalTo("Resource 'META-INF/MANIFEST.MF' already exists.")))
         .enableRuntimeAssertions(enableJvmAssertions)
         .run(parameters.getRuntime(), testClassKt)
         .inspect(inspector)

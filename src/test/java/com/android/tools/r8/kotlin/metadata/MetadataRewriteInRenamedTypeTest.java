@@ -92,9 +92,7 @@ public class MetadataRewriteInRenamedTypeTest extends KotlinMetadataTestBase {
         .addKeepRules(OBFUSCATE_RENAMED, KEEP_KEPT)
         .addKeepRules("-keep class **.Anno")
         .addKeepKotlinMetadata()
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertWarningMessageThatMatches(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         // TODO(b/155536535): Enable this assert.
         // .assertInfoMessageThatMatches(expectedInfoMessagesFromKotlinStdLib())
         .assertNoErrorMessages()

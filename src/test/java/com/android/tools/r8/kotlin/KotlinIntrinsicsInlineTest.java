@@ -61,11 +61,9 @@ public class KotlinIntrinsicsInlineTest extends KotlinTestBase {
             StringUtils.lines(
                 "-keepclasseswithmembers class " + MAIN + "{", "  public static *** *(...);", "}"))
         .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
         .addDontObfuscate()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(
             inspector -> {
               ClassSubject main = inspector.clazz(MAIN);
@@ -119,11 +117,9 @@ public class KotlinIntrinsicsInlineTest extends KotlinTestBase {
                 "  public static *** " + methodName + "(...);",
                 "}"))
         .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
         .addDontObfuscate()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(
             inspector -> {
               ClassSubject main = inspector.clazz(MAIN);

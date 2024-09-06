@@ -106,7 +106,6 @@ public class MetadataRewriteContextReceiverTest extends KotlinMetadataTestBase {
                 ProguardKeepAttributes.INNER_CLASSES,
                 ProguardKeepAttributes.ENCLOSING_METHOD)
             .addKeepKotlinMetadata()
-            .allowDiagnosticWarningMessages()
             .addOptionsModification(
                 options -> options.testing.keepMetadataInR8IfNotRewritten = false)
             .compile()

@@ -72,16 +72,8 @@ public class SimpleKotlinEnumUnboxingTest extends EnumUnboxingTestBase {
         .addKeepRuntimeVisibleAnnotations()
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
         .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(PKG + ".Color"))
-        .allowDiagnosticMessages()
         .setMinApi(parameters)
         .compile()
-        .inspectDiagnosticMessages(
-            messages ->
-                messages
-                    .assertNoErrors()
-                    .assertAllWarningsMatch(
-                        diagnosticMessage(
-                            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))))
         .run(parameters.getRuntime(), PKG + ".MainKt")
         .assertSuccessWithOutputLines("RED", "GREEN", "BLUE");
   }

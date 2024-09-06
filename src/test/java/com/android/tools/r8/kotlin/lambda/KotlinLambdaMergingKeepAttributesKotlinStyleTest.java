@@ -91,12 +91,9 @@ public class KotlinLambdaMergingKeepAttributesKotlinStyleTest extends KotlinTest
         .applyIf(!attributes.isEmpty(), builder -> builder.addKeepAttributes(attributes))
         .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
         .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
         .noClassInlining()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(
-            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(inspector -> inspect(inspector, lambdasInInput))
         .run(parameters.getRuntime(), getMainClassName())
         .assertSuccessWithOutput(getExpectedOutput());

@@ -58,12 +58,9 @@ public class EnumMinificationKotlinTest extends KotlinTestBase {
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
             .addKeepClassRulesWithAllowObfuscation(ENUM_CLASS_NAME)
-            .allowDiagnosticWarningMessages()
             .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .run(parameters.getRuntime(), MAIN_CLASS_NAME)
             .inspector();
     ClassSubject enumClass = inspector.clazz(ENUM_CLASS_NAME);

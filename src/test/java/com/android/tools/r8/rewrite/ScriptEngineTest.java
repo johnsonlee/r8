@@ -7,7 +7,6 @@ package com.android.tools.r8.rewrite;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -102,8 +101,7 @@ public class ScriptEngineTest extends ScriptEngineTestBase {
                                     + " desugaring"),
                             allOf(
                                 containsString("Unverifiable code in `"),
-                                containsString("org.mozilla.javascript.tools.")),
-                            equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))))
+                                containsString("org.mozilla.javascript.tools.")))))
             .writeToZip(path)
             .run(parameters.getRuntime(), TestClass.class);
     if (parameters.isDexRuntimeVersion(Version.V7_0_0)) {

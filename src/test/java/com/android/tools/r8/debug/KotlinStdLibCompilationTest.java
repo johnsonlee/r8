@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.debug;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.DiagnosticsMatcher;
@@ -78,7 +76,6 @@ public class KotlinStdLibCompilationTest extends TestBase {
         .addProgramFiles(compiler.getKotlinStdlibJar(), compiler.getKotlinAnnotationJar())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .addKeepAllAttributes()
-        .allowDiagnosticWarningMessages()
         .addDontObfuscate()
         .addDontShrink()
         .setMode(CompilationMode.DEBUG)
@@ -87,7 +84,6 @@ public class KotlinStdLibCompilationTest extends TestBase {
             parameters.isCfRuntime()
                 && kotlinTestParameters.isNewerThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_8_0),
             TestShrinkerBuilder::addDontWarnJavaLangInvokeLambdaMetadataFactory)
-        .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."));
+        .compile();
   }
 }

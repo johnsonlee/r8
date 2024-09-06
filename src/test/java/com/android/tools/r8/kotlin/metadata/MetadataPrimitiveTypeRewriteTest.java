@@ -92,15 +92,12 @@ public class MetadataPrimitiveTypeRewriteTest extends KotlinMetadataTestBase {
             .addKeepRules("-keep class kotlin.Metadata { *; }")
             .applyIf(keepUnit, b -> b.addKeepRules("-keep class kotlin.Unit { *; }"))
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
-            .allowDiagnosticWarningMessages()
             .compile()
             .inspect(
                 codeInspector -> {
                   final ClassSubject clazz = codeInspector.clazz("kotlin.Unit");
                   assertThat(clazz, isPresentAndRenamed(!keepUnit));
                 })
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .writeToZip();
     boolean expectingCompilationError = kotlinParameters.isOlderThan(KOTLINC_1_4_20) && !keepUnit;
     Path output =

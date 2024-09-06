@@ -71,10 +71,8 @@ public class TestRunner extends KotlinTestBase {
                 inspector.assertIsCompleteMergeGroup(
                     "com.android.tools.r8.naming.b139991218.Lambda1",
                     "com.android.tools.r8.naming.b139991218.Lambda2"))
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("11", "12")
         .inspect(

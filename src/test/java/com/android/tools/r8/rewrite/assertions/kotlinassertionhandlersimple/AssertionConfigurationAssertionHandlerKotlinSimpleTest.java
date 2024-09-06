@@ -4,12 +4,10 @@
 
 package com.android.tools.r8.rewrite.assertions.kotlinassertionhandlersimple;
 
-import static org.hamcrest.CoreMatchers.equalTo;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.R8FullTestBuilder;
-import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
@@ -65,17 +63,6 @@ public class AssertionConfigurationAssertionHandlerKotlinSimpleTest
         !kotlinParameters.isOlderThan(KotlinCompilerVersion.KOTLINC_1_4_20)
             && !kotlinStdlibAsLibrary
             && !useJvmAssertions;
-    builder
-        .applyIf(referencesNotNull, b -> b.addDontWarn("org.jetbrains.annotations.NotNull"))
-        .allowDiagnosticWarningMessages(!kotlinStdlibAsLibrary);
-  }
-
-  @Override
-  protected void configureResultR8(R8TestCompileResult builder) {
-    builder.applyIf(
-        !kotlinStdlibAsLibrary,
-        result ->
-            result.assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists.")));
+    builder.applyIf(referencesNotNull, b -> b.addDontWarn("org.jetbrains.annotations.NotNull"));
   }
 }

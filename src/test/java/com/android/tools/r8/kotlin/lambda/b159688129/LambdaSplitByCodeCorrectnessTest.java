@@ -87,9 +87,7 @@ public class LambdaSplitByCodeCorrectnessTest extends KotlinTestBase {
                                 "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$5",
                                 "com.android.tools.r8.kotlin.lambda.b159688129.SimpleKt$main$6"))
                     .assertNoOtherClassesMerged())
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspectIf(
             kotlinParameters.getLambdaGeneration().isClass(),
             codeInspector -> {

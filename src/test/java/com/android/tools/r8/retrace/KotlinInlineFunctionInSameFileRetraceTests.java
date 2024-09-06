@@ -98,11 +98,9 @@ public class KotlinInlineFunctionInSameFileRetraceTests extends KotlinTestBase {
         .addKeepAttributes("SourceFile", "LineNumberTable")
         .setMode(CompilationMode.RELEASE)
         .addKeepMainRule(MAIN)
-        .allowDiagnosticWarningMessages()
         .addDontObfuscate()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN)
         .assertFailureWithErrorThatMatches(containsString("main"))
         .inspectStackTrace(

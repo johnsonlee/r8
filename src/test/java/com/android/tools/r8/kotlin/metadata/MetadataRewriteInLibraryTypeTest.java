@@ -5,8 +5,6 @@ package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
-import static org.hamcrest.CoreMatchers.anyOf;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -99,15 +97,10 @@ public class MetadataRewriteInLibraryTypeTest extends KotlinMetadataTestBase {
             .addKeepMainRule(main)
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .addDontWarn(PKG + ".**")
-            .allowDiagnosticWarningMessages()
             // -dontoptimize so that basic code structure is kept.
             .addDontOptimize()
             .compile()
             .inspect(this::inspect)
-            .assertAllWarningMessagesMatch(
-                anyOf(
-                    equalTo("Resource 'META-INF/MANIFEST.MF' already exists."),
-                    equalTo("Resource 'META-INF/main.kotlin_module' already exists.")))
             .writeToZip();
 
     testForJvm(parameters)

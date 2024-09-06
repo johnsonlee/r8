@@ -55,7 +55,6 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
                     options.getTestingOptions().enableVerticalClassMergerLensAssertion = false)
             .addKeepMainRule(mainClassName)
             .addKeepKotlinMetadata()
-            .allowDiagnosticWarningMessages()
             .setMinApi(parameters)
             .allowUnusedDontWarnKotlinReflectJvmInternal(kotlinc.isNot(KOTLINC_1_3_72))
             .allowUnusedDontWarnJavaLangClassValue(
@@ -63,7 +62,6 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
             .apply(configureForLibraryWithEmbeddedProguardRules())
             .compile()
             .assertNoErrorMessages()
-            .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
             .run(parameters.getRuntime(), mainClassName);
     CodeInspector inspector = result.inspector();
     ClassSubject clazz = inspector.clazz(mainClassName);

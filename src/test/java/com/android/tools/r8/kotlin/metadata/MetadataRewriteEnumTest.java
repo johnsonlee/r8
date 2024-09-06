@@ -75,9 +75,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
             .addKeepEnumsRule()
             .addKeepClassRules(DIRECTION_TYPE_NAME)
             .addKeepClassAndMembersRulesWithAllowObfuscation(DIRECTION_TYPE_NAME)
-            .allowDiagnosticWarningMessages()
             .compile()
-            .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
             .inspect(
                 inspector -> {
                   ClassSubject direction = inspector.clazz(DIRECTION_TYPE_NAME);
@@ -106,9 +104,7 @@ public class MetadataRewriteEnumTest extends KotlinMetadataTestBase {
             .addKeepEnumsRule()
             .addKeepClassRules(DIRECTION_TYPE_NAME)
             .addKeepClassAndMembersRulesWithAllowObfuscation(DIRECTION_TYPE_NAME)
-            .allowDiagnosticWarningMessages()
             .compile()
-            .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
             .inspect(
                 inspector -> {
                   ClassSubject direction = inspector.clazz(DIRECTION_TYPE_NAME);

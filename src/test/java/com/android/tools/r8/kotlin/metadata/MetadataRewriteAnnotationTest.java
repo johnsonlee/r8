@@ -125,10 +125,7 @@ public class MetadataRewriteAnnotationTest extends KotlinMetadataTestBase {
                 ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS,
                 ProguardKeepAttributes.RUNTIME_VISIBLE_PARAMETER_ANNOTATIONS,
                 ProguardKeepAttributes.RUNTIME_VISIBLE_TYPE_ANNOTATIONS)
-            .allowDiagnosticWarningMessages()
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .inspect(this::inspect)
             .writeToZip();
     Path output =

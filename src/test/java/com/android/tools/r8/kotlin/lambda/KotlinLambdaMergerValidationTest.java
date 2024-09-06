@@ -54,10 +54,8 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
         .addLibraryFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(ktClasses, kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule("**.B143165163Kt")
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .addRunClasspathFiles(kotlinc.getKotlinStdlibJar())
         .run(parameters.getRuntime(), pkg + ".B143165163Kt")
         .assertSuccessWithOutputLines("outer foo bar", "outer foo default");
@@ -81,10 +79,8 @@ public class KotlinLambdaMergerValidationTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addProgramFiles(ktClasses)
         .addKeepMainRule("**.B143165163Kt")
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), pkg + ".B143165163Kt")
         .assertSuccessWithOutputLines("outer foo bar", "outer foo default");
   }

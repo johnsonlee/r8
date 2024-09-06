@@ -96,11 +96,9 @@ public class KotlinDefaultArgumentsTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule(MAIN)
         .allowAccessModification()
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .compile()
         .inspect(inspector -> inspect(inspector, true))
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }

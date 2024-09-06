@@ -67,9 +67,7 @@ public class KotlinEnumSwitchTest extends KotlinTestBase {
             })
         .setMinApi(parameters)
         .addDontObfuscate()
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(
             inspector -> {
               ClassSubject classSubject = inspector.clazz("enumswitch.EnumSwitchKt");

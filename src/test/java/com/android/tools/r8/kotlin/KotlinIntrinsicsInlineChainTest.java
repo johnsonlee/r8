@@ -59,12 +59,10 @@ public class KotlinIntrinsicsInlineChainTest extends KotlinTestBase {
             compiledJars.getForConfiguration(kotlinParameters), kotlinc.getKotlinAnnotationJar())
         .addKeepMainRule(MAIN)
         .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .addDontObfuscate()
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN, "foobar")
         .assertSuccessWithOutputLines("foobar", "field is foobar")
         .inspect(

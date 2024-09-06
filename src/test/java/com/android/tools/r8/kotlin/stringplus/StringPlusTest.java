@@ -82,7 +82,6 @@ public class StringPlusTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
         .allowAccessModification()
-        .allowDiagnosticWarningMessages()
         .addKeepMainRule(MAIN)
         .addKeepRules("-keep class " + MAIN + "{ void keepFor*(...); }")
         .addDontObfuscate()
@@ -114,7 +113,6 @@ public class StringPlusTest extends KotlinTestBase {
                                   .test(instructionSubject))
                       .count());
             })
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED);
   }

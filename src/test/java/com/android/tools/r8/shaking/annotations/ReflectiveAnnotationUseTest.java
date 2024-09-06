@@ -101,12 +101,9 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
             .addKeepMainRule(MAIN_CLASS_NAME)
             .addKeepRules(KEEP_ANNOTATIONS)
             .addKeepRules("-keep @interface " + ANNOTATION_NAME + " {", "  *;", "}")
-            .allowDiagnosticWarningMessages()
             .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .run(parameters.getRuntime(), MAIN_CLASS_NAME)
             .assertSuccessWithOutput(JAVA_OUTPUT)
             .inspector();
@@ -142,12 +139,9 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
                 "-keep,allowobfuscation @interface " + ANNOTATION_NAME + " {",
                 "  java.lang.String *f2();",
                 "}")
-            .allowDiagnosticWarningMessages()
             .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .run(parameters.getRuntime(), MAIN_CLASS_NAME)
             .assertSuccessWithOutput(JAVA_OUTPUT)
             .inspector();
@@ -180,12 +174,9 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
             .addKeepRules(KEEP_ANNOTATIONS)
-            .allowDiagnosticWarningMessages()
             .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .run(parameters.getRuntime(), MAIN_CLASS_NAME)
             .assertSuccessWithOutput(JAVA_OUTPUT)
             .inspector();
@@ -217,12 +208,9 @@ public class ReflectiveAnnotationUseTest extends KotlinTestBase {
                 kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(getJavaJarFile(FOLDER))
             .addKeepMainRule(MAIN_CLASS_NAME)
-            .allowDiagnosticWarningMessages()
             .addDontObfuscateUnless(minify)
             .setMinApi(parameters)
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .run(parameters.getRuntime(), MAIN_CLASS_NAME)
             .assertSuccessWithOutput(OUTPUT_WITHOUT_ANNOTATION)
             .inspector();

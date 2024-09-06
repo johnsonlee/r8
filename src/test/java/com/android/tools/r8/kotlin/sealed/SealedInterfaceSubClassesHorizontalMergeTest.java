@@ -91,7 +91,6 @@ public class SealedInterfaceSubClassesHorizontalMergeTest extends KotlinTestBase
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
-        .allowDiagnosticWarningMessages()
         .addKeepMainRule(MAIN)
         .applyIf(
             clinitNoSideEffects,
@@ -108,7 +107,6 @@ public class SealedInterfaceSubClassesHorizontalMergeTest extends KotlinTestBase
                     inspector ->
                         inspector.assertIsCompleteMergeGroup(A, B).assertNoOtherClassesMerged()))
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED);
   }

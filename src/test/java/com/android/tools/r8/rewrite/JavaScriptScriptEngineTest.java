@@ -7,7 +7,6 @@ package com.android.tools.r8.rewrite;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -82,8 +81,7 @@ public class JavaScriptScriptEngineTest extends ScriptEngineTestBase {
                             "required for default or static interface methods desugaring"),
                         allOf(
                             containsString("Unverifiable code in `"),
-                            containsString("org.mozilla.javascript.tools.")),
-                        equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))))
+                            containsString("org.mozilla.javascript.tools.")))))
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             // No default JS engine starting from JDK-14 where Nashorn was removed, see b/227162584.

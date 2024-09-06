@@ -52,13 +52,11 @@ public class KStyleKotlinLambdaMergingWithEnumUnboxingTest extends TestBase {
         .addHorizontallyMergedClassesInspector(
             inspector -> inspector.assertMergedInto(Lambda2.class, Lambda1.class))
         .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(EnumUnboxingCandidate.class))
-        .allowDiagnosticWarningMessages()
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .addDontObfuscate()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Lambda1.method()", "Lambda2.method()");
   }

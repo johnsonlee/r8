@@ -50,7 +50,6 @@ public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
         .addKeepRules("-keep class " + PKG + ".metadata_pruned_fields.MethodsKt { *; }")
         .addKeepRules("-keep class kotlin.Metadata { *** pn(); }")
         .addKeepMainRule(Main.class)
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .addOptionsModification(
@@ -70,7 +69,6 @@ public class MetadataPrunedFieldsTest extends KotlinMetadataTestBase {
               assertThat(clazz.uniqueMethodWithOriginalName("d2"), not(isPresent()));
               assertThat(clazz.uniqueMethodWithOriginalName("bv"), not(isPresent()));
             })
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("", "Hello World!");
   }

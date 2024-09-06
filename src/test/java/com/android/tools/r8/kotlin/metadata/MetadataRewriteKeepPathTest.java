@@ -53,9 +53,7 @@ public class MetadataRewriteKeepPathTest extends KotlinMetadataTestBase {
         .addKeepRules("-keep class " + LIB_CLASS_NAME)
         .applyIf(keepMetadata, TestShrinkerBuilder::addKeepKotlinMetadata)
         .addKeepRuntimeVisibleAnnotations()
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(inspector -> inspect(inspector, keepMetadata));
   }
 

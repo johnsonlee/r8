@@ -78,11 +78,8 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
         .addKeepMainRule(getMainClassName())
         .addHorizontallyMergedClassesInspector(inspector -> inspect(inspector, lambdasInInput))
         .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(
-            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(inspector -> inspect(inspector, lambdasInInput))
         .run(parameters.getRuntime(), getMainClassName())
         .assertSuccessWithOutput(getExpectedOutput());

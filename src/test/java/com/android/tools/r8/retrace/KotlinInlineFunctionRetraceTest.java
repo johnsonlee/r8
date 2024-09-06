@@ -105,12 +105,10 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
         .addProgramFiles(
             kotlinSources, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepAttributes("SourceFile", "LineNumberTable")
-        .allowDiagnosticWarningMessages()
         .setMode(CompilationMode.RELEASE)
         .addKeepMainRule(main)
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), main)
         .assertFailureWithErrorThatMatches(containsString("inlineExceptionStatic"))
         .inspectStackTrace(
@@ -136,12 +134,10 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
         .addProgramFiles(
             kotlinSources, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepAttributes("SourceFile", "LineNumberTable")
-        .allowDiagnosticWarningMessages()
         .setMode(CompilationMode.RELEASE)
         .addKeepMainRule(main)
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), main)
         .assertFailureWithErrorThatMatches(containsString("inlineExceptionInstance"))
         .inspectStackTrace(
@@ -170,12 +166,10 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
         .addProgramFiles(
             kotlinSources, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepAttributes("SourceFile", "LineNumberTable")
-        .allowDiagnosticWarningMessages()
         .setMode(CompilationMode.RELEASE)
         .addKeepMainRule(main)
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), main)
         .assertFailureWithErrorThatMatches(containsString("inlineExceptionStatic"))
         .inspectStackTrace(
@@ -203,12 +197,10 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
         .addProgramFiles(
             kotlinSources, kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
         .addKeepAttributes("SourceFile", "LineNumberTable")
-        .allowDiagnosticWarningMessages()
         .setMode(CompilationMode.RELEASE)
         .addKeepMainRule(main)
         .setMinApi(parameters)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), main)
         .assertFailureWithErrorThatMatches(containsString("inlineExceptionStatic"))
         .inspectStackTrace(

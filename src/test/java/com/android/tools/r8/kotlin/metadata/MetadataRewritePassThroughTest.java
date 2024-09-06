@@ -52,9 +52,7 @@ public class MetadataRewritePassThroughTest extends KotlinMetadataTestBase {
         .addKeepKotlinMetadata()
         .addKeepAttributes(
             ProguardKeepAttributes.INNER_CLASSES, ProguardKeepAttributes.ENCLOSING_METHOD)
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(
             inspector ->
                 assertEqualMetadataWithStringPoolValidation(

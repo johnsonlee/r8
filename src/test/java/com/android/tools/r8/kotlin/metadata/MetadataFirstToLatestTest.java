@@ -85,10 +85,7 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
             .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepAllClassesRule()
             .addKeepAllAttributes()
-            .allowDiagnosticWarningMessages()
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .writeToZip();
     if (kotlinParameters.isOlderThan(KotlinCompilerVersion.KOTLINC_1_4_20)) {
       AssertionError assertionError =
@@ -133,10 +130,7 @@ public class MetadataFirstToLatestTest extends KotlinMetadataTestBase {
             .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addKeepAllClassesRule()
             .addKeepAllAttributes()
-            .allowDiagnosticWarningMessages()
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .writeToZip();
     runTest(KotlinCompilerVersion.MAX_SUPPORTED_VERSION, libJar, stdLibJar);
   }

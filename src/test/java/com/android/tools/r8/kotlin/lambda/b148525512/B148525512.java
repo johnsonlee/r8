@@ -100,10 +100,7 @@ public class B148525512 extends KotlinTestBase {
                                 kotlinFeatureClasses.getForConfiguration(kotlinParameters), true))
                         .setProgramConsumer(new ArchiveConsumer(featureCode, false))
                         .build())
-            .allowDiagnosticWarningMessages()
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .inspect(
                 inspector -> {
                   if (kotlinParameters.getLambdaGeneration().isClass()) {

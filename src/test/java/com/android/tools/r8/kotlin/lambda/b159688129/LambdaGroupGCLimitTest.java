@@ -6,7 +6,6 @@ package com.android.tools.r8.kotlin.lambda.b159688129;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -76,10 +75,7 @@ public class LambdaGroupGCLimitTest extends TestBase {
                                       <= defaultHorizontalClassMergerOptions
                                           .getMaxClassGroupSizeInR8()));
                 })
-            .allowDiagnosticWarningMessages()
-            .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."));
+            .compile();
     Path path = compileResult.writeToZip();
     compileResult
         .run(parameters.getRuntime(), PKG_NAME + ".MainKt0")

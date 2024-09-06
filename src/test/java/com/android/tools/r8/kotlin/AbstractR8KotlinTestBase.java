@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -261,14 +260,11 @@ public abstract class AbstractR8KotlinTestBase extends KotlinTestBase {
         .addProgramFiles(classpath)
         .addKeepMainRule(mainClass)
         .allowAccessModification(allowAccessModification)
-        .allowDiagnosticWarningMessages()
         .enableProguardTestOptions()
         .addDontObfuscate()
         .setMinApi(testParameters)
         .apply(configuration)
         .compile()
-        .assertAllWarningMessagesMatch(
-            containsString("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(testParameters.getRuntime(), mainClass)
         .assertSuccessWithOutput(javaResult.stdout);
   }

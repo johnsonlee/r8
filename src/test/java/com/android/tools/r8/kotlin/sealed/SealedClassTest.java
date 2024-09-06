@@ -69,10 +69,8 @@ public class SealedClassTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
         .allowAccessModification()
-        .allowDiagnosticWarningMessages()
         .addKeepMainRule(MAIN)
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED);
   }

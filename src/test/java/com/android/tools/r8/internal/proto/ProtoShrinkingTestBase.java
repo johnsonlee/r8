@@ -6,9 +6,7 @@ package com.android.tools.r8.internal.proto;
 
 import static com.android.tools.r8.ir.analysis.proto.ProtoUtils.getInfoValueFromMessageInfoConstructionInvoke;
 import static org.hamcrest.CoreMatchers.allOf;
-import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -119,14 +117,15 @@ public abstract class ProtoShrinkingTestBase extends TestBase {
   }
 
   void inspectWarningMessages(R8TestCompileResult compileResult) {
+    if (compileResult.getDiagnosticMessages().getWarnings().isEmpty()) {
+      return;
+    }
     compileResult.assertAllWarningMessagesMatch(
-        anyOf(
-            equalTo("Resource 'META-INF/MANIFEST.MF' already exists."),
-            allOf(
-                startsWith(
-                    "Rule matches the static final field `java.lang.String com.google."
-                        + "protobuf.proto2_registryGeneratedExtensionRegistryLite."
-                        + "CONTAINING_TYPE_"),
-                containsString("`, which may have been inlined: -identifiernamestring"))));
+        allOf(
+            startsWith(
+                "Rule matches the static final field `java.lang.String com.google."
+                    + "protobuf.proto2_registryGeneratedExtensionRegistryLite."
+                    + "CONTAINING_TYPE_"),
+            containsString("`, which may have been inlined: -identifiernamestring")));
   }
 }

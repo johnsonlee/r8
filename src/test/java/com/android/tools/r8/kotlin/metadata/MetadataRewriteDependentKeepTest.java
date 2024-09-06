@@ -45,9 +45,7 @@ public class MetadataRewriteDependentKeepTest extends KotlinMetadataTestBase {
         .setMinApi(parameters)
         .addKeepKotlinMetadata()
         .addKeepRules(StringUtils.joinLines("-if class *.Metadata", "-keep class <1>.io.** { *; }"))
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(this::inspect);
   }
 

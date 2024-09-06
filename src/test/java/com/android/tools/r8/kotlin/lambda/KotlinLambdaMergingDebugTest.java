@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.lambda;
 
-import static org.hamcrest.CoreMatchers.equalTo;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.KotlinTestBase;
@@ -48,8 +47,6 @@ public class KotlinLambdaMergingDebugTest extends KotlinTestBase {
         .addProgramFiles(getJavaJarFile(FOLDER))
         .setMinApi(parameters)
         .addKeepMainRule(MAIN_CLASS)
-        .allowDiagnosticWarningMessages()
-        .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."));
+        .compile();
   }
 }

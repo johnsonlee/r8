@@ -5,7 +5,6 @@ package com.android.tools.r8.naming;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -100,12 +99,9 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
                 "-keepconstantarguments class kotlin.jvm.internal.Intrinsics {",
                 "  *** checkParameterIsNotNull(...);",
                 "}")
-            .allowDiagnosticWarningMessages()
             .enableProguardTestOptions()
             .addDontObfuscateUnless(minification)
-            .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."));
+            .compile();
     CodeInspector codeInspector = result.inspector();
     MethodSubject main = codeInspector.clazz(ex3.getClassName()).mainMethod();
     assertThat(main, isPresent());
@@ -171,11 +167,8 @@ public class KotlinIntrinsicsIdentifierTest extends AbstractR8KotlinNamingTestBa
                     "  *** checkParameterIsNotNull(...);",
                     "}"))
             .addNeverSingleCallerInlineAnnotations()
-            .allowDiagnosticWarningMessages()
             .addDontObfuscateUnless(minification)
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .run(testParameters.getRuntime(), mainClassName);
     CodeInspector codeInspector = result.inspector();
 

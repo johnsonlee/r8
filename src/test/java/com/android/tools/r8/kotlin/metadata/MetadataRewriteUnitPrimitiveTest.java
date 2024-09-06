@@ -94,10 +94,7 @@ public class MetadataRewriteUnitPrimitiveTest extends KotlinMetadataTestBase {
                 ProguardKeepAttributes.INNER_CLASSES,
                 ProguardKeepAttributes.ENCLOSING_METHOD)
             .addKeepKotlinMetadata()
-            .allowDiagnosticWarningMessages()
             .compile()
-            .assertAllWarningMessagesMatch(
-                equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
             .inspect(
                 inspector ->
                     assertEqualMetadata(

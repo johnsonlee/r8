@@ -48,9 +48,7 @@ public class MetadataRewriteDoNotEmitValuesIfEmptyTest extends KotlinMetadataTes
         .setMinApi(parameters)
         .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepKotlinMetadata()
-        .allowDiagnosticWarningMessages()
         .compile()
-        .assertAllWarningMessagesMatch(equalTo("Resource 'META-INF/MANIFEST.MF' already exists."))
         .inspect(this::inspectEmptyValuesAreNotPresent);
   }
 

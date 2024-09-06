@@ -4,12 +4,10 @@
 
 package com.android.tools.r8.maindexlist;
 
-import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.ZIP_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.withNativeFileSeparators;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -399,17 +397,7 @@ public class MainDexTracingTest extends TestBase {
         .addDontShrink()
         .addDontOptimize()
         .setMainDexListConsumer(ToolHelper.consumeString(r8MainDexListOutput::set))
-        .allowDiagnosticMessages()
-        .compileWithExpectedDiagnostics(
-            diagnostics -> {
-              diagnostics.assertNoInfos().assertNoErrors();
-              if (backend == Backend.CF) {
-                diagnostics.assertWarningsMatch(
-                    diagnosticMessage(equalTo("Resource 'META-INF/MANIFEST.MF' already exists.")));
-              } else {
-                diagnostics.assertNoWarnings();
-              }
-            })
+        .compile()
         .writeToZip(out);
 
     List<String> r8MainDexList =
