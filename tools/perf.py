@@ -253,6 +253,11 @@ def main():
                         benchmark_result_json_files[sub_benchmark] = []
                 else:
                     benchmark_result_json_files = []
+
+                # Prepare out dir.
+                temp_benchmark_target = os.path.join(temp, benchmark, target)
+                os.makedirs(temp_benchmark_target)
+
                 failed = False
                 for i in range(options.iterations):
                     utils.Print(
@@ -260,11 +265,11 @@ def main():
                         quiet=options.quiet)
                     if sub_benchmarks_for_target:
                         benchmark_result_file = os.path.join(
-                            temp, f'result_{i}')
+                            temp_benchmark_target, f'result_{i}')
                         os.makedirs(benchmark_result_file)
                     else:
                         benchmark_result_file = os.path.join(
-                            temp, f'result_file_{i}')
+                            temp_benchmark_target, f'result_file_{i}')
                     iteration_cmd = GetRunCmd(benchmark, target, options, [
                         '--iterations',
                         str(options.iterations_inner), '--output',
