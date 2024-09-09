@@ -29,15 +29,10 @@ public class NestInitArgumentContextTest extends TestBase {
   @Parameter(1)
   public boolean intermediate;
 
-  @Parameter(2)
-  public boolean legacyNestDesugaringIAClasses;
-
-  @Parameters(name = "{0}, intermediate = {1}, legacyNestDesugaringIAClasses = {2}")
+  @Parameters(name = "{0}, intermediate = {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimesAndAllApiLevels().build(),
-        BooleanUtils.values(),
-        BooleanUtils.values());
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(), BooleanUtils.values());
   }
 
   @Test
@@ -46,13 +41,11 @@ public class NestInitArgumentContextTest extends TestBase {
         .addProgramClassesAndInnerClasses(NestInitArgumentContextClass.class)
         .setMinApi(parameters)
         .setIntermediate(intermediate)
-        .addOptionsModification(
-            options -> options.legacyNestDesugaringIAClasses = legacyNestDesugaringIAClasses)
         .compile()
         .inspect(
             inspector ->
                 assertEquals(
-                    legacyNestDesugaringIAClasses ? 5 : 1,
+                    1,
                     inspector.allClasses().stream()
                         .map(ClassSubject::getFinalName)
                         .filter(name -> name.endsWith("-IA"))
@@ -76,13 +69,11 @@ public class NestInitArgumentContextTest extends TestBase {
               .addClasspathClasses(innerClasses)
               .setMinApi(parameters)
               .setIntermediate(intermediate)
-              .addOptionsModification(
-                  options -> options.legacyNestDesugaringIAClasses = legacyNestDesugaringIAClasses)
               .compile()
               .inspect(
                   inspector ->
                       assertEquals(
-                          legacyNestDesugaringIAClasses ? 1 : 0,
+                          0,
                           inspector.allClasses().stream()
                               .map(ClassSubject::getFinalName)
                               .filter(name -> name.endsWith("-IA"))
@@ -96,8 +87,6 @@ public class NestInitArgumentContextTest extends TestBase {
             .addClasspathClasses(innerClasses)
             .setMinApi(parameters)
             .setIntermediate(intermediate)
-            .addOptionsModification(
-                options -> options.legacyNestDesugaringIAClasses = legacyNestDesugaringIAClasses)
             .compile()
             .inspect(
                 inspector ->
@@ -113,13 +102,11 @@ public class NestInitArgumentContextTest extends TestBase {
         .addProgramFiles(innerClassesCompiled)
         .addProgramFiles(outerClassCompiled)
         .setMinApi(parameters)
-        .addOptionsModification(
-            options -> options.legacyNestDesugaringIAClasses = legacyNestDesugaringIAClasses)
         .compile()
         .inspect(
             inspector ->
                 assertEquals(
-                    legacyNestDesugaringIAClasses ? 5 : 1,
+                    1,
                     inspector.allClasses().stream()
                         .map(ClassSubject::getFinalName)
                         .filter(name -> name.endsWith("-IA"))
