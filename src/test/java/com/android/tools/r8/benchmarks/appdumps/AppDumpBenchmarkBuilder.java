@@ -18,6 +18,7 @@ import com.android.tools.r8.benchmarks.BenchmarkDependency;
 import com.android.tools.r8.benchmarks.BenchmarkEnvironment;
 import com.android.tools.r8.benchmarks.BenchmarkMethod;
 import com.android.tools.r8.benchmarks.BenchmarkMetric;
+import com.android.tools.r8.benchmarks.BenchmarkResultsSingle;
 import com.android.tools.r8.benchmarks.BenchmarkSuite;
 import com.android.tools.r8.benchmarks.BenchmarkTarget;
 import com.android.tools.r8.dump.CompilerDump;
@@ -26,6 +27,7 @@ import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.file.Files;
@@ -350,6 +352,9 @@ public class AppDumpBenchmarkBuilder {
 
                   // Compile all files to a single DEX file.
                   List<List<Path>> compiledShards = new ArrayList<>();
+                  BenchmarkResultsSingle dexResults =
+                      new BenchmarkResultsSingle(
+                          "tmp", ImmutableSet.of(BenchmarkMetric.RunTimeRaw));
                   for (List<Path> shard : resources.getShards()) {
                     List<Path> compiledShard = new ArrayList<>(shard.size());
                     for (Path programFile : shard) {
@@ -362,12 +367,15 @@ public class AppDumpBenchmarkBuilder {
                           .debug()
                           .setIntermediate(true)
                           .setMinApi(dumpProperties.getMinApi())
-                          .benchmarkCompile(results.getSubResults(builder.nameForDexPart()))
+                          .benchmarkCompile(dexResults)
                           .writeToZip(compiledShard::add);
                     }
                     compiledShards.add(compiledShard);
                   }
-                  results.getSubResults(builder.nameForDexPart()).doAverage();
+                  dexResults.doAverage();
+                  results
+                      .getSubResults(builder.nameForDexPart())
+                      .addRuntimeResult(dexResults.getRuntimeResults().getLong(0));
 
                   // Merge each compiled shard.
                   for (List<Path> compiledShard : compiledShards) {
