@@ -178,9 +178,7 @@ public abstract class KotlinMetadataTestBase extends KotlinTestBase {
   }
 
   protected String unresolvedReferenceMessage(KotlinTestParameters param, String ref) {
-    if (param.isKotlinDev()) {
-      return "unresolved reference 'class " + ref + "'";
-    } else if (param.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_2_0_20)) {
+    if (param.getCompilerVersion().isGreaterThanOrEqualTo(KOTLINC_2_0_20)) {
       return "unresolved reference '" + ref + "'";
     } else {
       return "unresolved reference: " + ref;
