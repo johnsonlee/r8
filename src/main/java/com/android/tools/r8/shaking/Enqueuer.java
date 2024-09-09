@@ -3534,29 +3534,6 @@ public class Enqueuer {
     return liveTypes.contains(clazz);
   }
 
-  public boolean isEffectivelyLive(DexProgramClass clazz) {
-    if (isTypeLive(clazz)) {
-      return true;
-    }
-    if (mode.isInitialTreeShaking()) {
-      return false;
-    }
-    // TODO(b/325014359): Replace this by value tracking in instructions (akin to resource values).
-    for (DexEncodedField field : clazz.fields()) {
-      if (field.getOptimizationInfo().valueHasBeenPropagated()) {
-        return true;
-      }
-    }
-    // TODO(b/325014359): Replace this by value or position tracking.
-    //  We need to be careful not to throw away such values/positions.
-    for (DexEncodedMethod method : clazz.methods()) {
-      if (method.getOptimizationInfo().returnValueHasBeenPropagated()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   public boolean isOriginalReferenceEffectivelyLive(DexReference reference) {
     // The effectively-live original set contains types, fields and methods witnessed by
     // instructions, such as method inlining positions.

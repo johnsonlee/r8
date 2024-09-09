@@ -7,12 +7,16 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -29,6 +33,8 @@ public class IfRuleEvaluatorFactory {
   /** Map of active if rules. This is important for speeding up aapt2 generated keep rules. */
   private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules;
 
+  private final Set<DexProgramClass> effectivelyFakeLiveClasses;
+
   private final TaskCollection<?> tasks;
 
   public IfRuleEvaluatorFactory(
@@ -38,6 +44,7 @@ public class IfRuleEvaluatorFactory {
     this.appView = appView;
     this.enqueuer = enqueuer;
     this.activeIfRules = createActiveIfRules(appView.rootSet().ifRules);
+    this.effectivelyFakeLiveClasses = createEffectivelyFakeLiveClasses(appView, enqueuer);
     this.tasks = new TaskCollection<>(appView.options(), executorService);
   }
 
@@ -58,6 +65,38 @@ public class IfRuleEvaluatorFactory {
     return activeIfRules;
   }
 
+  @SuppressWarnings("MixedMutabilityReturnType")
+  private static Set<DexProgramClass> createEffectivelyFakeLiveClasses(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+    if (enqueuer.getMode().isInitialTreeShaking()) {
+      return Collections.emptySet();
+    }
+    Set<DexProgramClass> effectivelyFakeLiveClasses = Sets.newIdentityHashSet();
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      if (isFakeEffectiveLive(clazz)) {
+        effectivelyFakeLiveClasses.add(clazz);
+      }
+    }
+    return effectivelyFakeLiveClasses;
+  }
+
+  private static boolean isFakeEffectiveLive(DexProgramClass clazz) {
+    // TODO(b/325014359): Replace this by value tracking in instructions (akin to resource values).
+    for (DexEncodedField field : clazz.fields()) {
+      if (field.getOptimizationInfo().valueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    // TODO(b/325014359): Replace this by value or position tracking.
+    //  We need to be careful not to throw away such values/positions.
+    for (DexEncodedMethod method : clazz.methods()) {
+      if (method.getOptimizationInfo().returnValueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public void run(SubtypingInfo subtypingInfo, Timing timing) throws ExecutionException {
     if (activeIfRules.isEmpty()) {
       return;
@@ -66,7 +105,9 @@ public class IfRuleEvaluatorFactory {
         ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
     IfRuleEvaluator evaluator =
         new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
-    timing.time("Find consequent items for -if rules...", () -> evaluator.run(activeIfRules));
+    timing.time(
+        "Find consequent items for -if rules...",
+        () -> evaluator.run(activeIfRules, effectivelyFakeLiveClasses));
     enqueuer.addConsequentRootSet(consequentRootSetBuilder.buildConsequentRootSet());
   }
 }
