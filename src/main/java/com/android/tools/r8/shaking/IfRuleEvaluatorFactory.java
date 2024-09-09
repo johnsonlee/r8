@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
@@ -25,15 +26,16 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-public class IfRuleEvaluatorFactory {
+public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
-  private final Enqueuer enqueuer;
 
   /** Map of active if rules. This is important for speeding up aapt2 generated keep rules. */
   private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules;
 
   private final Set<DexProgramClass> effectivelyFakeLiveClasses;
+  private final Set<DexProgramClass> newlyLiveClasses = Sets.newIdentityHashSet();
+  private long previousNumberOfLiveItems = 0;
 
   private final TaskCollection<?> tasks;
 
@@ -42,10 +44,19 @@ public class IfRuleEvaluatorFactory {
       Enqueuer enqueuer,
       ExecutorService executorService) {
     this.appView = appView;
-    this.enqueuer = enqueuer;
     this.activeIfRules = createActiveIfRules(appView.rootSet().ifRules);
     this.effectivelyFakeLiveClasses = createEffectivelyFakeLiveClasses(appView, enqueuer);
     this.tasks = new TaskCollection<>(appView.options(), executorService);
+  }
+
+  public static void register(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Enqueuer enqueuer,
+      ExecutorService executorService) {
+    Set<ProguardIfRule> ifRules = appView.rootSet().ifRules;
+    if (ifRules != null && !ifRules.isEmpty()) {
+      enqueuer.registerAnalysis(new IfRuleEvaluatorFactory(appView, enqueuer, executorService));
+    }
   }
 
   @SuppressWarnings("MixedMutabilityReturnType")
@@ -97,10 +108,19 @@ public class IfRuleEvaluatorFactory {
     return false;
   }
 
-  public void run(SubtypingInfo subtypingInfo, Timing timing) throws ExecutionException {
+  @Override
+  public void notifyFixpoint(
+      Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
+      throws ExecutionException {
+    // TODO(b/206086945): Leverage newlyLiveClasses.
     if (activeIfRules.isEmpty()) {
       return;
     }
+    long numberOfLiveItems = enqueuer.getNumberOfLiveItems();
+    if (numberOfLiveItems == previousNumberOfLiveItems) {
+      return;
+    }
+    SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
     ConsequentRootSetBuilder consequentRootSetBuilder =
         ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
     IfRuleEvaluator evaluator =
@@ -109,5 +129,14 @@ public class IfRuleEvaluatorFactory {
         "Find consequent items for -if rules...",
         () -> evaluator.run(activeIfRules, effectivelyFakeLiveClasses));
     enqueuer.addConsequentRootSet(consequentRootSetBuilder.buildConsequentRootSet());
+    previousNumberOfLiveItems = numberOfLiveItems;
+  }
+
+  @Override
+  public void processNewlyLiveClass(DexProgramClass clazz, EnqueuerWorklist worklist) {
+    if (effectivelyFakeLiveClasses.contains(clazz)) {
+      return;
+    }
+    newlyLiveClasses.add(clazz);
   }
 }
