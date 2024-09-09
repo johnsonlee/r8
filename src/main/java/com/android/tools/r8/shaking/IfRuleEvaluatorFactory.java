@@ -40,6 +40,7 @@ public class IfRuleEvaluatorFactory {
     this.tasks = new TaskCollection<>(appView.options(), executorService);
   }
 
+  @SuppressWarnings("MixedMutabilityReturnType")
   private static Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> createActiveIfRules(
       Set<ProguardIfRule> ifRules) {
     if (ifRules == null || ifRules.isEmpty()) {
