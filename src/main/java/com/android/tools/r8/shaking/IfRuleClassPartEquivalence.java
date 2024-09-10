@@ -5,7 +5,6 @@
 package com.android.tools.r8.shaking;
 
 import com.google.common.base.Equivalence;
-import com.google.common.collect.Iterables;
 import java.util.Objects;
 
 public class IfRuleClassPartEquivalence extends Equivalence<ProguardIfRule> {
@@ -53,7 +52,6 @@ public class IfRuleClassPartEquivalence extends Equivalence<ProguardIfRule> {
                 ? rule.getInheritanceClassName().hashCode()
                 : 0);
     result = 3 * result + (rule.getInheritanceIsImplements() ? 1 : 0);
-    result = 3 * result + Iterables.size(rule.subsequentRule.getWildcards());
     return result;
   }
 }
