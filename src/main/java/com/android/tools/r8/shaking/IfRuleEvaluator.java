@@ -92,23 +92,27 @@ public class IfRuleEvaluator {
   }
 
   public void processActiveIfRulesWithoutMembers(
-      Set<ProguardIfRule> ifRules, Iterable<DexProgramClass> newlyLiveClasses)
+      Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
+      Iterable<DexProgramClass> newlyLiveClasses)
       throws ExecutionException {
-    ifRules.removeIf(
-        ifRule -> {
+    MapUtils.removeIf(
+        ifRules,
+        (ifRuleWrapper, ifRulesInEquivalence) -> {
           // Depending on which types that trigger the -if rule, the application of the subsequent
           // -keep rule may vary (due to back references). So, we need to try all pairs of -if
           // rule and live types.
+          ProguardIfRule ifRuleKey = ifRuleWrapper.get();
           for (DexProgramClass clazz : newlyLiveClasses) {
-            if (evaluateClassForIfRule(ifRule, clazz)) {
-              registerClassCapture(ifRule, clazz, clazz);
-              uncheckedMaterializeIfRule(ifRule, clazz);
-              if (canRemoveSubsequentKeepRule(ifRule)) {
-                return true;
-              }
+            if (evaluateClassForIfRule(ifRuleKey, clazz)) {
+              ifRulesInEquivalence.removeIf(
+                  ifRule -> {
+                    registerClassCapture(ifRule, clazz, clazz);
+                    uncheckedMaterializeIfRule(ifRule, clazz);
+                    return canRemoveSubsequentKeepRule(ifRule);
+                  });
             }
           }
-          return false;
+          return ifRulesInEquivalence.isEmpty();
         });
     tasks.await();
   }
@@ -199,11 +203,7 @@ public class IfRuleEvaluator {
       throws ExecutionException {
     incrementNumberOfProguardIfRuleMemberEvaluations();
     Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
-    if (memberKeepRules.isEmpty()) {
-      materializeIfRule(rule, clazz);
-      matchedConsumer.accept(rule);
-      return;
-    }
+    assert !memberKeepRules.isEmpty();
 
     List<DexClassAndField> fieldsInlinedByJavaC = new ArrayList<>();
     Set<DexDefinition> filteredMembers = Sets.newIdentityHashSet();
