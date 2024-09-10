@@ -6,6 +6,8 @@ package com.android.tools.r8.dexsplitter;
 
 import static com.android.tools.r8.optimize.serviceloader.ServiceLoaderTestBase.getServiceLoaderLoads;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.Assert.assertEquals;
@@ -17,6 +19,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -130,8 +133,19 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
     if (parameters.getRuntime().isDex()
         && parameters.getRuntime().asDex().getVm().getVersion() == Version.V7_0_0) {
       runResult.assertFailureWithErrorThatMatches(containsString("ServiceConfigurationError"));
+    } else if (parameters.getRuntime().isDex()
+        && parameters
+            .getRuntime()
+            .asDex()
+            .getMinApiLevel()
+            .isLessThanOrEqualTo(AndroidApiLevel.M)) {
+      // The resolution order is non-deterministic before N.
+      runResult.assertSuccessWithOutputThatMatches(
+          anyOf(
+              equalTo("Feature2I.foo()\nFeature1I.foo()\n"),
+              equalTo("Feature1I.foo()\nFeature2I.foo()\n")));
     } else {
-      runResult.assertSuccessWithOutputLines("Feature1I.foo()", "Feature2I.foo()");
+      runResult.assertSuccessWithOutput("Feature1I.foo()\nFeature2I.foo()\n");
     }
   }
 
