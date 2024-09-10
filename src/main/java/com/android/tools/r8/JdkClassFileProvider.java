@@ -114,8 +114,9 @@ public class JdkClassFileProvider implements ClassFileResourceProvider, Closeabl
     Path jrtFsJar = home.resolve("lib").resolve("jrt-fs.jar");
     assert Files.exists(jrtFsJar);
     jrtFsJarLoader = new URLClassLoader(new URL[] {jrtFsJar.toUri().toURL()});
-    FileSystem jrtFs =
-        FileSystems.newFileSystem(URI.create("jrt:/"), Collections.emptyMap(), jrtFsJarLoader);
+    Map<String, String> env = new HashMap<>();
+    env.put("java.home", home.toString());
+    FileSystem jrtFs = FileSystems.newFileSystem(URI.create("jrt:/"), env, jrtFsJarLoader);
     collectDescriptors(jrtFs);
   }
 

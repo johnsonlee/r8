@@ -2,12 +2,14 @@ package com.android.tools.r8;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.TestRuntime.CfVm;
+import com.android.tools.r8.cf.CfVersion;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
@@ -57,6 +59,9 @@ public class JdkClassFileProviderTest extends TestBase implements Opcodes {
     if (getRuntime().isNewerThanOrEqual(CfVm.JDK9)) {
       assertJavaUtilConcurrentFlowSubscriber(provider);
     }
+    CfVersion version = extractClassFileVersion(readJavaLangObject(provider));
+    assertEquals(
+        CfVersion.fromRaw(parameters.getRuntime().asCf().getVm().getClassfileVersion()), version);
     ((AutoCloseable) provider).close();
   }
 
@@ -89,6 +94,21 @@ public class JdkClassFileProviderTest extends TestBase implements Opcodes {
         JdkClassFileProvider.fromSystemModulesJdk(getRuntime().getJavaHome());
     assertJavaLangObject(provider);
     assertJavaUtilConcurrentFlowSubscriber(provider);
+    CfVersion version = extractClassFileVersion(readJavaLangObject(provider));
+    assertEquals(
+        CfVersion.fromRaw(parameters.getRuntime().asCf().getVm().getClassfileVersion()), version);
+    assert provider instanceof AutoCloseable;
+    ((AutoCloseable) provider).close();
+  }
+
+  @Test
+  public void testFromSystemJdk() throws Exception {
+    ClassFileResourceProvider provider = JdkClassFileProvider.fromSystemJdk();
+    assertJavaLangObject(provider);
+    assertJavaUtilConcurrentFlowSubscriber(provider);
+    CfVersion version = extractClassFileVersion(readJavaLangObject(provider));
+    // When not passing an explicit JAVA_HOME the underlying test runner JDK is used.
+    assertEquals(CfVersion.V11, version);
     assert provider instanceof AutoCloseable;
     ((AutoCloseable) provider).close();
   }
@@ -99,6 +119,12 @@ public class JdkClassFileProviderTest extends TestBase implements Opcodes {
         ByteStreams.toByteArray(provider.getProgramResource("Ljava/lang/Object;").getByteStream())
                 .length
             > 0);
+  }
+
+  private byte[] readJavaLangObject(ClassFileResourceProvider provider) throws Exception {
+    assertJavaLangObject(provider);
+    return ByteStreams.toByteArray(
+        provider.getProgramResource("Ljava/lang/Object;").getByteStream());
   }
 
   private void assertJavaUtilConcurrentFlowSubscriber(ClassFileResourceProvider provider)
