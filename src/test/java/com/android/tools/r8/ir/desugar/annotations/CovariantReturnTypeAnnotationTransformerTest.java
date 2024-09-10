@@ -4,14 +4,21 @@
 
 package com.android.tools.r8.ir.desugar.annotations;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static junit.framework.TestCase.assertTrue;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.AsmTestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -19,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,7 +40,6 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
   public static final String CRTS_INNER_NAME = "CovariantReturnTypes";
   public static final String CRTS_BINARY_NAME = CRT_BINARY_NAME + "$" + CRTS_INNER_NAME;
 
-  public static final String CRT_TYPE_NAME = CRT_BINARY_NAME.replace('/', '.');
   public static final String CRTS_TYPE_NAME = CRT_BINARY_NAME.replace('/', '.');
 
   @Parameter(0)
@@ -100,7 +105,8 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
     checkPresenceOfCovariantAnnotations(input, true);
 
     // Version 2 of the library should always work.
-    succeedsIndependentOfFlag(input, true);
+    succeedsWithOption(input, true, true);
+    failsCompilationByDefault(input);
   }
 
   @Test
@@ -124,7 +130,7 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
 
     // If CovariantReturnType annotations are ignored, then there will be no methods with the
     // signatures "L.../B;->method()L.../B;" and "L.../C;->method()L.../C;".
-    failsWithOption(input, false);
+    failsCompilationByDefault(input);
   }
 
   @Test
@@ -218,7 +224,24 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
         .assertSuccessWithOutput(getExpectedOutput());
   }
 
-  private void failsWithOption(List<byte[]> input, boolean option) throws Exception {
+  private void failsCompilationByDefault(List<byte[]> input) throws Exception {
+    assertFailsCompilation(
+        () ->
+            testForD8(parameters.getBackend())
+                .addProgramClassFileData(input)
+                .setMinApi(parameters)
+                .compileWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics.assertErrorThatMatches(
+                            allOf(
+                                diagnosticType(StringDiagnostic.class),
+                                diagnosticMessage(
+                                    equalTo(
+                                        "Unexpected @CovariantReturnType annotation in non-platform"
+                                            + " build"))))));
+  }
+
+  private void failsRuntimeWithOption(List<byte[]> input, boolean option) throws Exception {
     testForD8(parameters.getBackend())
         .addProgramClassFileData(input)
         .addOptionsModification(options -> options.processCovariantReturnTypeAnnotations = option)
@@ -236,8 +259,8 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
   }
 
   private void failsIndependentOfFlag(List<byte[]> input) throws Exception {
-    failsWithOption(input, true);
-    failsWithOption(input, false);
+    failsRuntimeWithOption(input, true);
+    failsRuntimeWithOption(input, false);
   }
 
   private void checkPresenceOfCovariantAnnotations(List<byte[]> input, boolean expected)
@@ -271,34 +294,34 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
     MethodSubject methodA =
         clazzA.method(A.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodA, isPresent());
-    Assert.assertTrue(!methodA.getMethod().isSyntheticMethod());
+    assertTrue(!methodA.getMethod().isSyntheticMethod());
 
     MethodSubject methodB =
         clazzB.method(A.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodB, isPresent());
-    Assert.assertTrue(!methodB.getMethod().isSyntheticMethod());
+    assertTrue(!methodB.getMethod().isSyntheticMethod());
 
     MethodSubject methodC =
         clazzC.method(A.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodC, isPresent());
-    Assert.assertTrue(!methodC.getMethod().isSyntheticMethod());
+    assertTrue(!methodC.getMethod().isSyntheticMethod());
 
     // Check that a synthetic method has been added to class B.
     MethodSubject methodB2 =
         clazzB.method(B.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodB2, isPresent());
-    Assert.assertTrue(methodB2.getMethod().isSyntheticMethod());
+    assertTrue(methodB2.getMethod().isSyntheticMethod());
 
     // Check that two synthetic methods have been added to class C.
     MethodSubject methodC2 =
         clazzC.method(B.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodC2, isPresent());
-    Assert.assertTrue(methodC2.getMethod().isSyntheticMethod());
+    assertTrue(methodC2.getMethod().isSyntheticMethod());
 
     MethodSubject methodC3 =
         clazzC.method(C.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodC3, isPresent());
-    Assert.assertTrue(methodC3.getMethod().isSyntheticMethod());
+    assertTrue(methodC3.getMethod().isSyntheticMethod());
 
     // Get classes D, E, and F.
     ClassSubject clazzD = inspector.clazz(D.class.getCanonicalName());
@@ -314,34 +337,34 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
     MethodSubject methodD =
         clazzD.method(D.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodD, isPresent());
-    Assert.assertTrue(!methodD.getMethod().isSyntheticMethod());
+    assertTrue(!methodD.getMethod().isSyntheticMethod());
 
     MethodSubject methodE =
         clazzE.method(D.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodE, isPresent());
-    Assert.assertTrue(!methodE.getMethod().isSyntheticMethod());
+    assertTrue(!methodE.getMethod().isSyntheticMethod());
 
     MethodSubject methodF =
         clazzF.method(D.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodF, isPresent());
-    Assert.assertTrue(!methodF.getMethod().isSyntheticMethod());
+    assertTrue(!methodF.getMethod().isSyntheticMethod());
 
     // Check that a synthetic method has been added to class E.
     MethodSubject methodE2 =
         clazzE.method(E.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodE2, isPresent());
-    Assert.assertTrue(methodE2.getMethod().isSyntheticMethod());
+    assertTrue(methodE2.getMethod().isSyntheticMethod());
 
     // Check that two synthetic methods have been added to class F.
     MethodSubject methodF2 =
         clazzF.method(E.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodF2, isPresent());
-    Assert.assertTrue(methodF2.getMethod().isSyntheticMethod());
+    assertTrue(methodF2.getMethod().isSyntheticMethod());
 
     MethodSubject methodF3 =
         clazzF.method(F.class.getCanonicalName(), "method", Collections.emptyList());
     assertThat(methodF3, isPresent());
-    Assert.assertTrue(methodF3.getMethod().isSyntheticMethod());
+    assertTrue(methodF3.getMethod().isSyntheticMethod());
   }
 
   private String getExpectedOutput() {

@@ -6,7 +6,6 @@ package com.android.tools.r8.kotlin.lambda;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_9_21;
 import static junit.framework.TestCase.assertEquals;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
