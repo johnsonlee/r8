@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -82,7 +83,9 @@ public abstract class ProguardClassNameList {
   @Override
   public abstract int hashCode();
 
-  public abstract List<DexType> asSpecificDexTypes();
+  public abstract boolean hasSpecificTypes();
+
+  public abstract List<DexType> getSpecificTypes();
 
   public abstract boolean matches(DexType type);
 
@@ -154,7 +157,12 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
-    public List<DexType> asSpecificDexTypes() {
+    public boolean hasSpecificTypes() {
+      return false;
+    }
+
+    @Override
+    public List<DexType> getSpecificTypes() {
       return null;
     }
 
@@ -211,9 +219,15 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
-    public List<DexType> asSpecificDexTypes() {
-      DexType specific = className.getSpecificType();
-      return specific == null ? null : Collections.singletonList(specific);
+    public boolean hasSpecificTypes() {
+      return className.hasSpecificType();
+    }
+
+    @Override
+    public List<DexType> getSpecificTypes() {
+      return className.hasSpecificType()
+          ? Collections.singletonList(className.getSpecificType())
+          : null;
     }
 
     @Override
@@ -246,6 +260,8 @@ public abstract class ProguardClassNameList {
   private static class PositiveClassNameList extends ProguardClassNameList {
 
     private final ImmutableList<ProguardTypeMatcher> classNames;
+
+    private List<DexType> specificTypes;
 
     private PositiveClassNameList(Collection<ProguardTypeMatcher> classNames) {
       this.classNames = ImmutableList.copyOf(classNames);
@@ -287,13 +303,21 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
-    public List<DexType> asSpecificDexTypes() {
-      if (classNames.stream().allMatch(k -> k.getSpecificType() != null)) {
-        return classNames.stream().map(ProguardTypeMatcher::getSpecificType)
-            .collect(Collectors.toList());
-      }
-      return null;
+    public boolean hasSpecificTypes() {
+      return getSpecificTypes() != null;
     }
+
+    @Override
+    public List<DexType> getSpecificTypes() {
+      if (specificTypes == null) {
+        specificTypes =
+            classNames.stream().allMatch(ProguardTypeMatcher::hasSpecificType)
+                ? ListUtils.map(classNames, ProguardTypeMatcher::getSpecificType)
+                : Collections.emptyList();
+      }
+      return specificTypes.isEmpty() ? null : specificTypes;
+    }
+
 
     @Override
     public boolean matches(DexType type) {
@@ -377,7 +401,12 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
-    public List<DexType> asSpecificDexTypes() {
+    public boolean hasSpecificTypes() {
+      return false;
+    }
+
+    @Override
+    public List<DexType> getSpecificTypes() {
       return null;
     }
 

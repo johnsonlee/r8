@@ -61,7 +61,7 @@ public class ApiModelAnalysis extends EnqueuerAnalysis {
   }
 
   @Override
-  public void notifyMarkMethodAsTargeted(ProgramMethod method, EnqueuerWorklist worklist) {
+  public void processNewlyTargetedMethod(ProgramMethod method, EnqueuerWorklist worklist) {
     computeAndSetApiLevelForDefinition(method);
   }
 
