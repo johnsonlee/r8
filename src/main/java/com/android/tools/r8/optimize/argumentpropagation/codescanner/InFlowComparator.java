@@ -23,7 +23,8 @@ public class InFlowComparator implements Comparator<InFlow> {
 
   public SourcePosition getComputationTreePosition(ComputationTreeNode computation) {
     SourcePosition position = computationTreePositions.get(computation);
-    assert position != null;
+    assert position != null
+        : "Unexpected attempt to lookup position of " + computation.getClass().getName();
     return position;
   }
 
