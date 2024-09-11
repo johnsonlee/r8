@@ -7,6 +7,7 @@ package com.android.tools.r8.synthesis.globals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;

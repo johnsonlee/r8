@@ -2,9 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
-
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -17,24 +17,19 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import records.differentpackage.PrivateConstClass;
 
 @RunWith(Parameterized.class)
 public class RecordWithNonMaterializableConstClassTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordWithConstClass";
   private static final String PRIVATE_CLASS_NAME =
       "records.differentpackage.PrivateConstClass$PrivateClass";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final byte[][] EXTRA_DATA =
-      RecordTestUtils.getProgramData("differentpackage/PrivateConstClass");
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
+  private static final Class<?> EXTRA_DATA = PrivateConstClass.class;
   private static final String EXPECTED_RESULT_FORMAT =
       StringUtils.lines("%s[%s=class " + PRIVATE_CLASS_NAME + "]");
   private static final String EXPECTED_RESULT_D8 =
       String.format(EXPECTED_RESULT_FORMAT, "MyRecordWithConstClass", "theClass");
   private static final String EXPECTED_RESULT_R8 = String.format(EXPECTED_RESULT_FORMAT, "a", "a");
-  private static final String EXPECTED_RESULT_R8_ART14 =
-      String.format(EXPECTED_RESULT_FORMAT, "a", "theClass");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -52,20 +47,22 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .addProgramClassFileData(EXTRA_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addProgramClasses(EXTRA_DATA)
+        .addInnerClasses(EXTRA_DATA)
+        .run(parameters.getRuntime(), RecordWithConstClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
   }
 
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
-        .addProgramClassFileData(EXTRA_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addProgramClasses(EXTRA_DATA)
+        .addInnerClasses(EXTRA_DATA)
         .setMinApi(parameters)
         .compile()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordWithConstClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
   }
 
@@ -73,12 +70,13 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
-        .addProgramClassFileData(EXTRA_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addProgramClasses(EXTRA_DATA)
+        .addInnerClasses(EXTRA_DATA)
         .apply(this::configureR8)
         .setMinApi(parameters)
         .compile()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordWithConstClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_R8);
   }
 
@@ -87,9 +85,10 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
     parameters.assumeR8TestParameters();
     Path desugared =
         testForR8(Backend.CF)
-            .addProgramClassFileData(PROGRAM_DATA)
-            .addProgramClassFileData(EXTRA_DATA)
-            .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+            .addInnerClassesAndStrippedOuter(getClass())
+            .addProgramClasses(EXTRA_DATA)
+            .addInnerClasses(EXTRA_DATA)
+            .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
             .apply(this::configureR8)
             .compile()
             .writeToZip();
@@ -100,16 +99,27 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
         .apply(this::configureR8)
         .setMinApi(parameters)
         .compile()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordWithConstClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_R8);
   }
 
   private void configureR8(R8FullTestBuilder testBuilder) {
     testBuilder
-        .addKeepMainRule(MAIN_TYPE)
+        .addKeepMainRule(RecordWithConstClass.class)
         .addKeepRules("-keep class " + PRIVATE_CLASS_NAME)
         .applyIf(
             parameters.isCfRuntime(),
-            b -> b.addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp)));
+            b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()));
+  }
+
+  record MyRecordWithConstClass(Class<?> theClass) {}
+
+  public static class RecordWithConstClass {
+
+    public static void main(String[] args) {
+      MyRecordWithConstClass inst =
+          new MyRecordWithConstClass(PrivateConstClass.getPrivateConstClass());
+      System.out.println(inst);
+    }
   }
 }

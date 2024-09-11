@@ -1,17 +1,13 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.synthesis.globals;
+package com.android.tools.r8;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.DiagnosticsHandler;
-import com.android.tools.r8.GlobalSyntheticsConsumer;
-import com.android.tools.r8.GlobalSyntheticsResourceProvider;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
 import java.io.ByteArrayInputStream;

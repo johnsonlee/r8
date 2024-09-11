@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
@@ -14,13 +14,13 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
+import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
-import com.android.tools.r8.synthesis.globals.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
@@ -32,29 +32,12 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RecordMergeTest extends TestBase {
 
-  private static final String RECORD_NAME_1 = "RecordWithMembers";
-  private static final byte[][] PROGRAM_DATA_1 = RecordTestUtils.getProgramData(RECORD_NAME_1);
-  private static final String MAIN_TYPE_1 = RecordTestUtils.getMainType(RECORD_NAME_1);
   private static final String EXPECTED_RESULT_1 =
-      StringUtils.lines(
-          "BobX", "43", "BobX", "43", "FelixX", "-1", "FelixX", "-1", "print", "Bob43", "extra");
+      StringUtils.lines("BobX", "43", "FelixX", "-1", "print", "Bob43", "extra");
 
-  private static final String RECORD_NAME_2 = "SimpleRecord";
-  private static final byte[][] PROGRAM_DATA_2 = RecordTestUtils.getProgramData(RECORD_NAME_2);
-  private static final String MAIN_TYPE_2 = RecordTestUtils.getMainType(RECORD_NAME_2);
   private static final String EXPECTED_RESULT_2 =
       StringUtils.lines(
-          "Jane Doe",
-          "42",
-          "Jane Doe",
-          "42",
-          "true",
-          "true",
-          "true",
-          "false",
-          "false",
-          "false",
-          "false");
+          "Jane Doe", "42", "true", "true", "true", "false", "false", "false", "false");
 
   private final TestParameters parameters;
 
@@ -71,7 +54,9 @@ public class RecordMergeTest extends TestBase {
   public void testNoGlobalSyntheticsConsumer() throws Exception {
     D8TestBuilder builder =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA_1)
+            .addStrippedOuter(getClass())
+            .addProgramClassesAndInnerClasses(RecordWithMembers.class)
+            .addClasspathClassesAndInnerClasses(SimpleRecord.class)
             .setMinApi(parameters)
             .setIntermediate(true);
     if (isRecordsFullyDesugaredForD8(parameters)) {
@@ -104,7 +89,9 @@ public class RecordMergeTest extends TestBase {
     GlobalSyntheticsTestingConsumer globals1 = new GlobalSyntheticsTestingConsumer();
     Path output1 =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA_1)
+            .addStrippedOuter(getClass())
+            .addProgramClassesAndInnerClasses(RecordWithMembers.class)
+            .addClasspathClassesAndInnerClasses(SimpleRecord.class)
             .setMinApi(parameters)
             .setIntermediate(true)
             .applyIf(
@@ -118,7 +105,8 @@ public class RecordMergeTest extends TestBase {
     GlobalSyntheticsTestingConsumer globals2 = new GlobalSyntheticsTestingConsumer();
     Path output2 =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA_2)
+            .addProgramClassesAndInnerClasses(SimpleRecord.class)
+            .addClasspathClassesAndInnerClasses(getClass())
             .setMinApi(parameters)
             .setIntermediate(true)
             .applyIf(
@@ -145,14 +133,14 @@ public class RecordMergeTest extends TestBase {
             .inspect(this::assertHasRecordTag);
 
     result
-        .run(parameters.getRuntime(), MAIN_TYPE_1)
+        .run(parameters.getRuntime(), RecordWithMembers.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT_1),
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
     result
-        .run(parameters.getRuntime(), MAIN_TYPE_2)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
@@ -165,7 +153,9 @@ public class RecordMergeTest extends TestBase {
     GlobalSyntheticsTestingConsumer globals1 = new GlobalSyntheticsTestingConsumer();
     Path output1 =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA_1)
+            .addProgramClassesAndInnerClasses(RecordWithMembers.class)
+            .addClasspathClasses(getClass())
+            .addClasspathClassesAndInnerClasses(SimpleRecord.class)
             .setMinApi(parameters)
             .setIntermediate(true)
             .apply(b -> b.getBuilder().setGlobalSyntheticsConsumer(globals1))
@@ -174,21 +164,23 @@ public class RecordMergeTest extends TestBase {
 
     D8TestCompileResult result =
         testForD8(parameters.getBackend())
+            .addStrippedOuter(getClass())
             .addProgramFiles(output1)
             .apply(
                 b -> b.getBuilder().addGlobalSyntheticsResourceProviders(globals1.getProviders()))
-            .addProgramClassFileData(PROGRAM_DATA_2)
+            .addProgramClassesAndInnerClasses(SimpleRecord.class)
+            .addClasspathClassesAndInnerClasses(getClass())
             .setMinApi(parameters)
             .compile();
     result
-        .run(parameters.getRuntime(), MAIN_TYPE_1)
+        .run(parameters.getRuntime(), RecordWithMembers.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT_1),
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
     result
-        .run(parameters.getRuntime(), MAIN_TYPE_2)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
@@ -200,7 +192,9 @@ public class RecordMergeTest extends TestBase {
   public void testMergeNonIntermediates() throws Exception {
     Path output1 =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA_1)
+            .addStrippedOuter(getClass())
+            .addProgramClassesAndInnerClasses(RecordWithMembers.class)
+            .addClasspathClassesAndInnerClasses(SimpleRecord.class)
             .setMinApi(parameters)
             .compile()
             .inspect(this::assertHasRecordTag)
@@ -208,7 +202,8 @@ public class RecordMergeTest extends TestBase {
 
     Path output2 =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA_2)
+            .addProgramClassesAndInnerClasses(SimpleRecord.class)
+            .addClasspathClassesAndInnerClasses(getClass())
             .setMinApi(parameters)
             .compile()
             .inspect(this::assertHasRecordTag)
@@ -221,14 +216,14 @@ public class RecordMergeTest extends TestBase {
               .setMinApi(parameters)
               .compile();
       result
-          .run(parameters.getRuntime(), MAIN_TYPE_1)
+          .run(parameters.getRuntime(), RecordWithMembers.class)
           .applyIf(
               isRecordsFullyDesugaredForD8(parameters)
                   || runtimeWithRecordsSupport(parameters.getRuntime()),
               r -> r.assertSuccessWithOutput(EXPECTED_RESULT_1),
               r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
       result
-          .run(parameters.getRuntime(), MAIN_TYPE_2)
+          .run(parameters.getRuntime(), SimpleRecord.class)
           .applyIf(
               isRecordsFullyDesugaredForD8(parameters)
                   || runtimeWithRecordsSupport(parameters.getRuntime()),
@@ -258,5 +253,90 @@ public class RecordMergeTest extends TestBase {
   private void assertDoesNotHaveRecordTag(CodeInspector inspector) {
     // Note: this should be asserting on record tag.
     assertThat(inspector.clazz("java.lang.Record"), isAbsent());
+  }
+
+  public class RecordWithMembers {
+    record PersonWithConstructors(String name, int age) {
+
+      public PersonWithConstructors(String name, int age) {
+        this.name = name + "X";
+        this.age = age;
+      }
+
+      public PersonWithConstructors(String name) {
+        this(name, -1);
+      }
+    }
+
+    record PersonWithMethods(String name, int age) {
+      public static void staticPrint() {
+        System.out.println("print");
+      }
+
+      @Override
+      public String toString() {
+        return name + age;
+      }
+    }
+
+    record PersonWithFields(String name, int age) {
+
+      // Extra instance fields are not allowed on records.
+      public static String globalName;
+    }
+
+    public static void main(String[] args) {
+      personWithConstructorTest();
+      personWithMethodsTest();
+      personWithFieldsTest();
+    }
+
+    private static void personWithConstructorTest() {
+      PersonWithConstructors bob = new PersonWithConstructors("Bob", 43);
+      System.out.println(bob.name());
+      System.out.println(bob.age());
+      PersonWithConstructors felix = new PersonWithConstructors("Felix");
+      System.out.println(felix.name());
+      System.out.println(felix.age());
+    }
+
+    private static void personWithMethodsTest() {
+      PersonWithMethods.staticPrint();
+      PersonWithMethods bob = new PersonWithMethods("Bob", 43);
+      System.out.println(bob.toString());
+    }
+
+    private static void personWithFieldsTest() {
+      PersonWithFields.globalName = "extra";
+      System.out.println(PersonWithFields.globalName);
+    }
+  }
+
+  public class SimpleRecord {
+
+    record Person(String name, int age) {}
+
+    public static void main(String[] args) {
+      Person janeDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.name());
+      System.out.println(janeDoe.age());
+
+      // Test equals with self.
+      System.out.println(janeDoe.equals(janeDoe));
+
+      // Test equals with structurally equals Person.
+      Person otherJaneDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.equals(otherJaneDoe));
+      System.out.println(otherJaneDoe.equals(janeDoe));
+
+      // Test equals with not-structually equals Person.
+      Person johnDoe = new Person("John Doe", 42);
+      System.out.println(janeDoe.equals(johnDoe));
+      System.out.println(johnDoe.equals(janeDoe));
+
+      // Test equals with Object and null.
+      System.out.println(janeDoe.equals(new Object()));
+      System.out.println(janeDoe.equals(null));
+    }
   }
 }

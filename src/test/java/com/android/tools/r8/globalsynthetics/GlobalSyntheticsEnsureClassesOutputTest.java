@@ -9,10 +9,10 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.GlobalSyntheticsGenerator;
 import com.android.tools.r8.GlobalSyntheticsGeneratorCommand;
+import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.synthesis.globals.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;

@@ -17,6 +17,8 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -209,6 +211,21 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     } else {
       addDefaultRuntimeLibrary(parameters);
     }
+    return self();
+  }
+
+  public T addClasspathClassesAndInnerClasses(Class<?> clazz)
+      throws InvocationTargetException, IllegalAccessException {
+    Method getNestMembers;
+    try {
+      getNestMembers = Class.class.getDeclaredMethod("getNestMembers");
+    } catch (NoSuchMethodException e) {
+      throw new RuntimeException("Can only use this method from Java 11 and above.");
+    }
+    Class<?>[] nestMembers = (Class<?>[]) getNestMembers.invoke(clazz);
+    Arrays.stream(nestMembers)
+        .filter(c -> c.toString().startsWith(clazz.toString()))
+        .forEach(this::addClasspathClasses);
     return self();
   }
 

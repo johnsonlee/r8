@@ -2,21 +2,27 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.synthesis.globals.GlobalSyntheticsTestingConsumer;
+import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.transformers.ClassFileTransformer.FieldPredicate;
+import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import org.junit.Assume;
 import org.junit.Test;
@@ -30,8 +36,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RecordClasspathTest extends TestBase {
 
-  private static final String RECORD_NAME_1 = "RecordWithMembers";
-  private static final byte[][] PROGRAM_DATA_1 = RecordTestUtils.getProgramData(RECORD_NAME_1);
   private static final String EXPECTED_RESULT = StringUtils.lines("Hello");
 
   private final TestParameters parameters;
@@ -53,8 +57,19 @@ public class RecordClasspathTest extends TestBase {
         BooleanUtils.values());
   }
 
-  private byte[][] getClasspathData() {
-    return stripClasspath ? stripFields(PROGRAM_DATA_1) : PROGRAM_DATA_1;
+  private byte[][] getClasspathData() throws IOException {
+    byte[][] programData =
+        ToolHelper.getClassFilesForInnerClasses(getClass()).stream()
+            .map(
+                c -> {
+                  try {
+                    return Files.readAllBytes(c);
+                  } catch (IOException e) {
+                    throw new RuntimeException(e);
+                  }
+                })
+            .toArray(byte[][]::new);
+    return stripClasspath ? stripFields(programData) : programData;
   }
 
   private byte[][] stripFields(byte[][] programData1) {
@@ -80,6 +95,7 @@ public class RecordClasspathTest extends TestBase {
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
         .addProgramClasses(TestClass.class)
+        .addClasspathClasses(getClass())
         .addClasspathClassFileData(getClasspathData())
         .setMinApi(parameters)
         .compile()
@@ -94,6 +110,7 @@ public class RecordClasspathTest extends TestBase {
     Assume.assumeFalse(parameters.isCfRuntime());
     testForD8(parameters.getBackend())
         .addProgramClasses(TestClass.class)
+        .addClasspathClasses(getClass())
         .addClasspathClassFileData(getClasspathData())
         .setMinApi(parameters)
         .setIntermediate(true)
@@ -112,12 +129,20 @@ public class RecordClasspathTest extends TestBase {
     R8FullTestBuilder builder =
         testForR8(parameters.getBackend())
             .addProgramClasses(TestClass.class)
+            .addClasspathClassFileData(
+                TestBase.transformer(getClass())
+                    .removeFields(FieldPredicate.all())
+                    .removeMethods(MethodPredicate.all())
+                    .removeAllAnnotations()
+                    .setSuper(descriptor(Object.class))
+                    .setImplements()
+                    .transform())
             .addClasspathClassFileData(getClasspathData())
             .setMinApi(parameters)
             .addKeepMainRule(TestClass.class);
     if (parameters.isCfRuntime()) {
       builder
-          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
           .compile()
           .inspect(this::assertNoRecord)
           .inspect(RecordTestUtils::assertRecordsAreRecords)
@@ -138,6 +163,64 @@ public class RecordClasspathTest extends TestBase {
 
     public static void main(String[] args) {
       System.out.println("Hello");
+    }
+  }
+
+  public class RecordWithMembers {
+
+    record PersonWithConstructors(String name, int age) {
+
+      public PersonWithConstructors(String name, int age) {
+        this.name = name + "X";
+        this.age = age;
+      }
+
+      public PersonWithConstructors(String name) {
+        this(name, -1);
+      }
+    }
+
+    record PersonWithMethods(String name, int age) {
+      public static void staticPrint() {
+        System.out.println("print");
+      }
+
+      @Override
+      public String toString() {
+        return name + age;
+      }
+    }
+
+    record PersonWithFields(String name, int age) {
+
+      // Extra instance fields are not allowed on records.
+      public static String globalName;
+    }
+
+    public static void main(String[] args) {
+      personWithConstructorTest();
+      personWithMethodsTest();
+      personWithFieldsTest();
+    }
+
+    private static void personWithConstructorTest() {
+      PersonWithConstructors bob = new PersonWithConstructors("Bob", 43);
+      System.out.println(bob.name());
+      System.out.println(bob.age());
+      PersonWithConstructors felix = new PersonWithConstructors("Felix");
+      System.out.println(felix.name());
+      System.out.println(felix.age());
+    }
+
+    private static void personWithMethodsTest() {
+      PersonWithMethods.staticPrint();
+      PersonWithMethods bob = new PersonWithMethods("Bob", 43);
+      System.out.println(bob.toString());
+    }
+
+    private static void personWithFieldsTest() {
+      PersonWithFields.globalName = "extra";
+      System.out.println(PersonWithFields.globalName);
     }
   }
 }
