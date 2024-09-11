@@ -8,6 +8,7 @@ import com.android.tools.r8.optimize.argumentpropagation.computation.Computation
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class InFlowComparator implements Comparator<InFlow> {
 
@@ -50,9 +51,9 @@ public class InFlowComparator implements Comparator<InFlow> {
   public static class Builder {
 
     private final Map<ComputationTreeNode, SourcePosition> computationTreePositions =
-        new HashMap<>();
+        new ConcurrentHashMap<>();
     private final Map<IfThenElseAbstractFunction, SourcePosition> ifThenElsePositions =
-        new HashMap<>();
+        new ConcurrentHashMap<>();
 
     public void addComputationTreePosition(
         ComputationTreeNode computation, SourcePosition position) {
@@ -60,13 +61,12 @@ public class InFlowComparator implements Comparator<InFlow> {
     }
 
     public void addIfThenElsePosition(IfThenElseAbstractFunction fn, SourcePosition position) {
-      synchronized (ifThenElsePositions) {
-        ifThenElsePositions.put(fn, position);
-      }
+      ifThenElsePositions.put(fn, position);
     }
 
     public InFlowComparator build() {
-      return new InFlowComparator(computationTreePositions, ifThenElsePositions);
+      return new InFlowComparator(
+          new HashMap<>(computationTreePositions), new HashMap<>(ifThenElsePositions));
     }
   }
 }

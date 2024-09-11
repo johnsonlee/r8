@@ -145,7 +145,7 @@ public class ArgumentPropagatorCodeScanner {
   private final MethodStateCollectionByReference methodStates =
       MethodStateCollectionByReference.createConcurrent();
 
-  private final InFlowComparator.Builder inFlowComparatorBuilder = InFlowComparator.builder();
+  private InFlowComparator.Builder inFlowComparatorBuilder = InFlowComparator.builder();
 
   ArgumentPropagatorCodeScanner(
       AppView<AppInfoWithLiveness> appView,
@@ -195,7 +195,9 @@ public class ArgumentPropagatorCodeScanner {
   }
 
   InFlowComparator getInFlowComparator() {
-    return inFlowComparatorBuilder.build();
+    InFlowComparator inFlowComparator = inFlowComparatorBuilder.build();
+    inFlowComparatorBuilder = null;
+    return inFlowComparator;
   }
 
   // TODO(b/296030319): Allow lookups in the FieldStateCollection using DexField keys to avoid the
