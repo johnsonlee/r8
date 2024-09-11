@@ -99,6 +99,34 @@ function initializeZoom() {
   }
 }
 
+function handleKeyDownEvent(e, callback) {
+  if (selectedBenchmarks.size != 1) {
+    return;
+  }
+  const [selectedBenchmark] = selectedBenchmarks;
+  var benchmarkToSelect = null;
+  var previousBenchmark = null;
+  for (const benchmark of benchmarks.values()) {
+    if (previousBenchmark != null) {
+      if (e.key == 'ArrowLeft' && benchmark == selectedBenchmark) {
+        benchmarkToSelect = previousBenchmark;
+        break;
+      } else if (e.key === 'ArrowRight' && previousBenchmark == selectedBenchmark) {
+        benchmarkToSelect = benchmark;
+        break;
+      }
+    }
+    previousBenchmark = benchmark;
+  }
+  if (benchmarkToSelect != null) {
+    selectedBenchmarks.clear();
+    selectedBenchmarks.add(benchmarkToSelect);
+    document.getElementById(selectedBenchmark).checked = false;
+    document.getElementById(benchmarkToSelect).checked = true;
+    callback();
+  }
+}
+
 function isLegendSelected(legend) {
   return selectedLegends.has(legend);
 }
@@ -111,6 +139,7 @@ export default {
   selectedLegends: selectedLegends,
   forEachBenchmark: forEachBenchmark,
   forEachSelectedBenchmark: forEachSelectedBenchmark,
+  handleKeyDownEvent: handleKeyDownEvent,
   hasLegend: hasLegend,
   initializeBenchmarks: initializeBenchmarks,
   initializeLegends: initializeLegends,

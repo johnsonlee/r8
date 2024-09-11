@@ -69,6 +69,9 @@ function initializeChart(options) {
   } else {
     update(false, false);
   }
+  document.addEventListener('keydown', e => {
+    state.handleKeyDownEvent(e, () => update(true, false));
+  });
 }
 
 function setDataProvider(theDataProvider) {
