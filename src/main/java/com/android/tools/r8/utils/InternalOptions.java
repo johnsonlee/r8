@@ -941,8 +941,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
    * If any non-static class merging is enabled, information about types referred to by instanceOf
    * and check cast instructions needs to be collected.
    */
-  public boolean isClassMergingExtensionRequired(Enqueuer.Mode mode) {
-    assert mode.isFinalTreeShaking();
+  public boolean isClassMergingExtensionRequired() {
     WholeProgramOptimizations wholeProgramOptimizations = WholeProgramOptimizations.ON;
     return horizontalClassMergerOptions.isEnabled(wholeProgramOptimizations)
         && !horizontalClassMergerOptions.isRestrictedToSynthetics();

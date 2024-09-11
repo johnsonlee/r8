@@ -14,7 +14,13 @@ import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SubtypingInfo;
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
+import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveClassEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveFieldEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyReferencedFieldEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyTargetedMethodEnqueuerAnalysis;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
@@ -30,7 +36,13 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
+public class IfRuleEvaluatorFactory
+    implements NewlyLiveClassEnqueuerAnalysis,
+        NewlyLiveFieldEnqueuerAnalysis,
+        NewlyLiveMethodEnqueuerAnalysis,
+        NewlyReferencedFieldEnqueuerAnalysis,
+        NewlyTargetedMethodEnqueuerAnalysis,
+        FixpointEnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
 
@@ -61,11 +73,20 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       Enqueuer enqueuer,
+      EnqueuerAnalysisCollection.Builder builder,
       ExecutorService executorService) {
     Set<ProguardIfRule> ifRules =
         appView.hasRootSet() ? appView.rootSet().ifRules : Collections.emptySet();
     if (ifRules != null && !ifRules.isEmpty()) {
-      enqueuer.registerAnalysis(new IfRuleEvaluatorFactory(appView, enqueuer, executorService));
+      IfRuleEvaluatorFactory factory =
+          new IfRuleEvaluatorFactory(appView, enqueuer, executorService);
+      builder
+          .addNewlyLiveClassAnalysis(factory)
+          .addNewlyLiveFieldAnalysis(factory)
+          .addNewlyLiveMethodAnalysis(factory)
+          .addNewlyReferencedFieldAnalysis(factory)
+          .addNewlyTargetedMethodAnalysis(factory)
+          .addFixpointAnalysis(factory);
     }
   }
 

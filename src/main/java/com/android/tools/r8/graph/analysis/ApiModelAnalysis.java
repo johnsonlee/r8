@@ -6,11 +6,11 @@ package com.android.tools.r8.graph.analysis;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
-import com.android.tools.r8.graph.LookupTarget;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -18,7 +18,14 @@ import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 
-public class ApiModelAnalysis extends EnqueuerAnalysis {
+public class ApiModelAnalysis
+    implements NewlyFailedMethodResolutionEnqueuerAnalysis,
+        NewlyLiveCodeEnqueuerAnalysis,
+        NewlyLiveFieldEnqueuerAnalysis,
+        NewlyLiveMethodEnqueuerAnalysis,
+        NewlyLiveNonProgramClassEnqueuerAnalysis,
+        NewlyReachableFieldEnqueuerAnalysis,
+        NewlyTargetedMethodEnqueuerAnalysis {
 
   private final AppView<?> appView;
   private final AndroidApiLevelCompute apiCompute;
@@ -28,6 +35,22 @@ public class ApiModelAnalysis extends EnqueuerAnalysis {
     this.appView = appView;
     this.apiCompute = appView.apiLevelCompute();
     this.minApiLevel = appView.computedMinApiLevel();
+  }
+
+  public static void register(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      EnqueuerAnalysisCollection.Builder builder) {
+    if (appView.options().apiModelingOptions().enableLibraryApiModeling) {
+      ApiModelAnalysis analysis = new ApiModelAnalysis(appView);
+      builder
+          .addNewlyFailedMethodResolutionAnalysis(analysis)
+          .addNewlyLiveCodeAnalysis(analysis)
+          .addNewlyLiveFieldAnalysis(analysis)
+          .addNewlyLiveMethodAnalysis(analysis)
+          .addNewlyLiveNonProgramClassAnalysis(analysis)
+          .addNewlyReachableFieldAnalysis(analysis)
+          .addNewlyTargetedMethodAnalysis(analysis);
+    }
   }
 
   @Override
@@ -46,7 +69,7 @@ public class ApiModelAnalysis extends EnqueuerAnalysis {
   }
 
   @Override
-  public void processTracedCode(
+  public void processNewlyLiveCode(
       ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
     assert registry.getMaxApiReferenceLevel().isGreaterThanOrEqualTo(minApiLevel);
     if (appView.options().apiModelingOptions().tracedMethodApiLevelCallback != null) {
@@ -66,27 +89,17 @@ public class ApiModelAnalysis extends EnqueuerAnalysis {
   }
 
   @Override
-  public void notifyMarkFieldAsReachable(ProgramField field, EnqueuerWorklist worklist) {
+  public void processNewlyReachableField(ProgramField field, EnqueuerWorklist worklist) {
     computeAndSetApiLevelForDefinition(field);
   }
 
   @Override
-  public void processNewLiveNonProgramType(ClasspathOrLibraryClass clazz) {
+  public void processNewlyLiveNonProgramType(ClasspathOrLibraryClass clazz) {
     clazz.forEachClassMethod(this::computeAndSetApiLevelForDefinition);
   }
 
   @Override
-  public void notifyMarkVirtualDispatchTargetAsLive(
-      LookupTarget target, EnqueuerWorklist worklist) {
-    target.accept(
-        lookupMethodTarget -> computeAndSetApiLevelForDefinition(lookupMethodTarget.getTarget()),
-        lookupLambdaTarget -> {
-          // The implementation method will be assigned an api level when visited.
-        });
-  }
-
-  @Override
-  public void notifyFailedMethodResolutionTarget(
+  public void processNewlyFailedMethodResolutionTarget(
       DexEncodedMethod method, EnqueuerWorklist worklist) {
     // We may not trace into failed resolution targets.
     method.setApiLevelForCode(ComputedApiLevel.unknown());

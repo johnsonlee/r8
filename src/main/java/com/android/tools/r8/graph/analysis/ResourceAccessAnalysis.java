@@ -31,7 +31,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
+public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis {
 
   private final R8ResourceShrinkerState resourceShrinkerState;
   private final Map<DexType, RClassFieldToValueStore> fieldToValueMapping = new IdentityHashMap<>();
@@ -46,13 +46,15 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
   }
 
   public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Enqueuer enqueuer,
+      EnqueuerAnalysisCollection.Builder builder) {
     if (fieldAccessAnalysisEnabled(appView, enqueuer)) {
-      enqueuer.registerFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
+      builder.addTraceFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
     }
     if (liveFieldAnalysisEnabled(appView, enqueuer)) {
-      enqueuer.registerAnalysis(
-          new EnqueuerAnalysis() {
+      builder.addNewlyLiveFieldAnalysis(
+          new NewlyLiveFieldEnqueuerAnalysis() {
             @Override
             public void processNewlyLiveField(
                 ProgramField field, ProgramDefinition context, EnqueuerWorklist worklist) {
@@ -67,11 +69,6 @@ public class ResourceAccessAnalysis implements EnqueuerFieldAccessAnalysis {
             }
           });
     }
-  }
-
-  @Override
-  public void done(Enqueuer enqueuer) {
-    EnqueuerFieldAccessAnalysis.super.done(enqueuer);
   }
 
   private static boolean liveFieldAnalysisEnabled(

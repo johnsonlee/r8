@@ -27,7 +27,7 @@ import com.android.tools.r8.utils.InternalOptions;
 // TODO(b/206891715): This only mitigates the issue. The user may still need to manually outline
 //  virtual invokes to classes that was once an interface. To avoid this in general (including D8)
 //  the compiler should outline the problematic invokes.
-public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements EnqueuerInvokeAnalysis {
+public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements TraceInvokeEnqueuerAnalysis {
 
   private final DexType androidHardwareCamera2CameraDeviceType;
   private final Enqueuer enqueuer;
@@ -42,9 +42,11 @@ public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements EnqueuerIn
   }
 
   public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Enqueuer enqueuer,
+      EnqueuerAnalysisCollection.Builder builder) {
     if (!isNoop(appView)) {
-      enqueuer.registerInvokeAnalysis(
+      builder.addTraceInvokeAnalysis(
           new InvokeVirtualToInterfaceVerifyErrorWorkaround(appView, enqueuer));
     }
   }
@@ -61,36 +63,11 @@ public class InvokeVirtualToInterfaceVerifyErrorWorkaround implements EnqueuerIn
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean isInterfaceInSomeApiLevel(DexType type) {
     // CameraDevice was added as a class in API 21 (L), but was defined as an interface in the
     // framework before then.
-    return type == androidHardwareCamera2CameraDeviceType
+    return type.isIdenticalTo(androidHardwareCamera2CameraDeviceType)
         && (options.isGeneratingClassFiles()
             || options.getMinApiLevel().isLessThan(AndroidApiLevel.L));
-  }
-
-  @Override
-  public void traceInvokeDirect(
-      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
-    // Intentionally empty.
-  }
-
-  @Override
-  public void traceInvokeInterface(
-      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
-    // Intentionally empty.
-  }
-
-  @Override
-  public void traceInvokeStatic(
-      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
-    // Intentionally empty.
-  }
-
-  @Override
-  public void traceInvokeSuper(
-      DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
-    // Intentionally empty.
   }
 }
