@@ -93,10 +93,10 @@ public final class CovariantReturnTypeAnnotationTransformer {
   }
 
   public static boolean shouldRun(AppView<?> appView) {
-    if (!appView.options().processCovariantReturnTypeAnnotations) {
+    if (!appView.options().processCovariantReturnTypeAnnotations
+        || appView.options().isDesugaredLibraryCompilation()) {
       return false;
     }
-    assert !appView.options().isDesugaredLibraryCompilation();
     DexItemFactory factory = appView.dexItemFactory();
     DexString covariantReturnTypeDescriptor =
         factory.createString(CovariantReturnTypeReferences.COVARIANT_RETURN_TYPE_DESCRIPTOR);
