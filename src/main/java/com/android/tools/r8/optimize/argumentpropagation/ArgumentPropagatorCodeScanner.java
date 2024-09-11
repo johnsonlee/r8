@@ -272,6 +272,8 @@ public class ArgumentPropagatorCodeScanner {
     private final MethodProcessor methodProcessor;
     private final PathConstraintSupplier pathConstraintSupplier;
 
+    private ComposableComputationTreeBuilder composableComputationTreeBuilder;
+
     protected CodeScanner(
         AbstractValueSupplier abstractValueSupplier,
         IRCode code,
@@ -447,15 +449,18 @@ public class ArgumentPropagatorCodeScanner {
         // TODO(b/302281503): Replace IfThenElseAbstractFunction by ComputationTreeNode (?).
         return computeIfThenElseAbstractFunction(value.asPhi(), valueStateSupplier);
       } else if (target != null && appView.getComposeReferences().isComposable(target)) {
+        if (composableComputationTreeBuilder == null) {
+          composableComputationTreeBuilder =
+              new ComposableComputationTreeBuilder(
+                  appView,
+                  code,
+                  code.context(),
+                  fieldValueFactory,
+                  methodParameterFactory,
+                  pathConstraintSupplier);
+        }
         ComputationTreeNode node =
-            new ComposableComputationTreeBuilder(
-                    appView,
-                    code,
-                    code.context(),
-                    fieldValueFactory,
-                    methodParameterFactory,
-                    pathConstraintSupplier)
-                .getOrBuildComputationTree(value);
+            composableComputationTreeBuilder.getOrBuildComputationTree(value);
         if (!node.isComputationLeaf() && TraversalUtils.hasNext(node::traverseBaseInFlow)) {
           recordComputationTreePosition(node, value);
           return node;
