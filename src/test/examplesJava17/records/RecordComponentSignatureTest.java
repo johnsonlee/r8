@@ -1,7 +1,7 @@
 // Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.desugar.records;
+package records;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -13,10 +13,12 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.TestShrinkerBuilder;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
+import java.lang.reflect.RecordComponent;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,13 +29,8 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class RecordComponentSignatureTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordWithSignature";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
-          "Jane Doe",
-          "42",
           "Jane Doe",
           "42",
           "true",
@@ -46,12 +43,11 @@ public class RecordComponentSignatureTest extends TestBase {
           "java.lang.Object",
           "TA;",
           "0");
-  private static final String EXPECTED_RESULT_R8 =
-      StringUtils.lines("Jane Doe", "42", "Jane Doe", "42", "true", "0");
+  private static final String EXPECTED_RESULT_R8 = StringUtils.lines("Jane Doe", "42", "true", "0");
   private static final String EXPECTED_RESULT_DESUGARED_NO_NATIVE_RECORDS_SUPPORT =
-      StringUtils.lines("Jane Doe", "42", "Jane Doe", "42", "Class.isRecord not present");
+      StringUtils.lines("Jane Doe", "42", "Class.isRecord not present");
   private static final String EXPECTED_RESULT_DESUGARED_NATIVE_RECORD_SUPPORT =
-      StringUtils.lines("Jane Doe", "42", "Jane Doe", "42", "false");
+      StringUtils.lines("Jane Doe", "42", "false");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -75,8 +71,8 @@ public class RecordComponentSignatureTest extends TestBase {
     parameters.assumeJvmTestParameters();
     assumeTrue(keepSignatures);
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), RecordWithSignature.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
@@ -85,8 +81,8 @@ public class RecordComponentSignatureTest extends TestBase {
     parameters.assumeDexRuntime();
     assumeTrue(keepSignatures);
     testForDesugaring(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), RecordWithSignature.class)
         .applyIf(
             parameters.isCfRuntime(),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
@@ -98,7 +94,7 @@ public class RecordComponentSignatureTest extends TestBase {
                     .inspect(
                         inspector -> {
                           ClassSubject person =
-                              inspector.clazz("records.RecordWithSignature$Person");
+                              inspector.clazz("records.RecordComponentSignatureTest$Person");
                           if (parameters.isCfRuntime()) {
                             assertEquals(2, person.getFinalRecordComponents().size());
 
@@ -138,22 +134,20 @@ public class RecordComponentSignatureTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
-        // TODO(b/231930852): Change to android.jar for Android U when that contains
-        // java.lang.Record.
-        .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
-        .addKeepMainRule(MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addLibraryFiles(ToolHelper.getAndroidJar(35))
+        .addKeepMainRule(RecordWithSignature.class)
         .applyIf(keepSignatures, TestShrinkerBuilder::addKeepAttributeSignature)
         .setMinApi(parameters)
         .compile()
         .inspect(
             inspector -> {
-              ClassSubject person = inspector.clazz("records.RecordWithSignature$Person");
+              ClassSubject person = inspector.clazz("records.RecordComponentSignatureTest$Person");
               FieldSubject age = person.uniqueFieldWithOriginalName("age");
               assertThat(age, isAbsent());
               assertEquals(0, person.getFinalRecordComponents().size());
             })
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordWithSignature.class)
         .applyIf(
             runtimeWithRecordsSupport(parameters.getRuntime()),
             r ->
@@ -162,5 +156,33 @@ public class RecordComponentSignatureTest extends TestBase {
                         ? EXPECTED_RESULT_DESUGARED_NATIVE_RECORD_SUPPORT
                         : EXPECTED_RESULT_R8),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT_DESUGARED_NO_NATIVE_RECORDS_SUPPORT));
+  }
+
+  record Person<N extends CharSequence, A>(N name, A age) {}
+
+  public class RecordWithSignature {
+
+    public static void main(String[] args) {
+      Person<String, Integer> janeDoe = new Person<>("Jane Doe", 42);
+      System.out.println(janeDoe.name());
+      System.out.println(janeDoe.age());
+      try {
+        Class.class.getDeclaredMethod("isRecord");
+      } catch (NoSuchMethodException e) {
+        System.out.println("Class.isRecord not present");
+        return;
+      }
+      System.out.println(Person.class.isRecord());
+      if (Person.class.isRecord()) {
+        System.out.println(Person.class.getRecordComponents().length);
+        for (int i = 0; i < Person.class.getRecordComponents().length; i++) {
+          RecordComponent c = Person.class.getRecordComponents()[i];
+          System.out.println(c.getName());
+          System.out.println(c.getType().getName());
+          System.out.println(c.getGenericSignature());
+          System.out.println(c.getAnnotations().length);
+        }
+      }
+    }
   }
 }
