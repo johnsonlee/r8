@@ -6,7 +6,6 @@ package com.android.tools.r8;
 import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING;
 import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingMapConsumerIfNotNull;
 
-import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
