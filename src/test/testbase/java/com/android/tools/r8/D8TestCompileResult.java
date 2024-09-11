@@ -6,6 +6,7 @@ package com.android.tools.r8;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.utils.AndroidApp;
@@ -19,6 +20,7 @@ import java.util.Set;
 
 public class D8TestCompileResult extends TestCompileResult<D8TestCompileResult, D8TestRunResult> {
 
+  private final D8BuildMetadata buildMetadata;
   private final String proguardMap;
   private final List<ExternalArtProfile> residualArtProfiles;
 
@@ -29,8 +31,10 @@ public class D8TestCompileResult extends TestCompileResult<D8TestCompileResult, 
       OutputMode outputMode,
       LibraryDesugaringTestConfiguration libraryDesugaringTestConfiguration,
       String proguardMap,
-      List<ExternalArtProfile> residualArtProfiles) {
+      List<ExternalArtProfile> residualArtProfiles,
+      D8BuildMetadata buildMetadata) {
     super(state, app, minApiLevel, outputMode, libraryDesugaringTestConfiguration);
+    this.buildMetadata = buildMetadata;
     this.proguardMap = proguardMap;
     this.residualArtProfiles = residualArtProfiles;
   }
@@ -38,6 +42,11 @@ public class D8TestCompileResult extends TestCompileResult<D8TestCompileResult, 
   @Override
   public D8TestCompileResult self() {
     return this;
+  }
+
+  public D8BuildMetadata getBuildMetadata() {
+    assert buildMetadata != null;
+    return buildMetadata;
   }
 
   @Override

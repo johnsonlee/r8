@@ -6,6 +6,7 @@ package com.android.tools.r8;
 import static com.android.tools.r8.utils.InternalOptions.DETERMINISTIC_DEBUGGING;
 import static com.android.tools.r8.utils.MapConsumerUtils.wrapExistingMapConsumerIfNotNull;
 
+import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
@@ -14,6 +15,7 @@ import com.android.tools.r8.inspector.Inspector;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.naming.MapConsumer;
 import com.android.tools.r8.naming.ProguardMapStringConsumer;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
@@ -112,6 +114,7 @@ public final class D8Command extends BaseCompilerCommand {
     private final List<ProguardConfigurationSource> mainDexRules = new ArrayList<>();
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableRewritingOfArtProfilesIsNopCheck = false;
+    private Consumer<? super D8BuildMetadata> buildMetadataConsumer = null;
 
     private Builder() {
       this(new DefaultD8DiagnosticsHandler());
@@ -472,6 +475,16 @@ public final class D8Command extends BaseCompilerCommand {
       return self();
     }
 
+    /**
+     * Set a consumer for receiving metadata about the current build intended for being stored in
+     * the app bundle.
+     */
+    public Builder setBuildMetadataConsumer(
+        Consumer<? super D8BuildMetadata> buildMetadataConsumer) {
+      this.buildMetadataConsumer = buildMetadataConsumer;
+      return self();
+    }
+
     @Override
     void validate() {
       if (isPrintHelp()) {
@@ -595,6 +608,7 @@ public final class D8Command extends BaseCompilerCommand {
           partitionMapConsumer,
           enableMissingLibraryApiModeling,
           enableRewritingOfArtProfilesIsNopCheck,
+          buildMetadataConsumer,
           getAndroidPlatformBuild(),
           getArtProfilesForRewriting(),
           getStartupProfileProviders(),
@@ -619,6 +633,7 @@ public final class D8Command extends BaseCompilerCommand {
   private final boolean enableMissingLibraryApiModeling;
   private final boolean enableRewritingOfArtProfilesIsNopCheck;
   private final DexItemFactory factory;
+  private final Consumer<? super D8BuildMetadata> buildMetadataConsumer;
 
   public static Builder builder() {
     return new Builder();
@@ -695,6 +710,7 @@ public final class D8Command extends BaseCompilerCommand {
       PartitionMapConsumer partitionMapConsumer,
       boolean enableMissingLibraryApiModeling,
       boolean enableRewritingOfArtProfilesIsNopCheck,
+      Consumer<? super D8BuildMetadata> buildMetadataConsumer,
       boolean isAndroidPlatformBuild,
       List<ArtProfileForRewriting> artProfilesForRewriting,
       List<StartupProfileProvider> startupProfileProviders,
@@ -738,6 +754,7 @@ public final class D8Command extends BaseCompilerCommand {
     this.enableMissingLibraryApiModeling = enableMissingLibraryApiModeling;
     this.enableRewritingOfArtProfilesIsNopCheck = enableRewritingOfArtProfilesIsNopCheck;
     this.factory = factory;
+    this.buildMetadataConsumer = buildMetadataConsumer;
   }
 
   private D8Command(boolean printHelp, boolean printVersion) {
@@ -757,12 +774,14 @@ public final class D8Command extends BaseCompilerCommand {
     enableMissingLibraryApiModeling = false;
     enableRewritingOfArtProfilesIsNopCheck = false;
     factory = null;
+    buildMetadataConsumer = null;
   }
 
   @Override
   InternalOptions getInternalOptions() {
     InternalOptions internal = new InternalOptions(factory, getReporter());
     assert !internal.debug;
+    internal.d8BuildMetadataConsumer = buildMetadataConsumer;
     internal.debug = getMode() == CompilationMode.DEBUG;
     internal.programConsumer = getProgramConsumer();
     if (internal.isGeneratingClassFiles()) {

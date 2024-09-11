@@ -1276,7 +1276,7 @@ public final class R8Command extends BaseCompilerCommand {
     internal.keptGraphConsumer = keptGraphConsumer;
     internal.mainDexKeptGraphConsumer = mainDexKeptGraphConsumer;
 
-    internal.buildMetadataConsumer = buildMetadataConsumer;
+    internal.r8BuildMetadataConsumer = buildMetadataConsumer;
     internal.dataResourceConsumer = internal.programConsumer.getDataResourceConsumer();
 
     internal.featureSplitConfiguration = featureSplitConfiguration;

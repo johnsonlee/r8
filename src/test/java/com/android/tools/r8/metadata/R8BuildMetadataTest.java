@@ -33,7 +33,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class BuildMetadataTest extends TestBase {
+public class R8BuildMetadataTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;

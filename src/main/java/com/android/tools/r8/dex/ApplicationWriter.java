@@ -701,9 +701,15 @@ public class ApplicationWriter {
       }
     }
 
-    if (options.buildMetadataConsumer != null) {
+    if (options.d8BuildMetadataConsumer != null) {
+      assert !appView.hasClassHierarchy();
+      options.d8BuildMetadataConsumer.accept(
+          BuildMetadataFactory.create(appView.withoutClassHierarchy()));
+    }
+
+    if (options.r8BuildMetadataConsumer != null) {
       assert appView.hasClassHierarchy();
-      options.buildMetadataConsumer.accept(
+      options.r8BuildMetadataConsumer.accept(
           BuildMetadataFactory.create(appView.withClassHierarchy(), virtualFiles));
     }
   }

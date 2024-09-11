@@ -6,6 +6,7 @@ package com.android.tools.r8;
 import com.android.tools.r8.D8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.art.ArtProfileConsumer;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
@@ -13,6 +14,7 @@ import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileTestingUtils;
 import com.android.tools.r8.startup.StartupProfileProvider;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ public class D8TestBuilder
   private StringBuilder proguardMapOutputBuilder = null;
   private boolean enableMissingLibraryApiModeling = true;
   private List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
+  private Box<D8BuildMetadata> buildMetadata;
 
   @Override
   public boolean isD8TestBuilder() {
@@ -88,6 +91,9 @@ public class D8TestBuilder
       BenchmarkResults benchmarkResults)
       throws CompilationFailedException {
     libraryDesugaringTestConfiguration.configure(builder);
+    if (buildMetadata != null) {
+      builder.setBuildMetadataConsumer(buildMetadata::set);
+    }
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
     ToolHelper.runAndBenchmarkD8(builder, optionsConsumer, benchmarkResults);
     return new D8TestCompileResult(
@@ -97,7 +103,8 @@ public class D8TestBuilder
         getOutputMode(),
         libraryDesugaringTestConfiguration,
         getMapContent(),
-        residualArtProfiles);
+        residualArtProfiles,
+        buildMetadata != null ? buildMetadata.get() : null);
   }
 
   private String getMapContent() {
@@ -171,5 +178,11 @@ public class D8TestBuilder
   public D8TestBuilder noHorizontalClassMergingOfSynthetics() {
     return addOptionsModification(
         options -> options.horizontalClassMergerOptions().disableSyntheticMerging());
+  }
+
+  public D8TestBuilder collectBuildMetadata() {
+    assert buildMetadata == null;
+    buildMetadata = new Box<>();
+    return self();
   }
 }

@@ -5,12 +5,18 @@ package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.Version;
 import com.android.tools.r8.dex.VirtualFile;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.List;
 
 public class BuildMetadataFactory {
+
+  @SuppressWarnings("UnusedParameter")
+  public static D8BuildMetadata create(AppView<AppInfo> appView) {
+    return D8BuildMetadataImpl.builder().setVersion(Version.LABEL).build();
+  }
 
   public static R8BuildMetadata create(
       AppView<? extends AppInfoWithClassHierarchy> appView, List<VirtualFile> virtualFiles) {
