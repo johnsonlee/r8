@@ -70,6 +70,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -649,14 +650,17 @@ public class AndroidApp {
   private void dumpAndroidResourcesProvider(
       AndroidResourceProvider androidResourceProvider, ZipOutputStream out, String name)
       throws IOException, ResourceException {
+    Set<String> seen = new HashSet<>();
     try (ByteArrayOutputStream archiveByteStream = new ByteArrayOutputStream()) {
       try (ZipOutputStream archiveOutputStream = new ZipOutputStream(archiveByteStream)) {
         for (AndroidResourceInput androidResource : androidResourceProvider.getAndroidResources()) {
-          writeToZipStream(
-              archiveOutputStream,
-              androidResource.getPath().location(),
-              androidResource.getByteStream().readAllBytes(),
-              ZipEntry.DEFLATED);
+          if (seen.add(androidResource.getPath().location())) {
+            writeToZipStream(
+                archiveOutputStream,
+                androidResource.getPath().location(),
+                androidResource.getByteStream().readAllBytes(),
+                ZipEntry.DEFLATED);
+          }
         }
       }
       writeToZipStream(out, name, archiveByteStream.toByteArray(), ZipEntry.DEFLATED);
