@@ -115,7 +115,9 @@ public class KotlinReflectTest extends KotlinTestBase {
                 && kotlinParameters.getCompiler().isNot(KOTLINC_1_9_21)
                 && !kotlinParameters.isKotlinDev(),
             TestBase::verifyAllInfoFromGenericSignatureTypeParameterValidation)
-        .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
+        .applyIf(
+            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
+            KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
         .writeToZip(foo.toPath())
         .run(parameters.getRuntime(), PKG + ".SimpleReflectKt")
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);

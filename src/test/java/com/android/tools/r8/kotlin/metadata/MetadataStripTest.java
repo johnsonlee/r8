@@ -3,13 +3,17 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_3_72;
+import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_4_20;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_7_0;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.KotlinTestParameters;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.AnnotationSubject;
@@ -60,7 +64,16 @@ public class MetadataStripTest extends KotlinMetadataTestBase {
             .allowUnusedDontWarnJavaLangClassValue(
                 kotlinc.getCompilerVersion().isGreaterThan(KOTLINC_1_7_0))
             .apply(configureForLibraryWithEmbeddedProguardRules())
-            .compile()
+            .applyIf(kotlinc.is(KOTLINC_1_4_20), R8TestBuilder::allowDiagnosticWarningMessages)
+            .compileWithExpectedDiagnostics(
+                diagnostics -> {
+                  if (kotlinc.is(KOTLINC_1_4_20)) {
+                    diagnostics.assertWarningsMatch(
+                        diagnosticMessage(
+                            containsString(
+                                "'META-INF/versions/9/module-info.class' already exists.")));
+                  }
+                })
             .assertNoErrorMessages()
             .run(parameters.getRuntime(), mainClassName);
     CodeInspector inspector = result.inspector();
