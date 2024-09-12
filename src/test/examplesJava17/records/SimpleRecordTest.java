@@ -2,14 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
-import static com.android.tools.r8.desugar.records.RecordTestUtils.assertNoJavaLangRecord;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -28,22 +28,9 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class SimpleRecordTest extends TestBase {
 
-  private static final String RECORD_NAME = "SimpleRecord";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
-          "Jane Doe",
-          "42",
-          "Jane Doe",
-          "42",
-          "true",
-          "true",
-          "true",
-          "false",
-          "false",
-          "false",
-          "false");
+          "Jane Doe", "42", "true", "true", "true", "false", "false", "false", "false");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -69,8 +56,8 @@ public class SimpleRecordTest extends TestBase {
     assumeTrue(isCfRuntimeWithNativeRecordSupport());
     assumeFalse(forceInvokeRangeForInvokeCustom);
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
@@ -78,13 +65,13 @@ public class SimpleRecordTest extends TestBase {
   public void testD8() throws Exception {
     assumeFalse(forceInvokeRangeForInvokeCustom);
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .compile()
         .inspectWithOptions(
-            i -> assertNoJavaLangRecord(i, parameters),
+            i -> RecordTestUtils.assertNoJavaLangRecord(i, parameters),
             options -> options.testing.disableRecordApplicationReaderMap = true)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
@@ -108,7 +95,7 @@ public class SimpleRecordTest extends TestBase {
                     .addGlobalSyntheticsResourceProviders(globals.getIndexedModeProvider()))
         .setMinApi(parameters)
         .setIncludeClassesChecksum(true)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
@@ -129,14 +116,14 @@ public class SimpleRecordTest extends TestBase {
         .setMinApi(parameters)
         .setIncludeClassesChecksum(true)
         .disableDesugaring()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   private Path compileIntermediate(GlobalSyntheticsConsumer globalSyntheticsConsumer)
       throws Exception {
     return testForD8(Backend.DEX)
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .setIntermediate(true)
         .setIncludeClassesChecksum(true)
@@ -156,25 +143,25 @@ public class SimpleRecordTest extends TestBase {
                 opptions ->
                     opptions.testing.forceInvokeRangeForInvokeCustom =
                         forceInvokeRangeForInvokeCustom)
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .setMinApi(parameters)
-            .addKeepMainRule(MAIN_TYPE);
+            .addKeepMainRule(SimpleRecord.class);
     if (parameters.isCfRuntime()) {
       builder
-          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .inspect(inspector -> inspector.clazz("records.SimpleRecord$Person").isRenamed())
-          .run(parameters.getRuntime(), MAIN_TYPE)
+          .inspect(inspector -> inspector.clazz(Person.class).isRenamed())
+          .run(parameters.getRuntime(), SimpleRecord.class)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
     }
     builder
         .compile()
         .inspectWithOptions(
-            i -> assertNoJavaLangRecord(i, parameters),
+            i -> RecordTestUtils.assertNoJavaLangRecord(i, parameters),
             options -> options.testing.disableRecordApplicationReaderMap = true)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
@@ -185,25 +172,53 @@ public class SimpleRecordTest extends TestBase {
     assumeTrue(forceInvokeRangeForInvokeCustom || !parameters.isDexRuntime());
     R8FullTestBuilder builder =
         testForR8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .addDontObfuscate()
             .setMinApi(parameters)
-            .addKeepMainRule(MAIN_TYPE);
+            .addKeepMainRule(SimpleRecord.class);
     if (parameters.isCfRuntime()) {
       builder
-          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .run(parameters.getRuntime(), MAIN_TYPE)
+          .run(parameters.getRuntime(), SimpleRecord.class)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
     }
     builder
         .compile()
         .inspectWithOptions(
-            i -> assertNoJavaLangRecord(i, parameters),
+            i -> RecordTestUtils.assertNoJavaLangRecord(i, parameters),
             options -> options.testing.disableRecordApplicationReaderMap = true)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), SimpleRecord.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  record Person(String name, int age) {}
+
+  public class SimpleRecord {
+
+    public static void main(String[] args) {
+      Person janeDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.name());
+      System.out.println(janeDoe.age());
+
+      // Test equals with self.
+      System.out.println(janeDoe.equals(janeDoe));
+
+      // Test equals with structurally equals Person.
+      Person otherJaneDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.equals(otherJaneDoe));
+      System.out.println(otherJaneDoe.equals(janeDoe));
+
+      // Test equals with not-structually equals Person.
+      Person johnDoe = new Person("John Doe", 42);
+      System.out.println(janeDoe.equals(johnDoe));
+      System.out.println(johnDoe.equals(janeDoe));
+
+      // Test equals with Object and null.
+      System.out.println(janeDoe.equals(new Object()));
+      System.out.println(janeDoe.equals(null));
+    }
   }
 }

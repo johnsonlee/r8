@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.profile.art.completeness;
+package records;
 
 import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.EQUALS_RECORD_METHOD_NAME;
 import static com.android.tools.r8.ir.desugar.records.RecordFullInstructionDesugaring.GET_FIELDS_AS_OBJECTS_METHOD_NAME;
@@ -16,11 +16,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.D8TestCompileResult;
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.desugar.records.RecordTestUtils;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.references.ClassReference;
@@ -43,26 +43,12 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class RecordProfileRewritingTest extends TestBase {
 
-  private static final String RECORD_NAME = "SimpleRecord";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
-          "Jane Doe",
-          "42",
-          "Jane Doe",
-          "42",
-          "true",
-          "true",
-          "true",
-          "false",
-          "false",
-          "false",
-          "false");
+          "Jane Doe", "42", "true", "true", "true", "false", "false", "false", "false");
 
-  private static final ClassReference MAIN_REFERENCE =
-      Reference.classFromTypeName(RecordTestUtils.getMainType(RECORD_NAME));
-  private static final ClassReference PERSON_REFERENCE =
-      Reference.classFromTypeName(MAIN_REFERENCE.getTypeName() + "$Person");
+  private static final ClassReference MAIN_REFERENCE = Reference.classFromClass(SimpleRecord.class);
+  private static final ClassReference PERSON_REFERENCE = Reference.classFromClass(Person.class);
   private static final ClassReference RECORD_REFERENCE =
       Reference.classFromTypeName("java.lang.Record");
   private static final ClassReference OBJECT_REFERENCE = Reference.classFromClass(Object.class);
@@ -81,7 +67,7 @@ public class RecordProfileRewritingTest extends TestBase {
     parameters.assumeJvmTestParameters();
     assumeTrue(runtimeWithRecordsSupport(parameters.getRuntime()));
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .run(parameters.getRuntime(), MAIN_REFERENCE.getTypeName())
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
@@ -90,7 +76,7 @@ public class RecordProfileRewritingTest extends TestBase {
   public void testD8() throws Exception {
     D8TestCompileResult compileResult =
         testForD8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .addArtProfileForRewriting(getArtProfile())
             .setMinApi(parameters)
             .compile();
@@ -114,7 +100,7 @@ public class RecordProfileRewritingTest extends TestBase {
     assumeTrue(runtimeWithRecordsSupport(parameters.getRuntime()) || parameters.isDexRuntime());
     R8TestCompileResult compileResult =
         testForR8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .addKeepMainRule(MAIN_REFERENCE.getTypeName())
             .addKeepRules(
                 "-neverpropagatevalue class " + PERSON_REFERENCE.getTypeName() + " { <fields>; }")
@@ -122,8 +108,7 @@ public class RecordProfileRewritingTest extends TestBase {
             .addOptionsModification(InlinerOptions::disableInlining)
             .applyIf(
                 parameters.isCfRuntime(),
-                testBuilder ->
-                    testBuilder.addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp)))
+                testBuilder -> testBuilder.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
             .enableProguardTestOptions()
             .noHorizontalClassMergingOfSynthetics()
             .setMinApi(parameters)
@@ -218,7 +203,7 @@ public class RecordProfileRewritingTest extends TestBase {
                 : recordTagClassSubject.asTypeSubject(),
         personRecordClassSubject.getSuperType());
     assertEquals(
-        recordDesugaringIsOff ? 6 : (canMergeRecordTag && !partialDesugaring) ? 11 : 10,
+        recordDesugaringIsOff ? 6 : (canMergeRecordTag && !partialDesugaring) ? 9 : 8,
         personRecordClassSubject.allMethods().size());
 
     MethodSubject personDefaultInstanceInitializerSubject = personRecordClassSubject.init();
@@ -236,23 +221,9 @@ public class RecordProfileRewritingTest extends TestBase {
     MethodSubject nameMethodSubject = personRecordClassSubject.uniqueMethodWithOriginalName("name");
     assertThat(nameMethodSubject, isPresent());
 
-    MethodSubject nameNestAccessorMethodSubject =
-        personRecordClassSubject.uniqueMethodWithOriginalName(
-            SyntheticItemsTestUtils.syntheticNestInstanceFieldGetter(
-                    Reference.field(PERSON_REFERENCE, "name", STRING_REFERENCE))
-                .getMethodName());
-    assertThat(nameNestAccessorMethodSubject, isAbsentIf(canUseNestBasedAccesses));
-
     // Age getters.
     MethodSubject ageMethodSubject = personRecordClassSubject.uniqueMethodWithOriginalName("age");
     assertThat(ageMethodSubject, isPresent());
-
-    MethodSubject ageNestAccessorMethodSubject =
-        personRecordClassSubject.uniqueMethodWithOriginalName(
-            SyntheticItemsTestUtils.syntheticNestInstanceFieldGetter(
-                    Reference.field(PERSON_REFERENCE, "age", Reference.INT))
-                .getMethodName());
-    assertThat(ageNestAccessorMethodSubject, isAbsentIf(canUseNestBasedAccesses));
 
     // boolean equals(Object)
     MethodSubject getFieldsAsObjectsMethodSubject =
@@ -272,7 +243,7 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // int hashCode()
     ClassSubject hashCodeHelperClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 1));
+        inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 0));
     assertThat(hashCodeHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject hashCodeHelperMethodSubject = hashCodeHelperClassSubject.uniqueMethod();
@@ -290,7 +261,7 @@ public class RecordProfileRewritingTest extends TestBase {
 
     // String toString()
     ClassSubject toStringHelperClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 0));
+        inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 1));
     assertThat(toStringHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject toStringHelperMethodSubject = toStringHelperClassSubject.uniqueMethod();
@@ -317,11 +288,6 @@ public class RecordProfileRewritingTest extends TestBase {
             hashCodeMethodSubject,
             toStringMethodSubject)
         .applyIf(
-            !canUseNestBasedAccesses,
-            i ->
-                i.assertContainsMethodRules(
-                    nameNestAccessorMethodSubject, ageNestAccessorMethodSubject))
-        .applyIf(
             canMergeRecordTag && !partialDesugaring,
             i -> i.assertContainsMethodRule(personDefaultInstanceInitializerSubject))
         .applyIf(
@@ -339,5 +305,33 @@ public class RecordProfileRewritingTest extends TestBase {
                         hashCodeHelperMethodSubject,
                         toStringHelperMethodSubject))
         .assertContainsNoOtherRules();
+  }
+
+  record Person(String name, int age) {}
+
+  public class SimpleRecord {
+
+    public static void main(String[] args) {
+      Person janeDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.name());
+      System.out.println(janeDoe.age());
+
+      // Test equals with self.
+      System.out.println(janeDoe.equals(janeDoe));
+
+      // Test equals with structurally equals Person.
+      Person otherJaneDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.equals(otherJaneDoe));
+      System.out.println(otherJaneDoe.equals(janeDoe));
+
+      // Test equals with not-structually equals Person.
+      Person johnDoe = new Person("John Doe", 42);
+      System.out.println(janeDoe.equals(johnDoe));
+      System.out.println(johnDoe.equals(janeDoe));
+
+      // Test equals with Object and null.
+      System.out.println(janeDoe.equals(new Object()));
+      System.out.println(janeDoe.equals(null));
+    }
   }
 }

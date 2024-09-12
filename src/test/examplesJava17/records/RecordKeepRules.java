@@ -4,7 +4,9 @@
 
 package records;
 
-public class RecordShrinkField {
+// The code needs to be completely outside the test for the test to work.
+// If these classes are inner classes, age is not correctly simplified to a 42 constant field.
+public class RecordKeepRules {
 
   record Person(int unused, String name, int age) {
     Person(String name, int age) {

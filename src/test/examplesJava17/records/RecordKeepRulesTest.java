@@ -2,8 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -17,30 +18,26 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RecordKeepRulesTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordShrinkField";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
-
   private static final String KEEP_RULE_CLASS_NAME =
-      "-keep,allowshrinking,allowoptimization class records.RecordShrinkField$Person";
+      "-keep,allowshrinking,allowoptimization class records.RecordKeepRules$Person";
   private static final String KEEP_RULE_FIELD_NAMES =
-      "-keepclassmembers,allowshrinking,allowoptimization class records.RecordShrinkField$Person {"
+      "-keepclassmembers,allowshrinking,allowoptimization class records.RecordKeepRules$Person {"
           + " <fields>; }";
   private static final String KEEP_RULE_FIELDS_NO_NAMES =
-      "-keepclassmembers,allowobfuscation class records.RecordShrinkField$Person { <fields>; }";
+      "-keepclassmembers,allowobfuscation class records.RecordKeepRules$Person { <fields>; }";
   private static final String KEEP_RULE_ALL =
-      "-keep class records.RecordShrinkField$Person { <fields>; }";
+      "-keep class records.RecordKeepRules$Person { <fields>; }";
 
   private static final String EXPECTED_RESULT_R8_WITH_CLASS_NAME =
-      StringUtils.lines("RecordShrinkField$Person[a=Jane Doe]", "RecordShrinkField$Person[a=Bob]");
+      StringUtils.lines("RecordKeepRules$Person[a=Jane Doe]", "RecordKeepRules$Person[a=Bob]");
   private static final String EXPECTED_RESULT_R8_WITH_FIELD_NAMES =
       StringUtils.lines("a[name=Jane Doe]", "a[name=Bob]");
   private static final String EXPECTED_RESULT_R8_WITH_FIELD_NO_NAMES =
       StringUtils.lines("a[a=-1, b=Jane Doe, c=42]", "a[a=-1, b=Bob, c=42]");
   private static final String EXPECTED_RESULT_R8_WITH_ALL =
       StringUtils.lines(
-          "RecordShrinkField$Person[unused=-1, name=Jane Doe, age=42]",
-          "RecordShrinkField$Person[unused=-1, name=Bob, age=42]");
+          "RecordKeepRules$Person[unused=-1, name=Jane Doe, age=42]",
+          "RecordKeepRules$Person[unused=-1, name=Bob, age=42]");
 
   private final TestParameters parameters;
   private final boolean proguardCompatibility;
@@ -82,27 +79,27 @@ public class RecordKeepRulesTest extends TestBase {
 
   private void testR8FieldNames(String keepRules, String expectedOutput) throws Exception {
     testForR8Compat(parameters.getBackend(), proguardCompatibility)
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addProgramClassesAndInnerClasses(RecordKeepRules.class)
         .setMinApi(parameters)
-        .addKeepMainRule(MAIN_TYPE)
+        .addKeepMainRule(RecordKeepRules.class)
         .addKeepRules(keepRules)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordKeepRules.class)
         .assertSuccessWithOutput(expectedOutput);
   }
 
   private void testR8CfThenDexFieldNames(String keepRules, String expectedOutput) throws Exception {
     Path desugared =
         testForR8Compat(Backend.CF, proguardCompatibility)
-            .addProgramClassFileData(PROGRAM_DATA)
-            .addKeepMainRule(MAIN_TYPE)
+            .addProgramClassesAndInnerClasses(RecordKeepRules.class)
+            .addKeepMainRule(RecordKeepRules.class)
             .addKeepRules(keepRules)
-            .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+            .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
             .compile()
             .writeToZip();
     testForD8(parameters.getBackend())
         .addProgramFiles(desugared)
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordKeepRules.class)
         .assertSuccessWithOutput(expectedOutput);
   }
 }

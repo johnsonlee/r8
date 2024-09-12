@@ -2,14 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.desugar.LibraryFilesHelper;
 import com.android.tools.r8.utils.StringUtils;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -17,9 +18,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RecordReflectionTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordReflection";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
           "true",
@@ -47,24 +45,45 @@ public class RecordReflectionTest extends TestBase {
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), RecordReflection.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   @Test
   public void testR8Cf() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
-        .addKeepMainRule(MAIN_TYPE)
+        .addKeepMainRule(RecordReflection.class)
         .addKeepAllAttributes()
         .addKeepRules("-keep class * extends java.lang.Record { private final <fields>; }")
-        .addLibraryFiles(LibraryFilesHelper.getJdk15LibraryFiles(temp))
+        .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
         .compile()
         .inspect(RecordTestUtils::assertRecordsAreRecords)
         .enableJVMPreview()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordReflection.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  record Empty() {}
+
+  record Person(String name, int age) {}
+
+  record PersonGeneric<S extends CharSequence>(S name, int age) {}
+
+  public class RecordReflection {
+
+    public static void main(String[] args) {
+      System.out.println(Empty.class.isRecord());
+      System.out.println(Arrays.toString(Empty.class.getRecordComponents()));
+      System.out.println(Person.class.isRecord());
+      System.out.println(Arrays.toString(Person.class.getRecordComponents()));
+      System.out.println(PersonGeneric.class.isRecord());
+      System.out.println(Arrays.toString(PersonGeneric.class.getRecordComponents()));
+      System.out.println(Arrays.toString(PersonGeneric.class.getTypeParameters()));
+      System.out.println(Object.class.isRecord());
+      System.out.println(Arrays.toString(Object.class.getRecordComponents()));
+    }
   }
 }
