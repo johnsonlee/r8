@@ -736,6 +736,17 @@ public class ClassFileTransformer {
         });
   }
 
+  public ClassFileTransformer rewriteInnerClass(
+      String newName, String newOuterName, String newInnerName) {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public void visitInnerClass(String name, String outerName, String innerName, int access) {
+            super.visitInnerClass(newName, newOuterName, newInnerName, access);
+          }
+        });
+  }
+
   public ClassFileTransformer rewriteEnlosingAndNestAttributes(Function<String, String> rewrite) {
     return addClassTransformer(
         new ClassTransformer() {
