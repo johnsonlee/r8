@@ -424,7 +424,7 @@ public class AssumeInserter {
             return false;
           }
 
-          if (!otherAssumedValueInfo.isNonNull()) {
+          if (!otherAssumedValueInfo.isNonNull() && !otherAssumedValueInfo.isNull()) {
             // This is not redundant, but we can strengthen it with the dynamic type information
             // from the other assume instruction.
             assumedValueInfo.setDynamicType(
