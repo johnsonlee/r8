@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
@@ -25,13 +25,12 @@ import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import records.RecordInvokeCustom.Empty;
+import records.RecordInvokeCustom.Person;
 
 @RunWith(Parameterized.class)
 public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordInvokeCustom";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
           "%s[]",
@@ -64,7 +63,7 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
   public void testD8() throws Exception {
     Path desugared =
         testForD8(Backend.CF)
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .setMinApi(parameters)
             .compile()
             .writeToZip();
@@ -72,7 +71,7 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
         .addProgramFiles(desugared)
         .setMinApi(parameters)
         .compile()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordInvokeCustom.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
   }
 
@@ -81,7 +80,7 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
     parameters.assumeR8TestParameters();
     Path desugared =
         testForD8(Backend.CF)
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .setMinApi(parameters)
             .compile()
             .writeToZip();
@@ -94,7 +93,7 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramFiles(desugared)
         .setMinApi(parameters)
-        .addKeepMainRule(MAIN_TYPE)
+        .addKeepMainRule(RecordInvokeCustom.class)
         .allowDiagnosticMessages()
         .compileWithExpectedDiagnostics(
             // Class com.android.tools.r8.RecordTag in desugared input is seen as java.lang.Record
@@ -119,10 +118,12 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
             })
         .inspect(
             i -> {
-              minifiedNames[0] = extractSimpleFinalName(i, "records.RecordInvokeCustom$Empty");
-              minifiedNames[1] = extractSimpleFinalName(i, "records.RecordInvokeCustom$Person");
+              minifiedNames[0] =
+                  extractSimpleFinalName(i, "records.RecordInvokeCustomSplitDesugaringTest$Empty");
+              minifiedNames[1] =
+                  extractSimpleFinalName(i, "records.RecordInvokeCustomSplitDesugaringTest$Person");
             })
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordInvokeCustom.class)
         .assertSuccessWithOutput(
             String.format(EXPECTED_RESULT, minifiedNames[0], minifiedNames[1]));
   }
@@ -130,5 +131,48 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
   private static String extractSimpleFinalName(CodeInspector i, String name) {
     String finalName = i.clazz(name).getFinalName();
     return finalName.split("\\.")[1];
+  }
+
+  record Empty() {}
+
+  record Person(String name, int age) {}
+
+  public class RecordInvokeCustom {
+
+    public static void main(String[] args) {
+      emptyTest();
+      equalityTest();
+      toStringTest();
+    }
+
+    private static void emptyTest() {
+      Empty empty1 = new Empty();
+      Empty empty2 = new Empty();
+      System.out.println(empty1.toString());
+      System.out.println(empty1.equals(empty2));
+      System.out.println(empty1.hashCode() == empty2.hashCode());
+      System.out.println(empty1.toString().equals(empty2.toString()));
+    }
+
+    private static void toStringTest() {
+      Person janeDoe = new Person("Jane Doe", 42);
+      System.out.println(janeDoe.toString());
+    }
+
+    private static void equalityTest() {
+      Person jane1 = new Person("Jane Doe", 42);
+      Person jane2 = new Person("Jane Doe", 42);
+      String nonIdenticalString = "Jane " + (System.currentTimeMillis() > 0 ? "Doe" : "Zan");
+      Person jane3 = new Person(nonIdenticalString, 42);
+      Person bob = new Person("Bob", 42);
+      Person youngJane = new Person("Jane Doe", 22);
+      System.out.println(jane1.equals(jane2));
+      System.out.println(jane1.toString().equals(jane2.toString()));
+      System.out.println(nonIdenticalString == "Jane Doe"); // false.
+      System.out.println(nonIdenticalString.equals("Jane Doe")); // true.
+      System.out.println(jane1.equals(jane3));
+      System.out.println(jane1.equals(bob));
+      System.out.println(jane1.equals(youngJane));
+    }
   }
 }

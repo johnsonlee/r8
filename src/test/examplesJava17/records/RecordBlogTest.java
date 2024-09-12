@@ -2,11 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -26,9 +27,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class RecordBlogTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordBlog";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String REFERENCE_OUTPUT_FORMAT = "Person[name=%s, age=42]";
   private static final String CLASS = "records.RecordBlog$Person";
   private static final Map<String, String> KEEP_RULE_TO_OUTPUT_FORMAT =
@@ -71,17 +69,17 @@ public class RecordBlogTest extends TestBase {
   public void testReference() throws Exception {
     assumeTrue(isCfRuntimeWithNativeRecordSupport());
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addProgramClassesAndInnerClasses(RecordBlog.class)
+        .run(parameters.getRuntime(), RecordBlog.class)
         .assertSuccessWithOutput(computeOutput(REFERENCE_OUTPUT_FORMAT));
   }
 
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addProgramClassesAndInnerClasses(RecordBlog.class)
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordBlog.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
@@ -99,19 +97,19 @@ public class RecordBlogTest extends TestBase {
           try {
             R8FullTestBuilder builder =
                 testForR8(parameters.getBackend())
-                    .addProgramClassFileData(PROGRAM_DATA)
+                    .addProgramClassesAndInnerClasses(RecordBlog.class)
                     .setMinApi(parameters)
                     .addKeepRules(kr)
-                    .addKeepMainRule(MAIN_TYPE);
+                    .addKeepMainRule(RecordBlog.class);
             String res;
             if (parameters.isCfRuntime()) {
               res =
                   builder
-                      .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
-                      .run(parameters.getRuntime(), MAIN_TYPE)
+                      .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
+                      .run(parameters.getRuntime(), RecordBlog.class)
                       .getStdOut();
             } else {
-              res = builder.run(parameters.getRuntime(), MAIN_TYPE).getStdOut();
+              res = builder.run(parameters.getRuntime(), RecordBlog.class).getStdOut();
             }
             results.put(kr, res);
           } catch (Exception e) {

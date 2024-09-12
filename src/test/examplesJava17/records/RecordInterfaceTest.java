@@ -2,26 +2,31 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.records;
+package records;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.DesugarGraphTestConsumer;
 import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.desugar.graph.DesugarGraphTestConsumer;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
+import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -31,9 +36,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class RecordInterfaceTest extends TestBase {
 
-  private static final String RECORD_NAME = "RecordInterface";
-  private static final byte[][] PROGRAM_DATA = RecordTestUtils.getProgramData(RECORD_NAME);
-  private static final String MAIN_TYPE = RecordTestUtils.getMainType(RECORD_NAME);
   private static final String EXPECTED_RESULT = StringUtils.lines("Human");
 
   @Parameter(0)
@@ -54,17 +56,17 @@ public class RecordInterfaceTest extends TestBase {
   public void testReference() throws Exception {
     assumeTrue(isCfRuntimeWithNativeRecordSupport());
     testForJvm(parameters)
-        .addProgramClassFileData(PROGRAM_DATA)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), RecordInterface.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramClassFileData(PROGRAM_DATA)
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordInterface.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
@@ -91,7 +93,7 @@ public class RecordInterfaceTest extends TestBase {
         .setIncludeClassesChecksum(true)
         .compile()
         .assertNoMessages()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordInterface.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
     assertNoEdgeToRecord(consumer);
   }
@@ -117,7 +119,7 @@ public class RecordInterfaceTest extends TestBase {
         .disableDesugaring()
         .compile()
         .assertNoMessages()
-        .run(parameters.getRuntime(), MAIN_TYPE)
+        .run(parameters.getRuntime(), RecordInterface.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
     assertNoEdgeToRecord(consumer);
   }
@@ -128,12 +130,16 @@ public class RecordInterfaceTest extends TestBase {
     DesugarGraphTestConsumer consumer = new DesugarGraphTestConsumer();
     Path intermediate =
         testForD8(Backend.DEX)
+            .addStrippedOuter(getClass(), fake)
             .apply(
                 b -> {
-                  // We avoid unknown origin here since they are not allowed when using a Graph
-                  // consumer.
-                  for (byte[] programDatum : PROGRAM_DATA) {
-                    b.getBuilder().addClassProgramData(programDatum, fake);
+                  try {
+                    for (Path file :
+                        ToolHelper.getClassFilesForInnerClasses(ImmutableList.of(getClass()))) {
+                      b.getBuilder().addClassProgramData(Files.readAllBytes(file), fake);
+                    }
+                  } catch (IOException e) {
+                    throw new RuntimeException(e);
                   }
                 })
             .setMinApi(parameters)
@@ -149,7 +155,7 @@ public class RecordInterfaceTest extends TestBase {
   }
 
   private void assertNoEdgeToRecord(DesugarGraphTestConsumer consumer) {
-    assertEquals(0, consumer.totalEdgeCount());
+    Assert.assertEquals(0, consumer.totalEdgeCount());
   }
 
   @Test
@@ -158,18 +164,37 @@ public class RecordInterfaceTest extends TestBase {
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
     R8FullTestBuilder builder =
         testForR8(parameters.getBackend())
-            .addProgramClassFileData(PROGRAM_DATA)
+            .addInnerClassesAndStrippedOuter(getClass())
             .setMinApi(parameters)
-            .addKeepMainRule(MAIN_TYPE);
+            .addKeepMainRule(RecordInterface.class);
     if (parameters.isCfRuntime()) {
       builder
-          .addLibraryFiles(RecordTestUtils.getJdk15LibraryFiles(temp))
+          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .run(parameters.getRuntime(), MAIN_TYPE)
+          .run(parameters.getRuntime(), RecordInterface.class)
           .assertSuccessWithOutput(EXPECTED_RESULT);
       return;
     }
-    builder.run(parameters.getRuntime(), MAIN_TYPE).assertSuccessWithOutput(EXPECTED_RESULT);
+    builder
+        .run(parameters.getRuntime(), RecordInterface.class)
+        .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  interface Human {
+
+    default void printHuman() {
+      System.out.println("Human");
+    }
+  }
+
+  record Person(String name, int age) implements Human {}
+
+  public class RecordInterface {
+
+    public static void main(String[] args) {
+      Person janeDoe = new Person("Jane Doe", 42);
+      janeDoe.printHuman();
+    }
   }
 }

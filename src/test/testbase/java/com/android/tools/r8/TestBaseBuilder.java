@@ -4,12 +4,16 @@
 
 package com.android.tools.r8;
 
+import static com.android.tools.r8.TestBase.descriptor;
+
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.transformers.ClassFileTransformer.FieldPredicate;
+import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +37,19 @@ public abstract class TestBaseBuilder<
   TestBaseBuilder(TestState state, B builder) {
     super(state);
     this.builder = builder;
+  }
+
+  public T addStrippedOuter(Class<?> clazz, Origin origin) throws IOException {
+    builder.addClassProgramData(
+        TestBase.transformer(clazz)
+            .removeFields(FieldPredicate.all())
+            .removeMethods(MethodPredicate.all())
+            .removeAllAnnotations()
+            .setSuper(descriptor(Object.class))
+            .setImplements()
+            .transform(),
+        origin);
+    return self();
   }
 
   @Override
