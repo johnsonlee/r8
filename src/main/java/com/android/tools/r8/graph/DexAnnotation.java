@@ -22,6 +22,7 @@ import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
@@ -151,7 +152,12 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
     DexString descriptor = annotationType.getDescriptor();
     if (descriptor.startsWith(factory.dalvikAnnotationPrefix)) {
       if (descriptor.startsWith(factory.dalvikAnnotationCodegenCovariantReturnTypePrefix)) {
-        return options.processCovariantReturnTypeAnnotations;
+        if (options.processCovariantReturnTypeAnnotations) {
+          return true;
+        }
+        throw options.reporter.fatalError(
+            new StringDiagnostic(
+                "Unexpected @CovariantReturnType annotation in non-platform build"));
       }
       return descriptor.startsWith(factory.dalvikAnnotationOptimizationPrefix);
     }
