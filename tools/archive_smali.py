@@ -63,7 +63,7 @@ def Main():
     if utils.is_bot() and not utils.IsWindows():
         set_rlimit_to_max()
 
-    utils.DownloadFromGoogleCloudStorage(utils.JAVA8_SHA_FILE)
+    utils.DownloadFromGoogleCloudStorage(utils.JAVA11_SHA_FILE)
     with utils.TempDir() as temp:
         # Resolve dry run location to support relative directories.
         dry_run_output = None
@@ -101,11 +101,11 @@ def Main():
 
             print('Building version: %s' % version)
 
-            # Build release to local Maven repository compiling with JDK-8.
+            # Build release to local Maven repository compiling with JDK-11.
             m2 = os.path.join(temp, 'm2')
             os.mkdir(m2)
             env = os.environ.copy()
-            env["JAVA_HOME"] = jdk.GetJdk8Home()
+            env["JAVA_HOME"] = jdk.GetJdk11Home()
             subprocess.check_call([
                 './gradlew',
                 '-Dmaven.repo.local=%s' % m2, 'release', 'test',
