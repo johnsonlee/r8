@@ -14,6 +14,7 @@ import com.android.tools.r8.metadata.impl.R8ResourceOptimizationOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8StartupOptimizationOptionsImpl;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
+import java.util.List;
 
 @KeepForApi
 public interface R8BuildMetadata {
@@ -51,6 +52,11 @@ public interface R8BuildMetadata {
    * @return null if baseline profile rewriting is disabled.
    */
   R8BaselineProfileRewritingOptions getBaselineProfileRewritingOptions();
+
+  /**
+   * @return null if not compiling to dex.
+   */
+  List<String> getDexChecksums();
 
   /**
    * @return null if resource optimization is disabled.

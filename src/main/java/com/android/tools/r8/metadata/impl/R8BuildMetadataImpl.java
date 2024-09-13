@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
+import com.android.tools.r8.dex.VirtualFile;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
@@ -13,9 +14,12 @@ import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.metadata.R8Options;
 import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
 import com.android.tools.r8.metadata.R8StartupOptimizationOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
+import java.util.List;
+import java.util.function.Consumer;
 
 @UsedByReflection(
     description = "Keep and preserve @SerializedName for correct (de)serialization",
@@ -35,6 +39,10 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   private final R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
 
   @Expose
+  @SerializedName("dexChecksums")
+  private final List<String> dexChecksums;
+
+  @Expose
   @SerializedName("resourceOptimizationOptions")
   private final R8ResourceOptimizationOptions resourceOptimizationOptions;
 
@@ -49,11 +57,13 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   public R8BuildMetadataImpl(
       R8Options options,
       R8BaselineProfileRewritingOptions baselineProfileRewritingOptions,
+      List<String> dexChecksums,
       R8ResourceOptimizationOptions resourceOptimizationOptions,
       R8StartupOptimizationOptions startupOptimizationOptions,
       String version) {
     this.options = options;
     this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
+    this.dexChecksums = dexChecksums;
     this.resourceOptimizationOptions = resourceOptimizationOptions;
     this.startupOptimizationOptions = startupOptimizationOptions;
     this.version = version;
@@ -71,6 +81,11 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   @Override
   public R8BaselineProfileRewritingOptions getBaselineProfileRewritingOptions() {
     return baselineProfileRewritingOptions;
+  }
+
+  @Override
+  public List<String> getDexChecksums() {
+    return dexChecksums;
   }
 
   @Override
@@ -97,9 +112,17 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
 
     private R8Options options;
     private R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
+    private List<String> dexChecksums;
     private R8ResourceOptimizationOptions resourceOptimizationOptions;
     private R8StartupOptimizationOptions startupOptimizationOptions;
     private String version;
+
+    public Builder applyIf(boolean condition, Consumer<Builder> thenConsumer) {
+      if (condition) {
+        thenConsumer.accept(this);
+      }
+      return this;
+    }
 
     public Builder setOptions(R8Options options) {
       this.options = options;
@@ -109,6 +132,12 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     public Builder setBaselineProfileRewritingOptions(
         R8BaselineProfileRewritingOptions baselineProfileRewritingOptions) {
       this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
+      return this;
+    }
+
+    public Builder setDexChecksums(List<VirtualFile> virtualFiles) {
+      this.dexChecksums =
+          ListUtils.map(virtualFiles, vf -> vf.getChecksumForBuildMetadata().toString());
       return this;
     }
 
@@ -133,6 +162,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return new R8BuildMetadataImpl(
           options,
           baselineProfileRewritingOptions,
+          dexChecksums,
           resourceOptimizationOptions,
           startupOptimizationOptions,
           version);

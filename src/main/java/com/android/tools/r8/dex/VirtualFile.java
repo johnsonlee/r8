@@ -8,6 +8,7 @@ import static com.android.tools.r8.errors.StartupClassesOverflowDiagnostic.Facto
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
+import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.debuginfo.DebugRepresentation;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
@@ -47,6 +48,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hashing;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
@@ -81,6 +84,7 @@ public class VirtualFile {
   private final DexString primaryClassSynthesizingContextDescriptor;
   private DebugRepresentation debugRepresentation;
   private boolean startup = false;
+  private HashCode checksumForBuildMetadata;
 
   VirtualFile(int id, AppView<?> appView) {
     this(id, appView, null, null, StartupProfile.empty());
@@ -125,6 +129,18 @@ public class VirtualFile {
         assert contexts.isEmpty();
         primaryClassSynthesizingContextDescriptor = null;
       }
+    }
+  }
+
+  public HashCode getChecksumForBuildMetadata() {
+    return checksumForBuildMetadata;
+  }
+
+  public void calculateChecksumForBuildMetadata(ByteDataView data, InternalOptions options) {
+    if (options.r8BuildMetadataConsumer != null) {
+      checksumForBuildMetadata =
+          Hashing.sha256()
+              .hashBytes(data.getBuffer(), data.getOffset(), data.getOffset() + data.getLength());
     }
   }
 

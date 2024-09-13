@@ -28,6 +28,7 @@ public class BuildMetadataFactory {
     return R8BuildMetadataImpl.builder()
         .setOptions(new R8OptionsImpl(options))
         .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingOptionsImpl.create(options))
+        .applyIf(options.isGeneratingDex(), builder -> builder.setDexChecksums(virtualFiles))
         .setResourceOptimizationOptions(R8ResourceOptimizationOptionsImpl.create(options))
         .setStartupOptimizationOptions(
             R8StartupOptimizationOptionsImpl.create(options, virtualFiles))
