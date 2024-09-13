@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import static com.android.tools.r8.graph.DexEncodedMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCESS_INFO;
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
@@ -57,7 +56,6 @@ import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
-import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexReference;
@@ -164,7 +162,6 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.WorkList;
-import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -5484,7 +5481,7 @@ public class Enqueuer {
   }
 
   private void handleServiceLoaderInvocation(ProgramMethod method, InvokeMethod invoke) {
-    if (invoke.inValues().size() == 0) {
+    if (invoke.inValues().isEmpty()) {
       // Should never happen.
       return;
     }
@@ -5510,7 +5507,6 @@ public class Enqueuer {
       DexType serviceType, ProgramMethod context, KeepReason reason) {
     List<DexType> serviceImplementationTypes =
         appView.appServices().serviceImplementationsFor(serviceType);
-    DexMethodSignatureSet serviceMethods = getServiceMethods(serviceType, context);
     for (DexType serviceImplementationType : serviceImplementationTypes) {
       if (!serviceImplementationType.isClassType()) {
         // Should never happen.
@@ -5530,33 +5526,7 @@ public class Enqueuer {
         applyMinimumKeepInfoWhenLiveOrTargeted(
             defaultInitializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
       }
-
-      for (DexMethodSignature serviceMethod : serviceMethods) {
-        ProgramMethod serviceImplementationMethod =
-            asProgramMethodOrNull(
-                serviceImplementationClass.getMethodCollection().getMethod(serviceMethod),
-                serviceImplementationClass);
-        if (serviceImplementationMethod != null) {
-          applyMinimumKeepInfoWhenLiveOrTargeted(
-              serviceImplementationMethod, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
-        }
-      }
     }
-  }
-
-  private DexMethodSignatureSet getServiceMethods(DexType serviceType, ProgramMethod context) {
-    DexMethodSignatureSet serviceMethods = DexMethodSignatureSet.create();
-    WorkList<DexType> serviceTypes = WorkList.newIdentityWorkList(serviceType);
-    while (serviceTypes.hasNext()) {
-      DexType current = serviceTypes.next();
-      DexClass clazz = getClassOrNullFromReflectiveAccess(current, context);
-      if (clazz == null) {
-        continue;
-      }
-      clazz.forEachClassMethodMatching(DexEncodedMethod::belongsToVirtualPool, serviceMethods::add);
-      serviceTypes.addIfNotSeen(clazz.getInterfaces());
-    }
-    return serviceMethods;
   }
 
   private static class SetWithReportedReason<T> {
