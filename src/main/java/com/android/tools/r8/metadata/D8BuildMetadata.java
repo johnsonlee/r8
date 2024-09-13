@@ -4,6 +4,10 @@
 package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.metadata.impl.D8ApiModelingOptionsImpl;
+import com.android.tools.r8.metadata.impl.D8BuildMetadataImpl;
+import com.android.tools.r8.metadata.impl.D8LibraryDesugaringOptionsImpl;
+import com.android.tools.r8.metadata.impl.D8OptionsImpl;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 

@@ -4,6 +4,14 @@
 package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.metadata.impl.R8ApiModelingOptionsImpl;
+import com.android.tools.r8.metadata.impl.R8BaselineProfileRewritingOptionsImpl;
+import com.android.tools.r8.metadata.impl.R8BuildMetadataImpl;
+import com.android.tools.r8.metadata.impl.R8KeepAttributesOptionsImpl;
+import com.android.tools.r8.metadata.impl.R8LibraryDesugaringOptionsImpl;
+import com.android.tools.r8.metadata.impl.R8OptionsImpl;
+import com.android.tools.r8.metadata.impl.R8ResourceOptimizationOptionsImpl;
+import com.android.tools.r8.metadata.impl.R8StartupOptimizationOptionsImpl;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 

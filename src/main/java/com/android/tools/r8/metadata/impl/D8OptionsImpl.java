@@ -1,13 +1,16 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.metadata;
+package com.android.tools.r8.metadata.impl;
 
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
+import com.android.tools.r8.metadata.D8ApiModelingOptions;
+import com.android.tools.r8.metadata.D8LibraryDesugaringOptions;
+import com.android.tools.r8.metadata.D8Options;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.gson.annotations.SerializedName;
 
@@ -18,14 +21,13 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8BaselineProfileRewritingOptionsImpl implements R8BaselineProfileRewritingOptions {
+public class D8OptionsImpl extends D8R8OptionsImpl<D8ApiModelingOptions, D8LibraryDesugaringOptions>
+    implements D8Options {
 
-  private R8BaselineProfileRewritingOptionsImpl() {}
-
-  public static R8BaselineProfileRewritingOptionsImpl create(InternalOptions options) {
-    if (options.getArtProfileOptions().getArtProfilesForRewriting().isEmpty()) {
-      return null;
-    }
-    return new R8BaselineProfileRewritingOptionsImpl();
+  public D8OptionsImpl(InternalOptions options) {
+    super(
+        D8ApiModelingOptionsImpl.create(options),
+        D8LibraryDesugaringOptionsImpl.create(options),
+        options);
   }
 }
