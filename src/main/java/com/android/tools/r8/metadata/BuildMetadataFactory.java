@@ -13,9 +13,11 @@ import java.util.List;
 
 public class BuildMetadataFactory {
 
-  @SuppressWarnings("UnusedParameter")
   public static D8BuildMetadata create(AppView<AppInfo> appView) {
-    return D8BuildMetadataImpl.builder().setVersion(Version.LABEL).build();
+    return D8BuildMetadataImpl.builder()
+        .setOptions(new D8OptionsImpl(appView.options()))
+        .setVersion(Version.LABEL)
+        .build();
   }
 
   public static R8BuildMetadata create(

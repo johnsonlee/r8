@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata;
 
-import com.android.tools.r8.keepanno.annotations.KeepForApi;
+public interface D8R8LibraryDesugaringOptions {
 
-@KeepForApi
-public interface R8LibraryDesugaringOptions extends D8R8LibraryDesugaringOptions {}
+  String getIdentifier();
+}

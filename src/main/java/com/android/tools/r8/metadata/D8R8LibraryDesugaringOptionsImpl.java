@@ -9,6 +9,7 @@ import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.utils.InternalOptions;
+import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 @UsedByReflection(
@@ -18,13 +19,18 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8ApiModelingOptionsImpl implements R8ApiModelingOptions {
+abstract class D8R8LibraryDesugaringOptionsImpl implements D8R8LibraryDesugaringOptions {
 
-  private R8ApiModelingOptionsImpl() {}
+  @Expose
+  @SerializedName("identifier")
+  private final String identifier;
 
-  public static R8ApiModelingOptionsImpl create(InternalOptions options) {
-    return options.apiModelingOptions().enableLibraryApiModeling
-        ? new R8ApiModelingOptionsImpl()
-        : null;
+  public D8R8LibraryDesugaringOptionsImpl(InternalOptions options) {
+    this.identifier = options.machineDesugaredLibrarySpecification.getIdentifier();
+  }
+
+  @Override
+  public String getIdentifier() {
+    return identifier;
   }
 }

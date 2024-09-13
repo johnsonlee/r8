@@ -19,31 +19,16 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8OptionsImpl implements R8Options {
-
-  @Expose
-  @SerializedName("apiModelingOptions")
-  private final R8ApiModelingOptions apiModelingOptions;
+public class R8OptionsImpl extends D8R8OptionsImpl<R8ApiModelingOptions, R8LibraryDesugaringOptions>
+    implements R8Options {
 
   @Expose
   @SerializedName("keepAttributesOptions")
   private final R8KeepAttributesOptions keepAttributesOptions;
 
   @Expose
-  @SerializedName("libraryDesugaringOptions")
-  private final R8LibraryDesugaringOptions libraryDesugaringOptions;
-
-  @Expose
-  @SerializedName("minApiLevel")
-  private final int minApiLevel;
-
-  @Expose
   @SerializedName("isAccessModificationEnabled")
   private final boolean isAccessModificationEnabled;
-
-  @Expose
-  @SerializedName("isDebugModeEnabled")
-  private final boolean isDebugModeEnabled;
 
   @Expose
   @SerializedName("isProGuardCompatibilityModeEnabled")
@@ -62,31 +47,20 @@ public class R8OptionsImpl implements R8Options {
   private final boolean isShrinkingEnabled;
 
   public R8OptionsImpl(InternalOptions options) {
-    this.apiModelingOptions =
-        options.apiModelingOptions().enableLibraryApiModeling
-            ? new R8ApiModelingOptionsImpl()
-            : null;
+    super(
+        R8ApiModelingOptionsImpl.create(options),
+        R8LibraryDesugaringOptionsImpl.create(options),
+        options);
     this.keepAttributesOptions =
         options.hasProguardConfiguration()
             ? new R8KeepAttributesOptionsImpl(
                 options.getProguardConfiguration().getKeepAttributes())
             : null;
-    this.libraryDesugaringOptions =
-        !options.machineDesugaredLibrarySpecification.isEmpty()
-            ? new R8LibraryDesugaringOptionsImpl()
-            : null;
-    this.minApiLevel = options.getMinApiLevel().getLevel();
     this.isAccessModificationEnabled = options.isAccessModificationEnabled();
-    this.isDebugModeEnabled = options.debug;
     this.isProGuardCompatibilityModeEnabled = options.forceProguardCompatibility;
     this.isObfuscationEnabled = options.isMinifying();
     this.isOptimizationsEnabled = options.isOptimizing();
     this.isShrinkingEnabled = options.isShrinking();
-  }
-
-  @Override
-  public R8ApiModelingOptions getApiModelingOptions() {
-    return apiModelingOptions;
   }
 
   @Override
@@ -95,23 +69,8 @@ public class R8OptionsImpl implements R8Options {
   }
 
   @Override
-  public R8LibraryDesugaringOptions getLibraryDesugaringOptions() {
-    return libraryDesugaringOptions;
-  }
-
-  @Override
-  public int getMinApiLevel() {
-    return minApiLevel;
-  }
-
-  @Override
   public boolean isAccessModificationEnabled() {
     return isAccessModificationEnabled;
-  }
-
-  @Override
-  public boolean isDebugModeEnabled() {
-    return isDebugModeEnabled;
   }
 
   @Override

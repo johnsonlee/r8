@@ -18,13 +18,13 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8ApiModelingOptionsImpl implements R8ApiModelingOptions {
+public class D8ApiModelingOptionsImpl implements D8ApiModelingOptions {
 
-  private R8ApiModelingOptionsImpl() {}
+  private D8ApiModelingOptionsImpl() {}
 
-  public static R8ApiModelingOptionsImpl create(InternalOptions options) {
+  public static D8ApiModelingOptionsImpl create(InternalOptions options) {
     return options.apiModelingOptions().enableLibraryApiModeling
-        ? new R8ApiModelingOptionsImpl()
+        ? new D8ApiModelingOptionsImpl()
         : null;
   }
 }
