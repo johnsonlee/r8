@@ -730,19 +730,19 @@ public class R8 {
       // already have been leveraged.
       OptimizationInfoRemover.run(appView, executorService);
 
+      // Perform repackaging.
+      if (appView.hasLiveness()) {
+        if (options.isRepackagingEnabled()) {
+          new Repackaging(appView.withLiveness()).run(executorService, timing);
+        }
+        assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
+      }
+
       GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging = null;
       if (appView.hasCfByteCodePassThroughMethods()) {
         LirConverter.rewriteLirWithLens(appView, timing, executorService);
         appView.clearCodeRewritings(executorService, timing);
       } else {
-        // Perform repackaging.
-        if (appView.hasLiveness()) {
-          if (options.isRepackagingEnabled()) {
-            new Repackaging(appView.withLiveness()).run(executorService, timing);
-          }
-          assert Repackaging.verifyIdentityRepackaging(appView.withLiveness(), executorService);
-        }
-
         // Rewrite LIR with lens to allow building IR from LIR in class mergers.
         LirConverter.rewriteLirWithLens(appView, timing, executorService);
         appView.clearCodeRewritings(executorService, timing);
