@@ -45,7 +45,7 @@ abstract class D8R8OptionsImpl<
       InternalOptions options) {
     this.apiModelingOptions = apiModelingOptions;
     this.libraryDesugaringOptions = libraryDesugaringOptions;
-    this.minApiLevel = options.getMinApiLevel().getLevel();
+    this.minApiLevel = options.isGeneratingDex() ? options.getMinApiLevel().getLevel() : -1;
     this.isDebugModeEnabled = options.debug;
   }
 

@@ -7,6 +7,7 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -88,6 +89,10 @@ public class R8BuildMetadataTest extends TestBase {
     assertNotNull(buildMetadata.getBaselineProfileRewritingOptions());
     assertNotNull(buildMetadata.getOptions());
     assertNotNull(buildMetadata.getOptions().getKeepAttributesOptions());
+    assertEquals(
+        parameters.isCfRuntime() ? -1 : parameters.getApiLevel().getLevel(),
+        buildMetadata.getOptions().getMinApiLevel());
+    assertFalse(buildMetadata.getOptions().isDebugModeEnabled());
     if (parameters.isDexRuntime()) {
       R8ResourceOptimizationOptions resourceOptimizationOptions =
           buildMetadata.getResourceOptimizationOptions();
