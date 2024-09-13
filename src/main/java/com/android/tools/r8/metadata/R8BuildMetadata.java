@@ -15,10 +15,14 @@ public interface R8BuildMetadata {
         .excludeFieldsWithoutExposeAnnotation()
         .registerTypeAdapter(R8Options.class, deserializeTo(R8OptionsImpl.class))
         .registerTypeAdapter(
+            R8ApiModelingOptions.class, deserializeTo(R8ApiModelingOptionsImpl.class))
+        .registerTypeAdapter(
             R8BaselineProfileRewritingOptions.class,
             deserializeTo(R8BaselineProfileRewritingOptionsImpl.class))
         .registerTypeAdapter(
             R8KeepAttributesOptions.class, deserializeTo(R8KeepAttributesOptionsImpl.class))
+        .registerTypeAdapter(
+            R8LibraryDesugaringOptions.class, deserializeTo(R8LibraryDesugaringOptionsImpl.class))
         .registerTypeAdapter(
             R8ResourceOptimizationOptions.class,
             deserializeTo(R8ResourceOptimizationOptionsImpl.class))

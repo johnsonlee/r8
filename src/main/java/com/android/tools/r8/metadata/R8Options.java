@@ -9,9 +9,19 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 public interface R8Options {
 
   /**
+   * @return null if API modeling is disabled.
+   */
+  R8ApiModelingOptions getApiModelingOptions();
+
+  /**
    * @return null if no ProGuard configuration is provided.
    */
   R8KeepAttributesOptions getKeepAttributesOptions();
+
+  /**
+   * @return null if library desugaring is disabled.
+   */
+  R8LibraryDesugaringOptions getLibraryDesugaringOptions();
 
   int getMinApiLevel();
 

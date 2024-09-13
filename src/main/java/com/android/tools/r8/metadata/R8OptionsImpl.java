@@ -22,8 +22,16 @@ import com.google.gson.annotations.SerializedName;
 public class R8OptionsImpl implements R8Options {
 
   @Expose
+  @SerializedName("apiModelingOptions")
+  private final R8ApiModelingOptions apiModelingOptions;
+
+  @Expose
   @SerializedName("keepAttributesOptions")
   private final R8KeepAttributesOptions keepAttributesOptions;
+
+  @Expose
+  @SerializedName("libraryDesugaringOptions")
+  private final R8LibraryDesugaringOptions libraryDesugaringOptions;
 
   @Expose
   @SerializedName("minApiLevel")
@@ -54,10 +62,18 @@ public class R8OptionsImpl implements R8Options {
   private final boolean isShrinkingEnabled;
 
   public R8OptionsImpl(InternalOptions options) {
+    this.apiModelingOptions =
+        options.apiModelingOptions().enableLibraryApiModeling
+            ? new R8ApiModelingOptionsImpl()
+            : null;
     this.keepAttributesOptions =
         options.hasProguardConfiguration()
             ? new R8KeepAttributesOptionsImpl(
                 options.getProguardConfiguration().getKeepAttributes())
+            : null;
+    this.libraryDesugaringOptions =
+        !options.machineDesugaredLibrarySpecification.isEmpty()
+            ? new R8LibraryDesugaringOptionsImpl()
             : null;
     this.minApiLevel = options.getMinApiLevel().getLevel();
     this.isAccessModificationEnabled = options.isAccessModificationEnabled();
@@ -69,8 +85,18 @@ public class R8OptionsImpl implements R8Options {
   }
 
   @Override
+  public R8ApiModelingOptions getApiModelingOptions() {
+    return apiModelingOptions;
+  }
+
+  @Override
   public R8KeepAttributesOptions getKeepAttributesOptions() {
     return keepAttributesOptions;
+  }
+
+  @Override
+  public R8LibraryDesugaringOptions getLibraryDesugaringOptions() {
+    return libraryDesugaringOptions;
   }
 
   @Override
