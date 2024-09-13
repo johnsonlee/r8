@@ -106,7 +106,7 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
 
     // Version 2 of the library should always work.
     succeedsWithOption(input, true, true);
-    failsCompilationByDefault(input);
+    failsCompilationWhenDisabled(input);
   }
 
   @Test
@@ -130,7 +130,7 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
 
     // If CovariantReturnType annotations are ignored, then there will be no methods with the
     // signatures "L.../B;->method()L.../B;" and "L.../C;->method()L.../C;".
-    failsCompilationByDefault(input);
+    failsCompilationWhenDisabled(input);
   }
 
   @Test
@@ -224,11 +224,13 @@ public class CovariantReturnTypeAnnotationTransformerTest extends AsmTestBase {
         .assertSuccessWithOutput(getExpectedOutput());
   }
 
-  private void failsCompilationByDefault(List<byte[]> input) throws Exception {
+  private void failsCompilationWhenDisabled(List<byte[]> input) throws Exception {
     assertFailsCompilation(
         () ->
             testForD8(parameters.getBackend())
                 .addProgramClassFileData(input)
+                .addOptionsModification(
+                    options -> options.processCovariantReturnTypeAnnotations = false)
                 .setMinApi(parameters)
                 .compileWithExpectedDiagnostics(
                     diagnostics ->
