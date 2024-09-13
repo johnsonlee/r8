@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.FormalTypeParameter;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.utils.WorkList;
+import com.google.common.collect.Sets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -53,7 +54,6 @@ public class GenericSignatureContextBuilder {
   }
 
   public static class TypeParameterContext {
-
     private static final TypeParameterContext EMPTY =
         new TypeParameterContext(Collections.emptyMap(), Collections.emptySet());
 
@@ -207,17 +207,38 @@ public class GenericSignatureContextBuilder {
   public TypeParameterContext computeTypeParameterContext(
       AppView<?> appView, DexReference reference, Predicate<DexType> wasPruned) {
     assert !wasPruned.test(reference.getContextType()) : "Building context for pruned type";
-    return computeTypeParameterContext(appView, reference, wasPruned, false);
+    return computeTypeParameterContext(appView, reference, wasPruned, false, null);
   }
 
   private TypeParameterContext computeTypeParameterContext(
       AppView<?> appView,
       DexReference reference,
       Predicate<DexType> wasPruned,
-      boolean seenPruned) {
+      boolean seenPruned,
+      Object seen) {
     if (reference == null) {
       return empty();
     }
+
+    // Optimize seen set to be null when empty and a DexReference when it only has one element.
+    if (seen == null) {
+      seen = reference;
+    } else if (seen instanceof DexReference) {
+      if (seen == reference) {
+        return empty();
+      }
+      DexReference tmp = (DexReference) seen;
+      seen = Sets.newIdentityHashSet();
+      ((Set<DexReference>) seen).add(tmp);
+    }
+    assert seen != null;
+    assert seen instanceof DexReference || seen instanceof Set;
+    if (seen instanceof Set) {
+      if (!((Set<DexReference>) seen).add(reference)) {
+        return empty();
+      }
+    }
+
     DexType contextType = reference.getContextType();
     // TODO(b/187035453): We should visit generic signatures in the enqueuer.
     DexClass clazz = appView.appInfo().definitionForWithoutExistenceAssert(contextType);
@@ -242,7 +263,8 @@ public class GenericSignatureContextBuilder {
                 enclosingReference,
                 wasPruned,
                 prunedHere
-                    || hasPrunedRelationship(appView, enclosingReference, contextType, wasPruned))
+                    || hasPrunedRelationship(appView, enclosingReference, contextType, wasPruned),
+                seen)
             // Add formals for the context
             .combine(formalsInfo, prunedHere);
     if (!reference.isDexMethod()) {

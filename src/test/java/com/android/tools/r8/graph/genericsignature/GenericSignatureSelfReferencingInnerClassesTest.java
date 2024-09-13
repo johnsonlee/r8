@@ -3,20 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph.genericsignature;
 
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.genericsignature.GenericSignatureSelfReferencingInnerClassesTest.A.B;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -64,23 +60,35 @@ public class GenericSignatureSelfReferencingInnerClassesTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    // TODO(b/366140351): This should not crash the compiler.
-    assertThrows(
-        CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramClasses(TestClass.class)
-                .addProgramClassFileData(getProgramClassFileDataWithSelfReferencingInnerClass())
-                .addKeepMainRule(TestClass.class)
-                .setMinApi(parameters)
-                .compileWithExpectedDiagnostics(
-                    diagnostics -> {
-                      assertEquals(1, diagnostics.getErrors().size());
-                      assertTrue(diagnostics.getErrors().get(0) instanceof ExceptionDiagnostic);
-                      assertTrue(
-                          ((ExceptionDiagnostic) diagnostics.getErrors().get(0)).getCause()
-                              instanceof StackOverflowError);
-                    }));
+    testForR8(parameters.getBackend())
+        .addProgramClasses(TestClass.class)
+        .addProgramClassFileData(getProgramClassFileDataWithSelfReferencingInnerClass())
+        .addKeepMainRule(TestClass.class)
+        .addKeepAttributeInnerClassesAndEnclosingMethod()
+        .addKeepRules("-keep class **B { <methods>; }")
+        .setMinApi(parameters)
+        .allowDiagnosticInfoMessages()
+        .compile()
+        .assertAllInfoMessagesMatch(containsString("Malformed inner-class attribute"))
+        .run(parameters.getRuntime(), TestClass.class)
+        .applyIf(
+            parameters.isCfRuntime(),
+            r -> r.assertFailureWithErrorThatThrows(ClassFormatError.class),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT));
+  }
+
+  @Test
+  public void testR8NoKeep() throws Exception {
+    testForR8(parameters.getBackend())
+        .addProgramClasses(TestClass.class)
+        .addProgramClassFileData(getProgramClassFileDataWithSelfReferencingInnerClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters)
+        .allowDiagnosticInfoMessages()
+        .compile()
+        .assertAllInfoMessagesMatch(containsString("Malformed inner-class attribute"))
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("class " + getClass().getPackage().getName() + ".a", "null");
   }
 
   // Change the InnerClasses attribute for the inner class B to be B itself.
