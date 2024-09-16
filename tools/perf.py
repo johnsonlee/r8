@@ -82,10 +82,12 @@ BENCHMARKS = {
 }
 # A collection of extra benchmarks that should not be run on the bots, but can
 # be used for running locally.
-LOCAL_BENCHMARKS = {}
+EXTRA_BENCHMARKS = {
+    'SystemUIApp': {'targets': ['r8-full']},
+    'SystemUIAppTreeShaking': {'targets': ['r8-full']}}
 ALL_BENCHMARKS = {}
 ALL_BENCHMARKS.update(BENCHMARKS)
-ALL_BENCHMARKS.update(LOCAL_BENCHMARKS)
+ALL_BENCHMARKS.update(EXTRA_BENCHMARKS)
 BUCKET = "r8-perf-results"
 SAMPLE_BENCHMARK_RESULT_JSON = {
     'benchmark_name': '<benchmark_name>',

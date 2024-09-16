@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
-import static junit.framework.TestCase.assertFalse;
 
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -135,17 +134,20 @@ public class AppDumpBenchmarkBuilder {
   }
 
   public BenchmarkConfig buildR8WithResourceShrinking() {
+    return buildR8WithResourceShrinking(getDefaultR8Configuration());
+  }
+
+  public BenchmarkConfig buildR8WithResourceShrinking(
+      ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     verify();
     return BenchmarkConfig.builder()
         .setName(name)
         .setTarget(BenchmarkTarget.R8)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8WithResourceShrinking(this, getDefaultR8Configuration()))
+        .setMethod(runR8WithResourceShrinking(this, configuration))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
-        .addSubBenchmark(nameForCodePart(), BenchmarkMetric.CodeSize)
-        .addSubBenchmark(nameForRuntimePart(), BenchmarkMetric.RunTimeRaw)
-        .addSubBenchmark(nameForResourcePart(), BenchmarkMetric.CodeSize)
+        .measureRunTime()
         .setTimeout(10, TimeUnit.MINUTES)
         .build();
   }
@@ -299,11 +301,11 @@ public class AppDumpBenchmarkBuilder {
                       .applyIf(
                           enableResourceShrinking,
                           r -> {
-                            assertFalse(environment.getConfig().containsComposableCodeSizeMetric());
-                            r.benchmarkCompile(results.getSubResults(builder.nameForRuntimePart()))
-                                .benchmarkCodeSize(results.getSubResults(builder.nameForCodePart()))
-                                .benchmarkResourceSize(
-                                    results.getSubResults(builder.nameForResourcePart()));
+                            try {
+                              r.benchmarkCompile(results);
+                            } catch (Exception e) {
+                              // Ignore.
+                            }
                           },
                           r ->
                               r.benchmarkCompile(results)

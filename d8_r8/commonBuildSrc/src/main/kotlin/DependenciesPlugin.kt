@@ -763,6 +763,11 @@ object ThirdPartyDeps {
     "smali",
     Paths.get("third_party", "smali").toFile(),
     Paths.get("third_party", "smali.tar.gz.sha1").toFile())
+  val systemUI = ThirdPartyDependency(
+    "systemUI",
+    Paths.get("third_party", "closedsource-apps", "systemui").toFile(),
+    Paths.get("third_party", "closedsource-apps", "systemui.tar.gz.sha1").toFile(),
+    DependencyType.X20)
   val tivi = ThirdPartyDependency(
     "tivi",
     Paths.get("third_party", "opensource-apps", "tivi").toFile(),
