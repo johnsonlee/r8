@@ -1797,10 +1797,13 @@ public class ToolHelper {
     R8Command command = commandBuilder.build();
     InternalOptions internalOptions = command.getInternalOptions();
     optionsConsumer.accept(internalOptions);
-    R8.runForTesting(command.getInputApp(), internalOptions);
-    if (benchmarkResults != null) {
-      long end = System.nanoTime();
-      benchmarkResults.addRuntimeResult(end - start);
+    try {
+      R8.runForTesting(command.getInputApp(), internalOptions);
+    } finally {
+      if (benchmarkResults != null) {
+        long end = System.nanoTime();
+        benchmarkResults.addRuntimeResult(end - start);
+      }
     }
   }
 
