@@ -107,6 +107,10 @@ public class MemberRebindingHelper {
       return eligibleLibraryMethod.getReference();
     }
 
+    if (original.getHolderType().isArrayType()) {
+      return original;
+    }
+
     DexType newHolder =
         firstLibraryClassOrFirstInterfaceTarget(
             resolvedMethod.getHolder(),
