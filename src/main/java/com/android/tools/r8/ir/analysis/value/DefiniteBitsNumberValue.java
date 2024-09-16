@@ -135,7 +135,7 @@ public class DefiniteBitsNumberValue extends NonConstantNumberValue {
 
   @Override
   public int hashCode() {
-    int hash = 31 * (31 * (31 + definitelySetBits) + definitelyUnsetBits);
+    int hash = 31 * (31 + definitelySetBits) + definitelyUnsetBits;
     assert hash == Objects.hash(definitelySetBits, definitelyUnsetBits);
     return hash;
   }
