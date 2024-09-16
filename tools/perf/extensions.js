@@ -15,8 +15,21 @@ Array.prototype.first = function() {
 Array.prototype.avg = function() {
   return this.reduce(function(x, y) { return x + y; }, 0) / this.length;
 };
+Array.prototype.max = function() {
+  return this.reduce(function(x, y) { return x === null ? y : Math.max(x, y); }, null);
+};
 Array.prototype.min = function() {
   return this.reduce(function(x, y) { return x === null ? y : Math.min(x, y); }, null);
+};
+Array.prototype.p = function(value) {
+  const copy = [...this];
+  copy.sort();
+  const index = Math.floor(copy.length * value / 100);
+  if (copy.length % 2 == 0) {
+    return (copy[index - 1] + copy[index]) / 2;
+  } else {
+    return copy[index];
+  }
 };
 Array.prototype.reverseInPlace = function() {
   for (var i = 0; i < Math.floor(this.length / 2); i++) {

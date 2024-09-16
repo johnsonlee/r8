@@ -7,6 +7,11 @@ import state from "./state.js";
 // DOM references.
 const benchmarkSelectors = document.getElementById('benchmark-selectors');
 const canvas = document.getElementById('myChart');
+const runtimeMin = document.getElementById('runtime-min');
+const runtimeP50 = document.getElementById('runtime-p50');
+const runtimeP90 = document.getElementById('runtime-p90');
+const runtimeP95 = document.getElementById('runtime-p95');
+const runtimeMax = document.getElementById('runtime-max');
 const showMoreLeft = document.getElementById('show-more-left');
 const showLessLeft = document.getElementById('show-less-left');
 const showLessRight = document.getElementById('show-less-right');
@@ -54,6 +59,12 @@ function initializeChartNavigation() {
     }
   };
 
+  runtimeMin.onclick = event => chart.update(true, false);
+  runtimeP50.onclick = event => chart.update(true, false);
+  runtimeP90.onclick = event => chart.update(true, false);
+  runtimeP95.onclick = event => chart.update(true, false);
+  runtimeMax.onclick = event => chart.update(true, false);
+
   showMoreLeft.onclick = event => {
     if (zoom.left == 0) {
       return;
@@ -97,6 +108,21 @@ function initializeChartNavigation() {
   };
 }
 
+function transformRuntimeData(results) {
+  if (runtimeMin.checked) {
+    return results.min();
+  } else if (runtimeP50.checked) {
+    return results.p(50);
+  } else if (runtimeP90.checked) {
+    return results.p(90);
+  } else if (runtimeP95.checked) {
+    return results.p(95);
+  } else {
+    console.assert(runtimeMax.checked);
+    return results.max();
+  }
+}
+
 function updateBenchmarkColors(benchmarkColors) {
   state.forEachBenchmark(
     benchmark => {
@@ -120,6 +146,7 @@ export default {
   canvas: canvas,
   initializeBenchmarkSelectors: initializeBenchmarkSelectors,
   initializeChartNavigation: initializeChartNavigation,
+  transformRuntimeData: transformRuntimeData,
   updateBenchmarkColors: updateBenchmarkColors,
   updateChartNavigation: updateChartNavigation
 };

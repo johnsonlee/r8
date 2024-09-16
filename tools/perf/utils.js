@@ -15,11 +15,14 @@ function getSingleResult(benchmark, commit, resultName, resultIteration = 0) {
   return resultsForIteration[resultName];
 }
 
-function getAllResults(benchmark, commit, resultName) {
+function getAllResults(benchmark, commit, resultName, transformation) {
   const result = [];
   const allResults = commit.benchmarks[benchmark].results;
   for (var iteration = 0; iteration < allResults.length; iteration++) {
     result.push(getSingleResult(benchmark, commit, resultName, iteration));
+  }
+  if (transformation) {
+    return transformation(result);
   }
   return result;
 }

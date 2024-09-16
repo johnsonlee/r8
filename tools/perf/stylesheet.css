@@ -3,3 +3,5 @@
 body {
   font-family: 'Roboto';
 }
+
+div#runtime-fn { float: right; }

@@ -6,6 +6,18 @@
   <link rel="stylesheet" href="stylesheet.css">
 </head>
 <body>
+  <div id="runtime-fn">
+    <input type="radio" id="runtime-min" name="runtime-fn" checked>
+    <label for="runtime-min">Min</label>
+    <input type="radio" id="runtime-p50" name="runtime-fn">
+    <label for="runtime-p50">P50</label>
+    <input type="radio" id="runtime-p90" name="runtime-fn">
+    <label for="runtime-p90">P90</label>
+    <input type="radio" id="runtime-p95" name="runtime-fn">
+    <label for="runtime-p95">P95</label>
+    <input type="radio" id="runtime-max" name="runtime-fn">
+    <label for="runtime-max">Max</label>
+  </div>
   <div id="benchmark-selectors"></div>
   <div>
       <canvas id="myChart"></canvas>
@@ -78,8 +90,8 @@
               filteredCommits.map(
                   (c, i) =>
                       selectedBenchmark in filteredCommits[i].benchmarks
-                          ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime")
-                              .min()
+                          ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime",
+                                results => dom.transformRuntimeData(results))
                               .ns_to_s()
                           : NaN);
           const runtimeScatterData = [];
