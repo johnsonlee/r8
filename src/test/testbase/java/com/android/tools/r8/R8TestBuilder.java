@@ -95,6 +95,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   private Path resourceShrinkerOutput = null;
   private HashMap<String, Path> resourceShrinkerOutputForFeatures = new HashMap<>();
   private Box<R8BuildMetadata> buildMetadata;
+  private boolean androidPlatformBuild = false;
 
   @Override
   public boolean isR8TestBuilder() {
@@ -141,6 +142,7 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
         builder, rules -> box.syntheticProguardRules = rules);
     libraryDesugaringTestConfiguration.configure(builder);
+    builder.setAndroidPlatformBuild(androidPlatformBuild);
     if (!enableEmptyMemberRulesToDefaultInitRuleConversion.isUnknown()) {
       builder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
           enableEmptyMemberRulesToDefaultInitRuleConversion.toBoolean());
@@ -1052,6 +1054,11 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   public T collectBuildMetadata() {
     assert buildMetadata == null;
     buildMetadata = new Box<>();
+    return self();
+  }
+
+  public T setAndroidPlatformBuild() {
+    androidPlatformBuild = true;
     return self();
   }
 }

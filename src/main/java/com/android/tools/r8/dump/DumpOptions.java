@@ -209,6 +209,9 @@ public class DumpOptions {
 
   private static void parseKeyValue(Builder builder, String key, String value) {
     switch (key) {
+      case ANDROID_PLATFORM_BUILD:
+        builder.setAndroidPlatformBuild(Boolean.parseBoolean(value));
+        return;
       case BACKEND_KEY:
         builder.setBackend(Backend.valueOf(value));
         return;
