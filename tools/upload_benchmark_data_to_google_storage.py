@@ -4,15 +4,14 @@
 # BSD-style license that can be found in the LICENSE file.
 
 import historic_run
-import json
-import os
 import perf
-import time
 import utils
 
+import argparse
+import json
+import os
 import sys
 
-BENCHMARKS = perf.BENCHMARKS
 TARGETS = ['r8-full']
 NUM_COMMITS = 1000
 
@@ -89,7 +88,7 @@ def TrimBenchmarkResults(benchmark_data):
     return benchmark_data[0:new_benchmark_data_len]
 
 
-def ArchiveBenchmarkResults(benchmark_data, dest, temp):
+def ArchiveBenchmarkResults(benchmark_data, dest, outdir, temp):
     # Serialize JSON to temp file.
     benchmark_data_file = os.path.join(temp, dest)
     with open(benchmark_data_file, 'w') as f:
@@ -98,10 +97,11 @@ def ArchiveBenchmarkResults(benchmark_data, dest, temp):
     # Write output files to public bucket.
     perf.ArchiveOutputFile(benchmark_data_file,
                            dest,
-                           header='Cache-Control:no-store')
+                           header='Cache-Control:no-store',
+                           outdir=outdir)
 
 
-def run():
+def run_bucket():
     # Get the N most recent commits sorted by newest first.
     top = utils.get_sha1_from_revision('origin/main')
     bottom = utils.get_nth_sha1_from_revision(NUM_COMMITS - 1, 'origin/main')
@@ -112,50 +112,89 @@ def run():
     with utils.TempDir() as temp:
         local_bucket = os.path.join(temp, perf.BUCKET)
         DownloadCloudBucket(local_bucket)
+        run(commits, local_bucket, temp)
 
-        # Aggregate all the result.json files into a single file that has the
-        # same format as tools/perf/benchmark_data.json.
-        d8_benchmark_data = []
-        r8_benchmark_data = []
-        retrace_benchmark_data = []
-        for commit in commits:
-            d8_benchmarks = {}
-            r8_benchmarks = {}
-            retrace_benchmarks = {}
-            for benchmark, benchmark_info in BENCHMARKS.items():
-                RecordBenchmarkResult(commit, benchmark, benchmark_info,
-                                      local_bucket, 'd8', d8_benchmarks)
-                RecordBenchmarkResult(commit, benchmark, benchmark_info,
-                                      local_bucket, 'r8-full', r8_benchmarks)
-                RecordBenchmarkResult(commit, benchmark, benchmark_info,
-                                      local_bucket, 'retrace',
-                                      retrace_benchmarks)
-            RecordBenchmarkResults(commit, d8_benchmarks, d8_benchmark_data)
-            RecordBenchmarkResults(commit, r8_benchmarks, r8_benchmark_data)
-            RecordBenchmarkResults(commit, retrace_benchmarks,
-                                   retrace_benchmark_data)
 
-        # Trim data.
-        d8_benchmark_data = TrimBenchmarkResults(d8_benchmark_data)
-        r8_benchmark_data = TrimBenchmarkResults(r8_benchmark_data)
-        retrace_benchmark_data = TrimBenchmarkResults(retrace_benchmark_data)
+def run_local(local_bucket):
+    commit_hashes = set()
+    for benchmark in os.listdir(local_bucket):
+        benchmark_dir = os.path.join(local_bucket, benchmark)
+        if not os.path.isdir(benchmark_dir):
+            continue
+        for target in os.listdir(benchmark_dir):
+            target_dir = os.path.join(local_bucket, benchmark, target)
+            if not os.path.isdir(target_dir):
+                continue
+            for commit_hash in os.listdir(target_dir):
+                commit_hash_dir = os.path.join(local_bucket, benchmark, target,
+                                               commit_hash)
+                if not os.path.isdir(commit_hash_dir):
+                    continue
+                commit_hashes.add(commit_hash)
+    commits = []
+    for commit_hash in commit_hashes:
+        commits.append(historic_run.git_commit_from_hash(commit_hash))
+    commits.sort(key=lambda c: c.committer_timestamp(), reverse=True)
+    with utils.TempDir() as temp:
+        outdir = os.path.join(utils.TOOLS_DIR, 'perf')
+        run(commits, local_bucket, temp, outdir=outdir)
 
-        # Write output files to public bucket.
-        ArchiveBenchmarkResults(d8_benchmark_data, 'd8_benchmark_data.json',
-                                temp)
-        ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json',
-                                temp)
-        ArchiveBenchmarkResults(retrace_benchmark_data,
-                                'retrace_benchmark_data.json', temp)
 
-        # Write remaining files to public bucket.
+def run(commits, local_bucket, temp, outdir=None):
+    # Aggregate all the result.json files into a single file that has the
+    # same format as tools/perf/benchmark_data.json.
+    d8_benchmark_data = []
+    r8_benchmark_data = []
+    retrace_benchmark_data = []
+    for commit in commits:
+        d8_benchmarks = {}
+        r8_benchmarks = {}
+        retrace_benchmarks = {}
+        for benchmark, benchmark_info in perf.ALL_BENCHMARKS.items():
+            RecordBenchmarkResult(commit, benchmark, benchmark_info,
+                                  local_bucket, 'd8', d8_benchmarks)
+            RecordBenchmarkResult(commit, benchmark, benchmark_info,
+                                  local_bucket, 'r8-full', r8_benchmarks)
+            RecordBenchmarkResult(commit, benchmark, benchmark_info,
+                                  local_bucket, 'retrace', retrace_benchmarks)
+        RecordBenchmarkResults(commit, d8_benchmarks, d8_benchmark_data)
+        RecordBenchmarkResults(commit, r8_benchmarks, r8_benchmark_data)
+        RecordBenchmarkResults(commit, retrace_benchmarks,
+                               retrace_benchmark_data)
+
+    # Trim data.
+    d8_benchmark_data = TrimBenchmarkResults(d8_benchmark_data)
+    r8_benchmark_data = TrimBenchmarkResults(r8_benchmark_data)
+    retrace_benchmark_data = TrimBenchmarkResults(retrace_benchmark_data)
+
+    # Write output JSON files to public bucket, or to tools/perf/ if running
+    # with --local-bucket.
+    ArchiveBenchmarkResults(d8_benchmark_data, 'd8_benchmark_data.json', outdir,
+                            temp)
+    ArchiveBenchmarkResults(r8_benchmark_data, 'r8_benchmark_data.json', outdir,
+                            temp)
+    ArchiveBenchmarkResults(retrace_benchmark_data,
+                            'retrace_benchmark_data.json', outdir, temp)
+
+    # Write remaining files to public bucket.
+    if outdir is None:
         for file in FILES:
             dest = os.path.join(utils.TOOLS_DIR, 'perf', file)
             perf.ArchiveOutputFile(dest, file)
 
 
+def ParseOptions():
+    result = argparse.ArgumentParser()
+    result.add_argument('--local-bucket', help='Local results dir.')
+    return result.parse_known_args()
+
+
 def main():
-    run()
+    options, args = ParseOptions()
+    if options.local_bucket:
+        run_local(options.local_bucket)
+    else:
+        run_bucket()
 
 
 if __name__ == '__main__':
