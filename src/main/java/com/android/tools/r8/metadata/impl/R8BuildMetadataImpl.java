@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
+import static com.android.tools.r8.utils.PredicateUtils.not;
+
 import com.android.tools.r8.dex.VirtualFile;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
@@ -14,12 +16,12 @@ import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.metadata.R8Options;
 import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
 import com.android.tools.r8.metadata.R8StartupOptimizationOptions;
-import com.android.tools.r8.utils.ListUtils;
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @UsedByReflection(
     description = "Keep and preserve @SerializedName for correct (de)serialization",
@@ -137,7 +139,10 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
 
     public Builder setDexChecksums(List<VirtualFile> virtualFiles) {
       this.dexChecksums =
-          ListUtils.map(virtualFiles, vf -> vf.getChecksumForBuildMetadata().toString());
+          virtualFiles.stream()
+              .filter(not(VirtualFile::isEmpty))
+              .map(virtualFile -> virtualFile.getChecksumForBuildMetadata().toString())
+              .collect(Collectors.toList());
       return this;
     }
 
