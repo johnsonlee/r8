@@ -1,17 +1,20 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.benchmarks.appdumps;
+package com.android.tools.r8.internal.benchmarks.appdumps;
 
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
+import com.android.tools.r8.benchmarks.appdumps.AppDumpBenchmarkBuilder;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -65,5 +68,12 @@ public class SystemUIBenchmarks extends BenchmarkBase {
                 (appInfo, enqueuerMode) -> {
                   throw new RuntimeException();
                 });
+  }
+
+  @Ignore
+  @Test
+  @Override
+  public void testBenchmarks() throws Exception {
+    super.testBenchmarks();
   }
 }
