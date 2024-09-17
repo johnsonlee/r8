@@ -15,7 +15,8 @@ import utils
 if utils.is_bot():
     import upload_benchmark_data_to_google_storage
 
-BENCHMARKS = {
+# A collection of benchmarks that should be run on the perf bot.
+EXTERNAL_BENCHMARKS = {
     'ChromeApp': {
         'targets': ['r8-full']
     },
@@ -80,14 +81,18 @@ BENCHMARKS = {
         'targets': ['r8-full']
     },
 }
-# A collection of extra benchmarks that should not be run on the bots, but can
-# be used for running locally.
-EXTRA_BENCHMARKS = {
+# A collection of internal benchmarks that should be run on the internal bot.
+INTERNAL_BENCHMARKS = {
     'SystemUIApp': {'targets': ['r8-full']},
+}
+# A collection of benchmarks that should not be run on the bots, but can be used
+# for running locally.
+LOCAL_BENCHMARKS = {
     'SystemUIAppTreeShaking': {'targets': ['r8-full']}}
 ALL_BENCHMARKS = {}
-ALL_BENCHMARKS.update(BENCHMARKS)
-ALL_BENCHMARKS.update(EXTRA_BENCHMARKS)
+ALL_BENCHMARKS.update(EXTERNAL_BENCHMARKS)
+ALL_BENCHMARKS.update(INTERNAL_BENCHMARKS)
+ALL_BENCHMARKS.update(LOCAL_BENCHMARKS)
 BUCKET = "r8-perf-results"
 SAMPLE_BENCHMARK_RESULT_JSON = {
     'benchmark_name': '<benchmark_name>',
@@ -108,6 +113,10 @@ def ParseOptions():
     result.add_argument('--benchmark',
                         help='Specific benchmark(s) to measure.',
                         action='append')
+    result.add_argument('--internal',
+                        help='Run internal benchmarks.',
+                        action='store_true',
+                        default=False)
     result.add_argument('--iterations',
                         help='How many times run_benchmark is run.',
                         type=int,
@@ -136,7 +145,12 @@ def ParseOptions():
     result.add_argument('--version-jar',
                         help='The r8lib.jar for the given version.')
     options, args = result.parse_known_args()
-    options.benchmarks = options.benchmark or BENCHMARKS.keys()
+    if options.benchmark:
+        options.benchmarks = options.benchmark
+    elif options.internal:
+        options.benchmarks = INTERNAL_BENCHMARKS.keys()
+    else:
+        options.benchmarks = EXTERNAL_BENCHMARKS.keys()
     options.quiet = not options.verbose
     del options.benchmark
     return options, args
@@ -331,7 +345,8 @@ def main():
                                           'meta'),
                                       outdir=options.outdir)
 
-    if utils.is_bot():
+    # Only upload benchmark data when running on the perf bot.
+    if utils.is_bot() and not options.internal:
         upload_benchmark_data_to_google_storage.run()
 
     if any_failed:

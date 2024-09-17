@@ -111,6 +111,8 @@ CLEAN_COMMANDS = [
 
 # TODO(b/210982978): Enable testing of min xmx again
 TEST_COMMANDS = [
+    # Run internal benchmarks.
+    ['tools/perf.py', '--internal', '--iterations-inner', '3'],
     # Run test.py internal testing.
     [
         'tools/test.py', '--only_internal', '--slow_tests',
