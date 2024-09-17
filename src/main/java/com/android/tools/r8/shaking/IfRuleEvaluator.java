@@ -17,7 +17,6 @@ import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
-import com.android.tools.r8.utils.InternalOptions.TestingOptions.ProguardIfRuleEvaluationData;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -28,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class IfRuleEvaluator {
@@ -64,8 +64,6 @@ public class IfRuleEvaluator {
           Map.Entry<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRuleEntry = it.next();
           ProguardIfRule ifRuleKey = ifRuleEntry.getKey().get();
           Set<ProguardIfRule> ifRulesInEquivalence = ifRuleEntry.getValue();
-          ProguardIfRuleEvaluationData ifRuleEvaluationData =
-              appView.options().testing.proguardIfRuleEvaluationData;
           List<ProguardIfRule> toRemove = new ArrayList<>();
 
           // Depending on which types that trigger the -if rule, the application of the subsequent
@@ -77,26 +75,15 @@ public class IfRuleEvaluator {
             if (!isEffectivelyLive(clazz)) {
               continue;
             }
-
-            // Check if the class matches the if-rule.
-            if (appView.options().testing.measureProguardIfRuleEvaluations) {
-              ifRuleEvaluationData.numberOfProguardIfRuleClassEvaluations++;
-            }
-            if (evaluateClassForIfRule(ifRuleKey, clazz)) {
-              // When matching an if rule against a type, the if-rule are filled with the current
-              // capture of wildcards. Propagate this down to member rules with same class part
-              // equivalence.
-              for (ProguardIfRule ifRule : ifRulesInEquivalence) {
-                registerClassCapture(ifRule, clazz, clazz);
-                if (appView.options().testing.measureProguardIfRuleEvaluations) {
-                  ifRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
-                }
-                boolean matched = evaluateIfRuleMembersAndMaterialize(ifRule, clazz);
-                if (matched && canRemoveSubsequentKeepRule(ifRule)) {
-                  toRemove.add(ifRule);
-                }
-              }
-            }
+            evaluateRuleOnEffectivelyLiveClass(
+                ifRuleKey,
+                ifRulesInEquivalence,
+                clazz,
+                matchedIfRule -> {
+                  if (canRemoveSubsequentKeepRule(matchedIfRule)) {
+                    toRemove.add(matchedIfRule);
+                  }
+                });
           }
           if (ifRulesInEquivalence.size() == toRemove.size()) {
             it.remove();
@@ -107,6 +94,37 @@ public class IfRuleEvaluator {
         tasks.await();
     } finally {
       appView.appInfo().app().timing.end();
+    }
+  }
+
+  private void evaluateRuleOnEffectivelyLiveClass(
+      ProguardIfRule ifRuleKey,
+      Set<ProguardIfRule> ifRulesInEquivalence,
+      DexProgramClass clazz,
+      Consumer<ProguardIfRule> matchedConsumer)
+      throws ExecutionException {
+    // Check if the class matches the if-rule.
+    if (!evaluateClassForIfRule(ifRuleKey, clazz)) {
+      return;
+    }
+    // When matching an if rule against a type, the if-rule are filled with the current
+    // capture of wildcards. Propagate this down to member rules with same class part
+    // equivalence.
+    for (ProguardIfRule ifRule : ifRulesInEquivalence) {
+      registerClassCapture(ifRule, clazz, clazz);
+      evaluateIfRuleMembersAndMaterialize(ifRule, clazz, matchedConsumer);
+    }
+  }
+
+  private void incrementNumberOfProguardIfRuleClassEvaluations() {
+    if (appView.testing().measureProguardIfRuleEvaluations) {
+      appView.testing().proguardIfRuleEvaluationData.numberOfProguardIfRuleClassEvaluations++;
+    }
+  }
+
+  private void incrementNumberOfProguardIfRuleMemberEvaluations() {
+    if (appView.testing().measureProguardIfRuleEvaluations) {
+      appView.testing().proguardIfRuleEvaluationData.numberOfProguardIfRuleMemberEvaluations++;
     }
   }
 
@@ -137,6 +155,7 @@ public class IfRuleEvaluator {
 
   /** Determines if {@param clazz} satisfies the given if-rule class specification. */
   private boolean evaluateClassForIfRule(ProguardIfRule rule, DexProgramClass clazz) {
+    incrementNumberOfProguardIfRuleClassEvaluations();
     if (!RootSetBuilder.satisfyClassType(rule, clazz)) {
       return false;
     }
@@ -158,12 +177,15 @@ public class IfRuleEvaluator {
     return true;
   }
 
-  private boolean evaluateIfRuleMembersAndMaterialize(ProguardIfRule rule, DexProgramClass clazz)
+  private void evaluateIfRuleMembersAndMaterialize(
+      ProguardIfRule rule, DexProgramClass clazz, Consumer<ProguardIfRule> matchedConsumer)
       throws ExecutionException {
+    incrementNumberOfProguardIfRuleMemberEvaluations();
     Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
     if (memberKeepRules.isEmpty()) {
       materializeIfRule(rule, clazz);
-      return true;
+      matchedConsumer.accept(rule);
+      return;
     }
 
     List<DexClassAndField> fieldsInlinedByJavaC = new ArrayList<>();
@@ -219,7 +241,7 @@ public class IfRuleEvaluator {
 
     // If the number of member rules to hold is more than live members, we can't make it.
     if (filteredMembers.size() < memberKeepRules.size()) {
-      return false;
+      return;
     }
 
     // Depending on which members trigger the -if rule, the application of the subsequent
@@ -249,11 +271,11 @@ public class IfRuleEvaluator {
       if (satisfied) {
         materializeIfRule(rule, clazz);
         if (canRemoveSubsequentKeepRule(rule)) {
-          return true;
+          matchedConsumer.accept(rule);
+          return;
         }
       }
     }
-    return false;
   }
 
   private boolean isFieldInlinedByJavaC(DexEncodedField field) {
