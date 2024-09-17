@@ -347,7 +347,7 @@ def main():
 
     # Only upload benchmark data when running on the perf bot.
     if utils.is_bot() and not options.internal:
-        upload_benchmark_data_to_google_storage.run()
+        upload_benchmark_data_to_google_storage.run_bucket()
 
     if any_failed:
         return 1
