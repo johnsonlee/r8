@@ -34,8 +34,7 @@ import com.android.tools.r8.utils.InternalOptions;
  * or class merging), and thereby causes new classes to no longer verify on Dalvik, we soft-pin
  * methods that reads such fields.
  */
-public class GetArrayOfMissingTypeVerifyErrorWorkaround
-    implements TraceFieldAccessEnqueuerAnalysis {
+public class GetArrayOfMissingTypeVerifyErrorWorkaround implements EnqueuerFieldAccessAnalysis {
 
   private final DexItemFactory dexItemFactory;
   private final Enqueuer enqueuer;
@@ -49,11 +48,9 @@ public class GetArrayOfMissingTypeVerifyErrorWorkaround
   }
 
   public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      Enqueuer enqueuer,
-      EnqueuerAnalysisCollection.Builder builder) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     if (!isNoop(appView)) {
-      builder.addTraceFieldAccessAnalysis(
+      enqueuer.registerFieldAccessAnalysis(
           new GetArrayOfMissingTypeVerifyErrorWorkaround(appView, enqueuer));
     }
   }

@@ -92,8 +92,8 @@ public class IfSimilarClassSpecificationBundlingTest extends TestBase {
   public void testBundlingOfIfRulesWithNonConstantSequent()
       throws IOException, CompilationFailedException, ExecutionException {
     runTest(
-        14,
-        18,
+        22,
+        36,
         "-if class **$R* { int keepA; }",
         "-keep class"
             + " com.android.tools.r8.shaking.ifrule.IfSimilarClassSpecificationBundlingTest$<2> {"

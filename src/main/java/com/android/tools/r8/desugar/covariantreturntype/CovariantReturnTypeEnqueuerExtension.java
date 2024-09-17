@@ -13,9 +13,7 @@ import com.android.tools.r8.graph.DexAnnotationSet;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
-import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.shaking.KeepInfo;
@@ -31,8 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-public class CovariantReturnTypeEnqueuerExtension
-    implements NewlyLiveMethodEnqueuerAnalysis, FixpointEnqueuerAnalysis {
+public class CovariantReturnTypeEnqueuerExtension extends EnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final CovariantReturnTypeAnnotationTransformer transformer;
@@ -47,14 +44,10 @@ public class CovariantReturnTypeEnqueuerExtension
   }
 
   public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      Enqueuer enqueuer,
-      EnqueuerAnalysisCollection.Builder builder) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     if (enqueuer.getMode().isInitialTreeShaking()
         && CovariantReturnTypeAnnotationTransformer.shouldRun(appView)) {
-      CovariantReturnTypeEnqueuerExtension analysis =
-          new CovariantReturnTypeEnqueuerExtension(appView);
-      builder.addNewlyLiveMethodAnalysis(analysis).addFixpointAnalysis(analysis);
+      enqueuer.registerAnalysis(new CovariantReturnTypeEnqueuerExtension(appView));
     }
   }
 

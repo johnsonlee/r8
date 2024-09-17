@@ -14,7 +14,6 @@ import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfLogicalBinop;
 import com.android.tools.r8.cf.code.CfStaticFieldWrite;
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -25,9 +24,7 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
-import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
@@ -36,8 +33,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 
-public class ClassInitializerAssertionEnablingAnalysis
-    implements TraceFieldAccessEnqueuerAnalysis, NewlyLiveMethodEnqueuerAnalysis {
+public class ClassInitializerAssertionEnablingAnalysis extends EnqueuerAnalysis
+    implements EnqueuerFieldAccessAnalysis {
   private final DexItemFactory dexItemFactory;
   private final OptimizationFeedback feedback;
   private final DexString kotlinAssertionsEnabled;
@@ -56,28 +53,17 @@ public class ClassInitializerAssertionEnablingAnalysis
             .collect(Collectors.toList());
   }
 
-  public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      Enqueuer enqueuer,
-      EnqueuerAnalysisCollection.Builder builder) {
-    if (enqueuer.getMode().isInitialTreeShaking()
-        && AssertionsRewriter.isEnabled(appView.options())) {
-      ClassInitializerAssertionEnablingAnalysis analysis =
-          new ClassInitializerAssertionEnablingAnalysis(
-              appView, OptimizationFeedbackSimple.getInstance());
-      builder.addTraceFieldAccessAnalysis(analysis).addNewlyLiveMethodAnalysis(analysis);
-    }
-  }
-
+  @SuppressWarnings("ReferenceEquality")
   private boolean isUsingJavaAssertionsDisabledField(DexField field) {
     // This does not check the holder, as for inner classes the field is read from the outer class
     // and not the class itself.
-    return field.getName().isIdenticalTo(dexItemFactory.assertionsDisabled)
-        && field.getType().isIdenticalTo(dexItemFactory.booleanType);
+    return field.getName() == dexItemFactory.assertionsDisabled
+        && field.getType() == dexItemFactory.booleanType;
   }
 
+  @SuppressWarnings("ReferenceEquality")
   private boolean isUsingKotlinAssertionsEnabledField(DexField field) {
-    return field.isIdenticalTo(dexItemFactory.kotlin.assertions.enabledField);
+    return field == dexItemFactory.kotlin.assertions.enabledField;
   }
 
   @Override

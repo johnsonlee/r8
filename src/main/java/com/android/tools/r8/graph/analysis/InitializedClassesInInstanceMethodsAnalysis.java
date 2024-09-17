@@ -17,8 +17,7 @@ import com.android.tools.r8.utils.MapUtils;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-public class InitializedClassesInInstanceMethodsAnalysis
-    implements FinishedEnqueuerAnalysis, NewlyInstantiatedClassEnqueuerAnalysis {
+public class InitializedClassesInInstanceMethodsAnalysis extends EnqueuerAnalysis {
 
   // A simple structure that stores the result of the analysis.
   public static class InitializedClassesInInstanceMethods {
@@ -87,14 +86,10 @@ public class InitializedClassesInInstanceMethodsAnalysis
   }
 
   public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      Enqueuer enqueuer,
-      EnqueuerAnalysisCollection.Builder builder) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     if (appView.options().enableInitializedClassesInInstanceMethodsAnalysis
         && enqueuer.getMode().isInitialTreeShaking()) {
-      InitializedClassesInInstanceMethodsAnalysis analysis =
-          new InitializedClassesInInstanceMethodsAnalysis(appView);
-      builder.addNewlyInstantiatedClassAnalysis(analysis).addFinishedAnalysis(analysis);
+      enqueuer.registerAnalysis(new InitializedClassesInInstanceMethodsAnalysis(appView));
     } else {
       appView.setInitializedClassesInInstanceMethods(null);
     }

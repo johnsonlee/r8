@@ -7,7 +7,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 
-public interface TraceConstClassEnqueuerAnalysis {
+public interface EnqueuerNewInstanceAnalysis {
 
-  void traceConstClass(DexType type, DexClass clazz, ProgramMethod context);
+  void traceNewInstance(DexType type, DexClass clazz, ProgramMethod context);
 }

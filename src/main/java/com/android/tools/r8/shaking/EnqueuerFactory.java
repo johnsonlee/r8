@@ -35,8 +35,7 @@ public class EnqueuerFactory {
       ExecutorService executorService,
       SubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer,
-      Set<DexType> initialPrunedTypes,
-      RuntimeTypeCheckInfo.Builder runtimeTypeCheckInfoBuilder) {
+      Set<DexType> initialPrunedTypes) {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
     Enqueuer enqueuer =
@@ -46,11 +45,10 @@ public class EnqueuerFactory {
             executorService,
             subtypingInfo,
             keptGraphConsumer,
-            Mode.FINAL_TREE_SHAKING,
-            initialPrunedTypes,
-            runtimeTypeCheckInfoBuilder);
+            Mode.FINAL_TREE_SHAKING);
     appView.withProtoShrinker(
         shrinker -> enqueuer.setInitialDeadProtoTypes(shrinker.getDeadProtoTypes()));
+    enqueuer.setInitialPrunedTypes(initialPrunedTypes);
     return enqueuer;
   }
 

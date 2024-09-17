@@ -258,7 +258,7 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, rules.size());
     assertEquals(ProguardClassType.CLASS, rules.get(0).getClassType());
     assertEquals(1, rules.get(0).getClassNames().size());
-    List<DexType> classTypes = rules.get(0).getClassNames().getSpecificTypes();
+    List<DexType> classTypes = rules.get(0).getClassNames().asSpecificDexTypes();
     assertEquals(1, classTypes.size());
     assertSame(dexItemFactory.createType("L-package-/-ClassNameWithDash-;"), classTypes.get(0));
     ProguardConfigurationRule rule = rules.get(0);

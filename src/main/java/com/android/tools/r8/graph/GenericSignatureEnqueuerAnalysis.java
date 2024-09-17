@@ -4,25 +4,14 @@
 
 package com.android.tools.r8.graph;
 
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
-import com.android.tools.r8.graph.analysis.NewlyLiveClassEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyLiveFieldEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyReachableFieldEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyTargetedMethodEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.Enqueuer.EnqueuerDefinitionSupplier;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
-import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Sets;
 import java.util.Set;
 
-public class GenericSignatureEnqueuerAnalysis
-    implements NewlyLiveClassEnqueuerAnalysis,
-        NewlyLiveFieldEnqueuerAnalysis,
-        NewlyLiveMethodEnqueuerAnalysis,
-        NewlyReachableFieldEnqueuerAnalysis,
-        NewlyTargetedMethodEnqueuerAnalysis {
+public class GenericSignatureEnqueuerAnalysis extends EnqueuerAnalysis {
 
   private final EnqueuerDefinitionSupplier enqueuerDefinitionSupplier;
   private final Set<DexReference> processedSignatures = Sets.newIdentityHashSet();
@@ -31,30 +20,14 @@ public class GenericSignatureEnqueuerAnalysis
     this.enqueuerDefinitionSupplier = enqueuerDefinitionSupplier;
   }
 
-  public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      EnqueuerDefinitionSupplier enqueuerDefinitionSupplier,
-      EnqueuerAnalysisCollection.Builder builder) {
-    // TODO(b/323816623): This check does not include presence of keep declarations.
-    //  We should consider if we should always run the signature analysis and just not emit them
-    //  in the end?
-    InternalOptions options = appView.options();
-    if (options.hasProguardConfiguration()
-        && options.getProguardConfiguration().getKeepAttributes().signature) {
-      GenericSignatureEnqueuerAnalysis analysis =
-          new GenericSignatureEnqueuerAnalysis(enqueuerDefinitionSupplier);
-      builder
-          .addNewlyLiveClassAnalysis(analysis)
-          .addNewlyLiveFieldAnalysis(analysis)
-          .addNewlyLiveMethodAnalysis(analysis)
-          .addNewlyReachableFieldAnalysis(analysis)
-          .addNewlyTargetedMethodAnalysis(analysis);
-    }
-  }
-
   @Override
   public void processNewlyLiveClass(DexProgramClass clazz, EnqueuerWorklist worklist) {
     processSignature(clazz, clazz.getContext());
+  }
+
+  @Override
+  public void notifyMarkFieldAsReachable(ProgramField field, EnqueuerWorklist worklist) {
+    processSignature(field, field.getContext());
   }
 
   @Override
@@ -64,22 +37,17 @@ public class GenericSignatureEnqueuerAnalysis
   }
 
   @Override
+  public void notifyMarkMethodAsTargeted(ProgramMethod method, EnqueuerWorklist worklist) {
+    processSignature(method, method.getContext());
+  }
+
+  @Override
   public void processNewlyLiveMethod(
       ProgramMethod method,
       ProgramDefinition context,
       Enqueuer enqueuer,
       EnqueuerWorklist worklist) {
     processSignature(method, context);
-  }
-
-  @Override
-  public void processNewlyReachableField(ProgramField field, EnqueuerWorklist worklist) {
-    processSignature(field, field.getContext());
-  }
-
-  @Override
-  public void processNewlyTargetedMethod(ProgramMethod method, EnqueuerWorklist worklist) {
-    processSignature(method, method.getContext());
   }
 
   private void processSignature(ProgramDefinition signatureHolder, ProgramDefinition context) {

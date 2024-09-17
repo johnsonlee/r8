@@ -20,8 +20,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SubtypingInfo;
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
-import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
@@ -83,13 +82,6 @@ public class GeneratedMessageLiteBuilderShrinker {
     assert enableAggressiveBuilderOptimization;
   }
 
-  public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      EnqueuerAnalysisCollection.Builder builder) {
-    appView.withGeneratedMessageLiteBuilderShrinker(
-        shrinker -> builder.addFixpointAnalysis(shrinker.createEnqueuerAnalysis()));
-  }
-
   private boolean computeEnableAggressiveBuilderOptimization() {
     DexClass generatedMessageLiteBuilderClass =
         appView
@@ -139,11 +131,11 @@ public class GeneratedMessageLiteBuilderShrinker {
     return true;
   }
 
-  public FixpointEnqueuerAnalysis createEnqueuerAnalysis() {
+  public EnqueuerAnalysis createEnqueuerAnalysis() {
     Set<DexProgramClass> seen = Sets.newIdentityHashSet();
-    return new FixpointEnqueuerAnalysis() {
-
+    return new EnqueuerAnalysis() {
       @Override
+      @SuppressWarnings("ReferenceEquality")
       public void notifyFixpoint(
           Enqueuer enqueuer,
           EnqueuerWorklist worklist,
@@ -179,9 +171,7 @@ public class GeneratedMessageLiteBuilderShrinker {
                 }
 
                 superClass.accessFlags.demoteFromAbstract();
-                if (superClass
-                    .getType()
-                    .isIdenticalTo(references.generatedMessageLiteBuilderType)) {
+                if (superClass.type == references.generatedMessageLiteBuilderType) {
                   // Manually trace `new GeneratedMessageLite.Builder(DEFAULT_INSTANCE)` since we
                   // haven't rewritten the code yet.
                   worklist.enqueueTraceNewInstanceAction(
@@ -191,9 +181,7 @@ public class GeneratedMessageLiteBuilderShrinker {
                       dynamicMethod,
                       null);
                 } else {
-                  assert superClass
-                      .getType()
-                      .isIdenticalTo(references.generatedMessageLiteExtendableBuilderType);
+                  assert superClass.type == references.generatedMessageLiteExtendableBuilderType;
                   // Manually trace `new GeneratedMessageLite.ExtendableBuilder(DEFAULT_INSTANCE)`
                   // since we haven't rewritten the code yet.
                   worklist.enqueueTraceNewInstanceAction(
@@ -212,6 +200,7 @@ public class GeneratedMessageLiteBuilderShrinker {
   }
 
   /** Returns true if an action was deferred. */
+  @SuppressWarnings("ReferenceEquality")
   public boolean deferDeadProtoBuilders(
       DexProgramClass clazz, ProgramMethod method, BooleanSupplier register) {
     if (!enableAggressiveBuilderOptimization) {

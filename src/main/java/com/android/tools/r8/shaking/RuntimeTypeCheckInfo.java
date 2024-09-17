@@ -10,10 +10,9 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
-import com.android.tools.r8.graph.analysis.TraceCheckCastEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.TraceExceptionGuardEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.TraceInstanceOfEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerCheckCastAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerExceptionGuardAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerInstanceOfAnalysis;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.utils.SetUtils;
@@ -32,15 +31,6 @@ public class RuntimeTypeCheckInfo {
     this.instanceOfTypes = instanceOfTypes;
     this.checkCastTypes = checkCastTypes;
     this.exceptionGuardTypes = exceptionGuardTypes;
-  }
-
-  public static void register(Builder builder, EnqueuerAnalysisCollection.Builder analysesBuilder) {
-    if (builder != null) {
-      analysesBuilder
-          .addTraceCheckCastAnalysis(builder)
-          .addTraceExceptionGuardAnalysis(builder)
-          .addTraceInstanceOfAnalysis(builder);
-    }
   }
 
   public boolean isCheckCastType(DexProgramClass clazz) {
@@ -69,9 +59,9 @@ public class RuntimeTypeCheckInfo {
   }
 
   public static class Builder
-      implements TraceInstanceOfEnqueuerAnalysis,
-          TraceCheckCastEnqueuerAnalysis,
-          TraceExceptionGuardEnqueuerAnalysis {
+      implements EnqueuerInstanceOfAnalysis,
+          EnqueuerCheckCastAnalysis,
+          EnqueuerExceptionGuardAnalysis {
 
     private final GraphLens appliedGraphLens;
     private final DexItemFactory factory;
@@ -118,6 +108,13 @@ public class RuntimeTypeCheckInfo {
       if (baseType.isClassType()) {
         set.add(baseType);
       }
+    }
+
+    public void attach(Enqueuer enqueuer) {
+      enqueuer
+          .registerInstanceOfAnalysis(this)
+          .registerCheckCastAnalysis(this)
+          .registerExceptionGuardAnalysis(this);
     }
   }
 }
