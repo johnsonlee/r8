@@ -67,10 +67,10 @@ public class BackportPlatformTest extends TestBase {
   @Test
   public void testPlatformR8() throws Exception {
     testForR8(parameters.getBackend())
-        .apply(b -> b.getBuilder().setAndroidPlatformBuild(true))
         .addProgramClasses(CLASSES)
         .addKeepMainRule(TestClass.class)
         .addKeepClassAndMembersRules(MiniAssert.class)
+        .setAndroidPlatformBuild()
         .setMinApi(parameters)
         .allowDiagnosticWarningMessages()
         .compileWithExpectedDiagnostics(this::checkDiagnostics);
@@ -79,8 +79,8 @@ public class BackportPlatformTest extends TestBase {
   @Test
   public void testPlatformD8() throws Exception {
     testForD8(parameters.getBackend())
-        .apply(b -> b.getBuilder().setAndroidPlatformBuild(true))
         .addProgramClasses(CLASSES)
+        .setAndroidPlatformBuild()
         .setMinApi(parameters)
         .compileWithExpectedDiagnostics(this::checkDiagnostics);
   }
@@ -88,12 +88,12 @@ public class BackportPlatformTest extends TestBase {
   @Test
   public void testPlatformDefinitionD8() throws Exception {
     testForD8(parameters.getBackend())
-        .apply(b -> b.getBuilder().setAndroidPlatformBuild(true))
         .addProgramClasses(CLASSES)
         .addProgramClassFileData(
             transformer(BooleanDefinition.class)
                 .setClassDescriptor("Ljava/lang/Boolean;")
                 .transform())
+        .setAndroidPlatformBuild()
         .setMinApi(parameters)
         .compile()
         .assertNoMessages()
@@ -106,8 +106,8 @@ public class BackportPlatformTest extends TestBase {
     assertEquals(AndroidApiLevel.J, parameters.getApiLevel());
     testForD8(parameters.getBackend())
         // Setting an API the backport won't hit the backport trigger.
+        .setAndroidPlatformBuild()
         .setMinApi(AndroidApiLevel.K)
-        .apply(b -> b.getBuilder().setAndroidPlatformBuild(true))
         .addProgramClasses(CLASSES)
         .compile()
         .assertNoMessages()

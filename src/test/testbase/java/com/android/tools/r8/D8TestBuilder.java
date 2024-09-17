@@ -40,6 +40,7 @@ public class D8TestBuilder
   private boolean enableMissingLibraryApiModeling = true;
   private List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
   private Box<D8BuildMetadata> buildMetadata;
+  private boolean androidPlatformBuild = false;
 
   @Override
   public boolean isD8TestBuilder() {
@@ -91,6 +92,7 @@ public class D8TestBuilder
       BenchmarkResults benchmarkResults)
       throws CompilationFailedException {
     libraryDesugaringTestConfiguration.configure(builder);
+    builder.setAndroidPlatformBuild(androidPlatformBuild);
     if (buildMetadata != null) {
       builder.setBuildMetadataConsumer(buildMetadata::set);
     }
@@ -183,6 +185,11 @@ public class D8TestBuilder
   public D8TestBuilder collectBuildMetadata() {
     assert buildMetadata == null;
     buildMetadata = new Box<>();
+    return self();
+  }
+
+  public D8TestBuilder setAndroidPlatformBuild() {
+    androidPlatformBuild = true;
     return self();
   }
 }
