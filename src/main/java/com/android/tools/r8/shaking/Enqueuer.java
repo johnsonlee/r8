@@ -147,6 +147,7 @@ import com.android.tools.r8.shaking.KeepInfoCollection.MutableKeepInfoCollection
 import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFromXml;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
+import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSet;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
@@ -171,6 +172,7 @@ import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -458,6 +460,9 @@ public class Enqueuer {
   private final Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>>
       deferredParameterAnnotations = new IdentityHashMap<>();
 
+  /** Map of active if rules to speed up aapt2 generated keep rules. */
+  private Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules;
+
   /**
    * A cache of ScopedDexMethodSet for each live type used for determining that virtual methods that
    * cannot be removed because they are widening access for another virtual method defined earlier
@@ -533,7 +538,6 @@ public class Enqueuer {
       ResourceAccessAnalysis.register(appView, this);
       CovariantReturnTypeEnqueuerExtension.register(appView, this);
     }
-    IfRuleEvaluatorFactory.register(appView, this, executorService);
 
     targetedMethods = new LiveMethodsSet(graphReporter::registerMethod);
     failedClassResolutionTargets = SetUtils.newIdentityHashSet(0);
@@ -828,10 +832,6 @@ public class Enqueuer {
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
     return keepInfo.getClassInfo(clazz);
-  }
-
-  public SubtypingInfo getSubtypingInfo() {
-    return subtypingInfo;
   }
 
   public boolean hasMinimumKeepInfoThatMatches(
@@ -3534,6 +3534,29 @@ public class Enqueuer {
     return liveTypes.contains(clazz);
   }
 
+  public boolean isEffectivelyLive(DexProgramClass clazz) {
+    if (isTypeLive(clazz)) {
+      return true;
+    }
+    if (mode.isInitialTreeShaking()) {
+      return false;
+    }
+    // TODO(b/325014359): Replace this by value tracking in instructions (akin to resource values).
+    for (DexEncodedField field : clazz.fields()) {
+      if (field.getOptimizationInfo().valueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    // TODO(b/325014359): Replace this by value or position tracking.
+    //  We need to be careful not to throw away such values/positions.
+    for (DexEncodedMethod method : clazz.methods()) {
+      if (method.getOptimizationInfo().returnValueHasBeenPropagated()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public boolean isOriginalReferenceEffectivelyLive(DexReference reference) {
     // The effectively-live original set contains types, fields and methods witnessed by
     // instructions, such as method inlining positions.
@@ -4733,6 +4756,28 @@ public class Enqueuer {
         long numberOfLiveItemsAfterProcessing = getNumberOfLiveItems();
         if (numberOfLiveItemsAfterProcessing > numberOfLiveItems) {
           timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
+
+          // Build the mapping of active if rules. We use a single collection of if-rules to allow
+          // removing if rules that have a constant sequent keep rule when they materialize.
+          if (activeIfRules == null) {
+            activeIfRules = new HashMap<>();
+            IfRuleClassPartEquivalence equivalence = new IfRuleClassPartEquivalence();
+            for (ProguardIfRule ifRule : rootSet.ifRules) {
+              Wrapper<ProguardIfRule> wrap = equivalence.wrap(ifRule);
+              activeIfRules.computeIfAbsent(wrap, ignore -> new LinkedHashSet<>()).add(ifRule);
+            }
+          }
+          ConsequentRootSetBuilder consequentSetBuilder =
+              ConsequentRootSet.builder(appView, this, subtypingInfo);
+          IfRuleEvaluator ifRuleEvaluator =
+              new IfRuleEvaluator(
+                  appView,
+                  subtypingInfo,
+                  this,
+                  executorService,
+                  activeIfRules,
+                  consequentSetBuilder);
+          addConsequentRootSet(ifRuleEvaluator.run());
           assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
           if (!worklist.isEmpty()) {
             continue;
@@ -4852,7 +4897,7 @@ public class Enqueuer {
     }
   }
 
-  public long getNumberOfLiveItems() {
+  private long getNumberOfLiveItems() {
     long result = liveTypes.getItems().size();
     result += liveMethods.items.size();
     result += liveFields.fields.size();
@@ -4860,7 +4905,7 @@ public class Enqueuer {
     return result;
   }
 
-  void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
+  private void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
     // TODO(b/132600955): This modifies the root set, but the consequent should not be persistent.
     //  Instead, the consequent root set should be added to collections that are owned by the
     //  enqueuer, similar to Enqueuer#dependentMinimumKeepClassInfo.

@@ -10,11 +10,11 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -80,15 +80,8 @@ public class MapUtils {
     map.entrySet().removeIf(entry -> entry.getKey() == entry.getValue());
   }
 
-  public static <K, V, E extends Throwable> void removeIf(
-      Map<K, V> map, ThrowingBiPredicate<K, V, E> predicate) throws E {
-    Iterator<Entry<K, V>> iterator = map.entrySet().iterator();
-    while (iterator.hasNext()) {
-      Entry<K, V> entry = iterator.next();
-      if (predicate.test(entry.getKey(), entry.getValue())) {
-        iterator.remove();
-      }
-    }
+  public static <K, V> void removeIf(Map<K, V> map, BiPredicate<K, V> predicate) {
+    map.entrySet().removeIf(entry -> predicate.test(entry.getKey(), entry.getValue()));
   }
 
   public static <K, V> V removeOrDefault(Map<K, V> map, K key, V defaultValue) {
