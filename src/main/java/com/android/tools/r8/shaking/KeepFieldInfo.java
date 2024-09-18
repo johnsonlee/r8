@@ -71,6 +71,23 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     return this.equals(bottom());
   }
 
+  @Override
+  public boolean equalsNoAnnotations(KeepFieldInfo other) {
+    return super.equalsNoAnnotations(other)
+        && (allowFieldTypeStrengthening == other.internalIsFieldTypeStrengtheningAllowed())
+        && (allowRedundantFieldLoadElimination
+            == other.internalIsRedundantFieldLoadEliminationAllowed());
+  }
+
+  @Override
+  public int hashCodeNoAnnotations() {
+    int hash = super.hashCodeNoAnnotations();
+    int index = super.numberOfBooleans();
+    hash += bit(allowFieldTypeStrengthening, index++);
+    hash += bit(allowRedundantFieldLoadElimination, index);
+    return hash;
+  }
+
   public static class Builder extends KeepMemberInfo.Builder<Builder, KeepFieldInfo> {
 
     private boolean allowFieldTypeStrengthening;

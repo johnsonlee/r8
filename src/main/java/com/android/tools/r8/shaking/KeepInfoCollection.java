@@ -287,7 +287,9 @@ public abstract class KeepInfoCollection {
     // Collection of materialized rules.
     private MaterializedRules materializedRules;
 
-    MutableKeepInfoCollection() {
+    private final KeepInfoCanonicalizer canonicalizer;
+
+    MutableKeepInfoCollection(InternalOptions options) {
       this(
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
@@ -295,7 +297,10 @@ public abstract class KeepInfoCollection {
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
           new IdentityHashMap<>(),
-          MaterializedRules.empty());
+          MaterializedRules.empty(),
+          options.testing.enableKeepInfoCanonicalizer
+              ? KeepInfoCanonicalizer.newCanonicalizer()
+              : KeepInfoCanonicalizer.newNopCanonicalizer());
     }
 
     private MutableKeepInfoCollection(
@@ -305,7 +310,8 @@ public abstract class KeepInfoCollection {
         Map<DexType, KeepClassInfo.Joiner> classRuleInstances,
         Map<DexField, KeepFieldInfo.Joiner> fieldRuleInstances,
         Map<DexMethod, KeepMethodInfo.Joiner> methodRuleInstances,
-        MaterializedRules materializedRules) {
+        MaterializedRules materializedRules,
+        KeepInfoCanonicalizer keepInfoCanonicalizer) {
       this.keepClassInfo = keepClassInfo;
       this.keepMethodInfo = keepMethodInfo;
       this.keepFieldInfo = keepFieldInfo;
@@ -313,6 +319,7 @@ public abstract class KeepInfoCollection {
       this.fieldRuleInstances = fieldRuleInstances;
       this.methodRuleInstances = methodRuleInstances;
       this.materializedRules = materializedRules;
+      this.canonicalizer = keepInfoCanonicalizer;
     }
 
     public void setMaterializedRules(MaterializedRules materializedRules) {
@@ -385,7 +392,8 @@ public abstract class KeepInfoCollection {
                   methodRuleInstances,
                   lens::getRenamedMethodSignature,
                   KeepMethodInfo::newEmptyJoiner),
-              materializedRules.rewriteWithLens(lens));
+              materializedRules.rewriteWithLens(lens),
+              canonicalizer);
       timing.end();
       return result;
     }
@@ -599,7 +607,7 @@ public abstract class KeepInfoCollection {
       fn.accept(joiner);
       KeepClassInfo joined = joiner.join();
       if (!info.equals(joined)) {
-        keepClassInfo.put(clazz.type, joined);
+        keepClassInfo.put(clazz.type, canonicalizer.canonicalizeKeepClassInfo(joined));
       }
     }
 
@@ -617,7 +625,7 @@ public abstract class KeepInfoCollection {
       fn.accept(joiner);
       KeepMethodInfo joined = joiner.join();
       if (!info.equals(joined)) {
-        keepMethodInfo.put(method.getReference(), joined);
+        keepMethodInfo.put(method.getReference(), canonicalizer.canonicalizeKeepMethodInfo(joined));
       }
     }
 
@@ -635,7 +643,7 @@ public abstract class KeepInfoCollection {
       fn.accept(joiner);
       KeepFieldInfo joined = joiner.join();
       if (!info.equals(joined)) {
-        keepFieldInfo.put(field.getReference(), joined);
+        keepFieldInfo.put(field.getReference(), canonicalizer.canonicalizeKeepFieldInfo(joined));
       }
     }
 

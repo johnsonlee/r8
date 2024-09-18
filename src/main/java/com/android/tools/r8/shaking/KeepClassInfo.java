@@ -186,6 +186,34 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     return this.equals(bottom());
   }
 
+  @Override
+  public boolean equalsNoAnnotations(KeepClassInfo other) {
+    return super.equalsNoAnnotations(other)
+        && allowClassInlining == other.internalIsClassInliningAllowed()
+        && allowHorizontalClassMerging == other.internalIsHorizontalClassMergingAllowed()
+        && allowPermittedSubclassesRemoval == other.internalIsPermittedSubclassesRemovalAllowed()
+        && allowRepackaging == other.internalIsRepackagingAllowed()
+        && allowSyntheticSharing == other.internalIsSyntheticSharingAllowed()
+        && allowUnusedInterfaceRemoval == other.internalIsUnusedInterfaceRemovalAllowed()
+        && allowVerticalClassMerging == other.internalIsVerticalClassMergingAllowed()
+        && checkEnumUnboxed == other.internalIsCheckEnumUnboxedEnabled();
+  }
+
+  @Override
+  public int hashCodeNoAnnotations() {
+    int hash = super.hashCodeNoAnnotations();
+    int index = super.numberOfBooleans();
+    hash += bit(allowClassInlining, index++);
+    hash += bit(allowHorizontalClassMerging, index++);
+    hash += bit(allowPermittedSubclassesRemoval, index++);
+    hash += bit(allowRepackaging, index++);
+    hash += bit(allowSyntheticSharing, index++);
+    hash += bit(allowUnusedInterfaceRemoval, index++);
+    hash += bit(allowVerticalClassMerging, index++);
+    hash += bit(checkEnumUnboxed, index);
+    return hash;
+  }
+
   public static class Builder extends KeepInfo.Builder<Builder, KeepClassInfo> {
 
     private boolean allowClassInlining;

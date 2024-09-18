@@ -90,6 +90,25 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     }
   }
 
+  @Override
+  public boolean equalsNoAnnotations(K other) {
+    return super.equalsNoAnnotations(other)
+        && (allowValuePropagation == other.internalIsValuePropagationAllowed());
+  }
+
+  @Override
+  public int hashCodeNoAnnotations() {
+    int hash = super.hashCodeNoAnnotations();
+    int index = super.numberOfBooleans();
+    hash += bit(allowValuePropagation, index);
+    return hash;
+  }
+
+  @Override
+  protected int numberOfBooleans() {
+    return super.numberOfBooleans() + 1;
+  }
+
   public abstract static class Joiner<
           J extends Joiner<J, B, K>, B extends Builder<B, K>, K extends KeepMemberInfo<B, K>>
       extends KeepInfo.Joiner<J, B, K> {

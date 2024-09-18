@@ -292,6 +292,39 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && typeAnnotationsInfo.isLessThanOrEqualTo(other.internalTypeAnnotationsInfo());
   }
 
+  public boolean equalsNoAnnotations(K other) {
+    return getClass() == other.getClass()
+        && (allowAccessModification == other.internalIsAccessModificationAllowed())
+        && (allowAccessModificationForTesting
+            == other.internalIsAccessModificationAllowedForTesting())
+        && (allowMinification == other.internalIsMinificationAllowed())
+        && (allowOptimization == other.internalIsOptimizationAllowed())
+        && (allowShrinking == other.internalIsShrinkingAllowed())
+        && (allowSignatureRemoval == other.internalIsSignatureRemovalAllowed())
+        && (checkDiscarded == other.internalIsCheckDiscardedEnabled());
+  }
+
+  public int hashCodeNoAnnotations() {
+    int hash = 0;
+    int index = 0;
+    hash += bit(allowAccessModification, index++);
+    hash += bit(allowAccessModificationForTesting, index++);
+    hash += bit(allowMinification, index++);
+    hash += bit(allowOptimization, index++);
+    hash += bit(allowShrinking, index++);
+    hash += bit(allowSignatureRemoval, index++);
+    hash += bit(checkDiscarded, index);
+    return hash;
+  }
+
+  protected int numberOfBooleans() {
+    return 7;
+  }
+
+  protected int bit(boolean bool, int index) {
+    return bool ? 1 << index : 0;
+  }
+
   /** Builder to construct an arbitrary keep info object. */
   public abstract static class Builder<B extends Builder<B, K>, K extends KeepInfo<B, K>> {
 

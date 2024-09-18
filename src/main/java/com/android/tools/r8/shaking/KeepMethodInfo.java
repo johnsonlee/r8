@@ -280,6 +280,52 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return this.equals(bottom());
   }
 
+  @Override
+  public boolean equalsNoAnnotations(KeepMethodInfo other) {
+    return super.equalsNoAnnotations(other)
+        && allowThrowsRemoval == other.internalIsThrowsRemovalAllowed()
+        && allowClassInlining == other.internalIsClassInliningAllowed()
+        && allowClosedWorldReasoning == other.internalIsClosedWorldReasoningAllowed()
+        && allowCodeReplacement == other.internalIsCodeReplacementAllowed()
+        && allowConstantArgumentOptimization
+            == other.internalIsConstantArgumentOptimizationAllowed()
+        && allowInlining == other.internalIsInliningAllowed()
+        && allowMethodStaticizing == other.internalIsMethodStaticizingAllowed()
+        && allowParameterRemoval == other.internalIsParameterRemovalAllowed()
+        && allowParameterReordering == other.internalIsParameterReorderingAllowed()
+        && allowParameterTypeStrengthening == other.internalIsParameterTypeStrengtheningAllowed()
+        && allowReprocessing == other.internalIsReprocessingAllowed()
+        && allowReturnTypeStrengthening == other.internalIsReturnTypeStrengtheningAllowed()
+        && allowSingleCallerInlining == other.internalIsSingleCallerInliningAllowed()
+        && allowUnusedArgumentOptimization == other.internalIsUnusedArgumentOptimizationAllowed()
+        && allowUnusedReturnValueOptimization
+            == other.internalIsUnusedReturnValueOptimizationAllowed()
+        && allowParameterNamesRemoval == other.internalIsParameterNamesRemovalAllowed();
+  }
+
+  @Override
+  public int hashCodeNoAnnotations() {
+    int hash = super.hashCodeNoAnnotations();
+    int index = super.numberOfBooleans();
+    hash += bit(allowThrowsRemoval, index++);
+    hash += bit(allowClassInlining, index++);
+    hash += bit(allowClosedWorldReasoning, index++);
+    hash += bit(allowCodeReplacement, index++);
+    hash += bit(allowConstantArgumentOptimization, index++);
+    hash += bit(allowInlining, index++);
+    hash += bit(allowMethodStaticizing, index++);
+    hash += bit(allowParameterRemoval, index++);
+    hash += bit(allowParameterReordering, index++);
+    hash += bit(allowParameterTypeStrengthening, index++);
+    hash += bit(allowReprocessing, index++);
+    hash += bit(allowReturnTypeStrengthening, index++);
+    hash += bit(allowSingleCallerInlining, index++);
+    hash += bit(allowUnusedArgumentOptimization, index++);
+    hash += bit(allowUnusedReturnValueOptimization, index++);
+    hash += bit(allowParameterNamesRemoval, index);
+    return hash;
+  }
+
   public static class Builder extends KeepMemberInfo.Builder<Builder, KeepMethodInfo> {
 
     private boolean allowThrowsRemoval;

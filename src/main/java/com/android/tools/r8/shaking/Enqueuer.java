@@ -414,7 +414,7 @@ public class Enqueuer {
       reachableVirtualTargets = new IdentityHashMap<>();
 
   /** Collection of keep requirements for the program. */
-  private final MutableKeepInfoCollection keepInfo = new MutableKeepInfoCollection();
+  private final MutableKeepInfoCollection keepInfo;
 
   /**
    * Conditional minimum keep info for classes, fields, and methods, which should only be applied if
@@ -508,6 +508,7 @@ public class Enqueuer {
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
     this.mode = mode;
     this.options = options;
+    this.keepInfo = new MutableKeepInfoCollection(options);
     this.useRegistryFactory = createUseRegistryFactory();
     this.worklist = EnqueuerWorklist.createWorklist(this);
     this.proguardCompatibilityActionsBuilder =
