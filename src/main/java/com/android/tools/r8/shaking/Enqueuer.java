@@ -4763,7 +4763,6 @@ public class Enqueuer {
         // opportunity to add items to the worklist.
         for (EnqueuerAnalysis analysis : analyses) {
           analysis.notifyFixpoint(this, worklist, executorService, timing);
-          assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
         }
         if (!worklist.isEmpty()) {
           continue;
