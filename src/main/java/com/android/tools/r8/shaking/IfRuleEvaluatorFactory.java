@@ -53,7 +53,8 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       Enqueuer enqueuer,
       ExecutorService executorService) {
-    Set<ProguardIfRule> ifRules = appView.rootSet().ifRules;
+    Set<ProguardIfRule> ifRules =
+        appView.hasRootSet() ? appView.rootSet().ifRules : Collections.emptySet();
     if (ifRules != null && !ifRules.isEmpty()) {
       enqueuer.registerAnalysis(new IfRuleEvaluatorFactory(appView, enqueuer, executorService));
     }
