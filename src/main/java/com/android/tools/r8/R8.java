@@ -946,34 +946,35 @@ public class R8 {
 
   private void shrinkResources(
       Map<String, byte[]> dexFileContent, AppView<AppInfoWithClassHierarchy> appView) {
-    LegacyResourceShrinker.Builder resourceShrinkerBuilder = LegacyResourceShrinker.builder();
     Reporter reporter = options.reporter;
-    dexFileContent.forEach(resourceShrinkerBuilder::addDexInput);
     try {
-      addResourcesToBuilder(
-          resourceShrinkerBuilder, reporter, options.androidResourceProvider, FeatureSplit.BASE);
-      if (options.featureSplitConfiguration != null) {
-        for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
-          if (featureSplit.getAndroidResourceProvider() != null) {
-            addResourcesToBuilder(
-                resourceShrinkerBuilder,
-                reporter,
-                featureSplit.getAndroidResourceProvider(),
-                featureSplit);
-          }
-        }
-      }
-      if (options.androidResourceProguardMapStrings != null) {
-        resourceShrinkerBuilder.setProguardMapStrings(options.androidResourceProguardMapStrings);
-      }
-      resourceShrinkerBuilder.setShrinkerDebugReporter(
-          ResourceShrinkerUtils.shrinkerDebugReporterFromStringConsumer(
-              options.resourceShrinkerConfiguration.getDebugConsumer(), reporter));
-      LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
       ShrinkerResult shrinkerResult;
-      if (options.resourceShrinkerConfiguration.isOptimizedShrinking()) {
+
+      if (appView.options().isOptimizedResourceShrinking()) {
         shrinkerResult = appView.getResourceShrinkerState().shrinkModel();
       } else {
+        LegacyResourceShrinker.Builder resourceShrinkerBuilder = LegacyResourceShrinker.builder();
+        dexFileContent.forEach(resourceShrinkerBuilder::addDexInput);
+        addResourcesToBuilder(
+            resourceShrinkerBuilder, reporter, options.androidResourceProvider, FeatureSplit.BASE);
+        if (options.featureSplitConfiguration != null) {
+          for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
+            if (featureSplit.getAndroidResourceProvider() != null) {
+              addResourcesToBuilder(
+                  resourceShrinkerBuilder,
+                  reporter,
+                  featureSplit.getAndroidResourceProvider(),
+                  featureSplit);
+            }
+          }
+        }
+        if (options.androidResourceProguardMapStrings != null) {
+          resourceShrinkerBuilder.setProguardMapStrings(options.androidResourceProguardMapStrings);
+        }
+        resourceShrinkerBuilder.setShrinkerDebugReporter(
+            ResourceShrinkerUtils.shrinkerDebugReporterFromStringConsumer(
+                options.resourceShrinkerConfiguration.getDebugConsumer(), reporter));
+        LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
         shrinkerResult = shrinker.run();
       }
       Set<String> toKeep = shrinkerResult.getResFolderEntriesToKeep();
