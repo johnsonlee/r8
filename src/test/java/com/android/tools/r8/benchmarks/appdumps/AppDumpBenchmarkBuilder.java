@@ -147,7 +147,13 @@ public class AppDumpBenchmarkBuilder {
         .setMethod(runR8WithResourceShrinking(this, configuration))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
+        // TODO(b/368282141): Also measure resource size.
         .measureRunTime()
+        .measureCodeSize()
+        .measureInstructionCodeSize()
+        .measureComposableInstructionCodeSize()
+        .measureDexSegmentsCodeSize()
+        .measureDex2OatCodeSize()
         .setTimeout(10, TimeUnit.MINUTES)
         .build();
   }
@@ -298,21 +304,19 @@ public class AppDumpBenchmarkBuilder {
                           b ->
                               b.enableOptimizedShrinking()
                                   .setAndroidResourcesFromPath(dump.getAndroidResources()))
-                      .applyIf(
-                          enableResourceShrinking,
+                      .apply(
                           r -> {
                             try {
-                              r.benchmarkCompile(results);
-                            } catch (Exception e) {
-                              // Ignore.
-                            }
-                          },
-                          r ->
+                              // TODO(b/368282141): Also emit resource size.
                               r.benchmarkCompile(results)
                                   .benchmarkCodeSize(results)
                                   .benchmarkInstructionCodeSize(results)
                                   .benchmarkDexSegmentsCodeSize(results)
-                                  .benchmarkDex2OatCodeSize(results));
+                                  .benchmarkDex2OatCodeSize(results);
+                            } catch (Exception e) {
+                              // Ignore.
+                            }
+                          });
                 });
   }
 
