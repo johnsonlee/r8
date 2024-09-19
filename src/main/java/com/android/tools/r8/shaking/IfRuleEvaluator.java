@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
-import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
@@ -29,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 public class IfRuleEvaluator {
@@ -45,21 +43,21 @@ public class IfRuleEvaluator {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       SubtypingInfo subtypingInfo,
       Enqueuer enqueuer,
-      ExecutorService executorService,
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
-      ConsequentRootSetBuilder rootSetBuilder) {
+      ConsequentRootSetBuilder rootSetBuilder,
+      TaskCollection<?> tasks) {
+    assert tasks.isEmpty();
     this.appView = appView;
     this.subtypingInfo = subtypingInfo;
     this.enqueuer = enqueuer;
     this.ifRules = ifRules;
     this.rootSetBuilder = rootSetBuilder;
-    this.tasks = new TaskCollection<>(appView.options(), executorService);
+    this.tasks = tasks;
   }
 
-  public ConsequentRootSet run() throws ExecutionException {
+  public void run() throws ExecutionException {
     appView.appInfo().app().timing.begin("Find consequent items for -if rules...");
     try {
-      if (ifRules != null && !ifRules.isEmpty()) {
         Iterator<Map.Entry<Wrapper<ProguardIfRule>, Set<ProguardIfRule>>> it =
             ifRules.entrySet().iterator();
         while (it.hasNext()) {
@@ -107,11 +105,9 @@ public class IfRuleEvaluator {
           }
         }
         tasks.await();
-      }
     } finally {
       appView.appInfo().app().timing.end();
     }
-    return rootSetBuilder.buildConsequentRootSet();
   }
 
   private boolean canRemoveSubsequentKeepRule(ProguardIfRule rule) {

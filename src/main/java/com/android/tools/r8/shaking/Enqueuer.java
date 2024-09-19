@@ -147,7 +147,6 @@ import com.android.tools.r8.shaking.KeepInfoCollection.MutableKeepInfoCollection
 import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFromXml;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
-import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSet;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
@@ -172,7 +171,6 @@ import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
-import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -272,6 +270,7 @@ public class Enqueuer {
   // Don't hold a direct pointer to app info (use appView).
   private AppInfoWithClassHierarchy appInfo;
   private final AppView<AppInfoWithClassHierarchy> appView;
+  private final IfRuleEvaluatorFactory ifRuleEvaluatorFactory;
   private final EnqueuerDeferredTracing deferredTracing;
   private final ExecutorService executorService;
   private SubtypingInfo subtypingInfo;
@@ -460,9 +459,6 @@ public class Enqueuer {
   private final Map<DexType, Map<DexAnnotation, List<ProgramDefinition>>>
       deferredParameterAnnotations = new IdentityHashMap<>();
 
-  /** Map of active if rules to speed up aapt2 generated keep rules. */
-  private Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules;
-
   /**
    * A cache of ScopedDexMethodSet for each live type used for determining that virtual methods that
    * cannot be removed because they are widening access for another virtual method defined earlier
@@ -504,6 +500,8 @@ public class Enqueuer {
     InternalOptions options = appView.options();
     this.appInfo = appView.appInfo();
     this.appView = appView.withClassHierarchy();
+    this.ifRuleEvaluatorFactory =
+        new IfRuleEvaluatorFactory(appView.withClassHierarchy(), this, executorService);
     this.profileCollectionAdditions = profileCollectionAdditions;
     this.deferredTracing = EnqueuerDeferredTracing.create(appView, this, mode);
     this.executorService = executorService;
@@ -4756,28 +4754,7 @@ public class Enqueuer {
         long numberOfLiveItemsAfterProcessing = getNumberOfLiveItems();
         if (numberOfLiveItemsAfterProcessing > numberOfLiveItems) {
           timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
-
-          // Build the mapping of active if rules. We use a single collection of if-rules to allow
-          // removing if rules that have a constant sequent keep rule when they materialize.
-          if (activeIfRules == null) {
-            activeIfRules = new HashMap<>();
-            IfRuleClassPartEquivalence equivalence = new IfRuleClassPartEquivalence();
-            for (ProguardIfRule ifRule : rootSet.ifRules) {
-              Wrapper<ProguardIfRule> wrap = equivalence.wrap(ifRule);
-              activeIfRules.computeIfAbsent(wrap, ignore -> new LinkedHashSet<>()).add(ifRule);
-            }
-          }
-          ConsequentRootSetBuilder consequentSetBuilder =
-              ConsequentRootSet.builder(appView, this, subtypingInfo);
-          IfRuleEvaluator ifRuleEvaluator =
-              new IfRuleEvaluator(
-                  appView,
-                  subtypingInfo,
-                  this,
-                  executorService,
-                  activeIfRules,
-                  consequentSetBuilder);
-          addConsequentRootSet(ifRuleEvaluator.run());
+          ifRuleEvaluatorFactory.run(subtypingInfo);
           assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
           if (!worklist.isEmpty()) {
             continue;
@@ -4905,7 +4882,7 @@ public class Enqueuer {
     return result;
   }
 
-  private void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
+  void addConsequentRootSet(ConsequentRootSet consequentRootSet) {
     // TODO(b/132600955): This modifies the root set, but the consequent should not be persistent.
     //  Instead, the consequent root set should be added to collections that are owned by the
     //  enqueuer, similar to Enqueuer#dependentMinimumKeepClassInfo.
