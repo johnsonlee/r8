@@ -264,6 +264,14 @@ def ParseOptions():
                         help='Pass --no-daemon to the gradle run',
                         default=False,
                         action='store_true')
+    result.add_argument('--land',
+                        help='Land current CL if tests pass',
+                        default=False,
+                        action='store_true')
+    result.add_argument('--land-bypass-hooks',
+                        help='Pass --bypass-hooks to `git cl land`',
+                        default=False,
+                        action='store_true')
     result.add_argument('--low-priority',
                         help='Run gradle with priority=low (higher niceness)',
                         default=False,
@@ -278,7 +286,10 @@ def ParseOptions():
                         help='Specify to run tests on older kotlin compilers',
                         default=False,
                         action='store_true')
-    return result.parse_known_args()
+    options, args = result.parse_known_args()
+    if options.land_bypass_hooks:
+        options.land = True
+    return options, args
 
 
 def has_failures(classes_file):
@@ -337,8 +348,16 @@ def bot_symlinks():
         os.symlink("/usr/lib/x86_64-linux-gnu/libncurses.so.6",
                    art7 + "/lib64/libtinfo.so.5")
 
+
 def Main():
     (options, args) = ParseOptions()
+    return_code = test(options, args)
+    if return_code == 0 and options.land:
+        land(options)
+    return return_code
+
+
+def test(options, args):
     if utils.is_bot():
         gradle.RunGradle(['--no-daemon', 'clean'])
         print('Running with python ' + str(sys.version_info))
@@ -628,6 +647,13 @@ def archive_and_return(return_code, options):
         print('  Cache miss: ' + str(cache_miss))
         print('  Cache puts: ' + str(cache_put))
     return return_code
+
+
+def land(options):
+    cmd = ['git', 'cl', 'land']
+    if options.land_bypass_hooks:
+        cmd.append('--bypass-hooks')
+    subprocess.check_call(cmd)
 
 
 def print_jstacks():
