@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation;
 
-import static org.gradle.internal.impldep.junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NoHorizontalClassMerging;
 import com.android.tools.r8.NoVerticalClassMerging;
