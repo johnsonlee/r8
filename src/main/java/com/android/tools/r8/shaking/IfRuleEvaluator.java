@@ -17,12 +17,12 @@ import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
+import com.android.tools.r8.utils.MapUtils;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +35,6 @@ public class IfRuleEvaluator {
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final SubtypingInfo subtypingInfo;
   private final Enqueuer enqueuer;
-  private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules;
   private final ConsequentRootSetBuilder rootSetBuilder;
   private final TaskCollection<?> tasks;
 
@@ -43,27 +42,22 @@ public class IfRuleEvaluator {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       SubtypingInfo subtypingInfo,
       Enqueuer enqueuer,
-      Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
       ConsequentRootSetBuilder rootSetBuilder,
       TaskCollection<?> tasks) {
     assert tasks.isEmpty();
     this.appView = appView;
     this.subtypingInfo = subtypingInfo;
     this.enqueuer = enqueuer;
-    this.ifRules = ifRules;
     this.rootSetBuilder = rootSetBuilder;
     this.tasks = tasks;
   }
 
-  public void run() throws ExecutionException {
-    appView.appInfo().app().timing.begin("Find consequent items for -if rules...");
-    try {
-        Iterator<Map.Entry<Wrapper<ProguardIfRule>, Set<ProguardIfRule>>> it =
-            ifRules.entrySet().iterator();
-        while (it.hasNext()) {
-          Map.Entry<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRuleEntry = it.next();
-          ProguardIfRule ifRuleKey = ifRuleEntry.getKey().get();
-          Set<ProguardIfRule> ifRulesInEquivalence = ifRuleEntry.getValue();
+  public void run(Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules)
+      throws ExecutionException {
+    MapUtils.removeIf(
+        ifRules,
+        (ifRuleWrapper, ifRulesInEquivalence) -> {
+          ProguardIfRule ifRuleKey = ifRuleWrapper.get();
           List<ProguardIfRule> toRemove = new ArrayList<>();
 
           // Depending on which types that trigger the -if rule, the application of the subsequent
@@ -86,15 +80,12 @@ public class IfRuleEvaluator {
                 });
           }
           if (ifRulesInEquivalence.size() == toRemove.size()) {
-            it.remove();
-          } else if (!toRemove.isEmpty()) {
-            ifRulesInEquivalence.removeAll(toRemove);
+            return true;
           }
-        }
-        tasks.await();
-    } finally {
-      appView.appInfo().app().timing.end();
-    }
+          toRemove.forEach(ifRulesInEquivalence::remove);
+          return false;
+        });
+    tasks.await();
   }
 
   private void evaluateRuleOnEffectivelyLiveClass(

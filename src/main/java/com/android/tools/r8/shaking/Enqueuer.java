@@ -4754,7 +4754,7 @@ public class Enqueuer {
         long numberOfLiveItemsAfterProcessing = getNumberOfLiveItems();
         if (numberOfLiveItemsAfterProcessing > numberOfLiveItems) {
           timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
-          ifRuleEvaluatorFactory.run(subtypingInfo);
+          ifRuleEvaluatorFactory.run(subtypingInfo, timing);
           assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
           if (!worklist.isEmpty()) {
             continue;

@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence.Wrapper;
 import java.util.Collections;
 import java.util.HashMap;
@@ -59,15 +60,15 @@ public class IfRuleEvaluatorFactory {
     return activeIfRules;
   }
 
-  public void run(SubtypingInfo subtypingInfo) throws ExecutionException {
+  public void run(SubtypingInfo subtypingInfo, Timing timing) throws ExecutionException {
     if (activeIfRules.isEmpty()) {
       return;
     }
     ConsequentRootSetBuilder consequentRootSetBuilder =
         ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
-    new IfRuleEvaluator(
-            appView, subtypingInfo, enqueuer, activeIfRules, consequentRootSetBuilder, tasks)
-        .run();
+    IfRuleEvaluator evaluator =
+        new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
+    timing.time("Find consequent items for -if rules...", () -> evaluator.run(activeIfRules));
     enqueuer.addConsequentRootSet(consequentRootSetBuilder.buildConsequentRootSet());
   }
 }
