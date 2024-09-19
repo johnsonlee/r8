@@ -127,8 +127,6 @@ import com.google.common.io.ByteStreams;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -1051,7 +1049,7 @@ public class R8 {
     for (AndroidResourceInput androidResource : androidResourceProvider.getAndroidResources()) {
       try {
         byte[] bytes = androidResource.getByteStream().readAllBytes();
-        Path path = Paths.get(androidResource.getPath().location());
+        String path = androidResource.getPath().location();
         switch (androidResource.getKind()) {
           case MANIFEST:
             resourceShrinkerBuilder.addManifest(path, bytes);

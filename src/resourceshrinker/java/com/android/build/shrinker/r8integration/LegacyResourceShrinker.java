@@ -61,8 +61,8 @@ public class LegacyResourceShrinker {
   public static class Builder {
 
     private final Map<String, byte[]> dexInputs = new HashMap<>();
-    private final Map<Path, PathAndBytes> resFolderInputs = new HashMap<>();
-    private final Map<Path, PathAndBytes> xmlInputs = new HashMap<>();
+    private final Map<String, PathAndBytes> resFolderInputs = new HashMap<>();
+    private final Map<String, PathAndBytes> xmlInputs = new HashMap<>();
     private final List<byte[]> keepRuleInput = new ArrayList<>();
 
     private final List<PathAndBytes> manifests = new ArrayList<>();
@@ -72,12 +72,12 @@ public class LegacyResourceShrinker {
 
     private Builder() {}
 
-    public Builder addManifest(Path path, byte[] bytes) {
+    public Builder addManifest(String path, byte[] bytes) {
       manifests.add(new PathAndBytes(bytes, path));
       return this;
     }
 
-    public Builder addResourceTable(Path path, byte[] bytes, FeatureSplit featureSplit) {
+    public Builder addResourceTable(String path, byte[] bytes, FeatureSplit featureSplit) {
       resourceTables.put(new PathAndBytes(bytes, path), featureSplit);
       try {
         ResourceTable resourceTable = ResourceTable.parseFrom(bytes);
@@ -98,7 +98,7 @@ public class LegacyResourceShrinker {
       return this;
     }
 
-    public Builder addResFolderInput(Path path, byte[] bytes) {
+    public Builder addResFolderInput(String path, byte[] bytes) {
       PathAndBytes existing = resFolderInputs.get(path);
       if (existing != null) {
         assert Arrays.equals(existing.getBytes(), bytes);
@@ -108,7 +108,7 @@ public class LegacyResourceShrinker {
       return this;
     }
 
-    public Builder addXmlInput(Path path, byte[] bytes) {
+    public Builder addXmlInput(String path, byte[] bytes) {
       PathAndBytes existing = xmlInputs.get(path);
       if (existing != null) {
         assert Arrays.equals(existing.getBytes(), bytes);
@@ -330,20 +330,16 @@ public class LegacyResourceShrinker {
 
   private static class PathAndBytes {
     private final byte[] bytes;
-    private final Path path;
+    private final String path;
 
-    private PathAndBytes(byte[] bytes, Path path) {
+    private PathAndBytes(byte[] bytes, String path) {
       this.bytes = bytes;
       this.path = path;
     }
 
-    public Path getPath() {
-      return path;
-    }
-
     public String getPathWithoutRes() {
-      assert path.toString().startsWith("res/");
-      return path.toString().substring(4);
+      assert path.startsWith("res/");
+      return path.substring(4);
     }
 
     public byte[] getBytes() {
