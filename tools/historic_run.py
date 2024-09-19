@@ -76,9 +76,11 @@ class GitCommit(object):
 
 
 def git_commit_from_hash(hash):
+    # If there is a tag for the given commit then the commit timestamp is on the
+    # last line.
     commit_timestamp_str = subprocess.check_output(
         ['git', 'show', '--no-patch', '--no-notes', '--pretty=%ct',
-         hash]).decode('utf-8').strip()
+         hash]).decode('utf-8').strip().splitlines()[-1]
     commit_timestamp = int(commit_timestamp_str)
     destination_dir = '%s/%s/' % (MASTER_COMMITS, hash)
     destination = '%s%s' % (destination_dir, 'r8.jar')

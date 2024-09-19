@@ -26,6 +26,10 @@ def parse_options():
                         help='The R8 branch to tag versions on, eg, origin/3.0')
     parser.add_argument('--agp',
                         help='The AGP to compute the tag for, eg, 4.2.0-beta03')
+    parser.add_argument('--no-push',
+                        default=False,
+                        action='store_true',
+                        help='To create the tag locally only.')
     parser.add_argument(
         '--dry-run',
         default=False,
@@ -36,8 +40,14 @@ def parse_options():
 
 def run(options, cmd):
     print(' '.join(cmd))
-    if not options.dry_run:
+    if 'push' in cmd and options.no_push:
+        return
+    if options.dry_run:
+        return
+    try:
         subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        print(e)
 
 
 def main():
@@ -125,8 +135,9 @@ def tag_agp_version(agp, args):
         ]).decode('utf-8')
         version = output.split(' ')[0]
         run(args, ['git', 'tag', '-f', tag, '-m', tag, '%s^{}' % version])
-        run(args, ['git', 'push', '-o', 'push-justification=b/313360935',
-                   'origin', tag])
+        run(args, [
+            'git', 'push', '-o', 'push-justification=b/313360935', 'origin', tag
+        ])
 
 
 def tag_r8_branch(branch, args):
@@ -146,8 +157,10 @@ def tag_r8_branch(branch, args):
         result = get_tag_info_on_origin(version)
         if not result:
             run(args, ['git', 'tag', '-a', version, '-m', version, hash])
-            run(args, ['git', 'push',  '-o', 'push-justification=b/313360935',
-                       'origin', version])
+            run(args, [
+                'git', 'push', '-o', 'push-justification=b/313360935', 'origin',
+                version
+            ])
     if args.dry_run:
         print('Dry run complete. None of the above have been executed.')
 
