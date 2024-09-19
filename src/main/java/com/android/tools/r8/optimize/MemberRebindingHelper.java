@@ -161,6 +161,9 @@ public class MemberRebindingHelper {
     //  `original.holder` on all API levels, in which case it is not OK to rebind to the resolved
     //  method.
     return resolvedMethod.isLibraryMethod()
+        // Only rebind to protected methods in library when generating DEX. Dalvik/ART does not
+        // implement the full instruction verification.
+        && (options.isGeneratingDex() || !resolvedMethod.getAccessFlags().isProtected())
         && isAccessibleInAllContexts(resolvedMethod, resolutionResult, contexts)
         && !isInvokeSuperToInterfaceMethod(resolvedMethod, invokeType)
         && !isInvokeSuperToAbstractMethod(resolvedMethod, invokeType)
