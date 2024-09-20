@@ -270,7 +270,6 @@ public class Enqueuer {
   // Don't hold a direct pointer to app info (use appView).
   private AppInfoWithClassHierarchy appInfo;
   private final AppView<AppInfoWithClassHierarchy> appView;
-  private final IfRuleEvaluatorFactory ifRuleEvaluatorFactory;
   private final EnqueuerDeferredTracing deferredTracing;
   private final ExecutorService executorService;
   private SubtypingInfo subtypingInfo;
@@ -501,8 +500,6 @@ public class Enqueuer {
     this.appInfo = appView.appInfo();
     this.appView = appView.withClassHierarchy();
     this.mode = mode;
-    this.ifRuleEvaluatorFactory =
-        new IfRuleEvaluatorFactory(appView.withClassHierarchy(), this, executorService);
     this.profileCollectionAdditions = profileCollectionAdditions;
     this.deferredTracing = EnqueuerDeferredTracing.create(appView, this, mode);
     this.executorService = executorService;
@@ -536,6 +533,7 @@ public class Enqueuer {
       ResourceAccessAnalysis.register(appView, this);
       CovariantReturnTypeEnqueuerExtension.register(appView, this);
     }
+    IfRuleEvaluatorFactory.register(appView, this, executorService);
 
     targetedMethods = new LiveMethodsSet(graphReporter::registerMethod);
     failedClassResolutionTargets = SetUtils.newIdentityHashSet(0);
@@ -830,6 +828,10 @@ public class Enqueuer {
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
     return keepInfo.getClassInfo(clazz);
+  }
+
+  public SubtypingInfo getSubtypingInfo() {
+    return subtypingInfo;
   }
 
   public boolean hasMinimumKeepInfoThatMatches(
@@ -4731,7 +4733,6 @@ public class Enqueuer {
         long numberOfLiveItemsAfterProcessing = getNumberOfLiveItems();
         if (numberOfLiveItemsAfterProcessing > numberOfLiveItems) {
           timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
-          ifRuleEvaluatorFactory.run(subtypingInfo, timing);
           assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
           if (!worklist.isEmpty()) {
             continue;
@@ -4851,7 +4852,7 @@ public class Enqueuer {
     }
   }
 
-  private long getNumberOfLiveItems() {
+  public long getNumberOfLiveItems() {
     long result = liveTypes.getItems().size();
     result += liveMethods.items.size();
     result += liveFields.fields.size();
