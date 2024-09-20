@@ -110,6 +110,17 @@ public class IterableUtils {
     return iterable.iterator().hasNext();
   }
 
+  public static <T> boolean hasSize(Iterable<T> iterable, int size) {
+    assert size >= 0;
+    int seen = 0;
+    for (T unusedElement : iterable) {
+      if (++seen > size) {
+        return false;
+      }
+    }
+    return seen == size;
+  }
+
   public static <T> T min(Iterable<T> iterable, Comparator<T> comparator) {
     T min = null;
     for (T element : iterable) {
