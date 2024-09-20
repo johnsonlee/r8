@@ -34,7 +34,7 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
   /** Map of active if rules. This is important for speeding up aapt2 generated keep rules. */
   private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRulesWithMembers;
 
-  private final Set<ProguardIfRule> activeIfRulesWithoutMembers;
+  private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRulesWithoutMembers;
 
   private final Set<DexProgramClass> effectivelyFakeLiveClasses;
   private final Set<DexProgramClass> newlyLiveClasses = Sets.newIdentityHashSet();
@@ -49,8 +49,8 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
       Enqueuer enqueuer,
       ExecutorService executorService) {
     this.appView = appView;
-    this.activeIfRulesWithMembers = createActiveIfRulesWithMembers(appView.rootSet().ifRules);
-    this.activeIfRulesWithoutMembers = createActiveIfRulesWithoutMembers(appView.rootSet().ifRules);
+    this.activeIfRulesWithMembers = createActiveIfRules(appView.rootSet().ifRules, true);
+    this.activeIfRulesWithoutMembers = createActiveIfRules(appView.rootSet().ifRules, false);
     this.effectivelyFakeLiveClasses = createEffectivelyFakeLiveClasses(appView, enqueuer);
     this.tasks = new TaskCollection<>(appView.options(), executorService);
   }
@@ -66,29 +66,17 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
     }
   }
 
-  private static Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> createActiveIfRulesWithMembers(
-      Set<ProguardIfRule> ifRules) {
+  private static Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> createActiveIfRules(
+      Set<ProguardIfRule> ifRules, boolean withMembers) {
     // Build the mapping of active if rules. We use a single collection of if-rules to allow
     // removing if rules that have a constant sequent keep rule when they materialize.
     Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules = new HashMap<>(ifRules.size());
     IfRuleClassPartEquivalence equivalence = new IfRuleClassPartEquivalence();
     for (ProguardIfRule ifRule : ifRules) {
-      if (!ifRule.getMemberRules().isEmpty()) {
+      boolean hasMembers = !ifRule.getMemberRules().isEmpty();
+      if (hasMembers == withMembers) {
         Wrapper<ProguardIfRule> wrap = equivalence.wrap(ifRule);
         activeIfRules.computeIfAbsent(wrap, ignoreKey(LinkedHashSet::new)).add(ifRule);
-      }
-    }
-    return activeIfRules;
-  }
-
-  private static Set<ProguardIfRule> createActiveIfRulesWithoutMembers(
-      Set<ProguardIfRule> ifRules) {
-    // Build the mapping of active if rules. We use a single collection of if-rules to allow
-    // removing if rules that have a constant sequent keep rule when they materialize.
-    Set<ProguardIfRule> activeIfRules = new LinkedHashSet<>(ifRules.size());
-    for (ProguardIfRule ifRule : ifRules) {
-      if (ifRule.getMemberRules().isEmpty()) {
-        activeIfRules.add(ifRule);
       }
     }
     return activeIfRules;
