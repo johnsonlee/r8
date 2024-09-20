@@ -152,6 +152,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
 
   protected ProguardIfRule materialize(
       DexItemFactory dexItemFactory, DexProgramClass precondition) {
+    markAsUsed();
     return new ProguardIfRule(
         getOrigin(),
         getPosition(),

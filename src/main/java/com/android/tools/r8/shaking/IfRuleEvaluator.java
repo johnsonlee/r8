@@ -13,12 +13,12 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.SubtypingInfo;
-import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.UncheckedExecutionException;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -107,6 +107,10 @@ public class IfRuleEvaluator {
               ifRulesInEquivalence.removeIf(
                   ifRule -> {
                     registerClassCapture(ifRule, clazz, clazz);
+                    ProguardIfRulePreconditionMatch ifRulePreconditionMatch =
+                        new ProguardIfRulePreconditionMatch(ifRule, clazz);
+                    ifRulePreconditionMatch.disallowOptimizationsForReevaluation(
+                        enqueuer, rootSetBuilder);
                     uncheckedMaterializeIfRule(ifRule, clazz);
                     return canRemoveSubsequentKeepRule(ifRule);
                   });
@@ -273,14 +277,26 @@ public class IfRuleEvaluator {
               .collect(Collectors.toList());
       // Member rules are combined as AND logic: if found unsatisfied member rule, this
       // combination of live members is not a good fit.
+      ProgramMethodSet methodsSatisfyingRule = ProgramMethodSet.create();
       boolean satisfied =
           memberKeepRules.stream()
               .allMatch(
-                  memberRule ->
-                      rootSetBuilder.ruleSatisfiedByFields(memberRule, fieldsInCombination)
-                          || rootSetBuilder.ruleSatisfiedByMethods(
-                              memberRule, methodsInCombination));
+                  memberRule -> {
+                    if (rootSetBuilder.ruleSatisfiedByFields(memberRule, fieldsInCombination)) {
+                      return true;
+                    }
+                    DexClassAndMethod methodSatisfyingRule =
+                        rootSetBuilder.getMethodSatisfyingRule(memberRule, methodsInCombination);
+                    if (methodSatisfyingRule != null) {
+                      methodsSatisfyingRule.add(methodSatisfyingRule.asProgramMethod());
+                      return true;
+                    }
+                    return false;
+                  });
       if (satisfied) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch =
+            new ProguardIfRulePreconditionMatch(rule, clazz, methodsSatisfyingRule);
+        ifRulePreconditionMatch.disallowOptimizationsForReevaluation(enqueuer, rootSetBuilder);
         materializeIfRule(rule, clazz);
         if (canRemoveSubsequentKeepRule(rule)) {
           matchedConsumer.accept(rule);
@@ -309,39 +325,9 @@ public class IfRuleEvaluator {
 
   private void materializeIfRule(ProguardIfRule rule, DexProgramClass precondition)
       throws ExecutionException {
+    // Keep whatever is required by the -if rule.
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     ProguardIfRule materializedRule = rule.materialize(dexItemFactory, precondition);
-
-    if (enqueuer.getMode().isInitialTreeShaking()
-        && !rule.isUsed()
-        && !rule.isTrivalAllClassMatch()) {
-      InlineRule neverInlineForClassInliningRuleForCondition =
-          materializedRule.neverInlineRuleForCondition(
-              dexItemFactory, InlineRuleType.NEVER_CLASS_INLINE);
-      if (neverInlineForClassInliningRuleForCondition != null) {
-        rootSetBuilder.runPerRule(tasks, neverInlineForClassInliningRuleForCondition, null);
-      }
-
-      // If the condition of the -if rule has any members, then we need to keep these members to
-      // ensure that the subsequent rule will be applied again in the second round of tree
-      // shaking.
-      InlineRule neverInlineRuleForCondition =
-          materializedRule.neverInlineRuleForCondition(dexItemFactory, InlineRuleType.NEVER);
-      if (neverInlineRuleForCondition != null) {
-        rootSetBuilder.runPerRule(tasks, neverInlineRuleForCondition, null);
-      }
-
-      rootSetBuilder
-          .getDependentMinimumKeepInfo()
-          .getOrCreateUnconditionalMinimumKeepInfoFor(precondition.getType())
-          .asClassJoiner()
-          .disallowClassInlining()
-          .disallowHorizontalClassMerging()
-          .disallowVerticalClassMerging();
-    }
-
-    // Keep whatever is required by the -if rule.
-    rootSetBuilder.runPerRule(tasks, materializedRule.subsequentRule, materializedRule);
-    rule.markAsUsed();
+    rootSetBuilder.runPerRule(tasks, materializedRule.getSubsequentRule(), materializedRule);
   }
 }

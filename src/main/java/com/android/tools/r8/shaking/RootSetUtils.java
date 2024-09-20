@@ -968,14 +968,19 @@ public class RootSetUtils {
     }
 
     boolean ruleSatisfiedByMethods(ProguardMemberRule rule, Iterable<DexClassAndMethod> methods) {
+      return getMethodSatisfyingRule(rule, methods) != null;
+    }
+
+    DexClassAndMethod getMethodSatisfyingRule(
+        ProguardMemberRule rule, Iterable<DexClassAndMethod> methods) {
       if (rule.getRuleType().includesMethods()) {
         for (DexClassAndMethod method : methods) {
           if (rule.matches(method, appView, this::handleMatchedAnnotation, dexStringCache)) {
-            return true;
+            return method;
           }
         }
       }
-      return false;
+      return null;
     }
 
     boolean ruleSatisfiedByFields(ProguardMemberRule rule, Iterable<DexClassAndField> fields) {
