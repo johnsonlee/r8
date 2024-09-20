@@ -149,7 +149,7 @@ public class IfRuleEvaluator {
   }
 
   private boolean canRemoveSubsequentKeepRule(ProguardIfRule rule) {
-    return Iterables.isEmpty(rule.subsequentRule.getWildcards());
+    return !rule.getSubsequentRule().hasBackReferences();
   }
 
   /**
