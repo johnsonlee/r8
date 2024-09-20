@@ -19,7 +19,10 @@ import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
+import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveClassEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
@@ -64,7 +67,10 @@ import java.util.function.Predicate;
 // TODO(b/112437944): Handle incomplete information about extensions + add a test that fails with
 //  the current implementation. If there are some extensions that cannot be resolved, then we should
 //  keep fields that could reach extensions to be conservative.
-public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
+public class ProtoEnqueuerExtension
+    implements NewlyLiveClassEnqueuerAnalysis,
+        NewlyLiveMethodEnqueuerAnalysis,
+        FixpointEnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final RawMessageInfoDecoder decoder;
@@ -101,6 +107,18 @@ public class ProtoEnqueuerExtension extends EnqueuerAnalysis {
     this.decoder = protoShrinker.decoder;
     this.factory = protoShrinker.factory;
     this.references = protoShrinker.references;
+  }
+
+  public static void register(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      EnqueuerAnalysisCollection.Builder builder) {
+    if (appView.options().protoShrinking().enableGeneratedMessageLiteShrinking) {
+      ProtoEnqueuerExtension analysis = new ProtoEnqueuerExtension(appView);
+      builder
+          .addNewlyLiveClassAnalysis(analysis)
+          .addNewlyLiveMethodAnalysis(analysis)
+          .addFixpointAnalysis(analysis);
+    }
   }
 
   @Override

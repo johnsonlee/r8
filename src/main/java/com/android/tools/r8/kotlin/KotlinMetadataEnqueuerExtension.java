@@ -8,6 +8,7 @@ import static com.android.tools.r8.kotlin.KotlinClassMetadataReader.hasKotlinCla
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.DexClass;
@@ -20,17 +21,19 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.ProgramDefinition;
-import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
+import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.Enqueuer.EnqueuerDefinitionSupplier;
 import com.android.tools.r8.shaking.KeepClassInfo;
+import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class KotlinMetadataEnqueuerExtension extends EnqueuerAnalysis {
+public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis {
 
   private static final OptimizationFeedback feedback = OptimizationFeedbackSimple.getInstance();
 
@@ -46,6 +49,23 @@ public class KotlinMetadataEnqueuerExtension extends EnqueuerAnalysis {
     this.appView = appView;
     this.enqueuerDefinitionSupplier = enqueuerDefinitionSupplier;
     this.prunedTypes = prunedTypes;
+  }
+
+  public static void register(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      EnqueuerDefinitionSupplier enqueuerDefinitionSupplier,
+      Set<DexType> initialPrunedTypes,
+      EnqueuerAnalysisCollection.Builder builder) {
+    // TODO(b/323816623): This check does not include presence of keep declarations.
+    //  The non-presense of PG config seems like a exeedingly rare corner case so maybe just
+    //  make this conditional on tree shaking and the specific option flag.
+    InternalOptions options = appView.options();
+    if (options.hasProguardConfiguration()
+        && !options.kotlinOptimizationOptions().disableKotlinSpecificOptimizations) {
+      builder.addFinishedAnalysis(
+          new KotlinMetadataEnqueuerExtension(
+              appView, enqueuerDefinitionSupplier, initialPrunedTypes));
+    }
   }
 
   private KotlinMetadataDefinitionSupplier definitionsForContext(ProgramDefinition context) {

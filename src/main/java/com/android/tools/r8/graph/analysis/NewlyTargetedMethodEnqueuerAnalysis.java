@@ -3,11 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph.analysis;
 
-import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.shaking.EnqueuerWorklist;
 
-public interface EnqueuerConstClassAnalysis {
+public interface NewlyTargetedMethodEnqueuerAnalysis {
 
-  void traceConstClass(DexType type, DexClass clazz, ProgramMethod context);
+  default void processNewlyTargetedMethod(ProgramMethod method, EnqueuerWorklist worklist) {}
 }

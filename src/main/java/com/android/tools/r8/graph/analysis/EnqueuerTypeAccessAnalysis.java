@@ -4,8 +4,8 @@
 package com.android.tools.r8.graph.analysis;
 
 public interface EnqueuerTypeAccessAnalysis
-    extends EnqueuerCheckCastAnalysis,
-        EnqueuerConstClassAnalysis,
-        EnqueuerExceptionGuardAnalysis,
-        EnqueuerInstanceOfAnalysis,
-        EnqueuerNewInstanceAnalysis {}
+    extends TraceCheckCastEnqueuerAnalysis,
+        TraceConstClassEnqueuerAnalysis,
+        TraceExceptionGuardEnqueuerAnalysis,
+        TraceInstanceOfEnqueuerAnalysis,
+        TraceNewInstanceEnqueuerAnalysis {}

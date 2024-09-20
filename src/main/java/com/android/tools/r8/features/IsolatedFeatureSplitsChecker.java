@@ -17,16 +17,18 @@ import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.analysis.EnqueuerFieldAccessAnalysis;
-import com.android.tools.r8.graph.analysis.EnqueuerInvokeAnalysis;
+import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.EnqueuerTypeAccessAnalysis;
-import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.graph.analysis.TraceFieldAccessEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.TraceInvokeEnqueuerAnalysis;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.InternalOptions;
 
 // TODO(b/300247439): Also trace types referenced from new-array instructions, call sites, etc.
 public class IsolatedFeatureSplitsChecker
-    implements EnqueuerFieldAccessAnalysis, EnqueuerInvokeAnalysis, EnqueuerTypeAccessAnalysis {
+    implements TraceFieldAccessEnqueuerAnalysis,
+        TraceInvokeEnqueuerAnalysis,
+        EnqueuerTypeAccessAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final ClassToFeatureSplitMap features;
@@ -37,13 +39,18 @@ public class IsolatedFeatureSplitsChecker
   }
 
   public static void register(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      EnqueuerAnalysisCollection.Builder builder) {
     if (enabled(appView)) {
       IsolatedFeatureSplitsChecker checker = new IsolatedFeatureSplitsChecker(appView);
-      enqueuer
-          .registerFieldAccessAnalysis(checker)
-          .registerInvokeAnalysis(checker)
-          .registerTypeAccessAnalysis(checker);
+      builder
+          .addTraceFieldAccessAnalysis(checker)
+          .addTraceInvokeAnalysis(checker)
+          .addTraceCheckCastAnalysis(checker)
+          .addTraceConstClassAnalysis(checker)
+          .addTraceExceptionGuardAnalysis(checker)
+          .addTraceInstanceOfAnalysis(checker)
+          .addTraceNewInstanceAnalysis(checker);
     }
   }
 
