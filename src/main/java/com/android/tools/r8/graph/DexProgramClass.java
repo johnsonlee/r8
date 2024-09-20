@@ -838,7 +838,7 @@ public class DexProgramClass extends DexClass
   public static Iterable<DexProgramClass> asProgramClasses(
       Iterable<DexType> types, DexDefinitionSupplier definitions) {
     return () ->
-        new Iterator<DexProgramClass>() {
+        new Iterator<>() {
 
           private final Iterator<DexType> iterator = types.iterator();
 

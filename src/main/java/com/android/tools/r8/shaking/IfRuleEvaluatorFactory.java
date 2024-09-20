@@ -10,6 +10,9 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramDefinition;
+import com.android.tools.r8.graph.ProgramField;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysis;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSet;
@@ -38,9 +41,9 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
 
   private final Set<DexProgramClass> effectivelyFakeLiveClasses;
   private final Set<DexProgramClass> newlyLiveClasses = Sets.newIdentityHashSet();
+  private final Set<DexProgramClass> classesWithNewlyLiveMembers = Sets.newIdentityHashSet();
 
   private boolean seenFixpoint;
-  private long previousNumberOfLiveItems = 0;
 
   private final TaskCollection<?> tasks;
 
@@ -119,7 +122,7 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
       Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
       throws ExecutionException {
     boolean isFirstFixpoint = setSeenFixpoint();
-    if (!shouldProcessActiveIfRulesWithMembers(enqueuer)
+    if (!shouldProcessActiveIfRulesWithMembers(isFirstFixpoint)
         && !shouldProcessActiveIfRulesWithoutMembers(isFirstFixpoint)) {
       return;
     }
@@ -129,14 +132,17 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
             "Find consequent items for -if rules...",
             () -> processActiveIfRules(enqueuer, isFirstFixpoint));
     enqueuer.addConsequentRootSet(consequentRootSet);
-    long numberOfLiveItemsAtEnd = enqueuer.getNumberOfLiveItems();
-    assert numberOfLiveItemsAtEnd == numberOfLiveItemsAtStart;
-    previousNumberOfLiveItems = numberOfLiveItemsAtEnd;
+    assert enqueuer.getNumberOfLiveItems() == numberOfLiveItemsAtStart;
   }
 
-  private boolean shouldProcessActiveIfRulesWithMembers(Enqueuer enqueuer) {
-    return !activeIfRulesWithMembers.isEmpty()
-        && enqueuer.getNumberOfLiveItems() > previousNumberOfLiveItems;
+  private boolean shouldProcessActiveIfRulesWithMembers(boolean isFirstFixpoint) {
+    if (activeIfRulesWithMembers.isEmpty()) {
+      return false;
+    }
+    if (isFirstFixpoint && !effectivelyFakeLiveClasses.isEmpty()) {
+      return true;
+    }
+    return !classesWithNewlyLiveMembers.isEmpty();
   }
 
   private ConsequentRootSet processActiveIfRules(Enqueuer enqueuer, boolean isFirstFixpoint)
@@ -146,8 +152,8 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
         ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
     IfRuleEvaluator evaluator =
         new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
-    if (shouldProcessActiveIfRulesWithMembers(enqueuer)) {
-      processActiveIfRulesWithMembers(evaluator);
+    if (shouldProcessActiveIfRulesWithMembers(isFirstFixpoint)) {
+      processActiveIfRulesWithMembers(evaluator, isFirstFixpoint);
     }
     if (shouldProcessActiveIfRulesWithoutMembers(isFirstFixpoint)) {
       processActiveIfRulesWithoutMembers(evaluator, isFirstFixpoint);
@@ -155,9 +161,22 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
     return consequentRootSetBuilder.buildConsequentRootSet();
   }
 
-  private void processActiveIfRulesWithMembers(IfRuleEvaluator evaluator)
+  private void processActiveIfRulesWithMembers(IfRuleEvaluator evaluator, boolean isFirstFixpoint)
       throws ExecutionException {
-    evaluator.processActiveIfRulesWithMembers(activeIfRulesWithMembers, effectivelyFakeLiveClasses);
+    if (isFirstFixpoint && !effectivelyFakeLiveClasses.isEmpty()) {
+      evaluator.processActiveIfRulesWithMembers(
+          activeIfRulesWithMembers,
+          Iterables.concat(effectivelyFakeLiveClasses, classesWithNewlyLiveMembers),
+          clazz ->
+              effectivelyFakeLiveClasses.contains(clazz)
+                  || classesWithNewlyLiveMembers.contains(clazz));
+    } else {
+      evaluator.processActiveIfRulesWithMembers(
+          activeIfRulesWithMembers,
+          classesWithNewlyLiveMembers,
+          classesWithNewlyLiveMembers::contains);
+    }
+    classesWithNewlyLiveMembers.clear();
   }
 
   private boolean shouldProcessActiveIfRulesWithoutMembers(boolean isFirstFixpoint) {
@@ -196,5 +215,37 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
       return;
     }
     newlyLiveClasses.add(clazz);
+  }
+
+  @Override
+  public void processNewlyLiveField(
+      ProgramField field, ProgramDefinition context, EnqueuerWorklist worklist) {
+    addClassWithNewlyLiveMembers(field.getHolder());
+  }
+
+  @Override
+  public void processNewlyReferencedField(ProgramField field) {
+    addClassWithNewlyLiveMembers(field.getHolder());
+  }
+
+  @Override
+  public void processNewlyLiveMethod(
+      ProgramMethod method,
+      ProgramDefinition context,
+      Enqueuer enqueuer,
+      EnqueuerWorklist worklist) {
+    addClassWithNewlyLiveMembers(method.getHolder());
+  }
+
+  @Override
+  public void processNewlyTargetedMethod(ProgramMethod method, EnqueuerWorklist worklist) {
+    addClassWithNewlyLiveMembers(method.getHolder());
+  }
+
+  private void addClassWithNewlyLiveMembers(DexProgramClass clazz) {
+    // In the first fixpoint we report all effectively fake live classes as changed.
+    if (seenFixpoint || !effectivelyFakeLiveClasses.contains(clazz)) {
+      classesWithNewlyLiveMembers.add(clazz);
+    }
   }
 }

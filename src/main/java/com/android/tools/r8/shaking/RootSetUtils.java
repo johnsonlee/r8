@@ -346,11 +346,10 @@ public class RootSetUtils {
 
     void runPerRule(TaskCollection<?> tasks, ProguardConfigurationRule rule, ProguardIfRule ifRule)
         throws ExecutionException {
-      List<DexType> specifics = rule.getClassNames().asSpecificDexTypes();
-      if (specifics != null) {
+      if (rule.getClassNames().hasSpecificTypes()) {
         // This keep rule only lists specific type matches.
         // This means there is no need to iterate over all classes.
-        for (DexType type : specifics) {
+        for (DexType type : rule.getClassNames().getSpecificTypes()) {
           DexClass clazz = application.definitionFor(type);
           // Ignore keep rule iff it does not reference a class in the app.
           if (clazz != null) {
@@ -363,7 +362,8 @@ public class RootSetUtils {
       tasks.submit(
           () -> {
             for (DexProgramClass clazz :
-                rule.relevantCandidatesForRule(appView, subtypingInfo, application.classes())) {
+                rule.relevantCandidatesForRule(
+                    appView, subtypingInfo, application.classes(), alwaysTrue())) {
               process(clazz, rule, ifRule);
             }
             if (rule.applyToNonProgramClasses()) {

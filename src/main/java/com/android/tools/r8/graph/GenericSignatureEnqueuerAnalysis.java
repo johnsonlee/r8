@@ -37,7 +37,7 @@ public class GenericSignatureEnqueuerAnalysis extends EnqueuerAnalysis {
   }
 
   @Override
-  public void notifyMarkMethodAsTargeted(ProgramMethod method, EnqueuerWorklist worklist) {
+  public void processNewlyTargetedMethod(ProgramMethod method, EnqueuerWorklist worklist) {
     processSignature(method, method.getContext());
   }
 

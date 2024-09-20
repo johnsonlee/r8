@@ -31,6 +31,8 @@ public abstract class EnqueuerAnalysis {
   public void processNewlyLiveField(
       ProgramField field, ProgramDefinition context, EnqueuerWorklist worklist) {}
 
+  public void processNewlyReferencedField(ProgramField field) {}
+
   /** Called when a method is found to be live. */
   public void processNewlyLiveMethod(
       ProgramMethod method,
@@ -45,7 +47,7 @@ public abstract class EnqueuerAnalysis {
   public void processTracedCode(
       ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {}
 
-  public void notifyMarkMethodAsTargeted(ProgramMethod method, EnqueuerWorklist worklist) {}
+  public void processNewlyTargetedMethod(ProgramMethod method, EnqueuerWorklist worklist) {}
 
   public void notifyMarkFieldAsReachable(ProgramField field, EnqueuerWorklist worklist) {}
 

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class IfRuleEvaluator {
@@ -55,7 +56,8 @@ public class IfRuleEvaluator {
 
   public void processActiveIfRulesWithMembers(
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
-      Set<DexProgramClass> effectivelyFakeLiveClasses)
+      Iterable<DexProgramClass> classesWithNewlyLiveMembers,
+      Predicate<DexProgramClass> isEffectivelyLive)
       throws ExecutionException {
     MapUtils.removeIf(
         ifRules,
@@ -68,10 +70,8 @@ public class IfRuleEvaluator {
           // rule and live types.
           for (DexProgramClass clazz :
               ifRuleKey.relevantCandidatesForRule(
-                  appView, subtypingInfo, appView.appInfo().classes())) {
-            if (!isEffectivelyLive(clazz, effectivelyFakeLiveClasses)) {
-              continue;
-            }
+                  appView, subtypingInfo, classesWithNewlyLiveMembers, isEffectivelyLive)) {
+            assert isEffectivelyLive.test(clazz);
             evaluateRuleOnEffectivelyLiveClass(
                 ifRuleKey,
                 ifRulesInEquivalence,
@@ -115,11 +115,6 @@ public class IfRuleEvaluator {
           return ifRulesInEquivalence.isEmpty();
         });
     tasks.await();
-  }
-
-  private boolean isEffectivelyLive(
-      DexProgramClass clazz, Set<DexProgramClass> effectivelyFakeLiveClasses) {
-    return enqueuer.isTypeLive(clazz) || effectivelyFakeLiveClasses.contains(clazz);
   }
 
   private void evaluateRuleOnEffectivelyLiveClass(

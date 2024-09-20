@@ -1178,7 +1178,7 @@ public class Enqueuer {
     }
   }
 
-  private FieldAccessInfoImpl getOrCreateFieldAccessInfo(DexEncodedField field) {
+  private FieldAccessInfoImpl getOrCreateFieldAccessInfo(DexClassAndField field) {
     // Check if we have previously created a FieldAccessInfo object for the field definition.
     FieldAccessInfoImpl info = fieldAccessInfoCollection.get(field.getReference());
 
@@ -1186,6 +1186,12 @@ public class Enqueuer {
     if (info == null) {
       info = new FieldAccessInfoImpl(field.getReference());
       fieldAccessInfoCollection.extend(field.getReference(), info);
+
+      // Notify analyses.
+      if (field.isProgramField()) {
+        ProgramField programField = field.asProgramField();
+        analyses.forEach(analysis -> analysis.processNewlyReferencedField(programField));
+      }
     }
 
     return info;
@@ -1213,12 +1219,12 @@ public class Enqueuer {
         return true;
       }
 
-      DexEncodedField encodedField = seenResult.get().getDefinition();
-      info = getOrCreateFieldAccessInfo(encodedField);
+      DexClassAndField resolvedField = seenResult.get();
+      info = getOrCreateFieldAccessInfo(resolvedField);
 
       // If `field` is an indirect reference, then create a mapping for it, such that we don't have
       // to resolve the field the next time we see the reference.
-      if (field != encodedField.getReference()) {
+      if (field != resolvedField.getReference()) {
         fieldAccessInfoCollection.extend(field, info);
       }
     } else if (info == MISSING_FIELD_ACCESS_INFO) {
@@ -4963,7 +4969,7 @@ public class Enqueuer {
 
   // Package protected due to entry point from worklist.
   void markFieldAsKept(ProgramField field, KeepReason reason) {
-    FieldAccessInfoImpl fieldAccessInfo = getOrCreateFieldAccessInfo(field.getDefinition());
+    FieldAccessInfoImpl fieldAccessInfo = getOrCreateFieldAccessInfo(field);
     fieldAccessInfo.setHasReflectiveRead();
     fieldAccessInfo.setHasReflectiveWrite();
 
@@ -5082,7 +5088,7 @@ public class Enqueuer {
         markMethodAsLiveWithCompatRule(method);
       }
     }
-    analyses.forEach(analysis -> analysis.notifyMarkMethodAsTargeted(method, worklist));
+    analyses.forEach(analysis -> analysis.processNewlyTargetedMethod(method, worklist));
   }
 
   void traceMethodDefinitionExcludingCode(ProgramMethod method) {
