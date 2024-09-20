@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
-
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
@@ -313,7 +312,7 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkInstructionCodeSize(results)
                                   .benchmarkDexSegmentsCodeSize(results)
                                   .benchmarkDex2OatCodeSize(results);
-                            } catch (Exception e) {
+                            } catch (AbortBenchmarkException e) {
                               // Ignore.
                             }
                           });

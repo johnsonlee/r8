@@ -8,7 +8,9 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
+import com.android.tools.r8.benchmarks.appdumps.AbortBenchmarkException;
 import com.android.tools.r8.benchmarks.appdumps.AppDumpBenchmarkBuilder;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -66,7 +68,12 @@ public class SystemUIBenchmarks extends BenchmarkBase {
         options ->
             options.getTestingOptions().enqueuerInspector =
                 (appInfo, enqueuerMode) -> {
-                  throw new RuntimeException();
+                  if (appInfo.options().printTimes) {
+                    Timing timing = appInfo.app().timing;
+                    timing.end();
+                    timing.report();
+                  }
+                  throw new AbortBenchmarkException();
                 });
   }
 
