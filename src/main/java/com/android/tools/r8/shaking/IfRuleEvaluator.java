@@ -18,6 +18,7 @@ import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.MapUtils;
+import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -52,7 +53,7 @@ public class IfRuleEvaluator {
     this.tasks = tasks;
   }
 
-  public void run(
+  public void processActiveIfRulesWithMembers(
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
       Set<DexProgramClass> effectivelyFakeLiveClasses)
       throws ExecutionException {
@@ -85,6 +86,28 @@ public class IfRuleEvaluator {
             return true;
           }
           toRemove.forEach(ifRulesInEquivalence::remove);
+          return false;
+        });
+    tasks.await();
+  }
+
+  public void processActiveIfRulesWithoutMembers(
+      Set<ProguardIfRule> ifRules, Iterable<DexProgramClass> newlyLiveClasses)
+      throws ExecutionException {
+    ifRules.removeIf(
+        ifRule -> {
+          // Depending on which types that trigger the -if rule, the application of the subsequent
+          // -keep rule may vary (due to back references). So, we need to try all pairs of -if
+          // rule and live types.
+          for (DexProgramClass clazz : newlyLiveClasses) {
+            if (evaluateClassForIfRule(ifRule, clazz)) {
+              registerClassCapture(ifRule, clazz, clazz);
+              uncheckedMaterializeIfRule(ifRule, clazz);
+              if (canRemoveSubsequentKeepRule(ifRule)) {
+                return true;
+              }
+            }
+          }
           return false;
         });
     tasks.await();
@@ -279,6 +302,14 @@ public class IfRuleEvaluator {
       return field.getIsInlinableByJavaC();
     }
     return field.getOrComputeIsInlinableByJavaC(appView.dexItemFactory());
+  }
+
+  private void uncheckedMaterializeIfRule(ProguardIfRule rule, DexProgramClass precondition) {
+    try {
+      materializeIfRule(rule, precondition);
+    } catch (ExecutionException e) {
+      throw new UncheckedExecutionException(e);
+    }
   }
 
   private void materializeIfRule(ProguardIfRule rule, DexProgramClass precondition)

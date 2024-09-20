@@ -17,6 +17,7 @@ import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence.Wrapper;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,10 +32,14 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
 
   /** Map of active if rules. This is important for speeding up aapt2 generated keep rules. */
-  private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules;
+  private final Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRulesWithMembers;
+
+  private final Set<ProguardIfRule> activeIfRulesWithoutMembers;
 
   private final Set<DexProgramClass> effectivelyFakeLiveClasses;
   private final Set<DexProgramClass> newlyLiveClasses = Sets.newIdentityHashSet();
+
+  private boolean seenFixpoint;
   private long previousNumberOfLiveItems = 0;
 
   private final TaskCollection<?> tasks;
@@ -44,7 +49,8 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
       Enqueuer enqueuer,
       ExecutorService executorService) {
     this.appView = appView;
-    this.activeIfRules = createActiveIfRules(appView.rootSet().ifRules);
+    this.activeIfRulesWithMembers = createActiveIfRulesWithMembers(appView.rootSet().ifRules);
+    this.activeIfRulesWithoutMembers = createActiveIfRulesWithoutMembers(appView.rootSet().ifRules);
     this.effectivelyFakeLiveClasses = createEffectivelyFakeLiveClasses(appView, enqueuer);
     this.tasks = new TaskCollection<>(appView.options(), executorService);
   }
@@ -60,19 +66,30 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
     }
   }
 
-  @SuppressWarnings("MixedMutabilityReturnType")
-  private static Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> createActiveIfRules(
+  private static Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> createActiveIfRulesWithMembers(
       Set<ProguardIfRule> ifRules) {
-    if (ifRules == null || ifRules.isEmpty()) {
-      return Collections.emptyMap();
-    }
     // Build the mapping of active if rules. We use a single collection of if-rules to allow
     // removing if rules that have a constant sequent keep rule when they materialize.
     Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> activeIfRules = new HashMap<>(ifRules.size());
     IfRuleClassPartEquivalence equivalence = new IfRuleClassPartEquivalence();
     for (ProguardIfRule ifRule : ifRules) {
-      Wrapper<ProguardIfRule> wrap = equivalence.wrap(ifRule);
-      activeIfRules.computeIfAbsent(wrap, ignoreKey(LinkedHashSet::new)).add(ifRule);
+      if (!ifRule.getMemberRules().isEmpty()) {
+        Wrapper<ProguardIfRule> wrap = equivalence.wrap(ifRule);
+        activeIfRules.computeIfAbsent(wrap, ignoreKey(LinkedHashSet::new)).add(ifRule);
+      }
+    }
+    return activeIfRules;
+  }
+
+  private static Set<ProguardIfRule> createActiveIfRulesWithoutMembers(
+      Set<ProguardIfRule> ifRules) {
+    // Build the mapping of active if rules. We use a single collection of if-rules to allow
+    // removing if rules that have a constant sequent keep rule when they materialize.
+    Set<ProguardIfRule> activeIfRules = new LinkedHashSet<>(ifRules.size());
+    for (ProguardIfRule ifRule : ifRules) {
+      if (ifRule.getMemberRules().isEmpty()) {
+        activeIfRules.add(ifRule);
+      }
     }
     return activeIfRules;
   }
@@ -113,24 +130,76 @@ public class IfRuleEvaluatorFactory extends EnqueuerAnalysis {
   public void notifyFixpoint(
       Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    // TODO(b/206086945): Leverage newlyLiveClasses.
-    if (activeIfRules.isEmpty()) {
+    boolean isFirstFixpoint = setSeenFixpoint();
+    if (!shouldProcessActiveIfRulesWithMembers(enqueuer)
+        && !shouldProcessActiveIfRulesWithoutMembers(isFirstFixpoint)) {
       return;
     }
-    long numberOfLiveItems = enqueuer.getNumberOfLiveItems();
-    if (numberOfLiveItems == previousNumberOfLiveItems) {
-      return;
-    }
+    long numberOfLiveItemsAtStart = enqueuer.getNumberOfLiveItems();
+    ConsequentRootSet consequentRootSet =
+        timing.time(
+            "Find consequent items for -if rules...",
+            () -> processActiveIfRules(enqueuer, isFirstFixpoint));
+    enqueuer.addConsequentRootSet(consequentRootSet);
+    long numberOfLiveItemsAtEnd = enqueuer.getNumberOfLiveItems();
+    assert numberOfLiveItemsAtEnd == numberOfLiveItemsAtStart;
+    previousNumberOfLiveItems = numberOfLiveItemsAtEnd;
+  }
+
+  private boolean shouldProcessActiveIfRulesWithMembers(Enqueuer enqueuer) {
+    return !activeIfRulesWithMembers.isEmpty()
+        && enqueuer.getNumberOfLiveItems() > previousNumberOfLiveItems;
+  }
+
+  private ConsequentRootSet processActiveIfRules(Enqueuer enqueuer, boolean isFirstFixpoint)
+      throws ExecutionException {
     SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
     ConsequentRootSetBuilder consequentRootSetBuilder =
         ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
     IfRuleEvaluator evaluator =
         new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
-    timing.time(
-        "Find consequent items for -if rules...",
-        () -> evaluator.run(activeIfRules, effectivelyFakeLiveClasses));
-    enqueuer.addConsequentRootSet(consequentRootSetBuilder.buildConsequentRootSet());
-    previousNumberOfLiveItems = numberOfLiveItems;
+    if (shouldProcessActiveIfRulesWithMembers(enqueuer)) {
+      processActiveIfRulesWithMembers(evaluator);
+    }
+    if (shouldProcessActiveIfRulesWithoutMembers(isFirstFixpoint)) {
+      processActiveIfRulesWithoutMembers(evaluator, isFirstFixpoint);
+    }
+    return consequentRootSetBuilder.buildConsequentRootSet();
+  }
+
+  private void processActiveIfRulesWithMembers(IfRuleEvaluator evaluator)
+      throws ExecutionException {
+    evaluator.processActiveIfRulesWithMembers(activeIfRulesWithMembers, effectivelyFakeLiveClasses);
+  }
+
+  private boolean shouldProcessActiveIfRulesWithoutMembers(boolean isFirstFixpoint) {
+    if (activeIfRulesWithoutMembers.isEmpty()) {
+      return false;
+    }
+    if (isFirstFixpoint && !effectivelyFakeLiveClasses.isEmpty()) {
+      return true;
+    }
+    return !newlyLiveClasses.isEmpty();
+  }
+
+  private void processActiveIfRulesWithoutMembers(
+      IfRuleEvaluator evaluator, boolean isFirstFixpoint) throws ExecutionException {
+    if (isFirstFixpoint && !effectivelyFakeLiveClasses.isEmpty()) {
+      evaluator.processActiveIfRulesWithoutMembers(
+          activeIfRulesWithoutMembers,
+          Iterables.concat(effectivelyFakeLiveClasses, newlyLiveClasses));
+    } else {
+      evaluator.processActiveIfRulesWithoutMembers(activeIfRulesWithoutMembers, newlyLiveClasses);
+    }
+    newlyLiveClasses.clear();
+  }
+
+  private boolean setSeenFixpoint() {
+    if (!seenFixpoint) {
+      seenFixpoint = true;
+      return true;
+    }
+    return false;
   }
 
   @Override
