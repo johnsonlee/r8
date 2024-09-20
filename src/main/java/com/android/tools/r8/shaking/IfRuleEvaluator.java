@@ -52,7 +52,9 @@ public class IfRuleEvaluator {
     this.tasks = tasks;
   }
 
-  public void run(Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules)
+  public void run(
+      Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
+      Set<DexProgramClass> effectivelyFakeLiveClasses)
       throws ExecutionException {
     MapUtils.removeIf(
         ifRules,
@@ -66,7 +68,7 @@ public class IfRuleEvaluator {
           for (DexProgramClass clazz :
               ifRuleKey.relevantCandidatesForRule(
                   appView, subtypingInfo, appView.appInfo().classes())) {
-            if (!isEffectivelyLive(clazz)) {
+            if (!isEffectivelyLive(clazz, effectivelyFakeLiveClasses)) {
               continue;
             }
             evaluateRuleOnEffectivelyLiveClass(
@@ -86,6 +88,11 @@ public class IfRuleEvaluator {
           return false;
         });
     tasks.await();
+  }
+
+  private boolean isEffectivelyLive(
+      DexProgramClass clazz, Set<DexProgramClass> effectivelyFakeLiveClasses) {
+    return enqueuer.isTypeLive(clazz) || effectivelyFakeLiveClasses.contains(clazz);
   }
 
   private void evaluateRuleOnEffectivelyLiveClass(
@@ -138,10 +145,6 @@ public class IfRuleEvaluator {
       boolean inheritanceResult = rootSetBuilder.satisfyInheritanceRule(target, memberRule);
       assert inheritanceResult;
     }
-  }
-
-  private boolean isEffectivelyLive(DexProgramClass clazz) {
-    return enqueuer.isEffectivelyLive(clazz);
   }
 
   /** Determines if {@param clazz} satisfies the given if-rule class specification. */

@@ -500,6 +500,7 @@ public class Enqueuer {
     InternalOptions options = appView.options();
     this.appInfo = appView.appInfo();
     this.appView = appView.withClassHierarchy();
+    this.mode = mode;
     this.ifRuleEvaluatorFactory =
         new IfRuleEvaluatorFactory(appView.withClassHierarchy(), this, executorService);
     this.profileCollectionAdditions = profileCollectionAdditions;
@@ -509,7 +510,6 @@ public class Enqueuer {
     this.forceProguardCompatibility = options.forceProguardCompatibility;
     this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
-    this.mode = mode;
     this.options = options;
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.useRegistryFactory = createUseRegistryFactory();
@@ -3530,29 +3530,6 @@ public class Enqueuer {
 
   public boolean isTypeLive(DexProgramClass clazz) {
     return liveTypes.contains(clazz);
-  }
-
-  public boolean isEffectivelyLive(DexProgramClass clazz) {
-    if (isTypeLive(clazz)) {
-      return true;
-    }
-    if (mode.isInitialTreeShaking()) {
-      return false;
-    }
-    // TODO(b/325014359): Replace this by value tracking in instructions (akin to resource values).
-    for (DexEncodedField field : clazz.fields()) {
-      if (field.getOptimizationInfo().valueHasBeenPropagated()) {
-        return true;
-      }
-    }
-    // TODO(b/325014359): Replace this by value or position tracking.
-    //  We need to be careful not to throw away such values/positions.
-    for (DexEncodedMethod method : clazz.methods()) {
-      if (method.getOptimizationInfo().returnValueHasBeenPropagated()) {
-        return true;
-      }
-    }
-    return false;
   }
 
   public boolean isOriginalReferenceEffectivelyLive(DexReference reference) {
