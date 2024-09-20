@@ -77,7 +77,7 @@ public abstract class ProguardWildcard {
     }
   }
 
-  static class BackReference extends ProguardWildcard {
+  public static class BackReference extends ProguardWildcard {
     // Back-reference is not referable, hence the other type, Pattern, here.
     Pattern reference;
     final int referenceIndex;

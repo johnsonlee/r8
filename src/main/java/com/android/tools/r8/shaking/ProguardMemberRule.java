@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndField;
@@ -19,6 +21,7 @@ import com.google.common.collect.Iterables;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ProguardMemberRule {
@@ -114,7 +117,7 @@ public class ProguardMemberRule {
   private final List<ProguardTypeMatcher> arguments;
   private final ProguardMemberRuleReturnValue returnValue;
 
-  private ProguardMemberRule(
+  public ProguardMemberRule(
       List<ProguardTypeMatcher> annotations,
       ProguardAccessFlags accessFlags,
       ProguardAccessFlags negatedAccessFlags,
@@ -156,6 +159,10 @@ public class ProguardMemberRule {
     return ruleType;
   }
 
+  public boolean hasType() {
+    return type != null;
+  }
+
   public ProguardTypeMatcher getType() {
     return type;
   }
@@ -174,10 +181,6 @@ public class ProguardMemberRule {
 
   public ProguardMemberRuleReturnValue getReturnValue() {
     return returnValue;
-  }
-
-  public ProguardTypeMatcher getTypeMatcher() {
-    return type;
   }
 
   public boolean matches(
@@ -322,14 +325,24 @@ public class ProguardMemberRule {
     }
   }
 
-  Iterable<ProguardWildcard> getWildcards() {
+  public boolean hasBackReference() {
+    return IterableUtils.hasNext(getWildcardsThatMatches(ProguardWildcard::isBackReference));
+  }
+
+  final Iterable<ProguardWildcard> getWildcards() {
+    return getWildcardsThatMatches(alwaysTrue());
+  }
+
+  <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+      Predicate<? super ProguardWildcard> predicate) {
     return Iterables.concat(
-        ProguardTypeMatcher.getWildcardsOrEmpty(annotations),
-        ProguardTypeMatcher.getWildcardsOrEmpty(type),
-        ProguardNameMatcher.getWildcardsOrEmpty(name),
+        ProguardTypeMatcher.getWildcardsThatMatchesOrEmpty(annotations, predicate),
+        ProguardTypeMatcher.getWildcardsThatMatchesOrEmpty(type, predicate),
+        ProguardNameMatcher.getWildcardsThatMatchesOrEmpty(name, predicate),
         arguments == null
-            ? Collections::emptyIterator
-            : IterableUtils.flatMap(arguments, ProguardTypeMatcher::getWildcards));
+            ? IterableUtils.empty()
+            : IterableUtils.flatMap(
+                arguments, argument -> argument.getWildcardsThatMatches(predicate)));
   }
 
   ProguardMemberRule materialize(DexItemFactory dexItemFactory) {

@@ -1358,8 +1358,7 @@ public class ProguardConfigurationParser {
               if (acceptString("<init>")) {
                 ProguardTypeMatcher typeMatcher =
                     ProguardTypeMatcher.create(first, ClassOrType.TYPE, dexItemFactory);
-                if (!typeMatcher.matchesSpecificType()
-                    || !typeMatcher.getSpecificType().isVoidType()) {
+                if (!typeMatcher.hasSpecificType() || !typeMatcher.getSpecificType().isVoidType()) {
                   throw parseError("Expected [access-flag]* void <init>");
                 }
                 ruleBuilder.setRuleType(ProguardMemberType.INIT);
@@ -1369,8 +1368,7 @@ public class ProguardConfigurationParser {
               } else if (acceptString("<clinit>")) {
                 ProguardTypeMatcher typeMatcher =
                     ProguardTypeMatcher.create(first, ClassOrType.TYPE, dexItemFactory);
-                if (!typeMatcher.matchesSpecificType()
-                    || !typeMatcher.getSpecificType().isVoidType()) {
+                if (!typeMatcher.hasSpecificType() || !typeMatcher.getSpecificType().isVoidType()) {
                   throw parseError("Expected [access-flag]* void <clinit>");
                 }
                 ruleBuilder.setRuleType(ProguardMemberType.CLINIT);

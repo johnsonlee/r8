@@ -37,6 +37,7 @@ import com.android.tools.r8.shaking.constructor.InitMatchingTest;
 import com.android.tools.r8.utils.AbortException;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions.PackageObfuscationMode;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.KeepingDiagnosticHandler;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Reporter;
@@ -55,6 +56,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -258,9 +260,11 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, rules.size());
     assertEquals(ProguardClassType.CLASS, rules.get(0).getClassType());
     assertEquals(1, rules.get(0).getClassNames().size());
-    List<DexType> classTypes = rules.get(0).getClassNames().getSpecificTypes();
+    Set<DexType> classTypes = rules.get(0).getClassNames().getSpecificTypes();
     assertEquals(1, classTypes.size());
-    assertSame(dexItemFactory.createType("L-package-/-ClassNameWithDash-;"), classTypes.get(0));
+    assertSame(
+        dexItemFactory.createType("L-package-/-ClassNameWithDash-;"),
+        IterableUtils.first(classTypes));
     ProguardConfigurationRule rule = rules.get(0);
     assertEquals(2, rule.getMemberRules().size());
     int matches = 0;

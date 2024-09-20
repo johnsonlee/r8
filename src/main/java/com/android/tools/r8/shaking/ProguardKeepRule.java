@@ -44,7 +44,7 @@ public class ProguardKeepRule extends ProguardKeepRuleBase {
     }
   }
 
-  protected ProguardKeepRule(
+  public ProguardKeepRule(
       Origin origin,
       Position position,
       String source,

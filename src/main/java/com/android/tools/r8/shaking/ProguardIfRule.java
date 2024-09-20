@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ProguardIfRule extends ProguardKeepRuleBase {
@@ -132,8 +133,11 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
   }
 
   @Override
-  protected Iterable<ProguardWildcard> getWildcards() {
-    return Iterables.concat(super.getWildcards(), subsequentRule.getWildcards());
+  protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+      Predicate<? super ProguardWildcard> predicate) {
+    return Iterables.concat(
+        super.getWildcardsThatMatches(predicate),
+        subsequentRule.getWildcardsThatMatches(predicate));
   }
 
   @Override

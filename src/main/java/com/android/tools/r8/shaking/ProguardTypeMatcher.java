@@ -4,6 +4,7 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.utils.DescriptorUtils.javaTypeToDescriptor;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -12,13 +13,18 @@ import com.android.tools.r8.shaking.ProguardConfigurationParser.IdentifierPatter
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
 import com.android.tools.r8.shaking.ProguardWildcard.Pattern;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public abstract class ProguardTypeMatcher {
 
@@ -60,18 +66,41 @@ public abstract class ProguardTypeMatcher {
     return false;
   }
 
-  protected Iterable<ProguardWildcard> getWildcards() {
-    return Collections::emptyIterator;
+  protected void forEachWildcard(Consumer<? super ProguardWildcard> consumer) {
+    // Intentionally empty.
   }
 
-  static Iterable<ProguardWildcard> getWildcardsOrEmpty(ProguardTypeMatcher typeMatcher) {
-    return typeMatcher == null ? Collections::emptyIterator : typeMatcher.getWildcards();
+  protected final Iterable<ProguardWildcard> getWildcards() {
+    return getWildcardsThatMatches(alwaysTrue());
   }
 
-  static Iterable<ProguardWildcard> getWildcardsOrEmpty(List<ProguardTypeMatcher> typeMatchers) {
-    List<ProguardWildcard> result = new ArrayList<>();
+  protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+      Predicate<? super ProguardWildcard> predicate) {
+    return IterableUtils.empty();
+  }
+
+  protected static <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatchesOrEmpty(
+      ProguardTypeMatcher typeMatcher, Predicate<? super ProguardWildcard> predicate) {
+    return typeMatcher != null
+        ? typeMatcher.getWildcardsThatMatches(predicate)
+        : IterableUtils.empty();
+  }
+
+  @SuppressWarnings("unchecked")
+  static <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatchesOrEmpty(
+      List<ProguardTypeMatcher> typeMatchers, Predicate<? super ProguardWildcard> predicate) {
+    if (typeMatchers.isEmpty()) {
+      return IterableUtils.empty();
+    }
+    List<T> result = new ArrayList<>();
+    Consumer<ProguardWildcard> fn =
+        wildcard -> {
+          if (predicate.test(wildcard)) {
+            result.add((T) wildcard);
+          }
+        };
     for (ProguardTypeMatcher typeMatcher : typeMatchers) {
-      typeMatcher.getWildcards().forEach(result::add);
+      typeMatcher.forEachWildcard(fn);
     }
     return result;
   }
@@ -149,11 +178,17 @@ public abstract class ProguardTypeMatcher {
   }
 
   public DexType getSpecificType() {
+    assert false;
     return null;
   }
 
-  public final boolean matchesSpecificType() {
-    return getSpecificType() != null;
+  public boolean hasSpecificTypes() {
+    return false;
+  }
+
+  public Set<DexType> getSpecificTypes() {
+    assert false;
+    return null;
   }
 
   private static class MatchAllTypes extends ProguardTypeMatcher {
@@ -182,8 +217,15 @@ public abstract class ProguardTypeMatcher {
     }
 
     @Override
-    protected Iterable<ProguardWildcard> getWildcards() {
-      return ImmutableList.of(wildcard);
+    protected void forEachWildcard(Consumer<? super ProguardWildcard> consumer) {
+      consumer.accept(wildcard);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+        Predicate<? super ProguardWildcard> predicate) {
+      return predicate.test(wildcard) ? Collections.singleton((T) wildcard) : IterableUtils.empty();
     }
 
     @Override
@@ -272,8 +314,15 @@ public abstract class ProguardTypeMatcher {
     }
 
     @Override
-    protected Iterable<ProguardWildcard> getWildcards() {
-      return ImmutableList.of(wildcard);
+    protected void forEachWildcard(Consumer<? super ProguardWildcard> consumer) {
+      consumer.accept(wildcard);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+        Predicate<? super ProguardWildcard> predicate) {
+      return predicate.test(wildcard) ? Collections.singleton((T) wildcard) : IterableUtils.empty();
     }
 
     @Override
@@ -321,8 +370,15 @@ public abstract class ProguardTypeMatcher {
     }
 
     @Override
-    protected Iterable<ProguardWildcard> getWildcards() {
-      return ImmutableList.of(wildcard);
+    protected void forEachWildcard(Consumer<? super ProguardWildcard> consumer) {
+      consumer.accept(wildcard);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+        Predicate<? super ProguardWildcard> predicate) {
+      return predicate.test(wildcard) ? Collections.singleton((T) wildcard) : IterableUtils.empty();
     }
 
     @Override
@@ -394,6 +450,52 @@ public abstract class ProguardTypeMatcher {
     }
   }
 
+  public static class MatchSpecificTypes extends ProguardTypeMatcher {
+
+    public final Set<DexType> types;
+
+    public MatchSpecificTypes(Set<DexType> types) {
+      this.types = types;
+    }
+
+    @Override
+    public boolean hasSpecificTypes() {
+      return true;
+    }
+
+    @Override
+    public Set<DexType> getSpecificTypes() {
+      return types;
+    }
+
+    @Override
+    public boolean matches(DexType type) {
+      return types.contains(type);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof MatchSpecificTypes)) {
+        return false;
+      }
+      MatchSpecificTypes other = (MatchSpecificTypes) obj;
+      return types.equals(other.types);
+    }
+
+    @Override
+    public int hashCode() {
+      return types.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return StringUtils.join(", ", types, DexType::getTypeName, BraceType.TUBORG);
+    }
+  }
+
   private static class MatchTypePattern extends ProguardTypeMatcher {
 
     private final String pattern;
@@ -419,8 +521,14 @@ public abstract class ProguardTypeMatcher {
     }
 
     @Override
-    protected Iterable<ProguardWildcard> getWildcards() {
-      return wildcards;
+    protected void forEachWildcard(Consumer<? super ProguardWildcard> consumer) {
+      wildcards.forEach(consumer);
+    }
+
+    @Override
+    protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+        Predicate<? super ProguardWildcard> predicate) {
+      return IterableUtils.filter(wildcards, predicate);
     }
 
     @Override

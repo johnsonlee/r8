@@ -3,12 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.shaking.ProguardConfigurationParser.IdentifierPatternWithWildcards;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
 import com.android.tools.r8.shaking.ProguardWildcard.Pattern;
-import com.google.common.collect.ImmutableList;
+import com.android.tools.r8.utils.IterableUtils;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public abstract class ProguardNameMatcher {
@@ -89,12 +92,20 @@ public abstract class ProguardNameMatcher {
 
   public abstract boolean matches(String name);
 
-  protected Iterable<ProguardWildcard> getWildcards() {
-    return Collections::emptyIterator;
+  protected final Iterable<ProguardWildcard> getWildcards() {
+    return getWildcardsThatMatches(alwaysTrue());
   }
 
-  static Iterable<ProguardWildcard> getWildcardsOrEmpty(ProguardNameMatcher nameMatcher) {
-    return nameMatcher == null ? Collections::emptyIterator : nameMatcher.getWildcards();
+  protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+      Predicate<? super ProguardWildcard> predicate) {
+    return IterableUtils.empty();
+  }
+
+  static <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatchesOrEmpty(
+      ProguardNameMatcher nameMatcher, Predicate<? super ProguardWildcard> predicate) {
+    return nameMatcher != null
+        ? nameMatcher.getWildcardsThatMatches(predicate)
+        : IterableUtils.empty();
   }
 
   protected ProguardNameMatcher materialize() {
@@ -119,13 +130,24 @@ public abstract class ProguardNameMatcher {
     }
 
     @Override
-    protected Iterable<ProguardWildcard> getWildcards() {
-      return ImmutableList.of(wildcard);
+    protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+        Predicate<? super ProguardWildcard> predicate) {
+      return predicate.test(wildcard) ? Collections.singleton((T) wildcard) : IterableUtils.empty();
     }
 
     @Override
     protected MatchAllNames materialize() {
       return new MatchAllNames(wildcard.materialize());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof MatchAllNames;
+    }
+
+    @Override
+    public int hashCode() {
+      return getClass().hashCode();
     }
 
     @Override
@@ -154,8 +176,9 @@ public abstract class ProguardNameMatcher {
     }
 
     @Override
-    protected Iterable<ProguardWildcard> getWildcards() {
-      return wildcards;
+    protected <T extends ProguardWildcard> Iterable<T> getWildcardsThatMatches(
+        Predicate<? super ProguardWildcard> predicate) {
+      return IterableUtils.filter(wildcards, predicate);
     }
 
     @Override
