@@ -5,6 +5,7 @@
 
 import argparse
 import jdk
+import json
 import os.path
 import re
 import subprocess
@@ -26,7 +27,7 @@ def parse_options():
                         help='The R8 branch to tag versions on, eg, origin/3.0')
     parser.add_argument('--agp',
                         help='The AGP to compute the tag for, eg, 4.2.0-beta03')
-    parser.add_argument('--no-push',
+    parser.add_argument('--use-push',
                         default=False,
                         action='store_true',
                         help='To create the tag locally only.')
@@ -40,8 +41,6 @@ def parse_options():
 
 def run(options, cmd):
     print(' '.join(cmd))
-    if 'push' in cmd and options.no_push:
-        return
     if options.dry_run:
         return
     try:
@@ -81,6 +80,28 @@ def prepare_print_version(dist, temp):
     subprocess.check_output(cmd)
     return temp
 
+# Testing info: To delete a tag use
+#
+# gob-curl --request DELETE https://r8-review.git.corp.google.com/a/projects/r8/tags/<tag>
+#
+def gerrit_tag(args, tag, hash, description):
+    data = json.dumps({
+        "message": description if description else tag,
+        "revision": hash
+    })
+    cmd = ' '.join([
+        'gob-curl',
+        '--header',
+        '"Content-Type: application/json; charset=UTF-8"',
+        '--request',
+        'PUT',
+        '--data',
+        "'{data}'".format(data=data),
+        'https://r8-review.git.corp.google.com/a/projects/r8/tags/{tag}'.format(tag=tag)
+    ])
+    result = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
+    print(result)
+
 
 def get_tag_info_on_origin(tag):
     output = subprocess.check_output(
@@ -110,8 +131,8 @@ def tag_all_agp_versions(args):
                 tag_agp_version(version, args)
 
 
-def tag_agp_version(agp, args):
-    tag = 'agp-%s' % agp
+def tag_agp_version(agp_version, args):
+    tag = 'agp-%s' % agp_version
     result = get_tag_info_on_origin(tag)
     if result:
         print('Tag %s is already present' % tag)
@@ -119,12 +140,12 @@ def tag_agp_version(agp, args):
         subprocess.call(['git', 'show', '--oneline', '-s', tag])
         return 0
     with utils.TempDir() as temp:
-        url = "%s/%s/builder-%s.jar" % (AGP_MAVEN, agp, agp)
+        url = "%s/%s/builder-%s.jar" % (AGP_MAVEN, agp_version, agp_version)
         jar = os.path.join(temp, "agp.jar")
         try:
             urllib.request.urlretrieve(url, jar)
         except urllib.error.HTTPError as e:
-            print('Could not find jar for agp %s' % agp)
+            print('Could not find jar for agp %s' % agp_version)
             print(e)
             return 1
         print_version_helper = prepare_print_version(utils.R8_JAR, temp)
@@ -133,11 +154,17 @@ def tag_agp_version(agp, args):
             ':'.join([jar, print_version_helper]),
             'com.android.tools.r8.utils.PrintR8Version'
         ]).decode('utf-8')
-        version = output.split(' ')[0]
-        run(args, ['git', 'tag', '-f', tag, '-m', tag, '%s^{}' % version])
-        run(args, [
-            'git', 'push', '-o', 'push-justification=b/313360935', 'origin', tag
-        ])
+        r8_version = output.split(' ')[0]
+        cmd = ' '.join(['git', 'rev-list', '-n', '1', r8_version])
+        hash = subprocess.check_output(cmd, shell=True).decode('utf-8').strip()
+        message = 'AGP version {version}'.format(version=agp_version)
+        run(args, ['git', 'tag', '-f', tag, '-m', message, hash])
+        if args.use_push:
+            run(args, [
+                'git', 'push', '-o', 'push-justification=b/313360935', 'origin', tag
+            ])
+        else:
+            gerrit_tag(args, tag, hash, message)
 
 
 def tag_r8_branch(branch, args):
@@ -156,11 +183,15 @@ def tag_r8_branch(branch, args):
         version = m.group(1)
         result = get_tag_info_on_origin(version)
         if not result:
-            run(args, ['git', 'tag', '-a', version, '-m', version, hash])
-            run(args, [
-                'git', 'push', '-o', 'push-justification=b/313360935', 'origin',
-                version
-            ])
+            message = 'Version {version}'.format(version=version)
+            run(args, ['git', 'tag', '-a', version, '-m', message, hash])
+            if args.use_push:
+                run(args, [
+                    'git', 'push', '-o', 'push-justification=b/313360935', 'origin',
+                    version
+                ])
+            else:
+                gerrit_tag(args, version, hash, message)
     if args.dry_run:
         print('Dry run complete. None of the above have been executed.')
 
