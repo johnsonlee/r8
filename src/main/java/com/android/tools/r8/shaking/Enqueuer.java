@@ -4645,7 +4645,7 @@ public class Enqueuer {
     try {
       while (true) {
         long numberOfLiveItems = getNumberOfLiveItems();
-        while (!worklist.isEmpty()) {
+        while (worklist.hasNext()) {
           EnqueuerAction action = worklist.poll();
           action.run(this);
         }
@@ -4655,7 +4655,7 @@ public class Enqueuer {
         if (numberOfLiveItemsAfterProcessing > numberOfLiveItems) {
           timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
           assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
-          if (!worklist.isEmpty()) {
+          if (worklist.hasNext()) {
             continue;
           }
         }
@@ -4671,20 +4671,20 @@ public class Enqueuer {
           pendingReflectiveUses.forEach(this::handleReflectiveBehavior);
           pendingReflectiveUses.clear();
         }
-        if (!worklist.isEmpty()) {
+        if (worklist.hasNext()) {
           continue;
         }
 
         // Allow deferred tracing to enqueue worklist items.
         if (deferredTracing.enqueueWorklistActions(worklist)) {
-          assert !worklist.isEmpty();
+          assert worklist.hasNext();
           continue;
         }
 
         // Notify each analysis that a fixpoint has been reached, and give each analysis an
         // opportunity to add items to the worklist.
         analyses.notifyFixpoint(this, worklist, executorService, timing);
-        if (!worklist.isEmpty()) {
+        if (worklist.hasNext()) {
           continue;
         }
 
@@ -4705,7 +4705,7 @@ public class Enqueuer {
             .merge(consequentRootSet.getDependentMinimumKeepInfo());
         rootSet.delayedRootSetActionItems.clear();
 
-        if (!worklist.isEmpty()) {
+        if (worklist.hasNext()) {
           continue;
         }
 
@@ -4765,7 +4765,7 @@ public class Enqueuer {
 
     worklist = worklist.nonPushable();
 
-    while (!worklist.isEmpty()) {
+    while (worklist.hasNext()) {
       EnqueuerAction action = worklist.poll();
       action.run(this);
     }

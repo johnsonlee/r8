@@ -323,6 +323,9 @@ public final class EnqueuerAnalysisCollection {
       throws ExecutionException {
     for (FixpointEnqueuerAnalysis analysis : fixpointAnalyses) {
       analysis.notifyFixpoint(enqueuer, worklist, executorService, timing);
+      if (worklist.hasNext()) {
+        break;
+      }
     }
   }
 

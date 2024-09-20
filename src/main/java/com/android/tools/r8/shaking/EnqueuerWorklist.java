@@ -540,6 +540,10 @@ public abstract class EnqueuerWorklist {
     this.queue = queue;
   }
 
+  public boolean hasNext() {
+    return !isEmpty();
+  }
+
   public boolean isEmpty() {
     return queue.isEmpty();
   }
