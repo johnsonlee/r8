@@ -214,7 +214,10 @@ public class RootSetUtils {
     }
 
     // Process a class with the keep rule.
-    private void process(DexClass clazz, ProguardConfigurationRule rule, ProguardIfRule ifRule) {
+    private void process(
+        DexClass clazz,
+        ProguardConfigurationRule rule,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       if (!satisfyClassType(rule, clazz)) {
         return;
       }
@@ -250,9 +253,9 @@ public class RootSetUtils {
             // Members mentioned at -keepclassmembers always depend on their holder.
             preconditionSupplier = ImmutableMap.of(definition -> true, clazz.asProgramClass());
             markMatchingVisibleMethods(
-                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRule);
+                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRulePreconditionMatch);
             markMatchingVisibleFields(
-                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRule);
+                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRulePreconditionMatch);
             break;
           case KEEP_CLASSES_WITH_MEMBERS:
             if (!allRulesSatisfied(memberKeepRules, clazz)) {
@@ -260,9 +263,9 @@ public class RootSetUtils {
             }
             // fall through;
           case KEEP:
-            markClass(clazz, rule, ifRule);
+            markClass(clazz, rule, ifRulePreconditionMatch);
             preconditionSupplier = new HashMap<>();
-            if (ifRule != null) {
+            if (ifRulePreconditionMatch != null) {
               // Static members in -keep are pinned no matter what.
               preconditionSupplier.put(DexDefinition::isStaticMember, null);
               // Instance members may need to be kept even though the holder is not instantiated.
@@ -274,9 +277,9 @@ public class RootSetUtils {
               preconditionSupplier.put(alwaysTrue(), null);
             }
             markMatchingVisibleMethods(
-                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRule);
+                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRulePreconditionMatch);
             markMatchingVisibleFields(
-                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRule);
+                clazz, memberKeepRules, rule, preconditionSupplier, false, ifRulePreconditionMatch);
             break;
           case CONDITIONAL:
             throw new Unreachable("-if rule will be evaluated separately, not here.");
@@ -286,7 +289,7 @@ public class RootSetUtils {
         return;
       }
       // Only the ordinary keep rules are supported in a conditional rule.
-      assert ifRule == null;
+      assert ifRulePreconditionMatch == null;
       if (rule instanceof ProguardIfRule) {
         throw new Unreachable("-if rule will be evaluated separately, not here.");
       } else if (rule.isProguardCheckDiscardRule()) {
@@ -295,23 +298,31 @@ public class RootSetUtils {
         evaluateCheckEnumUnboxedRule(clazz, (CheckEnumUnboxedRule) rule);
       } else if (rule instanceof NoAccessModificationRule
           || rule instanceof ProguardWhyAreYouKeepingRule) {
-        markClass(clazz, rule, ifRule);
-        markMatchingVisibleMethods(clazz, memberKeepRules, rule, null, true, ifRule);
-        markMatchingVisibleFields(clazz, memberKeepRules, rule, null, true, ifRule);
+        markClass(clazz, rule, ifRulePreconditionMatch);
+        markMatchingVisibleMethods(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
+        markMatchingVisibleFields(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
       } else if (rule instanceof ProguardAssumeMayHaveSideEffectsRule) {
-        markMatchingVisibleMethods(clazz, memberKeepRules, rule, null, true, ifRule);
-        markMatchingOverriddenMethods(clazz, memberKeepRules, rule, null, true, ifRule);
-        markMatchingVisibleFields(clazz, memberKeepRules, rule, null, true, ifRule);
+        markMatchingVisibleMethods(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
+        markMatchingOverriddenMethods(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
+        markMatchingVisibleFields(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
       } else if (rule instanceof ProguardAssumeNoSideEffectRule
           || rule instanceof ProguardAssumeValuesRule) {
         if (assumeInfoCollectionBuilder != null) {
-          markMatchingVisibleMethods(clazz, memberKeepRules, rule, null, true, ifRule);
-          markMatchingOverriddenMethods(clazz, memberKeepRules, rule, null, true, ifRule);
-          markMatchingVisibleFields(clazz, memberKeepRules, rule, null, true, ifRule);
+          markMatchingVisibleMethods(
+              clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
+          markMatchingOverriddenMethods(
+              clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
+          markMatchingVisibleFields(
+              clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
         }
       } else if (rule instanceof NoFieldTypeStrengtheningRule
           || rule instanceof NoRedundantFieldLoadEliminationRule) {
-        markMatchingFields(clazz, memberKeepRules, rule, null, ifRule);
+        markMatchingFields(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
       } else if (rule instanceof InlineRule
           || rule instanceof KeepConstantArgumentRule
           || rule instanceof KeepUnusedReturnValueRule
@@ -323,28 +334,33 @@ public class RootSetUtils {
           || rule instanceof ReprocessMethodRule
           || rule instanceof WhyAreYouNotInliningRule
           || rule.isMaximumRemovedAndroidLogLevelRule()) {
-        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRule);
+        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
       } else if (rule instanceof ClassInlineRule
           || rule instanceof NoUnusedInterfaceRemovalRule
           || rule instanceof NoVerticalClassMergingRule
           || rule instanceof NoHorizontalClassMergingRule
           || rule instanceof ReprocessClassInitializerRule) {
         if (allRulesSatisfied(memberKeepRules, clazz)) {
-          markClass(clazz, rule, ifRule);
+          markClass(clazz, rule, ifRulePreconditionMatch);
         }
       } else if (rule instanceof NoValuePropagationRule) {
-        markMatchingVisibleMethods(clazz, memberKeepRules, rule, null, true, ifRule);
-        markMatchingVisibleFields(clazz, memberKeepRules, rule, null, true, ifRule);
+        markMatchingVisibleMethods(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
+        markMatchingVisibleFields(
+            clazz, memberKeepRules, rule, null, true, ifRulePreconditionMatch);
       } else if (rule instanceof ProguardIdentifierNameStringRule) {
-        markMatchingFields(clazz, memberKeepRules, rule, null, ifRule);
-        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRule);
+        markMatchingFields(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
+        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
       } else {
         assert rule instanceof ConvertCheckNotNullRule;
-        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRule);
+        markMatchingMethods(clazz, memberKeepRules, rule, null, ifRulePreconditionMatch);
       }
     }
 
-    void runPerRule(TaskCollection<?> tasks, ProguardConfigurationRule rule, ProguardIfRule ifRule)
+    void runPerRule(
+        TaskCollection<?> tasks,
+        ProguardConfigurationRule rule,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch)
         throws ExecutionException {
       if (rule.getClassNames().hasSpecificTypes()) {
         // This keep rule only lists specific type matches.
@@ -353,7 +369,7 @@ public class RootSetUtils {
           DexClass clazz = application.definitionFor(type);
           // Ignore keep rule iff it does not reference a class in the app.
           if (clazz != null) {
-            process(clazz, rule, ifRule);
+            process(clazz, rule, ifRulePreconditionMatch);
           }
         }
         return;
@@ -364,11 +380,11 @@ public class RootSetUtils {
             for (DexProgramClass clazz :
                 rule.relevantCandidatesForRule(
                     appView, subtypingInfo, application.classes(), alwaysTrue())) {
-              process(clazz, rule, ifRule);
+              process(clazz, rule, ifRulePreconditionMatch);
             }
             if (rule.applyToNonProgramClasses()) {
               for (DexLibraryClass clazz : application.libraryClasses()) {
-                process(clazz, rule, ifRule);
+                process(clazz, rule, ifRulePreconditionMatch);
               }
             }
           });
@@ -517,7 +533,7 @@ public class RootSetUtils {
         ProguardConfigurationRule rule,
         Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         boolean includeLibraryClasses,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       Set<Wrapper<DexMethod>> methodsMarked =
           options.forceProguardCompatibility ? null : new HashSet<>();
       Deque<DexClass> worklist = new ArrayDeque<>();
@@ -537,7 +553,13 @@ public class RootSetUtils {
             method -> {
               DexProgramClass precondition =
                   testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
-              markMethod(method, memberKeepRules, methodsMarked, rule, precondition, ifRule);
+              markMethod(
+                  method,
+                  memberKeepRules,
+                  methodsMarked,
+                  rule,
+                  precondition,
+                  ifRulePreconditionMatch);
             });
         if (currentClass.superType != null) {
           DexClass dexClass = application.definitionFor(currentClass.superType);
@@ -553,7 +575,11 @@ public class RootSetUtils {
           && !rule.asProguardKeepRule().getModifiers().allowsShrinking
           && !isMainDexRootSetBuilder()) {
         new SynthesizeMissingInterfaceMethodsForMemberRules(
-                clazz.asProgramClass(), memberKeepRules, rule, preconditionSupplier, ifRule)
+                clazz.asProgramClass(),
+                memberKeepRules,
+                rule,
+                preconditionSupplier,
+                ifRulePreconditionMatch)
             .run();
       }
     }
@@ -569,7 +595,7 @@ public class RootSetUtils {
       private final Collection<ProguardMemberRule> memberKeepRules;
       private final ProguardConfigurationRule context;
       private final Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier;
-      private final ProguardIfRule ifRule;
+      private final ProguardIfRulePreconditionMatch ifRulePreconditionMatch;
       private final Set<Wrapper<DexMethod>> seenMethods = Sets.newHashSet();
       private final Set<DexType> seenTypes = Sets.newIdentityHashSet();
 
@@ -578,14 +604,14 @@ public class RootSetUtils {
           Collection<ProguardMemberRule> memberKeepRules,
           ProguardConfigurationRule context,
           Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
-          ProguardIfRule ifRule) {
+          ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
         assert context.isProguardKeepRule();
         assert !context.asProguardKeepRule().getModifiers().allowsShrinking;
         this.originalClazz = originalClazz;
         this.memberKeepRules = memberKeepRules;
         this.context = context;
         this.preconditionSupplier = preconditionSupplier;
-        this.ifRule = ifRule;
+        this.ifRulePreconditionMatch = ifRulePreconditionMatch;
       }
 
       void handleMatchedAnnotation(AnnotationMatchResult annotationMatchResult) {
@@ -673,7 +699,8 @@ public class RootSetUtils {
                 (rootSetBuilder) -> {
                   DexProgramClass precondition =
                       testAndGetPrecondition(methodToKeep.getDefinition(), preconditionSupplier);
-                  rootSetBuilder.addItemToSets(methodToKeep, context, rule, precondition, ifRule);
+                  rootSetBuilder.addItemToSets(
+                      methodToKeep, context, rule, precondition, ifRulePreconditionMatch);
                 }));
       }
     }
@@ -689,7 +716,7 @@ public class RootSetUtils {
         ProguardConfigurationRule rule,
         Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         boolean onlyIncludeProgramClasses,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       Set<DexType> visited = new HashSet<>();
       Deque<DexType> worklist = new ArrayDeque<>();
       // Intentionally skip the current `clazz`, assuming it's covered by
@@ -713,7 +740,8 @@ public class RootSetUtils {
             method -> {
               DexProgramClass precondition =
                   testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
-              markMethod(method, memberKeepRules, null, rule, precondition, ifRule);
+              markMethod(
+                  method, memberKeepRules, null, rule, precondition, ifRulePreconditionMatch);
             });
         worklist.addAll(subtypingInfo.allImmediateSubtypes(currentClazz.type));
       }
@@ -724,12 +752,12 @@ public class RootSetUtils {
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
         Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       clazz.forEachClassMethod(
           method -> {
             DexProgramClass precondition =
                 testAndGetPrecondition(method.getDefinition(), preconditionSupplier);
-            markMethod(method, memberKeepRules, null, rule, precondition, ifRule);
+            markMethod(method, memberKeepRules, null, rule, precondition, ifRulePreconditionMatch);
           });
     }
 
@@ -739,7 +767,7 @@ public class RootSetUtils {
         ProguardConfigurationRule rule,
         Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
         boolean includeLibraryClasses,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       while (clazz != null) {
         if (!includeLibraryClasses && clazz.isNotProgramClass()) {
           return;
@@ -748,7 +776,7 @@ public class RootSetUtils {
             field -> {
               DexProgramClass precondition =
                   testAndGetPrecondition(field.getDefinition(), preconditionSupplier);
-              markField(field, memberKeepRules, rule, precondition, ifRule);
+              markField(field, memberKeepRules, rule, precondition, ifRulePreconditionMatch);
             });
         clazz = clazz.superType == null ? null : application.definitionFor(clazz.superType);
       }
@@ -759,12 +787,12 @@ public class RootSetUtils {
         Collection<ProguardMemberRule> memberKeepRules,
         ProguardConfigurationRule rule,
         Map<Predicate<DexDefinition>, DexProgramClass> preconditionSupplier,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       clazz.forEachClassField(
           field -> {
             DexProgramClass precondition =
                 testAndGetPrecondition(field.getDefinition(), preconditionSupplier);
-            markField(field, memberKeepRules, rule, precondition, ifRule);
+            markField(field, memberKeepRules, rule, precondition, ifRulePreconditionMatch);
           });
     }
 
@@ -1077,7 +1105,7 @@ public class RootSetUtils {
         Set<Wrapper<DexMethod>> methodsMarked,
         ProguardConfigurationRule context,
         DexProgramClass precondition,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       if (methodsMarked != null
           && methodsMarked.contains(MethodSignatureEquivalence.get().wrap(method.getReference()))) {
         // Ignore, method is overridden in sub class.
@@ -1088,7 +1116,7 @@ public class RootSetUtils {
           if (methodsMarked != null) {
             methodsMarked.add(MethodSignatureEquivalence.get().wrap(method.getReference()));
           }
-          addItemToSets(method, context, rule, precondition, ifRule);
+          addItemToSets(method, context, rule, precondition, ifRulePreconditionMatch);
         }
       }
     }
@@ -1098,16 +1126,19 @@ public class RootSetUtils {
         Collection<ProguardMemberRule> rules,
         ProguardConfigurationRule context,
         DexProgramClass precondition,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       for (ProguardMemberRule rule : rules) {
         if (rule.matches(field, appView, this::handleMatchedAnnotation, dexStringCache)) {
-          addItemToSets(field, context, rule, precondition, ifRule);
+          addItemToSets(field, context, rule, precondition, ifRulePreconditionMatch);
         }
       }
     }
 
-    private void markClass(DexClass clazz, ProguardConfigurationRule rule, ProguardIfRule ifRule) {
-      addItemToSets(clazz, rule, null, null, ifRule);
+    private void markClass(
+        DexClass clazz,
+        ProguardConfigurationRule rule,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      addItemToSets(clazz, rule, null, null, ifRulePreconditionMatch);
     }
 
     private void includeDescriptor(
@@ -1166,14 +1197,17 @@ public class RootSetUtils {
         ProguardConfigurationRule context,
         ProguardMemberRule rule,
         DexProgramClass precondition,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       if (context.isProguardKeepRule()) {
         if (!item.isProgramDefinition()) {
           // Keep rules do not apply to non-program items.
           return;
         }
         evaluateKeepRule(
-            item.asProgramDefinition(), context.asProguardKeepRule(), precondition, ifRule);
+            item.asProgramDefinition(),
+            context.asProguardKeepRule(),
+            precondition,
+            ifRulePreconditionMatch);
       } else if (context instanceof ProguardAssumeMayHaveSideEffectsRule) {
         mayHaveSideEffects.put(item.getReference(), rule);
         context.markAsUsed();
@@ -1327,7 +1361,7 @@ public class RootSetUtils {
           context.markAsUsed();
         }
       } else if (context instanceof ProguardIdentifierNameStringRule) {
-        evaluateIdentifierNameStringRule(item, context, ifRule);
+        evaluateIdentifierNameStringRule(item, context, ifRulePreconditionMatch);
       } else if (context instanceof ReprocessClassInitializerRule) {
         DexProgramClass clazz = item.asProgramClass();
         if (clazz != null && clazz.hasClassInitializer()) {
@@ -1550,12 +1584,12 @@ public class RootSetUtils {
         ProgramDefinition item,
         ProguardKeepRule context,
         DexProgramClass precondition,
-        ProguardIfRule ifRule) {
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       if (item.isField()) {
         ProgramField field = item.asProgramField();
         if (field.getOptimizationInfo().cannotBeKept()) {
           // We should only ever get here with if rules.
-          assert ifRule != null;
+          assert ifRulePreconditionMatch != null;
           return;
         }
       } else if (item.isMethod()) {
@@ -1566,7 +1600,7 @@ public class RootSetUtils {
         }
         if (method.getOptimizationInfo().cannotBeKept()) {
           // We should only ever get here with if rules.
-          assert ifRule != null;
+          assert ifRulePreconditionMatch != null;
           return;
         }
         if (options.isGeneratingDex()
@@ -1577,7 +1611,10 @@ public class RootSetUtils {
       }
 
       // The reason for keeping should link to the conditional rule as a whole, if present.
-      ProguardKeepRuleBase keepRule = ifRule != null ? ifRule : context;
+      ProguardKeepRuleBase keepRule =
+          ifRulePreconditionMatch != null
+              ? ifRulePreconditionMatch.getIfRuleWithPreconditionSet()
+              : context;
 
       // The modifiers are specified on the actual keep rule (ie, the consequent/context).
       ProguardKeepRuleModifiers modifiers = context.getModifiers();
@@ -1753,12 +1790,14 @@ public class RootSetUtils {
     }
 
     private void evaluateIdentifierNameStringRule(
-        Definition item, ProguardConfigurationRule context, ProguardIfRule ifRule) {
+        Definition item,
+        ProguardConfigurationRule context,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
       // Main dex rules should not contain -identifiernamestring rules.
       assert !isMainDexRootSetBuilder();
 
       // We don't expect -identifiernamestring rules to be used as the subsequent of -if rules.
-      assert ifRule == null;
+      assert ifRulePreconditionMatch == null;
 
       if (item.isClass()) {
         return;

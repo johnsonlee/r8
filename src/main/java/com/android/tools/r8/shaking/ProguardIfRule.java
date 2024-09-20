@@ -150,31 +150,9 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
     return this;
   }
 
-  protected ProguardIfRule materialize(
-      DexItemFactory dexItemFactory, DexProgramClass precondition) {
+  protected ProguardKeepRule materialize(DexItemFactory dexItemFactory) {
     markAsUsed();
-    return new ProguardIfRule(
-        getOrigin(),
-        getPosition(),
-        getSource(),
-        ProguardTypeMatcher.materializeList(getClassAnnotations(), dexItemFactory),
-        getClassAccessFlags(),
-        getNegatedClassAccessFlags(),
-        getClassTypeNegated(),
-        getClassType(),
-        getClassNames().materialize(dexItemFactory),
-        ProguardTypeMatcher.materializeList(getInheritanceAnnotations(), dexItemFactory),
-        getInheritanceClassName() == null
-            ? null
-            : getInheritanceClassName().materialize(dexItemFactory),
-        getInheritanceIsExtends(),
-        getMemberRules() == null
-            ? null
-            : getMemberRules().stream()
-                .map(memberRule -> memberRule.materialize(dexItemFactory))
-                .collect(Collectors.toList()),
-        subsequentRule.materialize(dexItemFactory),
-        precondition);
+    return subsequentRule.materialize(dexItemFactory);
   }
 
   /**
@@ -253,5 +231,24 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
     super.append(builder);
     builder.append('\n');
     return subsequentRule.append(builder);
+  }
+
+  public ProguardIfRule withPrecondition(DexProgramClass precondition) {
+    return new ProguardIfRule(
+        getOrigin(),
+        getPosition(),
+        getSource(),
+        getClassAnnotations(),
+        getClassAccessFlags(),
+        getNegatedClassAccessFlags(),
+        getClassTypeNegated(),
+        getClassType(),
+        getClassNames(),
+        getInheritanceAnnotations(),
+        getInheritanceClassName(),
+        getInheritanceIsExtends(),
+        getMemberRules(),
+        getSubsequentRule(),
+        precondition);
   }
 }

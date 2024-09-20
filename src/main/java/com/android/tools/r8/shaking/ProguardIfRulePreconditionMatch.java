@@ -25,6 +25,10 @@ public class ProguardIfRulePreconditionMatch {
     this.methodsMatch = methodsMatch;
   }
 
+  public ProguardIfRule getIfRuleWithPreconditionSet() {
+    return ifRule.withPrecondition(classMatch);
+  }
+
   public void disallowOptimizationsForReevaluation(
       Enqueuer enqueuer, ConsequentRootSetBuilder rootSetBuilder) {
     if (enqueuer.getMode().isInitialTreeShaking() && !ifRule.isTrivalAllClassMatch()) {
