@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -76,15 +76,8 @@ public class IfRuleEvaluator {
               ifRuleKey.relevantCandidatesForRule(
                   appView, subtypingInfo, classesWithNewlyLiveMembers, isEffectivelyLive)) {
             assert isEffectivelyLive.test(clazz);
-            evaluateRuleOnEffectivelyLiveClass(
-                ifRuleKey,
-                ifRulesInEquivalence,
-                clazz,
-                matchedIfRule -> {
-                  if (canRemoveSubsequentKeepRule(matchedIfRule)) {
-                    toRemove.add(matchedIfRule);
-                  }
-                });
+            processActiveIfRulesWithMembersAndSameClassPrecondition(
+                ifRuleKey, ifRulesInEquivalence, clazz, toRemove);
           }
           if (ifRulesInEquivalence.size() == toRemove.size()) {
             return true;
@@ -93,6 +86,38 @@ public class IfRuleEvaluator {
           return false;
         });
     tasks.await();
+  }
+
+  private void processActiveIfRulesWithMembersAndSameClassPrecondition(
+      ProguardIfRule ifRuleKey,
+      Set<ProguardIfRule> ifRulesInEquivalence,
+      DexProgramClass clazz,
+      List<ProguardIfRule> toRemove) {
+    // Check if the class matches the if-rule.
+    if (!evaluateClassForIfRule(ifRuleKey, clazz)) {
+      return;
+    }
+    // When matching an if rule against a type, the if-rule are filled with the current
+    // capture of wildcards. Propagate this down to member rules with same class part
+    // equivalence.
+    for (ProguardIfRule ifRule : ifRulesInEquivalence) {
+      registerClassCapture(ifRule, clazz, clazz);
+      List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules =
+          new ArrayList<>();
+      evaluateIfRuleMembersAndMaterialize(
+          ifRule,
+          clazz,
+          (ifRulePreconditionMatch, materializedSubsequentRule) -> {
+            materializedSubsequentRules.add(
+                new Pair<>(ifRulePreconditionMatch, materializedSubsequentRule));
+            if (canRemoveSubsequentKeepRule(ifRule)) {
+              toRemove.add(ifRule);
+              return true;
+            }
+            return false;
+          });
+      applyMaterializedSubsequentRules(ifRule, materializedSubsequentRules);
+    }
   }
 
   public void processActiveIfRulesWithoutMembers(
@@ -144,34 +169,8 @@ public class IfRuleEvaluator {
         break;
       }
     }
-    materializedSubsequentRules =
-        MaterializedSubsequentRulesOptimizer.optimize(ifRule, materializedSubsequentRules);
-    for (Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule> pair :
-        materializedSubsequentRules) {
-      ProguardIfRulePreconditionMatch ifRulePreconditionMatch = pair.getFirst();
-      ProguardKeepRule materializedSubsequentRule = pair.getSecond();
-      applyMaterializedSubsequentRule(materializedSubsequentRule, ifRulePreconditionMatch);
-    }
+    applyMaterializedSubsequentRules(ifRule, materializedSubsequentRules);
     return isSubsequentRuleFullyEvaluated;
-  }
-
-  private void evaluateRuleOnEffectivelyLiveClass(
-      ProguardIfRule ifRuleKey,
-      Set<ProguardIfRule> ifRulesInEquivalence,
-      DexProgramClass clazz,
-      Consumer<ProguardIfRule> matchedConsumer)
-      throws ExecutionException {
-    // Check if the class matches the if-rule.
-    if (!evaluateClassForIfRule(ifRuleKey, clazz)) {
-      return;
-    }
-    // When matching an if rule against a type, the if-rule are filled with the current
-    // capture of wildcards. Propagate this down to member rules with same class part
-    // equivalence.
-    for (ProguardIfRule ifRule : ifRulesInEquivalence) {
-      registerClassCapture(ifRule, clazz, clazz);
-      evaluateIfRuleMembersAndMaterialize(ifRule, clazz, matchedConsumer);
-    }
   }
 
   private void incrementNumberOfProguardIfRuleClassEvaluations() {
@@ -232,8 +231,9 @@ public class IfRuleEvaluator {
   }
 
   private void evaluateIfRuleMembersAndMaterialize(
-      ProguardIfRule rule, DexProgramClass clazz, Consumer<ProguardIfRule> matchedConsumer)
-      throws ExecutionException {
+      ProguardIfRule rule,
+      DexProgramClass clazz,
+      BiPredicate<ProguardIfRulePreconditionMatch, ProguardKeepRule> materializedIfRuleConsumer) {
     incrementNumberOfProguardIfRuleMemberEvaluations();
     Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
     assert !memberKeepRules.isEmpty();
@@ -332,9 +332,7 @@ public class IfRuleEvaluator {
             new ProguardIfRulePreconditionMatch(rule, clazz, methodsSatisfyingRule);
         ifRulePreconditionMatch.disallowOptimizationsForReevaluation(enqueuer, rootSetBuilder);
         ProguardKeepRule materializedSubsequentRule = rule.materialize(factory);
-        applyMaterializedSubsequentRule(materializedSubsequentRule, ifRulePreconditionMatch);
-        if (canRemoveSubsequentKeepRule(rule)) {
-          matchedConsumer.accept(rule);
+        if (materializedIfRuleConsumer.test(ifRulePreconditionMatch, materializedSubsequentRule)) {
           return;
         }
       }
@@ -348,6 +346,19 @@ public class IfRuleEvaluator {
       return field.getIsInlinableByJavaC();
     }
     return field.getOrComputeIsInlinableByJavaC(factory);
+  }
+
+  private void applyMaterializedSubsequentRules(
+      ProguardIfRule ifRule,
+      List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules) {
+    materializedSubsequentRules =
+        MaterializedSubsequentRulesOptimizer.optimize(ifRule, materializedSubsequentRules);
+    for (Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule> pair :
+        materializedSubsequentRules) {
+      ProguardIfRulePreconditionMatch ifRulePreconditionMatch = pair.getFirst();
+      ProguardKeepRule materializedSubsequentRule = pair.getSecond();
+      applyMaterializedSubsequentRule(materializedSubsequentRule, ifRulePreconditionMatch);
+    }
   }
 
   private void applyMaterializedSubsequentRule(

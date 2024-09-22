@@ -253,7 +253,7 @@ public abstract class ProguardClassSpecification {
   }
 
   public boolean hasMemberRules() {
-    return memberRules != null && !memberRules.isEmpty();
+    return !memberRules.isEmpty();
   }
 
   public ProguardMemberRule getMemberRule(int index) {

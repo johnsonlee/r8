@@ -17,6 +17,7 @@ import com.android.tools.r8.utils.SetUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -100,7 +101,7 @@ public class MaterializedSubsequentRulesOptimizer {
       memberRules = new ArrayList<>(representativeKeepRule.getMemberRules());
       memberRules.set(memberRuleWithBackReferenceIndex, replacementMemberRule);
     } else {
-      memberRules = null;
+      memberRules = Collections.emptyList();
     }
     ProguardKeepRule replacementKeepRule =
         new ProguardKeepRule(
