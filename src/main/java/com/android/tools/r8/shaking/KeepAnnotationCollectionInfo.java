@@ -328,6 +328,10 @@ public abstract class KeepAnnotationCollectionInfo {
     return false;
   }
 
+  public boolean isTopOrBottom() {
+    return isTop() || isBottom();
+  }
+
   IntermediateKeepAnnotationCollectionInfo asIntermediate() {
     throw new Unreachable();
   }

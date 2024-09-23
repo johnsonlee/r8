@@ -43,13 +43,14 @@ public abstract class KeepInfoCanonicalizer {
     private final Map<Equivalence.Wrapper<KeepFieldInfo>, Equivalence.Wrapper<KeepFieldInfo>>
         keepFieldInfos = new LRUCache<>(CACHE_SIZE);
 
-    private boolean hasKeepInfoAnnotationInfo(KeepInfo<?, ?> info) {
-      return !info.internalAnnotationsInfo().isTop() || !info.internalTypeAnnotationsInfo().isTop();
+    private boolean hasNonTrivialKeepInfoAnnotationInfo(KeepInfo<?, ?> info) {
+      return !info.internalAnnotationsInfo().isTopOrBottom()
+          || !info.internalTypeAnnotationsInfo().isTopOrBottom();
     }
 
     @Override
     public KeepClassInfo canonicalizeKeepClassInfo(KeepClassInfo classInfo) {
-      if (hasKeepInfoAnnotationInfo(classInfo)) {
+      if (hasNonTrivialKeepInfoAnnotationInfo(classInfo)) {
         return classInfo;
       }
       return keepClassInfos.computeIfAbsent(classEquivalence.wrap(classInfo), w -> w).get();
@@ -57,8 +58,8 @@ public abstract class KeepInfoCanonicalizer {
 
     @Override
     public KeepMethodInfo canonicalizeKeepMethodInfo(KeepMethodInfo methodInfo) {
-      if (hasKeepInfoAnnotationInfo(methodInfo)
-          || !methodInfo.internalParameterAnnotationsInfo().isTop()) {
+      if (hasNonTrivialKeepInfoAnnotationInfo(methodInfo)
+          || !methodInfo.internalParameterAnnotationsInfo().isTopOrBottom()) {
         return methodInfo;
       }
       return keepMethodInfos.computeIfAbsent(methodEquivalence.wrap(methodInfo), w -> w).get();
@@ -66,7 +67,7 @@ public abstract class KeepInfoCanonicalizer {
 
     @Override
     public KeepFieldInfo canonicalizeKeepFieldInfo(KeepFieldInfo fieldInfo) {
-      if (hasKeepInfoAnnotationInfo(fieldInfo)) {
+      if (hasNonTrivialKeepInfoAnnotationInfo(fieldInfo)) {
         return fieldInfo;
       }
       return keepFieldInfos.computeIfAbsent(fieldEquivalence.wrap(fieldInfo), w -> w).get();

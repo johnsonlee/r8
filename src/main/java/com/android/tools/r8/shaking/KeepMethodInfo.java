@@ -282,6 +282,7 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
   @Override
   public boolean equalsNoAnnotations(KeepMethodInfo other) {
+    assert parameterAnnotationsInfo.isTopOrBottom();
     return super.equalsNoAnnotations(other)
         && allowThrowsRemoval == other.internalIsThrowsRemovalAllowed()
         && allowClassInlining == other.internalIsClassInliningAllowed()
@@ -300,11 +301,13 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
         && allowUnusedArgumentOptimization == other.internalIsUnusedArgumentOptimizationAllowed()
         && allowUnusedReturnValueOptimization
             == other.internalIsUnusedReturnValueOptimizationAllowed()
-        && allowParameterNamesRemoval == other.internalIsParameterNamesRemovalAllowed();
+        && allowParameterNamesRemoval == other.internalIsParameterNamesRemovalAllowed()
+        && parameterAnnotationsInfo == other.internalParameterAnnotationsInfo();
   }
 
   @Override
   public int hashCodeNoAnnotations() {
+    assert parameterAnnotationsInfo.isTopOrBottom();
     int hash = super.hashCodeNoAnnotations();
     int index = super.numberOfBooleans();
     hash += bit(allowThrowsRemoval, index++);
@@ -322,7 +325,8 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     hash += bit(allowSingleCallerInlining, index++);
     hash += bit(allowUnusedArgumentOptimization, index++);
     hash += bit(allowUnusedReturnValueOptimization, index++);
-    hash += bit(allowParameterNamesRemoval, index);
+    hash += bit(allowParameterNamesRemoval, index++);
+    hash += bit(parameterAnnotationsInfo.isTop(), index);
     return hash;
   }
 

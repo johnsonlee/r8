@@ -293,6 +293,8 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
   }
 
   public boolean equalsNoAnnotations(K other) {
+    assert annotationsInfo.isTopOrBottom();
+    assert typeAnnotationsInfo.isTopOrBottom();
     return getClass() == other.getClass()
         && (allowAccessModification == other.internalIsAccessModificationAllowed())
         && (allowAccessModificationForTesting
@@ -301,10 +303,14 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
         && (allowOptimization == other.internalIsOptimizationAllowed())
         && (allowShrinking == other.internalIsShrinkingAllowed())
         && (allowSignatureRemoval == other.internalIsSignatureRemovalAllowed())
-        && (checkDiscarded == other.internalIsCheckDiscardedEnabled());
+        && (checkDiscarded == other.internalIsCheckDiscardedEnabled())
+        && (annotationsInfo == other.internalAnnotationsInfo())
+        && (typeAnnotationsInfo == other.internalTypeAnnotationsInfo());
   }
 
   public int hashCodeNoAnnotations() {
+    assert annotationsInfo.isTopOrBottom();
+    assert typeAnnotationsInfo.isTopOrBottom();
     int hash = 0;
     int index = 0;
     hash += bit(allowAccessModification, index++);
@@ -313,12 +319,14 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     hash += bit(allowOptimization, index++);
     hash += bit(allowShrinking, index++);
     hash += bit(allowSignatureRemoval, index++);
-    hash += bit(checkDiscarded, index);
+    hash += bit(checkDiscarded, index++);
+    hash += bit(annotationsInfo.isTop(), index++);
+    hash += bit(typeAnnotationsInfo.isTop(), index);
     return hash;
   }
 
   protected int numberOfBooleans() {
-    return 7;
+    return 9;
   }
 
   protected int bit(boolean bool, int index) {
