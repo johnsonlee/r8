@@ -99,7 +99,7 @@ public final class D8 {
         command.getReporter(),
         () -> {
           try {
-            run(app, options, executor);
+            runInternal(app, options, executor);
           } finally {
             executor.shutdown();
           }
@@ -119,7 +119,7 @@ public final class D8 {
     ExceptionUtils.withD8CompilationHandler(
         command.getReporter(),
         () -> {
-          run(app, options, executor);
+          runInternal(app, options, executor);
         });
   }
 
@@ -159,7 +159,7 @@ public final class D8 {
         options.reporter,
         () -> {
           try {
-            run(inputApp, options, executor);
+            runInternal(inputApp, options, executor);
           } finally {
             executor.shutdown();
           }
@@ -190,8 +190,8 @@ public final class D8 {
     return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
   }
 
-  private static void run(AndroidApp inputApp, InternalOptions options, ExecutorService executor)
-      throws IOException {
+  private static void runInternal(
+      AndroidApp inputApp, InternalOptions options, ExecutorService executor) throws IOException {
     if (options.printMemory) {
       // Run GC twice to remove objects with finalizers.
       System.gc();
