@@ -112,7 +112,7 @@ public class B369418242Test extends KotlinTestBase {
     assumeTrue(kotlinParameters.isFirst());
     testForJvm(parameters)
         .addProgramClasses(Main.class, Helper.getClassA(), B.class)
-        .run(parameters.getRuntime(), MAIN_CLASS)
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithEmptyOutput();
   }
 
