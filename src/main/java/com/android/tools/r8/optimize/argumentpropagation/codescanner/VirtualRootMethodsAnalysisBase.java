@@ -197,8 +197,8 @@ public class VirtualRootMethodsAnalysisBase extends DepthFirstTopDownClassHierar
                           info.addOverride(existing);
                           return existing;
                         }
+                        info.addSibling(existing);
                         if (existing.getMethod().getHolder().isInterface() && !info.isAbstract()) {
-                          info.addSibling(existing);
                           existing.addOverride(info);
                           return info;
                         }

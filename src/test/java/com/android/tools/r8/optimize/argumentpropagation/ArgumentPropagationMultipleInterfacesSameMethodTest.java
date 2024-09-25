@@ -40,8 +40,7 @@ public class ArgumentPropagationMultipleInterfacesSameMethodTest extends TestBas
                 inspector
                     .assertHasPolymorphicMethodState(
                         Reference.methodFromMethod(I.class.getDeclaredMethod("m")))
-                    // TODO(b/363492038): J.m is not monomorphic.
-                    .assertHasMonomorphicMethodState(
+                    .assertHasPolymorphicMethodState(
                         Reference.methodFromMethod(J.class.getDeclaredMethod("m")))
                     .apply(ignore -> inspected.set()))
         .enableNoHorizontalClassMergingAnnotations()
