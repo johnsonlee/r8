@@ -192,7 +192,9 @@ public class KotlinTestParameters {
       int index = 0;
       List<KotlinCompilerVersion> compilerVersions;
       if (withDevCompiler) {
-        compilerVersions = ImmutableList.of(KotlinCompilerVersion.KOTLIN_DEV);
+        compilerVersions =
+            ImmutableList.of(
+                KotlinCompilerVersion.KOTLINC_2_1_0_BETA1, KotlinCompilerVersion.KOTLIN_DEV);
       } else if (withOldCompilers) {
         compilerVersions =
             Arrays.stream(KotlinCompilerVersion.values())
