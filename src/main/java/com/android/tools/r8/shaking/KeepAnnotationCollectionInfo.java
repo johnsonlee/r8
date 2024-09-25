@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.shaking.KeepInfoCollectionExported.KeepAnnotationCollectionInfoExported.createExported;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexType;
@@ -310,6 +312,19 @@ public abstract class KeepAnnotationCollectionInfo {
       }
       return true;
     }
+
+    @Override
+    public String toString() {
+      StringBuilder stringBuilder = new StringBuilder();
+      stringBuilder
+          .append("IntermediateKeepAnnotationCollection{ ")
+          .append(anyTypeInfo.toString())
+          .append("; ");
+      specificTypeInfo.forEach(
+          (t, info) -> stringBuilder.append(t).append(": ").append(info.toString()));
+      stringBuilder.append("}");
+      return stringBuilder.toString();
+    }
   }
 
   public static Builder builder() {
@@ -372,11 +387,16 @@ public abstract class KeepAnnotationCollectionInfo {
 
     // Info applicable to only specific types. Null if no type specific info is present.
     private Map<DexType, KeepAnnotationInfo> specificTypeInfo = null;
+    private boolean export = false;
 
     private Builder(KeepAnnotationInfo anyTypeInfo) {
       assert anyTypeInfo != null;
       assert anyTypeInfo.isAnyType();
       this.anyTypeInfo = anyTypeInfo;
+    }
+
+    void setExport() {
+      this.export = true;
     }
 
     private static Builder createFrom(KeepAnnotationCollectionInfo original) {
@@ -510,7 +530,9 @@ public abstract class KeepAnnotationCollectionInfo {
       if (isBottom()) {
         return BottomKeepAnnotationCollectionInfo.getInstance();
       }
-      return new IntermediateKeepAnnotationCollectionInfo(anyTypeInfo, specificTypeInfo);
+      IntermediateKeepAnnotationCollectionInfo intermediate =
+          new IntermediateKeepAnnotationCollectionInfo(anyTypeInfo, specificTypeInfo);
+      return export ? createExported(intermediate) : intermediate;
     }
   }
 }

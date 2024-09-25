@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.InternalOptions;
+import java.util.List;
 import java.util.function.Function;
 
 /** Immutable keep requirements for a class. */
@@ -212,6 +213,20 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
     hash += bit(allowVerticalClassMerging, index++);
     hash += bit(checkEnumUnboxed, index);
     return hash;
+  }
+
+  @Override
+  public List<String> lines() {
+    List<String> lines = super.lines();
+    lines.add("allowClassInlining: " + allowClassInlining);
+    lines.add("allowHorizontalClassMerging: " + allowHorizontalClassMerging);
+    lines.add("allowPermittedSubclassesRemoval: " + allowPermittedSubclassesRemoval);
+    lines.add("allowRepackaging: " + allowRepackaging);
+    lines.add("allowSyntheticSharing: " + allowSyntheticSharing);
+    lines.add("allowUnusedInterfaceRemoval: " + allowUnusedInterfaceRemoval);
+    lines.add("allowVerticalClassMerging: " + allowVerticalClassMerging);
+    lines.add("checkEnumUnboxed: " + checkEnumUnboxed);
+    return lines;
   }
 
   public static class Builder extends KeepInfo.Builder<Builder, KeepClassInfo> {

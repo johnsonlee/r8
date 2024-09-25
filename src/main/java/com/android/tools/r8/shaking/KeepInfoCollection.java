@@ -264,6 +264,12 @@ public abstract class KeepInfoCollection {
       InternalOptions options,
       Timing timing);
 
+  public abstract KeepInfoCollectionExported exportToCollection();
+
+  public void exportToDirectory(Path directory) throws IOException {
+    exportToCollection().exportToDirectory(directory);
+  }
+
   public abstract KeepInfoCollection mutate(Consumer<MutableKeepInfoCollection> mutator);
 
   public abstract void writeToDirectory(Path directory) throws IOException;
@@ -396,6 +402,11 @@ public abstract class KeepInfoCollection {
               canonicalizer);
       timing.end();
       return result;
+    }
+
+    @Override
+    public KeepInfoCollectionExported exportToCollection() {
+      return new KeepInfoCollectionExported(keepClassInfo, keepMethodInfo, keepFieldInfo);
     }
 
     private Map<DexType, KeepClassInfo> rewriteClassInfo(

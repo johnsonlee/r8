@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.shaking.KeepMemberInfo.Builder;
 import com.android.tools.r8.utils.InternalOptions;
+import java.util.List;
 
 /** Immutable keep requirements for a member. */
 @SuppressWarnings("BadImport")
@@ -102,6 +103,13 @@ public abstract class KeepMemberInfo<B extends Builder<B, K>, K extends KeepMemb
     int index = super.numberOfBooleans();
     hash += bit(allowValuePropagation, index);
     return hash;
+  }
+
+  @Override
+  public List<String> lines() {
+    List<String> lines = super.lines();
+    lines.add("allowValuePropagation: " + allowValuePropagation);
+    return lines;
   }
 
   @Override

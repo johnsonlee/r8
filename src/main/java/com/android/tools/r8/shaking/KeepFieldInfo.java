@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import java.util.List;
+
 /** Immutable keep requirements for a field. */
 public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, KeepFieldInfo> {
 
@@ -86,6 +88,14 @@ public final class KeepFieldInfo extends KeepMemberInfo<KeepFieldInfo.Builder, K
     hash += bit(allowFieldTypeStrengthening, index++);
     hash += bit(allowRedundantFieldLoadElimination, index);
     return hash;
+  }
+
+  @Override
+  public List<String> lines() {
+    List<String> lines = super.lines();
+    lines.add("allowFieldTypeStrengthening: " + allowFieldTypeStrengthening);
+    lines.add("allowRedundantFieldLoadElimination: " + allowRedundantFieldLoadElimination);
+    return lines;
   }
 
   public static class Builder extends KeepMemberInfo.Builder<Builder, KeepFieldInfo> {

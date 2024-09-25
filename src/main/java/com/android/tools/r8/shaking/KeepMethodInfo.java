@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
+import java.util.List;
 
 /** Immutable keep requirements for a method. */
 public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepMethodInfo> {
@@ -328,6 +329,29 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     hash += bit(allowParameterNamesRemoval, index++);
     hash += bit(parameterAnnotationsInfo.isTop(), index);
     return hash;
+  }
+
+  @Override
+  public List<String> lines() {
+    List<String> lines = super.lines();
+    lines.add("allowThrowsRemoval: " + allowThrowsRemoval);
+    lines.add("allowClassInlining: " + allowClassInlining);
+    lines.add("allowClosedWorldReasoning: " + allowClosedWorldReasoning);
+    lines.add("allowCodeReplacement: " + allowCodeReplacement);
+    lines.add("allowConstantArgumentOptimization: " + allowConstantArgumentOptimization);
+    lines.add("allowInlining: " + allowInlining);
+    lines.add("allowMethodStaticizing: " + allowMethodStaticizing);
+    lines.add("allowParameterRemoval: " + allowParameterRemoval);
+    lines.add("allowParameterReordering: " + allowParameterReordering);
+    lines.add("allowParameterTypeStrengthening: " + allowParameterTypeStrengthening);
+    lines.add("allowReprocessing: " + allowReprocessing);
+    lines.add("allowReturnTypeStrengthening: " + allowReturnTypeStrengthening);
+    lines.add("allowSingleCallerInlining: " + allowSingleCallerInlining);
+    lines.add("allowUnusedArgumentOptimization: " + allowUnusedArgumentOptimization);
+    lines.add("allowUnusedReturnValueOptimization: " + allowUnusedReturnValueOptimization);
+    lines.add("allowParameterNamesRemoval: " + allowParameterNamesRemoval);
+    lines.add("parameterAnnotationsInfo: " + parameterAnnotationsInfo);
+    return lines;
   }
 
   public static class Builder extends KeepMemberInfo.Builder<Builder, KeepMethodInfo> {

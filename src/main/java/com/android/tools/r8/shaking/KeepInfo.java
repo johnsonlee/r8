@@ -13,7 +13,9 @@ import com.android.tools.r8.shaking.KeepInfo.Builder;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -323,6 +325,20 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
     hash += bit(annotationsInfo.isTop(), index++);
     hash += bit(typeAnnotationsInfo.isTop(), index);
     return hash;
+  }
+
+  public List<String> lines() {
+    List<String> lines = new ArrayList<>();
+    lines.add("allowAccessModification: " + allowAccessModification);
+    lines.add("allowAccessModificationForTesting: " + allowAccessModificationForTesting);
+    lines.add("allowMinification: " + allowMinification);
+    lines.add("allowOptimization: " + allowOptimization);
+    lines.add("allowShrinking: " + allowShrinking);
+    lines.add("allowSignatureRemoval: " + allowSignatureRemoval);
+    lines.add("checkDiscarded: " + checkDiscarded);
+    lines.add("annotationsInfo: " + annotationsInfo);
+    lines.add("typeAnnotationsInfo: " + typeAnnotationsInfo);
+    return lines;
   }
 
   protected int numberOfBooleans() {
