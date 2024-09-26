@@ -54,6 +54,11 @@ class OneShotByteResource implements ProgramResource {
     return result;
   }
 
+  public byte[] getBytesForDumpInput() {
+    assert bytes != null;
+    return bytes;
+  }
+
   @Override
   public Set<String> getClassDescriptors() {
     return classDescriptors;
