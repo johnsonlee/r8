@@ -171,7 +171,7 @@ public class R8 {
   private final Timing timing;
   private final InternalOptions options;
 
-  private R8(InternalOptions options) {
+  R8(InternalOptions options) {
     this.options = options;
     if (options.printMemory) {
       System.gc();
@@ -245,9 +245,17 @@ public class R8 {
         });
   }
 
-  private static void runInternal(AndroidApp app, InternalOptions options, ExecutorService executor)
+  static void runInternal(AndroidApp app, InternalOptions options, ExecutorService executor)
       throws IOException {
-    new R8(options).runInternal(app, executor);
+    if (options.r8PartialCompilationOptions.enabled) {
+      try {
+        new R8Partial(options).runInternal(app, executor);
+      } catch (ResourceException e) {
+        throw new RuntimeException(e);
+      }
+    } else {
+      new R8(options).runInternal(app, executor);
+    }
   }
 
   private static DirectMappedDexApplication getDirectApp(AppView<?> appView) {
@@ -255,8 +263,7 @@ public class R8 {
   }
 
   @SuppressWarnings("DefaultCharset")
-  private void runInternal(AndroidApp inputApp, ExecutorService executorService)
-      throws IOException {
+  void runInternal(AndroidApp inputApp, ExecutorService executorService) throws IOException {
     timing.begin("Run prelude");
     assert options.programConsumer != null;
     if (options.quiet) {

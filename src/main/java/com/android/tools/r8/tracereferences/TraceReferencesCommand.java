@@ -337,7 +337,7 @@ public class TraceReferencesCommand {
       return this;
     }
 
-    private TraceReferencesCommand makeCommand() {
+    TraceReferencesCommand makeCommand() {
       if (isPrintHelp() || isPrintVersion()) {
         return new TraceReferencesCommand(isPrintHelp(), isPrintVersion());
       }

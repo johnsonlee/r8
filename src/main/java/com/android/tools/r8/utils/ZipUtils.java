@@ -89,13 +89,21 @@ public class ZipUtils {
     iter(Paths.get(zipFileStr), handler);
   }
 
-  public static void iter(Path zipFilePath, OnEntryHandler handler) throws IOException {
+  public static void iter(Path zipFile, OnEntryHandler handler) throws IOException {
+    iter(zipFile, (zip, entry, input) -> handler.onEntry(entry, input));
+  }
+
+  public interface OnEntryHandlerWithZipFile {
+    void onEntry(ZipFile zip, ZipEntry entry, InputStream input) throws IOException;
+  }
+
+  public static void iter(Path zipFilePath, OnEntryHandlerWithZipFile handler) throws IOException {
     try (ZipFile zipFile = new ZipFile(zipFilePath.toFile(), StandardCharsets.UTF_8)) {
       final Enumeration<? extends ZipEntry> entries = zipFile.entries();
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
         try (InputStream entryStream = zipFile.getInputStream(entry)) {
-          handler.onEntry(entry, entryStream);
+          handler.onEntry(zipFile, entry, entryStream);
         }
       }
     }

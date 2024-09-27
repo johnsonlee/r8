@@ -190,8 +190,8 @@ public final class D8 {
     return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
   }
 
-  private static void runInternal(
-      AndroidApp inputApp, InternalOptions options, ExecutorService executor) throws IOException {
+  static void runInternal(AndroidApp inputApp, InternalOptions options, ExecutorService executor)
+      throws IOException {
     if (options.printMemory) {
       // Run GC twice to remove objects with finalizers.
       System.gc();

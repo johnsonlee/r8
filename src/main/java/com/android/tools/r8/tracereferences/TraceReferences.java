@@ -67,7 +67,7 @@ public class TraceReferences {
         command.getReporter(), () -> runInternal(command, options));
   }
 
-  private static void runInternal(TraceReferencesCommand command, InternalOptions options)
+  static void runInternal(TraceReferencesCommand command, InternalOptions options)
       throws IOException, ResourceException {
     AndroidApp.Builder builder = AndroidApp.builder();
     command.getLibrary().forEach(builder::addLibraryResourceProvider);

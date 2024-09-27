@@ -157,6 +157,11 @@ public class ApplicationReader {
     return builder.build();
   }
 
+  public final void dump(DumpInputFlags dumpInputFlags) {
+    assert verifyMainDexOptionsCompatible(inputApp, options);
+    dumpApplication(dumpInputFlags);
+  }
+
   private void dumpApplication(DumpInputFlags dumpInputFlags) {
     DumpOptions dumpOptions = options.dumpOptions;
     if (dumpOptions == null || !dumpInputFlags.shouldDump(dumpOptions)) {

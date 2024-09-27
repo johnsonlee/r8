@@ -1,0 +1,232 @@
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+package com.android.tools.r8;
+
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.android.tools.r8.StringConsumer.FileConsumer;
+import com.android.tools.r8.dex.ApplicationReader;
+import com.android.tools.r8.dump.CompilerDump;
+import com.android.tools.r8.dump.DumpOptions;
+import com.android.tools.r8.graph.AppInfo;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.DexApplication;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.naming.MapConsumer;
+import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
+import com.android.tools.r8.tracereferences.TraceReferencesBridge;
+import com.android.tools.r8.tracereferences.TraceReferencesCommand;
+import com.android.tools.r8.tracereferences.TraceReferencesKeepRules;
+import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.DumpInputFlags;
+import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.ZipUtils;
+import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
+import com.google.common.io.ByteStreams;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+class R8Partial {
+
+  private final InternalOptions options;
+
+  R8Partial(InternalOptions options) {
+    this.options = options;
+  }
+
+  void runInternal(AndroidApp app, ExecutorService executor) throws IOException, ResourceException {
+    Timing timing = Timing.create("R8 partial " + Version.LABEL, options);
+
+    ProgramConsumer originalProgramConsumer = options.programConsumer;
+    MapConsumer originalMapConsumer = options.mapConsumer;
+
+    Path tmp = options.r8PartialCompilationOptions.getTemp();
+    Path dumpFile = options.r8PartialCompilationOptions.getDumpFile();
+
+    // Create a dump of the compiler input.
+    // TODO(b/309743298): Do not use compiler dump to handle splitting the compilation. This should
+    // be all in memory.
+    ApplicationReader applicationReader = new ApplicationReader(app, options, timing);
+    applicationReader.dump(
+        new DumpInputFlags() {
+
+          @Override
+          public Path getDumpPath() {
+            return dumpFile;
+          }
+
+          @Override
+          public boolean shouldDump(DumpOptions options) {
+            return true;
+          }
+
+          @Override
+          public boolean shouldFailCompilation() {
+            return false;
+          }
+
+          @Override
+          public boolean shouldLogDumpInfoMessage() {
+            return false;
+          }
+        });
+    CompilerDump dump = CompilerDump.fromArchive(dumpFile, tmp);
+    if (dump.getBuildProperties().hasMainDexKeepRules()
+        || dump.getBuildProperties().hasArtProfileProviders()
+        || dump.getBuildProperties().hasStartupProfileProviders()) {
+      throw options.reporter.fatalError(
+          "Split compilation does not support legacy multi-dex, baseline or startup profiles");
+    }
+
+    DexApplication dapp = applicationReader.read().toDirect();
+    AppInfoWithClassHierarchy appInfo =
+        AppInfoWithClassHierarchy.createForDesugaring(
+            AppInfo.createInitialAppInfo(dapp, GlobalSyntheticsStrategy.forNonSynthesizing()));
+
+    Predicate<String> isR8 = options.r8PartialCompilationOptions.isR8;
+    Set<String> d8classes = new HashSet<>();
+    appInfo
+        .classes()
+        .forEach(
+            clazz -> {
+              String key = clazz.toSourceString();
+              if (!d8classes.contains(key) && !isR8.test(key)) {
+                d8classes.add(key);
+                // TODO(b/309743298): Improve this to only visit each class once and stop at
+                //  library boundary.
+                appInfo.forEachSuperType(
+                    clazz,
+                    (superType, subclass, ignored) -> {
+                      DexProgramClass superClass =
+                          asProgramClassOrNull(appInfo.definitionFor(superType));
+                      if (superClass != null) {
+                        d8classes.add(superClass.toSourceString());
+                      }
+                    });
+              }
+            });
+
+    // Filter the program input into the D8 and R8 parts.
+    Set<String> d8ZipEntries =
+        d8classes.stream()
+            .map(name -> name.replace('.', '/') + ".class")
+            .collect(Collectors.toSet());
+    ZipBuilder d8ProgramBuilder = ZipBuilder.builder(tmp.resolve("d8-program.jar"));
+    ZipBuilder r8ProgramBuilder = ZipBuilder.builder(tmp.resolve("r8-program.jar"));
+    ZipUtils.iter(
+        dump.getProgramArchive(),
+        (entry, input) -> {
+          if (d8ZipEntries.contains(entry.getName())) {
+            d8ProgramBuilder.addBytes(entry.getName(), ByteStreams.toByteArray(input));
+          } else {
+            r8ProgramBuilder.addBytes(entry.getName(), ByteStreams.toByteArray(input));
+          }
+        });
+    Path d8Program = d8ProgramBuilder.build();
+    Path r8Program = r8ProgramBuilder.build();
+
+    // Compile D8 input with D8.
+    Path d8Output = tmp.resolve("d8-output.zip");
+    D8Command.Builder d8Builder =
+        D8Command.builder()
+            .setMinApiLevel(dump.getBuildProperties().getMinApi())
+            .addLibraryFiles(dump.getLibraryArchive())
+            .addClasspathFiles(dump.getClasspathArchive())
+            .addClasspathFiles(r8Program)
+            .addProgramFiles(d8Program)
+            .setMode(dump.getBuildProperties().getCompilationMode())
+            .setOutput(d8Output, OutputMode.DexIndexed);
+    if (dump.hasDesugaredLibrary()) {
+      d8Builder.addDesugaredLibraryConfiguration(
+          Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
+    }
+    d8Builder.validate();
+    D8Command d8command = d8Builder.makeCommand();
+    AndroidApp d8App = d8command.getInputApp();
+    InternalOptions d8Options = d8command.getInternalOptions();
+    assert d8Options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
+        : "Default interface methods not yet supported";
+    D8.runInternal(d8App, d8Options, executor);
+
+    // Run trace references to produce keep rules for the D8 compiled part.
+    // TODO(b/309743298): Do not emit keep rules into a file.
+    Path traceReferencesRules = tmp.resolve("tr.rules");
+    TraceReferencesKeepRules keepRulesConsumer =
+        TraceReferencesKeepRules.builder()
+            .setOutputConsumer(new FileConsumer(traceReferencesRules))
+            .build();
+    TraceReferencesCommand.Builder trBuilder =
+        TraceReferencesCommand.builder()
+            .setConsumer(keepRulesConsumer)
+            .addLibraryFiles(dump.getLibraryArchive())
+            .addTargetFiles(r8Program)
+            .addSourceFiles(d8Program);
+    TraceReferencesCommand tr = TraceReferencesBridge.makeCommand(trBuilder);
+    TraceReferencesBridge.runInternal(tr);
+
+    // Compile R8 input with R8 using the keep rules from trace references.
+    Path r8Output = tmp.resolve("r8-output.zip");
+    R8Command.Builder r8Builder =
+        R8Command.builder()
+            .setMinApiLevel(dump.getBuildProperties().getMinApi())
+            .addLibraryFiles(dump.getLibraryArchive())
+            .addClasspathFiles(dump.getClasspathArchive())
+            .addClasspathFiles(d8Program)
+            .addProgramFiles(r8Program)
+            .addProguardConfigurationFiles(dump.getProguardConfigFile(), traceReferencesRules)
+            .setEnableEmptyMemberRulesToDefaultInitRuleConversion(true)
+            .setMode(dump.getBuildProperties().getCompilationMode())
+            .setOutput(r8Output, OutputMode.DexIndexed);
+    if (dump.hasDesugaredLibrary()) {
+      r8Builder.addDesugaredLibraryConfiguration(
+          Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
+    }
+    R8Command r8Command = r8Builder.makeCommand();
+    AndroidApp r8App = r8Command.getInputApp();
+    InternalOptions r8Options = r8Command.getInternalOptions();
+    r8Options.mapConsumer = originalMapConsumer;
+    r8Options.quiet = true; // Don't write the R8 version.
+    R8.runInternal(r8App, r8Options, executor);
+
+    // Emit resources and merged DEX to the output consumer.
+    // TODO(b/309743298): Consider passing the DataResourceConsumer to the R8 invocation above.
+    DataResourceConsumer dataResourceConsumer = originalProgramConsumer.getDataResourceConsumer();
+    if (dataResourceConsumer != null) {
+      ZipUtils.iter(
+          r8Output,
+          (zip, entry, is) -> {
+            if (entry.getName().endsWith(FileUtils.DEX_EXTENSION)) {
+              return;
+            }
+            dataResourceConsumer.accept(
+                DataEntryResource.fromZip(zip, entry), new DiagnosticsHandler() {});
+          });
+    }
+    // TODO(b/309743298): Handle jumbo string rewriting with PCs in mapping file.
+    D8Command.Builder mergerBuilder =
+        D8Command.builder()
+            .setMinApiLevel(dump.getBuildProperties().getMinApi())
+            .addLibraryFiles(dump.getLibraryArchive())
+            .addClasspathFiles(dump.getClasspathArchive())
+            .addProgramFiles(d8Output, r8Output)
+            .setMode(dump.getBuildProperties().getCompilationMode())
+            .setProgramConsumer(originalProgramConsumer);
+    mergerBuilder.validate();
+    D8Command mergeCommand = mergerBuilder.makeCommand();
+    AndroidApp mergeApp = mergeCommand.getInputApp();
+    InternalOptions mergeOptions = mergeCommand.getInternalOptions();
+    D8.runInternal(mergeApp, mergeOptions, executor);
+    timing.end();
+  }
+}
