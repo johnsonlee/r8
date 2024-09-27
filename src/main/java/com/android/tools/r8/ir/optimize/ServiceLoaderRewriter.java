@@ -330,6 +330,18 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       return null;
     }
 
+    // Package-private service types are allowed only when the load() call is made from the same
+    // package. Not worth modelling.
+    DexClass serviceTypeResolved = appView.definitionFor(serviceType);
+    if (serviceTypeResolved == null) {
+      report(code.context(), serviceType, "Service type could not be resolved");
+      return null;
+    }
+    if (!serviceTypeResolved.isPublic()) {
+      report(code.context(), serviceType, "Service type must be public");
+      return null;
+    }
+
     // Check that ClassLoader used is the ClassLoader defined for the service configuration
     // that we are instantiating or NULL.
     Value classLoaderValue = invokeInstr.getLastArgument().getAliasedValue();

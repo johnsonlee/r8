@@ -31,12 +31,16 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
   private final String EXPECTED_OUTPUT =
       StringUtils.lines("Hello World!", "Hello World!", "Hello World!");
 
+  interface NonPublicService {
+    void print();
+  }
+
   public interface Service {
 
     void print();
   }
 
-  public static class ServiceImpl implements Service {
+  public static class ServiceImpl implements Service, NonPublicService {
 
     @Override
     public void print() {
@@ -147,6 +151,13 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
           .iterator()
           .next()
           .print();
+    }
+  }
+
+  public static class MainWithNonPublicService {
+
+    public static void main(String[] args) {
+      ServiceLoader.load(NonPublicService.class, null).iterator().next().print();
     }
   }
 
@@ -348,6 +359,22 @@ public class ServiceLoaderRewritingTest extends ServiceLoaderTestBase {
             inspector -> {
               assertEquals(3, getServiceLoaderLoads(inspector));
               verifyServiceMetaInf(inspector, Service.class, ServiceImpl.class);
+            });
+  }
+
+  @Test
+  public void testNonPublicService()
+      throws IOException, CompilationFailedException, ExecutionException {
+    serviceLoaderTest(NonPublicService.class, ServiceImpl.class)
+        .addKeepMainRule(MainWithNonPublicService.class)
+        .allowDiagnosticInfoMessages(enableRewriting)
+        .compileWithExpectedDiagnostics(expectedDiagnostics)
+        .run(parameters.getRuntime(), MainWithNonPublicService.class)
+        .assertSuccessWithOutput("Hello World!\n")
+        .inspect(
+            inspector -> {
+              assertEquals(1, getServiceLoaderLoads(inspector));
+              verifyServiceMetaInf(inspector, NonPublicService.class, ServiceImpl.class);
             });
   }
 }

@@ -5506,6 +5506,18 @@ public class Enqueuer {
 
   private void handleServiceInstantiation(
       DexType serviceType, ProgramMethod context, KeepReason reason) {
+    DexProgramClass serviceClass = getProgramClassOrNull(serviceType, context);
+    if (serviceClass != null && !serviceClass.isPublic()) {
+      // Package-private service types are allowed only when the load() call is made from the same
+      // package.
+      applyMinimumKeepInfoWhenLive(
+          serviceClass,
+          KeepClassInfo.newEmptyJoiner()
+              .disallowHorizontalClassMerging()
+              .disallowVerticalClassMerging()
+              .disallowAccessModification());
+    }
+
     List<DexType> serviceImplementationTypes =
         appView.appServices().serviceImplementationsFor(serviceType);
     for (DexType serviceImplementationType : serviceImplementationTypes) {
