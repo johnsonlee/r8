@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.optimize.string;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -14,6 +15,9 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class B369739224Test extends TestBase {
+
+  private final String EXPECTED_OUTPUT =
+      StringUtils.lines("Caught!", "Caught!", "Caught!", "Caught!");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -29,7 +33,7 @@ public class B369739224Test extends TestBase {
     testForJvm(parameters)
         .addInnerClasses(getClass())
         .run(parameters.getRuntime(), TestClass.class)
-        .assertFailureWithErrorThatThrows(IndexOutOfBoundsException.class);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
@@ -37,9 +41,9 @@ public class B369739224Test extends TestBase {
     parameters.assumeDexRuntime();
     testForD8(parameters.getBackend())
         .addInnerClasses(getClass())
-        .setMinApi(parameters.getApiLevel())
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertFailureWithErrorThatThrows(IndexOutOfBoundsException.class);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
@@ -49,17 +53,35 @@ public class B369739224Test extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/369739224): Should throw IndexOutOfBoundsException.
-        .assertSuccessWithOutputLines("46");
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
 
     public static void main(String[] args) {
-      String f = "";
+      String s = "";
+      char[] a = new char[0];
       int c = '.';
-      new StringBuilder().append(f, 0, c);
-      System.out.println(c);
+      try {
+        new StringBuilder().append(s, 0, c);
+      } catch (IndexOutOfBoundsException e) {
+        System.out.println("Caught!");
+      }
+      try {
+        new StringBuffer().append(s, 0, c);
+      } catch (IndexOutOfBoundsException e) {
+        System.out.println("Caught!");
+      }
+      try {
+        new StringBuilder().append(a, 0, c);
+      } catch (IndexOutOfBoundsException e) {
+        System.out.println("Caught!");
+      }
+      try {
+        new StringBuffer().append(a, 0, c);
+      } catch (IndexOutOfBoundsException e) {
+        System.out.println("Caught!");
+      }
     }
   }
 }

@@ -2475,7 +2475,7 @@ public class DexItemFactory {
     }
 
     @SuppressWarnings("ReferenceEquality")
-    public boolean isAppendSubArrayMethod(DexMethod method) {
+    public boolean isAppendSubArrayOrSubCharSequenceMethod(DexMethod method) {
       return appendSubCharArray == method || appendSubCharSequence == method;
     }
 
