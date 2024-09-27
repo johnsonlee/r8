@@ -9,13 +9,16 @@ reproducing compiler issues.
 The dump contains almost all of the inputs that are given to the compiler as
 part of compilation. In particular, it contains *all* class definitions in the
 form of Java classfiles (i.e., bytecode, not the Java source files).
+If resource shrinking is enabled, the dump also contains *all* resources (i.e.,
+the manifest, all res folder entries in proto and raw format, and any other
+file flowing into resource shrinking).
 In addition to the classfiles, the dump also includes Java resources, the
 compiler type, version, and flags, such as `--debug` or `--release`,
 main-dex lists or rules, and more. For R8 the dump also contains the full
 concatenation of all keep rules.
 
 The dump is a zip file containing the above. You should unzip it and review
-the content locally. The program, classpath and library content will be in
+the content locally. The program, classpath, library and resource content will be in
 nested zip files. The remaining content is in plain text files.
 
 
