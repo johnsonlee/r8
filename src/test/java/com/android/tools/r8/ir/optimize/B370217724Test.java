@@ -3,11 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.is;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,8 +30,9 @@ public class B370217724Test extends TestBase {
 
   private static final String OUTPUT_JVM8 = StringUtils.lines("8989.358669383371");
   private static final String OUTPUT_FROM_JVM9 = StringUtils.lines("3695.708516962155");
-  private static final String OUTPUT_UNTIL_API_LEVEL_22 = StringUtils.lines("5753.491198916323");
-  private static final String OUTPUT_FROM_API_LEVEL_23 = StringUtils.lines("10192.673136265881");
+  // Depending on the ART host run environment these results are seen.
+  private static final String OUTPUT_ART_1 = StringUtils.lines("5753.491198916323");
+  private static final String OUTPUT_ART_2 = StringUtils.lines("10192.673136265881");
 
   @Test
   public void testJvm() throws Exception {
@@ -50,10 +53,7 @@ public class B370217724Test extends TestBase {
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V6_0_1),
-            r -> r.assertSuccessWithOutput(OUTPUT_FROM_API_LEVEL_23),
-            r -> r.assertSuccessWithOutput(OUTPUT_UNTIL_API_LEVEL_22));
+        .assertSuccessWithOutputThatMatches(anyOf(is(OUTPUT_ART_1), is(OUTPUT_ART_2)));
   }
 
   @Test
@@ -70,11 +70,7 @@ public class B370217724Test extends TestBase {
                     parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK9)
                         ? OUTPUT_FROM_JVM9
                         : OUTPUT_JVM8),
-            r ->
-                r.assertSuccessWithOutput(
-                    parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V6_0_1)
-                        ? OUTPUT_FROM_API_LEVEL_23
-                        : OUTPUT_UNTIL_API_LEVEL_22));
+            r -> r.assertSuccessWithOutputThatMatches(anyOf(is(OUTPUT_ART_1), is(OUTPUT_ART_2))));
   }
 
   static class TestClass {
