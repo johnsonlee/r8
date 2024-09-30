@@ -108,7 +108,8 @@ public abstract class KeepAnnoTestBuilder {
     return this;
   }
 
-  public KeepAnnoTestBuilder applyIfR8Current(ThrowableConsumer<R8TestBuilder<?>> builderConsumer) {
+  public KeepAnnoTestBuilder applyIfR8Current(
+      ThrowableConsumer<R8TestBuilder<?, ?, ?>> builderConsumer) {
     return this;
   }
 
@@ -229,7 +230,7 @@ public abstract class KeepAnnoTestBuilder {
 
     @Override
     public KeepAnnoTestBuilder applyIfR8Current(
-        ThrowableConsumer<R8TestBuilder<?>> builderConsumer) {
+        ThrowableConsumer<R8TestBuilder<?, ?, ?>> builderConsumer) {
       builderConsumer.acceptWithRuntimeException(builder);
       return this;
     }

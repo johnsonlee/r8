@@ -167,6 +167,10 @@ public class TestBase {
     return R8FullTestBuilder.create(new TestState(temp), backend);
   }
 
+  public static R8PartialTestBuilder testForR8Partial(TemporaryFolder temp, Backend backend) {
+    return R8PartialTestBuilder.create(new TestState(temp), backend);
+  }
+
   public static R8CompatTestBuilder testForR8Compat(
       TemporaryFolder temp, Backend backend, boolean forceProguardCompatibility) {
     return R8CompatTestBuilder.create(new TestState(temp), backend, forceProguardCompatibility);
@@ -204,6 +208,10 @@ public class TestBase {
 
   public R8FullTestBuilder testForR8(Backend backend) {
     return testForR8(temp, backend);
+  }
+
+  public R8PartialTestBuilder testForR8Partial(Backend backend) {
+    return testForR8Partial(temp, backend);
   }
 
   public R8CompatTestBuilder testForR8Compat(Backend backend) {

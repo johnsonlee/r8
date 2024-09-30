@@ -88,10 +88,10 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return self;
   }
 
-  public T applyIfR8(ThrowableConsumer<? super R8TestBuilder<?>> consumer) {
+  public T applyIfR8(ThrowableConsumer<? super R8TestBuilder<?, ?, ?>> consumer) {
     T self = self();
-    if (this instanceof R8TestBuilder<?>) {
-      consumer.acceptWithRuntimeException((R8TestBuilder<?>) self);
+    if (this instanceof R8TestBuilder<?, ?, ?>) {
+      consumer.acceptWithRuntimeException((R8TestBuilder<?, ?, ?>) self);
     }
     return self;
   }

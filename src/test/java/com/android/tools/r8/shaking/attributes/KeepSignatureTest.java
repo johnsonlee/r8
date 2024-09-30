@@ -66,7 +66,8 @@ public class KeepSignatureTest extends TestBase {
     runTest(testForR8Compat(parameters.getBackend()), true);
   }
 
-  private void runTest(R8TestBuilder<?> testBuilder, boolean keptForNotKept) throws Exception {
+  private void runTest(R8TestBuilder<?, ?, ?> testBuilder, boolean keptForNotKept)
+      throws Exception {
     testBuilder
         .addProgramClassFileData(transformer(KeptClass.class).removeInnerClasses().transform())
         .addProgramClassFileData(transformer(NotKeptClass.class).removeInnerClasses().transform())

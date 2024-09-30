@@ -37,7 +37,7 @@ public abstract class RetraceTestBase extends TestBase {
                   .assertFailure()
                   .map(StackTrace::extractFromJvm));
 
-  public void configure(R8TestBuilder<?> builder) {}
+  public void configure(R8TestBuilder<?, ?, ?> builder) {}
 
   public void inspect(CodeInspector inspector) {}
 

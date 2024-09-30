@@ -35,17 +35,11 @@ public class PartialCompilationBasicTest extends TestBase {
 
   @Test
   public void runTestClassAIsCompiledWithD8() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8Partial(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(A.class, B.class, Main.class)
         .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> {
-              options.r8PartialCompilationOptions.enabled = true;
-              // Run R8 on all classes except class A.
-              options.r8PartialCompilationOptions.isR8 =
-                  name -> !name.equals(A.class.getTypeName());
-            })
+        .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(A.class).build())
         .compile()
         .inspect(
             inspector -> {
@@ -58,17 +52,11 @@ public class PartialCompilationBasicTest extends TestBase {
 
   @Test
   public void runTestClassBIsCompiledWithD8() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8Partial(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(A.class, B.class, Main.class)
         .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> {
-              options.r8PartialCompilationOptions.enabled = true;
-              // Run R8 on all classes except class A.
-              options.r8PartialCompilationOptions.isR8 =
-                  name -> !name.equals(B.class.getTypeName());
-            })
+        .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(B.class).build())
         .compile()
         .inspect(
             inspector -> {

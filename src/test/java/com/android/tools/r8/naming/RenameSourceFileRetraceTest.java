@@ -12,6 +12,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.R8TestBuilder;
+import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.graph.DexClass;
@@ -62,7 +63,7 @@ public class RenameSourceFileRetraceTest extends TestBase {
   @Test
   public void testR8()
       throws ExecutionException, CompilationFailedException, IOException, NoSuchMethodException {
-    R8TestBuilder<? extends R8TestBuilder<?>> r8TestBuilder =
+    R8TestBuilder<?, R8TestRunResult, ?> r8TestBuilder =
         isCompat ? testForR8Compat(parameters.getBackend()) : testForR8(parameters.getBackend());
     if (keepSourceFile) {
       r8TestBuilder.addKeepAttributes(ProguardKeepAttributes.SOURCE_FILE);
@@ -85,7 +86,7 @@ public class RenameSourceFileRetraceTest extends TestBase {
   @Test
   public void testRenameSourceFileR8()
       throws ExecutionException, CompilationFailedException, IOException, NoSuchMethodException {
-    R8TestBuilder<? extends R8TestBuilder<?>> r8TestBuilder =
+    R8TestBuilder<?, R8TestRunResult, ?> r8TestBuilder =
         isCompat ? testForR8Compat(parameters.getBackend()) : testForR8(parameters.getBackend());
     if (keepSourceFile) {
       r8TestBuilder.addKeepAttributes(ProguardKeepAttributes.SOURCE_FILE);

@@ -48,7 +48,7 @@ public class VerticalClassMergingRetraceTest extends RetraceTestBase {
   }
 
   @Override
-  public void configure(R8TestBuilder<?> builder) {
+  public void configure(R8TestBuilder<?, ?, ?> builder) {
     builder
         .addOptionsModification(
             options ->

@@ -61,7 +61,8 @@ public class KeepEnclosingMethodForKeptMethodTest extends TestBase {
     runTest(testForR8Compat(parameters.getBackend())).assertSuccessWithOutputLines(EXPECTED);
   }
 
-  private R8TestRunResult runTest(R8TestBuilder<?> testBuilder) throws Exception {
+  private R8TestRunResult runTest(R8TestBuilder<?, R8TestRunResult, ?> testBuilder)
+      throws Exception {
     return testBuilder
         .addInnerClasses(KeptClass.class)
         .addProgramClassFileData(

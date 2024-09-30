@@ -65,8 +65,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.hamcrest.core.IsAnything;
 
-public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
-    extends TestShrinkerBuilder<R8Command, Builder, R8TestCompileResult, R8TestRunResult, T> {
+public abstract class R8TestBuilder<
+        CR extends TestCompileResult<CR, RR>,
+        RR extends TestRunResult<RR>,
+        T extends R8TestBuilder<CR, RR, T>>
+    extends TestShrinkerBuilder<R8Command, Builder, CR, RR, T> {
 
   enum AllowedDiagnosticMessages {
     ALL,
@@ -86,15 +89,15 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   private boolean enableIsolatedSplits = false;
   private boolean enableMissingLibraryApiModeling = true;
   private boolean enableStartupLayoutOptimization = true;
-  private CollectingGraphConsumer graphConsumer = null;
-  private final List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
+  CollectingGraphConsumer graphConsumer = null;
+  final List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
   private final List<String> keepRules = new ArrayList<>();
   private final List<Path> mainDexRulesFiles = new ArrayList<>();
   private final List<String> applyMappingMaps = new ArrayList<>();
-  private final List<Path> features = new ArrayList<>();
-  private Path resourceShrinkerOutput = null;
-  private HashMap<String, Path> resourceShrinkerOutputForFeatures = new HashMap<>();
-  private Box<R8BuildMetadata> buildMetadata;
+  final List<Path> features = new ArrayList<>();
+  Path resourceShrinkerOutput = null;
+  HashMap<String, Path> resourceShrinkerOutputForFeatures = new HashMap<>();
+  Box<R8BuildMetadata> buildMetadata;
   private boolean androidPlatformBuild = false;
 
   @Override
@@ -103,12 +106,22 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
   }
 
   @Override
-  public R8TestBuilder<?> asR8TestBuilder() {
+  public R8TestBuilder<?, ?, ?> asR8TestBuilder() {
     return this;
   }
 
+  abstract CR internalCompileR8(
+      Builder builder,
+      Consumer<InternalOptions> optionsConsumer,
+      Supplier<AndroidApp> app,
+      BenchmarkResults benchmarkResults,
+      StringBuilder pgConfOutput,
+      Box<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer,
+      StringBuilder proguardMapBuilder)
+      throws CompilationFailedException;
+
   @Override
-  R8TestCompileResult internalCompile(
+  CR internalCompile(
       Builder builder,
       Consumer<InternalOptions> optionsConsumer,
       Supplier<AndroidApp> app,
@@ -134,13 +147,9 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       }
     }
 
-    class Box {
-
-      private List<ProguardConfigurationRule> syntheticProguardRules;
-    }
-    Box box = new Box();
+    Box<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer = new Box<>();
     ToolHelper.addSyntheticProguardRulesConsumerForTesting(
-        builder, rules -> box.syntheticProguardRules = rules);
+        builder, syntheticProguardRulesConsumer::set);
     libraryDesugaringTestConfiguration.configure(builder);
     builder.setAndroidPlatformBuild(androidPlatformBuild);
     if (!enableEmptyMemberRulesToDefaultInitRuleConversion.isUnknown()) {
@@ -154,23 +163,15 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
       builder.setBuildMetadataConsumer(buildMetadata::set);
     }
     StringBuilder pgConfOutput = wrapProguardConfigConsumer(builder);
-    ToolHelper.runAndBenchmarkR8WithoutResult(builder, optionsConsumer, benchmarkResults);
-    R8TestCompileResult compileResult =
-        new R8TestCompileResult(
-            getState(),
-            getOutputMode(),
-            libraryDesugaringTestConfiguration,
-            app.get(),
-            pgConfOutput.toString(),
-            box.syntheticProguardRules,
-            proguardMapBuilder.toString(),
-            graphConsumer,
-            getMinApiLevel(),
-            features,
-            residualArtProfiles,
-            resourceShrinkerOutput,
-            resourceShrinkerOutputForFeatures,
-            buildMetadata != null ? buildMetadata.get() : null);
+    CR compileResult =
+        internalCompileR8(
+            builder,
+            optionsConsumer,
+            app,
+            benchmarkResults,
+            pgConfOutput,
+            syntheticProguardRulesConsumer,
+            proguardMapBuilder);
     switch (allowedDiagnosticMessages) {
       case ALL:
         compileResult.getDiagnosticMessages().assertAllDiagnosticsMatch(new IsAnything<>());
@@ -226,6 +227,38 @@ public abstract class R8TestBuilder<T extends R8TestBuilder<T>>
 
   private static StringBuilder wrapProguardConfigConsumer(Builder builder) {
     StringBuilder pgConfOutput = new StringBuilder();
+    StringConsumer pgConfConsumer = builder.getProguardConfigurationConsumer();
+    builder.setProguardConfigurationConsumer(
+        new StringConsumer.ForwardingConsumer(pgConfConsumer) {
+          @Override
+          public void accept(String string, DiagnosticsHandler handler) {
+            super.accept(string, handler);
+            pgConfOutput.append(string);
+          }
+        });
+    return pgConfOutput;
+  }
+
+  private static StringBuilder wrapProguardMapConsumer(Builder builder, StringBuilder pgMapOutput) {
+    StringConsumer pgMapConsumer = builder.getProguardMapConsumer();
+    builder.setProguardMapConsumer(
+        new StringConsumer.ForwardingConsumer(pgMapConsumer) {
+          @Override
+          public void accept(String string, DiagnosticsHandler handler) {
+            super.accept(string, handler);
+            pgMapOutput.append(string);
+          }
+
+          @Override
+          public void finished(DiagnosticsHandler handler) {
+            super.finished(handler);
+          }
+        });
+    return pgMapOutput;
+  }
+
+  private static StringBuilder wrapProguardConfigConsumer(
+      Builder builder, StringBuilder pgConfOutput) {
     StringConsumer pgConfConsumer = builder.getProguardConfigurationConsumer();
     builder.setProguardConfigurationConsumer(
         new StringConsumer.ForwardingConsumer(pgConfConsumer) {

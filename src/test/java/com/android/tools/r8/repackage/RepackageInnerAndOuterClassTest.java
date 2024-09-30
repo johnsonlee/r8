@@ -39,7 +39,8 @@ public class RepackageInnerAndOuterClassTest extends RepackageTestBase {
     test(testForR8Compat(parameters.getBackend()).addProgramClasses(TestClass.class), false);
   }
 
-  private void test(R8TestBuilder<?> testBuilder, boolean eligibleForRepackaging) throws Exception {
+  private void test(R8TestBuilder<?, ?, ?> testBuilder, boolean eligibleForRepackaging)
+      throws Exception {
     testBuilder
         .addProgramClasses(Outer.class, Inner.class)
         .addKeepMainRule(TestClass.class)

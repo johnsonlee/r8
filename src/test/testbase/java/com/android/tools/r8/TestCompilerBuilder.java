@@ -118,7 +118,7 @@ public abstract class TestCompilerBuilder<
     return false;
   }
 
-  public R8TestBuilder<?> asR8TestBuilder() {
+  public R8TestBuilder<?, ?, ?> asR8TestBuilder() {
     return null;
   }
 

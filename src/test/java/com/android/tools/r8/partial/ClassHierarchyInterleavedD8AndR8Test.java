@@ -42,15 +42,12 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
   private void runTest(
       Predicate<String> isR8, ThrowingConsumer<CodeInspector, RuntimeException> inspector)
       throws Exception {
-    testForR8(parameters.getBackend())
-        .addOptionsModification(
-            options -> {
-              options.r8PartialCompilationOptions.enabled = true;
-              options.r8PartialCompilationOptions.isR8 = isR8;
-            })
+    // Path tempDir = temp.newFolder().toPath();
+    testForR8Partial(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(A.class, B.class, C.class, Main.class)
         .addKeepMainRule(Main.class)
+        .setR8PartialConfigurationPredicate(isR8)
         .compile()
         .inspect(inspector)
         .run(parameters.getRuntime(), Main.class)

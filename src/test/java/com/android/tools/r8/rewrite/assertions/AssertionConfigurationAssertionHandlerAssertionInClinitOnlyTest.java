@@ -38,7 +38,7 @@ public class AssertionConfigurationAssertionHandlerAssertionInClinitOnlyTest
   }
 
   @Override
-  protected void configure(R8TestBuilder<?> builder) {
+  protected void configure(R8TestBuilder<?, ?, ?> builder) {
     builder.allowUnusedProguardConfigurationRules();
   }
 }

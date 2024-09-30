@@ -343,7 +343,8 @@ public class KeepAnnotatedMemberTest extends TestBase {
     }
   }
 
-  private void suppressZipFileAssignmentsToJavaLangAutoCloseable(R8TestBuilder<?> testBuilder) {
+  private void suppressZipFileAssignmentsToJavaLangAutoCloseable(
+      R8TestBuilder<?, ?, ?> testBuilder) {
     testBuilder.addOptionsModification(
         options ->
             options

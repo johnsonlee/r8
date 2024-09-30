@@ -19,7 +19,6 @@ import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.collect.ImmutableList;
@@ -79,7 +78,7 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
   private static final String servicesFile =
       StringUtils.lines(SimpleChronology.class.getTypeName());
 
-  private void configureR8(R8TestBuilder<?> builder) {
+  private void configureR8(R8TestBuilder<?, ?, ?> builder) {
     // When testing R8 add the META-INF/services to the input to apply rewriting.
     builder
         .addDataEntryResources(

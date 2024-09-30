@@ -99,7 +99,8 @@ public class RepackageDontObfuscateTest extends RepackageTestBase {
         .assertSuccessWithOutputLines(EXPECTED);
   }
 
-  private R8TestCompileResult setup(R8TestBuilder<?> r8TestBuilder) throws Exception {
+  private R8TestCompileResult setup(R8TestBuilder<R8TestCompileResult, ?, ?> r8TestBuilder)
+      throws Exception {
     return r8TestBuilder
         .addInnerClasses(getClass())
         .setMinApi(parameters)

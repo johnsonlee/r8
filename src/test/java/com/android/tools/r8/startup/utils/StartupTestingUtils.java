@@ -194,7 +194,7 @@ public class StartupTestingUtils {
     }
   }
 
-  public static <B extends R8TestBuilder<B>> ThrowableConsumer<B> addStartupProfile(
+  public static <B extends R8TestBuilder<?, ?, ?>> ThrowableConsumer<B> addStartupProfile(
       Collection<ExternalStartupItem> startupItems) {
     return testBuilder -> addStartupProfile(testBuilder, startupItems);
   }

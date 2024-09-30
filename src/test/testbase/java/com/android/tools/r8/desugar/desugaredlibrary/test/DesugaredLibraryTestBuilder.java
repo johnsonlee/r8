@@ -230,11 +230,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     consumer.accept((D8TestBuilder) builder);
   }
 
-  private void withR8TestBuilder(Consumer<R8TestBuilder<?>> consumer) {
+  private void withR8TestBuilder(Consumer<R8TestBuilder<?, ?, ?>> consumer) {
     if (!builder.isTestShrinkerBuilder()) {
       return;
     }
-    consumer.accept((R8TestBuilder<?>) builder);
+    consumer.accept((R8TestBuilder<?, ?, ?>) builder);
   }
 
   public DesugaredLibraryTestBuilder<T> allowUnusedDontWarnPatterns() {
@@ -267,7 +267,8 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> applyIfR8TestBuilder(Consumer<R8TestBuilder<?>> consumer) {
+  public DesugaredLibraryTestBuilder<T> applyIfR8TestBuilder(
+      Consumer<R8TestBuilder<?, ?, ?>> consumer) {
     withR8TestBuilder(consumer);
     return this;
   }

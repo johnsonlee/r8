@@ -59,7 +59,7 @@ public class LibraryClassExtendingProgramClassSuperTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    R8TestBuilder<? extends R8TestBuilder<?>> r8TestBuilder =
+    R8TestBuilder<?, ?, ?> r8TestBuilder =
         (proguardCompatibility
                 ? testForR8Compat(parameters.getBackend(), true)
                 : testForR8(parameters.getBackend()))

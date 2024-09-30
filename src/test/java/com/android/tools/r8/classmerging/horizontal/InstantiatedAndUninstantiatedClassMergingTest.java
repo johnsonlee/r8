@@ -30,7 +30,7 @@ public class InstantiatedAndUninstantiatedClassMergingTest extends HorizontalCla
     test(testForR8Compat(parameters.getBackend()));
   }
 
-  private <T extends R8TestBuilder<T>> void test(T testBuilder) throws Exception {
+  private <B extends R8TestBuilder<?, ?, ?>> void test(B testBuilder) throws Exception {
     testBuilder
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)

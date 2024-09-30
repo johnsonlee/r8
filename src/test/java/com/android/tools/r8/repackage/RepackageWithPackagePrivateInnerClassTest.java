@@ -39,7 +39,7 @@ public class RepackageWithPackagePrivateInnerClassTest extends RepackageTestBase
     test(testForR8(parameters.getBackend()).addKeepClassRules(NonPublicKeptClass.class), true);
   }
 
-  private void test(R8TestBuilder<?> builder, boolean expectRepackaged) throws Exception {
+  private void test(R8TestBuilder<?, ?, ?> builder, boolean expectRepackaged) throws Exception {
     builder
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)

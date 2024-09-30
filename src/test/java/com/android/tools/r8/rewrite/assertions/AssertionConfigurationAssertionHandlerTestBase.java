@@ -40,7 +40,7 @@ public abstract class AssertionConfigurationAssertionHandlerTestBase extends Tes
     return ImmutableList.of(AssertionHandlers.class);
   }
 
-  protected void configure(R8TestBuilder<?> builder) {}
+  protected void configure(R8TestBuilder<?, ?, ?> builder) {}
 
   protected void inspect(CodeInspector inspector) {}
 

@@ -63,7 +63,7 @@ public class TiviTest extends TestBase {
         .compile();
   }
 
-  private void configure(R8TestBuilder<?> testBuilder) {
+  private void configure(R8TestBuilder<?, ?, ?> testBuilder) {
     testBuilder
         .addClasspathFiles(outDirectory.resolve("classpath.jar"))
         .addLibraryFiles(outDirectory.resolve("library.jar"))

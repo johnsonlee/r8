@@ -24,7 +24,7 @@ public enum ProtoRuntime {
     this.syntheticVersionNumber = syntheticVersionNumber;
   }
 
-  public void addRuntime(R8TestBuilder<?> testBuilder) {
+  public void addRuntime(R8TestBuilder<?, ?, ?> testBuilder) {
     Path runtimeDir = Paths.get(ToolHelper.PROTO_RUNTIME_DIR, runtimeName);
     testBuilder
         .addProgramFiles(runtimeDir.resolve("libprotobuf_lite.jar"))
@@ -58,7 +58,7 @@ public enum ProtoRuntime {
   }
 
   // The class com.google.protobuf.ProtoMessage is not present in newer proto lite runtimes.
-  public void workaroundProtoMessageRemoval(R8TestBuilder<?> testBuilder) {
+  public void workaroundProtoMessageRemoval(R8TestBuilder<?, ?, ?> testBuilder) {
     if (isNewerThanOrEqualTo(ProtoRuntime.EDITION2023)) {
       testBuilder.addDontWarn("com.google.protobuf.ProtoMessage");
     }

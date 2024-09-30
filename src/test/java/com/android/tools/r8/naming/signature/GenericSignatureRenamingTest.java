@@ -81,7 +81,7 @@ public class GenericSignatureRenamingTest extends TestBase {
                     internalOptions.testing.assertConsistentRenamingOfSignature = true));
   }
 
-  private void test(R8TestBuilder<?> builder) throws Exception {
+  private void test(R8TestBuilder<?, ?, ?> builder) throws Exception {
     builder
         .addKeepRules("-dontoptimize")
         .addKeepAttributes(ProguardKeepAttributes.SIGNATURE)
