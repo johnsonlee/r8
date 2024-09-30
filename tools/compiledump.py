@@ -789,6 +789,7 @@ def summarize_jar(jar):
 
 
 def run(args, otherargs):
+    gradle.EnsureJdk()
     if args.summary:
         summarize_dump_files(otherargs)
     elif args.loop:
