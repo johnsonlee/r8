@@ -312,6 +312,8 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         builder.setAndroidResourceProvider(new ArchiveProtoAndroidResourceProvider(inputPath));
         builder.setAndroidResourceConsumer(
             new ArchiveProtoAndroidResourceConsumer(outputPath, inputPath));
+        // In the CLI we default to optimized resource shrinking.
+        builder.setResourceShrinkerConfiguration(b -> b.enableOptimizedShrinkingWithR8().build());
       } else if (arg.equals("--feature")) {
         featureSplitConfigCollector.addInputOutput(nextArg, nextNextArg);
       } else if (arg.equals(ISOLATED_SPLITS_FLAG)) {
