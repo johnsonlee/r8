@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import java.util.List;
@@ -120,8 +121,7 @@ interface StringBuilderOracle {
         return null;
       }
       if (isAppend(instruction)
-          && !isAppendWithSubArrayOrSubCharSequence(
-              instruction.asInvokeMethodWithReceiver().getInvokedMethod())) {
+          && !isAppendWithSubArray(instruction.asInvokeMethodWithReceiver())) {
         return getConstantStringForAppend(instruction.asInvokeVirtual());
       } else if (isInit(instruction)) {
         return getConstantStringForInit(instruction.asInvokeDirect());
@@ -178,18 +178,14 @@ interface StringBuilderOracle {
         return false;
       }
       DexMethod invokedMethod = instruction.asInvokeMethod().getInvokedMethod();
-      if (isAppendWithSubArrayOrSubCharSequence(invokedMethod)) {
-        // Do not optimize append indexing into char[] or CharSequence. These might throw without
-        // additional analysis on the arguments. See b/369739224 and b/369971265 for details.
-        return false;
-      }
       return factory.stringBuilderMethods.isAppendMethod(invokedMethod)
           || factory.stringBufferMethods.isAppendMethod(invokedMethod);
     }
 
-    public boolean isAppendWithSubArrayOrSubCharSequence(DexMethod invokedMethod) {
-      return factory.stringBuilderMethods.isAppendSubArrayOrSubCharSequenceMethod(invokedMethod)
-          || factory.stringBufferMethods.isAppendSubArrayOrSubCharSequenceMethod(invokedMethod);
+    public boolean isAppendWithSubArray(InvokeMethodWithReceiver instruction) {
+      DexMethod invokedMethod = instruction.asInvokeMethod().getInvokedMethod();
+      return factory.stringBuilderMethods.isAppendSubArrayMethod(invokedMethod)
+          || factory.stringBufferMethods.isAppendSubArrayMethod(invokedMethod);
     }
 
     @Override
