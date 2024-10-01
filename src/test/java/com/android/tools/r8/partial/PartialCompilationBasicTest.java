@@ -41,6 +41,34 @@ public class PartialCompilationBasicTest extends TestBase {
         .addKeepMainRule(Main.class)
         .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(A.class).build())
         .compile()
+        .inspectR8Input(
+            inspector -> {
+              // TODO(b/309743298): These are all present as inspection currently also look at
+              //  classpath.
+              assertThat(inspector.clazz(A.class), isPresent());
+              assertThat(inspector.clazz(B.class), isPresent());
+              assertThat(inspector.clazz(Main.class), isPresent());
+            })
+        .inspectD8Input(
+            // TODO(b/309743298): These are all present as inspection currently also look at
+            //  classpath.
+            inspector -> {
+              assertThat(inspector.clazz(A.class), isPresent());
+              assertThat(inspector.clazz(B.class), isPresent());
+              assertThat(inspector.clazz(Main.class), isPresent());
+            })
+        .inspectR8Output(
+            inspector -> {
+              assertThat(inspector.clazz(A.class), isAbsent());
+              assertThat(inspector.clazz(B.class), isAbsent());
+              assertThat(inspector.clazz(Main.class), isPresent());
+            })
+        .inspectD8Output(
+            inspector -> {
+              assertThat(inspector.clazz(A.class), isPresent());
+              assertThat(inspector.clazz(B.class), isAbsent());
+              assertThat(inspector.clazz(Main.class), isAbsent());
+            })
         .inspect(
             inspector -> {
               assertThat(inspector.clazz(A.class), isPresent());
@@ -58,6 +86,34 @@ public class PartialCompilationBasicTest extends TestBase {
         .addKeepMainRule(Main.class)
         .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(B.class).build())
         .compile()
+        .inspectR8Input(
+            inspector -> {
+              // TODO(b/309743298): These are all present as inspection currently also look at
+              //  classpath.
+              assertThat(inspector.clazz(A.class), isPresent());
+              assertThat(inspector.clazz(B.class), isPresent());
+              assertThat(inspector.clazz(Main.class), isPresent());
+            })
+        .inspectD8Input(
+            inspector -> {
+              // TODO(b/309743298): These are all present as inspection currently also look at
+              //  classpath.
+              assertThat(inspector.clazz(A.class), isPresent());
+              assertThat(inspector.clazz(B.class), isPresent());
+              assertThat(inspector.clazz(Main.class), isPresent());
+            })
+        .inspectR8Output(
+            inspector -> {
+              assertThat(inspector.clazz(A.class), isAbsent());
+              assertThat(inspector.clazz(B.class), isAbsent());
+              assertThat(inspector.clazz(Main.class), isPresent());
+            })
+        .inspectD8Output(
+            inspector -> {
+              assertThat(inspector.clazz(A.class), isAbsent());
+              assertThat(inspector.clazz(B.class), isPresent());
+              assertThat(inspector.clazz(Main.class), isAbsent());
+            })
         .inspect(
             inspector -> {
               assertThat(inspector.clazz(A.class), isAbsent());

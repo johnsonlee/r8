@@ -2286,6 +2286,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enabled;
     public Path tempDir = null;
     public Predicate<String> isR8 = null;
+    public Consumer<AndroidApp> r8InputApp;
+    public Consumer<AndroidApp> d8InputApp;
+    public Consumer<AndroidApp> r8OutputApp;
+    public Consumer<AndroidApp> d8OutputApp;
 
     R8PartialCompilationOptions(String partialR8) {
       this.enabled = partialR8 != null;

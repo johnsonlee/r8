@@ -1807,6 +1807,28 @@ public class ToolHelper {
     }
   }
 
+  public static void runAndBenchmarkR8PartialWithoutResult(
+      R8Command.Builder commandBuilder,
+      Consumer<InternalOptions> optionsConsumer,
+      BenchmarkResults benchmarkResults)
+      throws CompilationFailedException {
+    long start = 0;
+    if (benchmarkResults != null) {
+      start = System.nanoTime();
+    }
+    R8Command command = commandBuilder.build();
+    InternalOptions internalOptions = command.getInternalOptions();
+    optionsConsumer.accept(internalOptions);
+    try {
+      R8Partial.runForTesting(command.getInputApp(), internalOptions);
+    } finally {
+      if (benchmarkResults != null) {
+        long end = System.nanoTime();
+        benchmarkResults.addRuntimeResult(end - start);
+      }
+    }
+  }
+
   public static AndroidApp runR8WithFullResult(
       R8Command command, Consumer<InternalOptions> optionsConsumer)
       throws CompilationFailedException {

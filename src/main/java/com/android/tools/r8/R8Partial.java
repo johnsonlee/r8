@@ -21,9 +21,12 @@ import com.android.tools.r8.tracereferences.TraceReferencesCommand;
 import com.android.tools.r8.tracereferences.TraceReferencesKeepRules;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.DumpInputFlags;
+import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
@@ -34,15 +37,38 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 class R8Partial {
 
   private final InternalOptions options;
+  private final Consumer<AndroidApp> r8InputApp;
+  private final Consumer<AndroidApp> d8InputApp;
+  private final Consumer<AndroidApp> r8OutputApp;
+  private final Consumer<AndroidApp> d8OutputApp;
 
   R8Partial(InternalOptions options) {
     this.options = options;
+    this.r8InputApp = options.r8PartialCompilationOptions.r8InputApp;
+    this.d8InputApp = options.r8PartialCompilationOptions.d8InputApp;
+    this.r8OutputApp = options.r8PartialCompilationOptions.r8OutputApp;
+    this.d8OutputApp = options.r8PartialCompilationOptions.d8OutputApp;
+  }
+
+  static void runForTesting(AndroidApp app, InternalOptions options)
+      throws CompilationFailedException {
+    ExecutorService executor = ThreadUtils.getExecutorService(options);
+    ExceptionUtils.withR8CompilationHandler(
+        options.reporter,
+        () -> {
+          try {
+            new R8Partial(options).runInternal(app, executor);
+          } finally {
+            executor.shutdown();
+          }
+        });
   }
 
   void runInternal(AndroidApp app, ExecutorService executor) throws IOException, ResourceException {
@@ -151,13 +177,23 @@ class R8Partial {
       d8Builder.addDesugaredLibraryConfiguration(
           Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
     }
+    AndroidAppConsumers d8OutputAppSink = null;
+    if (d8OutputApp != null) {
+      d8OutputAppSink = new AndroidAppConsumers(d8Builder);
+    }
     d8Builder.validate();
     D8Command d8command = d8Builder.makeCommand();
     AndroidApp d8App = d8command.getInputApp();
+    if (d8InputApp != null) {
+      d8InputApp.accept(d8App);
+    }
     InternalOptions d8Options = d8command.getInternalOptions();
     assert d8Options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
         : "Default interface methods not yet supported";
     D8.runInternal(d8App, d8Options, executor);
+    if (d8OutputApp != null) {
+      d8OutputApp.accept(d8OutputAppSink.build());
+    }
 
     // Run trace references to produce keep rules for the D8 compiled part.
     // TODO(b/309743298): Do not emit keep rules into a file.
@@ -192,12 +228,23 @@ class R8Partial {
       r8Builder.addDesugaredLibraryConfiguration(
           Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
     }
+    AndroidAppConsumers r8OutputAppSink = null;
+    if (r8Builder != null) {
+      r8OutputAppSink = new AndroidAppConsumers(r8Builder);
+    }
+    r8Builder.validate();
     R8Command r8Command = r8Builder.makeCommand();
     AndroidApp r8App = r8Command.getInputApp();
+    if (r8InputApp != null) {
+      r8InputApp.accept(r8App);
+    }
     InternalOptions r8Options = r8Command.getInternalOptions();
     r8Options.mapConsumer = originalMapConsumer;
     r8Options.quiet = true; // Don't write the R8 version.
     R8.runInternal(r8App, r8Options, executor);
+    if (r8OutputApp != null) {
+      r8OutputApp.accept(r8OutputAppSink.build());
+    }
 
     // Emit resources and merged DEX to the output consumer.
     // TODO(b/309743298): Consider passing the DataResourceConsumer to the R8 invocation above.
