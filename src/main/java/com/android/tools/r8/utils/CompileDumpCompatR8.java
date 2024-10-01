@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
-import com.android.tools.r8.ArchiveProtoAndroidResourceConsumer;
-import com.android.tools.r8.ArchiveProtoAndroidResourceProvider;
 import com.android.tools.r8.CompatProguardCommandBuilder;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -66,7 +64,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           "--startup-profile");
 
   private static final List<String> VALID_OPTIONS_WITH_TWO_OPERANDS =
-      Arrays.asList("--art-profile", "--feature-jar", "--android-resources");
+      Arrays.asList("--art-profile", "--feature-jar");
 
   private static boolean FileUtils_isArchive(Path path) {
     String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
@@ -93,8 +91,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     List<Path> mainDexRulesFiles = new ArrayList<>();
     Map<Path, Path> artProfileFiles = new LinkedHashMap<>();
     List<Path> startupProfileFiles = new ArrayList<>();
-    Path androidResourcesInput = null;
-    Path androidResourcesOutput = null;
     int minApi = 1;
     int threads = -1;
     boolean enableMissingLibraryApiModeling = false;
@@ -206,12 +202,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
               artProfileFiles.put(Paths.get(firstOperand), Paths.get(secondOperand));
               break;
             }
-          case "--android-resources":
-            {
-              androidResourcesInput = Paths.get(firstOperand);
-              androidResourcesOutput = Paths.get(secondOperand);
-              break;
-            }
           case "--feature-jar":
             {
               Path featureIn = Paths.get(firstOperand);
@@ -246,13 +236,6 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     setEnableExperimentalMissingLibraryApiModeling(commandBuilder, enableMissingLibraryApiModeling);
     if (desugaredLibJson != null) {
       commandBuilder.addDesugaredLibraryConfiguration(readAllBytesJava7(desugaredLibJson));
-    }
-    if (androidResourcesInput != null) {
-      commandBuilder.setAndroidResourceProvider(
-          new ArchiveProtoAndroidResourceProvider(androidResourcesInput));
-      assert androidResourcesOutput != null;
-      commandBuilder.setAndroidResourceConsumer(
-          new ArchiveProtoAndroidResourceConsumer(androidResourcesOutput));
     }
     if (desugaredLibKeepRuleConsumer != null) {
       commandBuilder.setDesugaredLibraryKeepRuleConsumer(desugaredLibKeepRuleConsumer);

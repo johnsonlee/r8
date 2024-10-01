@@ -223,9 +223,6 @@ class Dump(object):
     def main_dex_rules_resource(self):
         return self.if_exists('main-dex-rules.txt')
 
-    def resource_ap_file(self):
-        return self.if_exists('app-res.ap_')
-
     def art_profile_resources(self):
         art_profile_resources = []
         while True:
@@ -636,10 +633,6 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.append('--isolated-splits')
         if dump.library_jar():
             cmd.extend(['--lib', dump.library_jar()])
-        if dump.resource_ap_file():
-            res_output = os.path.join(temp, 'ap-res-out.ap_')
-            cmd.extend(['--android-resources', dump.resource_ap_file(),
-                        res_output])
         if dump.classpath_jar() and not is_l8_compiler(compiler):
             cmd.extend([
                 '--target' if compiler == 'tracereferences' else '--classpath',
