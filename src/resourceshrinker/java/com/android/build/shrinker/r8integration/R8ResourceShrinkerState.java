@@ -57,7 +57,7 @@ public class R8ResourceShrinkerState {
 
   private final List<Supplier<InputStream>> manifestProviders = new ArrayList<>();
   private final Map<String, Supplier<InputStream>> resfileProviders = new HashMap<>();
-  private final Map<ResourceTable, FeatureSplit> resourceTables = new HashMap<>();
+  private final Map<FeatureSplit, ResourceTable> resourceTables = new HashMap<>();
   private ClassReferenceCallback enqueuerCallback;
   private Map<Integer, List<String>> resourceIdToXmlFiles;
   private Set<String> packageNames;
@@ -138,7 +138,7 @@ public class R8ResourceShrinkerState {
     // feature.
     if (packageNames == null) {
       packageNames = new HashSet<>();
-      for (ResourceTable resourceTable : resourceTables.keySet()) {
+      for (ResourceTable resourceTable : resourceTables.values()) {
         for (Package aPackage : resourceTable.getPackageList()) {
           packageNames.add(aPackage.getPackageName());
         }
@@ -165,7 +165,7 @@ public class R8ResourceShrinkerState {
 
   public void addResourceTable(InputStream inputStream, FeatureSplit featureSplit) {
     this.resourceTables.put(
-        r8ResourceShrinkerModel.instantiateFromResourceTable(inputStream, true), featureSplit);
+        featureSplit, r8ResourceShrinkerModel.instantiateFromResourceTable(inputStream, true));
   }
 
   public R8ResourceShrinkerModel getR8ResourceShrinkerModel() {
@@ -191,7 +191,7 @@ public class R8ResourceShrinkerState {
   }
 
   public void setupReferences() {
-    for (ResourceTable resourceTable : resourceTables.keySet()) {
+    for (ResourceTable resourceTable : resourceTables.values()) {
       new ProtoResourcesGraphBuilder(this::getXmlOrResFileBytes, unused -> resourceTable)
           .buildGraph(r8ResourceShrinkerModel);
     }
@@ -207,12 +207,11 @@ public class R8ResourceShrinkerState {
 
     Map<FeatureSplit, ResourceTable> shrunkenTables = new IdentityHashMap<>();
     resourceTables.forEach(
-        (resourceTable, featureSplit) ->
-            shrunkenTables.put(
-                featureSplit,
-                ResourceTableUtilKt.nullOutEntriesWithIds(
-                    resourceTable, resourceIdsToRemove, true)));
-
+        (featureSplit, resourceTable) -> {
+          shrunkenTables.put(
+              featureSplit,
+              ResourceTableUtilKt.nullOutEntriesWithIds(resourceTable, resourceIdsToRemove, true));
+        });
     return new ShrinkerResult(resEntriesToKeep, shrunkenTables);
   }
 
@@ -311,7 +310,7 @@ public class R8ResourceShrinkerState {
   public Map<Integer, List<String>> getResourceIdToXmlFiles() {
     if (resourceIdToXmlFiles == null) {
       resourceIdToXmlFiles = new HashMap<>();
-      for (ResourceTable resourceTable : resourceTables.keySet()) {
+      for (ResourceTable resourceTable : resourceTables.values()) {
         for (Package packageEntry : resourceTable.getPackageList()) {
           for (Resources.Type type : packageEntry.getTypeList()) {
             for (Entry entry : type.getEntryList()) {
