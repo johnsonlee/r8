@@ -96,7 +96,7 @@ public class R8PartialTestCompileResult
 
   public <E extends Throwable> R8PartialTestCompileResult inspectD8Input(
       ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
-    consumer.accept(inspectorR8Input());
+    consumer.accept(inspectorD8Input());
     return self();
   }
 

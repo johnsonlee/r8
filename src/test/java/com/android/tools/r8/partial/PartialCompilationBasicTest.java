@@ -43,19 +43,15 @@ public class PartialCompilationBasicTest extends TestBase {
         .compile()
         .inspectR8Input(
             inspector -> {
-              // TODO(b/309743298): These are all present as inspection currently also look at
-              //  classpath.
-              assertThat(inspector.clazz(A.class), isPresent());
-              assertThat(inspector.clazz(B.class), isPresent());
-              assertThat(inspector.clazz(Main.class), isPresent());
+              assertThat(inspector.programClass(A.class), isAbsent());
+              assertThat(inspector.programClass(B.class), isPresent());
+              assertThat(inspector.programClass(Main.class), isPresent());
             })
         .inspectD8Input(
-            // TODO(b/309743298): These are all present as inspection currently also look at
-            //  classpath.
             inspector -> {
-              assertThat(inspector.clazz(A.class), isPresent());
-              assertThat(inspector.clazz(B.class), isPresent());
-              assertThat(inspector.clazz(Main.class), isPresent());
+              assertThat(inspector.programClass(A.class), isPresent());
+              assertThat(inspector.programClass(B.class), isAbsent());
+              assertThat(inspector.programClass(Main.class), isAbsent());
             })
         .inspectR8Output(
             inspector -> {
@@ -73,6 +69,7 @@ public class PartialCompilationBasicTest extends TestBase {
             inspector -> {
               assertThat(inspector.clazz(A.class), isPresent());
               assertThat(inspector.clazz(B.class), isAbsent());
+              assertThat(inspector.clazz(Main.class), isPresent());
             })
         .run(parameters.getRuntime(), Main.class, getClass().getTypeName())
         .assertSuccessWithOutputLines("Instantiated", "Not instantiated");
@@ -90,17 +87,17 @@ public class PartialCompilationBasicTest extends TestBase {
             inspector -> {
               // TODO(b/309743298): These are all present as inspection currently also look at
               //  classpath.
-              assertThat(inspector.clazz(A.class), isPresent());
-              assertThat(inspector.clazz(B.class), isPresent());
-              assertThat(inspector.clazz(Main.class), isPresent());
+              assertThat(inspector.programClass(A.class), isPresent());
+              assertThat(inspector.programClass(B.class), isAbsent());
+              assertThat(inspector.programClass(Main.class), isPresent());
             })
         .inspectD8Input(
             inspector -> {
               // TODO(b/309743298): These are all present as inspection currently also look at
               //  classpath.
-              assertThat(inspector.clazz(A.class), isPresent());
-              assertThat(inspector.clazz(B.class), isPresent());
-              assertThat(inspector.clazz(Main.class), isPresent());
+              assertThat(inspector.programClass(A.class), isAbsent());
+              assertThat(inspector.programClass(B.class), isPresent());
+              assertThat(inspector.programClass(Main.class), isAbsent());
             })
         .inspectR8Output(
             inspector -> {
@@ -118,6 +115,7 @@ public class PartialCompilationBasicTest extends TestBase {
             inspector -> {
               assertThat(inspector.clazz(A.class), isAbsent());
               assertThat(inspector.clazz(B.class), isPresent());
+              assertThat(inspector.clazz(Main.class), isPresent());
             })
         .run(parameters.getRuntime(), Main.class, getClass().getTypeName())
         .assertSuccessWithOutputLines("Not instantiated", "Instantiated");

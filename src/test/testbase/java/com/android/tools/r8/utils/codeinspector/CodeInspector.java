@@ -4,6 +4,8 @@
 package com.android.tools.r8.utils.codeinspector;
 
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+import static com.android.tools.r8.utils.codeinspector.CodeInspector.ClassType.ANY;
+import static com.android.tools.r8.utils.codeinspector.CodeInspector.ClassType.PROGRAM;
 
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.StringResource;
@@ -77,6 +79,11 @@ public class CodeInspector {
   final Map<String, String> originalToObfuscatedMapping;
   final Map<String, String> obfuscatedToOriginalMapping;
   private Retracer lazyRetracer = null;
+
+  public enum ClassType {
+    PROGRAM,
+    ANY
+  }
 
   public static MethodSignature MAIN =
       new MethodSignature("main", "void", new String[] {"java.lang.String[]"});
@@ -293,6 +300,10 @@ public class CodeInspector {
     return rewriter.getSignature();
   }
 
+  public ClassSubject clazz(Class<?> clazz, ClassType classType) {
+    return clazz(Reference.classFromClass(clazz), classType);
+  }
+
   public ClassSubject clazz(Class<?> clazz) {
     return clazz(Reference.classFromClass(clazz));
   }
@@ -300,6 +311,10 @@ public class CodeInspector {
   /** Lookup a class by name. This allows both original and obfuscated names. */
   public ClassSubject clazz(String name) {
     return clazz(Reference.classFromTypeName(name));
+  }
+
+  public ClassSubject programClass(Class<?> clazz) {
+    return clazz(Reference.classFromClass(clazz), PROGRAM);
   }
 
   public ClassNameMapper getMapping() {
@@ -355,7 +370,7 @@ public class CodeInspector {
     }
   }
 
-  public ClassSubject clazz(ClassReference reference) {
+  public ClassSubject clazz(ClassReference reference, ClassType classType) {
     String descriptor = reference.getDescriptor();
     String name = DescriptorUtils.descriptorToJavaType(descriptor);
     ClassNamingForNameMapper naming = null;
@@ -374,11 +389,18 @@ public class CodeInspector {
         }
       }
     }
-    DexClass clazz = application.definitionFor(toDexTypeIgnorePrimitives(name));
+    DexClass clazz =
+        classType == ANY
+            ? application.definitionFor(toDexTypeIgnorePrimitives(name))
+            : application.programDefinitionFor(toDexTypeIgnorePrimitives(name));
     if (clazz == null) {
       return new AbsentClassSubject(this, reference);
     }
     return new FoundClassSubject(this, clazz, MappingWrapper.create(mapping, naming), reference);
+  }
+
+  public ClassSubject clazz(ClassReference reference) {
+    return clazz(reference, ANY);
   }
 
   public ClassSubject companionClassFor(Class<?> clazz) {

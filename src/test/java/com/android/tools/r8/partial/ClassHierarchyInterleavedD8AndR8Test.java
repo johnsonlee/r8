@@ -4,6 +4,7 @@
 package com.android.tools.r8.partial;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -40,7 +41,9 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
   }
 
   private void runTest(
-      Predicate<String> isR8, ThrowingConsumer<CodeInspector, RuntimeException> inspector)
+      Predicate<String> isR8,
+      ThrowingConsumer<CodeInspector, RuntimeException> d8Inspector,
+      ThrowingConsumer<CodeInspector, RuntimeException> inspector)
       throws Exception {
     // Path tempDir = temp.newFolder().toPath();
     testForR8Partial(parameters.getBackend())
@@ -49,6 +52,7 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
         .addKeepMainRule(Main.class)
         .setR8PartialConfigurationPredicate(isR8)
         .compile()
+        .inspectD8Input(d8Inspector)
         .inspect(inspector)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithEmptyOutput();
@@ -58,6 +62,11 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
   public void testD8Top() throws Exception {
     runTest(
         name -> !name.equals(A.class.getTypeName()),
+        inspector -> {
+          assertThat(inspector.programClass(A.class), isPresent());
+          assertThat(inspector.programClass(B.class), isAbsent());
+          assertThat(inspector.programClass(C.class), isAbsent());
+        },
         inspector -> {
           assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(B.class), isAbsent()); // Merged into C.
@@ -70,6 +79,11 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
     runTest(
         name -> !name.equals(B.class.getTypeName()),
         inspector -> {
+          assertThat(inspector.programClass(A.class), isPresent());
+          assertThat(inspector.programClass(B.class), isPresent());
+          assertThat(inspector.programClass(C.class), isAbsent());
+        },
+        inspector -> {
           assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(C.class), isPresentAndRenamed());
@@ -80,6 +94,11 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
   public void testD8Bottom() throws Exception {
     runTest(
         name -> !name.equals(C.class.getTypeName()),
+        inspector -> {
+          assertThat(inspector.programClass(A.class), isPresent());
+          assertThat(inspector.programClass(B.class), isPresent());
+          assertThat(inspector.programClass(C.class), isPresent());
+        },
         inspector -> {
           assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
