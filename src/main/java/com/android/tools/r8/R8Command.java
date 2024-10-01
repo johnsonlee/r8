@@ -141,6 +141,8 @@ public final class R8Command extends BaseCompilerCommand {
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
         System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
+    private boolean readEmbeddedRulesFromClasspathAndLibrary =
+        System.getProperty("com.android.tools.r8.readEmbeddedRulesFromClasspathAndLibrary") != null;
     public boolean enableStartupLayoutOptimization = true;
     private SemanticVersion fakeCompilerVersion = null;
     private AndroidResourceProvider androidResourceProvider = null;
@@ -545,6 +547,13 @@ public final class R8Command extends BaseCompilerCommand {
       return self();
     }
 
+    // Package private only for testing. Use system property
+    // com.android.tools.r8.readEmbeddedRulesFromClasspathAndLibrary to enable.
+    @Deprecated
+    void setReadEmbeddedRulesFromClasspathAndLibrary(boolean enable) {
+      this.readEmbeddedRulesFromClasspathAndLibrary = enable;
+    }
+
     @Override
     protected InternalProgramOutputPathConsumer createProgramOutputConsumer(
         Path path,
@@ -801,6 +810,33 @@ public final class R8Command extends BaseCompilerCommand {
     private void amendWithRulesAndProvidersForInjarsAndMetaInf(
         Reporter reporter, ProguardConfigurationParser parser) {
 
+      Supplier<SemanticVersion> semanticVersionSupplier =
+          Suppliers.memoize(
+              () -> {
+                SemanticVersion compilerVersion =
+                    fakeCompilerVersion == null
+                        ? SemanticVersion.create(
+                            Version.getMajorVersion(),
+                            Version.getMinorVersion(),
+                            Version.getPatchVersion())
+                        : fakeCompilerVersion;
+                if (compilerVersion.getMajor() < 0) {
+                  compilerVersion =
+                      SemanticVersion.create(
+                          Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
+                  reporter.warning(
+                      "Running R8 version "
+                          + Version.getVersionString()
+                          + ", which cannot be represented as a semantic version. Using"
+                          + " an artificial version newer than any known version for selecting"
+                          + " Proguard configurations embedded under META-INF/. This means that"
+                          + " all rules with a '-upto-' qualifier will be excluded and all rules"
+                          + " with a -from- qualifier will be included.");
+                }
+                return compilerVersion;
+              });
+      // TODO(b/370665838): Remove the fixpoint, as -injars are not supported in embedded keep
+      // rules. The comment below is not true.
       // Since -injars can itself reference archives with rules and that in turn have -injars the
       // completion of amending rules and providers must run in a fixed point. The fixed point is
       // reached once the injars set is stable.
@@ -817,47 +853,41 @@ public final class R8Command extends BaseCompilerCommand {
           }
         }
         if (providers.isEmpty()) {
-          return;
+          break;
         }
-
-        Supplier<SemanticVersion> semanticVersionSupplier =
-            Suppliers.memoize(
-                () -> {
-                  SemanticVersion compilerVersion =
-                      fakeCompilerVersion == null
-                          ? SemanticVersion.create(
-                              Version.getMajorVersion(),
-                              Version.getMinorVersion(),
-                              Version.getPatchVersion())
-                          : fakeCompilerVersion;
-                  if (compilerVersion.getMajor() < 0) {
-                    compilerVersion =
-                        SemanticVersion.create(
-                            Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
-                    reporter.warning(
-                        "Running R8 version "
-                            + Version.getVersionString()
-                            + ", which cannot be represented as a semantic version. Using"
-                            + " an artificial version newer than any known version for selecting"
-                            + " Proguard configurations embedded under META-INF/. This means that"
-                            + " all rules with a '-upto-' qualifier will be excluded and all rules"
-                            + " with a -from- qualifier will be included.");
-                  }
-                  return compilerVersion;
-                });
 
         while (!providers.isEmpty()) {
           DataResourceProvider dataResourceProvider = providers.pop().getDataResourceProvider();
-          if (dataResourceProvider != null) {
-            try {
-              ExtractEmbeddedRules embeddedProguardConfigurationVisitor =
-                  new ExtractEmbeddedRules(reporter, semanticVersionSupplier);
-              dataResourceProvider.accept(embeddedProguardConfigurationVisitor);
-              embeddedProguardConfigurationVisitor.parseRelevantRules(parser);
-            } catch (ResourceException e) {
-              reporter.error(new ExceptionDiagnostic(e));
-            }
-          }
+          parseEmbeddedRules(reporter, parser, semanticVersionSupplier, dataResourceProvider);
+        }
+        // TODO(b/370665838): Remove the fixpoint. For now assert that it is not needed.
+        assert seenInjars.containsAll(parser.getConfigurationBuilder().getInjars());
+      }
+      if (readEmbeddedRulesFromClasspathAndLibrary) {
+        for (ClassFileResourceProvider provider : getAppBuilder().getClasspathResourceProviders()) {
+          parseEmbeddedRules(
+              reporter, parser, semanticVersionSupplier, provider.getDataResourceProvider());
+        }
+        for (ClassFileResourceProvider provider : getAppBuilder().getLibraryResourceProviders()) {
+          parseEmbeddedRules(
+              reporter, parser, semanticVersionSupplier, provider.getDataResourceProvider());
+        }
+      }
+    }
+
+    private static void parseEmbeddedRules(
+        Reporter reporter,
+        ProguardConfigurationParser parser,
+        Supplier<SemanticVersion> semanticVersionSupplier,
+        DataResourceProvider dataResourceProvider) {
+      if (dataResourceProvider != null) {
+        try {
+          ExtractEmbeddedRules embeddedProguardConfigurationVisitor =
+              new ExtractEmbeddedRules(reporter, semanticVersionSupplier);
+          dataResourceProvider.accept(embeddedProguardConfigurationVisitor);
+          embeddedProguardConfigurationVisitor.parseRelevantRules(parser);
+        } catch (ResourceException e) {
+          reporter.error(new ExceptionDiagnostic(e));
         }
       }
     }

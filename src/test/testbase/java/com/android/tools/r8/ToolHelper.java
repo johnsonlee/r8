@@ -2792,4 +2792,9 @@ public class ToolHelper {
     assert !strings.isEmpty();
     return strings.get(0);
   }
+
+  public static void setReadEmbeddedRulesFromClasspathAndLibrary(
+      R8Command.Builder builder, boolean enabled) {
+    builder.setReadEmbeddedRulesFromClasspathAndLibrary(enabled);
+  }
 }

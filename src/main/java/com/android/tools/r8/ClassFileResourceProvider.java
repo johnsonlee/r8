@@ -49,4 +49,10 @@ public interface ClassFileResourceProvider {
   default void finished(DiagnosticsHandler handler) throws IOException {
     // Do nothing by default.
   }
+
+  /** Experimental addition still incubating. */
+  @Deprecated
+  default DataResourceProvider getDataResourceProvider() {
+    return null;
+  }
 }

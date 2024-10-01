@@ -1430,6 +1430,14 @@ public class AndroidApp {
       }
     }
 
+    public List<ClassFileResourceProvider> getLibraryResourceProviders() {
+      return libraryResourceProviders;
+    }
+
+    public List<ClassFileResourceProvider> getClasspathResourceProviders() {
+      return classpathResourceProviders;
+    }
+
     public List<ProgramResourceProvider> getProgramResourceProviders() {
       ensureAllResourcesAreInProviders();
       return programResourceProviders;

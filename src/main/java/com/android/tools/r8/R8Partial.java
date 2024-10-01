@@ -203,9 +203,9 @@ class R8Partial {
     // TODO(b/309743298): Consider passing the DataResourceConsumer to the R8 invocation above.
     DataResourceConsumer dataResourceConsumer = originalProgramConsumer.getDataResourceConsumer();
     if (dataResourceConsumer != null) {
-      ZipUtils.iter(
+      ZipUtils.iterWithZipFile(
           r8Output,
-          (zip, entry, is) -> {
+          (zip, entry) -> {
             if (entry.getName().endsWith(FileUtils.DEX_EXTENSION)) {
               return;
             }

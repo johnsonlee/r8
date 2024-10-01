@@ -74,9 +74,31 @@ public abstract class TestBaseBuilder<
     return self();
   }
 
+  public T addProgramResourceProviders(Collection<ProgramResourceProvider> providers) {
+    for (ProgramResourceProvider provider : providers) {
+      builder.addProgramResourceProvider(provider);
+    }
+    return self();
+  }
+
+  public T addProgramResourceProviders(ProgramResourceProvider... providers) {
+    return addProgramResourceProviders(Arrays.asList(providers));
+  }
+
   public T addLibraryProvider(ClassFileResourceProvider provider) {
     builder.addLibraryResourceProvider(provider);
     return self();
+  }
+
+  public T addClasspathResourceProviders(Collection<ClassFileResourceProvider> providers) {
+    for (ClassFileResourceProvider provider : providers) {
+      builder.addClasspathResourceProvider(provider);
+    }
+    return self();
+  }
+
+  public T addClasspathResourceProviders(ClassFileResourceProvider... providers) {
+    return addClasspathResourceProviders(Arrays.asList(providers));
   }
 
   @Override
@@ -89,6 +111,17 @@ public abstract class TestBaseBuilder<
   public T addLibraryClasses(Collection<Class<?>> classes) {
     builder.addLibraryResourceProvider(ClassFileResourceProviderFromClasses(classes));
     return self();
+  }
+
+  public T addLibraryResourceProviders(Collection<ClassFileResourceProvider> providers) {
+    for (ClassFileResourceProvider provider : providers) {
+      builder.addLibraryResourceProvider(provider);
+    }
+    return self();
+  }
+
+  public T addLibraryResourceProviders(ClassFileResourceProvider... providers) {
+    return addLibraryResourceProviders(Arrays.asList(providers));
   }
 
   public T addMainDexListClassReferences(ClassReference... classes) {

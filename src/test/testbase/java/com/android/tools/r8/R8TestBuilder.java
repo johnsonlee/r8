@@ -275,17 +275,6 @@ public abstract class R8TestBuilder<
     return builder;
   }
 
-  public T addProgramResourceProviders(Collection<ProgramResourceProvider> providers) {
-    for (ProgramResourceProvider provider : providers) {
-      builder.addProgramResourceProvider(provider);
-    }
-    return self();
-  }
-
-  public T addProgramResourceProviders(ProgramResourceProvider... providers) {
-    return addProgramResourceProviders(Arrays.asList(providers));
-  }
-
   @Override
   public T addClasspathClasses(Collection<Class<?>> classes) {
     builder.addClasspathResourceProvider(ClassFileResourceProviderFromClasses(classes));

@@ -37,7 +37,7 @@ public class LibraryProvidedProguardRulesR8SpecificTest
   @Parameter(2)
   public ProviderType providerType;
 
-  @Parameters(name = "{0}, AAR: {1}, {2}")
+  @Parameters(name = "{0}, libraryType: {1}, providerType: {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().build(),

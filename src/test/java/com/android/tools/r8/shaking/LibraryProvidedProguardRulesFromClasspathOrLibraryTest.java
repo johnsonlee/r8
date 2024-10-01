@@ -1,4 +1,4 @@
-// Copyright (c) 2018, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -18,25 +18,27 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
-import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -44,24 +46,12 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRulesTestBase {
+public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
+    extends LibraryProvidedProguardRulesTestBase {
 
-  static class A {
-    private static String buildClassName(String className) {
-      return A.class.getPackage().getName() + "." + className;
-    }
+  @interface Keep {}
 
-    public static void main(String[] args) {
-      try {
-        Class.forName(buildClassName("B"));
-        System.out.println("YES");
-      } catch (ClassNotFoundException e) {
-        System.out.println("NO");
-      }
-    }
-  }
-
-  static class B {}
+  public interface Interface {}
 
   @Parameter(0)
   public TestParameters parameters;
@@ -70,26 +60,32 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
   public LibraryType libraryType;
 
   @Parameter(2)
-  public ProviderType providerType;
+  public boolean isClasspath;
 
-  @Parameters(name = "{0}, libraryType: {1}, providerType: {2}")
+  @Parameters(name = "{0}, libraryType: {1}, isClasspath {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build(),
         LibraryType.values(),
-        ProviderType.values());
+        BooleanUtils.values());
   }
 
   private Path buildLibrary(List<String> rules) throws Exception {
-    return buildLibrary(libraryType, ImmutableList.of(A.class, B.class), rules);
+    return buildLibrary(libraryType, ImmutableList.of(Interface.class, Keep.class), rules);
   }
 
   private CodeInspector runTest(List<String> rules) throws Exception {
     Path library = buildLibrary(rules);
     return testForR8(parameters.getBackend())
-        .applyIf(providerType == ProviderType.API, b -> b.addProgramFiles(library))
-        .applyIf(providerType == ProviderType.INJARS, b -> b.addKeepRules("-injars " + library))
+        .addProgramClasses(A.class, B.class)
+        .applyIf(
+            isClasspath,
+            b -> b.addClasspathFiles(library),
+            b ->
+                b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                    .addLibraryFiles(library))
         .setMinApi(parameters)
+        .apply(b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
         .compile()
         .inspector();
   }
@@ -99,32 +95,29 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
   }
 
   @Test
-  public void keepOnlyA() throws Exception {
-    CodeInspector inspector = runTest("-keep class " + A.class.getTypeName() + " {}");
+  public void providedKeepRuleImplements() throws Exception {
+    CodeInspector inspector =
+        runTest("-keep class * implements " + Interface.class.getTypeName() + " { *; }");
     // TODO(b/228319861): Read Proguard rules from AAR's.
     assertThat(inspector.clazz(A.class), notIf(isPresent(), libraryType.isAar()));
     assertThat(inspector.clazz(B.class), not(isPresent()));
   }
 
   @Test
-  public void keepOnlyB() throws Exception {
-    CodeInspector inspector = runTest("-keep class **B {}");
+  public void providedKeepRuleAnnotated() throws Exception {
+    CodeInspector inspector = runTest("-keep @" + Keep.class.getTypeName() + " class * { *; }");
     assertThat(inspector.clazz(A.class), not(isPresent()));
     // TODO(b/228319861): Read Proguard rules from AAR's.
     assertThat(inspector.clazz(B.class), notIf(isPresent(), libraryType.isAar()));
   }
 
   @Test
-  public void keepBoth() throws Exception {
-    CodeInspector inspector = runTest("-keep class ** {}");
-    // TODO(b/228319861): Read Proguard rules from AAR's.
-    assertThat(inspector.clazz(A.class), notIf(isPresent(), libraryType.isAar()));
-    assertThat(inspector.clazz(B.class), notIf(isPresent(), libraryType.isAar()));
-  }
-
-  @Test
-  public void multipleFiles() throws Exception {
-    CodeInspector inspector = runTest(ImmutableList.of("-keep class **A {}", "-keep class **B {}"));
+  public void providedKeepRuleImplementsOrAnnotated() throws Exception {
+    CodeInspector inspector =
+        runTest(
+            ImmutableList.of(
+                "-keep class * implements " + Interface.class.getTypeName() + " { *; }",
+                "-keep @" + Keep.class.getTypeName() + " class * { *; }"));
     // TODO(b/228319861): Read Proguard rules from AAR's.
     assertThat(inspector.clazz(A.class), notIf(isPresent(), libraryType.isAar()));
     assertThat(inspector.clazz(B.class), notIf(isPresent(), libraryType.isAar()));
@@ -140,6 +133,10 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
             testForR8(parameters.getBackend())
                 .addProgramFiles(buildLibrary(ImmutableList.of("error")))
                 .setMinApi(parameters)
+                .apply(
+                    b ->
+                        ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(
+                            b.getBuilder(), true))
                 .compileWithExpectedDiagnostics(
                     diagnostics ->
                         diagnostics.assertErrorThatMatches(
@@ -155,15 +152,24 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
     assumeTrue(!libraryType.isAar());
     assertThrows(
         CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramFiles(buildLibrary(ImmutableList.of("-injars some.jar")))
-                .setMinApi(parameters)
-                .compileWithExpectedDiagnostics(
-                    diagnostics ->
-                        diagnostics.assertErrorThatMatches(
-                            diagnosticMessage(
-                                containsString("Options with file names are not supported")))));
+        () -> {
+          Path library = buildLibrary(ImmutableList.of("-injars some.jar"));
+          testForR8(parameters.getBackend())
+              .applyIf(
+                  isClasspath,
+                  b -> b.addClasspathFiles(library),
+                  b ->
+                      b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                          .addLibraryFiles(library))
+              .setMinApi(parameters)
+              .apply(
+                  b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
+              .compileWithExpectedDiagnostics(
+                  diagnostics ->
+                      diagnostics.assertErrorThatMatches(
+                          diagnosticMessage(
+                              containsString("Options with file names are not supported"))));
+        });
   }
 
   @Test
@@ -172,30 +178,46 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
     assumeTrue(!libraryType.isAar());
     assertThrows(
         CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .addProgramFiles(buildLibrary(ImmutableList.of("-include other.rules")))
-                .setMinApi(parameters)
-                .compileWithExpectedDiagnostics(
-                    diagnostics ->
-                        diagnostics.assertErrorThatMatches(
-                            diagnosticMessage(
-                                containsString("Options with file names are not supported")))));
+        () -> {
+          Path library = buildLibrary(ImmutableList.of("-include other.rules"));
+          testForR8(parameters.getBackend())
+              .applyIf(
+                  isClasspath,
+                  b -> b.addClasspathFiles(library),
+                  b ->
+                      b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                          .addLibraryFiles(library))
+              .setMinApi(parameters)
+              .apply(
+                  b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
+              .compileWithExpectedDiagnostics(
+                  diagnostics ->
+                      diagnostics.assertErrorThatMatches(
+                          diagnosticMessage(
+                              containsString("Options with file names are not supported"))));
+        });
   }
 
-  static class TestProvider implements ProgramResourceProvider, DataResourceProvider {
+  static class TestProvider implements ClassFileResourceProvider, DataResourceProvider {
 
     @Override
-    public Collection<ProgramResource> getProgramResources() throws ResourceException {
+    public ProgramResource getProgramResource(String descriptor) {
       byte[] bytes;
       try {
-        bytes = ByteStreams.toByteArray(A.class.getResourceAsStream("A.class"));
+        bytes = ByteStreams.toByteArray(Keep.class.getResourceAsStream("K.class"));
       } catch (IOException e) {
-        throw new ResourceException(Origin.unknown(), "Unexpected");
+        return null;
       }
-      return ImmutableList.of(
-          ProgramResource.fromBytes(Origin.unknown(), Kind.CF, bytes,
-              Collections.singleton(DescriptorUtils.javaTypeToDescriptor(A.class.getTypeName()))));
+      return ProgramResource.fromBytes(
+          Origin.unknown(),
+          Kind.CF,
+          bytes,
+          Collections.singleton(DescriptorUtils.javaTypeToDescriptor(Keep.class.getTypeName())));
+    }
+
+    @Override
+    public Set<String> getClassDescriptors() {
+      return null;
     }
 
     @Override
@@ -217,8 +239,17 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
         CompilationFailedException.class,
         () ->
             testForR8(parameters.getBackend())
-                .addProgramResourceProviders(new TestProvider())
+                .applyIf(
+                    isClasspath,
+                    b -> b.addClasspathResourceProviders(new TestProvider()),
+                    b ->
+                        b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                            .addLibraryResourceProviders(new TestProvider()))
                 .setMinApi(parameters)
+                .apply(
+                    b ->
+                        ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(
+                            b.getBuilder(), true))
                 .compileWithExpectedDiagnostics(
                     diagnostics ->
                         diagnostics.assertErrorThatMatches(
@@ -227,4 +258,9 @@ public class LibraryProvidedProguardRulesTest extends LibraryProvidedProguardRul
                                     containsString("Cannot provide data resources after all")),
                                 diagnosticOrigin(is(Origin.unknown()))))));
   }
+
+  static class A implements Interface {}
+
+  @Keep
+  static class B {}
 }
