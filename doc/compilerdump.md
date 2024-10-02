@@ -63,6 +63,17 @@ hopefully be the last dump):
 ./gradlew assembleDebug -Dorg.gradle.caching=false -Dcom.android.tools.r8.dumpinputtodirectory=mydumps/ --no-daemon
 ```
 
+### Generating a dump in AOSP
+For R8 compilations you can generate dumps with the R8_DUMP_DIRECTORY environment variable.
+This will put dumps for all R8 compilations leading up to the target that you are building.
+For a specific target you can do:
+
+```
+mkdir /tmp/dumps
+R8_DUMP_DIRECTORY=/tmp/dumps m -j77 SystemUI
+```
+The actual dump file for SystemUI will be the last dump in /tmp/dumps.
+
 
 ## Reproducing using a dump
 
@@ -81,3 +92,4 @@ options.
 
 The flags can also be used to override the setting specified in the dump.
 Doing so allows compiling with other compiler versions, or other settings.
+
