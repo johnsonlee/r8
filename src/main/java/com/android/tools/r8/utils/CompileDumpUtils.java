@@ -4,6 +4,10 @@
 
 package com.android.tools.r8.utils;
 
+import com.android.tools.r8.AndroidResourceConsumer;
+import com.android.tools.r8.AndroidResourceProvider;
+import com.android.tools.r8.ArchiveProtoAndroidResourceConsumer;
+import com.android.tools.r8.ArchiveProtoAndroidResourceProvider;
 import com.android.tools.r8.KeepMethodForCompileDump;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
@@ -31,6 +35,16 @@ class CompileDumpUtils {
   @KeepMethodForCompileDump
   static ArtProfileConsumer createResidualArtProfileConsumerFromDumpFile(Path residualArtProfile) {
     return ArtProfileConsumerUtils.create(residualArtProfile);
+  }
+
+  @KeepMethodForCompileDump
+  static AndroidResourceProvider createAndroidResourceProviderFromDumpFile(Path resourceInput) {
+    return new ArchiveProtoAndroidResourceProvider(resourceInput);
+  }
+
+  @KeepMethodForCompileDump
+  static AndroidResourceConsumer createAndroidResourceConsumerFromDumpFile(Path resourceOutput) {
+    return new ArchiveProtoAndroidResourceConsumer(resourceOutput);
   }
 
   @KeepMethodForCompileDump

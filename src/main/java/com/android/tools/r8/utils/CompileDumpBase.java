@@ -34,6 +34,22 @@ public class CompileDumpBase {
         .accept(new Object[] {isolatedSplits});
   }
 
+  static void setupResourceShrinking(
+      Path androidResourcesInput, Path androidResourcesOutput, Object builder) {
+    try {
+      Class<?> androidResourceProvider =
+          Class.forName("com.android.tools.r8.AndroidResourceProvider");
+      Class<?> androidResourceConsumer =
+          Class.forName("com.android.tools.r8.AndroidResourceConsumer");
+      getReflectiveBuilderMethod(builder, "setAndroidResourceProvider", androidResourceProvider)
+          .accept(new Object[] {createAndroidResourceProvider(androidResourcesInput)});
+      getReflectiveBuilderMethod(builder, "setAndroidResourceConsumer", androidResourceConsumer)
+          .accept(new Object[] {createAndroidResourceConsumer(androidResourcesOutput)});
+    } catch (ClassNotFoundException e) {
+      // Ignore
+    }
+  }
+
   static void addArtProfilesForRewriting(Object builder, Map<Path, Path> artProfileFiles) {
     try {
       Class<?> artProfileProviderClass =
@@ -62,38 +78,44 @@ public class CompileDumpBase {
         .accept(new Object[] {createStartupProfileProviders(startupProfileFiles)});
   }
 
-  static Object createArtProfileProvider(Path artProfile) {
-    Object[] artProfileProvider = new Object[1];
+  static Object callReflectiveDumpUtilsMethodWithPath(Path path, String method) {
+    Object[] returnObject = new Object[1];
     boolean found =
         callReflectiveUtilsMethod(
-            "createArtProfileProviderFromDumpFile",
+            method,
             new Class<?>[] {Path.class},
-            fn -> artProfileProvider[0] = fn.apply(new Object[] {artProfile}));
+            fn -> returnObject[0] = fn.apply(new Object[] {path}));
     if (!found) {
       System.out.println(
-          "Unable to add art profiles as input. "
-              + "Method createArtProfileProviderFromDumpFile() was not found.");
+          "Unable to call invoke method on path "
+              + path
+              + ". "
+              + "Method "
+              + method
+              + "() was not found.");
       return null;
     }
-    System.out.println(artProfileProvider[0]);
-    return artProfileProvider[0];
+    return returnObject[0];
+  }
+
+  static Object createAndroidResourceProvider(Path resourceInput) {
+    return callReflectiveDumpUtilsMethodWithPath(
+        resourceInput, "createAndroidResourceProviderFromDumpFile");
+  }
+
+  static Object createAndroidResourceConsumer(Path resourceOutput) {
+    return callReflectiveDumpUtilsMethodWithPath(
+        resourceOutput, "createAndroidResourceConsumerFromDumpFile");
+  }
+
+  static Object createArtProfileProvider(Path artProfile) {
+    return callReflectiveDumpUtilsMethodWithPath(
+        artProfile, "createArtProfileProviderFromDumpFile");
   }
 
   static Object createResidualArtProfileConsumer(Path residualArtProfile) {
-    Object[] residualArtProfileConsumer = new Object[1];
-    boolean found =
-        callReflectiveUtilsMethod(
-            "createResidualArtProfileConsumerFromDumpFile",
-            new Class<?>[] {Path.class},
-            fn -> residualArtProfileConsumer[0] = fn.apply(new Object[] {residualArtProfile}));
-    if (!found) {
-      System.out.println(
-          "Unable to add art profiles as input. "
-              + "Method createResidualArtProfileConsumerFromDumpFile() was not found.");
-      return null;
-    }
-    System.out.println(residualArtProfileConsumer[0]);
-    return residualArtProfileConsumer[0];
+    return callReflectiveDumpUtilsMethodWithPath(
+        residualArtProfile, "createResidualArtProfileConsumerFromDumpFile");
   }
 
   static Collection<Object> createStartupProfileProviders(List<Path> startupProfileFiles) {
