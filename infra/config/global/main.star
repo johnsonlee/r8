@@ -155,7 +155,8 @@ def builder_view(name, category, short_name):
 luci.recipe(
       name="rex",
       cipd_package = "infra_internal/recipe_bundles/" +
-          "chrome-internal.googlesource.com/chrome/tools/build",
+          "chrome-internal.googlesource.com/chrome/" +
+          "tools/build_limited/scripts/slave",
       cipd_version = "refs/heads/master",
       use_bbagent = True
 )
