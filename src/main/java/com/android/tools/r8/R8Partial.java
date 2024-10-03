@@ -38,23 +38,22 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 class R8Partial {
 
   private final InternalOptions options;
-  private final Consumer<AndroidApp> r8InputApp;
-  private final Consumer<AndroidApp> d8InputApp;
-  private final Consumer<AndroidApp> r8OutputApp;
-  private final Consumer<AndroidApp> d8OutputApp;
+  private final Consumer<AndroidApp> r8InputAppConsumer;
+  private final Consumer<AndroidApp> d8InputAppConsumer;
+  private final Consumer<AndroidApp> r8OutputAppConsumer;
+  private final Consumer<AndroidApp> d8OutputAppConsumer;
 
   R8Partial(InternalOptions options) {
     this.options = options;
-    this.r8InputApp = options.r8PartialCompilationOptions.r8InputApp;
-    this.d8InputApp = options.r8PartialCompilationOptions.d8InputApp;
-    this.r8OutputApp = options.r8PartialCompilationOptions.r8OutputApp;
-    this.d8OutputApp = options.r8PartialCompilationOptions.d8OutputApp;
+    this.r8InputAppConsumer = options.partialCompilationConfiguration.r8InputAppConsumer;
+    this.d8InputAppConsumer = options.partialCompilationConfiguration.d8InputAppConsumer;
+    this.r8OutputAppConsumer = options.partialCompilationConfiguration.r8OutputAppConsumer;
+    this.d8OutputAppConsumer = options.partialCompilationConfiguration.d8OutputAppConsumer;
   }
 
   static void runForTesting(AndroidApp app, InternalOptions options)
@@ -77,8 +76,8 @@ class R8Partial {
     ProgramConsumer originalProgramConsumer = options.programConsumer;
     MapConsumer originalMapConsumer = options.mapConsumer;
 
-    Path tmp = options.r8PartialCompilationOptions.getTemp();
-    Path dumpFile = options.r8PartialCompilationOptions.getDumpFile();
+    Path tmp = options.partialCompilationConfiguration.getTempDir();
+    Path dumpFile = options.partialCompilationConfiguration.getDumpFile();
 
     // Create a dump of the compiler input.
     // TODO(b/309743298): Do not use compiler dump to handle splitting the compilation. This should
@@ -120,15 +119,15 @@ class R8Partial {
         AppInfoWithClassHierarchy.createForDesugaring(
             AppInfo.createInitialAppInfo(dapp, GlobalSyntheticsStrategy.forNonSynthesizing()));
 
-    Predicate<String> isR8 = options.r8PartialCompilationOptions.isR8;
-    Set<String> d8classes = new HashSet<>();
+    Set<DexProgramClass> d8classes = new HashSet<>();
     appInfo
         .classes()
         .forEach(
             clazz -> {
-              String key = clazz.toSourceString();
-              if (!d8classes.contains(key) && !isR8.test(key)) {
-                d8classes.add(key);
+              if (!d8classes.contains(clazz)
+                  && !options.partialCompilationConfiguration.test(
+                      clazz.getType().getDescriptor())) {
+                d8classes.add(clazz);
                 // TODO(b/309743298): Improve this to only visit each class once and stop at
                 //  library boundary.
                 appInfo.forEachSuperType(
@@ -137,7 +136,7 @@ class R8Partial {
                       DexProgramClass superClass =
                           asProgramClassOrNull(appInfo.definitionFor(superType));
                       if (superClass != null) {
-                        d8classes.add(superClass.toSourceString());
+                        d8classes.add(superClass);
                       }
                     });
               }
@@ -146,7 +145,7 @@ class R8Partial {
     // Filter the program input into the D8 and R8 parts.
     Set<String> d8ZipEntries =
         d8classes.stream()
-            .map(name -> name.replace('.', '/') + ".class")
+            .map(clazz -> ZipUtils.zipEntryNameForClass(clazz.getClassReference()))
             .collect(Collectors.toSet());
     ZipBuilder d8ProgramBuilder = ZipBuilder.builder(tmp.resolve("d8-program.jar"));
     ZipBuilder r8ProgramBuilder = ZipBuilder.builder(tmp.resolve("r8-program.jar"));
@@ -178,21 +177,21 @@ class R8Partial {
           Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
     }
     AndroidAppConsumers d8OutputAppSink = null;
-    if (d8OutputApp != null) {
+    if (d8OutputAppConsumer != null) {
       d8OutputAppSink = new AndroidAppConsumers(d8Builder);
     }
     d8Builder.validate();
     D8Command d8command = d8Builder.makeCommand();
     AndroidApp d8App = d8command.getInputApp();
-    if (d8InputApp != null) {
-      d8InputApp.accept(d8App);
+    if (d8InputAppConsumer != null) {
+      d8InputAppConsumer.accept(d8App);
     }
     InternalOptions d8Options = d8command.getInternalOptions();
     assert d8Options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
         : "Default interface methods not yet supported";
     D8.runInternal(d8App, d8Options, executor);
-    if (d8OutputApp != null) {
-      d8OutputApp.accept(d8OutputAppSink.build());
+    if (d8OutputAppConsumer != null) {
+      d8OutputAppConsumer.accept(d8OutputAppSink.build());
     }
 
     // Run trace references to produce keep rules for the D8 compiled part.
@@ -235,15 +234,15 @@ class R8Partial {
     r8Builder.validate();
     R8Command r8Command = r8Builder.makeCommand();
     AndroidApp r8App = r8Command.getInputApp();
-    if (r8InputApp != null) {
-      r8InputApp.accept(r8App);
+    if (r8InputAppConsumer != null) {
+      r8InputAppConsumer.accept(r8App);
     }
     InternalOptions r8Options = r8Command.getInternalOptions();
     r8Options.mapConsumer = originalMapConsumer;
     r8Options.quiet = true; // Don't write the R8 version.
     R8.runInternal(r8App, r8Options, executor);
-    if (r8OutputApp != null) {
-      r8OutputApp.accept(r8OutputAppSink.build());
+    if (r8OutputAppConsumer != null) {
+      r8OutputAppConsumer.accept(r8OutputAppSink.build());
     }
 
     // Emit resources and merged DEX to the output consumer.

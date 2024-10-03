@@ -114,14 +114,11 @@ import com.android.tools.r8.verticalclassmerging.VerticalClassMergerOptions;
 import com.android.tools.r8.verticalclassmerging.VerticallyMergedClasses;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1022,9 +1019,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);
   private final StartupOptions startupOptions = new StartupOptions();
   private final InstrumentationOptions instrumentationOptions;
-  public final R8PartialCompilationOptions r8PartialCompilationOptions =
-      new R8PartialCompilationOptions(
-          System.getProperty("com.android.tools.r8.r8PartialCompilation"));
+  public R8PartialCompilationConfiguration partialCompilationConfiguration =
+      R8PartialCompilationConfiguration.fromIncludeExcludePatterns(
+          System.getProperty("com.android.tools.r8.experimentalPartialShrinkingIncludePatterns"),
+          System.getProperty("com.android.tools.r8.experimentalPartialShrinkingExcludePatterns"));
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();
@@ -2279,43 +2277,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         }
       }
       return false;
-    }
-  }
-
-  public static class R8PartialCompilationOptions {
-    public boolean enabled;
-    public Path tempDir = null;
-    public Predicate<String> isR8 = null;
-    public Consumer<AndroidApp> r8InputApp;
-    public Consumer<AndroidApp> d8InputApp;
-    public Consumer<AndroidApp> r8OutputApp;
-    public Consumer<AndroidApp> d8OutputApp;
-
-    R8PartialCompilationOptions(String partialR8) {
-      this.enabled = partialR8 != null;
-      if (this.enabled) {
-        final List<String> prefixes = Splitter.on(",").splitToList(partialR8);
-        this.isR8 =
-            name -> {
-              for (int i = 0; i < prefixes.size(); i++) {
-                if (name.startsWith(prefixes.get(i))) {
-                  return true;
-                }
-              }
-              return false;
-            };
-      }
-    }
-
-    public synchronized Path getTemp() throws IOException {
-      if (tempDir == null) {
-        tempDir = Files.createTempDirectory("r8PartialCompilation");
-      }
-      return tempDir;
-    }
-
-    public Path getDumpFile() throws IOException {
-      return getTemp().resolve("dump.zip");
     }
   }
 

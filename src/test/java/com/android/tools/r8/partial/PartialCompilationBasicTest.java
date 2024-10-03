@@ -39,7 +39,7 @@ public class PartialCompilationBasicTest extends TestBase {
         .setMinApi(parameters)
         .addProgramClasses(A.class, B.class, Main.class)
         .addKeepMainRule(Main.class)
-        .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(A.class).build())
+        .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(A.class))
         .compile()
         .inspectR8Input(
             inspector -> {
@@ -81,7 +81,7 @@ public class PartialCompilationBasicTest extends TestBase {
         .setMinApi(parameters)
         .addProgramClasses(A.class, B.class, Main.class)
         .addKeepMainRule(Main.class)
-        .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(B.class).build())
+        .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(B.class))
         .compile()
         .inspectR8Input(
             inspector -> {

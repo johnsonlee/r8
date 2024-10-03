@@ -236,10 +236,10 @@ public class PartialCompilationDemoTest extends TestBase {
   private void runR8Partial(Path tempDir, CompilerDump dump, Path output, Predicate<String> isR8)
       throws IOException, CompilationFailedException {
     testForR8Partial(parameters.getBackend())
-        .setR8PartialConfigurationPredicate(isR8)
+        .setR8PartialConfigurationJavaTypePredicate(isR8)
         .addOptionsModification(
             options -> {
-              options.r8PartialCompilationOptions.tempDir = tempDir;
+              options.partialCompilationConfiguration.setTempDir(tempDir);
 
               // For compiling nowonandroid.
               options.testing.allowUnnecessaryDontWarnWildcards = true;

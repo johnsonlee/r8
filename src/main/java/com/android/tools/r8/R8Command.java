@@ -51,6 +51,7 @@ import com.android.tools.r8.utils.InternalOptions.HorizontalClassMergerOptions;
 import com.android.tools.r8.utils.InternalOptions.LineNumberOptimization;
 import com.android.tools.r8.utils.InternalOptions.MappingComposeOptions;
 import com.android.tools.r8.utils.ProgramClassCollection;
+import com.android.tools.r8.utils.R8PartialCompilationConfiguration;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.SetUtils;
@@ -149,6 +150,7 @@ public final class R8Command extends BaseCompilerCommand {
     private AndroidResourceConsumer androidResourceConsumer = null;
     private ResourceShrinkerConfiguration resourceShrinkerConfiguration =
         ResourceShrinkerConfiguration.DEFAULT_CONFIGURATION;
+    private R8PartialCompilationConfiguration partialCompilationConfiguration = null;
 
     private final ProguardConfigurationParserOptions.Builder parserOptionsBuilder =
         ProguardConfigurationParserOptions.builder().readEnvironment();
@@ -554,6 +556,43 @@ public final class R8Command extends BaseCompilerCommand {
       this.readEmbeddedRulesFromClasspathAndLibrary = enable;
     }
 
+    /**
+     * Configure partial shrinking in R8, where R8 is only applied to a part of the input.
+     *
+     * <p>The patterns in {@code includePatterns} and {@code excludePatterns} are comma separated
+     * lists of string patterns of fully qualified names of packages/classes. The patterns support
+     * the wildcards {@code *} and {@code **}. The wildcards are only supported at the end of the
+     * pattern, so only prefix matching. If the character just before the wildcard is a {@code .}
+     * (package separator) then the difference between {@code *} and {@code **} is that {@code *}
+     * only includes classes in the same package, whereas {@code **} includes classes in subpackages
+     * as well. If the character before the wildcard is not a {@code .} (package separator) then
+     * {@code *} and {@code **} will both match all classes with that prefix.
+     *
+     * <p>If {@code includePatterns} is not specified ({@code null} or an empty string), the default
+     * is {@code "androidx.**,kotlin.**,kotlinx.**"}.
+     *
+     * <p>The include patterns are processed first collecting all possible include classes. Then the
+     * exclude patterns are applied removing all matching classes from the collected include
+     * classes.
+     *
+     * @param includePatterns patterns for classes to include in R8 shrinking (see above for
+     *     semantics)
+     * @param excludePatterns patterns for classes to exclude from R8 shrinking (see above for
+     *     semantics)
+     * @return
+     */
+    @Deprecated
+    public Builder enableExperimentalPartialShrinking(
+        String includePatterns, String excludePatterns) {
+      if (includePatterns == null || includePatterns.isEmpty()) {
+        includePatterns = "androidx.**,kotlin.**,kotlinx.**";
+      }
+      partialCompilationConfiguration =
+          R8PartialCompilationConfiguration.fromIncludeExcludePatterns(
+              includePatterns, excludePatterns);
+      return self();
+    }
+
     @Override
     protected InternalProgramOutputPathConsumer createProgramOutputConsumer(
         Path path,
@@ -799,7 +838,8 @@ public final class R8Command extends BaseCompilerCommand {
               androidResourceConsumer,
               resourceShrinkerConfiguration,
               keepSpecifications,
-              buildMetadataConsumer);
+              buildMetadataConsumer,
+              partialCompilationConfiguration);
 
       if (inputDependencyGraphConsumer != null) {
         inputDependencyGraphConsumer.finished();
@@ -1016,6 +1056,7 @@ public final class R8Command extends BaseCompilerCommand {
   private final AndroidResourceConsumer androidResourceConsumer;
   private final ResourceShrinkerConfiguration resourceShrinkerConfiguration;
   private final Consumer<? super R8BuildMetadata> buildMetadataConsumer;
+  private final R8PartialCompilationConfiguration partialCompilationConfiguration;
 
   /** Get a new {@link R8Command.Builder}. */
   public static Builder builder() {
@@ -1115,7 +1156,8 @@ public final class R8Command extends BaseCompilerCommand {
       AndroidResourceConsumer androidResourceConsumer,
       ResourceShrinkerConfiguration resourceShrinkerConfiguration,
       List<KeepSpecificationSource> keepSpecifications,
-      Consumer<? super R8BuildMetadata> buildMetadataConsumer) {
+      Consumer<? super R8BuildMetadata> buildMetadataConsumer,
+      R8PartialCompilationConfiguration partialCompilationConfiguration) {
     super(
         inputApp,
         mode,
@@ -1165,6 +1207,7 @@ public final class R8Command extends BaseCompilerCommand {
     this.androidResourceConsumer = androidResourceConsumer;
     this.resourceShrinkerConfiguration = resourceShrinkerConfiguration;
     this.buildMetadataConsumer = buildMetadataConsumer;
+    this.partialCompilationConfiguration = partialCompilationConfiguration;
   }
 
   private R8Command(boolean printHelp, boolean printVersion) {
@@ -1194,6 +1237,7 @@ public final class R8Command extends BaseCompilerCommand {
     androidResourceConsumer = null;
     resourceShrinkerConfiguration = null;
     buildMetadataConsumer = null;
+    partialCompilationConfiguration = null;
   }
 
   public DexItemFactory getDexItemFactory() {
@@ -1343,6 +1387,10 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     // EXPERIMENTAL flags.
+    if (partialCompilationConfiguration != null) {
+      internal.partialCompilationConfiguration = partialCompilationConfiguration;
+    }
+
     assert !internal.forceProguardCompatibility;
     internal.forceProguardCompatibility = forceProguardCompatibility;
 

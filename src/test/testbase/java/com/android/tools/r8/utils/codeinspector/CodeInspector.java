@@ -47,6 +47,7 @@ import com.android.tools.r8.retrace.internal.RetracerImpl;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.BiMapContainer;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Timing;
@@ -63,6 +64,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -422,6 +424,18 @@ public class CodeInspector {
     ImmutableList.Builder<FoundClassSubject> builder = ImmutableList.builder();
     forAllClasses(builder::add);
     return builder.build();
+  }
+
+  public boolean hasExactlyProgramClasses(Class<?>... classes) {
+    return hasExactlyProgramClasses(Arrays.asList(classes));
+  }
+
+  public boolean hasExactlyProgramClasses(Collection<Class<?>> classes) {
+    Set<ClassReference> descriptors =
+        classes.stream().map(Reference::classFromClass).collect(Collectors.toSet());
+    BooleanBox allFound = new BooleanBox(true);
+    forAllClasses(clazz -> allFound.and(descriptors.remove(clazz.reference)));
+    return descriptors.isEmpty() && allFound.get();
   }
 
   public Stream<InstructionSubject> streamInstructions() {

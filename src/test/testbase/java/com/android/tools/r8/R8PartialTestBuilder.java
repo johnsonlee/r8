@@ -10,23 +10,17 @@ import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import com.android.tools.r8.utils.R8PartialCompilationConfiguration;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 public class R8PartialTestBuilder
     extends R8TestBuilder<R8PartialTestCompileResult, R8TestRunResult, R8PartialTestBuilder> {
 
-  private R8PartialConfiguration r8PartialConfiguration =
-      R8PartialConfiguration.defaultConfiguration();
+  private R8PartialCompilationConfiguration r8PartialConfiguration =
+      R8PartialCompilationConfiguration.disabledConfiguration();
 
   private R8PartialTestBuilder(TestState state, Builder builder, Backend backend) {
     super(state, builder, backend);
@@ -52,106 +46,30 @@ public class R8PartialTestBuilder
     return this;
   }
 
-  public static class R8PartialConfiguration implements Predicate<String> {
-    private static final R8PartialConfiguration defaultConfiguration =
-        new R8PartialConfiguration(ImmutableList.of(), ImmutableList.of());
-    private final List<Predicate<String>> includePredicates;
-    private final List<Predicate<String>> excludePredicates;
-
-    public R8PartialConfiguration(
-        List<Predicate<String>> includePredicates, List<Predicate<String>> excludePredicates) {
-      this.includePredicates = includePredicates;
-      this.excludePredicates = excludePredicates;
-    }
-
-    private static R8PartialConfiguration defaultConfiguration() {
-      return defaultConfiguration;
-    }
-
-    public static Builder builder() {
-      return new Builder();
-    }
-
-    public boolean test(String name) {
-      for (Predicate<String> isR8ClassPredicate : includePredicates) {
-        if (isR8ClassPredicate.test(name)) {
-          for (Predicate<String> isD8ClassPredicate : excludePredicates) {
-            if (isD8ClassPredicate.test(name)) {
-              return false;
-            }
-          }
-          return true;
-        }
-      }
-      return false;
-    }
-
-    public static class Builder {
-      private final List<Predicate<String>> includePredicates = new ArrayList<>();
-      private final List<Predicate<String>> excludePredicates = new ArrayList<>();
-
-      public R8PartialConfiguration build() {
-        return new R8PartialConfiguration(includePredicates, excludePredicates);
-      }
-
-      public Builder includeAll() {
-        includePredicates.add(Predicates.alwaysTrue());
-        return this;
-      }
-
-      public Builder includeClasses(Class<?>... classes) {
-        return includeClasses(Arrays.asList(classes));
-      }
-
-      public Builder includeClasses(Collection<Class<?>> classes) {
-        Collection<String> typeNames =
-            classes.stream().map(Class::getTypeName).collect(Collectors.toList());
-        includePredicates.add(typeNames::contains);
-        return this;
-      }
-
-      public Builder include(Predicate<String> include) {
-        includePredicates.add(include);
-        return this;
-      }
-
-      public Builder excludeClasses(Class<?>... classes) {
-        return excludeClasses(Arrays.asList(classes));
-      }
-
-      public Builder excludeClasses(Collection<Class<?>> classes) {
-        Collection<String> typeNames =
-            classes.stream().map(Class::getTypeName).collect(Collectors.toList());
-        excludePredicates.add(typeNames::contains);
-        return this;
-      }
-
-      public Builder exclude(Predicate<String> exclude) {
-        excludePredicates.add(exclude);
-        return this;
-      }
-    }
-  }
-
-  public R8PartialTestBuilder setR8PartialConfigurationPredicate(Predicate<String> include) {
-    assert r8PartialConfiguration == R8PartialConfiguration.defaultConfiguration()
+  public R8PartialTestBuilder setR8PartialConfigurationJavaTypePredicate(
+      Predicate<String> include) {
+    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
         : "Overwriting configuration...?";
-    r8PartialConfiguration = R8PartialConfiguration.builder().include(include).build();
+    r8PartialConfiguration =
+        R8PartialCompilationConfiguration.builder().includeJavaType(include).build();
     return self();
   }
 
-  public R8PartialTestBuilder setR8PartialConfiguration(R8PartialConfiguration configuration) {
-    assert r8PartialConfiguration == R8PartialConfiguration.defaultConfiguration()
+  public R8PartialTestBuilder setR8PartialConfiguration(
+      R8PartialCompilationConfiguration configuration) {
+    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
         : "Overwriting configuration...?";
     r8PartialConfiguration = configuration;
     return self();
   }
 
   public R8PartialTestBuilder setR8PartialConfiguration(
-      Function<R8PartialConfiguration.Builder, R8PartialConfiguration> fn) {
-    assert r8PartialConfiguration == R8PartialConfiguration.defaultConfiguration()
+      Consumer<R8PartialCompilationConfiguration.Builder> consumer) {
+    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
         : "Overwriting configuration...?";
-    r8PartialConfiguration = fn.apply(R8PartialConfiguration.builder());
+    R8PartialCompilationConfiguration.Builder builder = R8PartialCompilationConfiguration.builder();
+    consumer.accept(builder);
+    r8PartialConfiguration = builder.build();
     return self();
   }
 
@@ -165,18 +83,17 @@ public class R8PartialTestBuilder
       Box<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer,
       StringBuilder proguardMapBuilder)
       throws CompilationFailedException {
-    Box<AndroidApp> r8InputApp = new Box<>();
-    Box<AndroidApp> d8InputApp = new Box<>();
-    Box<AndroidApp> r8OutputApp = new Box<>();
-    Box<AndroidApp> d8OutputApp = new Box<>();
+    Box<AndroidApp> r8InputAppBox = new Box<>();
+    Box<AndroidApp> d8InputAppBox = new Box<>();
+    Box<AndroidApp> r8OutputAppBox = new Box<>();
+    Box<AndroidApp> d8OutputAppBox = new Box<>();
     Consumer<InternalOptions> configureR8PartialCompilation =
         options -> {
-          options.r8PartialCompilationOptions.enabled = true;
-          options.r8PartialCompilationOptions.isR8 = r8PartialConfiguration;
-          options.r8PartialCompilationOptions.r8InputApp = r8InputApp::set;
-          options.r8PartialCompilationOptions.d8InputApp = d8InputApp::set;
-          options.r8PartialCompilationOptions.r8OutputApp = r8OutputApp::set;
-          options.r8PartialCompilationOptions.d8OutputApp = d8OutputApp::set;
+          options.partialCompilationConfiguration = r8PartialConfiguration;
+          options.partialCompilationConfiguration.r8InputAppConsumer = r8InputAppBox::set;
+          options.partialCompilationConfiguration.d8InputAppConsumer = d8InputAppBox::set;
+          options.partialCompilationConfiguration.r8OutputAppConsumer = r8OutputAppBox::set;
+          options.partialCompilationConfiguration.d8OutputAppConsumer = d8OutputAppBox::set;
         };
     ToolHelper.runAndBenchmarkR8PartialWithoutResult(
         builder, configureR8PartialCompilation.andThen(optionsConsumer), benchmarkResults);
@@ -195,9 +112,9 @@ public class R8PartialTestBuilder
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
         buildMetadata != null ? buildMetadata.get() : null,
-        r8InputApp.get(),
-        d8InputApp.get(),
-        r8OutputApp.get(),
-        d8OutputApp.get());
+        r8InputAppBox.get(),
+        d8InputAppBox.get(),
+        r8OutputAppBox.get(),
+        d8OutputAppBox.get());
   }
 }
