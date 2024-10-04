@@ -63,19 +63,19 @@ import com.google.common.collect.ImmutableList;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Immutable command structure for an invocation of the {@link R8} compiler.
@@ -875,43 +875,48 @@ public final class R8Command extends BaseCompilerCommand {
                 }
                 return compilerVersion;
               });
-      // TODO(b/370665838): Remove the fixpoint, as -injars are not supported in embedded keep
-      // rules. The comment below is not true.
-      // Since -injars can itself reference archives with rules and that in turn have -injars the
-      // completion of amending rules and providers must run in a fixed point. The fixed point is
-      // reached once the injars set is stable.
-      Set<FilteredClassPath> seenInjars = SetUtils.newIdentityHashSet();
-      Deque<ProgramResourceProvider> providers =
-          new ArrayDeque<>(getAppBuilder().getProgramResourceProviders());
-      while (true) {
-        for (FilteredClassPath injar : parser.getConfigurationBuilder().getInjars()) {
-          if (seenInjars.add(injar)) {
-            ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(injar);
+      Set<FilteredClassPath> seen = SetUtils.newIdentityHashSet();
+      // Find resources in program providers. Both from API and added through legacy -injars in
+      // configuration files.
+      List<DataResourceProvider> providers =
+          new ArrayList<>(
+              getAppBuilder().getProgramResourceProviders().stream()
+                  .map(ProgramResourceProvider::getDataResourceProvider)
+                  .filter(Objects::nonNull)
+                  .collect(Collectors.toList()));
+      for (FilteredClassPath injar : parser.getConfigurationBuilder().getInjars()) {
+        if (seen.add(injar)) {
+          ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(injar);
+          if (provider != null) {
+            providers.add(provider);
+          }
+        }
+      }
+
+      if (readEmbeddedRulesFromClasspathAndLibrary) {
+        // Find resources in classpath providers. No legacy configuration file option for classpath.
+        getAppBuilder().getClasspathResourceProviders().stream()
+            .map(ClassFileResourceProvider::getDataResourceProvider)
+            .filter(Objects::nonNull)
+            .forEach(providers::add);
+        // Find resources in library providers. Both from API and added through legacy -libraryjars
+        // in configuration files.
+        getAppBuilder().getLibraryResourceProviders().stream()
+            .map(ClassFileResourceProvider::getDataResourceProvider)
+            .filter(Objects::nonNull)
+            .forEach(providers::add);
+        for (FilteredClassPath libraryjar :
+            parser.getConfigurationBuilder().build().getLibraryjars()) {
+          if (seen.add(libraryjar)) {
+            ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(libraryjar);
             if (provider != null) {
               providers.add(provider);
             }
           }
         }
-        if (providers.isEmpty()) {
-          break;
-        }
-
-        while (!providers.isEmpty()) {
-          DataResourceProvider dataResourceProvider = providers.pop().getDataResourceProvider();
-          parseEmbeddedRules(reporter, parser, semanticVersionSupplier, dataResourceProvider);
-        }
-        // TODO(b/370665838): Remove the fixpoint. For now assert that it is not needed.
-        assert seenInjars.containsAll(parser.getConfigurationBuilder().getInjars());
       }
-      if (readEmbeddedRulesFromClasspathAndLibrary) {
-        for (ClassFileResourceProvider provider : getAppBuilder().getClasspathResourceProviders()) {
-          parseEmbeddedRules(
-              reporter, parser, semanticVersionSupplier, provider.getDataResourceProvider());
-        }
-        for (ClassFileResourceProvider provider : getAppBuilder().getLibraryResourceProviders()) {
-          parseEmbeddedRules(
-              reporter, parser, semanticVersionSupplier, provider.getDataResourceProvider());
-        }
+      for (DataResourceProvider provider : providers) {
+        parseEmbeddedRules(reporter, parser, semanticVersionSupplier, provider);
       }
     }
 

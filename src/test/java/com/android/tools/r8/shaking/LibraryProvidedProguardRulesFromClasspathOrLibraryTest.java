@@ -16,6 +16,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.ClassFileResourceProvider;
@@ -23,13 +24,13 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
+import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +54,12 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
 
   public interface Interface {}
 
+  private enum HowToAdd {
+    API_CLASSPATH,
+    API_LIBRARY,
+    RULES_LIBRARYJARS
+  }
+
   @Parameter(0)
   public TestParameters parameters;
 
@@ -60,30 +67,36 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
   public LibraryType libraryType;
 
   @Parameter(2)
-  public boolean isClasspath;
+  public HowToAdd howToAdd;
 
-  @Parameters(name = "{0}, libraryType: {1}, isClasspath {2}")
+  @Parameters(name = "{0}, libraryType: {1}, howToAdd: {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build(),
         LibraryType.values(),
-        BooleanUtils.values());
+        HowToAdd.values());
   }
 
   private Path buildLibrary(List<String> rules) throws Exception {
     return buildLibrary(libraryType, ImmutableList.of(Interface.class, Keep.class), rules);
   }
 
+  private void addClasspathOrLibrary(Path library, R8FullTestBuilder builder) {
+    builder.applyIf(
+        howToAdd == HowToAdd.API_CLASSPATH,
+        b -> b.addClasspathFiles(library),
+        howToAdd == HowToAdd.API_LIBRARY,
+        b ->
+            b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                .addLibraryFiles(library),
+        b -> b.addKeepRules("-libraryjars " + library.toAbsolutePath()));
+  }
+
   private CodeInspector runTest(List<String> rules) throws Exception {
     Path library = buildLibrary(rules);
     return testForR8(parameters.getBackend())
         .addProgramClasses(A.class, B.class)
-        .applyIf(
-            isClasspath,
-            b -> b.addClasspathFiles(library),
-            b ->
-                b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
-                    .addLibraryFiles(library))
+        .apply(b -> addClasspathOrLibrary(library, b))
         .setMinApi(parameters)
         .apply(b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
         .compile()
@@ -155,12 +168,7 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
         () -> {
           Path library = buildLibrary(ImmutableList.of("-injars some.jar"));
           testForR8(parameters.getBackend())
-              .applyIf(
-                  isClasspath,
-                  b -> b.addClasspathFiles(library),
-                  b ->
-                      b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
-                          .addLibraryFiles(library))
+              .apply(b -> addClasspathOrLibrary(library, b))
               .setMinApi(parameters)
               .apply(
                   b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
@@ -181,12 +189,7 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
         () -> {
           Path library = buildLibrary(ImmutableList.of("-include other.rules"));
           testForR8(parameters.getBackend())
-              .applyIf(
-                  isClasspath,
-                  b -> b.addClasspathFiles(library),
-                  b ->
-                      b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
-                          .addLibraryFiles(library))
+              .apply(b -> addClasspathOrLibrary(library, b))
               .setMinApi(parameters)
               .apply(
                   b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
@@ -233,6 +236,7 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
 
   @Test
   public void throwingDataResourceProvider() {
+    assumeFalse(howToAdd == HowToAdd.RULES_LIBRARYJARS);
     // TODO(b/228319861): Read Proguard rules from AAR's.
     assumeTrue(!libraryType.isAar());
     assertThrows(
@@ -240,7 +244,7 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
         () ->
             testForR8(parameters.getBackend())
                 .applyIf(
-                    isClasspath,
+                    howToAdd == HowToAdd.API_CLASSPATH,
                     b -> b.addClasspathResourceProviders(new TestProvider()),
                     b ->
                         b.addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
