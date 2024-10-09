@@ -21,6 +21,7 @@ function get() {
   }
   console.assert(state.hasLegend('Runtime'));
   console.assert(state.hasLegend('Runtime variance'));
+  console.assert(state.hasLegend('Warmup'));
   scales.y_runtime = {
     position: state.hasLegend('Dex size') ? 'right' : 'left',
     title: {
@@ -62,7 +63,9 @@ function update(scales) {
   }
   if (scales.y_runtime) {
     scales.y_runtime.display =
-        state.isLegendSelected('Runtime') || state.isLegendSelected('Runtime variance');
+        state.isLegendSelected('Runtime')
+            || state.isLegendSelected('Runtime variance')
+            || state.isLegendSelected('Warmup');
   }
 }
 

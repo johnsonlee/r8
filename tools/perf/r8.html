@@ -51,7 +51,8 @@
       'Oat size': { default: true },
       'Nondeterminism': { default: true },
       'Runtime': { default: true },
-      'Runtime variance': { default: false }
+      'Runtime variance': { default: false },
+      'Warmup': { default: false }
     });
     state.initializeZoom();
     dom.initializeBenchmarkSelectors();
@@ -101,11 +102,9 @@
           const runtimeData =
               filteredCommits.map(
                   (c, i) =>
-                      selectedBenchmark in filteredCommits[i].benchmarks
-                          ? getAllResults(selectedBenchmark, filteredCommits[i], "runtime",
-                                results => dom.transformRuntimeData(results))
-                              .ns_to_s()
-                          : NaN);
+                      getAllResults(
+                          selectedBenchmark, filteredCommits[i], "runtime",
+                          results => dom.transformRuntimeData(results).ns_to_s()));
           const runtimeScatterData = [];
           for (const commit of filteredCommits.values()) {
             if (!(selectedBenchmark in commit.benchmarks)) {
@@ -116,6 +115,12 @@
               runtimeScatterData.push({ x: commit.index, y: runtime.ns_to_s() });
             }
           }
+          const warmupData =
+              filteredCommits.map(
+                  (c, i) =>
+                      getAllWarmupResults(
+                          selectedBenchmark, filteredCommits[i], "runtime",
+                          results => dom.transformRuntimeData(results).ns_to_s()));
 
           const skipped = (ctx, value) => ctx.p0.skip || ctx.p1.skip ? value : undefined;
           datasets.push(...[
@@ -254,6 +259,29 @@
                 }
               },
               yAxisID: 'y_runtime'
+            },
+            {
+              benchmark: selectedBenchmark,
+              type: 'line',
+              label: 'Warmup',
+              data: warmupData,
+              datalabels: {
+                labels: {
+                  value: null
+                }
+              },
+              tension: 0.1,
+              yAxisID: 'y_runtime',
+              segment: {
+                borderColor: ctx =>
+                    skipped(
+                        ctx,
+                        chart.get()
+                            ? chart.get().data.datasets[ctx.datasetIndex].backgroundColor
+                            : undefined),
+                borderDash: ctx => skipped(ctx, [6, 6]),
+              },
+              spanGaps: true
             }
           ]);
         });
