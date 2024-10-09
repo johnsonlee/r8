@@ -7,6 +7,7 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.metadata.impl.R8ApiModelingOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8BaselineProfileRewritingOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8BuildMetadataImpl;
+import com.android.tools.r8.metadata.impl.R8CompilationInfoImpl;
 import com.android.tools.r8.metadata.impl.R8KeepAttributesOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8LibraryDesugaringOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8OptionsImpl;
@@ -28,6 +29,7 @@ public interface R8BuildMetadata {
         .registerTypeAdapter(
             R8BaselineProfileRewritingOptions.class,
             deserializeTo(R8BaselineProfileRewritingOptionsImpl.class))
+        .registerTypeAdapter(R8CompilationInfo.class, deserializeTo(R8CompilationInfoImpl.class))
         .registerTypeAdapter(
             R8KeepAttributesOptions.class, deserializeTo(R8KeepAttributesOptionsImpl.class))
         .registerTypeAdapter(
@@ -52,6 +54,8 @@ public interface R8BuildMetadata {
    * @return null if baseline profile rewriting is disabled.
    */
   R8BaselineProfileRewritingOptions getBaselineProfileRewritingOptions();
+
+  R8CompilationInfo getCompilationInfo();
 
   /**
    * @return null if not compiling to dex.

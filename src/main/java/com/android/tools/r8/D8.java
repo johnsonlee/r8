@@ -328,7 +328,8 @@ public final class D8 {
       reportSyntheticInformation(appView);
 
       if (options.isGeneratingClassFiles()) {
-        new CfApplicationWriter(appView, marker).write(options.getClassFileConsumer(), inputApp);
+        new CfApplicationWriter(appView, marker)
+            .write(options.getClassFileConsumer(), executor, inputApp);
       } else {
         ApplicationWriter.create(appView, marker).write(executor, inputApp);
       }

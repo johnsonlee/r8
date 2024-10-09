@@ -13,6 +13,7 @@ import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.R8BaselineProfileRewritingOptions;
 import com.android.tools.r8.metadata.R8BuildMetadata;
+import com.android.tools.r8.metadata.R8CompilationInfo;
 import com.android.tools.r8.metadata.R8Options;
 import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
 import com.android.tools.r8.metadata.R8StartupOptimizationOptions;
@@ -41,6 +42,10 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   private final R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
 
   @Expose
+  @SerializedName("compilationInfo")
+  private final R8CompilationInfo compilationInfo;
+
+  @Expose
   @SerializedName("dexChecksums")
   private final List<String> dexChecksums;
 
@@ -59,12 +64,14 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   public R8BuildMetadataImpl(
       R8Options options,
       R8BaselineProfileRewritingOptions baselineProfileRewritingOptions,
+      R8CompilationInfo compilationInfo,
       List<String> dexChecksums,
       R8ResourceOptimizationOptions resourceOptimizationOptions,
       R8StartupOptimizationOptions startupOptimizationOptions,
       String version) {
     this.options = options;
     this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
+    this.compilationInfo = compilationInfo;
     this.dexChecksums = dexChecksums;
     this.resourceOptimizationOptions = resourceOptimizationOptions;
     this.startupOptimizationOptions = startupOptimizationOptions;
@@ -83,6 +90,11 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   @Override
   public R8BaselineProfileRewritingOptions getBaselineProfileRewritingOptions() {
     return baselineProfileRewritingOptions;
+  }
+
+  @Override
+  public R8CompilationInfo getCompilationInfo() {
+    return compilationInfo;
   }
 
   @Override
@@ -114,6 +126,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
 
     private R8Options options;
     private R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
+    private R8CompilationInfo compilationInfo;
     private List<String> dexChecksums;
     private R8ResourceOptimizationOptions resourceOptimizationOptions;
     private R8StartupOptimizationOptions startupOptimizationOptions;
@@ -134,6 +147,11 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     public Builder setBaselineProfileRewritingOptions(
         R8BaselineProfileRewritingOptions baselineProfileRewritingOptions) {
       this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
+      return this;
+    }
+
+    public Builder setCompilationInfo(R8CompilationInfo compilationInfo) {
+      this.compilationInfo = compilationInfo;
       return this;
     }
 
@@ -167,6 +185,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return new R8BuildMetadataImpl(
           options,
           baselineProfileRewritingOptions,
+          compilationInfo,
           dexChecksums,
           resourceOptimizationOptions,
           startupOptimizationOptions,

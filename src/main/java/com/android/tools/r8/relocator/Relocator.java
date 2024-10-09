@@ -81,7 +81,8 @@ public class Relocator {
       appView.setAppServices(AppServices.builder(appView).build());
       appView.setNamingLens(command.getMapping().compute(appView));
       new GenericSignatureRewriter(appView).run(appInfo.classes(), executor);
-      new CfApplicationWriter(appView, new Marker(Tool.Relocator)).write(command.getConsumer());
+      new CfApplicationWriter(appView, new Marker(Tool.Relocator))
+          .write(command.getConsumer(), executor);
       options.printWarnings();
     } catch (ExecutionException e) {
       throw unwrapExecutionException(e);

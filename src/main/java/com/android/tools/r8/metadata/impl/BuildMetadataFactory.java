@@ -12,6 +12,7 @@ import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 public class BuildMetadataFactory {
 
@@ -23,11 +24,14 @@ public class BuildMetadataFactory {
   }
 
   public static R8BuildMetadata create(
-      AppView<? extends AppInfoWithClassHierarchy> appView, List<VirtualFile> virtualFiles) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ExecutorService executorService,
+      List<VirtualFile> virtualFiles) {
     InternalOptions options = appView.options();
     return R8BuildMetadataImpl.builder()
         .setOptions(new R8OptionsImpl(options))
         .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingOptionsImpl.create(options))
+        .setCompilationInfo(R8CompilationInfoImpl.create(executorService, options))
         .applyIf(options.isGeneratingDex(), builder -> builder.setDexChecksums(virtualFiles))
         .setResourceOptimizationOptions(R8ResourceOptimizationOptionsImpl.create(options))
         .setStartupOptimizationOptions(

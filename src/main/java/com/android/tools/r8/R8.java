@@ -222,7 +222,8 @@ public class R8 {
       Marker marker = options.getMarker();
       assert marker != null;
       if (options.isGeneratingClassFiles()) {
-        new CfApplicationWriter(appView, marker).write(options.getClassFileConsumer(), inputApp);
+        new CfApplicationWriter(appView, marker)
+            .write(options.getClassFileConsumer(), executorService, inputApp);
       } else {
         ApplicationWriter.create(appView, marker).write(executorService, inputApp);
       }

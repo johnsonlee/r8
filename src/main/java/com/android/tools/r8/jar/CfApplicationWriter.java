@@ -66,6 +66,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.objectweb.asm.AnnotationVisitor;
@@ -113,15 +114,16 @@ public class CfApplicationWriter {
     return appView.getNamingLens();
   }
 
-  public void write(ClassFileConsumer consumer) {
+  public void write(ClassFileConsumer consumer, ExecutorService executorService) {
     assert !options.hasMappingFileSupport();
-    write(consumer, null);
+    write(consumer, executorService, null);
   }
 
-  public void write(ClassFileConsumer consumer, AndroidApp inputApp) {
+  public void write(
+      ClassFileConsumer consumer, ExecutorService executorService, AndroidApp inputApp) {
     application.timing.begin("CfApplicationWriter.write");
     try {
-      writeApplication(inputApp, consumer);
+      writeApplication(inputApp, consumer, executorService);
     } finally {
       application.timing.end();
     }
@@ -138,7 +140,8 @@ public class CfApplicationWriter {
     return true;
   }
 
-  private void writeApplication(AndroidApp inputApp, ClassFileConsumer consumer) {
+  private void writeApplication(
+      AndroidApp inputApp, ClassFileConsumer consumer, ExecutorService executorService) {
     ProguardMapId proguardMapId = null;
     if (options.hasMappingFileSupport()) {
       assert marker.isPresent();
@@ -187,7 +190,7 @@ public class CfApplicationWriter {
       }
       globalsConsumer.finished(appView);
     }
-    ApplicationWriter.supplyAdditionalConsumers(appView, Collections.emptyList());
+    ApplicationWriter.supplyAdditionalConsumers(appView, executorService, Collections.emptyList());
   }
 
   private void writeClassCatchingErrors(

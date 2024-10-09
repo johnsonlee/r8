@@ -149,7 +149,8 @@ public class L8 {
               appView));
       new GenericSignatureRewriter(appView).run(appView.appInfo().classes(), executor);
 
-      new CfApplicationWriter(appView, options.getMarker()).write(options.getClassFileConsumer());
+      new CfApplicationWriter(appView, options.getMarker())
+          .write(options.getClassFileConsumer(), executor);
       options.printWarnings();
     } catch (ExecutionException e) {
       throw unwrapExecutionException(e);

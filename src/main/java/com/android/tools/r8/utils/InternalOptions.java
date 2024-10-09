@@ -241,6 +241,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return proguardConfiguration;
   }
 
+  public long created = -1;
   private final ProguardConfiguration proguardConfiguration;
   public final Reporter reporter;
 

@@ -135,7 +135,7 @@ public class GlobalSyntheticsGenerator {
               } else {
                 assert options.isGeneratingClassFiles();
                 new CfApplicationWriter(appView, options.getMarker())
-                    .write(options.getClassFileConsumer(), app);
+                    .write(options.getClassFileConsumer(), executorService, app);
               }
             } catch (ExecutionException e) {
               throw unwrapExecutionException(e);
