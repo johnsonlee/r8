@@ -11,10 +11,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import java.lang.reflect.Type;
-import java.util.Collection;
-import java.util.function.IntToLongFunction;
 
-public class BenchmarkResultsSingleAdapter implements JsonSerializer<BenchmarkResultsSingle> {
+public class BenchmarkResultsSingleAdapter extends BenchmarkResultsAdapterBase
+    implements JsonSerializer<BenchmarkResultsSingle> {
 
   @Override
   public JsonElement serialize(
@@ -43,7 +42,7 @@ public class BenchmarkResultsSingleAdapter implements JsonSerializer<BenchmarkRe
       for (int section : DexSection.getConstants()) {
         String sectionName = DexSection.typeName(section);
         String sectionNameUnderscore =
-            CaseFormat.UPPER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, sectionName);
+            CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, sectionName);
         addPropertyIfValueDifferentFromRepresentative(
             resultObject,
             "dex_" + sectionNameUnderscore + "_size",
@@ -70,24 +69,5 @@ public class BenchmarkResultsSingleAdapter implements JsonSerializer<BenchmarkRe
     benchmarkObject.addProperty("benchmark_name", result.getName());
     benchmarkObject.add("results", resultsArray);
     return benchmarkObject;
-  }
-
-  private void addPropertyIfValueDifferentFromRepresentative(
-      JsonObject resultObject,
-      String propertyName,
-      int iteration,
-      Collection<?> results,
-      IntToLongFunction getter) {
-    if (results.isEmpty()) {
-      return;
-    }
-    long result = getter.applyAsLong(iteration);
-    if (iteration != 0) {
-      long representativeResult = getter.applyAsLong(0);
-      if (result == representativeResult) {
-        return;
-      }
-    }
-    resultObject.addProperty(propertyName, result);
   }
 }

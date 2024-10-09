@@ -53,8 +53,12 @@ public class BenchmarkRunner {
   public void run(BenchmarkRunnerFunction fn) throws Exception {
     long warmupTotalTime = 0;
     BenchmarkConfig config = environment.getConfig();
-    BenchmarkResults warmupResults = new BenchmarkResultsWarmup(config.getName());
+    BenchmarkResultsWarmup warmupResults = null;
     if (warmups > 0) {
+      warmupResults =
+          config.isSingleBenchmark()
+              ? new BenchmarkResultsWarmup(config.getName())
+              : new BenchmarkResultsWarmup(config.getName(), config.getSubBenchmarks());
       long start = System.nanoTime();
       for (int i = 0; i < warmups; i++) {
         fn.run(warmupResults);
@@ -84,7 +88,7 @@ public class BenchmarkRunner {
     printMetaInfo("benchmark", getBenchmarkIterations(), benchmarkTotalTime);
     results.printResults(resultMode, environment.failOnCodeSizeDifferences());
     if (environment.hasOutputPath()) {
-      results.writeResults(environment.getOutputPath());
+      results.writeResults(environment.getOutputPath(), warmupResults);
     }
     System.out.println();
   }

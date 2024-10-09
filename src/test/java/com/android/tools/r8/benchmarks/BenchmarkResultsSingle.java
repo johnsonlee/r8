@@ -10,6 +10,7 @@ import com.android.tools.r8.DexSegments.SegmentInfo;
 import com.android.tools.r8.dex.DexSection;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
@@ -268,14 +269,20 @@ public class BenchmarkResultsSingle implements BenchmarkResults {
   }
 
   @Override
-  public void writeResults(Path path) throws IOException {
+  public void writeResults(Path path, BenchmarkResults warmupResults) throws IOException {
     try (PrintStream out = new PrintStream(Files.newOutputStream(path))) {
       Gson gson =
           new GsonBuilder()
               .registerTypeAdapter(
                   BenchmarkResultsSingle.class, new BenchmarkResultsSingleAdapter())
+              .registerTypeAdapter(
+                  BenchmarkResultsWarmup.class, new BenchmarkResultsWarmupAdapter())
               .create();
-      out.print(gson.toJson(this));
+      JsonObject json = (JsonObject) gson.toJsonTree(this);
+      if (warmupResults != null) {
+        json.add("warmup", gson.toJsonTree(warmupResults));
+      }
+      out.print(json);
     }
   }
 }

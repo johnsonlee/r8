@@ -86,11 +86,13 @@ public class BenchmarkResultsCollection implements BenchmarkResults {
   }
 
   @Override
-  public void writeResults(Path path) throws IOException {
+  public void writeResults(Path path, BenchmarkResults warmupResults) throws IOException {
     for (Entry<String, BenchmarkResultsSingle> entry : results.entrySet()) {
       String name = entry.getKey();
       BenchmarkResultsSingle result = entry.getValue();
-      result.writeResults(path.resolve(name));
+      BenchmarkResults warmupSubResults =
+          warmupResults != null ? warmupResults.getSubResults(name) : null;
+      result.writeResults(path.resolve(name), warmupSubResults);
     }
   }
 }

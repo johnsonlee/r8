@@ -40,7 +40,7 @@ public interface BenchmarkResults {
 
   void printResults(ResultMode resultMode, boolean failOnCodeSizeDifferences);
 
-  void writeResults(Path path) throws IOException;
+  void writeResults(Path path, BenchmarkResults warmupResults) throws IOException;
 
   static String prettyTime(long nanoTime) {
     return "" + (nanoTime / 1000000) + " ms";

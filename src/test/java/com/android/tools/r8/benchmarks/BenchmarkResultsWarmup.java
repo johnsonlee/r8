@@ -12,6 +12,9 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class BenchmarkResultsWarmup implements BenchmarkResults {
 
@@ -20,8 +23,17 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   private long codeSizeResult = -1;
   private long resourceSizeResult = -1;
 
+  private final Map<String, BenchmarkResultsWarmup> results = new HashMap<>();
+
   public BenchmarkResultsWarmup(String name) {
     this.name = name;
+  }
+
+  public BenchmarkResultsWarmup(String name, Map<String, Set<BenchmarkMetric>> benchmarks) {
+    this.name = name;
+    benchmarks.forEach(
+        (benchmarkName, metrics) ->
+            results.put(benchmarkName, new BenchmarkResultsWarmup(benchmarkName)));
   }
 
   @Override
@@ -84,15 +96,22 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
     addRuntimeResult(averageRuntimeResult);
   }
 
+  public LongList getRuntimeResults() {
+    return runtimeResults;
+  }
+
   @Override
   public BenchmarkResults getSubResults(String name) {
-    // When running warmups all results are amended to the single warmup result.
-    return this;
+    return results.get(name);
   }
 
   @Override
   public boolean isBenchmarkingCodeSize() {
     return false;
+  }
+
+  public int size() {
+    return runtimeResults.size();
   }
 
   @Override
@@ -108,7 +127,7 @@ public class BenchmarkResultsWarmup implements BenchmarkResults {
   }
 
   @Override
-  public void writeResults(Path path) {
+  public void writeResults(Path path, BenchmarkResults warmupResults) {
     throw new Unimplemented();
   }
 }
