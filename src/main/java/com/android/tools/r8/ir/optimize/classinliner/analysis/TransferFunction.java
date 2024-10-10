@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.classinliner.analysis;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.ir.code.Opcodes.ASSUME;
 import static com.android.tools.r8.ir.code.Opcodes.CHECK_CAST;
 import static com.android.tools.r8.ir.code.Opcodes.IF;
@@ -394,21 +395,21 @@ class TransferFunction
         : isMaybeEligibleForClassInlining(clazz.asClasspathOrLibraryClass());
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private boolean isMaybeEligibleForClassInlining(DexProgramClass clazz) {
     // We can only class inline parameters that does not inherit from other classpath or library
     // classes than java.lang.Object.
-    DexType superType = clazz.getSuperType();
-    do {
-      DexClass superClass = appView.definitionFor(superType);
+    while (clazz.hasSuperType()) {
+      DexType superType = clazz.getSuperType();
+      if (superType.isIdenticalTo(dexItemFactory.objectType)) {
+        break;
+      }
+      DexProgramClass superClass = asProgramClassOrNull(appView.definitionFor(superType));
       if (superClass == null) {
         return false;
       }
-      if (!superClass.isProgramClass()) {
-        return superClass.getType() == dexItemFactory.objectType;
-      }
-      superType = superClass.getSuperType();
-    } while (true);
+      clazz = superClass;
+    }
+    return true;
   }
 
   @SuppressWarnings("ReferenceEquality")
