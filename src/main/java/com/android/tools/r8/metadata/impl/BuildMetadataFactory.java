@@ -47,7 +47,7 @@ public class BuildMetadataFactory {
     return R8BuildMetadataImpl.builder()
         .setOptions(new R8OptionsImpl(options))
         .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingOptionsImpl.create(options))
-        .setCompilationInfo(R8CompilationInfoImpl.create(executorService, options))
+        .setCompilationInfo(R8CompilationInfoImpl.create(appView, executorService))
         .applyIf(
             options.isGeneratingDex(), builder -> builder.setDexFilesMetadata(baseVirtualFiles))
         .applyIf(
@@ -58,6 +58,7 @@ public class BuildMetadataFactory {
         .setResourceOptimizationOptions(R8ResourceOptimizationOptionsImpl.create(options))
         .setStartupOptimizationOptions(
             R8StartupOptimizationOptionsImpl.create(options, baseVirtualFiles))
+        .setStatsMetadata(R8StatsMetadataImpl.create(appView))
         .setVersion(Version.LABEL)
         .build();
   }

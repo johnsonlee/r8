@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
@@ -38,7 +40,8 @@ public class R8CompilationInfoImpl implements R8CompilationInfo {
   }
 
   public static R8CompilationInfoImpl create(
-      ExecutorService executorService, InternalOptions options) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService) {
+    InternalOptions options = appView.options();
     assert options.created > 0;
     long buildTime = System.nanoTime() - options.created;
     return new R8CompilationInfoImpl(buildTime, ThreadUtils.getNumberOfThreads(executorService));

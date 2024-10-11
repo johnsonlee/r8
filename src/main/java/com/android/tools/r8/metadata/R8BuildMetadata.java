@@ -16,6 +16,7 @@ import com.android.tools.r8.metadata.impl.R8LibraryDesugaringOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8OptionsImpl;
 import com.android.tools.r8.metadata.impl.R8ResourceOptimizationOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8StartupOptimizationOptionsImpl;
+import com.android.tools.r8.metadata.impl.R8StatsMetadataImpl;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 import java.util.List;
@@ -34,6 +35,7 @@ public interface R8BuildMetadata {
             deserializeTo(R8BaselineProfileRewritingOptionsImpl.class))
         .registerTypeAdapter(R8CompilationInfo.class, deserializeTo(R8CompilationInfoImpl.class))
         .registerTypeAdapter(R8DexFileMetadata.class, deserializeTo(R8DexFileMetadataImpl.class))
+        .registerTypeAdapter(R8StatsMetadata.class, deserializeTo(R8StatsMetadataImpl.class))
         .registerTypeAdapter(
             R8FeatureSplitMetadata.class, deserializeTo(R8FeatureSplitMetadataImpl.class))
         .registerTypeAdapter(
@@ -84,6 +86,8 @@ public interface R8BuildMetadata {
    * @return null if startup optimization is disabled.
    */
   R8StartupOptimizationOptions getStartupOptizationOptions();
+
+  R8StatsMetadata getStatsMetadata();
 
   String getVersion();
 

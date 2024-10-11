@@ -89,6 +89,7 @@ public class R8BuildMetadataTest extends TestBase {
 
   private void inspectDeserializedBuildMetadata(R8BuildMetadata buildMetadata) {
     assertNotNull(buildMetadata.getBaselineProfileRewritingOptions());
+    assertNotNull(buildMetadata.getCompilationInfo());
     assertNotNull(buildMetadata.getOptions());
     assertNotNull(buildMetadata.getOptions().getKeepAttributesOptions());
     assertEquals(
@@ -113,6 +114,7 @@ public class R8BuildMetadataTest extends TestBase {
     } else {
       assertNull(startupOptimizationOptions);
     }
+    assertNotNull(buildMetadata.getStatsMetadata());
     assertEquals(Version.LABEL, buildMetadata.getVersion());
   }
 

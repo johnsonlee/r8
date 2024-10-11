@@ -19,6 +19,7 @@ import com.android.tools.r8.metadata.R8FeatureSplitsMetadata;
 import com.android.tools.r8.metadata.R8Options;
 import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
 import com.android.tools.r8.metadata.R8StartupOptimizationOptions;
+import com.android.tools.r8.metadata.R8StatsMetadata;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
@@ -53,6 +54,10 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   private final List<R8DexFileMetadata> dexFilesMetadata;
 
   @Expose
+  @SerializedName("statsMetadata")
+  private final R8StatsMetadata statsMetadata;
+
+  @Expose
   @SerializedName("featureSplitsMetadata")
   private final R8FeatureSplitsMetadata featureSplitsMetadata;
 
@@ -73,6 +78,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       R8BaselineProfileRewritingOptions baselineProfileRewritingOptions,
       R8CompilationInfo compilationInfo,
       List<R8DexFileMetadata> dexFilesMetadata,
+      R8StatsMetadata statsMetadata,
       R8FeatureSplitsMetadata featureSplitsMetadata,
       R8ResourceOptimizationOptions resourceOptimizationOptions,
       R8StartupOptimizationOptions startupOptimizationOptions,
@@ -81,6 +87,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
     this.compilationInfo = compilationInfo;
     this.dexFilesMetadata = dexFilesMetadata;
+    this.statsMetadata = statsMetadata;
     this.featureSplitsMetadata = featureSplitsMetadata;
     this.resourceOptimizationOptions = resourceOptimizationOptions;
     this.startupOptimizationOptions = startupOptimizationOptions;
@@ -127,6 +134,11 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   }
 
   @Override
+  public R8StatsMetadata getStatsMetadata() {
+    return statsMetadata;
+  }
+
+  @Override
   public String getVersion() {
     return version;
   }
@@ -142,6 +154,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     private R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
     private R8CompilationInfo compilationInfo;
     private List<R8DexFileMetadata> dexFilesMetadata;
+    private R8StatsMetadata statsMetadata;
     private R8FeatureSplitsMetadata featureSplitsMetadata;
     private R8ResourceOptimizationOptions resourceOptimizationOptions;
     private R8StartupOptimizationOptions startupOptimizationOptions;
@@ -180,6 +193,11 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return this;
     }
 
+    public Builder setStatsMetadata(R8StatsMetadata statsMetadata) {
+      this.statsMetadata = statsMetadata;
+      return this;
+    }
+
     public Builder setFeatureSplitsMetadata(R8FeatureSplitsMetadata featureSplitsMetadata) {
       this.featureSplitsMetadata = featureSplitsMetadata;
       return this;
@@ -208,6 +226,7 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
           baselineProfileRewritingOptions,
           compilationInfo,
           dexFilesMetadata,
+          statsMetadata,
           featureSplitsMetadata,
           resourceOptimizationOptions,
           startupOptimizationOptions,
