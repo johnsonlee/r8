@@ -11,6 +11,7 @@ import com.android.tools.r8.utils.OptionalBool;
 public class ProguardConfigurationParserOptions {
 
   private final OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion;
+  private final boolean enableEmptyMemberRulesToDefaultInitRuleConversionWarnings;
   private final boolean enableExperimentalCheckEnumUnboxed;
   private final boolean enableExperimentalConvertCheckNotNull;
   private final boolean enableExperimentalWhyAreYouNotInlining;
@@ -18,6 +19,7 @@ public class ProguardConfigurationParserOptions {
 
   ProguardConfigurationParserOptions(
       OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion,
+      boolean enableEmptyMemberRulesToDefaultInitRuleConversionWarnings,
       boolean enableExperimentalCheckEnumUnboxed,
       boolean enableExperimentalConvertCheckNotNull,
       boolean enableExperimentalWhyAreYouNotInlining,
@@ -28,6 +30,8 @@ public class ProguardConfigurationParserOptions {
     this.enableTestingOptions = enableTestingOptions;
     this.enableEmptyMemberRulesToDefaultInitRuleConversion =
         enableEmptyMemberRulesToDefaultInitRuleConversion;
+    this.enableEmptyMemberRulesToDefaultInitRuleConversionWarnings =
+        enableEmptyMemberRulesToDefaultInitRuleConversionWarnings;
   }
 
   public static Builder builder() {
@@ -45,7 +49,7 @@ public class ProguardConfigurationParserOptions {
       ProguardConfiguration.Builder configurationBuilder) {
     assert isEmptyMemberRulesToDefaultInitRuleConversionEnabled(configurationBuilder);
     return !configurationBuilder.isForceProguardCompatibility()
-        && enableEmptyMemberRulesToDefaultInitRuleConversion.isUnknown();
+        && enableEmptyMemberRulesToDefaultInitRuleConversionWarnings;
   }
 
   public boolean isExperimentalCheckEnumUnboxedEnabled() {
@@ -67,6 +71,7 @@ public class ProguardConfigurationParserOptions {
   public static class Builder {
 
     private OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion = OptionalBool.UNKNOWN;
+    private boolean enableEmptyMemberRulesToDefaultInitRuleConversionWarnings = false;
     private boolean enableExperimentalCheckEnumUnboxed;
     private boolean enableExperimentalConvertCheckNotNull;
     private boolean enableExperimentalWhyAreYouNotInlining;
@@ -77,6 +82,10 @@ public class ProguardConfigurationParserOptions {
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion",
               OptionalBool.UNKNOWN);
+      enableEmptyMemberRulesToDefaultInitRuleConversionWarnings =
+          parseSystemPropertyOrDefault(
+              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversionWarnings",
+              false);
       enableExperimentalCheckEnumUnboxed =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.experimental.enablecheckenumunboxed", false);
@@ -124,6 +133,7 @@ public class ProguardConfigurationParserOptions {
     public ProguardConfigurationParserOptions build() {
       return new ProguardConfigurationParserOptions(
           enableEmptyMemberRulesToDefaultInitRuleConversion,
+          enableEmptyMemberRulesToDefaultInitRuleConversionWarnings,
           enableExperimentalCheckEnumUnboxed,
           enableExperimentalConvertCheckNotNull,
           enableExperimentalWhyAreYouNotInlining,
