@@ -13,6 +13,7 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.startup.profile.StartupProfileClassRule;
 import com.android.tools.r8.profile.startup.profile.StartupProfileMethodRule;
+import com.android.tools.r8.utils.SystemPropertyUtils;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -21,6 +22,10 @@ import java.util.Set;
 
 @KeepForApi
 public class MissingStartupProfileItemsDiagnostic implements Diagnostic {
+
+  private static final int THRESHOLD =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.startup.diagnostic.limit", 100);
 
   private final List<DexReference> missingStartupItems;
   private final Origin origin;
@@ -43,6 +48,10 @@ public class MissingStartupProfileItemsDiagnostic implements Diagnostic {
 
   @Override
   public String getDiagnosticMessage() {
+    if (THRESHOLD == 0) {
+      return "Found " + missingStartupItems.size() + " missing startup classes and methods";
+    }
+
     StringBuilder builder = new StringBuilder();
     Iterator<DexReference> missingStartupItemIterator = missingStartupItems.iterator();
 
@@ -50,9 +59,21 @@ public class MissingStartupProfileItemsDiagnostic implements Diagnostic {
     writeMissingStartupItem(builder, missingStartupItemIterator.next());
 
     // Write remaining missing startup items with line separator before.
-    while (missingStartupItemIterator.hasNext()) {
+    int itemsToReport = (THRESHOLD > 0 ? THRESHOLD : Integer.MAX_VALUE) - 1;
+    while (missingStartupItemIterator.hasNext() && itemsToReport > 0) {
       writeMissingStartupItem(
           builder.append(System.lineSeparator()), missingStartupItemIterator.next());
+      itemsToReport--;
+    }
+
+    if (missingStartupItemIterator.hasNext()) {
+      assert THRESHOLD > 0;
+      int omittedItems = missingStartupItems.size() - THRESHOLD;
+      builder
+          .append(System.lineSeparator())
+          .append("Found ")
+          .append(omittedItems)
+          .append(" other missing startup classes and methods");
     }
 
     return builder.toString();
