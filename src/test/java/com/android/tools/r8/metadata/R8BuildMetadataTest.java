@@ -51,7 +51,7 @@ public class R8BuildMetadataTest extends TestBase {
         ImmutableList.of(ExternalStartupClass.builder().setClassReference(mainReference).build());
     R8BuildMetadata buildMetadata =
         testForR8(parameters.getBackend())
-            .addInnerClasses(getClass())
+            .addProgramClasses(Main.class)
             .addKeepMainRule(Main.class)
             .addArtProfileForRewriting(
                 ExternalArtProfile.builder().addClassRule(mainReference).build())
@@ -60,7 +60,10 @@ public class R8BuildMetadataTest extends TestBase {
                 testBuilder ->
                     testBuilder
                         .addAndroidResources(getTestResources())
+                        .addFeatureSplit(FeatureSplitMain.class)
+                        .addKeepMainRule(FeatureSplitMain.class)
                         .apply(StartupTestingUtils.addStartupProfile(startupProfile))
+                        .enableIsolatedSplits(true)
                         .enableOptimizedShrinking())
             .allowDiagnosticInfoMessages(parameters.canUseNativeMultidex())
             .collectBuildMetadata()
@@ -90,6 +93,20 @@ public class R8BuildMetadataTest extends TestBase {
   private void inspectDeserializedBuildMetadata(R8BuildMetadata buildMetadata) {
     assertNotNull(buildMetadata.getBaselineProfileRewritingOptions());
     assertNotNull(buildMetadata.getCompilationInfo());
+    R8FeatureSplitsMetadata featureSplitsMetadata = buildMetadata.getFeatureSplitsMetadata();
+    if (parameters.isDexRuntime()) {
+      assertNotNull(featureSplitsMetadata);
+      assertTrue(featureSplitsMetadata.isIsolatedSplitsEnabled());
+      assertEquals(1, featureSplitsMetadata.getFeatureSplits().size());
+      R8FeatureSplitMetadata featureSplitMetadata = featureSplitsMetadata.getFeatureSplits().get(0);
+      assertNotNull(featureSplitMetadata);
+      assertEquals(1, featureSplitMetadata.getDexFilesMetadata().size());
+      R8DexFileMetadata featureSplitDexFile = featureSplitMetadata.getDexFilesMetadata().get(0);
+      assertNotNull(featureSplitDexFile);
+      assertNotNull(featureSplitDexFile.getChecksum());
+    } else {
+      assertNull(featureSplitsMetadata);
+    }
     assertNotNull(buildMetadata.getOptions());
     assertNotNull(buildMetadata.getOptions().getKeepAttributesOptions());
     assertEquals(
@@ -119,6 +136,11 @@ public class R8BuildMetadataTest extends TestBase {
   }
 
   static class Main {
+
+    public static void main(String[] args) {}
+  }
+
+  static class FeatureSplitMain {
 
     public static void main(String[] args) {}
   }
