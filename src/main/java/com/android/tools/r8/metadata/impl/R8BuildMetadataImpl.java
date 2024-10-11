@@ -11,14 +11,14 @@ import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.metadata.R8BaselineProfileRewritingOptions;
+import com.android.tools.r8.metadata.R8BaselineProfileRewritingMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
-import com.android.tools.r8.metadata.R8CompilationInfo;
+import com.android.tools.r8.metadata.R8CompilationMetadata;
 import com.android.tools.r8.metadata.R8DexFileMetadata;
 import com.android.tools.r8.metadata.R8FeatureSplitsMetadata;
-import com.android.tools.r8.metadata.R8Options;
-import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
-import com.android.tools.r8.metadata.R8StartupOptimizationOptions;
+import com.android.tools.r8.metadata.R8OptionsMetadata;
+import com.android.tools.r8.metadata.R8ResourceOptimizationMetadata;
+import com.android.tools.r8.metadata.R8StartupOptimizationMetadata;
 import com.android.tools.r8.metadata.R8StatsMetadata;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.gson.Gson;
@@ -39,58 +39,58 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
 
   @Expose
   @SerializedName("options")
-  private final R8Options options;
+  private final R8OptionsMetadata optionsMetadata;
 
   @Expose
-  @SerializedName("baselineProfileRewritingOptions")
-  private final R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
+  @SerializedName("baselineProfileRewriting")
+  private final R8BaselineProfileRewritingMetadata baselineProfileRewritingMetadata;
 
   @Expose
-  @SerializedName("compilationInfo")
-  private final R8CompilationInfo compilationInfo;
+  @SerializedName("compilation")
+  private final R8CompilationMetadata compilationMetadata;
 
   @Expose
-  @SerializedName("dexFilesMetadata")
+  @SerializedName("dexFiles")
   private final List<R8DexFileMetadata> dexFilesMetadata;
 
   @Expose
-  @SerializedName("statsMetadata")
+  @SerializedName("stats")
   private final R8StatsMetadata statsMetadata;
 
   @Expose
-  @SerializedName("featureSplitsMetadata")
+  @SerializedName("featureSplits")
   private final R8FeatureSplitsMetadata featureSplitsMetadata;
 
   @Expose
-  @SerializedName("resourceOptimizationOptions")
-  private final R8ResourceOptimizationOptions resourceOptimizationOptions;
+  @SerializedName("resourceOptimization")
+  private final R8ResourceOptimizationMetadata resourceOptimizationMetadata;
 
   @Expose
-  @SerializedName("startupOptimizationOptions")
-  private final R8StartupOptimizationOptions startupOptimizationOptions;
+  @SerializedName("startupOptimization")
+  private final R8StartupOptimizationMetadata startupOptimizationMetadata;
 
   @Expose
   @SerializedName("version")
   private final String version;
 
   public R8BuildMetadataImpl(
-      R8Options options,
-      R8BaselineProfileRewritingOptions baselineProfileRewritingOptions,
-      R8CompilationInfo compilationInfo,
+      R8OptionsMetadata options,
+      R8BaselineProfileRewritingMetadata baselineProfileRewritingOptions,
+      R8CompilationMetadata compilationMetadata,
       List<R8DexFileMetadata> dexFilesMetadata,
       R8StatsMetadata statsMetadata,
       R8FeatureSplitsMetadata featureSplitsMetadata,
-      R8ResourceOptimizationOptions resourceOptimizationOptions,
-      R8StartupOptimizationOptions startupOptimizationOptions,
+      R8ResourceOptimizationMetadata resourceOptimizationMetadata,
+      R8StartupOptimizationMetadata startupOptimizationMetadata,
       String version) {
-    this.options = options;
-    this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
-    this.compilationInfo = compilationInfo;
+    this.optionsMetadata = options;
+    this.baselineProfileRewritingMetadata = baselineProfileRewritingOptions;
+    this.compilationMetadata = compilationMetadata;
     this.dexFilesMetadata = dexFilesMetadata;
     this.statsMetadata = statsMetadata;
     this.featureSplitsMetadata = featureSplitsMetadata;
-    this.resourceOptimizationOptions = resourceOptimizationOptions;
-    this.startupOptimizationOptions = startupOptimizationOptions;
+    this.resourceOptimizationMetadata = resourceOptimizationMetadata;
+    this.startupOptimizationMetadata = startupOptimizationMetadata;
     this.version = version;
   }
 
@@ -99,18 +99,18 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   }
 
   @Override
-  public R8Options getOptions() {
-    return options;
+  public R8OptionsMetadata getOptionsMetadata() {
+    return optionsMetadata;
   }
 
   @Override
-  public R8BaselineProfileRewritingOptions getBaselineProfileRewritingOptions() {
-    return baselineProfileRewritingOptions;
+  public R8BaselineProfileRewritingMetadata getBaselineProfileRewritingMetadata() {
+    return baselineProfileRewritingMetadata;
   }
 
   @Override
-  public R8CompilationInfo getCompilationInfo() {
-    return compilationInfo;
+  public R8CompilationMetadata getCompilationMetadata() {
+    return compilationMetadata;
   }
 
   @Override
@@ -124,13 +124,13 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   }
 
   @Override
-  public R8ResourceOptimizationOptions getResourceOptimizationOptions() {
-    return resourceOptimizationOptions;
+  public R8ResourceOptimizationMetadata getResourceOptimizationMetadata() {
+    return resourceOptimizationMetadata;
   }
 
   @Override
-  public R8StartupOptimizationOptions getStartupOptizationOptions() {
-    return startupOptimizationOptions;
+  public R8StartupOptimizationMetadata getStartupOptizationOptions() {
+    return startupOptimizationMetadata;
   }
 
   @Override
@@ -150,14 +150,14 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
 
   public static class Builder {
 
-    private R8Options options;
-    private R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
-    private R8CompilationInfo compilationInfo;
+    private R8OptionsMetadata options;
+    private R8BaselineProfileRewritingMetadata baselineProfileRewritingOptions;
+    private R8CompilationMetadata compilationInfo;
     private List<R8DexFileMetadata> dexFilesMetadata;
     private R8StatsMetadata statsMetadata;
     private R8FeatureSplitsMetadata featureSplitsMetadata;
-    private R8ResourceOptimizationOptions resourceOptimizationOptions;
-    private R8StartupOptimizationOptions startupOptimizationOptions;
+    private R8ResourceOptimizationMetadata resourceOptimizationOptions;
+    private R8StartupOptimizationMetadata startupOptimizationOptions;
     private String version;
 
     public Builder applyIf(boolean condition, Consumer<Builder> thenConsumer) {
@@ -167,18 +167,18 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return this;
     }
 
-    public Builder setOptions(R8Options options) {
+    public Builder setOptions(R8OptionsMetadata options) {
       this.options = options;
       return this;
     }
 
     public Builder setBaselineProfileRewritingOptions(
-        R8BaselineProfileRewritingOptions baselineProfileRewritingOptions) {
+        R8BaselineProfileRewritingMetadata baselineProfileRewritingOptions) {
       this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
       return this;
     }
 
-    public Builder setCompilationInfo(R8CompilationInfo compilationInfo) {
+    public Builder setCompilationInfo(R8CompilationMetadata compilationInfo) {
       this.compilationInfo = compilationInfo;
       return this;
     }
@@ -204,13 +204,13 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     }
 
     public Builder setResourceOptimizationOptions(
-        R8ResourceOptimizationOptions resourceOptimizationOptions) {
+        R8ResourceOptimizationMetadata resourceOptimizationOptions) {
       this.resourceOptimizationOptions = resourceOptimizationOptions;
       return this;
     }
 
     public Builder setStartupOptimizationOptions(
-        R8StartupOptimizationOptions startupOptimizationOptions) {
+        R8StartupOptimizationMetadata startupOptimizationOptions) {
       this.startupOptimizationOptions = startupOptimizationOptions;
       return this;
     }

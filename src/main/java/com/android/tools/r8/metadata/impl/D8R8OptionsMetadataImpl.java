@@ -19,17 +19,17 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-abstract class D8R8OptionsImpl<
-        ApiModelingOptions, LibraryDesugaringOptions extends D8R8LibraryDesugaringOptions>
-    implements D8R8Options<ApiModelingOptions, LibraryDesugaringOptions> {
+abstract class D8R8OptionsMetadataImpl<
+        ApiModelingMetadata, LibraryDesugaringMetadata extends D8R8LibraryDesugaringMetadata>
+    implements D8R8OptionsMetadata<ApiModelingMetadata, LibraryDesugaringMetadata> {
 
   @Expose
-  @SerializedName("apiModelingOptions")
-  private final ApiModelingOptions apiModelingOptions;
+  @SerializedName("apiModeling")
+  private final ApiModelingMetadata apiModelingMetadata;
 
   @Expose
-  @SerializedName("libraryDesugaringOptions")
-  private final LibraryDesugaringOptions libraryDesugaringOptions;
+  @SerializedName("libraryDesugaring")
+  private final LibraryDesugaringMetadata libraryDesugaringMetadata;
 
   @Expose
   @SerializedName("minApiLevel")
@@ -39,24 +39,24 @@ abstract class D8R8OptionsImpl<
   @SerializedName("isDebugModeEnabled")
   private final boolean isDebugModeEnabled;
 
-  public D8R8OptionsImpl(
-      ApiModelingOptions apiModelingOptions,
-      LibraryDesugaringOptions libraryDesugaringOptions,
+  public D8R8OptionsMetadataImpl(
+      ApiModelingMetadata apiModelingMetadata,
+      LibraryDesugaringMetadata libraryDesugaringMetadata,
       InternalOptions options) {
-    this.apiModelingOptions = apiModelingOptions;
-    this.libraryDesugaringOptions = libraryDesugaringOptions;
+    this.apiModelingMetadata = apiModelingMetadata;
+    this.libraryDesugaringMetadata = libraryDesugaringMetadata;
     this.minApiLevel = options.isGeneratingDex() ? options.getMinApiLevel().getLevel() : -1;
     this.isDebugModeEnabled = options.debug;
   }
 
   @Override
-  public ApiModelingOptions getApiModelingOptions() {
-    return apiModelingOptions;
+  public ApiModelingMetadata getApiModelingMetadata() {
+    return apiModelingMetadata;
   }
 
   @Override
-  public LibraryDesugaringOptions getLibraryDesugaringOptions() {
-    return libraryDesugaringOptions;
+  public LibraryDesugaringMetadata getLibraryDesugaringMetadata() {
+    return libraryDesugaringMetadata;
   }
 
   @Override

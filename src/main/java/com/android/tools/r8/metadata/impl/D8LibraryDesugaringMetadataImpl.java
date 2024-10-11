@@ -8,7 +8,7 @@ import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.metadata.D8LibraryDesugaringOptions;
+import com.android.tools.r8.metadata.D8LibraryDesugaringMetadata;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.gson.annotations.SerializedName;
 
@@ -19,16 +19,16 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class D8LibraryDesugaringOptionsImpl extends D8R8LibraryDesugaringOptionsImpl
-    implements D8LibraryDesugaringOptions {
+public class D8LibraryDesugaringMetadataImpl extends D8R8LibraryDesugaringMetadataImpl
+    implements D8LibraryDesugaringMetadata {
 
-  private D8LibraryDesugaringOptionsImpl(InternalOptions options) {
+  private D8LibraryDesugaringMetadataImpl(InternalOptions options) {
     super(options);
   }
 
-  public static D8LibraryDesugaringOptionsImpl create(InternalOptions options) {
+  public static D8LibraryDesugaringMetadataImpl create(InternalOptions options) {
     return !options.machineDesugaredLibrarySpecification.isEmpty()
-        ? new D8LibraryDesugaringOptionsImpl(options)
+        ? new D8LibraryDesugaringMetadataImpl(options)
         : null;
   }
 }

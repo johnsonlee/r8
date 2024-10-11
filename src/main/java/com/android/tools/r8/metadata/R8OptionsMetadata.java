@@ -6,22 +6,22 @@ package com.android.tools.r8.metadata;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 
 @KeepForApi
-public interface R8Options {
+public interface R8OptionsMetadata {
 
   /**
    * @return null if API modeling is disabled.
    */
-  R8ApiModelingOptions getApiModelingOptions();
+  R8ApiModelingMetadata getApiModelingMetadata();
 
   /**
    * @return null if no ProGuard configuration is provided.
    */
-  R8KeepAttributesOptions getKeepAttributesOptions();
+  R8KeepAttributesMetadata getKeepAttributesMetadata();
 
   /**
    * @return null if library desugaring is disabled.
    */
-  R8LibraryDesugaringOptions getLibraryDesugaringOptions();
+  R8LibraryDesugaringMetadata getLibraryDesugaringMetadata();
 
   int getMinApiLevel();
 

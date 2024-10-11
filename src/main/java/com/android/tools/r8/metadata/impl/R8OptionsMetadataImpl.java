@@ -8,10 +8,10 @@ import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.metadata.R8ApiModelingOptions;
-import com.android.tools.r8.metadata.R8KeepAttributesOptions;
-import com.android.tools.r8.metadata.R8LibraryDesugaringOptions;
-import com.android.tools.r8.metadata.R8Options;
+import com.android.tools.r8.metadata.R8ApiModelingMetadata;
+import com.android.tools.r8.metadata.R8KeepAttributesMetadata;
+import com.android.tools.r8.metadata.R8LibraryDesugaringMetadata;
+import com.android.tools.r8.metadata.R8OptionsMetadata;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -23,12 +23,13 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8OptionsImpl extends D8R8OptionsImpl<R8ApiModelingOptions, R8LibraryDesugaringOptions>
-    implements R8Options {
+public class R8OptionsMetadataImpl
+    extends D8R8OptionsMetadataImpl<R8ApiModelingMetadata, R8LibraryDesugaringMetadata>
+    implements R8OptionsMetadata {
 
   @Expose
-  @SerializedName("keepAttributesOptions")
-  private final R8KeepAttributesOptions keepAttributesOptions;
+  @SerializedName("keepAttributes")
+  private final R8KeepAttributesMetadata keepAttributesMetadata;
 
   @Expose
   @SerializedName("isAccessModificationEnabled")
@@ -50,14 +51,14 @@ public class R8OptionsImpl extends D8R8OptionsImpl<R8ApiModelingOptions, R8Libra
   @SerializedName("isShrinkingEnabled")
   private final boolean isShrinkingEnabled;
 
-  public R8OptionsImpl(InternalOptions options) {
+  public R8OptionsMetadataImpl(InternalOptions options) {
     super(
-        R8ApiModelingOptionsImpl.create(options),
-        R8LibraryDesugaringOptionsImpl.create(options),
+        R8ApiModelingMetadataImpl.create(options),
+        R8LibraryDesugaringMetadataImpl.create(options),
         options);
-    this.keepAttributesOptions =
+    this.keepAttributesMetadata =
         options.hasProguardConfiguration()
-            ? new R8KeepAttributesOptionsImpl(
+            ? new R8KeepAttributesMetadataImpl(
                 options.getProguardConfiguration().getKeepAttributes())
             : null;
     this.isAccessModificationEnabled = options.isAccessModificationEnabled();
@@ -68,8 +69,8 @@ public class R8OptionsImpl extends D8R8OptionsImpl<R8ApiModelingOptions, R8Libra
   }
 
   @Override
-  public R8KeepAttributesOptions getKeepAttributesOptions() {
-    return keepAttributesOptions;
+  public R8KeepAttributesMetadata getKeepAttributesMetadata() {
+    return keepAttributesMetadata;
   }
 
   @Override

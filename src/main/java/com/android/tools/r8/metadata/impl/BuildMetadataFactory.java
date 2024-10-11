@@ -25,7 +25,7 @@ public class BuildMetadataFactory {
 
   public static D8BuildMetadata create(AppView<AppInfo> appView) {
     return D8BuildMetadataImpl.builder()
-        .setOptions(new D8OptionsImpl(appView.options()))
+        .setOptions(new D8OptionsMetadataImpl(appView.options()))
         .setVersion(Version.LABEL)
         .build();
   }
@@ -45,9 +45,9 @@ public class BuildMetadataFactory {
         virtualFilesForFeatureSplit.getOrDefault(FeatureSplit.BASE, Collections.emptyList());
     InternalOptions options = appView.options();
     return R8BuildMetadataImpl.builder()
-        .setOptions(new R8OptionsImpl(options))
-        .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingOptionsImpl.create(options))
-        .setCompilationInfo(R8CompilationInfoImpl.create(appView, executorService))
+        .setOptions(new R8OptionsMetadataImpl(options))
+        .setBaselineProfileRewritingOptions(R8BaselineProfileRewritingMetadataImpl.create(options))
+        .setCompilationInfo(R8CompilationMetadataImpl.create(appView, executorService))
         .applyIf(
             options.isGeneratingDex(), builder -> builder.setDexFilesMetadata(baseVirtualFiles))
         .applyIf(
@@ -55,9 +55,9 @@ public class BuildMetadataFactory {
             builder ->
                 builder.setFeatureSplitsMetadata(
                     R8FeatureSplitsMetadataImpl.create(appView, virtualFilesForFeatureSplit)))
-        .setResourceOptimizationOptions(R8ResourceOptimizationOptionsImpl.create(options))
+        .setResourceOptimizationOptions(R8ResourceOptimizationMetadataImpl.create(options))
         .setStartupOptimizationOptions(
-            R8StartupOptimizationOptionsImpl.create(options, baseVirtualFiles))
+            R8StartupOptimizationMetadataImpl.create(options, baseVirtualFiles))
         .setStatsMetadata(R8StatsMetadataImpl.create(appView))
         .setVersion(Version.LABEL)
         .build();

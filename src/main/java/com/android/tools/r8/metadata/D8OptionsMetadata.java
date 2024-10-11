@@ -4,7 +4,8 @@
 package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.metadata.impl.D8R8LibraryDesugaringOptions;
+import com.android.tools.r8.metadata.impl.D8R8OptionsMetadata;
 
 @KeepForApi
-public interface D8LibraryDesugaringOptions extends D8R8LibraryDesugaringOptions {}
+public interface D8OptionsMetadata
+    extends D8R8OptionsMetadata<D8ApiModelingMetadata, D8LibraryDesugaringMetadata> {}

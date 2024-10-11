@@ -24,7 +24,7 @@ import java.util.List;
 public class R8FeatureSplitMetadataImpl implements R8FeatureSplitMetadata {
 
   @Expose
-  @SerializedName("dexFilesMetadata")
+  @SerializedName("dexFiles")
   private final List<R8DexFileMetadata> dexFilesMetadata;
 
   public R8FeatureSplitMetadataImpl(List<R8DexFileMetadata> dexFilesMetadata) {

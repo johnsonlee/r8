@@ -91,8 +91,8 @@ public class R8BuildMetadataTest extends TestBase {
   }
 
   private void inspectDeserializedBuildMetadata(R8BuildMetadata buildMetadata) {
-    assertNotNull(buildMetadata.getBaselineProfileRewritingOptions());
-    assertNotNull(buildMetadata.getCompilationInfo());
+    assertNotNull(buildMetadata.getBaselineProfileRewritingMetadata());
+    assertNotNull(buildMetadata.getCompilationMetadata());
     R8FeatureSplitsMetadata featureSplitsMetadata = buildMetadata.getFeatureSplitsMetadata();
     if (parameters.isDexRuntime()) {
       assertNotNull(featureSplitsMetadata);
@@ -107,21 +107,21 @@ public class R8BuildMetadataTest extends TestBase {
     } else {
       assertNull(featureSplitsMetadata);
     }
-    assertNotNull(buildMetadata.getOptions());
-    assertNotNull(buildMetadata.getOptions().getKeepAttributesOptions());
+    assertNotNull(buildMetadata.getOptionsMetadata());
+    assertNotNull(buildMetadata.getOptionsMetadata().getKeepAttributesMetadata());
     assertEquals(
         parameters.isCfRuntime() ? -1 : parameters.getApiLevel().getLevel(),
-        buildMetadata.getOptions().getMinApiLevel());
-    assertFalse(buildMetadata.getOptions().isDebugModeEnabled());
+        buildMetadata.getOptionsMetadata().getMinApiLevel());
+    assertFalse(buildMetadata.getOptionsMetadata().isDebugModeEnabled());
     if (parameters.isDexRuntime()) {
-      R8ResourceOptimizationOptions resourceOptimizationOptions =
-          buildMetadata.getResourceOptimizationOptions();
+      R8ResourceOptimizationMetadata resourceOptimizationOptions =
+          buildMetadata.getResourceOptimizationMetadata();
       assertNotNull(resourceOptimizationOptions);
       assertTrue(resourceOptimizationOptions.isOptimizedShrinkingEnabled());
     } else {
-      assertNull(buildMetadata.getResourceOptimizationOptions());
+      assertNull(buildMetadata.getResourceOptimizationMetadata());
     }
-    R8StartupOptimizationOptions startupOptimizationOptions =
+    R8StartupOptimizationMetadata startupOptimizationOptions =
         buildMetadata.getStartupOptizationOptions();
     if (parameters.isDexRuntime()) {
       assertNotNull(startupOptimizationOptions);

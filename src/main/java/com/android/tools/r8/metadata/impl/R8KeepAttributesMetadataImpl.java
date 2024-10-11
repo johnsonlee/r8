@@ -8,7 +8,7 @@ import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.metadata.R8KeepAttributesOptions;
+import com.android.tools.r8.metadata.R8KeepAttributesMetadata;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -20,7 +20,7 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8KeepAttributesOptionsImpl implements R8KeepAttributesOptions {
+public class R8KeepAttributesMetadataImpl implements R8KeepAttributesMetadata {
 
   @Expose
   @SerializedName("isAnnotationDefaultKept")
@@ -98,7 +98,7 @@ public class R8KeepAttributesOptionsImpl implements R8KeepAttributesOptions {
   @SerializedName("isStackMapTableKept")
   private final boolean isStackMapTableKept;
 
-  public R8KeepAttributesOptionsImpl(ProguardKeepAttributes keepAttributes) {
+  public R8KeepAttributesMetadataImpl(ProguardKeepAttributes keepAttributes) {
     this.isAnnotationDefaultKept = keepAttributes.annotationDefault;
     this.isEnclosingMethodKept = keepAttributes.enclosingMethod;
     this.isExceptionsKept = keepAttributes.exceptions;

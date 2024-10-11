@@ -6,7 +6,7 @@ package com.android.tools.r8.metadata;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 
 @KeepForApi
-public interface R8ResourceOptimizationOptions {
+public interface R8ResourceOptimizationMetadata {
 
   boolean isOptimizedShrinkingEnabled();
 }

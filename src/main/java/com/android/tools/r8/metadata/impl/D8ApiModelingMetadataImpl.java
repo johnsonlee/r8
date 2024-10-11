@@ -8,7 +8,7 @@ import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.metadata.R8BaselineProfileRewritingOptions;
+import com.android.tools.r8.metadata.D8ApiModelingMetadata;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.gson.annotations.SerializedName;
 
@@ -19,14 +19,13 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8BaselineProfileRewritingOptionsImpl implements R8BaselineProfileRewritingOptions {
+public class D8ApiModelingMetadataImpl implements D8ApiModelingMetadata {
 
-  private R8BaselineProfileRewritingOptionsImpl() {}
+  private D8ApiModelingMetadataImpl() {}
 
-  public static R8BaselineProfileRewritingOptionsImpl create(InternalOptions options) {
-    if (options.getArtProfileOptions().getArtProfilesForRewriting().isEmpty()) {
-      return null;
-    }
-    return new R8BaselineProfileRewritingOptionsImpl();
+  public static D8ApiModelingMetadataImpl create(InternalOptions options) {
+    return options.apiModelingOptions().enableLibraryApiModeling
+        ? new D8ApiModelingMetadataImpl()
+        : null;
   }
 }

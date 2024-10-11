@@ -3,13 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
-import com.android.tools.r8.ResourceShrinkerConfiguration;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
-import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -21,26 +19,18 @@ import com.google.gson.annotations.SerializedName;
     kind = KeepItemKind.CLASS_AND_FIELDS,
     fieldAccess = {FieldAccessFlags.PRIVATE},
     fieldAnnotatedByClassConstant = SerializedName.class)
-public class R8ResourceOptimizationOptionsImpl implements R8ResourceOptimizationOptions {
+abstract class D8R8LibraryDesugaringMetadataImpl implements D8R8LibraryDesugaringMetadata {
 
   @Expose
-  @SerializedName("isOptimizedShrinkingEnabled")
-  private final boolean isOptimizedShrinkingEnabled;
+  @SerializedName("identifier")
+  private final String identifier;
 
-  private R8ResourceOptimizationOptionsImpl(
-      ResourceShrinkerConfiguration resourceShrinkerConfiguration) {
-    this.isOptimizedShrinkingEnabled = resourceShrinkerConfiguration.isOptimizedShrinking();
-  }
-
-  public static R8ResourceOptimizationOptionsImpl create(InternalOptions options) {
-    if (options.androidResourceProvider == null) {
-      return null;
-    }
-    return new R8ResourceOptimizationOptionsImpl(options.resourceShrinkerConfiguration);
+  public D8R8LibraryDesugaringMetadataImpl(InternalOptions options) {
+    this.identifier = options.machineDesugaredLibrarySpecification.getIdentifier();
   }
 
   @Override
-  public boolean isOptimizedShrinkingEnabled() {
-    return isOptimizedShrinkingEnabled;
+  public String getIdentifier() {
+    return identifier;
   }
 }

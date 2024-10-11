@@ -35,7 +35,7 @@ import java.util.Map;
 public class R8FeatureSplitsMetadataImpl implements R8FeatureSplitsMetadata {
 
   @Expose
-  @SerializedName("featureSplitsMetadata")
+  @SerializedName("featureSplits")
   private final List<R8FeatureSplitMetadata> featureSplitsMetadata;
 
   @Expose

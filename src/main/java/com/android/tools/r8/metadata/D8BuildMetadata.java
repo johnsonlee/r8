@@ -4,10 +4,10 @@
 package com.android.tools.r8.metadata;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.metadata.impl.D8ApiModelingOptionsImpl;
+import com.android.tools.r8.metadata.impl.D8ApiModelingMetadataImpl;
 import com.android.tools.r8.metadata.impl.D8BuildMetadataImpl;
-import com.android.tools.r8.metadata.impl.D8LibraryDesugaringOptionsImpl;
-import com.android.tools.r8.metadata.impl.D8OptionsImpl;
+import com.android.tools.r8.metadata.impl.D8LibraryDesugaringMetadataImpl;
+import com.android.tools.r8.metadata.impl.D8OptionsMetadataImpl;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 
@@ -17,11 +17,11 @@ public interface D8BuildMetadata {
   static D8BuildMetadata fromJson(String json) {
     return new GsonBuilder()
         .excludeFieldsWithoutExposeAnnotation()
-        .registerTypeAdapter(D8Options.class, deserializeTo(D8OptionsImpl.class))
+        .registerTypeAdapter(D8OptionsMetadata.class, deserializeTo(D8OptionsMetadataImpl.class))
         .registerTypeAdapter(
-            D8ApiModelingOptions.class, deserializeTo(D8ApiModelingOptionsImpl.class))
+            D8ApiModelingMetadata.class, deserializeTo(D8ApiModelingMetadataImpl.class))
         .registerTypeAdapter(
-            D8LibraryDesugaringOptions.class, deserializeTo(D8LibraryDesugaringOptionsImpl.class))
+            D8LibraryDesugaringMetadata.class, deserializeTo(D8LibraryDesugaringMetadataImpl.class))
         .create()
         .fromJson(json, D8BuildMetadataImpl.class);
   }
@@ -30,7 +30,7 @@ public interface D8BuildMetadata {
     return (element, type, context) -> context.deserialize(element, implClass);
   }
 
-  D8Options getOptions();
+  D8OptionsMetadata getOptions();
 
   String getVersion();
 

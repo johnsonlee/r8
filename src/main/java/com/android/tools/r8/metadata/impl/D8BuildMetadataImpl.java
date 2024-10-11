@@ -9,7 +9,7 @@ import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.D8BuildMetadata;
-import com.android.tools.r8.metadata.D8Options;
+import com.android.tools.r8.metadata.D8OptionsMetadata;
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -25,13 +25,13 @@ public class D8BuildMetadataImpl implements D8BuildMetadata {
 
   @Expose
   @SerializedName("options")
-  private final D8Options options;
+  private final D8OptionsMetadata options;
 
   @Expose
   @SerializedName("version")
   private final String version;
 
-  public D8BuildMetadataImpl(D8Options options, String version) {
+  public D8BuildMetadataImpl(D8OptionsMetadata options, String version) {
     this.options = options;
     this.version = version;
   }
@@ -41,7 +41,7 @@ public class D8BuildMetadataImpl implements D8BuildMetadata {
   }
 
   @Override
-  public D8Options getOptions() {
+  public D8OptionsMetadata getOptions() {
     return options;
   }
 
@@ -57,10 +57,10 @@ public class D8BuildMetadataImpl implements D8BuildMetadata {
 
   public static class Builder {
 
-    private D8Options options;
+    private D8OptionsMetadata options;
     private String version;
 
-    public Builder setOptions(D8Options options) {
+    public Builder setOptions(D8OptionsMetadata options) {
       this.options = options;
       return this;
     }
