@@ -213,8 +213,7 @@ public class ApplicationWriter {
     return desugaredLibraryCodeToKeep;
   }
 
-  private List<VirtualFile> distribute(ExecutorService executorService)
-      throws ExecutionException, IOException {
+  private List<VirtualFile> distribute(ExecutorService executorService) {
     Collection<DexProgramClass> classes = appView.appInfo().classes();
     Collection<DexProgramClass> globalSynthetics = new ArrayList<>();
     if (appView.options().intermediate && appView.options().hasGlobalSyntheticsConsumer()) {

@@ -161,6 +161,10 @@ public class VirtualFile {
     return featureSplit;
   }
 
+  public FeatureSplit getFeatureSplitOrBase() {
+    return featureSplit != null ? featureSplit : FeatureSplit.BASE;
+  }
+
   public StartupProfile getStartupProfile() {
     return startupProfile;
   }

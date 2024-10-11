@@ -14,9 +14,12 @@ import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.R8BaselineProfileRewritingOptions;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.metadata.R8CompilationInfo;
+import com.android.tools.r8.metadata.R8DexFileMetadata;
+import com.android.tools.r8.metadata.R8FeatureSplitsMetadata;
 import com.android.tools.r8.metadata.R8Options;
 import com.android.tools.r8.metadata.R8ResourceOptimizationOptions;
 import com.android.tools.r8.metadata.R8StartupOptimizationOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -46,8 +49,12 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   private final R8CompilationInfo compilationInfo;
 
   @Expose
-  @SerializedName("dexChecksums")
-  private final List<String> dexChecksums;
+  @SerializedName("dexFilesMetadata")
+  private final List<R8DexFileMetadata> dexFilesMetadata;
+
+  @Expose
+  @SerializedName("featureSplitsMetadata")
+  private final R8FeatureSplitsMetadata featureSplitsMetadata;
 
   @Expose
   @SerializedName("resourceOptimizationOptions")
@@ -65,14 +72,16 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       R8Options options,
       R8BaselineProfileRewritingOptions baselineProfileRewritingOptions,
       R8CompilationInfo compilationInfo,
-      List<String> dexChecksums,
+      List<R8DexFileMetadata> dexFilesMetadata,
+      R8FeatureSplitsMetadata featureSplitsMetadata,
       R8ResourceOptimizationOptions resourceOptimizationOptions,
       R8StartupOptimizationOptions startupOptimizationOptions,
       String version) {
     this.options = options;
     this.baselineProfileRewritingOptions = baselineProfileRewritingOptions;
     this.compilationInfo = compilationInfo;
-    this.dexChecksums = dexChecksums;
+    this.dexFilesMetadata = dexFilesMetadata;
+    this.featureSplitsMetadata = featureSplitsMetadata;
     this.resourceOptimizationOptions = resourceOptimizationOptions;
     this.startupOptimizationOptions = startupOptimizationOptions;
     this.version = version;
@@ -98,8 +107,13 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
   }
 
   @Override
-  public List<String> getDexChecksums() {
-    return dexChecksums;
+  public List<R8DexFileMetadata> getDexFilesMetadata() {
+    return dexFilesMetadata;
+  }
+
+  @Override
+  public R8FeatureSplitsMetadata getFeatureSplitsMetadata() {
+    return featureSplitsMetadata;
   }
 
   @Override
@@ -127,7 +141,8 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
     private R8Options options;
     private R8BaselineProfileRewritingOptions baselineProfileRewritingOptions;
     private R8CompilationInfo compilationInfo;
-    private List<String> dexChecksums;
+    private List<R8DexFileMetadata> dexFilesMetadata;
+    private R8FeatureSplitsMetadata featureSplitsMetadata;
     private R8ResourceOptimizationOptions resourceOptimizationOptions;
     private R8StartupOptimizationOptions startupOptimizationOptions;
     private String version;
@@ -155,12 +170,18 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
       return this;
     }
 
-    public Builder setDexChecksums(List<VirtualFile> virtualFiles) {
-      this.dexChecksums =
+    public Builder setDexFilesMetadata(List<VirtualFile> virtualFiles) {
+      List<String> checksums =
           virtualFiles.stream()
               .filter(not(VirtualFile::isEmpty))
               .map(virtualFile -> virtualFile.getChecksumForBuildMetadata().toString())
               .collect(Collectors.toList());
+      this.dexFilesMetadata = ListUtils.map(checksums, R8DexFileMetadataImpl::new);
+      return this;
+    }
+
+    public Builder setFeatureSplitsMetadata(R8FeatureSplitsMetadata featureSplitsMetadata) {
+      this.featureSplitsMetadata = featureSplitsMetadata;
       return this;
     }
 
@@ -186,7 +207,8 @@ public class R8BuildMetadataImpl implements R8BuildMetadata {
           options,
           baselineProfileRewritingOptions,
           compilationInfo,
-          dexChecksums,
+          dexFilesMetadata,
+          featureSplitsMetadata,
           resourceOptimizationOptions,
           startupOptimizationOptions,
           version);

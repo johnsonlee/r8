@@ -55,11 +55,13 @@ public class R8BuildMetadataTest extends TestBase {
             .addKeepMainRule(Main.class)
             .addArtProfileForRewriting(
                 ExternalArtProfile.builder().addClassRule(mainReference).build())
-            .apply(StartupTestingUtils.addStartupProfile(startupProfile))
             .applyIf(
                 parameters.isDexRuntime(),
                 testBuilder ->
-                    testBuilder.addAndroidResources(getTestResources()).enableOptimizedShrinking())
+                    testBuilder
+                        .addAndroidResources(getTestResources())
+                        .apply(StartupTestingUtils.addStartupProfile(startupProfile))
+                        .enableOptimizedShrinking())
             .allowDiagnosticInfoMessages(parameters.canUseNativeMultidex())
             .collectBuildMetadata()
             .setMinApi(parameters)
@@ -103,10 +105,14 @@ public class R8BuildMetadataTest extends TestBase {
     }
     R8StartupOptimizationOptions startupOptimizationOptions =
         buildMetadata.getStartupOptizationOptions();
-    assertNotNull(startupOptimizationOptions);
-    assertEquals(
-        parameters.isDexRuntime() && parameters.canUseNativeMultidex() ? 1 : 0,
-        startupOptimizationOptions.getNumberOfStartupDexFiles());
+    if (parameters.isDexRuntime()) {
+      assertNotNull(startupOptimizationOptions);
+      assertEquals(
+          parameters.isDexRuntime() && parameters.canUseNativeMultidex() ? 1 : 0,
+          startupOptimizationOptions.getNumberOfStartupDexFiles());
+    } else {
+      assertNull(startupOptimizationOptions);
+    }
     assertEquals(Version.LABEL, buildMetadata.getVersion());
   }
 

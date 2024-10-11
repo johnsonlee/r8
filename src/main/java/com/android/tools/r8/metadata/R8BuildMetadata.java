@@ -8,6 +8,9 @@ import com.android.tools.r8.metadata.impl.R8ApiModelingOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8BaselineProfileRewritingOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8BuildMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8CompilationInfoImpl;
+import com.android.tools.r8.metadata.impl.R8DexFileMetadataImpl;
+import com.android.tools.r8.metadata.impl.R8FeatureSplitMetadataImpl;
+import com.android.tools.r8.metadata.impl.R8FeatureSplitsMetadataImpl;
 import com.android.tools.r8.metadata.impl.R8KeepAttributesOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8LibraryDesugaringOptionsImpl;
 import com.android.tools.r8.metadata.impl.R8OptionsImpl;
@@ -30,6 +33,11 @@ public interface R8BuildMetadata {
             R8BaselineProfileRewritingOptions.class,
             deserializeTo(R8BaselineProfileRewritingOptionsImpl.class))
         .registerTypeAdapter(R8CompilationInfo.class, deserializeTo(R8CompilationInfoImpl.class))
+        .registerTypeAdapter(R8DexFileMetadata.class, deserializeTo(R8DexFileMetadataImpl.class))
+        .registerTypeAdapter(
+            R8FeatureSplitMetadata.class, deserializeTo(R8FeatureSplitMetadataImpl.class))
+        .registerTypeAdapter(
+            R8FeatureSplitsMetadata.class, deserializeTo(R8FeatureSplitsMetadataImpl.class))
         .registerTypeAdapter(
             R8KeepAttributesOptions.class, deserializeTo(R8KeepAttributesOptionsImpl.class))
         .registerTypeAdapter(
@@ -60,7 +68,12 @@ public interface R8BuildMetadata {
   /**
    * @return null if not compiling to dex.
    */
-  List<String> getDexChecksums();
+  List<R8DexFileMetadata> getDexFilesMetadata();
+
+  /**
+   * @return null if not using feature splits.
+   */
+  R8FeatureSplitsMetadata getFeatureSplitsMetadata();
 
   /**
    * @return null if resource optimization is disabled.
