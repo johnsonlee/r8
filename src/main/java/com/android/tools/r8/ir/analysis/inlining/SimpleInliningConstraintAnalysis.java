@@ -93,7 +93,10 @@ public class SimpleInliningConstraintAnalysis {
       int branchDepth,
       int instructionDepth,
       InstructionIterator instructionIterator) {
-    if (!seen.add(block) || block.hasCatchHandlers() || branchDepth > MAX_BRANCH_DEPTH) {
+    if (!seen.add(block)
+        || block.hasCatchHandlers()
+        || block.exit().isThrow()
+        || branchDepth > MAX_BRANCH_DEPTH) {
       return SimpleInliningConstraintWithDepth.getNever();
     }
 

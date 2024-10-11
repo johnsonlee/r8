@@ -32,8 +32,7 @@ public class Regress371247958 extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/371247958): Should throw a RuntimeException
-        .assertSuccess();
+        .assertFailureWithErrorThatThrows(RuntimeException.class);
   }
 
   @Test
@@ -55,7 +54,7 @@ public class Regress371247958 extends TestBase {
     }
 
     public static void main(String[] p) throws Exception {
-      throwException(new RuntimeException("always thrown"), false);
+      System.out.println(throwException(new RuntimeException("always thrown"), false));
     }
   }
 }
