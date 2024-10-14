@@ -113,9 +113,12 @@ public abstract class ClassMergerTreeFixer<
     if (clazz.isInterface()) {
       return false;
     }
-    DexProgramClass superClass =
-        asProgramClassOrNull(appView.definitionFor(clazz.getSuperType(), clazz));
-    return superClass == null;
+    if (clazz.hasSuperType()) {
+      DexProgramClass superClass =
+          asProgramClassOrNull(appView.definitionFor(clazz.getSuperType(), clazz));
+      return superClass == null;
+    }
+    return true;
   }
 
   protected abstract void traverseProgramClassesDepthFirst(
@@ -148,10 +151,12 @@ public abstract class ClassMergerTreeFixer<
   }
 
   private void fixupProgramClassSuperTypes(DexProgramClass clazz) {
-    DexType rewrittenSuperType = fixupType(clazz.getSuperType());
-    if (rewrittenSuperType.isNotIdenticalTo(clazz.getSuperType())) {
-      originalSuperTypes.put(clazz, clazz.getSuperType());
-      clazz.superType = rewrittenSuperType;
+    if (clazz.hasSuperType()) {
+      DexType rewrittenSuperType = fixupType(clazz.getSuperType());
+      if (rewrittenSuperType.isNotIdenticalTo(clazz.getSuperType())) {
+        originalSuperTypes.put(clazz, clazz.getSuperType());
+        clazz.setSuperType(rewrittenSuperType);
+      }
     }
     clazz.setInterfaces(fixupInterfaces(clazz, clazz.getInterfaces()));
   }

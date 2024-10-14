@@ -136,14 +136,16 @@ public class BridgeHoisting {
 
     // Bail out if the bridge is also declared in the parent class. In that case, hoisting would
     // change the behavior of calling the bridge on an instance of the parent class.
-    MethodResolutionResult res =
-        appView.appInfo().resolveMethodOnClass(clazz.getSuperType(), methodReference);
-    if (res.isSingleResolution()) {
-      if (!res.getResolvedMethod().isAbstract()) {
+    if (clazz.hasSuperType()) {
+      MethodResolutionResult res =
+          appView.appInfo().resolveMethodOnClass(clazz.getSuperType(), methodReference);
+      if (res.isSingleResolution()) {
+        if (!res.getResolvedMethod().isAbstract()) {
+          return;
+        }
+      } else if (res.isMultiMethodResolutionResult()) {
         return;
       }
-    } else if (res.isMultiMethodResolutionResult()) {
-      return;
     }
 
     // Go through each of the subclasses and find the bridges that can be hoisted. The bridge holder

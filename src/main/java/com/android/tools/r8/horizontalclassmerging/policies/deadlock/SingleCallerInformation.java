@@ -191,7 +191,9 @@ public class SingleCallerInformation {
             });
 
         // Repeat for the parent classes.
-        triggerClassInitializer(clazz.getSuperType());
+        if (clazz.hasSuperType()) {
+          triggerClassInitializer(clazz.getSuperType());
+        }
       }
 
       @Override
