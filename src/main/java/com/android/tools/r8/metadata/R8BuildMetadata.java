@@ -51,6 +51,7 @@ public interface R8BuildMetadata {
         .registerTypeAdapter(
             R8StartupOptimizationMetadata.class,
             deserializeTo(R8StartupOptimizationMetadataImpl.class))
+        .serializeNulls()
         .create()
         .fromJson(json, R8BuildMetadataImpl.class);
   }

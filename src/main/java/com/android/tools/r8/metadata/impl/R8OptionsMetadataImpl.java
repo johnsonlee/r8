@@ -12,6 +12,7 @@ import com.android.tools.r8.metadata.R8ApiModelingMetadata;
 import com.android.tools.r8.metadata.R8KeepAttributesMetadata;
 import com.android.tools.r8.metadata.R8LibraryDesugaringMetadata;
 import com.android.tools.r8.metadata.R8OptionsMetadata;
+import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -28,6 +29,18 @@ public class R8OptionsMetadataImpl
     implements R8OptionsMetadata {
 
   @Expose
+  @SerializedName("hasObfuscationDictionary")
+  private final boolean hasObfuscationDictionary;
+
+  @Expose
+  @SerializedName("hasClassObfuscationDictionary")
+  private final boolean hasClassObfuscationDictionary;
+
+  @Expose
+  @SerializedName("hasPackageObfuscationDictionary")
+  private final boolean hasPackageObfuscationDictionary;
+
+  @Expose
   @SerializedName("keepAttributes")
   private final R8KeepAttributesMetadata keepAttributesMetadata;
 
@@ -36,8 +49,8 @@ public class R8OptionsMetadataImpl
   private final boolean isAccessModificationEnabled;
 
   @Expose
-  @SerializedName("isProGuardCompatibilityModeEnabled")
-  private final boolean isProGuardCompatibilityModeEnabled;
+  @SerializedName("isFlattenPackageHierarchyEnabled")
+  private final boolean isFlattenPackageHierarchyEnabled;
 
   @Expose
   @SerializedName("isObfuscationEnabled")
@@ -48,6 +61,18 @@ public class R8OptionsMetadataImpl
   private final boolean isOptimizationsEnabled;
 
   @Expose
+  @SerializedName("isProGuardCompatibilityModeEnabled")
+  private final boolean isProGuardCompatibilityModeEnabled;
+
+  @Expose
+  @SerializedName("isProtoLiteOptimizationEnabled")
+  private final boolean isProtoLiteOptimizationEnabled;
+
+  @Expose
+  @SerializedName("isRepackageClassesEnabled")
+  private final boolean isRepackageClassesEnabled;
+
+  @Expose
   @SerializedName("isShrinkingEnabled")
   private final boolean isShrinkingEnabled;
 
@@ -56,15 +81,27 @@ public class R8OptionsMetadataImpl
         R8ApiModelingMetadataImpl.create(options),
         R8LibraryDesugaringMetadataImpl.create(options),
         options);
+    ProguardConfiguration configuration = options.getProguardConfiguration();
+    boolean hasConfiguration = configuration != null;
+    this.hasObfuscationDictionary =
+        hasConfiguration && !configuration.getObfuscationDictionary().isEmpty();
+    this.hasClassObfuscationDictionary =
+        hasConfiguration && !configuration.getClassObfuscationDictionary().isEmpty();
+    this.hasPackageObfuscationDictionary =
+        hasConfiguration && !configuration.getPackageObfuscationDictionary().isEmpty();
     this.keepAttributesMetadata =
-        options.hasProguardConfiguration()
-            ? new R8KeepAttributesMetadataImpl(
-                options.getProguardConfiguration().getKeepAttributes())
+        hasConfiguration
+            ? new R8KeepAttributesMetadataImpl(configuration.getKeepAttributes())
             : null;
     this.isAccessModificationEnabled = options.isAccessModificationEnabled();
-    this.isProGuardCompatibilityModeEnabled = options.forceProguardCompatibility;
+    this.isFlattenPackageHierarchyEnabled =
+        hasConfiguration && configuration.getPackageObfuscationMode().isFlattenPackageHierarchy();
     this.isObfuscationEnabled = options.isMinifying();
     this.isOptimizationsEnabled = options.isOptimizing();
+    this.isProGuardCompatibilityModeEnabled = options.forceProguardCompatibility;
+    this.isProtoLiteOptimizationEnabled = options.protoShrinking().isProtoShrinkingEnabled();
+    this.isRepackageClassesEnabled =
+        hasConfiguration && configuration.getPackageObfuscationMode().isRepackageClasses();
     this.isShrinkingEnabled = options.isShrinking();
   }
 
@@ -74,13 +111,28 @@ public class R8OptionsMetadataImpl
   }
 
   @Override
+  public boolean hasObfuscationDictionary() {
+    return hasObfuscationDictionary;
+  }
+
+  @Override
+  public boolean hasClassObfuscationDictionary() {
+    return hasClassObfuscationDictionary;
+  }
+
+  @Override
+  public boolean hasPackageObfuscationDictionary() {
+    return hasPackageObfuscationDictionary;
+  }
+
+  @Override
   public boolean isAccessModificationEnabled() {
     return isAccessModificationEnabled;
   }
 
   @Override
-  public boolean isProGuardCompatibilityModeEnabled() {
-    return isProGuardCompatibilityModeEnabled;
+  public boolean isFlattenPackageHierarchyEnabled() {
+    return isFlattenPackageHierarchyEnabled;
   }
 
   @Override
@@ -91,6 +143,21 @@ public class R8OptionsMetadataImpl
   @Override
   public boolean isOptimizationsEnabled() {
     return isOptimizationsEnabled;
+  }
+
+  @Override
+  public boolean isProGuardCompatibilityModeEnabled() {
+    return isProGuardCompatibilityModeEnabled;
+  }
+
+  @Override
+  public boolean isProtoLiteOptimizationEnabled() {
+    return isProtoLiteOptimizationEnabled;
+  }
+
+  @Override
+  public boolean isRepackageClassesEnabled() {
+    return isRepackageClassesEnabled;
   }
 
   @Override

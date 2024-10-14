@@ -25,15 +25,27 @@ public interface R8OptionsMetadata {
 
   int getMinApiLevel();
 
+  boolean hasObfuscationDictionary();
+
+  boolean hasClassObfuscationDictionary();
+
+  boolean hasPackageObfuscationDictionary();
+
   boolean isAccessModificationEnabled();
 
   boolean isDebugModeEnabled();
 
-  boolean isProGuardCompatibilityModeEnabled();
+  boolean isFlattenPackageHierarchyEnabled();
 
   boolean isObfuscationEnabled();
 
   boolean isOptimizationsEnabled();
+
+  boolean isProGuardCompatibilityModeEnabled();
+
+  boolean isProtoLiteOptimizationEnabled();
+
+  boolean isRepackageClassesEnabled();
 
   boolean isShrinkingEnabled();
 }

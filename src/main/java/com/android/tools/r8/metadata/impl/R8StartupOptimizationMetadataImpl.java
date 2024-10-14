@@ -9,7 +9,9 @@ import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.R8StartupOptimizationMetadata;
+import com.android.tools.r8.profile.startup.StartupOptions;
 import com.android.tools.r8.utils.InternalOptions;
+import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 @UsedByReflection(
@@ -21,12 +23,35 @@ import com.google.gson.annotations.SerializedName;
     fieldAnnotatedByClassConstant = SerializedName.class)
 public class R8StartupOptimizationMetadataImpl implements R8StartupOptimizationMetadata {
 
-  private R8StartupOptimizationMetadataImpl() {}
+  @Expose
+  @SerializedName("isDexLayoutOptimizationEnabled")
+  private final boolean isDexLayoutOptimizationEnabled;
+
+  @Expose
+  @SerializedName("isProfileGuidedOptimizationEnabled")
+  private final boolean isProfileGuidedOptimizationEnabled;
+
+  private R8StartupOptimizationMetadataImpl(StartupOptions startupOptions) {
+    this.isDexLayoutOptimizationEnabled = startupOptions.isStartupLayoutOptimizationEnabled();
+    this.isProfileGuidedOptimizationEnabled =
+        !startupOptions.isStartupBoundaryOptimizationsEnabled();
+  }
 
   public static R8StartupOptimizationMetadataImpl create(InternalOptions options) {
-    if (options.getStartupOptions().getStartupProfileProviders().isEmpty()) {
+    StartupOptions startupOptions = options.getStartupOptions();
+    if (startupOptions.getStartupProfileProviders().isEmpty()) {
       return null;
     }
-    return new R8StartupOptimizationMetadataImpl();
+    return new R8StartupOptimizationMetadataImpl(startupOptions);
+  }
+
+  @Override
+  public boolean isDexLayoutOptimizationEnabled() {
+    return isDexLayoutOptimizationEnabled;
+  }
+
+  @Override
+  public boolean isProfileGuidedOptimizationEnabled() {
+    return isProfileGuidedOptimizationEnabled;
   }
 }
