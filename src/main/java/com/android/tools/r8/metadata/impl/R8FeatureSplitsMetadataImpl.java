@@ -60,11 +60,7 @@ public class R8FeatureSplitsMetadataImpl implements R8FeatureSplitsMetadata {
       List<VirtualFile> featureSplitVirtualFiles =
           virtualFilesForFeatureSplit.getOrDefault(featureSplit, Collections.emptyList());
       List<R8DexFileMetadata> dexFilesMetadata =
-          ListUtils.map(
-              featureSplitVirtualFiles,
-              featureSplitVirtualFile ->
-                  new R8DexFileMetadataImpl(
-                      featureSplitVirtualFile.getChecksumForBuildMetadata().toString()));
+          ListUtils.map(featureSplitVirtualFiles, R8DexFileMetadataImpl::create);
       featureSplitsMetadata.add(new R8FeatureSplitMetadataImpl(dexFilesMetadata));
     }
     return new R8FeatureSplitsMetadataImpl(configuration, featureSplitsMetadata);

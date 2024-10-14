@@ -12,6 +12,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -51,7 +52,7 @@ public class R8BuildMetadataTest extends TestBase {
         ImmutableList.of(ExternalStartupClass.builder().setClassReference(mainReference).build());
     R8BuildMetadata buildMetadata =
         testForR8(parameters.getBackend())
-            .addProgramClasses(Main.class)
+            .addProgramClasses(Main.class, PostStartup.class)
             .addKeepMainRule(Main.class)
             .addArtProfileForRewriting(
                 ExternalArtProfile.builder().addClassRule(mainReference).build())
@@ -67,6 +68,7 @@ public class R8BuildMetadataTest extends TestBase {
                         .enableOptimizedShrinking())
             .allowDiagnosticInfoMessages(parameters.canUseNativeMultidex())
             .collectBuildMetadata()
+            .enableInliningAnnotations()
             .setMinApi(parameters)
             .compileWithExpectedDiagnostics(
                 diagnostics -> {
@@ -91,8 +93,27 @@ public class R8BuildMetadataTest extends TestBase {
   }
 
   private void inspectDeserializedBuildMetadata(R8BuildMetadata buildMetadata) {
+    // Baseline profile rewriting metadata.
     assertNotNull(buildMetadata.getBaselineProfileRewritingMetadata());
+    // Compilation metadata.
     assertNotNull(buildMetadata.getCompilationMetadata());
+    // Dex files metadata.
+    if (parameters.isDexRuntime()) {
+      boolean isDexLayoutOptimizationEnabled = parameters.canUseNativeMultidex();
+      assertEquals(
+          isDexLayoutOptimizationEnabled ? 2 : 1, buildMetadata.getDexFilesMetadata().size());
+      R8DexFileMetadata firstDexFileMetadata = buildMetadata.getDexFilesMetadata().get(0);
+      assertNotNull(firstDexFileMetadata.getChecksum());
+      assertEquals(isDexLayoutOptimizationEnabled, firstDexFileMetadata.isStartup());
+      if (isDexLayoutOptimizationEnabled) {
+        R8DexFileMetadata secondDexFileMetadata = buildMetadata.getDexFilesMetadata().get(1);
+        assertNotNull(secondDexFileMetadata.getChecksum());
+        assertFalse(secondDexFileMetadata.isStartup());
+      }
+    } else {
+      assertNull(buildMetadata.getDexFilesMetadata());
+    }
+    // Feature splits metadata.
     R8FeatureSplitsMetadata featureSplitsMetadata = buildMetadata.getFeatureSplitsMetadata();
     if (parameters.isDexRuntime()) {
       assertNotNull(featureSplitsMetadata);
@@ -104,40 +125,53 @@ public class R8BuildMetadataTest extends TestBase {
       R8DexFileMetadata featureSplitDexFile = featureSplitMetadata.getDexFilesMetadata().get(0);
       assertNotNull(featureSplitDexFile);
       assertNotNull(featureSplitDexFile.getChecksum());
+      assertFalse(featureSplitDexFile.isStartup());
     } else {
       assertNull(featureSplitsMetadata);
     }
+    // Options metadata.
     assertNotNull(buildMetadata.getOptionsMetadata());
     assertNotNull(buildMetadata.getOptionsMetadata().getKeepAttributesMetadata());
     assertEquals(
         parameters.isCfRuntime() ? -1 : parameters.getApiLevel().getLevel(),
         buildMetadata.getOptionsMetadata().getMinApiLevel());
     assertFalse(buildMetadata.getOptionsMetadata().isDebugModeEnabled());
+    // Resource optimization metadata.
     if (parameters.isDexRuntime()) {
-      R8ResourceOptimizationMetadata resourceOptimizationOptions =
+      R8ResourceOptimizationMetadata resourceOptimizationMetadata =
           buildMetadata.getResourceOptimizationMetadata();
-      assertNotNull(resourceOptimizationOptions);
-      assertTrue(resourceOptimizationOptions.isOptimizedShrinkingEnabled());
+      assertNotNull(resourceOptimizationMetadata);
+      assertTrue(resourceOptimizationMetadata.isOptimizedShrinkingEnabled());
     } else {
       assertNull(buildMetadata.getResourceOptimizationMetadata());
     }
+    // Startup optimization metadata.
     R8StartupOptimizationMetadata startupOptimizationOptions =
         buildMetadata.getStartupOptizationOptions();
     if (parameters.isDexRuntime()) {
       assertNotNull(startupOptimizationOptions);
-      assertEquals(
-          parameters.isDexRuntime() && parameters.canUseNativeMultidex() ? 1 : 0,
-          startupOptimizationOptions.getNumberOfStartupDexFiles());
     } else {
       assertNull(startupOptimizationOptions);
     }
+    // Stats metadata.
     assertNotNull(buildMetadata.getStatsMetadata());
+    // Version metadata.
     assertEquals(Version.LABEL, buildMetadata.getVersion());
   }
 
   static class Main {
 
-    public static void main(String[] args) {}
+    public static void main(String[] args) {
+      PostStartup.onEvent();
+    }
+  }
+
+  static class PostStartup {
+
+    @NeverInline
+    public static void onEvent() {
+      System.out.println("PostStartup.onEvent");
+    }
   }
 
   static class FeatureSplitMain {

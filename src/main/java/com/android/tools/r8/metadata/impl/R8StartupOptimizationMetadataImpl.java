@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
-import com.android.tools.r8.dex.VirtualFile;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
@@ -11,9 +10,7 @@ import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.UsedByReflection;
 import com.android.tools.r8.metadata.R8StartupOptimizationMetadata;
 import com.android.tools.r8.utils.InternalOptions;
-import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-import java.util.List;
 
 @UsedByReflection(
     description = "Keep and preserve @SerializedName for correct (de)serialization",
@@ -24,25 +21,12 @@ import java.util.List;
     fieldAnnotatedByClassConstant = SerializedName.class)
 public class R8StartupOptimizationMetadataImpl implements R8StartupOptimizationMetadata {
 
-  @Expose
-  @SerializedName("numberOfStartupDexFiles")
-  private final int numberOfStartupDexFiles;
+  private R8StartupOptimizationMetadataImpl() {}
 
-  public R8StartupOptimizationMetadataImpl(List<VirtualFile> virtualFiles) {
-    this.numberOfStartupDexFiles =
-        (int) virtualFiles.stream().filter(VirtualFile::isStartup).count();
-  }
-
-  public static R8StartupOptimizationMetadataImpl create(
-      InternalOptions options, List<VirtualFile> virtualFiles) {
+  public static R8StartupOptimizationMetadataImpl create(InternalOptions options) {
     if (options.getStartupOptions().getStartupProfileProviders().isEmpty()) {
       return null;
     }
-    return new R8StartupOptimizationMetadataImpl(virtualFiles);
-  }
-
-  @Override
-  public int getNumberOfStartupDexFiles() {
-    return numberOfStartupDexFiles;
+    return new R8StartupOptimizationMetadataImpl();
   }
 }

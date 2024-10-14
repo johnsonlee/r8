@@ -18,4 +18,7 @@ public interface R8DexFileMetadata {
    * also https://source.android.com/docs/core/runtime/dex-format.
    */
   String getChecksum();
+
+  /** Returns true if a startup profile is given and this dex file is a startup dex file. */
+  boolean isStartup();
 }

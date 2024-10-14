@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.metadata.impl;
 
+import com.android.tools.r8.dex.VirtualFile;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.FieldAccessFlags;
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
@@ -25,12 +26,29 @@ public class R8DexFileMetadataImpl implements R8DexFileMetadata {
   @SerializedName("checksum")
   private final String checksum;
 
-  public R8DexFileMetadataImpl(String checksum) {
+  @Expose
+  @SerializedName("startup")
+  private final boolean startup;
+
+  private R8DexFileMetadataImpl(String checksum, boolean startup) {
     this.checksum = checksum;
+    this.startup = startup;
+  }
+
+  public static R8DexFileMetadataImpl create(VirtualFile virtualFile) {
+    assert !virtualFile.isEmpty();
+    String checksum = virtualFile.getChecksumForBuildMetadata().toString();
+    boolean startup = virtualFile.isStartup();
+    return new R8DexFileMetadataImpl(checksum, startup);
   }
 
   @Override
   public String getChecksum() {
     return checksum;
+  }
+
+  @Override
+  public boolean isStartup() {
+    return startup;
   }
 }

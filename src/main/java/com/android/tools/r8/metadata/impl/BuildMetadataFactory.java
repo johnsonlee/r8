@@ -4,6 +4,7 @@
 package com.android.tools.r8.metadata.impl;
 
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+import static com.google.common.base.Predicates.not;
 
 import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.Version;
@@ -14,6 +15,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.metadata.D8BuildMetadata;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.utils.InternalOptions;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -35,7 +37,7 @@ public class BuildMetadataFactory {
       ExecutorService executorService,
       List<VirtualFile> virtualFiles) {
     Map<FeatureSplit, List<VirtualFile>> virtualFilesForFeatureSplit = new IdentityHashMap<>();
-    for (VirtualFile virtualFile : virtualFiles) {
+    for (VirtualFile virtualFile : Iterables.filter(virtualFiles, not(VirtualFile::isEmpty))) {
       FeatureSplit featureSplit = virtualFile.getFeatureSplitOrBase();
       virtualFilesForFeatureSplit
           .computeIfAbsent(featureSplit, ignoreKey(ArrayList::new))
@@ -56,8 +58,7 @@ public class BuildMetadataFactory {
                 builder.setFeatureSplitsMetadata(
                     R8FeatureSplitsMetadataImpl.create(appView, virtualFilesForFeatureSplit)))
         .setResourceOptimizationOptions(R8ResourceOptimizationMetadataImpl.create(options))
-        .setStartupOptimizationOptions(
-            R8StartupOptimizationMetadataImpl.create(options, baseVirtualFiles))
+        .setStartupOptimizationOptions(R8StartupOptimizationMetadataImpl.create(options))
         .setStatsMetadata(R8StatsMetadataImpl.create(appView))
         .setVersion(Version.LABEL)
         .build();
