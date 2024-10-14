@@ -27,15 +27,15 @@ import java.util.concurrent.ExecutorService;
 public class R8CompilationMetadataImpl implements R8CompilationMetadata {
 
   @Expose
-  @SerializedName("buildTime")
-  private final long buildTime;
+  @SerializedName("buildTimeNs")
+  private final long buildTimeInNanos;
 
   @Expose
   @SerializedName("numberOfThreads")
   private final long numberOfThreads;
 
-  private R8CompilationMetadataImpl(long buildTime, int numberOfThreads) {
-    this.buildTime = buildTime;
+  private R8CompilationMetadataImpl(long buildTimeInNanos, int numberOfThreads) {
+    this.buildTimeInNanos = buildTimeInNanos;
     this.numberOfThreads = numberOfThreads;
   }
 
@@ -43,14 +43,14 @@ public class R8CompilationMetadataImpl implements R8CompilationMetadata {
       AppView<? extends AppInfoWithClassHierarchy> appView, ExecutorService executorService) {
     InternalOptions options = appView.options();
     assert options.created > 0;
-    long buildTime = System.nanoTime() - options.created;
+    long buildTimeInNanos = System.nanoTime() - options.created;
     return new R8CompilationMetadataImpl(
-        buildTime, ThreadUtils.getNumberOfThreads(executorService));
+        buildTimeInNanos, ThreadUtils.getNumberOfThreads(executorService));
   }
 
   @Override
-  public long getBuildTime() {
-    return buildTime;
+  public long getBuildTimeInNanos() {
+    return buildTimeInNanos;
   }
 
   @Override

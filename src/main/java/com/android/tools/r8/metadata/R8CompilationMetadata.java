@@ -8,7 +8,7 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 @KeepForApi
 public interface R8CompilationMetadata {
 
-  long getBuildTime();
+  long getBuildTimeInNanos();
 
   long getNumberOfThreads();
 }
