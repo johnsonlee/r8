@@ -152,7 +152,10 @@ def clear_profile_data(app_id, device_id=None):
 
 
 def drop_caches(device_id=None):
-    cmd = create_adb_cmd(['shell', 'echo 3 > /proc/sys/vm/drop_caches'],
+    # On older devices  this used to be achieved using:
+    #   adb shell echo 3 > /proc/sys/vm/drop_caches
+    # This does not work on user devices, however.
+    cmd = create_adb_cmd(['shell', 'setprop', 'perf.drop_caches', '3'],
                          device_id)
     subprocess.check_call(cmd, stdout=DEVNULL, stderr=DEVNULL)
 
