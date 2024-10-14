@@ -30,7 +30,7 @@ public interface D8BuildMetadata {
     return (element, type, context) -> context.deserialize(element, implClass);
   }
 
-  D8OptionsMetadata getOptions();
+  D8OptionsMetadata getOptionsMetadata();
 
   String getVersion();
 

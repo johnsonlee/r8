@@ -41,7 +41,7 @@ public class D8BuildMetadataImpl implements D8BuildMetadata {
   }
 
   @Override
-  public D8OptionsMetadata getOptions() {
+  public D8OptionsMetadata getOptionsMetadata() {
     return options;
   }
 
