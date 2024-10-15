@@ -723,8 +723,7 @@ public abstract class TestCompileResult<
     return self();
   }
 
-  public CR benchmarkInstructionCodeSize(BenchmarkResults results)
-      throws IOException, ResourceException {
+  public CR benchmarkInstructionCodeSize(BenchmarkResults results) throws IOException {
     throw new Unimplemented();
   }
 
@@ -733,8 +732,8 @@ public abstract class TestCompileResult<
     throw new Unimplemented();
   }
 
-  public CR benchmarkDex2OatCodeSize(BenchmarkResults results)
-      throws IOException, ResourceException {
+  public CR benchmarkDex2OatCodeSize(BenchmarkResults results, boolean enableDex2OatVerification)
+      throws IOException {
     throw new Unimplemented();
   }
 }

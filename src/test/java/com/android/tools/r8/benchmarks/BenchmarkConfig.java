@@ -90,6 +90,7 @@ public class BenchmarkConfig {
     private int fromRevision = -1;
     private BenchmarkTimeout timeout = null;
     private boolean measureWarmup = false;
+    private boolean enableDex2OatVerification = true;
 
     private Builder() {}
 
@@ -140,7 +141,8 @@ public class BenchmarkConfig {
           fromRevision,
           dependencies,
           timeout,
-          measureWarmup);
+          measureWarmup,
+          enableDex2OatVerification);
     }
 
     public Builder setName(String name) {
@@ -193,6 +195,11 @@ public class BenchmarkConfig {
       return this;
     }
 
+    public Builder setEnableDex2OatVerification(boolean enableDex2OatVerification) {
+      this.enableDex2OatVerification = enableDex2OatVerification;
+      return this;
+    }
+
     public Builder addSubBenchmark(String name, BenchmarkMetric... metrics) {
       return addSubBenchmark(name, new HashSet<>(Arrays.asList(metrics)));
     }
@@ -235,6 +242,7 @@ public class BenchmarkConfig {
   private final int fromRevision;
   private final BenchmarkTimeout timeout;
   private final boolean measureWarmup;
+  private final boolean enableDex2OatVerification;
 
   private BenchmarkConfig(
       String name,
@@ -245,7 +253,8 @@ public class BenchmarkConfig {
       int fromRevision,
       Collection<BenchmarkDependency> dependencies,
       BenchmarkTimeout timeout,
-      boolean measureWarmup) {
+      boolean measureWarmup,
+      boolean enableDex2OatVerification) {
     this.id = new BenchmarkIdentifier(name, target);
     this.method = benchmarkMethod;
     this.benchmarks = benchmarks;
@@ -254,6 +263,7 @@ public class BenchmarkConfig {
     this.dependencies = dependencies;
     this.timeout = timeout;
     this.measureWarmup = measureWarmup;
+    this.enableDex2OatVerification = enableDex2OatVerification;
   }
 
   public boolean containsMetric(BenchmarkMetric metric) {
@@ -315,6 +325,10 @@ public class BenchmarkConfig {
 
   public BenchmarkTimeout getTimeout() {
     return timeout;
+  }
+
+  public boolean isDex2OatVerificationEnabled() {
+    return enableDex2OatVerification;
   }
 
   public void run(BenchmarkEnvironment environment) throws Exception {

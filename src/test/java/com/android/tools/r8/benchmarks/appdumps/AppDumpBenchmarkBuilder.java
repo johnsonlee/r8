@@ -153,6 +153,9 @@ public class AppDumpBenchmarkBuilder {
         .measureComposableInstructionCodeSize()
         .measureDexSegmentsCodeSize()
         .measureDex2OatCodeSize()
+        // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors on
+        //  SystemUI.
+        .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
         .setTimeout(10, TimeUnit.MINUTES)
         .build();
   }
@@ -311,7 +314,9 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkCodeSize(results)
                                   .benchmarkInstructionCodeSize(results)
                                   .benchmarkDexSegmentsCodeSize(results)
-                                  .benchmarkDex2OatCodeSize(results);
+                                  .benchmarkDex2OatCodeSize(
+                                      results,
+                                      environment.getConfig().isDex2OatVerificationEnabled());
                             } catch (AbortBenchmarkException e) {
                               // Ignore.
                             }
