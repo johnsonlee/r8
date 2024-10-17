@@ -153,7 +153,7 @@ public abstract class R8TestBuilder<
     libraryDesugaringTestConfiguration.configure(builder);
     builder.setAndroidPlatformBuild(androidPlatformBuild);
     if (!enableEmptyMemberRulesToDefaultInitRuleConversion.isUnknown()) {
-      builder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
+      builder.enableLegacyFullModeForKeepRules(
           enableEmptyMemberRulesToDefaultInitRuleConversion.toBoolean());
     }
     builder.setEnableIsolatedSplits(enableIsolatedSplits);

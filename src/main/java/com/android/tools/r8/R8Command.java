@@ -506,10 +506,15 @@ public final class R8Command extends BaseCompilerCommand {
      *
      * <p>This currently defaults to true in stable versions.
      */
-    public Builder setEnableEmptyMemberRulesToDefaultInitRuleConversion(
-        boolean enableEmptyMemberRulesToDefaultInitRuleConversion) {
-      parserOptionsBuilder.setEnableEmptyMemberRulesToDefaultInitRuleConversion(
-          enableEmptyMemberRulesToDefaultInitRuleConversion);
+    public Builder enableLegacyFullModeForKeepRules(boolean enableLegacyFullModeForKeepRules) {
+      parserOptionsBuilder.setEnableLegacyFullModeForKeepRules(enableLegacyFullModeForKeepRules);
+      return this;
+    }
+
+    public Builder enableLegacyFullModeForKeepRulesWarnings(
+        boolean enableLegacyFullModeForKeepRulesWarnings) {
+      parserOptionsBuilder.setEnableLegacyFullModeForKeepRulesWarnings(
+          enableLegacyFullModeForKeepRulesWarnings);
       return this;
     }
 

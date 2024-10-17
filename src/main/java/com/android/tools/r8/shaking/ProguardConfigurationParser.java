@@ -129,7 +129,7 @@ public class ProguardConfigurationParser {
         dexItemFactory,
         reporter,
         ProguardConfigurationParserOptions.builder()
-            .setEnableEmptyMemberRulesToDefaultInitRuleConversion(false)
+            .setEnableLegacyFullModeForKeepRules(false)
             .setEnableExperimentalCheckEnumUnboxed(false)
             .setEnableExperimentalConvertCheckNotNull(false)
             .setEnableExperimentalWhyAreYouNotInlining(false)
@@ -852,13 +852,12 @@ public class ProguardConfigurationParser {
       Position end = getPosition();
       ProguardKeepRule rule =
           keepRuleBuilder.setSource(getSourceSnippet(contents, start, end)).setEnd(end).build();
-      if (options.isEmptyMemberRulesToDefaultInitRuleConversionEnabled(configurationBuilder)
+      if (options.isLegacyFullModeForKeepRulesEnabled(configurationBuilder)
           && rule.getMemberRules().isEmpty()
           && rule.getType() != ProguardKeepRuleType.KEEP_CLASSES_WITH_MEMBERS) {
         // If there are no member rules, a default rule for the parameterless constructor applies
         // in compatibility mode.
-        if (options.isEmptyMemberRulesToDefaultInitRuleConversionWarningsEnabled(
-            configurationBuilder)) {
+        if (options.isLegacyFullModeForKeepRulesWarningsEnabled(configurationBuilder)) {
           reporter.warning(
               EmptyMemberRulesToDefaultInitRuleConversionDiagnostic.Factory.create(rule));
         }

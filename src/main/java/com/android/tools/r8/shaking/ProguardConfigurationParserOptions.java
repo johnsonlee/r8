@@ -6,20 +6,18 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyOrDefault;
 
-import com.android.tools.r8.utils.OptionalBool;
-
 public class ProguardConfigurationParserOptions {
 
-  private final OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion;
-  private final boolean enableEmptyMemberRulesToDefaultInitRuleConversionWarnings;
+  private final boolean enableLegacyFullModeForKeepRules;
+  private final boolean enableLegacyFullModeForKeepRulesWarnings;
   private final boolean enableExperimentalCheckEnumUnboxed;
   private final boolean enableExperimentalConvertCheckNotNull;
   private final boolean enableExperimentalWhyAreYouNotInlining;
   private final boolean enableTestingOptions;
 
   ProguardConfigurationParserOptions(
-      OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion,
-      boolean enableEmptyMemberRulesToDefaultInitRuleConversionWarnings,
+      boolean enableLegacyFullModeForKeepRules,
+      boolean enableLegacyFullModeForKeepRulesWarnings,
       boolean enableExperimentalCheckEnumUnboxed,
       boolean enableExperimentalConvertCheckNotNull,
       boolean enableExperimentalWhyAreYouNotInlining,
@@ -28,28 +26,25 @@ public class ProguardConfigurationParserOptions {
     this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
     this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
     this.enableTestingOptions = enableTestingOptions;
-    this.enableEmptyMemberRulesToDefaultInitRuleConversion =
-        enableEmptyMemberRulesToDefaultInitRuleConversion;
-    this.enableEmptyMemberRulesToDefaultInitRuleConversionWarnings =
-        enableEmptyMemberRulesToDefaultInitRuleConversionWarnings;
+    this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
+    this.enableLegacyFullModeForKeepRulesWarnings = enableLegacyFullModeForKeepRulesWarnings;
   }
 
   public static Builder builder() {
     return new Builder();
   }
 
-  public boolean isEmptyMemberRulesToDefaultInitRuleConversionEnabled(
+  public boolean isLegacyFullModeForKeepRulesEnabled(
       ProguardConfiguration.Builder configurationBuilder) {
     // TODO(b/356344563): Disable in full mode in the next major version.
-    return configurationBuilder.isForceProguardCompatibility()
-        || enableEmptyMemberRulesToDefaultInitRuleConversion.getOrDefault(true);
+    return configurationBuilder.isForceProguardCompatibility() || enableLegacyFullModeForKeepRules;
   }
 
-  public boolean isEmptyMemberRulesToDefaultInitRuleConversionWarningsEnabled(
+  public boolean isLegacyFullModeForKeepRulesWarningsEnabled(
       ProguardConfiguration.Builder configurationBuilder) {
-    assert isEmptyMemberRulesToDefaultInitRuleConversionEnabled(configurationBuilder);
+    assert isLegacyFullModeForKeepRulesEnabled(configurationBuilder);
     return !configurationBuilder.isForceProguardCompatibility()
-        && enableEmptyMemberRulesToDefaultInitRuleConversionWarnings;
+        && enableLegacyFullModeForKeepRulesWarnings;
   }
 
   public boolean isExperimentalCheckEnumUnboxedEnabled() {
@@ -70,22 +65,20 @@ public class ProguardConfigurationParserOptions {
 
   public static class Builder {
 
-    private OptionalBool enableEmptyMemberRulesToDefaultInitRuleConversion = OptionalBool.UNKNOWN;
-    private boolean enableEmptyMemberRulesToDefaultInitRuleConversionWarnings = false;
+    private boolean enableLegacyFullModeForKeepRules = true;
+    private boolean enableLegacyFullModeForKeepRulesWarnings = false;
     private boolean enableExperimentalCheckEnumUnboxed;
     private boolean enableExperimentalConvertCheckNotNull;
     private boolean enableExperimentalWhyAreYouNotInlining;
     private boolean enableTestingOptions;
 
     public Builder readEnvironment() {
-      enableEmptyMemberRulesToDefaultInitRuleConversion =
+      enableLegacyFullModeForKeepRules =
           parseSystemPropertyOrDefault(
-              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion",
-              OptionalBool.UNKNOWN);
-      enableEmptyMemberRulesToDefaultInitRuleConversionWarnings =
+              "com.android.tools.r8.enableLegacyFullModeForKeepRules", true);
+      enableLegacyFullModeForKeepRulesWarnings =
           parseSystemPropertyOrDefault(
-              "com.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversionWarnings",
-              false);
+              "com.android.tools.r8.enableLegacyFullModeForKeepRulesWarnings", false);
       enableExperimentalCheckEnumUnboxed =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.experimental.enablecheckenumunboxed", false);
@@ -100,10 +93,14 @@ public class ProguardConfigurationParserOptions {
       return this;
     }
 
-    public Builder setEnableEmptyMemberRulesToDefaultInitRuleConversion(
-        boolean enableEmptyMemberRulesToDefaultInitRuleConversion) {
-      this.enableEmptyMemberRulesToDefaultInitRuleConversion =
-          OptionalBool.of(enableEmptyMemberRulesToDefaultInitRuleConversion);
+    public Builder setEnableLegacyFullModeForKeepRules(boolean enableLegacyFullModeForKeepRules) {
+      this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
+      return this;
+    }
+
+    public Builder setEnableLegacyFullModeForKeepRulesWarnings(
+        boolean enableLegacyFullModeForKeepRulesWarnings) {
+      this.enableLegacyFullModeForKeepRulesWarnings = enableLegacyFullModeForKeepRulesWarnings;
       return this;
     }
 
@@ -132,8 +129,8 @@ public class ProguardConfigurationParserOptions {
 
     public ProguardConfigurationParserOptions build() {
       return new ProguardConfigurationParserOptions(
-          enableEmptyMemberRulesToDefaultInitRuleConversion,
-          enableEmptyMemberRulesToDefaultInitRuleConversionWarnings,
+          enableLegacyFullModeForKeepRules,
+          enableLegacyFullModeForKeepRulesWarnings,
           enableExperimentalCheckEnumUnboxed,
           enableExperimentalConvertCheckNotNull,
           enableExperimentalWhyAreYouNotInlining,

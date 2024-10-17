@@ -220,7 +220,7 @@ class R8Partial {
             .addClasspathFiles(d8Program)
             .addProgramFiles(r8Program)
             .addProguardConfigurationFiles(dump.getProguardConfigFile(), traceReferencesRules)
-            .setEnableEmptyMemberRulesToDefaultInitRuleConversion(true)
+            .enableLegacyFullModeForKeepRules(true)
             .setMode(dump.getBuildProperties().getCompilationMode())
             .setOutput(r8Output, OutputMode.DexIndexed);
     if (dump.hasDesugaredLibrary()) {
