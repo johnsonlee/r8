@@ -164,6 +164,8 @@ public interface InstructionSubject {
 
   boolean isMonitorExit();
 
+  boolean isMove();
+
   boolean isFilledNewArray();
 
   boolean isFilledNewArrayData();

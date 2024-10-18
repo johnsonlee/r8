@@ -397,6 +397,11 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isMove() {
+    return false;
+  }
+
+  @Override
   public boolean isFilledNewArray() {
     return false;
   }

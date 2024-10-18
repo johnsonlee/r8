@@ -95,6 +95,15 @@ import com.android.tools.r8.dex.code.DexIputShort;
 import com.android.tools.r8.dex.code.DexIputWide;
 import com.android.tools.r8.dex.code.DexMonitorEnter;
 import com.android.tools.r8.dex.code.DexMonitorExit;
+import com.android.tools.r8.dex.code.DexMove;
+import com.android.tools.r8.dex.code.DexMove16;
+import com.android.tools.r8.dex.code.DexMoveFrom16;
+import com.android.tools.r8.dex.code.DexMoveObject;
+import com.android.tools.r8.dex.code.DexMoveObject16;
+import com.android.tools.r8.dex.code.DexMoveObjectFrom16;
+import com.android.tools.r8.dex.code.DexMoveWide;
+import com.android.tools.r8.dex.code.DexMoveWide16;
+import com.android.tools.r8.dex.code.DexMoveWideFrom16;
 import com.android.tools.r8.dex.code.DexMulDouble;
 import com.android.tools.r8.dex.code.DexMulDouble2Addr;
 import com.android.tools.r8.dex.code.DexMulFloat;
@@ -639,6 +648,19 @@ public class DexInstructionSubject implements InstructionSubject {
   @Override
   public boolean isMonitorExit() {
     return instruction instanceof DexMonitorExit;
+  }
+
+  @Override
+  public boolean isMove() {
+    return instruction instanceof DexMove
+        || instruction instanceof DexMove16
+        || instruction instanceof DexMoveFrom16
+        || instruction instanceof DexMoveObject
+        || instruction instanceof DexMoveObject16
+        || instruction instanceof DexMoveObjectFrom16
+        || instruction instanceof DexMoveWide
+        || instruction instanceof DexMoveWide16
+        || instruction instanceof DexMoveWideFrom16;
   }
 
   @Override
