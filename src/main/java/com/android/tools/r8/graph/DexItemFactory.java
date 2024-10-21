@@ -693,6 +693,8 @@ public class DexItemFactory {
       new JavaLangReflectArrayMembers();
   public final JavaLangAnnotationRetentionPolicyMembers javaLangAnnotationRetentionPolicyMembers =
       new JavaLangAnnotationRetentionPolicyMembers();
+  public final JavaLangInvokeVarHandleMembers javaLangInvokeVarHandleMembers =
+      new JavaLangInvokeVarHandleMembers();
   public final JavaLangSystemMembers javaLangSystemMembers = new JavaLangSystemMembers();
   public final JavaIoPrintStreamMembers javaIoPrintStreamMembers = new JavaIoPrintStreamMembers();
   public final NullPointerExceptionMethods npeMethods = new NullPointerExceptionMethods();
@@ -2021,6 +2023,14 @@ public class DexItemFactory {
             javaLangAnnotationRetentionPolicyType, javaLangAnnotationRetentionPolicyType, "CLASS");
 
     private JavaLangAnnotationRetentionPolicyMembers() {}
+  }
+
+  public class JavaLangInvokeVarHandleMembers {
+
+    public final DexMethod storeStoreFence =
+        createMethod(varHandleType, createProto(voidType), "storeStoreFence");
+
+    private JavaLangInvokeVarHandleMembers() {}
   }
 
   public class JavaLangReflectArrayMembers {

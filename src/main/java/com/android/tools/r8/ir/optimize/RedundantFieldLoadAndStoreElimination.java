@@ -748,7 +748,9 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       FieldAndObject fieldAndObject = new FieldAndObject(field.getReference(), object);
       ExistingValue value = new ExistingValue(instancePut.value());
       if (field.isFinalOrEffectivelyFinal(appView)) {
-        assert !field.getDefinition().isFinal() || method.getDefinition().isInstanceInitializer();
+        assert !field.getDefinition().isFinal()
+            || method.getDefinition().isInstanceInitializer()
+            || options.inlinerOptions().enableConstructorInliningWithFinalFields;
         activeState.putFinalOrEffectivelyFinalInstanceField(fieldAndObject, value);
       } else {
         activeState.putNonFinalInstanceField(fieldAndObject, value);

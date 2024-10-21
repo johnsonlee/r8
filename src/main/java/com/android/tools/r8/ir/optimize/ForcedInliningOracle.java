@@ -84,6 +84,7 @@ final class ForcedInliningOracle implements InliningOracle {
 
   @Override
   public boolean canInlineInstanceInitializer(
+      InlineAction.Builder actionBuilder,
       IRCode code,
       InvokeDirect invoke,
       ProgramMethod singleTarget,

@@ -251,6 +251,11 @@ class WhyAreYouNotInliningReporterImpl extends WhyAreYouNotInliningReporter {
   }
 
   @Override
+  public void reportUnsafeConstructorInliningDueToMissingFieldAssignment(InstancePut instancePut) {
+    report("assignment to missing field `" + instancePut.getField() + "`.");
+  }
+
+  @Override
   public void reportUnsafeConstructorInliningDueToIndirectConstructorCall(InvokeDirect invoke) {
     report(
         "must invoke a constructor from the class being instantiated (would invoke `"

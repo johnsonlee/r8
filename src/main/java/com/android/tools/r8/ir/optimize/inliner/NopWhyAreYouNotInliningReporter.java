@@ -118,6 +118,9 @@ public class NopWhyAreYouNotInliningReporter extends WhyAreYouNotInliningReporte
   public void reportUnsafeConstructorInliningDueToFinalFieldAssignment(InstancePut instancePut) {}
 
   @Override
+  public void reportUnsafeConstructorInliningDueToMissingFieldAssignment(InstancePut instancePut) {}
+
+  @Override
   public void reportUnsafeConstructorInliningDueToIndirectConstructorCall(InvokeDirect invoke) {}
 
   @Override

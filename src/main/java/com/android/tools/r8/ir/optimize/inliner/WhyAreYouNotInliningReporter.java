@@ -114,6 +114,9 @@ public abstract class WhyAreYouNotInliningReporter {
   public abstract void reportUnsafeConstructorInliningDueToFinalFieldAssignment(
       InstancePut instancePut);
 
+  public abstract void reportUnsafeConstructorInliningDueToMissingFieldAssignment(
+      InstancePut instancePut);
+
   public abstract void reportUnsafeConstructorInliningDueToIndirectConstructorCall(
       InvokeDirect invoke);
 

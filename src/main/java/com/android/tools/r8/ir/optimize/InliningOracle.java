@@ -30,6 +30,7 @@ public interface InliningOracle {
   AppView<AppInfoWithLiveness> appView();
 
   boolean canInlineInstanceInitializer(
+      InlineAction.Builder actionBuilder,
       IRCode code,
       InvokeDirect invoke,
       ProgramMethod singleTarget,

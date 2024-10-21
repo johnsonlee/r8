@@ -6,6 +6,7 @@ package com.android.tools.r8.utils;
 import static com.android.tools.r8.utils.AndroidApiLevel.B;
 import static com.android.tools.r8.utils.CfUtils.extractClassDescriptor;
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyForDevelopmentOrDefault;
+import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyOrDefault;
 
 import com.android.tools.r8.AndroidResourceConsumer;
 import com.android.tools.r8.AndroidResourceProvider;
@@ -54,6 +55,7 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
+import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -1831,6 +1833,9 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public static class InlinerOptions {
 
     public boolean enableConstructorInlining = true;
+    public boolean enableConstructorInliningWithFinalFields =
+        parseSystemPropertyOrDefault(
+            "com.android.tools.r8.enableConstructorInliningWithFinalFields", false);
 
     public boolean enableInlining =
         !parseSystemPropertyForDevelopmentOrDefault("com.android.tools.r8.disableinlining", false);
@@ -2659,6 +2664,11 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return !appView.enableWholeProgramOptimizations();
   }
 
+  public boolean canAssignFinalInstanceFieldOutsideConstructor() {
+    // ART does not check this property.
+    return isGeneratingDex();
+  }
+
   /**
    * Dex2Oat issues a warning for abstract methods on non-abstract classes, so we never allow this.
    *
@@ -2857,6 +2867,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean canUseMultidex() {
     assert isGeneratingDex();
     return intermediate || hasMinApi(AndroidApiLevel.L);
+  }
+
+  public boolean canUseJavaLangVarHandleStoreStoreFence(DexDefinitionSupplier definitions) {
+    if (isGeneratingDex() && hasMinApi(AndroidApiLevel.P)) {
+      DexItemFactory factory = definitions.dexItemFactory();
+      return definitions.hasDefinitionFor(factory.javaLangInvokeVarHandleMembers.storeStoreFence);
+    }
+    return false;
   }
 
   public boolean canUseJavaUtilObjects() {

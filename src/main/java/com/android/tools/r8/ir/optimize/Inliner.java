@@ -37,6 +37,7 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.MonitorType;
@@ -564,6 +565,7 @@ public class Inliner {
     final Reason reason;
 
     private boolean shouldEnsureStaticInitialization;
+    private boolean shouldEnsureStoreStoreBarrier;
 
     private DexProgramClass downcastClass;
 
@@ -594,6 +596,10 @@ public class Inliner {
       shouldEnsureStaticInitialization = true;
     }
 
+    void setShouldEnsureStoreStoreBarrier() {
+      shouldEnsureStoreStoreBarrier = true;
+    }
+
     boolean mustBeInlined() {
       return reason == Reason.ALWAYS;
     }
@@ -618,6 +624,11 @@ public class Inliner {
             code.entryBlock(),
             ConsumerUtils.emptyConsumer(),
             failingBlock -> synthesizeInitClass(code, failingBlock));
+      }
+
+      // Insert a store-store barrier at the end of the method.
+      if (shouldEnsureStoreStoreBarrier) {
+        synthesizeStoreStoreBarrier(appView, code);
       }
 
       // Insert a null check if this is needed to preserve the implicit null check for the receiver.
@@ -812,6 +823,29 @@ public class Inliner {
       }
     }
 
+    private void synthesizeStoreStoreBarrier(AppView<AppInfoWithLiveness> appView, IRCode code) {
+      assert target.getDefinition().isInstanceInitializer();
+      BasicBlockIterator blockIterator = code.listIterator();
+      while (blockIterator.hasNext()) {
+        BasicBlock block = blockIterator.next();
+        if (!block.isReturnBlock()) {
+          continue;
+        }
+        // It is an invariant that return blocks do not have catch handlers.
+        assert !block.hasCatchHandlers();
+        InstructionListIterator instructionIterator =
+            block.listIterator(code, block.getInstructions().size() - 1);
+        DexMethod storeStoreFenceMethod =
+            appView.dexItemFactory().javaLangInvokeVarHandleMembers.storeStoreFence;
+        assert appView.definitionFor(storeStoreFenceMethod) != null;
+        instructionIterator.add(
+            InvokeStatic.builder()
+                .setMethod(storeStoreFenceMethod)
+                .setPosition(Position.syntheticNone())
+                .build());
+      }
+    }
+
     private void setRemoveInnerFramePositionForReceiverUse(Instruction instruction) {
       Position position = instruction.getPosition();
       if (position == null) {
@@ -831,6 +865,7 @@ public class Inliner {
       private InvokeMethod invoke;
       private Reason reason;
       private boolean shouldEnsureStaticInitialization;
+      private boolean shouldEnsureStoreStoreBarrier;
       private ProgramMethod target;
 
       Builder setDowncastClass(DexProgramClass downcastClass) {
@@ -853,6 +888,11 @@ public class Inliner {
         return this;
       }
 
+      Builder setShouldEnsureStoreStoreBarrier() {
+        this.shouldEnsureStoreStoreBarrier = true;
+        return this;
+      }
+
       Builder setTarget(ProgramMethod target) {
         this.target = target;
         return this;
@@ -865,6 +905,9 @@ public class Inliner {
         }
         if (shouldEnsureStaticInitialization) {
           action.setShouldEnsureStaticInitialization();
+        }
+        if (shouldEnsureStoreStoreBarrier) {
+          action.setShouldEnsureStoreStoreBarrier();
         }
         return action;
       }

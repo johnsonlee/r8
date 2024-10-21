@@ -489,6 +489,7 @@ public class DefaultInliningOracle implements InliningOracle {
     // Make sure constructor inlining is legal.
     if (singleTarget.getDefinition().isInstanceInitializer()
         && !canInlineInstanceInitializer(
+            actionBuilder,
             code,
             invoke.asInvokeDirect(),
             singleTarget,
@@ -655,6 +656,7 @@ public class DefaultInliningOracle implements InliningOracle {
   @Override
   @SuppressWarnings("ReferenceEquality")
   public boolean canInlineInstanceInitializer(
+      InlineAction.Builder actionBuilder,
       IRCode code,
       InvokeDirect invoke,
       ProgramMethod singleTarget,
@@ -687,7 +689,6 @@ public class DefaultInliningOracle implements InliningOracle {
       return true;
     }
 
-    @SuppressWarnings("ReferenceEquality")
     // Only allow inlining a constructor into a non-constructor if:
     // (1) the first use of the uninitialized object is the receiver of an invoke of <init>(),
     // (2) the constructor does not initialize any final fields, as such is only allowed from within
@@ -727,10 +728,23 @@ public class DefaultInliningOracle implements InliningOracle {
         InstancePut instancePut = instruction.asInstancePut();
         DexField field = instancePut.getField();
         DexEncodedField target = appView.appInfo().lookupInstanceTarget(field);
-        if (target == null || target.isFinal()) {
-          whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToFinalFieldAssignment(
+        if (target == null) {
+          whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToMissingFieldAssignment(
               instancePut);
           return false;
+        }
+        if (target.isFinal()) {
+          // TODO(b/278964529): We should unset the final flag for good measure. Find a way to do
+          //  this in a thread safe manner.
+          if (inlinerOptions.enableConstructorInliningWithFinalFields
+              && options.canAssignFinalInstanceFieldOutsideConstructor()
+              && options.canUseJavaLangVarHandleStoreStoreFence(appView)) {
+            actionBuilder.setShouldEnsureStoreStoreBarrier();
+          } else {
+            whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToFinalFieldAssignment(
+                instancePut);
+            return false;
+          }
         }
       }
     }
