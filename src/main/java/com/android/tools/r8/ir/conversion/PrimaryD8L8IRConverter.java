@@ -33,7 +33,6 @@ import com.android.tools.r8.ir.desugar.itf.L8InnerOuterAttributeEraser;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover;
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
-import com.android.tools.r8.kotlin.KotlinInlineMethodRemover;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.threading.ThreadingModule;
@@ -58,7 +57,6 @@ public class PrimaryD8L8IRConverter extends IRConverter {
   public void convert(AppView<AppInfo> appView, ExecutorService executorService)
       throws ExecutionException {
     LambdaDeserializationMethodRemover.run(appView);
-    new KotlinInlineMethodRemover(appView).run(executorService);
     workaroundAbstractMethodOnNonAbstractClassVerificationBug(executorService);
     DexApplication application = appView.appInfo().app();
     ProfileCollectionAdditions profileCollectionAdditions =
