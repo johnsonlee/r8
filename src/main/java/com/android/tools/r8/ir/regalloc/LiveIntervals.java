@@ -10,6 +10,8 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator.ArgumentReuseMode;
+import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -397,12 +399,11 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   }
 
   public LiveIntervalsUse firstUseWithConstraint() {
-    for (LiveIntervalsUse use : uses) {
-      if (use.hasConstraint()) {
-        return use;
-      }
-    }
-    return null;
+    return Iterables.find(uses, LiveIntervalsUse::hasConstraint, null);
+  }
+
+  public LiveIntervalsUse firstUseWithConstraint(ArgumentReuseMode mode) {
+    return Iterables.find(uses, use -> use.hasConstraint(mode), null);
   }
 
   public void forEachRegister(IntConsumer consumer) {

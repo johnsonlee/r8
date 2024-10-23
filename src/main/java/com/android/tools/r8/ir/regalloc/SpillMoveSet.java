@@ -264,12 +264,12 @@ class SpillMoveSet {
     // Spill and restore moves for the incoming edge.
     Set<SpillMove> inMoves =
         MapUtils.removeOrDefault(instructionToInMoves, number - 1, Collections.emptySet());
-    removeArgumentRestores(inMoves);
+    assert verifyNoArgumentRestores(inMoves);
 
     // Spill and restore moves for the outgoing edge.
     Set<SpillMove> outMoves =
         MapUtils.removeOrDefault(instructionToOutMoves, number - 1, Collections.emptySet());
-    removeArgumentRestores(outMoves);
+    assert verifyNoArgumentRestores(outMoves);
 
     // Get the phi moves for this instruction and schedule them with the out going spill moves.
     Set<SpillMove> phiMoves =
@@ -293,22 +293,19 @@ class SpillMoveSet {
     assert !needsMovesBeforeInstruction(instruction);
   }
 
-  // Remove restore moves that restore arguments. Since argument register reuse is
-  // disallowed at this point we know that argument registers do not change value and
-  // therefore we don't have to perform spill moves. Performing spill moves will also
-  // make art reject the code because it loses type information for the argument.
-  //
-  // TODO(ager): We are dealing with some of these moves as rematerialization. However,
-  // we are still generating actual moves back to the original argument register.
-  // We should get rid of this method and avoid generating the moves in the first place.
-  private void removeArgumentRestores(Set<SpillMove> moves) {
+  // Since argument register reuse is disallowed at this point we know that argument registers do
+  // not change value and therefore we don't have to perform spill moves.
+  private boolean verifyNoArgumentRestores(Set<SpillMove> moves) {
     // The argument registers can be used for other values than the arguments in intervals where
     // the arguments are not live, so it is insufficient to check that the destination register
     // is in the argument register range.
-    moves.removeIf(
-        move ->
-            move.to.getRegister() < allocator.numberOfArgumentRegisters
-                && move.to.isArgumentInterval());
+    for (SpillMove move : moves) {
+      boolean isArgumentRestore =
+          move.to.getRegister() < allocator.numberOfArgumentRegisters
+              && move.to.isArgumentInterval();
+      assert !isArgumentRestore;
+    }
+    return true;
   }
 
   private void scheduleMoves(

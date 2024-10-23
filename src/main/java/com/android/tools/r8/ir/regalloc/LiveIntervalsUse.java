@@ -5,6 +5,8 @@ package com.android.tools.r8.ir.regalloc;
 
 import static com.android.tools.r8.dex.Constants.U16BIT_MAX;
 
+import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator.ArgumentReuseMode;
+
 public class LiveIntervalsUse implements Comparable<LiveIntervalsUse> {
   private final int position;
   private final int limit;
@@ -46,5 +48,9 @@ public class LiveIntervalsUse implements Comparable<LiveIntervalsUse> {
 
   public boolean hasConstraint() {
     return limit < U16BIT_MAX;
+  }
+
+  public boolean hasConstraint(ArgumentReuseMode mode) {
+    return mode.hasRegisterConstraint(this);
   }
 }
