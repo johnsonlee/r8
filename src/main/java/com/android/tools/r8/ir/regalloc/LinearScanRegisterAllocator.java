@@ -1658,76 +1658,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       registerConstraint += numberOfArgumentRegisters;
     }
 
-    // Set all free positions for possible registers to max integer.
-    RegisterPositions freePositions = new RegisterPositionsImpl(registerConstraint + 1);
-
-    if ((options().debug || code.context().isReachabilitySensitive())
-        && !code.method().accessFlags.isStatic()) {
-      // If we are generating debug information or if the method is reachability sensitive,
-      // we pin the this value register. The debugger expects to always be able to find it in
-      // the input register.
-      assert numberOfArgumentRegisters > 0;
-      assert firstArgumentValue != null && firstArgumentValue.requiredRegisters() == 1;
-      freePositions.setBlocked(0);
-    }
-
-    if (mode == ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT
-        || mode == ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U16BIT) {
-      // Argument reuse is not allowed and we block all the argument registers so that
-      // arguments are never free.
-      for (int i = 0; i < numberOfArgumentRegisters && i <= registerConstraint; i++) {
-        freePositions.setBlocked(i);
-      }
-    }
-
-    // If there is a move exception instruction we block register 0 as the move exception
-    // register. If we cannot find a free valid register for the move exception value we have no
-    // place to put a spill move (because the move exception instruction has to be the
-    // first instruction in the handler block).
-    if (overlapsMoveExceptionInterval(unhandledInterval)) {
-      int moveExceptionRegister = getMoveExceptionRegister();
-      if (moveExceptionRegister <= registerConstraint) {
-        freePositions.setBlocked(moveExceptionRegister);
-      }
-    }
-
-    // All the active intervals are not free at this point.
-    for (LiveIntervals intervals : active) {
-      int activeRegister = intervals.getRegister();
-      if (activeRegister <= registerConstraint) {
-        for (int i = 0; i < intervals.requiredRegisters(); i++) {
-          if (activeRegister + i <= registerConstraint) {
-            freePositions.setBlocked(activeRegister + i);
-          }
-        }
-      }
-    }
-
-    // The register for inactive intervals that overlap with this interval are free until
-    // the next overlap.
-    for (LiveIntervals intervals : inactive) {
-      int inactiveRegister = intervals.getRegister();
-      if (inactiveRegister <= registerConstraint && unhandledInterval.overlaps(intervals)) {
-        int nextOverlap = unhandledInterval.nextOverlap(intervals);
-        for (int i = 0; i < intervals.requiredRegisters(); i++) {
-          int register = inactiveRegister + i;
-          if (register <= registerConstraint && !freePositions.isBlocked(register)) {
-            int unhandledStart = toInstructionPosition(unhandledInterval.getStart());
-            if (nextOverlap == unhandledStart) {
-              // Don't use the register for an inactive interval that is only free until the next
-              // instruction. We can get into this situation when unhandledInterval starts at a
-              // gap position.
-              freePositions.setBlocked(register);
-            } else {
-              if (nextOverlap < freePositions.get(register)) {
-                freePositions.set(register, nextOverlap, intervals);
-              }
-            }
-          }
-        }
-      }
-    }
-
+    RegisterPositions freePositions = computeFreePositions(unhandledInterval, registerConstraint);
     assert freePositionsAreConsistentWithFreeRegisters(freePositions, registerConstraint);
 
     // Attempt to use register hints.
@@ -1798,6 +1729,80 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       }
     }
     return true;
+  }
+
+  private RegisterPositions computeFreePositions(
+      LiveIntervals unhandledInterval, int registerConstraint) {
+    // Set all free positions for possible registers to max integer.
+    RegisterPositions freePositions = new RegisterPositionsImpl(registerConstraint + 1);
+
+    if ((options().debug || code.context().isReachabilitySensitive())
+        && !code.method().accessFlags.isStatic()) {
+      // If we are generating debug information or if the method is reachability sensitive,
+      // we pin the this value register. The debugger expects to always be able to find it in
+      // the input register.
+      assert numberOfArgumentRegisters > 0;
+      assert firstArgumentValue != null && firstArgumentValue.requiredRegisters() == 1;
+      freePositions.setBlocked(0);
+    }
+
+    if (mode == ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT
+        || mode == ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U16BIT) {
+      // Argument reuse is not allowed and we block all the argument registers so that
+      // arguments are never free.
+      for (int i = 0; i < numberOfArgumentRegisters && i <= registerConstraint; i++) {
+        freePositions.setBlocked(i);
+      }
+    }
+
+    // If there is a move exception instruction we block register 0 as the move exception
+    // register. If we cannot find a free valid register for the move exception value we have no
+    // place to put a spill move (because the move exception instruction has to be the
+    // first instruction in the handler block).
+    if (overlapsMoveExceptionInterval(unhandledInterval)) {
+      int moveExceptionRegister = getMoveExceptionRegister();
+      if (moveExceptionRegister <= registerConstraint) {
+        freePositions.setBlocked(moveExceptionRegister);
+      }
+    }
+
+    // All the active intervals are not free at this point.
+    for (LiveIntervals intervals : active) {
+      int activeRegister = intervals.getRegister();
+      if (activeRegister <= registerConstraint) {
+        for (int i = 0; i < intervals.requiredRegisters(); i++) {
+          if (activeRegister + i <= registerConstraint) {
+            freePositions.setBlocked(activeRegister + i);
+          }
+        }
+      }
+    }
+
+    // The register for inactive intervals that overlap with this interval are free until
+    // the next overlap.
+    for (LiveIntervals intervals : inactive) {
+      int inactiveRegister = intervals.getRegister();
+      if (inactiveRegister <= registerConstraint && unhandledInterval.overlaps(intervals)) {
+        int nextOverlap = unhandledInterval.nextOverlap(intervals);
+        for (int i = 0; i < intervals.requiredRegisters(); i++) {
+          int register = inactiveRegister + i;
+          if (register <= registerConstraint && !freePositions.isBlocked(register)) {
+            int unhandledStart = toInstructionPosition(unhandledInterval.getStart());
+            if (nextOverlap == unhandledStart) {
+              // Don't use the register for an inactive interval that is only free until the next
+              // instruction. We can get into this situation when unhandledInterval starts at a
+              // gap position.
+              freePositions.setBlocked(register);
+            } else {
+              if (nextOverlap < freePositions.get(register)) {
+                freePositions.set(register, nextOverlap, intervals);
+              }
+            }
+          }
+        }
+      }
+    }
+    return freePositions;
   }
 
   // Attempt to use the register hint for the unhandled interval in order to avoid generating
