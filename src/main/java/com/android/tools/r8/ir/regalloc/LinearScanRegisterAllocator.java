@@ -788,15 +788,24 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private void performAllocation() {
     // Will automatically continue to ALLOW_ARGUMENT_REUSE_U8BIT and ALLOW_ARGUMENT_REUSE_U16BIT,
     // if needed.
-    performAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U4BIT);
+    int minimumRequiredRegisters = numberOfArgumentRegisters;
+    ArgumentReuseMode initialMode =
+        minimumRequiredRegisters <= Constants.U4BIT_MAX
+            ? ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U4BIT
+            : ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT;
+    performAllocation(initialMode, false);
   }
 
-  private ArgumentReuseMode performAllocation(ArgumentReuseMode mode) {
+  private ArgumentReuseMode retryAllocation(ArgumentReuseMode mode) {
+    return performAllocation(mode, true);
+  }
+
+  private ArgumentReuseMode performAllocation(ArgumentReuseMode mode, boolean retry) {
     assert numberOf4BitArgumentRegisters == 0 || mode.is8BitRefinement();
     ArgumentReuseMode result = mode;
     this.mode = mode;
 
-    if (!mode.is4Bit()) {
+    if (retry) {
       clearRegisterAssignments(mode);
       removeSpillAndPhiMoves();
     }
@@ -825,7 +834,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             || options().testing.alwaysUsePessimisticRegisterAllocation) {
           // Redo allocation in mode ALLOW_ARGUMENT_REUSE_U8BIT. This may in principle also fail.
           // It is extremely rare that a method will use more than 256 registers, though.
-          result = performAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT);
+          result = retryAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT);
         }
         break;
 
@@ -834,7 +843,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             || options().getTestingOptions().alwaysUsePessimisticRegisterAllocation) {
           // Redo allocation in mode ALLOW_ARGUMENT_REUSE_U16BIT. This always succeed.
           unusedRegisters = null;
-          result = performAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U16BIT);
+          result = retryAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U16BIT);
           break;
         }
 
@@ -842,7 +851,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           // Refine register allocation result using the knowledge that some of the argument
           // registers are 4 bit registers.
           unusedRegisters = null;
-          result = performAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT_REFINEMENT);
+          result = retryAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT_REFINEMENT);
         }
         break;
 
@@ -852,7 +861,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           // Redo allocation in mode ALLOW_ARGUMENT_REUSE_U8BIT_RETRY. This always succeed.
           numberOf4BitArgumentRegisters = 0;
           unusedRegisters = null;
-          result = performAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT_RETRY);
+          result = retryAllocation(ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT_RETRY);
         }
         break;
 
