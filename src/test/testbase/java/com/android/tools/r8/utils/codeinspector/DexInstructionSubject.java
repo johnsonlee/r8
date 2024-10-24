@@ -98,6 +98,7 @@ import com.android.tools.r8.dex.code.DexMonitorEnter;
 import com.android.tools.r8.dex.code.DexMonitorExit;
 import com.android.tools.r8.dex.code.DexMove;
 import com.android.tools.r8.dex.code.DexMove16;
+import com.android.tools.r8.dex.code.DexMoveException;
 import com.android.tools.r8.dex.code.DexMoveFrom16;
 import com.android.tools.r8.dex.code.DexMoveObject;
 import com.android.tools.r8.dex.code.DexMoveObject16;
@@ -676,6 +677,11 @@ public class DexInstructionSubject implements InstructionSubject {
         || instruction instanceof DexMoveWide
         || instruction instanceof DexMoveWide16
         || instruction instanceof DexMoveWideFrom16;
+  }
+
+  @Override
+  public boolean isMoveException() {
+    return instruction instanceof DexMoveException;
   }
 
   @Override

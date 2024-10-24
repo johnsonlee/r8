@@ -168,6 +168,8 @@ public interface InstructionSubject {
 
   boolean isMove();
 
+  boolean isMoveException();
+
   boolean isMoveFrom(int register);
 
   boolean isMoveResult();

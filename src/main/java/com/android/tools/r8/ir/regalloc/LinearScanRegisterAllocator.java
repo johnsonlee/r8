@@ -238,17 +238,31 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   // We allocate a dedicated move exception register right after the arguments.
-  // TODO(b/374715251): The move-exception instruction only requires its destination register to
-  //  fit in 8 bits. In some situations, it might be better to use a register which is >= 16 if we
-  //  end up using that many registers.
   private int getMoveExceptionRegister() {
     assert hasDedicatedMoveExceptionRegister();
     return numberOfArgumentRegisters;
   }
 
+  private int getMoveExceptionOffsetForLocalRegisters() {
+    return BooleanUtils.intValue(
+        hasDedicatedMoveExceptionRegister()
+            && isDedicatedMoveExceptionRegisterInLastLocalRegister());
+  }
+
   private boolean isDedicatedMoveExceptionRegisterInFirstLocalRegister() {
     assert hasDedicatedMoveExceptionRegister();
-    return true;
+    if (mode.is4Bit() || mode.is16Bit()) {
+      return true;
+    }
+    if (mode.is8BitRefinement()) {
+      assert numberOf4BitArgumentRegisters > 0;
+      return true;
+    }
+    return !options().getTestingOptions().enableUseLastLocalRegisterAsMoveExceptionRegister;
+  }
+
+  private boolean isDedicatedMoveExceptionRegisterInLastLocalRegister() {
+    return !isDedicatedMoveExceptionRegisterInFirstLocalRegister();
   }
 
   public LinearScanRegisterAllocator(AppView<?> appView, IRCode code) {
@@ -690,11 +704,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   private int[] computeUnusedRegistersFromUsedRegisters(IntSet usedRegisters) {
     assert firstParallelMoveTemporary != NO_REGISTER;
-    int firstLocalRegister =
-        numberOfArgumentRegisters
-            + BooleanUtils.intValue(
-                hasDedicatedMoveExceptionRegister()
-                    && !isDedicatedMoveExceptionRegisterInFirstLocalRegister());
+    int firstLocalRegister = numberOfArgumentRegisters + getMoveExceptionOffsetForLocalRegisters();
     assert verifyRegistersBeforeFirstLocalRegisterAreUsed(firstLocalRegister, usedRegisters);
     int numberOfParallelMoveTemporaryRegisters = registersUsed() - firstParallelMoveTemporary;
     int numberOfLocalRegisters =
@@ -958,15 +968,19 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   int unadjustedRealRegisterFromAllocated(int allocated) {
     assert allocated != NO_REGISTER;
     assert allocated >= 0;
-    int register;
     if (allocated < numberOfArgumentRegisters) {
       // For the |numberOfArguments| first registers map to the correct argument register.
-      register = maxRegisterNumber - (numberOfArgumentRegisters - allocated - 1);
+      return maxRegisterNumber - (numberOfArgumentRegisters - allocated - 1);
+    } else if (hasDedicatedMoveExceptionRegister()
+        && isDedicatedMoveExceptionRegisterInLastLocalRegister()
+        && allocated == getMoveExceptionRegister()) {
+      // Move the move-exception register to be the highest local register. We only do this in 8 bit
+      // register allocation since move-exception requires an 8 bit register.
+      return maxRegisterNumber - numberOfArgumentRegisters;
     } else {
       // For everything else use the lower numbers.
-      register = allocated - numberOfArgumentRegisters;
+      return allocated - numberOfArgumentRegisters - getMoveExceptionOffsetForLocalRegisters();
     }
-    return register;
   }
 
   int realRegisterNumberFromAllocated(int allocated) {
@@ -1072,6 +1086,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             unhandled.add(split);
           }
         }
+      }
+      for (LiveIntervals intervals : moveExceptionIntervals) {
+        assert intervals.getRegisterLimit() == Constants.U8BIT_MAX;
       }
     }
 
@@ -1369,8 +1386,14 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // Exclude move exception register if the first interval overlaps a move exception interval.
     // It is not necessary to check the remaining consecutive intervals, since we always use
     // register 0 (after remapping) for the argument register.
-    if (overlapsMoveExceptionInterval(start) && freeRegisters.remove(getMoveExceptionRegister())) {
-      excludedRegisters.add(getMoveExceptionRegister());
+    if (hasDedicatedMoveExceptionRegister()) {
+      boolean canUseMoveExceptionRegisterForLinkedIntervals =
+          isDedicatedMoveExceptionRegisterInFirstLocalRegister()
+              && !overlapsMoveExceptionInterval(start);
+      if (!canUseMoveExceptionRegisterForLinkedIntervals
+          && freeRegisters.remove(getMoveExceptionRegister())) {
+        excludedRegisters.add(getMoveExceptionRegister());
+      }
     }
     // Select registers.
     int numberOfRegisters = start.numberOfConsecutiveRegisters();
@@ -1798,6 +1821,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       // Since we swap the argument registers and the temporary registers after register allocation,
       // we can allow the use of number of arguments more registers.
       registerConstraint += numberOfArgumentRegisters;
+      // If we swap the locals and the dedicated move exception register we can allow the use of
+      // one additional register.
+      registerConstraint += getMoveExceptionOffsetForLocalRegisters();
     }
 
     RegisterPositions freePositions = computeFreePositions(unhandledInterval, registerConstraint);
@@ -1935,10 +1961,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // register. If we cannot find a free valid register for the move exception value we have no
     // place to put a spill move (because the move exception instruction has to be the
     // first instruction in the handler block).
-    if (overlapsMoveExceptionInterval(unhandledInterval)) {
-      int moveExceptionRegister = getMoveExceptionRegister();
-      if (moveExceptionRegister <= registerConstraint) {
-        freePositions.setBlocked(moveExceptionRegister);
+    if (hasDedicatedMoveExceptionRegister()) {
+      if (unhandledInterval.getRegisterLimit() == Constants.U4BIT_MAX
+          && isDedicatedMoveExceptionRegisterInLastLocalRegister()) {
+        freePositions.setBlocked(getMoveExceptionRegister());
+      } else if (overlapsMoveExceptionInterval(unhandledInterval)) {
+        int moveExceptionRegister = getMoveExceptionRegister();
+        if (moveExceptionRegister <= registerConstraint) {
+          freePositions.setBlocked(moveExceptionRegister);
+        }
       }
     }
 
@@ -2130,6 +2161,13 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           // The last register of the method is |i|, so we cannot use the pair (|i|, |i+1|).
           continue;
         }
+        if (hasDedicatedMoveExceptionRegister()
+            && isDedicatedMoveExceptionRegisterInLastLocalRegister()
+            && i == getMoveExceptionRegister()) {
+          // After register allocation we swap the dedicated move-exception register and all other
+          // local registers, so we cannot use the pair (|i|, |i+1|).
+          continue;
+        }
         if (i >= registerConstraint) {
           break;
         }
@@ -2286,8 +2324,13 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     }
 
     // Disallow reuse of the move exception register if we have reserved one.
-    if (overlapsMoveExceptionInterval(unhandledInterval)) {
-      usePositions.setBlocked(getMoveExceptionRegister());
+    if (hasDedicatedMoveExceptionRegister()) {
+      if (unhandledInterval.getRegisterLimit() == Constants.U4BIT_MAX
+          && isDedicatedMoveExceptionRegisterInLastLocalRegister()) {
+        usePositions.setBlocked(getMoveExceptionRegister());
+      } else if (overlapsMoveExceptionInterval(unhandledInterval)) {
+        usePositions.setBlocked(getMoveExceptionRegister());
+      }
     }
 
     // Treat active and inactive linked argument intervals as pinned. They cannot be given another

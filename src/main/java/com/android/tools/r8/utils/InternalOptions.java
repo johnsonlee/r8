@@ -2486,6 +2486,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     //  successful (i.e., how often the assumed 4 bit argument registers actually end up being 4
     //  bit). If the failure rate is too high maybe add a some buffer.
     public boolean enableRegisterAllocation8BitRefinement = false;
+    // TODO(b/374715251): Look into enabling this.
+    public boolean enableUseLastLocalRegisterAsMoveExceptionRegister = false;
     public boolean enableKeepInfoCanonicalizer = true;
     public boolean enableBridgeHoistingToSharedSyntheticSuperclass = false;
     public boolean enableCheckCastAndInstanceOfRemoval = true;

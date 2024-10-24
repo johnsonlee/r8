@@ -407,6 +407,11 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isMoveException() {
+    return false;
+  }
+
+  @Override
   public boolean isMoveFrom(int register) {
     return false;
   }
