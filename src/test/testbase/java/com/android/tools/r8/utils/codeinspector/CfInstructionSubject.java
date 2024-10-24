@@ -140,6 +140,11 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isInvokeRange() {
+    return false;
+  }
+
+  @Override
   public boolean isPop() {
     return instruction instanceof CfStackInstruction
         && ((CfStackInstruction) instruction).getOpcode() == Opcode.Pop;

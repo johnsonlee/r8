@@ -80,6 +80,7 @@ import com.android.tools.r8.dex.code.DexInvokeDirect;
 import com.android.tools.r8.dex.code.DexInvokeDirectRange;
 import com.android.tools.r8.dex.code.DexInvokeInterface;
 import com.android.tools.r8.dex.code.DexInvokeInterfaceRange;
+import com.android.tools.r8.dex.code.DexInvokePolymorphicRange;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
 import com.android.tools.r8.dex.code.DexInvokeStaticRange;
 import com.android.tools.r8.dex.code.DexInvokeSuper;
@@ -314,6 +315,17 @@ public class DexInstructionSubject implements InstructionSubject {
 
   public boolean isInvokeDirect() {
     return instruction instanceof DexInvokeDirect || instruction instanceof DexInvokeDirectRange;
+  }
+
+  @Override
+  public boolean isInvokeRange() {
+    return instruction instanceof DexInvokeCustomRange
+        || instruction instanceof DexInvokeDirectRange
+        || instruction instanceof DexInvokeInterfaceRange
+        || instruction instanceof DexInvokeStaticRange
+        || instruction instanceof DexInvokeSuperRange
+        || instruction instanceof DexInvokeVirtualRange
+        || instruction instanceof DexInvokePolymorphicRange;
   }
 
   @Override

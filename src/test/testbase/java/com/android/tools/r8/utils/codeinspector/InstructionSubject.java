@@ -51,6 +51,8 @@ public interface InstructionSubject {
 
   boolean isInvokeDynamic();
 
+  boolean isInvokeRange();
+
   default boolean isInvokeSpecialOrDirect() {
     if (isCfInstruction()) {
       return asCfInstruction().isInvokeSpecial();
