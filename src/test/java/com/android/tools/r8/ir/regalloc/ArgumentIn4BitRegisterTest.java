@@ -33,6 +33,8 @@ public class ArgumentIn4BitRegisterTest extends TestBase {
   public void test() throws Exception {
     testForD8()
         .addInnerClasses(getClass())
+        .addOptionsModification(
+            options -> options.getTestingOptions().enableRegisterAllocation8BitRefinement = true)
         .release()
         .setMinApi(parameters)
         .compile()
@@ -41,9 +43,8 @@ public class ArgumentIn4BitRegisterTest extends TestBase {
               MethodSubject testMethodSubject =
                   inspector.clazz(Main.class).uniqueMethodWithOriginalName("test");
               assertThat(testMethodSubject, isPresent());
-              // TODO(b/374266460): Should be 0.
               assertEquals(
-                  1,
+                  0,
                   testMethodSubject
                       .streamInstructions()
                       .filter(InstructionSubject::isMove)
@@ -62,6 +63,7 @@ public class ArgumentIn4BitRegisterTest extends TestBase {
       use(d);
       use(e);
       use(f);
+      use(g);
       use(h);
       use(i);
     }

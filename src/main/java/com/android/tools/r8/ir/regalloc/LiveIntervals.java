@@ -277,6 +277,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return register;
   }
 
+  public int getRegisterEnd() {
+    return register + requiredRegisters() - 1;
+  }
+
   public int getRegisterLimit() {
     return registerLimit;
   }

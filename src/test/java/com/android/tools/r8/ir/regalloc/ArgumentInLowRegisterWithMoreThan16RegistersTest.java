@@ -33,6 +33,8 @@ public class ArgumentInLowRegisterWithMoreThan16RegistersTest extends TestBase {
   public void testD8() throws Exception {
     testForD8()
         .addInnerClasses(getClass())
+        .addOptionsModification(
+            options -> options.getTestingOptions().enableRegisterAllocation8BitRefinement = true)
         .release()
         .setMinApi(parameters)
         .compile()
@@ -41,15 +43,15 @@ public class ArgumentInLowRegisterWithMoreThan16RegistersTest extends TestBase {
               MethodSubject testMethodSubject =
                   inspector.clazz(Main.class).uniqueInstanceInitializer();
               assertThat(testMethodSubject, isPresent());
-              // TODO(b/374266460): Leverage that most arguments are in 4 bit registers from the
-              //  beginning.
               assertEquals(
-                  9,
+                  2,
                   testMethodSubject
                       .streamInstructions()
                       .filter(InstructionSubject::isMove)
                       .count());
-            });
+            })
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithEmptyOutput();
   }
 
   static class Main {
@@ -72,6 +74,10 @@ public class ArgumentInLowRegisterWithMoreThan16RegistersTest extends TestBase {
       this.f = f;
       this.g = g;
       this.h = h;
+    }
+
+    public static void main(String[] args) {
+      new Main(1, 2, 3, 4, 5, 6, 7, 8);
     }
   }
 }
