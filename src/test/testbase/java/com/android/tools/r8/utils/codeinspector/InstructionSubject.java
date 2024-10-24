@@ -166,6 +166,10 @@ public interface InstructionSubject {
 
   boolean isMove();
 
+  boolean isMoveFrom(int register);
+
+  boolean isMoveResult();
+
   boolean isFilledNewArray();
 
   boolean isFilledNewArrayData();

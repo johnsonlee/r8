@@ -101,6 +101,9 @@ import com.android.tools.r8.dex.code.DexMoveFrom16;
 import com.android.tools.r8.dex.code.DexMoveObject;
 import com.android.tools.r8.dex.code.DexMoveObject16;
 import com.android.tools.r8.dex.code.DexMoveObjectFrom16;
+import com.android.tools.r8.dex.code.DexMoveResult;
+import com.android.tools.r8.dex.code.DexMoveResultObject;
+import com.android.tools.r8.dex.code.DexMoveResultWide;
 import com.android.tools.r8.dex.code.DexMoveWide;
 import com.android.tools.r8.dex.code.DexMoveWide16;
 import com.android.tools.r8.dex.code.DexMoveWideFrom16;
@@ -664,6 +667,47 @@ public class DexInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isMoveFrom(int register) {
+    if (instruction instanceof DexMove) {
+      DexMove move = getInstruction();
+      return move.B == register;
+    } else if (instruction instanceof DexMove16) {
+      DexMove16 move = getInstruction();
+      return move.BBBB == register;
+    } else if (instruction instanceof DexMoveFrom16) {
+      DexMoveFrom16 move = getInstruction();
+      return move.BBBB == register;
+    } else if (instruction instanceof DexMoveObject) {
+      DexMoveObject move = getInstruction();
+      return move.B == register;
+    } else if (instruction instanceof DexMoveObject16) {
+      DexMoveObject16 move = getInstruction();
+      return move.BBBB == register;
+    } else if (instruction instanceof DexMoveObjectFrom16) {
+      DexMoveObjectFrom16 move = getInstruction();
+      return move.BBBB == register;
+    } else if (instruction instanceof DexMoveWide) {
+      DexMoveWide move = getInstruction();
+      return move.B == register;
+    } else if (instruction instanceof DexMoveWide16) {
+      DexMoveWide16 move = getInstruction();
+      return move.BBBB == register;
+    } else if (instruction instanceof DexMoveWideFrom16) {
+      DexMoveWideFrom16 move = getInstruction();
+      return move.BBBB == register;
+    } else {
+      return false;
+    }
+  }
+
+  @Override
+  public boolean isMoveResult() {
+    return instruction instanceof DexMoveResult
+        || instruction instanceof DexMoveResultObject
+        || instruction instanceof DexMoveResultWide;
+  }
+
+  @Override
   public boolean isFilledNewArray() {
     return instruction instanceof DexFilledNewArray
         || instruction instanceof DexFilledNewArrayRange;
@@ -705,7 +749,8 @@ public class DexInstructionSubject implements InstructionSubject {
     return instruction.toString();
   }
 
-  public DexInstruction getInstruction() {
-    return instruction;
+  @SuppressWarnings("unchecked")
+  public <T extends DexInstruction> T getInstruction() {
+    return (T) instruction;
   }
 }

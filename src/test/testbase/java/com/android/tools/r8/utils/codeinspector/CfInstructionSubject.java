@@ -402,6 +402,16 @@ public class CfInstructionSubject implements InstructionSubject {
   }
 
   @Override
+  public boolean isMoveFrom(int register) {
+    return false;
+  }
+
+  @Override
+  public boolean isMoveResult() {
+    return false;
+  }
+
+  @Override
   public boolean isFilledNewArray() {
     return false;
   }
