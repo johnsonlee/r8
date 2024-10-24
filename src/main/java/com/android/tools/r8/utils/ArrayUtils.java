@@ -85,6 +85,10 @@ public class ArrayUtils {
     return array;
   }
 
+  public static boolean isEmpty(int[] array) {
+    return array.length == 0;
+  }
+
   public static <T> boolean isEmpty(T[] array) {
     return array.length == 0;
   }
@@ -102,6 +106,10 @@ public class ArrayUtils {
 
   public static <T> T last(T[] array) {
     return array[array.length - 1];
+  }
+
+  public static int lastOrDefault(int[] array, int defaultValue) {
+    return isEmpty(array) ? defaultValue : array[array.length - 1];
   }
 
   /**

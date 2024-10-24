@@ -39,6 +39,8 @@ import com.android.tools.r8.ir.code.Sub;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.Xor;
 import com.android.tools.r8.ir.regalloc.RegisterPositions.Type;
+import com.android.tools.r8.utils.ArrayUtils;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LinkedHashSetUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -55,13 +57,13 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Reference2IntArrayMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -242,6 +244,11 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private int getMoveExceptionRegister() {
     assert hasDedicatedMoveExceptionRegister();
     return numberOfArgumentRegisters;
+  }
+
+  private boolean isDedicatedMoveExceptionRegisterInFirstLocalRegister() {
+    assert hasDedicatedMoveExceptionRegister();
+    return true;
   }
 
   public LinearScanRegisterAllocator(AppView<?> appView, IRCode code) {
@@ -650,8 +657,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     if (mode.is4Bit() || registersUsed() == 0) {
       return false;
     }
+    // Compute the table based on the set of used registers.
+    IntSet usedRegisters = computeUsedRegisters();
+    unusedRegisters = computeUnusedRegistersFromUsedRegisters(usedRegisters);
+    return ArrayUtils.lastOrDefault(unusedRegisters, 0) > 0;
+  }
+
+  private IntSet computeUsedRegisters() {
     // Compute the set of registers that is used based on all live intervals.
-    Set<Integer> usedRegisters = new HashSet<>();
+    IntSet usedRegisters = new IntOpenHashSet();
     for (LiveIntervals intervals : liveIntervals) {
       addRegisterIfUsed(usedRegisters, intervals);
       for (LiveIntervals childIntervals : intervals.getSplitChildren()) {
@@ -661,29 +675,47 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // Additionally, we have used temporary registers for parallel move scheduling, those
     // are used as well.
     for (int i = firstParallelMoveTemporary; i < maxRegisterNumber + 1; i++) {
-      usedRegisters.add(realRegisterNumberFromAllocated(i));
+      usedRegisters.add(i);
     }
-    // Compute the table based on the set of used registers.
-    int unused = 0;
-    int[] computed = new int[registersUsed()];
-    for (int i = 0; i < registersUsed(); i++) {
-      if (!usedRegisters.contains(i)) {
-        unused++;
-      }
-      computed[i] = unused;
-    }
-    unusedRegisters = computed;
-    return unused > 0;
+    return usedRegisters;
   }
 
-  private void addRegisterIfUsed(Set<Integer> used, LiveIntervals intervals) {
-    boolean unused = intervals.isSpilledAndRematerializable();
-    if (!unused) {
-      used.add(realRegisterNumberFromAllocated(intervals.getRegister()));
-      if (intervals.getType().isWide()) {
-        used.add(realRegisterNumberFromAllocated(intervals.getRegister() + 1));
+  private static void addRegisterIfUsed(IntSet usedRegisters, LiveIntervals intervals) {
+    if (!intervals.isSpilledAndRematerializable()) {
+      for (int i = 0; i < intervals.requiredRegisters(); i++) {
+        usedRegisters.add(intervals.getRegister() + i);
       }
     }
+  }
+
+  private int[] computeUnusedRegistersFromUsedRegisters(IntSet usedRegisters) {
+    assert firstParallelMoveTemporary != NO_REGISTER;
+    int firstLocalRegister =
+        numberOfArgumentRegisters
+            + BooleanUtils.intValue(
+                hasDedicatedMoveExceptionRegister()
+                    && !isDedicatedMoveExceptionRegisterInFirstLocalRegister());
+    assert verifyRegistersBeforeFirstLocalRegisterAreUsed(firstLocalRegister, usedRegisters);
+    int numberOfParallelMoveTemporaryRegisters = registersUsed() - firstParallelMoveTemporary;
+    int numberOfLocalRegisters =
+        registersUsed() - firstLocalRegister - numberOfParallelMoveTemporaryRegisters;
+    int unused = 0;
+    int[] unusedRegisters = new int[numberOfLocalRegisters];
+    for (int i = 0; i < numberOfLocalRegisters; i++) {
+      if (!usedRegisters.contains(firstLocalRegister + i)) {
+        unused++;
+      }
+      unusedRegisters[i] = unused;
+    }
+    return unusedRegisters;
+  }
+
+  private static boolean verifyRegistersBeforeFirstLocalRegisterAreUsed(
+      int firstLocalRegister, IntSet usedRegisters) {
+    for (int i = 0; i < firstLocalRegister; i++) {
+      assert usedRegisters.contains(i);
+    }
+    return true;
   }
 
   public int highestUsedRegister() {
@@ -694,7 +726,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   public int registersUsed() {
     int numberOfRegister = maxRegisterNumber + 1;
     if (unusedRegisters != null) {
-      return numberOfRegister - unusedRegisters[unusedRegisters.length - 1];
+      return numberOfRegister - ArrayUtils.lastOrDefault(unusedRegisters, 0);
     }
     return numberOfRegister;
   }
@@ -942,7 +974,16 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // Adjust for spill registers that turn out to be unused because the value can be
     // rematerialized instead of spilled.
     if (unusedRegisters != null) {
-      return register - unusedRegisters[register];
+      if (register < unusedRegisters.length) {
+        return register - unusedRegisters[register];
+      }
+      // This register is either:
+      // - One of the temporary registers used for move scheduling.
+      // - The dedicated move exception register (if it has been moved before the first argument).
+      // - One of the argument registers.
+      // In either case, the given register is after the last local register, so we subtract the
+      // total number of unused local registers from the register.
+      return register - ArrayUtils.lastOrDefault(unusedRegisters, 0);
     }
     return register;
   }
