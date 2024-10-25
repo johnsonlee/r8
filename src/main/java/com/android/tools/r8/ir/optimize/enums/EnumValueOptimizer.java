@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.code.ArrayGet;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.ConstString;
+import com.android.tools.r8.ir.code.Goto;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -294,18 +295,23 @@ public class EnumValueOptimizer extends CodeRewriterPass<AppInfoWithLiveness> {
         fallthroughBlockIndex -= deadBlockIndices[fallthroughBlockIndex];
       }
 
-      int[] keys = ordinalToTargetMap.keySet().toIntArray();
-      Arrays.sort(keys);
-      int[] targets = new int[keys.length];
-      for (int i = 0; i < keys.length; i++) {
-        targets[i] = ordinalToTargetMap.get(keys[i]);
+      if (ordinalToTargetMap.isEmpty()) {
+        switchInsn.replace(
+            Goto.builder().setTarget(block.getUniqueNormalSuccessor()).build(), code);
+      } else {
+        int[] keys = ordinalToTargetMap.keySet().toIntArray();
+        Arrays.sort(keys);
+        int[] targets = new int[keys.length];
+        for (int i = 0; i < keys.length; i++) {
+          targets[i] = ordinalToTargetMap.get(keys[i]);
+        }
+
+        IntSwitch newSwitch =
+            new IntSwitch(info.ordinalInvoke.outValue(), keys, targets, fallthroughBlockIndex);
+
+        // Replace the switch itself.
+        switchInsn.replace(newSwitch, code);
       }
-
-      IntSwitch newSwitch =
-          new IntSwitch(info.ordinalInvoke.outValue(), keys, targets, fallthroughBlockIndex);
-
-      // Replace the switch itself.
-      switchInsn.replace(newSwitch, code);
 
       // If the original input to the switch is now unused, remove it too. It is not dead
       // as it might have side-effects but we ignore these here.
