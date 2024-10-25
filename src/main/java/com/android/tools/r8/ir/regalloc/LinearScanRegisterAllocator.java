@@ -1065,9 +1065,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // trouble with move exception registers. When argument reuse is disallowed we block a fixed
     // register to be used only by move exception instructions.
     if (mode.is8Bit() || mode.is16Bit()) {
-      // Force all move exception ranges to start out with the exception in a fixed register. Split
-      // their live ranges which will force another register if used.
-      boolean overlappingMoveExceptionIntervals = false;
+      // Force all move exception ranges to start out with the exception in a fixed register.
       for (BasicBlock block : code.blocks) {
         Instruction instruction = block.entry();
         if (instruction.isMoveException()) {
@@ -1075,11 +1073,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           unhandled.remove(intervals);
           moveExceptionIntervals.add(intervals);
           intervals.setRegister(getMoveExceptionRegister());
-          if (!overlappingMoveExceptionIntervals) {
-            for (LiveIntervals other : moveExceptionIntervals) {
-              overlappingMoveExceptionIntervals |= other.overlaps(intervals);
-            }
-          }
         }
       }
       if (hasDedicatedMoveExceptionRegister()) {
@@ -1087,13 +1080,12 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         assert moveExceptionRegister == maxRegisterNumber + 1;
         increaseCapacity(moveExceptionRegister, true);
       }
-      if (overlappingMoveExceptionIntervals) {
-        for (LiveIntervals intervals : moveExceptionIntervals) {
-          if (intervals.getUses().size() > 1) {
-            LiveIntervals split =
-                intervals.splitBefore(intervals.getFirstUse() + INSTRUCTION_NUMBER_DELTA);
-            unhandled.add(split);
-          }
+      // Split their live ranges which will force another register if used.
+      for (LiveIntervals intervals : moveExceptionIntervals) {
+        if (intervals.getUses().size() > 1) {
+          LiveIntervals split =
+              intervals.splitBefore(intervals.getFirstUse() + INSTRUCTION_NUMBER_DELTA);
+          unhandled.add(split);
         }
       }
       for (LiveIntervals intervals : moveExceptionIntervals) {
