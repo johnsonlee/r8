@@ -1014,8 +1014,46 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private boolean performLinearScan(ArgumentReuseMode mode) {
     unhandled.addAll(liveIntervals);
 
-    Value argumentValue = firstArgumentValue;
-    while (argumentValue != null) {
+    processArgumentLiveIntervals();
+    allocateRegistersForMoveExceptionIntervals();
+
+    // Go through each unhandled live interval and find a register for it.
+    while (!unhandled.isEmpty()) {
+      assert invariantsHold(mode);
+      expiredHere.clear();
+
+      LiveIntervals unhandledInterval = unhandled.poll();
+
+      setHintForDestRegOfCheckCast(unhandledInterval);
+      setHintToPromote2AddrInstruction(unhandledInterval);
+
+      // If this interval value is the src of an argument move. Fix the registers for the
+      // consecutive arguments now and add hints to the move sources. This looks forward
+      // and propagate hints backwards to avoid many moves in connection with ranged invokes.
+      allocateArgumentIntervalsWithSrc(unhandledInterval, mode);
+      if (unhandledInterval.getRegister() != NO_REGISTER) {
+        // The value itself is in the chain that has now gotten registers allocated.
+        continue;
+      }
+
+      advanceStateToLiveIntervals(unhandledInterval);
+
+      // Perform the actual allocation.
+      if (unhandledInterval.isLinked() && !unhandledInterval.isArgumentInterval()) {
+        allocateLinkedIntervals(unhandledInterval, false);
+      } else {
+        if (!allocateSingleInterval(unhandledInterval, mode)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private void processArgumentLiveIntervals() {
+    for (Value argumentValue = firstArgumentValue;
+        argumentValue != null;
+        argumentValue = argumentValue.getNextConsecutive()) {
       LiveIntervals argumentInterval = argumentValue.getLiveIntervals();
       assert argumentInterval.getRegister() != NO_REGISTER;
       unhandled.remove(argumentInterval);
@@ -1053,9 +1091,10 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         // Since we are not activating the argument live intervals, we need to free their registers.
         freeOccupiedRegistersForIntervals(argumentInterval);
       }
-      argumentValue = argumentValue.getNextConsecutive();
     }
+  }
 
+  private void allocateRegistersForMoveExceptionIntervals() {
     // We have to be careful when it comes to the register allocated for a move exception
     // instruction. For move exception instructions there is no place to put spill or
     // restore moves. The move exception instruction has to be the first instruction in a
@@ -1092,78 +1131,50 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         assert intervals.getRegisterLimit() == Constants.U8BIT_MAX;
       }
     }
+  }
 
-    // Go through each unhandled live interval and find a register for it.
-    while (!unhandled.isEmpty()) {
-      assert invariantsHold(mode);
-      expiredHere.clear();
-
-      LiveIntervals unhandledInterval = unhandled.poll();
-
-      setHintForDestRegOfCheckCast(unhandledInterval);
-      setHintToPromote2AddrInstruction(unhandledInterval);
-
-      // If this interval value is the src of an argument move. Fix the registers for the
-      // consecutive arguments now and add hints to the move sources. This looks forward
-      // and propagate hints backwards to avoid many moves in connection with ranged invokes.
-      allocateArgumentIntervalsWithSrc(unhandledInterval, mode);
-      if (unhandledInterval.getRegister() != NO_REGISTER) {
-        // The value itself is in the chain that has now gotten registers allocated.
-        continue;
-      }
-
-      int start = unhandledInterval.getStart();
-      // Check for active intervals that expired or became inactive.
-      Iterator<LiveIntervals> activeIterator = active.iterator();
-      while (activeIterator.hasNext()) {
-        LiveIntervals activeIntervals = activeIterator.next();
-        if (start >= activeIntervals.getEnd()) {
-          activeIterator.remove();
-          freeOccupiedRegistersForIntervals(activeIntervals);
-          if (start == activeIntervals.getEnd()) {
-            expiredHere.add(activeIntervals.getRegister());
-            if (activeIntervals.getType().isWide()) {
-              expiredHere.add(activeIntervals.getRegister() + 1);
-            }
+  private void advanceStateToLiveIntervals(LiveIntervals unhandledInterval) {
+    int start = unhandledInterval.getStart();
+    // Check for active intervals that expired or became inactive.
+    Iterator<LiveIntervals> activeIterator = active.iterator();
+    while (activeIterator.hasNext()) {
+      LiveIntervals activeIntervals = activeIterator.next();
+      if (start >= activeIntervals.getEnd()) {
+        activeIterator.remove();
+        freeOccupiedRegistersForIntervals(activeIntervals);
+        if (start == activeIntervals.getEnd()) {
+          expiredHere.add(activeIntervals.getRegister());
+          if (activeIntervals.getType().isWide()) {
+            expiredHere.add(activeIntervals.getRegister() + 1);
           }
-        } else if (!activeIntervals.overlapsPosition(start)) {
-          activeIterator.remove();
-          assert activeIntervals.getRegister() != NO_REGISTER;
-          inactive.add(activeIntervals);
-          freeOccupiedRegistersForIntervals(activeIntervals);
         }
-      }
-
-      // Check for inactive intervals that expired or became reactivated.
-      Iterator<LiveIntervals> inactiveIterator = inactive.iterator();
-      while (inactiveIterator.hasNext()) {
-        LiveIntervals inactiveIntervals = inactiveIterator.next();
-        if (start >= inactiveIntervals.getEnd()) {
-          inactiveIterator.remove();
-          if (start == inactiveIntervals.getEnd()) {
-            expiredHere.add(inactiveIntervals.getRegister());
-            if (inactiveIntervals.getType().isWide()) {
-              expiredHere.add(inactiveIntervals.getRegister() + 1);
-            }
-          }
-        } else if (inactiveIntervals.overlapsPosition(start)) {
-          inactiveIterator.remove();
-          assert inactiveIntervals.getRegister() != NO_REGISTER;
-          active.add(inactiveIntervals);
-          takeFreeRegistersForIntervals(inactiveIntervals);
-        }
-      }
-
-      // Perform the actual allocation.
-      if (unhandledInterval.isLinked() && !unhandledInterval.isArgumentInterval()) {
-        allocateLinkedIntervals(unhandledInterval, false);
-      } else {
-        if (!allocateSingleInterval(unhandledInterval, mode)) {
-          return false;
-        }
+      } else if (!activeIntervals.overlapsPosition(start)) {
+        activeIterator.remove();
+        assert activeIntervals.getRegister() != NO_REGISTER;
+        inactive.add(activeIntervals);
+        freeOccupiedRegistersForIntervals(activeIntervals);
       }
     }
-    return true;
+
+    // Check for inactive intervals that expired or became reactivated.
+    Iterator<LiveIntervals> inactiveIterator = inactive.iterator();
+    while (inactiveIterator.hasNext()) {
+      LiveIntervals inactiveIntervals = inactiveIterator.next();
+      if (start >= inactiveIntervals.getEnd()) {
+        inactiveIterator.remove();
+        if (start == inactiveIntervals.getEnd()) {
+          expiredHere.add(inactiveIntervals.getRegister());
+          if (inactiveIntervals.getType().isWide()) {
+            expiredHere.add(inactiveIntervals.getRegister() + 1);
+          }
+        }
+      } else if (inactiveIntervals.overlapsPosition(start)) {
+        inactiveIterator.remove();
+        assert inactiveIntervals.getRegister() != NO_REGISTER;
+        active.add(inactiveIntervals);
+        takeFreeRegistersForIntervals(inactiveIntervals);
+      }
+    }
   }
 
   private boolean invariantsHold(ArgumentReuseMode mode) {
