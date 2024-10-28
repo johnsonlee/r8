@@ -103,7 +103,7 @@ public class TestResourceInlining extends TestBase {
               // Has multiple values, don't inline
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               // Has overlayable value, don't inline
-              resourceTableInspector.assertContainsResourceWithName("string", "bar");
+              resourceTableInspector.assertContainsResourceWithName("string", "overlayable");
               resourceTableInspector.assertDoesNotContainResourceWithName(
                   "string", "unused_string");
             })
