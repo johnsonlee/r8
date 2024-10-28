@@ -10,6 +10,7 @@ import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.RunInterface;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
@@ -367,6 +368,18 @@ public abstract class TestShrinkerBuilder<
     return self();
   }
 
+  public T addKeepFieldRules(FieldReference... fields) {
+    for (FieldReference field : fields) {
+      addKeepRules(
+          "-keep class "
+              + field.getHolderClass().getTypeName()
+              + " { "
+              + getFieldLine(field)
+              + " }");
+    }
+    return self();
+  }
+
   public T addKeepEnumsRule() {
     addKeepRules(
         StringUtils.lines(
@@ -608,6 +621,11 @@ public abstract class TestShrinkerBuilder<
       first = false;
     }
     return builder.append(");").toString();
+  }
+
+  private static String getFieldLine(FieldReference field) {
+    // Should we encode modifiers in field references?
+    return field.getFieldType().getTypeName() + ' ' + field.getFieldName() + ";";
   }
 
   public T applyCompilerDump(CompilerDump dump) throws IOException {
