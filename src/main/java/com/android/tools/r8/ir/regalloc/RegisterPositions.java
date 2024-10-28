@@ -11,14 +11,14 @@ package com.android.tools.r8.ir.regalloc;
  */
 public abstract class RegisterPositions {
 
-  enum Type {
+  enum RegisterType {
     MONITOR,
     CONST_NUMBER,
     OTHER,
     ANY
   }
 
-  public abstract boolean hasType(int index, Type type);
+  public abstract boolean hasType(int index, RegisterType type);
 
   public abstract void set(int index, int value, LiveIntervals intervals);
 

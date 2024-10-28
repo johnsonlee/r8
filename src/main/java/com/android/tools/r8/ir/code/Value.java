@@ -284,6 +284,10 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     return getLocalInfo() != null;
   }
 
+  public boolean hasSameLocalInfo(Value other) {
+    return ObjectUtils.identical(getLocalInfo(), other.getLocalInfo());
+  }
+
   public void setLocalInfo(DebugLocalInfo local) {
     assert local != null;
     assert debugData == null;

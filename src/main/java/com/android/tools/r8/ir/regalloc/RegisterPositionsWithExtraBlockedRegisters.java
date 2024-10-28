@@ -17,7 +17,7 @@ public class RegisterPositionsWithExtraBlockedRegisters extends RegisterPosition
   }
 
   @Override
-  public boolean hasType(int index, Type type) {
+  public boolean hasType(int index, RegisterType type) {
     assert !isBlockedTemporarily(index);
     return positions.hasType(index, type);
   }

@@ -5,6 +5,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.android.tools.r8.utils.structural.StructuralMapping;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
@@ -37,6 +38,14 @@ public class DebugLocalInfo implements StructuralItem<DebugLocalInfo> {
     this.name = name;
     this.type = type;
     this.signature = signature;
+  }
+
+  public boolean isIdenticalTo(DebugLocalInfo other) {
+    return ObjectUtils.identical(this, other);
+  }
+
+  public boolean isNotIdenticalTo(DebugLocalInfo other) {
+    return !isIdenticalTo(other);
   }
 
   @Override

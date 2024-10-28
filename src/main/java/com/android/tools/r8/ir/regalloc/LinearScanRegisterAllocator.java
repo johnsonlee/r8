@@ -38,7 +38,7 @@ import com.android.tools.r8.ir.code.StackValues;
 import com.android.tools.r8.ir.code.Sub;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.Xor;
-import com.android.tools.r8.ir.regalloc.RegisterPositions.Type;
+import com.android.tools.r8.ir.regalloc.RegisterPositions.RegisterType;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -356,7 +356,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   // TODO(b/270398965): Replace LinkedList.
-  @SuppressWarnings({"JdkObsolete", "ReferenceEquality"})
+  @SuppressWarnings("JdkObsolete")
   public static void computeDebugInfo(
       IRCode code,
       ImmutableList<BasicBlock> blocks,
@@ -476,7 +476,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
               LocalRange openRange = it.next();
               if (openRange.value == endAnnotation) {
                 // Don't remove the local from open-ranges as it is still technically open.
-                assert currentLocals.get(openRange.register) == openRange.local;
+                assert openRange.local.isIdenticalTo(currentLocals.get(openRange.register));
                 currentLocals.remove(openRange.register);
                 ending.put(openRange.register, openRange.local);
                 break;
@@ -570,7 +570,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return false;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private static void setLocalsAtEntry(
       BasicBlock block,
       InstructionListIterator instructionIterator,
@@ -606,12 +605,12 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     Int2ReferenceMap<DebugLocalInfo> ending = new Int2ReferenceOpenHashMap<>();
     Int2ReferenceMap<DebugLocalInfo> starting = new Int2ReferenceOpenHashMap<>();
     for (Entry<DebugLocalInfo> initialLocal : initialLocals.int2ReferenceEntrySet()) {
-      if (finalLocals.get(initialLocal.getIntKey()) != initialLocal.getValue()) {
+      if (initialLocal.getValue().isNotIdenticalTo(finalLocals.get(initialLocal.getIntKey()))) {
         ending.put(initialLocal.getIntKey(), initialLocal.getValue());
       }
     }
     for (Entry<DebugLocalInfo> finalLocal : finalLocals.int2ReferenceEntrySet()) {
-      if (initialLocals.get(finalLocal.getIntKey()) != finalLocal.getValue()) {
+      if (finalLocal.getValue().isNotIdenticalTo(initialLocals.get(finalLocal.getIntKey()))) {
         starting.put(finalLocal.getIntKey(), finalLocal.getValue());
       }
     }
@@ -621,7 +620,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private static DebugLocalsChange createLocalsChange(
       Int2ReferenceMap<DebugLocalInfo> ending,
       Int2ReferenceMap<DebugLocalInfo> starting,
@@ -636,7 +634,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     } else {
       IntSet unneeded = new IntArraySet(Math.min(ending.size(), starting.size()));
       for (Entry<DebugLocalInfo> entry : ending.int2ReferenceEntrySet()) {
-        if (starting.get(entry.getIntKey()) == entry.getValue()) {
+        if (entry.getValue().isIdenticalTo(starting.get(entry.getIntKey()))) {
           unneeded.add(entry.getIntKey());
         }
       }
@@ -954,6 +952,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     freeRegisters.clear();
     maxRegisterNumber = -1;
     active.clear();
+    expiredHere.clear();
     inactive.clear();
     unhandled.clear();
     moveExceptionIntervals.clear();
@@ -1020,10 +1019,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // Go through each unhandled live interval and find a register for it.
     while (!unhandled.isEmpty()) {
       assert invariantsHold(mode);
-      expiredHere.clear();
 
       LiveIntervals unhandledInterval = unhandled.poll();
-
       setHintForDestRegOfCheckCast(unhandledInterval);
       setHintToPromote2AddrInstruction(unhandledInterval);
 
@@ -1041,11 +1038,11 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       // Perform the actual allocation.
       if (unhandledInterval.isLinked() && !unhandledInterval.isArgumentInterval()) {
         allocateLinkedIntervals(unhandledInterval, false);
-      } else {
-        if (!allocateSingleInterval(unhandledInterval, mode)) {
-          return false;
-        }
+      } else if (!allocateSingleInterval(unhandledInterval, mode)) {
+        return false;
       }
+
+      expiredHere.clear();
     }
     return true;
   }
@@ -1215,6 +1212,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       freeRegisters.remove(getMoveExceptionRegister());
       computedFreeRegisters.remove(getMoveExceptionRegister());
     }
+    assert expiredHere.isEmpty();
     assert freeRegisters.equals(computedFreeRegisters);
     return true;
   }
@@ -1248,17 +1246,17 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return true;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private void setHintForDestRegOfCheckCast(LiveIntervals unhandledInterval) {
-    if (unhandledInterval.getHint() == null &&
-        unhandledInterval.getValue().definition instanceof CheckCast) {
-      CheckCast checkcast = unhandledInterval.getValue().definition.asCheckCast();
-      Value checkcastInput = checkcast.inValues().get(0);
-      assert checkcastInput != null;
-      if (checkcastInput.getLiveIntervals() != null &&
-          !checkcastInput.getLiveIntervals().overlaps(unhandledInterval) &&
-          checkcastInput.getLocalInfo() == unhandledInterval.getValue().definition.getLocalInfo()) {
-        unhandledInterval.setHint(checkcastInput.getLiveIntervals(), unhandled);
+    if (unhandledInterval.getHint() != null) {
+      return;
+    }
+    Value value = unhandledInterval.getValue();
+    if (value.isDefinedByInstructionSatisfying(Instruction::isCheckCast)) {
+      CheckCast checkcast = value.getDefinition().asCheckCast();
+      Value object = checkcast.object();
+      if (!object.getLiveIntervals().overlaps(unhandledInterval)
+          && object.hasSameLocalInfo(value)) {
+        unhandledInterval.setHint(object.getLiveIntervals(), unhandled);
       }
     }
   }
@@ -1269,19 +1267,20 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
    * that is the left interval or the right interval if possible when intervals do not overlap.
    */
   private void setHintToPromote2AddrInstruction(LiveIntervals unhandledInterval) {
-    if (unhandledInterval.getHint() == null &&
-        unhandledInterval.getValue().definition instanceof ArithmeticBinop) {
-      ArithmeticBinop binOp = unhandledInterval.getValue().definition.asArithmeticBinop();
-      Value left = binOp.leftValue();
-      assert left != null;
-      if (left.getLiveIntervals() != null &&
-          !left.getLiveIntervals().overlaps(unhandledInterval)) {
+    if (unhandledInterval.getHint() != null) {
+      return;
+    }
+    Value value = unhandledInterval.getValue();
+    if (value.isDefinedByInstructionSatisfying(Instruction::isArithmeticBinop)) {
+      ArithmeticBinop binop = value.getDefinition().asArithmeticBinop();
+      Value left = binop.leftValue();
+      if (left.getLiveIntervals() != null && !left.getLiveIntervals().overlaps(unhandledInterval)) {
         unhandledInterval.setHint(left.getLiveIntervals(), unhandled);
       } else {
-        Value right = binOp.rightValue();
-        assert right != null;
-        if (binOp.isCommutative() && right.getLiveIntervals() != null &&
-            !right.getLiveIntervals().overlaps(unhandledInterval)) {
+        Value right = binop.rightValue();
+        if (binop.isCommutative()
+            && right.getLiveIntervals() != null
+            && !right.getLiveIntervals().overlaps(unhandledInterval)) {
           unhandledInterval.setHint(right.getLiveIntervals(), unhandled);
         }
       }
@@ -1810,7 +1809,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return false;
   }
 
-  @SuppressWarnings("BadImport")
   private boolean allocateSingleInterval(LiveIntervals unhandledInterval, ArgumentReuseMode mode) {
     int registerConstraint = unhandledInterval.getRegisterLimit();
     assert registerConstraint <= Constants.U16BIT_MAX;
@@ -1850,7 +1848,11 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // free position.
     int candidate =
         getLargestValidCandidate(
-            unhandledInterval, registerConstraint, needsRegisterPair, freePositions, Type.ANY);
+            unhandledInterval,
+            registerConstraint,
+            needsRegisterPair,
+            freePositions,
+            RegisterType.ANY);
 
     // It is not always possible to find a largest valid candidate. If none of the usable register
     // are free we typically get the last candidate. However, if that candidate has to be
@@ -2159,7 +2161,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       int registerConstraint,
       RegisterPositions freePositions,
       boolean needsRegisterPair,
-      RegisterPositions.Type type) {
+      RegisterType type) {
     int candidate = REGISTER_CANDIDATE_NOT_FOUND;
     int largest = -1;
 
@@ -2209,7 +2211,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       int registerConstraint,
       boolean needsRegisterPair,
       RegisterPositionsWithExtraBlockedRegisters freePositions,
-      RegisterPositions.Type type) {
+      RegisterType type) {
     if (workaroundNeeded.test(unhandledInterval)) {
       int lastCandidate = candidate;
       while (workaroundNeededForCandidate.test(unhandledInterval, candidate)) {
@@ -2244,7 +2246,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       int registerConstraint,
       boolean needsRegisterPair,
       RegisterPositions usePositions,
-      RegisterPositions.Type type) {
+      RegisterType type) {
     int candidate =
         getLargestCandidate(
             unhandledInterval, registerConstraint, usePositions, needsRegisterPair, type);
@@ -2288,7 +2290,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return candidate;
   }
 
-  @SuppressWarnings("BadImport")
   private void allocateBlockedRegister(LiveIntervals unhandledInterval) {
     int registerConstraint = unhandledInterval.getRegisterLimit();
     if (registerConstraint < Constants.U16BIT_MAX) {
@@ -2362,11 +2363,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             registerConstraint,
             needsRegisterPair,
             usePositions,
-            Type.CONST_NUMBER);
+            RegisterType.CONST_NUMBER);
     // Look for a non-const, non-monitor candidate.
     int otherCandidate =
         getLargestValidCandidate(
-            unhandledInterval, registerConstraint, needsRegisterPair, usePositions, Type.OTHER);
+            unhandledInterval,
+            registerConstraint,
+            needsRegisterPair,
+            usePositions,
+            RegisterType.OTHER);
     if (otherCandidate != REGISTER_CANDIDATE_NOT_FOUND) {
       // There is a potential other candidate, check if that should be used instead.
       if (candidate == REGISTER_CANDIDATE_NOT_FOUND) {
@@ -2391,8 +2396,13 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // runtimes (b/80118070). To remove this restriction, we would need to know when the call to
     // <init> has definitely happened, and would be safe to split the value after that point.
     if (candidate == REGISTER_CANDIDATE_NOT_FOUND) {
-      candidate = getLargestValidCandidate(
-          unhandledInterval, registerConstraint, needsRegisterPair, usePositions, Type.MONITOR);
+      candidate =
+          getLargestValidCandidate(
+              unhandledInterval,
+              registerConstraint,
+              needsRegisterPair,
+              usePositions,
+              RegisterType.MONITOR);
     }
 
     int largestUsePosition = getLargestPosition(usePositions, candidate, needsRegisterPair);

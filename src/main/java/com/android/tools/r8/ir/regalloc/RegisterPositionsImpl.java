@@ -31,7 +31,7 @@ public class RegisterPositionsImpl extends RegisterPositions {
   }
 
   @Override
-  public boolean hasType(int index, Type type) {
+  public boolean hasType(int index, RegisterType type) {
     assert !isBlocked(index);
     switch (type) {
       case MONITOR:
