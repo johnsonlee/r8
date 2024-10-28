@@ -23,7 +23,7 @@ public interface R8OptionsMetadata {
    */
   R8LibraryDesugaringMetadata getLibraryDesugaringMetadata();
 
-  int getMinApiLevel();
+  String getMinApiLevel();
 
   boolean hasObfuscationDictionary();
 

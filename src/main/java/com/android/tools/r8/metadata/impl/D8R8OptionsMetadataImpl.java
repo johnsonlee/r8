@@ -33,7 +33,7 @@ abstract class D8R8OptionsMetadataImpl<
 
   @Expose
   @SerializedName("minApiLevel")
-  private final int minApiLevel;
+  private final String minApiLevel;
 
   @Expose
   @SerializedName("isDebugModeEnabled")
@@ -45,7 +45,8 @@ abstract class D8R8OptionsMetadataImpl<
       InternalOptions options) {
     this.apiModelingMetadata = apiModelingMetadata;
     this.libraryDesugaringMetadata = libraryDesugaringMetadata;
-    this.minApiLevel = options.isGeneratingDex() ? options.getMinApiLevel().getLevel() : -1;
+    this.minApiLevel =
+        options.isGeneratingDex() ? Integer.toString(options.getMinApiLevel().getLevel()) : null;
     this.isDebugModeEnabled = options.debug;
   }
 
@@ -60,7 +61,7 @@ abstract class D8R8OptionsMetadataImpl<
   }
 
   @Override
-  public int getMinApiLevel() {
+  public String getMinApiLevel() {
     return minApiLevel;
   }
 

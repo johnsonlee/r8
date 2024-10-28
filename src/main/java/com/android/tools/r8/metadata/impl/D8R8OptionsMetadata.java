@@ -16,7 +16,7 @@ public interface D8R8OptionsMetadata<
    */
   LibraryDesugaringMetadata getLibraryDesugaringMetadata();
 
-  int getMinApiLevel();
+  String getMinApiLevel();
 
   boolean isDebugModeEnabled();
 }
