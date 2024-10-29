@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.DexValue.DexValueResourceNumber;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
@@ -100,7 +101,7 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
     if (enqueuer.isRClass(resolvedField.getHolder())) {
       DexType holderType = resolvedField.getHolderType();
       if (!fieldToValueMapping.containsKey(holderType)) {
-        populateRClassValues(resolvedField);
+        populateRClassValues(resolvedField.getHolder());
       }
       assert fieldToValueMapping.containsKey(holderType);
       RClassFieldToValueStore rClassFieldToValueStore = fieldToValueMapping.get(holderType);
@@ -115,17 +116,17 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
     }
   }
 
-  private void populateRClassValues(ProgramField field) {
+  private void populateRClassValues(DexProgramClass programClass) {
     // TODO(287398085): Pending discussions with the AAPT2 team, we might need to harden this
     // to not fail if we wrongly classify an unrelated class as R class in our heuristic..
     RClassFieldToValueStore.Builder rClassValueBuilder = new RClassFieldToValueStore.Builder();
-    analyzeStaticFields(field, rClassValueBuilder);
-    ProgramMethod programClassInitializer = field.getHolder().getProgramClassInitializer();
+    analyzeStaticFields(programClass, rClassValueBuilder);
+    ProgramMethod programClassInitializer = programClass.getProgramClassInitializer();
     if (programClassInitializer != null) {
       analyzeClassInitializer(rClassValueBuilder, programClassInitializer);
     }
-    warnOnFinalIdFields(field.getHolder());
-    fieldToValueMapping.put(field.getHolderType(), rClassValueBuilder.build());
+    warnOnFinalIdFields(programClass);
+    fieldToValueMapping.put(programClass.getType(), rClassValueBuilder.build());
   }
 
   private void warnOnFinalIdFields(DexProgramClass holder) {
@@ -201,13 +202,15 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
   }
 
   private void analyzeStaticFields(
-      ProgramField field, RClassFieldToValueStore.Builder rClassValueBuilder) {
+      DexProgramClass programClass, RClassFieldToValueStore.Builder rClassValueBuilder) {
     for (DexEncodedField staticField :
-        field.getHolder().staticFields(DexEncodedField::hasExplicitStaticValue)) {
+        programClass.staticFields(DexEncodedField::hasExplicitStaticValue)) {
       DexValue staticValue = staticField.getStaticValue();
       if (staticValue.isDexValueInt()) {
         IntList values = new IntArrayList(1);
         values.add(staticValue.asDexValueInt().getValue());
+        staticField.setStaticValue(
+            DexValueResourceNumber.create(staticValue.asDexValueInt().value));
         rClassValueBuilder.addMapping(staticField.getReference(), values);
       }
     }

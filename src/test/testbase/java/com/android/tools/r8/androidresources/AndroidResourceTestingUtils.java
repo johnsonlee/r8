@@ -24,6 +24,7 @@ import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StreamUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils;
+import com.google.common.collect.Lists;
 import com.google.common.collect.MoreCollectors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.File;
@@ -46,6 +47,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.Assert;
 import org.junit.rules.TemporaryFolder;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Opcodes;
 
 public class AndroidResourceTestingUtils {
   private static final String RESOURCES_DESCRIPTOR =
@@ -307,6 +310,7 @@ public class AndroidResourceTestingUtils {
     private final List<Class<?>> classesToRemap = new ArrayList<>();
     private int packageId = 0x7f;
     private String packageName;
+    private boolean useStaticValueForNonFinalFields = false;
 
     // Create the android resources from the passed in R classes
     // All values will be generated based on the fields in the class.
@@ -341,6 +345,14 @@ public class AndroidResourceTestingUtils {
           }
         }
       }
+      return this;
+    }
+
+    // When set, use final ids for the AAPT resource generation, but remove the final bit in the
+    // ASM pass. This will emulate the R classes that AGP generates, where the static fields are
+    // set with a static value instead of through <clinit>.
+    AndroidTestResourceBuilder useStaticValueForNonFinalFields() {
+      this.useStaticValueForNonFinalFields = true;
       return this;
     }
 
@@ -485,7 +497,14 @@ public class AndroidResourceTestingUtils {
       String aaptPackageName =
           packageName != null ? packageName : "thepackage" + packageId + ".foobar";
       compileWithAapt2(
-          resFolder, manifestPath, rClassOutputDir, output, temp, packageId, aaptPackageName);
+          resFolder,
+          manifestPath,
+          rClassOutputDir,
+          output,
+          temp,
+          packageId,
+          aaptPackageName,
+          !useStaticValueForNonFinalFields);
       Path rClassJavaFile =
           Files.walk(rClassOutputDir)
               .filter(path -> path.endsWith("R.java"))
@@ -538,6 +557,19 @@ public class AndroidResourceTestingUtils {
                             public void visitOuterClass(
                                 String owner, String name, String descriptor) {
                               // Don't make the inner<>outer class connection
+                            }
+
+                            @Override
+                            public FieldVisitor visitField(
+                                int access,
+                                String name,
+                                String descriptor,
+                                String signature,
+                                Object value) {
+                              if (useStaticValueForNonFinalFields) {
+                                access &= ~Opcodes.ACC_FINAL;
+                              }
+                              return super.visitField(access, name, descriptor, signature, value);
                             }
 
                             @Override
@@ -627,7 +659,8 @@ public class AndroidResourceTestingUtils {
       Path resourceZip,
       TemporaryFolder temp,
       int packageId,
-      String packageName)
+      String packageName,
+      boolean nonFinalIds)
       throws IOException {
     Path compileOutput = temp.newFile("compiled.zip").toPath();
     ProcessResult compileProcessResult =
@@ -635,8 +668,8 @@ public class AndroidResourceTestingUtils {
             "compile", "-o", compileOutput.toString(), "--dir", resFolder.toString());
     failOnError(compileProcessResult);
 
-    ProcessResult linkProcesResult =
-        ToolHelper.runAapt2(
+    List<String> args =
+        Lists.newArrayList(
             "link",
             "-I",
             ToolHelper.getAndroidJar(AndroidApiLevel.S).toString(),
@@ -644,7 +677,6 @@ public class AndroidResourceTestingUtils {
             resourceZip.toString(),
             "--java",
             rClassFolder.toString(),
-            "--non-final-ids",
             "--manifest",
             manifest.toString(),
             "--package-id",
@@ -654,6 +686,11 @@ public class AndroidResourceTestingUtils {
             packageName,
             "--proto-format",
             compileOutput.toString());
+    if (nonFinalIds) {
+      args.add("--non-final-ids");
+    }
+
+    ProcessResult linkProcesResult = ToolHelper.runAapt2(args.toArray(new String[0]));
     failOnError(linkProcesResult);
   }
 

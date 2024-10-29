@@ -3280,11 +3280,6 @@ public class Enqueuer {
       // Already live.
       return;
     }
-
-    assert !field.getAccessFlags().isStatic()
-        || !field.getDefinition().hasExplicitStaticValue()
-        || !field.getDefinition().getStaticValue().isDexValueResourceNumber()
-        || mode.isFinalTreeShaking();
     addEffectivelyLiveOriginalField(field);
 
     // Mark the field as targeted.
