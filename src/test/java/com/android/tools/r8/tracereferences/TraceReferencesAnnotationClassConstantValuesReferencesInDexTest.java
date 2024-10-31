@@ -5,7 +5,6 @@ package com.android.tools.r8.tracereferences;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
 
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.TestBase;
@@ -13,18 +12,19 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -32,7 +32,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase {
+public class TraceReferencesAnnotationClassConstantValuesReferencesInDexTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -42,16 +42,35 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
   @Parameter(0)
   public TestParameters parameters;
 
-  private static List<Class<?>> SOURCE_CLASSES =
+  private static final List<Class<?>> SOURCE_CLASSES =
       ImmutableList.of(
           Source.class,
           SourceAnnotationWithClassConstant.class,
-          SourceAnnotationWithClassConstantArray.class);
+          SourceAnnotationWithClassConstantArray.class,
+          SourceAnnotationWithEnum.class,
+          SourceAnnotationWithEnumArray.class);
+
+  private static final List<Class<?>> TARGET_CLASSES =
+      ImmutableList.of(
+          TargetAnnotationWithInt.class,
+          TargetAnnotationWithLongArray.class,
+          TargetAnnotationWithClassConstant.class,
+          TargetAnnotationWithClassConstantArray.class,
+          TargetAnnotationWithEnum.class,
+          TargetAnnotationWithEnumArray.class,
+          A.class,
+          B.class,
+          C.class,
+          D.class,
+          E.class,
+          F.class,
+          G.class);
 
   static class Consumer implements TraceReferencesConsumer {
 
     Set<ClassReference> tracedTypes = new HashSet<>();
     Set<MethodReference> tracedMethods = new HashSet<>();
+    Set<FieldReference> tracedFields = new HashSet<>();
 
     @Override
     public void acceptType(TracedClass tracedClass, DiagnosticsHandler handler) {
@@ -61,7 +80,8 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
 
     @Override
     public void acceptField(TracedField tracedField, DiagnosticsHandler handler) {
-      fail();
+      assertFalse(tracedField.isMissingDefinition());
+      tracedFields.add(tracedField.getReference());
     }
 
     @Override
@@ -75,17 +95,7 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
     testForTraceReferences()
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .addSourceFiles(sourceDex)
-        .addTargetClasses(
-            TargetAnnotationWithInt.class,
-            TargetAnnotationWithLongArray.class,
-            TargetAnnotationWithClassConstant.class,
-            TargetAnnotationWithClassConstantArray.class,
-            A.class,
-            B.class,
-            C.class,
-            D.class,
-            E.class,
-            F.class)
+        .addTargetClasses(TARGET_CLASSES)
         .setConsumer(consumer)
         .trace();
   }
@@ -94,17 +104,7 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
     Consumer consumer = new Consumer();
     runTest(sourceDex, consumer);
     assertEquals(
-        ImmutableSet.of(
-            Reference.classFromClass(TargetAnnotationWithInt.class),
-            Reference.classFromClass(TargetAnnotationWithLongArray.class),
-            Reference.classFromClass(TargetAnnotationWithClassConstant.class),
-            Reference.classFromClass(TargetAnnotationWithClassConstantArray.class),
-            Reference.classFromClass(A.class),
-            Reference.classFromClass(B.class),
-            Reference.classFromClass(C.class),
-            Reference.classFromClass(D.class),
-            Reference.classFromClass(E.class),
-            Reference.classFromClass(F.class)),
+        TARGET_CLASSES.stream().map(Reference::classFromClass).collect(Collectors.toSet()),
         consumer.tracedTypes);
   }
 
@@ -129,11 +129,25 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
             "}",
             "-keep class " + F.class.getTypeName() + " {",
             "}",
+            "-keep enum " + G.class.getTypeName() + " {",
+            "  " + G.class.getTypeName() + " FIVE;",
+            "  " + G.class.getTypeName() + " FOUR;",
+            "  " + G.class.getTypeName() + " ONE;",
+            "  " + G.class.getTypeName() + " SIX;",
+            "  " + G.class.getTypeName() + " THREE;",
+            "  " + G.class.getTypeName() + " TWO;",
+            "}",
             "-keep @interface " + TargetAnnotationWithClassConstant.class.getTypeName() + " {",
             "  public java.lang.Class value();",
             "}",
             "-keep @interface " + TargetAnnotationWithClassConstantArray.class.getTypeName() + " {",
             "  public java.lang.Class[] value();",
+            "}",
+            "-keep @interface " + TargetAnnotationWithEnum.class.getTypeName() + " {",
+            "  public " + G.class.getTypeName() + " value();",
+            "}",
+            "-keep @interface " + TargetAnnotationWithEnumArray.class.getTypeName() + " {",
+            "  public " + G.class.getTypeName() + "[] value();",
             "}",
             "-keep @interface " + TargetAnnotationWithInt.class.getTypeName() + " {",
             "  public int value();",
@@ -175,6 +189,15 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
 
   public class F {}
 
+  public enum G {
+    ONE,
+    TWO,
+    THREE,
+    FOUR,
+    FIVE,
+    SIX
+  }
+
   @Retention(RetentionPolicy.RUNTIME)
   public @interface TargetAnnotationWithInt {
     int value() default 0;
@@ -196,6 +219,16 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
   }
 
   @Retention(RetentionPolicy.RUNTIME)
+  public @interface TargetAnnotationWithEnum {
+    G value();
+  }
+
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface TargetAnnotationWithEnumArray {
+    G[] value();
+  }
+
+  @Retention(RetentionPolicy.RUNTIME)
   public @interface SourceAnnotationWithClassConstant {
     Class<?> value() default D.class;
   }
@@ -205,11 +238,25 @@ public class TraceReferencesAnnotationValuesReferencesInDexTest extends TestBase
     Class<?>[] value() default {E.class, F.class};
   }
 
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface SourceAnnotationWithEnum {
+    G value() default G.FOUR;
+  }
+
+  @Retention(RetentionPolicy.RUNTIME)
+  public @interface SourceAnnotationWithEnumArray {
+    G[] value() default {G.FIVE, G.SIX};
+  }
+
   @TargetAnnotationWithInt(1)
   @TargetAnnotationWithLongArray({2L, 3L})
   @TargetAnnotationWithClassConstant(A.class)
   @TargetAnnotationWithClassConstantArray({B.class, C.class})
+  @TargetAnnotationWithEnum(G.ONE)
+  @TargetAnnotationWithEnumArray({G.TWO, G.THREE})
   @SourceAnnotationWithClassConstant
   @SourceAnnotationWithClassConstantArray
+  @SourceAnnotationWithEnum
+  @SourceAnnotationWithEnumArray
   static class Source {}
 }

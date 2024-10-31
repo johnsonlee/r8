@@ -82,7 +82,8 @@ public class Tracer {
       // This iterates all annotations on the class, including on its methods and fields.
       clazz
           .annotations()
-          .forEach(dexAnnotation -> useCollector.registerAnnotation(dexAnnotation, classContext));
+          .forEach(
+              dexAnnotation -> useCollector.registerAnnotation(dexAnnotation, clazz, classContext));
     }
     consumer.finished(diagnostics);
   }
@@ -184,7 +185,7 @@ public class Tracer {
     private void handleMemberResolution(
         DexMember<?, ?> reference,
         DexClassAndMember<?, ?> member,
-        ProgramMethod context,
+        DexProgramClass context,
         DefinitionContext referencedFrom) {
       DexClass holder = member.getHolder();
       assert isTargetType(holder.getType());
@@ -196,10 +197,10 @@ public class Tracer {
     }
 
     private void ensurePackageAccessToMember(
-        DexClassAndMember<?, ?> member, ProgramMethod context) {
+        DexClassAndMember<?, ?> member, DexProgramClass context) {
       if (member.getAccessFlags().isPackagePrivateOrProtected()) {
         if (member.getAccessFlags().isPackagePrivate()
-            || !appInfo().isSubtype(context.getHolder(), member.getHolder())) {
+            || !appInfo().isSubtype(context, member.getHolder())) {
           consumer.acceptPackage(
               Reference.packageFromString(member.getHolderType().getPackageName()), diagnostics);
         }
@@ -217,7 +218,7 @@ public class Tracer {
       //   class.
       TracedMethodImpl tracedMethod = new TracedMethodImpl(method.getDefinition(), referencedFrom);
       consumer.acceptMethod(tracedMethod, diagnostics);
-      ensurePackageAccessToMember(method, context);
+      ensurePackageAccessToMember(method, context.getHolder());
     }
 
     private <R, T extends TracedReference<R, ?>> void collectMissing(
@@ -247,7 +248,9 @@ public class Tracer {
       addType(field.getType(), referencedFrom);
       field
           .getAnnotations()
-          .forEach(dexAnnotation -> registerAnnotation(dexAnnotation, referencedFrom));
+          .forEach(
+              dexAnnotation ->
+                  registerAnnotation(dexAnnotation, field.getHolder(), referencedFrom));
     }
 
     private void registerMethod(ProgramMethod method) {
@@ -256,10 +259,14 @@ public class Tracer {
       addType(method.getReturnType(), referencedFrom);
       method
           .getAnnotations()
-          .forEach(dexAnnotation -> registerAnnotation(dexAnnotation, referencedFrom));
+          .forEach(
+              dexAnnotation ->
+                  registerAnnotation(dexAnnotation, method.getHolder(), referencedFrom));
       method
           .getParameterAnnotations()
-          .forEachAnnotation(dexAnnotation -> registerAnnotation(dexAnnotation, referencedFrom));
+          .forEachAnnotation(
+              dexAnnotation ->
+                  registerAnnotation(dexAnnotation, method.getHolder(), referencedFrom));
     }
 
     private void traceCode(ProgramMethod method) {
@@ -287,7 +294,8 @@ public class Tracer {
           });
     }
 
-    private void registerAnnotation(DexAnnotation annotation, DefinitionContext referencedFrom) {
+    private void registerAnnotation(
+        DexAnnotation annotation, DexProgramClass context, DefinitionContext referencedFrom) {
       DexType type = annotation.getAnnotationType();
       assert type.isClassType();
       if (type.isIdenticalTo(factory.annotationMethodParameters)
@@ -317,13 +325,16 @@ public class Tracer {
                 element -> {
                   assert element.getValue().isDexValueAnnotation();
                   registerEncodedAnnotation(
-                      element.getValue().asDexValueAnnotation().getValue(), referencedFrom);
+                      element.getValue().asDexValueAnnotation().getValue(),
+                      context,
+                      referencedFrom);
                 });
         return;
       }
       if (type.isIdenticalTo(factory.annotationThrows)) {
         assert referencedFrom.isMethodContext();
-        registerDexValue(annotation.annotation.elements[0].value.asDexValueArray(), referencedFrom);
+        registerDexValue(
+            annotation.annotation.elements[0].value.asDexValueArray(), context, referencedFrom);
         return;
       }
       assert !type.getDescriptor().startsWith(factory.dalvikAnnotationPrefix)
@@ -331,11 +342,13 @@ public class Tracer {
               + factory.dalvikAnnotationPrefix
               + ": "
               + type.getDescriptor();
-      registerEncodedAnnotation(annotation.getAnnotation(), referencedFrom);
+      registerEncodedAnnotation(annotation.getAnnotation(), context, referencedFrom);
     }
 
     void registerEncodedAnnotation(
-        DexEncodedAnnotation annotation, DefinitionContext referencedFrom) {
+        DexEncodedAnnotation annotation,
+        DexProgramClass context,
+        DefinitionContext referencedFrom) {
       addClassType(
           annotation.getType(),
           referencedFrom,
@@ -351,18 +364,44 @@ public class Tracer {
                     }
                   }
                   // Handle the argument values passed to the annotation "method".
-                  registerDexValue(element.getValue(), referencedFrom);
+                  registerDexValue(element.getValue(), context, referencedFrom);
                 });
           });
     }
 
-    private void registerDexValue(DexValue value, DefinitionContext referencedFrom) {
+    private void registerDexValue(
+        DexValue value, DexProgramClass context, DefinitionContext referencedFrom) {
       if (value.isDexValueType()) {
         addType(value.asDexValueType().getValue(), referencedFrom);
+      } else if (value.isDexValueEnum()) {
+        DexField field = value.asDexValueEnum().value;
+        handleRewrittenFieldReference(field, context, referencedFrom);
       } else if (value.isDexValueArray()) {
         for (DexValue elementValue : value.asDexValueArray().getValues()) {
-          registerDexValue(elementValue, referencedFrom);
+          registerDexValue(elementValue, context, referencedFrom);
         }
+      }
+    }
+
+    private void handleRewrittenFieldReference(
+        DexField field, DexProgramClass context, DefinitionContext referencedFrom) {
+      addType(field.getHolderType(), referencedFrom);
+      addType(field.getType(), referencedFrom);
+      FieldResolutionResult resolutionResult = appInfo().resolveField(field);
+      if (resolutionResult.hasSuccessfulResolutionResult()) {
+        resolutionResult.forEachSuccessfulFieldResolutionResult(
+            singleResolutionResult -> {
+              DexClassAndField resolvedField = singleResolutionResult.getResolutionPair();
+              if (isTargetType(resolvedField.getHolderType())) {
+                handleMemberResolution(field, resolvedField, context, referencedFrom);
+                TracedFieldImpl tracedField = new TracedFieldImpl(resolvedField, referencedFrom);
+                consumer.acceptField(tracedField, diagnostics);
+              }
+            });
+      } else {
+        TracedFieldImpl tracedField = new TracedFieldImpl(field, referencedFrom);
+        collectMissingField(tracedField);
+        consumer.acceptField(tracedField, diagnostics);
       }
     }
 
@@ -498,7 +537,8 @@ public class Tracer {
           assert resolvedMethod.getReference().match(method)
               || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
           if (isTargetType(resolvedMethod.getHolderType())) {
-            handleMemberResolution(method, resolvedMethod, getContext(), referencedFrom);
+            handleMemberResolution(
+                method, resolvedMethod, getContext().getHolder(), referencedFrom);
             TracedMethodImpl tracedMethod = new TracedMethodImpl(definition, referencedFrom);
             consumer.acceptMethod(tracedMethod, diagnostics);
           }
@@ -515,7 +555,7 @@ public class Tracer {
       public void registerInitClass(DexType clazz) {
         DexType rewrittenClass = graphLens().lookupType(clazz);
         DexField clinitField = appView.initClassLens().getInitClassField(rewrittenClass);
-        handleRewrittenFieldReference(clinitField);
+        handleRewrittenFieldReference(clinitField, getContext().getHolder(), referencedFrom);
       }
 
       @Override
@@ -540,29 +580,8 @@ public class Tracer {
 
       private void handleFieldAccess(DexField field) {
         FieldLookupResult lookupResult = graphLens().lookupFieldResult(field);
-        handleRewrittenFieldReference(lookupResult.getReference());
-      }
-
-      private void handleRewrittenFieldReference(DexField field) {
-        addType(field.getHolderType(), referencedFrom);
-        addType(field.getType(), referencedFrom);
-
-        FieldResolutionResult resolutionResult = appInfo().resolveField(field);
-        if (resolutionResult.hasSuccessfulResolutionResult()) {
-          resolutionResult.forEachSuccessfulFieldResolutionResult(
-              singleResolutionResult -> {
-                DexClassAndField resolvedField = singleResolutionResult.getResolutionPair();
-                if (isTargetType(resolvedField.getHolderType())) {
-                  handleMemberResolution(field, resolvedField, getContext(), referencedFrom);
-                  TracedFieldImpl tracedField = new TracedFieldImpl(resolvedField, referencedFrom);
-                  consumer.acceptField(tracedField, diagnostics);
-                }
-              });
-        } else {
-          TracedFieldImpl tracedField = new TracedFieldImpl(field, referencedFrom);
-          collectMissingField(tracedField);
-          consumer.acceptField(tracedField, diagnostics);
-        }
+        handleRewrittenFieldReference(
+            lookupResult.getReference(), getContext().getHolder(), referencedFrom);
       }
 
       // Type references.
