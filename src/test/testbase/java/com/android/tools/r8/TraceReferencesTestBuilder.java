@@ -7,6 +7,7 @@ import com.android.tools.r8.TestCompilerBuilder.DiagnosticsConsumer;
 import com.android.tools.r8.tracereferences.TraceReferences;
 import com.android.tools.r8.tracereferences.TraceReferencesCommand;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -77,6 +78,18 @@ public class TraceReferencesTestBuilder {
                 ToolHelper.getClassPathForTests(), ToolHelper.getClassFilesForInnerClasses(clazz))
             .build());
     return this;
+  }
+
+  static Collection<Path> getFilesForClasses(Collection<Class<?>> classes) {
+    return ListUtils.map(classes, ToolHelper::getClassFileForTestClass);
+  }
+
+  public TraceReferencesTestBuilder addTargetClasses(Class<?>... classes) {
+    return addTargetClasses(Arrays.asList(classes));
+  }
+
+  public TraceReferencesTestBuilder addTargetClasses(Collection<Class<?>> classes) {
+    return addTargetFiles(getFilesForClasses(classes));
   }
 
   public TraceReferencesTestResult trace() throws CompilationFailedException {

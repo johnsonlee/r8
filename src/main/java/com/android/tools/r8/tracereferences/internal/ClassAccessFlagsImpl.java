@@ -22,4 +22,9 @@ public class ClassAccessFlagsImpl
   public boolean isEnum() {
     return accessFlags.isEnum();
   }
+
+  @Override
+  public boolean isAnnotation() {
+    return accessFlags.isAnnotation();
+  }
 }

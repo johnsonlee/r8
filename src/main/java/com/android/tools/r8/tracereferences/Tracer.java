@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -48,6 +49,7 @@ import com.android.tools.r8.tracereferences.internal.TracedMethodImpl;
 import com.android.tools.r8.utils.BooleanBox;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -148,17 +150,24 @@ public class Tracer {
       }
     }
 
-    private void addClassType(DexType type, DefinitionContext referencedFrom) {
+    private void addClassType(
+        DexType type,
+        DefinitionContext referencedFrom,
+        Consumer<DexClass> resolvedClassesConsumer) {
       assert type.isClassType();
       ClassResolutionResult result =
           appView.contextIndependentDefinitionForWithResolutionResult(type);
       if (result.hasClassResolutionResult()) {
-        result.forEachClassResolutionResult(clazz -> addClass(clazz, referencedFrom));
+        result.forEachClassResolutionResult(resolvedClassesConsumer);
       } else {
         TracedClassImpl tracedClass = new TracedClassImpl(type, referencedFrom);
         collectMissingClass(tracedClass);
         consumer.acceptType(tracedClass, diagnostics);
       }
+    }
+
+    private void addClassType(DexType type, DefinitionContext referencedFrom) {
+      addClassType(type, referencedFrom, clazz -> addClass(clazz, referencedFrom));
     }
 
     private void addClass(DexClass clazz, DefinitionContext referencedFrom) {
@@ -281,7 +290,6 @@ public class Tracer {
       DexType type = annotation.getAnnotationType();
       assert type.isClassType();
       if (type.isIdenticalTo(factory.annotationThrows)
-          || type.isIdenticalTo(factory.annotationDefault)
           || type.isIdenticalTo(factory.annotationMethodParameters)
           || type.isIdenticalTo(factory.annotationReachabilitySensitive)
           || type.getDescriptor().startsWith(factory.dalvikAnnotationOptimizationPrefix)
@@ -301,12 +309,55 @@ public class Tracer {
         // (*) Not officially supported and documented.
         return;
       }
+      if (type.isIdenticalTo(factory.annotationDefault)) {
+        annotation
+            .getAnnotation()
+            .forEachElement(
+                element -> {
+                  assert element.getValue().isDexValueAnnotation();
+                  registerEncodedAnnotation(
+                      element.getValue().asDexValueAnnotation().getValue(), referencedFrom);
+                });
+        return;
+      }
       assert !type.getDescriptor().startsWith(factory.dalvikAnnotationPrefix)
           : "Unexpected annotation with prefix "
               + factory.dalvikAnnotationPrefix
               + ": "
               + type.getDescriptor();
-      addClassType(type, referencedFrom);
+      registerEncodedAnnotation(annotation.getAnnotation(), referencedFrom);
+    }
+
+    void registerEncodedAnnotation(
+        DexEncodedAnnotation annotation, DefinitionContext referencedFrom) {
+      addClassType(
+          annotation.getType(),
+          referencedFrom,
+          resolvedClass -> {
+            addClass(resolvedClass, referencedFrom);
+            // For annotations in target handle annotation "methods" used to set values.
+            annotation.forEachElement(
+                element -> {
+                  for (DexEncodedMethod method : resolvedClass.methods()) {
+                    if (method.getName().isIdenticalTo(element.name)) {
+                      TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom);
+                      consumer.acceptMethod(tracedMethod, diagnostics);
+                    }
+                  }
+                  // Handle the argument values passed to the annotation "method".
+                  registerDexValue(element.getValue(), referencedFrom);
+                });
+          });
+    }
+
+    private void registerDexValue(DexValue value, DefinitionContext referencedFrom) {
+      if (value.isDexValueType()) {
+        addType(value.asDexValueType().getValue(), referencedFrom);
+      } else if (value.isDexValueArray()) {
+        for (DexValue elementValue : value.asDexValueArray().getValues()) {
+          registerDexValue(elementValue, referencedFrom);
+        }
+      }
     }
 
     class MethodUseCollector extends UseRegistry<ProgramMethod> {

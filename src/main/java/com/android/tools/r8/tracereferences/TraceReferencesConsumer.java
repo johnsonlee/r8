@@ -38,6 +38,8 @@ public interface TraceReferencesConsumer {
     boolean isInterface();
 
     boolean isEnum();
+
+    boolean isAnnotation();
   }
 
   @KeepForApi

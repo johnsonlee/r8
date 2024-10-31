@@ -25,7 +25,12 @@ class KeepRuleFormatter extends Formatter {
     }
     append(allowObfuscation ? "-keep,allowobfuscation" : "-keep");
     if (tracedClass.getAccessFlags().isInterface()) {
-      appendLine(" interface " + tracedClass.getReference().getTypeName() + " {");
+      appendLine(
+          " "
+              + (tracedClass.getAccessFlags().isAnnotation() ? "@" : "")
+              + "interface "
+              + tracedClass.getReference().getTypeName()
+              + " {");
     } else if (tracedClass.getAccessFlags().isEnum()) {
       appendLine(" enum " + tracedClass.getReference().getTypeName() + " {");
     } else {
