@@ -174,7 +174,8 @@ public class DexType extends DexReference implements NamingLensComparable<DexTyp
   public boolean classInitializationMayHaveSideEffectsInContext(
       AppView<?> appView, ProgramDefinition context) {
     // To ensure that we assume that there are no class initialization side effects directly on
-    // the super class in D8 we always return true if this is a new instance of a direct super type.
+    // the super class in D8 we always return false if this is a new instance of a direct super
+    // type.
     if (context.getContextClass().getSuperType().isIdenticalTo(this)
         || context.getContextType().isIdenticalTo(this)) {
       return false;
