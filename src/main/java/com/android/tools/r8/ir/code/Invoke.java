@@ -120,19 +120,6 @@ public abstract class Invoke extends Instruction {
     return registers;
   }
 
-  protected int argumentRegisterValue(int i, DexBuilder builder) {
-    assert needsRangedInvoke(builder);
-    if (i < arguments().size()) {
-      // If argument values flow into ranged invokes, all the ranged invoke arguments
-      // are arguments to this method in order. Therefore, we use the incoming registers
-      // for the ranged invoke arguments. We know that arguments are always available there.
-      // If argument reuse is allowed there is no splitting and if argument reuse is disallowed
-      // the argument registers are never overwritten.
-      return builder.argumentOrAllocateRegister(arguments().get(i), getNumber());
-    }
-    return 0;
-  }
-
   protected int fillArgumentRegisters(DexBuilder builder, int[] registers) {
     assert !needsRangedInvoke(builder);
     int i = 0;
@@ -158,15 +145,21 @@ public abstract class Invoke extends Instruction {
     return i;
   }
 
-  protected boolean argumentsConsecutive(DexBuilder builder) {
-    Value value = arguments().get(0);
-    int next = builder.argumentOrAllocateRegister(value, getNumber()) + value.requiredRegisters();
+  protected boolean verifyInvokeRangeArgumentsAreConsecutive(DexBuilder builder) {
+    Value value = getFirstArgument();
+    int next = getRegisterForInvokeRange(builder, value) + value.requiredRegisters();
     for (int i = 1; i < arguments().size(); i++) {
-      value = arguments().get(i);
-      assert next == builder.argumentOrAllocateRegister(value, getNumber());
+      value = getArgument(i);
+      assert next == getRegisterForInvokeRange(builder, value);
       next += value.requiredRegisters();
     }
     return true;
+  }
+
+  protected int getRegisterForInvokeRange(DexBuilder builder, Value argument) {
+    return builder.getOptions().getTestingOptions().enableLiveIntervalsSplittingForInvokeRange
+        ? builder.allocatedRegister(argument, getNumber())
+        : builder.argumentOrAllocateRegister(argument, getNumber());
   }
 
   protected void addInvokeAndMoveResult(DexInstruction instruction, DexBuilder builder) {
@@ -230,15 +223,15 @@ public abstract class Invoke extends Instruction {
   }
 
   private boolean argumentsAreConsecutiveInputArguments() {
-    if (arguments().size() == 0) {
+    if (arguments().isEmpty()) {
       return false;
     }
-    Value current = arguments().get(0);
+    Value current = getFirstArgument();
     if (!current.isArgument()) {
       return false;
     }
     for (int i = 1; i < arguments().size(); i++) {
-      Value next = arguments().get(i);
+      Value next = getArgument(i);
       if (current.getNextConsecutive() != next) {
         return false;
       }
@@ -262,8 +255,8 @@ public abstract class Invoke extends Instruction {
     }
     // If we could use an invoke-range instruction, but all the registers fit in 4 bits, then we
     // use a non-range invoke.
-    assert argumentsConsecutive(builder);
-    int registerStart = builder.argumentOrAllocateRegister(arguments().get(0), getNumber());
+    assert verifyInvokeRangeArgumentsAreConsecutive(builder);
+    int registerStart = getRegisterForInvokeRange(builder, getFirstArgument());
     int registerEnd = registerStart + requiredArgumentRegisters() - 1;
     return registerEnd > Constants.U4BIT_MAX;
   }

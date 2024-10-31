@@ -2481,6 +2481,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean allowUnusedDontWarnRules = true;
     public boolean alwaysUseExistingAccessInfoCollectionsInMemberRebinding = true;
     public boolean alwaysUsePessimisticRegisterAllocation = false;
+    public boolean enableLiveIntervalsSplittingForInvokeRange = false;
+    public boolean enableRegisterHintsForBlockedRegisters = false;
     // TODO(b/374266460): Investigate why enabling this leads to more moves, for example, in
     //  JetNews. Also investigate the impact on performance and how often the refinement pass is
     //  successful (i.e., how often the assumed 4 bit argument registers actually end up being 4

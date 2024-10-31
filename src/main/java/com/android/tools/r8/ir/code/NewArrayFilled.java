@@ -82,8 +82,8 @@ public class NewArrayFilled extends Invoke {
     int argumentRegisters = requiredArgumentRegisters();
     builder.requestOutgoingRegisters(argumentRegisters);
     if (needsRangedInvoke(builder)) {
-      assert argumentsConsecutive(builder);
-      int firstRegister = argumentRegisterValue(0, builder);
+      assert verifyInvokeRangeArgumentsAreConsecutive(builder);
+      int firstRegister = getRegisterForInvokeRange(builder, getFirstArgument());
       instruction = new DexFilledNewArrayRange(firstRegister, argumentRegisters, type);
     } else {
       int[] individualArgumentRegisters = new int[5];

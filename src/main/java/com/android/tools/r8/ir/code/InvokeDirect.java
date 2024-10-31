@@ -81,8 +81,8 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
     int argumentRegisters = requiredArgumentRegisters();
     builder.requestOutgoingRegisters(argumentRegisters);
     if (needsRangedInvoke(builder)) {
-      assert argumentsConsecutive(builder);
-      int firstRegister = argumentRegisterValue(0, builder);
+      assert verifyInvokeRangeArgumentsAreConsecutive(builder);
+      int firstRegister = getRegisterForInvokeRange(builder, getFirstArgument());
       instruction = new DexInvokeDirectRange(firstRegister, argumentRegisters, getInvokedMethod());
     } else {
       int[] individualArgumentRegisters = new int[5];

@@ -5,8 +5,10 @@ package com.android.tools.r8.ir.regalloc;
 
 import static com.android.tools.r8.dex.Constants.U16BIT_MAX;
 import static com.android.tools.r8.dex.Constants.U8BIT_MAX;
+import static com.android.tools.r8.ir.code.IRCode.INSTRUCTION_NUMBER_DELTA;
 
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.JumpInstruction;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.code.ValueType;
@@ -156,6 +158,14 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return nextConsecutive;
   }
 
+  public LiveIntervals getNextSplit() {
+    if (this == splitParent) {
+      return Iterables.getFirst(splitChildren, null);
+    }
+    int i = splitParent.getSplitChildren().indexOf(this);
+    return i < splitParent.getSplitChildren().size() ? splitParent.getSplitChildren().get(i) : null;
+  }
+
   public LiveIntervals getPreviousConsecutive() {
     return previousConsecutive;
   }
@@ -277,6 +287,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return register;
   }
 
+  public boolean hasRegister() {
+    return register != NO_REGISTER;
+  }
+
   public int getRegisterEnd() {
     return register + requiredRegisters() - 1;
   }
@@ -327,6 +341,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
       return true;
     }
     return false;
+  }
+
+  public boolean usesBothRegisters(int n, int m) {
+    return usesRegister(n, false) && usesRegister(m, false);
   }
 
   public boolean hasConflictingRegisters(LiveIntervals other) {
@@ -418,6 +436,14 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     }
   }
 
+  public LiveIntervals splitBefore(Instruction instruction) {
+    return splitBefore(instruction.getNumber());
+  }
+
+  public LiveIntervals splitAfter(Instruction instruction) {
+    return splitBefore(instruction.getNumber() + INSTRUCTION_NUMBER_DELTA);
+  }
+
   public LiveIntervals splitBefore(int start) {
     if (toInstructionPosition(start) == toInstructionPosition(getStart())) {
       assert uses.size() == 0 || getFirstUse() != start;
@@ -491,6 +517,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     for (LiveIntervalsUse use : uses) {
       updateRegisterConstraint(use.getLimit());
     }
+  }
+
+  public LiveIntervals getSplitCovering(Instruction instruction) {
+    return getSplitCovering(instruction.getNumber());
   }
 
   public LiveIntervals getSplitCovering(int instructionNumber) {
@@ -635,7 +665,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
         for (int predIndex = 0; predIndex < phi.getOperands().size(); predIndex++) {
           Value operand = phi.getOperand(predIndex);
           if (operand == value) {
-            int predExit = phi.getBlock().getPredecessors().get(predIndex).exit().getNumber();
+            JumpInstruction predExit = phi.getBlock().getPredecessors().get(predIndex).exit();
             if (getSplitCovering(predExit).isSpilled()) {
               return;
             }

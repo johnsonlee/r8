@@ -34,7 +34,11 @@ public class RedundantSpillingBeforeInvokeRangeTest extends TestBase {
     testForD8()
         .addInnerClasses(getClass())
         .addOptionsModification(
-            options -> options.getTestingOptions().enableRegisterAllocation8BitRefinement = true)
+            options -> {
+              options.getTestingOptions().enableLiveIntervalsSplittingForInvokeRange = true;
+              options.getTestingOptions().enableRegisterAllocation8BitRefinement = true;
+              options.getTestingOptions().enableRegisterHintsForBlockedRegisters = true;
+            })
         .release()
         .setMinApi(parameters)
         .compile()
@@ -43,15 +47,15 @@ public class RedundantSpillingBeforeInvokeRangeTest extends TestBase {
               MethodSubject testMethodSubject =
                   inspector.clazz(Main.class).uniqueMethodWithOriginalName("test");
               assertThat(testMethodSubject, isPresent());
-              // TODO(b/302281605): Should not naively move each argument into different low
-              //  registers.
               assertEquals(
-                  18,
+                  10,
                   testMethodSubject
                       .streamInstructions()
                       .filter(InstructionSubject::isMove)
                       .count());
-            });
+            })
+        .runDex2Oat(parameters.getRuntime())
+        .assertNoVerificationErrors();
   }
 
   static class Main {
