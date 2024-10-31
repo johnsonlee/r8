@@ -12,6 +12,7 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.google.common.base.Equivalence;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 class BasicBlockInstructionsEquivalence extends Equivalence<BasicBlock> {
@@ -34,9 +35,11 @@ class BasicBlockInstructionsEquivalence extends Equivalence<BasicBlock> {
     if (instructions0.size() != instructions1.size()) {
       return false;
     }
-    for (int i = 0; i < instructions0.size(); i++) {
-      Instruction i0 = instructions0.get(i);
-      Instruction i1 = instructions1.get(i);
+    Iterator<Instruction> it0 = instructions0.iterator();
+    Iterator<Instruction> it1 = instructions1.iterator();
+    while (it0.hasNext()) {
+      Instruction i0 = it0.next();
+      Instruction i1 = it1.next();
       if (!i0.identicalAfterRegisterAllocation(i1, allocator, conversionOptions)) {
         return false;
       }
@@ -92,8 +95,11 @@ class BasicBlockInstructionsEquivalence extends Equivalence<BasicBlock> {
   private int computeHash(BasicBlock basicBlock) {
     List<Instruction> instructions = basicBlock.getInstructions();
     int hash = instructions.size();
-    for (int i = 0; i < instructions.size() && i < MAX_HASH_INSTRUCTIONS; i++) {
-      Instruction instruction = instructions.get(i);
+    int i = 0;
+    for (Instruction instruction : instructions) {
+      if (++i > MAX_HASH_INSTRUCTIONS) {
+        break;
+      }
       int hashPart = 0;
       if (instruction.outValue() != null && instruction.outValue().needsRegister()) {
         hashPart += allocator.getRegisterForValue(instruction.outValue(), instruction.getNumber());
