@@ -27,7 +27,6 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
-import com.android.tools.r8.graph.DexValue.DexValueArray;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
@@ -81,8 +80,9 @@ public class Tracer {
             useCollector.traceCode(method);
           });
       // This iterates all annotations on the class, including on its methods and fields.
-      clazz.forEachAnnotation(
-          dexAnnotation -> useCollector.registerAnnotation(dexAnnotation, classContext));
+      clazz
+          .annotations()
+          .forEach(dexAnnotation -> useCollector.registerAnnotation(dexAnnotation, classContext));
     }
     consumer.finished(diagnostics);
   }
@@ -245,20 +245,21 @@ public class Tracer {
     private void registerField(ProgramField field) {
       DefinitionContext referencedFrom = DefinitionContextUtils.create(field);
       addType(field.getType(), referencedFrom);
+      field
+          .getAnnotations()
+          .forEach(dexAnnotation -> registerAnnotation(dexAnnotation, referencedFrom));
     }
 
     private void registerMethod(ProgramMethod method) {
       DefinitionContext referencedFrom = DefinitionContextUtils.create(method);
       addTypes(method.getParameters(), referencedFrom);
       addType(method.getReturnType(), referencedFrom);
-      for (DexAnnotation annotation : method.getAnnotations().getAnnotations()) {
-        if (annotation.getAnnotationType().isIdenticalTo(factory.annotationThrows)) {
-          DexValueArray dexValues = annotation.annotation.elements[0].value.asDexValueArray();
-          for (DexValue dexValType : dexValues.getValues()) {
-            addType(dexValType.asDexValueType().value, referencedFrom);
-          }
-        }
-      }
+      method
+          .getAnnotations()
+          .forEach(dexAnnotation -> registerAnnotation(dexAnnotation, referencedFrom));
+      method
+          .getParameterAnnotations()
+          .forEachAnnotation(dexAnnotation -> registerAnnotation(dexAnnotation, referencedFrom));
     }
 
     private void traceCode(ProgramMethod method) {
@@ -289,8 +290,7 @@ public class Tracer {
     private void registerAnnotation(DexAnnotation annotation, DefinitionContext referencedFrom) {
       DexType type = annotation.getAnnotationType();
       assert type.isClassType();
-      if (type.isIdenticalTo(factory.annotationThrows)
-          || type.isIdenticalTo(factory.annotationMethodParameters)
+      if (type.isIdenticalTo(factory.annotationMethodParameters)
           || type.isIdenticalTo(factory.annotationReachabilitySensitive)
           || type.getDescriptor().startsWith(factory.dalvikAnnotationOptimizationPrefix)
           || type.getDescriptor().startsWith(dalvikAnnotationCodegenPrefix)) {
@@ -310,6 +310,7 @@ public class Tracer {
         return;
       }
       if (type.isIdenticalTo(factory.annotationDefault)) {
+        assert referencedFrom.isClassContext();
         annotation
             .getAnnotation()
             .forEachElement(
@@ -318,6 +319,11 @@ public class Tracer {
                   registerEncodedAnnotation(
                       element.getValue().asDexValueAnnotation().getValue(), referencedFrom);
                 });
+        return;
+      }
+      if (type.isIdenticalTo(factory.annotationThrows)) {
+        assert referencedFrom.isMethodContext();
+        registerDexValue(annotation.annotation.elements[0].value.asDexValueArray(), referencedFrom);
         return;
       }
       assert !type.getDescriptor().startsWith(factory.dalvikAnnotationPrefix)

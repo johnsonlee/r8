@@ -5,6 +5,7 @@ package com.android.tools.r8.tracereferences;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.DiagnosticsHandler;
@@ -12,8 +13,8 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.diagnostic.DefinitionContext;
 import com.android.tools.r8.references.ClassReference;
-import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
@@ -23,8 +24,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -43,13 +44,14 @@ public class TraceReferencesAnnotationReferencesInDexTest extends TestBase {
 
   static class Consumer implements TraceReferencesConsumer {
 
-    Set<ClassReference> tracedTypes = new HashSet<>();
-    Set<MethodReference> tracedMethods = new HashSet<>();
+    Map<ClassReference, DefinitionContext> tracedTypes = new HashMap<>();
 
     @Override
     public void acceptType(TracedClass tracedClass, DiagnosticsHandler handler) {
       assertFalse(tracedClass.isMissingDefinition());
-      tracedTypes.add(tracedClass.getReference());
+      DefinitionContext prev =
+          tracedTypes.put(tracedClass.getReference(), tracedClass.getReferencedFromContext());
+      assert prev == null;
     }
 
     @Override
@@ -87,7 +89,26 @@ public class TraceReferencesAnnotationReferencesInDexTest extends TestBase {
             Reference.classFromClass(FieldAnnotation.class),
             Reference.classFromClass(MethodAnnotation.class),
             Reference.classFromClass(ParameterAnnotation.class)),
-        consumer.tracedTypes);
+        consumer.tracedTypes.keySet());
+    assertTrue(
+        consumer.tracedTypes.get(Reference.classFromClass(ClassAnnotation.class)).isClassContext());
+    assertTrue(
+        consumer
+            .tracedTypes
+            .get(Reference.classFromClass(ConstructorAnnotation.class))
+            .isMethodContext());
+    assertTrue(
+        consumer.tracedTypes.get(Reference.classFromClass(FieldAnnotation.class)).isFieldContext());
+    assertTrue(
+        consumer
+            .tracedTypes
+            .get(Reference.classFromClass(MethodAnnotation.class))
+            .isMethodContext());
+    assertTrue(
+        consumer
+            .tracedTypes
+            .get(Reference.classFromClass(ParameterAnnotation.class))
+            .isMethodContext());
   }
 
   private void testGeneratedKeepRules(Path sourceDex) throws Exception {
