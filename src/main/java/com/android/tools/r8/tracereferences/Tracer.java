@@ -22,6 +22,7 @@ import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
@@ -77,6 +78,9 @@ public class Tracer {
             useCollector.registerMethod(method);
             useCollector.traceCode(method);
           });
+      // This iterates all annotations on the class, including on its methods and fields.
+      clazz.forEachAnnotation(
+          dexAnnotation -> useCollector.registerAnnotation(dexAnnotation, classContext));
     }
     consumer.finished(diagnostics);
   }
@@ -95,6 +99,8 @@ public class Tracer {
     private final Set<FieldReference> missingFields = new HashSet<>();
     private final Set<MethodReference> missingMethods = new HashSet<>();
 
+    public final DexString dalvikAnnotationCodegenPrefix;
+
     UseCollector(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         TraceReferencesConsumer consumer,
@@ -105,6 +111,7 @@ public class Tracer {
       this.consumer = consumer;
       this.diagnostics = diagnostics;
       this.targetPredicate = targetPredicate;
+      this.dalvikAnnotationCodegenPrefix = factory.createString("Ldalvik/annotation/codegen/");
     }
 
     AppView<? extends AppInfoWithClassHierarchy> appView() {
@@ -268,6 +275,38 @@ public class Tracer {
               addSuperMethodFromTarget(resolvedMethod, method, referencedFrom);
             }
           });
+    }
+
+    private void registerAnnotation(DexAnnotation annotation, DefinitionContext referencedFrom) {
+      DexType type = annotation.getAnnotationType();
+      assert type.isClassType();
+      if (type.isIdenticalTo(factory.annotationThrows)
+          || type.isIdenticalTo(factory.annotationDefault)
+          || type.isIdenticalTo(factory.annotationMethodParameters)
+          || type.isIdenticalTo(factory.annotationReachabilitySensitive)
+          || type.getDescriptor().startsWith(factory.dalvikAnnotationOptimizationPrefix)
+          || type.getDescriptor().startsWith(dalvikAnnotationCodegenPrefix)) {
+        // The remaining system annotations
+        //   dalvik.annotation.EnclosingClass
+        //   dalvik.annotation.EnclosingMethod
+        //   dalvik.annotation.InnerClass
+        //   dalvik.annotation.MemberClasses
+        //   dalvik.annotation.Signature
+        //   dalvik.annotation.NestHost (*)
+        //   dalvik.annotation.NestMembers (*)
+        //   dalvik.annotation.Record (*)
+        //   dalvik.annotation.PermittedSubclasses (*)
+        // are not added as annotations in the DexParser.
+        //
+        // (*) Not officially supported and documented.
+        return;
+      }
+      assert !type.getDescriptor().startsWith(factory.dalvikAnnotationPrefix)
+          : "Unexpected annotation with prefix "
+              + factory.dalvikAnnotationPrefix
+              + ": "
+              + type.getDescriptor();
+      addClassType(type, referencedFrom);
     }
 
     class MethodUseCollector extends UseRegistry<ProgramMethod> {

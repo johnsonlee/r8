@@ -3,25 +3,33 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.tracereferences;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.DiagnosticsChecker;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.diagnostic.MissingDefinitionsDiagnostic;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
+import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
@@ -31,63 +39,75 @@ public class TraceReferencesMissingReferencesInDexTest extends TestBase {
     return getTestParameters().withNoneRuntime().build();
   }
 
-  private static final AndroidApiLevel minApi = AndroidApiLevel.B;
-
-  public TraceReferencesMissingReferencesInDexTest(TestParameters parameters) {
-    parameters.assertNoneRuntime();
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   static class MissingReferencesConsumer implements TraceReferencesConsumer {
 
-    boolean acceptTypeCalled;
-    boolean acceptFieldCalled;
-    boolean acceptMethodCalled;
+    Set<ClassReference> missingTypes = new HashSet<>();
+    Set<FieldReference> missingFields = new HashSet<>();
+    Set<MethodReference> missingMethods = new HashSet<>();
+
+    boolean hasMissingTypes() {
+      return missingTypes.size() > 0;
+    }
+
+    boolean hasMissingFields() {
+      return missingFields.size() > 0;
+    }
+
+    boolean hasMissingMethods() {
+      return missingMethods.size() > 0;
+    }
 
     @Override
     public void acceptType(TracedClass tracedClass, DiagnosticsHandler handler) {
-      acceptTypeCalled = true;
-      assertEquals(Reference.classFromClass(Target.class), tracedClass.getReference());
       assertTrue(tracedClass.isMissingDefinition());
+      missingTypes.add(tracedClass.getReference());
     }
 
     @Override
     public void acceptField(TracedField tracedField, DiagnosticsHandler handler) {
-      acceptFieldCalled = true;
+      assertTrue(tracedField.isMissingDefinition());
+      missingFields.add(tracedField.getReference());
       assertEquals(
           Reference.classFromClass(Target.class), tracedField.getReference().getHolderClass());
       assertEquals("field", tracedField.getReference().getFieldName());
-      assertTrue(tracedField.isMissingDefinition());
     }
 
     @Override
     public void acceptMethod(TracedMethod tracedMethod, DiagnosticsHandler handler) {
-      acceptMethodCalled = true;
+      assertTrue(tracedMethod.isMissingDefinition());
+      missingMethods.add(tracedMethod.getReference());
       assertEquals(
           Reference.classFromClass(Target.class), tracedMethod.getReference().getHolderClass());
       assertEquals("target", tracedMethod.getReference().getMethodName());
-      assertTrue(tracedMethod.isMissingDefinition());
     }
   }
 
   private void missingClassReferenced(Path sourceDex) {
-    DiagnosticsChecker diagnosticsChecker = new DiagnosticsChecker();
+    Set<ClassReference> expectedMissingClasses =
+        ImmutableSet.of(Reference.classFromClass(Target.class));
+
     MissingReferencesConsumer consumer = new MissingReferencesConsumer();
+    assertThrows(
+        CompilationFailedException.class,
+        () ->
+            testForTraceReferences()
+                .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                .addSourceFiles(sourceDex)
+                .setConsumer(new TraceReferencesCheckConsumer(consumer))
+                .traceWithExpectedDiagnostics(
+                    diagnostics ->
+                        assertEquals(
+                            expectedMissingClasses,
+                            TraceReferencesTestUtils.filterAndCollectMissingClassReferences(
+                                diagnostics))));
 
-    try {
-      TraceReferences.run(
-          TraceReferencesCommand.builder(diagnosticsChecker)
-              .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
-              .addSourceFiles(sourceDex)
-              .setConsumer(new TraceReferencesCheckConsumer(consumer))
-              .build());
-      fail("Expected compilation to fail");
-    } catch (CompilationFailedException e) {
-      // Expected.
-    }
-
-    assertTrue(consumer.acceptTypeCalled);
-    assertTrue(consumer.acceptFieldCalled);
-    assertTrue(consumer.acceptMethodCalled);
+    assertTrue(consumer.hasMissingTypes());
+    assertEquals(expectedMissingClasses, consumer.missingTypes);
+    assertTrue(consumer.hasMissingFields());
+    assertTrue(consumer.hasMissingMethods());
   }
 
   @Test
@@ -95,7 +115,6 @@ public class TraceReferencesMissingReferencesInDexTest extends TestBase {
     missingClassReferenced(
         testForD8(Backend.DEX)
             .addProgramClasses(Source.class)
-            .setMinApi(minApi)
             .compile()
             .writeToZip());
   }
@@ -105,31 +124,28 @@ public class TraceReferencesMissingReferencesInDexTest extends TestBase {
     missingClassReferenced(
         testForD8(Backend.DEX)
             .addProgramClasses(Source.class)
-            .setMinApi(minApi)
             .compile()
             .writeToDirectory()
             .resolve("classes.dex"));
   }
 
   private void missingFieldAndMethodReferenced(Path sourceDex) {
-    DiagnosticsChecker diagnosticsChecker = new DiagnosticsChecker();
     MissingReferencesConsumer consumer = new MissingReferencesConsumer();
+    assertThrows(
+        CompilationFailedException.class,
+        () ->
+            testForTraceReferences()
+                .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
+                .addSourceFiles(sourceDex)
+                .setConsumer(new TraceReferencesCheckConsumer(consumer))
+                .traceWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics.assertAllDiagnosticsMatch(
+                            diagnosticType(MissingDefinitionsDiagnostic.class))));
 
-    try {
-      TraceReferences.run(
-          TraceReferencesCommand.builder(diagnosticsChecker)
-              .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
-              .addSourceFiles(sourceDex)
-              .setConsumer(new TraceReferencesCheckConsumer(consumer))
-              .build());
-      fail("Expected compilation to fail");
-    } catch (CompilationFailedException e) {
-      // Expected.
-    }
-
-    assertFalse(consumer.acceptTypeCalled);
-    assertTrue(consumer.acceptFieldCalled);
-    assertTrue(consumer.acceptMethodCalled);
+    assertFalse(consumer.hasMissingTypes());
+    assertTrue(consumer.hasMissingFields());
+    assertTrue(consumer.hasMissingMethods());
   }
 
   @Test
@@ -138,7 +154,6 @@ public class TraceReferencesMissingReferencesInDexTest extends TestBase {
         testForD8(Backend.DEX)
             .addProgramClasses(Source.class)
             .addProgramClassFileData(getClassWithTargetRemoved())
-            .setMinApi(minApi)
             .compile()
             .writeToZip());
   }
@@ -149,7 +164,6 @@ public class TraceReferencesMissingReferencesInDexTest extends TestBase {
         testForD8(Backend.DEX)
             .addProgramClasses(Source.class)
             .addProgramClassFileData(getClassWithTargetRemoved())
-            .setMinApi(minApi)
             .compile()
             .writeToDirectory()
             .resolve("classes.dex"));

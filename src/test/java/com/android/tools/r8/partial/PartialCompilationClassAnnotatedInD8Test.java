@@ -3,13 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static org.hamcrest.CoreMatchers.containsString;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.lang.annotation.Retention;
@@ -68,16 +68,8 @@ public class PartialCompilationClassAnnotatedInD8Test extends TestBase {
         .setR8PartialConfiguration(
             builder -> builder.includeAll().excludeClasses(AnnotatedClass.class))
         .run(parameters.getRuntime(), Main.class, getClass().getTypeName())
-        // TODO(b/376016627): Should succeed with EXPECTED_RESULT.
-        .applyIf(
-            parameters.isDexRuntimeVersionOlderThanOrEqual(Version.DEFAULT),
-            r ->
-                r.assertStderrMatches(
-                    containsString(
-                        "Unable to resolve java.lang.Class<"
-                            + AnnotatedClass.class.getTypeName()
-                            + "> annotation class 2")))
-        .assertSuccessWithOutputLines("0");
+        .inspect(inspector -> assertThat(inspector.clazz(Annotation.class), isPresent()))
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   // Compiled with R8

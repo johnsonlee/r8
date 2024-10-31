@@ -5,6 +5,7 @@
 package com.android.tools.r8;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
 
@@ -199,5 +200,11 @@ public abstract class TestDiagnosticMessages {
 
   public final TestDiagnosticMessages assertNoErrorsMatch(Matcher<Diagnostic> matcher) {
     return assertAllErrorsMatch(not(matcher));
+  }
+
+  @SuppressWarnings("unchecked")
+  public final <T extends Diagnostic> T assertSingleErrorDiagnosticType(Class<T> diagnosticType) {
+    return (T)
+        assertErrorsMatch(diagnosticType(diagnosticType)).assertErrorsCount(1).getErrors().get(0);
   }
 }
