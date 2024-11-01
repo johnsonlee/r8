@@ -24,6 +24,12 @@ public class BenchmarkRunner {
     return new BenchmarkRunner(environment);
   }
 
+  public int getWarmupIterations() {
+    return environment.hasBenchmarkWarmupIterationsOverride()
+        ? environment.getBenchmarkWarmupIterationsOverride()
+        : warmups;
+  }
+
   public BenchmarkRunner setWarmupIterations(int iterations) {
     this.warmups = iterations;
     return this;
@@ -54,13 +60,13 @@ public class BenchmarkRunner {
     long warmupTotalTime = 0;
     BenchmarkConfig config = environment.getConfig();
     BenchmarkResultsWarmup warmupResults = null;
-    if (warmups > 0) {
+    if (getWarmupIterations() > 0) {
       warmupResults =
           config.isSingleBenchmark()
               ? new BenchmarkResultsWarmup(config.getName())
               : new BenchmarkResultsWarmup(config.getName(), config.getSubBenchmarks());
       long start = System.nanoTime();
-      for (int i = 0; i < warmups; i++) {
+      for (int i = 0; i < getWarmupIterations(); i++) {
         fn.run(warmupResults);
       }
       warmupTotalTime = System.nanoTime() - start;
@@ -79,8 +85,8 @@ public class BenchmarkRunner {
             + config.getName()
             + " on target "
             + config.getTarget().getIdentifierName());
-    if (warmups > 0) {
-      printMetaInfo("warmup", warmups, warmupTotalTime);
+    if (getWarmupIterations() > 0) {
+      printMetaInfo("warmup", getWarmupIterations(), warmupTotalTime);
       if (config.hasTimeWarmupRuns()) {
         warmupResults.printResults(resultMode, environment.failOnCodeSizeDifferences());
       }

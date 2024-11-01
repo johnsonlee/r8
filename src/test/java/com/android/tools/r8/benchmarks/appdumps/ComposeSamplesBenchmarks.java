@@ -12,6 +12,8 @@ import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -104,5 +106,52 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
         .allowUnnecessaryDontWarnWildcards()
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules();
+  }
+
+  @Ignore
+  @Test
+  @Override
+  public void testBenchmarks() throws Exception {
+    super.testBenchmarks();
+  }
+
+  @Test
+  public void testCraneApp() throws Exception {
+    testBenchmarkWithName("CraneApp");
+  }
+
+  @Test
+  public void testJetLaggedApp() throws Exception {
+    testBenchmarkWithName("JetLaggedApp");
+  }
+
+  @Test
+  public void testJetNewsApp() throws Exception {
+    testBenchmarkWithName("JetNewsApp");
+  }
+
+  @Test
+  public void testJetCasterApp() throws Exception {
+    testBenchmarkWithName("JetCasterApp");
+  }
+
+  @Test
+  public void testJetChatApp() throws Exception {
+    testBenchmarkWithName("JetChatApp");
+  }
+
+  @Test
+  public void testJetSnackApp() throws Exception {
+    testBenchmarkWithName("JetSnackApp");
+  }
+
+  @Test
+  public void testOwlApp() throws Exception {
+    testBenchmarkWithName("OwlApp");
+  }
+
+  @Test
+  public void testReplyApp() throws Exception {
+    testBenchmarkWithName("ReplyApp");
   }
 }

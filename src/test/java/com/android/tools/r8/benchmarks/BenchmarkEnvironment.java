@@ -49,6 +49,14 @@ public class BenchmarkEnvironment {
     return Integer.parseInt(System.getProperty("BENCHMARK_ITERATIONS"));
   }
 
+  public boolean hasBenchmarkWarmupIterationsOverride() {
+    return System.getProperty("BENCHMARK_WARMUP_ITERATIONS") != null;
+  }
+
+  public int getBenchmarkWarmupIterationsOverride() {
+    return Integer.parseInt(System.getProperty("BENCHMARK_WARMUP_ITERATIONS"));
+  }
+
   public boolean hasOutputPath() {
     return System.getProperty("BENCHMARK_OUTPUT") != null;
   }

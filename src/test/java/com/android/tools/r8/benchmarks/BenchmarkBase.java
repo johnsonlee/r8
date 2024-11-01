@@ -4,6 +4,7 @@
 package com.android.tools.r8.benchmarks;
 
 import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -35,6 +36,15 @@ public abstract class BenchmarkBase extends TestBase {
 
   @Test
   public void testBenchmarks() throws Exception {
+    testBenchmark();
+  }
+
+  protected void testBenchmarkWithName(String name) throws Exception {
+    assumeTrue(config.getName().equals(name));
+    testBenchmark();
+  }
+
+  private void testBenchmark() throws Exception {
     // Slows down the windows bot considerably and does not add much extra value.
     assumeFalse(ToolHelper.isWindows());
     config.run(new BenchmarkEnvironment(config, temp, false));
