@@ -392,7 +392,7 @@ object JvmCompatibility {
 }
 
 object Versions {
-  const val asmVersion = "9.7"
+  const val asmVersion = "9.7.1"
   const val errorproneVersion = "2.18.0"
   const val fastUtilVersion = "7.2.1"
   const val gsonVersion = "2.10.1"
