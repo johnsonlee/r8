@@ -10,6 +10,7 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugari
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.StringUtils;
@@ -17,6 +18,7 @@ import java.time.DayOfWeek;
 import java.time.format.TextStyle;
 import java.util.List;
 import java.util.Locale;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -105,9 +107,8 @@ public class DayTest extends DesugaredLibraryTestBase {
   @Test
   public void testDay() throws Exception {
     if (parameters.isCfRuntime()) {
-      // TODO(b/300128109): Enable this assert if test fails on Windows. Otherwise remove it.
-      // Assume.assumeFalse("Missing data for Locale SIMPLIFIED_CHINESE on Windows",
-      //     ToolHelper.isWindows());
+      Assume.assumeFalse(
+          "Missing data for Locale SIMPLIFIED_CHINESE on Windows", ToolHelper.isWindows());
       testForJvm(parameters)
           .addInnerClasses(DayTest.class)
           .run(parameters.getRuntime(), Main.class)
