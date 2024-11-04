@@ -77,12 +77,10 @@ public class DayTest extends DesugaredLibraryTestBase {
     if (parameters.isCfRuntime() && parameters.getRuntime().asCf().isOlderThan(CfVm.JDK9)) {
       return SIMPLIFIED_CHINESE_EXPECTED_RESULT_JDK8;
     }
-    if (parameters.isDexRuntime() && libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
-      if (libraryDesugaringSpecification == JDK8) {
-        return MISSING_STANDALONE;
-      } else {
-        return SIMPLIFIED_CHINESE_NARROW_DAY_ISSUE;
-      }
+    if (parameters.isDexRuntime()
+        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)
+        && libraryDesugaringSpecification == JDK8) {
+      return MISSING_STANDALONE;
     }
     return SIMPLIFIED_CHINESE_EXPECTED_RESULT;
   }
