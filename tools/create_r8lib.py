@@ -97,6 +97,7 @@ def main():
     cmd.append('-Dcom.android.tools.r8.enableKeepAnnotations=1')
     # TODO(b/356344563): Remove when this is default.
     cmd.append('-Dcom.android.tools.r8.enableEmptyMemberRulesToDefaultInitRuleConversion=0')
+    cmd.append('-Dcom.android.tools.r8.tracereferences.obfuscateAllEnums')
     cmd.extend(['-cp', args.r8compiler, 'com.android.tools.r8.R8'])
     cmd.append(args.r8jar)
     if args.debug_variant:

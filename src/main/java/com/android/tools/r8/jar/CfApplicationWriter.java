@@ -626,6 +626,8 @@ public class CfApplicationWriter {
         // This must not be renamed, as the Java runtime will use Enum.valueOf to find the enum's
         // referenced in annotations. See b/236691999 for details.
         assert getNamingLens().lookupName(enumField) == enumField.name
+                || System.getProperty("com.android.tools.r8.tracereferences.obfuscateAllEnums")
+                    != null
             : "Enum field "
                 + enumField.name
                 + " renamed to "

@@ -335,6 +335,23 @@ fun Project.baseCompilerCommandLine(
 }
 
 fun Project.baseCompilerCommandLine(
+  jvmArgs: List<String> = listOf(), jar: File, compiler: String, args: List<String> = listOf(),
+) : List<String> {
+  // Execute r8 commands against a stable r8 with dependencies.
+  // TODO(b/139725780): See if we can remove or lower the heap size (-Xmx8g).
+  return listOf(
+    getJavaPath(Jdk.JDK_17),
+    "-Xmx8g",
+    "-ea"
+  ) + jvmArgs +
+  listOf(
+    "-cp",
+    "$jar",
+    "com.android.tools.r8.SwissArmyKnife",
+    compiler) + args
+}
+
+fun Project.baseCompilerCommandLine(
   jar: File, compiler: String, args: List<String> = listOf(),
 ) : List<String> {
   // Execute r8 commands against a stable r8 with dependencies.

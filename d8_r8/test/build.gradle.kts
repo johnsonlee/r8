@@ -163,6 +163,7 @@ tasks {
       argList.add("${it.getSingleOutputFile()}")
     }
     commandLine = baseCompilerCommandLine(
+            listOf("-Dcom.android.tools.r8.tracereferences.obfuscateAllEnums"),
             r8WithRelocatedDepsJar,
             "tracereferences",
             argList
@@ -314,6 +315,7 @@ tasks {
       args.add("$testBaseJar")
     }
     commandLine = baseCompilerCommandLine(
+            listOf("-Dcom.android.tools.r8.tracereferences.obfuscateAllEnums"),
             r8WithRelocatedDepsJar,
             "r8",
             args)
