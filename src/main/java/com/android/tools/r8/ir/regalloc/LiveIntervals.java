@@ -43,6 +43,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   private boolean spilled = false;
   private boolean isInvokeRangeIntervals = false;
   private boolean usedInMonitorOperations = false;
+  private boolean liveAtMoveExceptionEntry = false;
 
   // Only registers up to and including the registerLimit are allowed for this interval.
   private int registerLimit = U16BIT_MAX;
@@ -305,7 +306,17 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   }
 
   public void unsetIsInvokeRangeIntervals() {
+    assert isSplitParent();
     isInvokeRangeIntervals = false;
+  }
+
+  public boolean isLiveAtMoveExceptionEntry() {
+    return splitParent.liveAtMoveExceptionEntry;
+  }
+
+  public void setIsLiveAtMoveExceptionEntry() {
+    assert isSplitParent();
+    liveAtMoveExceptionEntry = true;
   }
 
   private int computeMaxNonSpilledRegister() {

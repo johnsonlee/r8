@@ -1139,9 +1139,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       }
       // Split their live ranges which will force another register if used.
       for (LiveIntervals intervals : moveExceptionIntervals) {
-        if (intervals.getUses().size() > 1) {
-          LiveIntervals split =
-              intervals.splitBefore(intervals.getFirstUse() + INSTRUCTION_NUMBER_DELTA);
+        if (intervals.getValue().hasAnyUsers()) {
+          LiveIntervals split = intervals.splitAfter(intervals.getValue().getDefinition());
           unhandled.add(split);
         }
       }
@@ -1482,7 +1481,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         if (hasDedicatedMoveExceptionRegister()) {
           boolean canUseMoveExceptionRegisterForLinkedIntervals =
               isDedicatedMoveExceptionRegisterInFirstLocalRegister()
-                  && !overlapsMoveExceptionInterval(start);
+                  && (!start.isLiveAtMoveExceptionEntry() || !overlapsMoveExceptionInterval(start));
           if (!canUseMoveExceptionRegisterForLinkedIntervals) {
             freeRegisters.remove(getMoveExceptionRegister());
           }
@@ -1659,7 +1658,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
     // Check for overlap with the move exception interval.
     boolean overlapsMoveExceptionInterval =
-        hasDedicatedMoveExceptionRegister()
+        intervals.isLiveAtMoveExceptionEntry()
+            && hasDedicatedMoveExceptionRegister()
             && (register == getMoveExceptionRegister()
                 || (intervals.getType().isWide() && register + 1 == getMoveExceptionRegister()))
             && overlapsMoveExceptionInterval(intervals);
@@ -2069,10 +2069,12 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // place to put a spill move (because the move exception instruction has to be the
     // first instruction in the handler block).
     if (hasDedicatedMoveExceptionRegister()) {
-      if (unhandledInterval.getRegisterLimit() == Constants.U4BIT_MAX
+      if (!mode.is4Bit()
+          && unhandledInterval.getRegisterLimit() == Constants.U4BIT_MAX
           && isDedicatedMoveExceptionRegisterInLastLocalRegister()) {
         freePositions.setBlocked(getMoveExceptionRegister());
-      } else if (overlapsMoveExceptionInterval(unhandledInterval)) {
+      } else if (unhandledInterval.isLiveAtMoveExceptionEntry()
+          && overlapsMoveExceptionInterval(unhandledInterval)) {
         int moveExceptionRegister = getMoveExceptionRegister();
         if (moveExceptionRegister <= registerConstraint) {
           freePositions.setBlocked(moveExceptionRegister);
@@ -2568,7 +2570,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
     // Disallow reuse of the move exception register if we have reserved one.
     if (hasDedicatedMoveExceptionRegister()) {
-      if (unhandledInterval.getRegisterLimit() == Constants.U4BIT_MAX
+      if (!mode.is4Bit()
+          && unhandledInterval.getRegisterLimit() == Constants.U4BIT_MAX
           && isDedicatedMoveExceptionRegisterInLastLocalRegister()) {
         usePositions.setBlocked(getMoveExceptionRegister());
       } else if (overlapsMoveExceptionInterval(unhandledInterval)) {
@@ -3105,6 +3108,13 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   private void computeLiveRanges() {
     computeLiveRanges(appView, code, liveAtEntrySets, liveIntervals);
+    boolean hasMoveException = false;
+    for (BasicBlock block : code.blocks(block -> block.entry().isMoveException())) {
+      for (Value value : liveAtEntrySets.get(block).liveValues) {
+        value.getLiveIntervals().setIsLiveAtMoveExceptionEntry();
+      }
+      hasMoveException = true;
+    }
     // Art VMs before Android M assume that the register for the receiver never changes its value.
     // This assumption is used during verification. Allowing the receiver register to be
     // overwritten can therefore lead to verification errors. If we could be targeting one of these
@@ -3116,6 +3126,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       thisIntervals.addRange(new LiveRange(0, code.getNextInstructionNumber()));
       for (LiveAtEntrySets values : liveAtEntrySets.values()) {
         values.liveValues.add(firstArgumentValue);
+      }
+      if (hasMoveException) {
+        thisIntervals.setIsLiveAtMoveExceptionEntry();
       }
     }
   }
