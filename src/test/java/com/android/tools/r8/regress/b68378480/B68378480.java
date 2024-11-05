@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 
 class SuperClass {
@@ -68,16 +67,14 @@ public class B68378480 {
   }
 
   @Test
-  public void addExtraLocalToConstructor()
-      throws IOException, CompilationFailedException, ExecutionException {
+  public void addExtraLocalToConstructor() throws IOException, CompilationFailedException {
     DexCode code = compileClassesGetSubClassInit(AndroidApiLevel.L_MR1.getLevel());
     assertTrue(code.registerSize > code.incomingRegisterSize);
     assertTrue(Arrays.stream(code.instructions).anyMatch((i) -> i instanceof SingleConstant));
   }
 
   @Test
-  public void doNotAddExtraLocalToConstructor()
-      throws IOException, CompilationFailedException, ExecutionException {
+  public void doNotAddExtraLocalToConstructor() throws IOException, CompilationFailedException {
     DexCode code = compileClassesGetSubClassInit(AndroidApiLevel.M.getLevel());
     assertEquals(code.registerSize, code.incomingRegisterSize);
     assertTrue(Arrays.stream(code.instructions).noneMatch((i) -> i instanceof SingleConstant));

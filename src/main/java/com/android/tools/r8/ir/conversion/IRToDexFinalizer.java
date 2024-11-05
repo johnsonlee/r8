@@ -16,7 +16,6 @@ import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.ir.optimize.PeepholeOptimizer;
 import com.android.tools.r8.ir.optimize.RuntimeWorkaroundCodeRewriter;
 import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
-import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Timing;
 
@@ -46,7 +45,7 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
     workaroundBugs(code, timing);
     code.traceBlocks();
     // Perform register allocation.
-    RegisterAllocator registerAllocator = performRegisterAllocation(code, method, timing);
+    LinearScanRegisterAllocator registerAllocator = performRegisterAllocation(code, method, timing);
     return new DexBuilder(code, bytecodeMetadataProvider, registerAllocator, options).build();
   }
 
@@ -66,7 +65,7 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
   }
 
   @SuppressWarnings("UnusedVariable")
-  private RegisterAllocator performRegisterAllocation(
+  private LinearScanRegisterAllocator performRegisterAllocation(
       IRCode code, DexEncodedMethod method, Timing timing) {
     // Always perform dead code elimination before register allocation. The register allocator
     // does not allow dead code (to make sure that we do not waste registers for unneeded values).

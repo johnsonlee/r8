@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.regalloc;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -17,6 +18,10 @@ public interface RegisterAllocator {
   int registersUsed();
   int getRegisterForValue(Value value, int instructionNumber);
   int getArgumentOrAllocateRegisterForValue(Value value, int instructionNumber);
+
+  default int getArgumentRegisterForValue(Value value) {
+    throw new Unreachable();
+  }
 
   InternalOptions options();
 

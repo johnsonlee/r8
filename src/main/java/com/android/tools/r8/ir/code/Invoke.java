@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.dex.code.DexInstruction;
@@ -19,7 +21,10 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.conversion.DexBuilder;
+import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Set;
 
@@ -157,9 +162,10 @@ public abstract class Invoke extends Instruction {
   }
 
   protected int getRegisterForInvokeRange(DexBuilder builder, Value argument) {
-    return builder.getOptions().getTestingOptions().enableLiveIntervalsSplittingForInvokeRange
-        ? builder.allocatedRegister(argument, getNumber())
-        : builder.argumentOrAllocateRegister(argument, getNumber());
+    if (argumentsAreConsecutivePinnedInputArguments(builder.getRegisterAllocator())) {
+      return builder.getArgumentRegister(argument);
+    }
+    return builder.allocatedRegister(argument, getNumber());
   }
 
   protected void addInvokeAndMoveResult(DexInstruction instruction, DexBuilder builder) {
@@ -223,6 +229,15 @@ public abstract class Invoke extends Instruction {
   }
 
   private boolean argumentsAreConsecutiveInputArguments() {
+    return argumentsAreConsecutiveInputArgumentsThatMatches(alwaysTrue());
+  }
+
+  private boolean argumentsAreConsecutivePinnedInputArguments(
+      LinearScanRegisterAllocator registerAllocator) {
+    return argumentsAreConsecutiveInputArgumentsThatMatches(registerAllocator::isPinnedArgument);
+  }
+
+  private boolean argumentsAreConsecutiveInputArgumentsThatMatches(Predicate<Value> predicate) {
     if (arguments().isEmpty()) {
       return false;
     }
@@ -237,28 +252,24 @@ public abstract class Invoke extends Instruction {
       }
       current = next;
     }
-    return true;
+    return Iterables.all(arguments(), predicate);
   }
 
+  // Used to decide if this invoke should be emitted as invoke/range.
   protected boolean needsRangedInvoke(DexBuilder builder) {
+    if (arguments().size() == 1) {
+      // Prefer invoke-range since this does not impose any constraints on the operand register.
+      return true;
+    }
     if (requiredArgumentRegisters() > 5) {
       // No way around using an invoke-range instruction.
       return true;
     }
-    // By using an invoke-range instruction when there is only one argument, we avoid having to
-    // satisfy the constraint that the argument register(s) must fit in 4 bits.
-    boolean registersGuaranteedToBeConsecutive =
-        arguments().size() == 1 || argumentsAreConsecutiveInputArguments();
-    if (!registersGuaranteedToBeConsecutive) {
-      // No way that we will need an invoke-range.
-      return false;
+    if (argumentsAreConsecutivePinnedInputArguments(builder.getRegisterAllocator())) {
+      // Use the arguments from their input registers.
+      return true;
     }
-    // If we could use an invoke-range instruction, but all the registers fit in 4 bits, then we
-    // use a non-range invoke.
-    assert verifyInvokeRangeArgumentsAreConsecutive(builder);
-    int registerStart = getRegisterForInvokeRange(builder, getFirstArgument());
-    int registerEnd = registerStart + requiredArgumentRegisters() - 1;
-    return registerEnd > Constants.U4BIT_MAX;
+    return false;
   }
 
   @Override

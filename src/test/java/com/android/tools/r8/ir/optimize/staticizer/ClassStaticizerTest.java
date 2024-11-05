@@ -19,8 +19,11 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeDirect;
+import com.android.tools.r8.dex.code.DexInvokeDirectRange;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
+import com.android.tools.r8.dex.code.DexInvokeStaticRange;
 import com.android.tools.r8.dex.code.DexInvokeVirtual;
+import com.android.tools.r8.dex.code.DexInvokeVirtualRange;
 import com.android.tools.r8.dex.code.DexSgetObject;
 import com.android.tools.r8.dex.code.DexSputObject;
 import com.android.tools.r8.graph.DexCode;
@@ -377,19 +380,16 @@ public class ClassStaticizerTest extends TestBase {
                 .map(DexInstruction::getField)
                 .filter(fld -> isTypeOfInterest(fld.holder))
                 .map(DexField::toSourceString),
-            filterInstructionKind(code, DexInvokeStatic.class)
-                .map(insn -> (DexInvokeStatic) insn)
-                .map(DexInvokeStatic::getMethod)
+            filterInstructionKind(code, DexInvokeStatic.class, DexInvokeStaticRange.class)
+                .map(DexInstruction::getMethod)
                 .filter(method -> isTypeOfInterest(method.holder))
                 .map(method -> "STATIC: " + method.toSourceString()),
-            filterInstructionKind(code, DexInvokeVirtual.class)
-                .map(insn -> (DexInvokeVirtual) insn)
-                .map(DexInvokeVirtual::getMethod)
+            filterInstructionKind(code, DexInvokeVirtual.class, DexInvokeVirtualRange.class)
+                .map(DexInstruction::getMethod)
                 .filter(method -> isTypeOfInterest(method.holder))
                 .map(method -> "VIRTUAL: " + method.toSourceString()),
-            filterInstructionKind(code, DexInvokeDirect.class)
-                .map(insn -> (DexInvokeDirect) insn)
-                .map(DexInvokeDirect::getMethod)
+            filterInstructionKind(code, DexInvokeDirect.class, DexInvokeDirectRange.class)
+                .map(DexInstruction::getMethod)
                 .filter(method -> isTypeOfInterest(method.holder))
                 .map(method -> "DIRECT: " + method.toSourceString()))
         .map(txt -> txt.replace("java.lang.", ""))

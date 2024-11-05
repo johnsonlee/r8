@@ -8,7 +8,9 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.dex.Marker.Tool;
+import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
+import com.android.tools.r8.dex.code.DexInvokeStaticRange;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -418,10 +420,9 @@ public class B77496850 extends TestBase {
         factory.createString("isNaN"),
         factory.booleanDescriptor,
         new DexString[]{factory.doubleDescriptor});
-    for (int i = 0; i < code.instructions.length; i++) {
-      if (code.instructions[i] instanceof DexInvokeStatic) {
-        DexInvokeStatic invoke = (DexInvokeStatic) code.instructions[i];
-        if (invoke.getMethod() == doubleIsNaN) {
+    for (DexInstruction instruction : code.instructions) {
+      if (instruction instanceof DexInvokeStatic || instruction instanceof DexInvokeStaticRange) {
+        if (instruction.getMethod() == doubleIsNaN) {
           count++;
         }
       }

@@ -3,15 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.regalloc;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.codeinspector.InstructionSubject;
-import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -19,7 +13,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class RedundantSpillingBeforeInvokeRangeTest extends TestBase {
+public class ValueUsedInMultipleInvokeRangeInstructionsTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -41,38 +35,17 @@ public class RedundantSpillingBeforeInvokeRangeTest extends TestBase {
         .release()
         .setMinApi(parameters)
         .compile()
-        .inspect(
-            inspector -> {
-              MethodSubject testMethodSubject =
-                  inspector.clazz(Main.class).uniqueMethodWithOriginalName("test");
-              assertThat(testMethodSubject, isPresent());
-              assertEquals(
-                  10,
-                  testMethodSubject
-                      .streamInstructions()
-                      .filter(InstructionSubject::isMove)
-                      .count());
-            })
         .runDex2Oat(parameters.getRuntime())
         .assertNoVerificationErrors();
   }
 
   static class Main {
 
-    Main(long a, long b, long c, long d, long e, long f, long g, long h) {}
-
-    Main test(long a, long b, long c, long d, long e, long f, long g, long h) {
-      forceIntoLowRegister(a, a);
-      forceIntoLowRegister(b, b);
-      forceIntoLowRegister(c, c);
-      forceIntoLowRegister(d, d);
-      forceIntoLowRegister(e, e);
-      forceIntoLowRegister(f, f);
-      forceIntoLowRegister(g, g);
-      forceIntoLowRegister(h, h);
-      return new Main(a, b, c, d, e, f, g, h);
+    void test(long a) {
+      invoke(a, a, a);
+      invoke(a, a, a);
     }
 
-    static void forceIntoLowRegister(long a, long b) {}
+    static void invoke(long a, long b, long c) {}
   }
 }

@@ -53,7 +53,7 @@ public class SimplifyArrayConstructionTest extends TestBase {
   }
 
   private static final Class<?>[] DEX_ARRAY_INSTRUCTIONS = {
-    DexNewArray.class, DexFilledNewArray.class, DexFilledNewArrayRange.class, DexFillArrayData.class
+    DexNewArray.class, DexFilledNewArray.class, DexFillArrayData.class
   };
 
   private static final String[] EXPECTED_OUTPUT = {
@@ -334,12 +334,15 @@ public class SimplifyArrayConstructionTest extends TestBase {
 
   private static void assertArrayTypes(MethodSubject method, Class<?>... allowedArrayInst) {
     assertTrue(method.isPresent());
+    List<Class<?>> allowedClasses = Lists.newArrayList(allowedArrayInst);
+    if (allowedClasses.contains(DexFilledNewArray.class)) {
+      allowedClasses.add(DexFilledNewArrayRange.class);
+    }
     List<Class<?>> disallowedClasses = Lists.newArrayList(DEX_ARRAY_INSTRUCTIONS);
     for (Class<?> allowedArr : allowedArrayInst) {
       disallowedClasses.remove(allowedArr);
     }
-    assertTrue(
-        method.streamInstructions().anyMatch(isInstruction(Arrays.asList(allowedArrayInst))));
+    assertTrue(method.streamInstructions().anyMatch(isInstruction(allowedClasses)));
     assertTrue(method.streamInstructions().noneMatch(isInstruction(disallowedClasses)));
   }
 

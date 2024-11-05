@@ -38,10 +38,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   private boolean sortedChildren = false;
   private List<LiveRange> ranges = new ArrayList<>();
   private final TreeSet<LiveIntervalsUse> uses = new TreeSet<>();
-  private int numberOfConsecutiveRegisters = -1;
   private int register = NO_REGISTER;
   private Integer hint;
   private boolean spilled = false;
+  private boolean isInvokeRangeIntervals = false;
   private boolean usedInMonitorOperations = false;
 
   // Only registers up to and including the registerLimit are allowed for this interval.
@@ -99,6 +99,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     }
   }
 
+  public boolean hasHint() {
+    return hint != null;
+  }
+
   public Integer getHint() {
     return hint;
   }
@@ -132,7 +136,6 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   }
 
   public void link(LiveIntervals next) {
-    assert numberOfConsecutiveRegisters == -1;
     nextConsecutive = next;
     next.previousConsecutive = this;
   }
@@ -146,23 +149,29 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return definition != null && definition.isArgument();
   }
 
-  public LiveIntervals getStartOfConsecutive() {
-    LiveIntervals current = this;
-    while (current.previousConsecutive != null) {
-      current = current.previousConsecutive;
-    }
-    return current;
+  public boolean isSplitParent() {
+    return this == splitParent;
   }
 
   public LiveIntervals getNextConsecutive() {
     return nextConsecutive;
   }
 
+  public LiveIntervals getPreviousSplit() {
+    if (this == splitParent) {
+      return null;
+    }
+    splitParent.sortSplitChildrenIfNeeded();
+    int i = splitParent.getSplitChildren().indexOf(this) - 1;
+    return i >= 0 ? splitParent.getSplitChildren().get(i) : splitParent;
+  }
+
   public LiveIntervals getNextSplit() {
+    splitParent.sortSplitChildrenIfNeeded();
     if (this == splitParent) {
       return Iterables.getFirst(splitChildren, null);
     }
-    int i = splitParent.getSplitChildren().indexOf(this);
+    int i = splitParent.getSplitChildren().indexOf(this) + 1;
     return i < splitParent.getSplitChildren().size() ? splitParent.getSplitChildren().get(i) : null;
   }
 
@@ -170,32 +179,12 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return previousConsecutive;
   }
 
-  public int numberOfConsecutiveRegisters() {
-    LiveIntervals start = getStartOfConsecutive();
-    if (start.numberOfConsecutiveRegisters != -1) {
-      assert start.numberOfConsecutiveRegisters == computeNumberOfConsecutiveRegisters();
-      return start.numberOfConsecutiveRegisters;
-    }
-    return computeNumberOfConsecutiveRegisters();
-  }
-
-  private int computeNumberOfConsecutiveRegisters() {
-    LiveIntervals start = getStartOfConsecutive();
-    int result = 0;
-    for (LiveIntervals current = start;
-        current != null;
-        current = current.nextConsecutive) {
-      result += current.requiredRegisters();
-    }
-    start.numberOfConsecutiveRegisters = result;
-    return result;
-  }
-
   public boolean hasSplits() {
     return splitChildren.size() != 0;
   }
 
   private void sortSplitChildrenIfNeeded() {
+    assert isSplitParent();
     if (!sortedChildren) {
       splitChildren.sort(Comparator.comparingInt(LiveIntervals::getEnd));
       sortedSplitChildrenEnds.clear();
@@ -302,6 +291,19 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   public void setRegister(int n) {
     assert register == NO_REGISTER || register == n;
     register = n;
+  }
+
+  public boolean isInvokeRangeIntervals() {
+    return isInvokeRangeIntervals;
+  }
+
+  public void setIsInvokeRangeIntervals() {
+    assert !isInvokeRangeIntervals;
+    isInvokeRangeIntervals = true;
+  }
+
+  public void unsetIsInvokeRangeIntervals() {
+    isInvokeRangeIntervals = false;
   }
 
   private int computeMaxNonSpilledRegister() {
@@ -456,7 +458,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     start = toGapPosition(start);
     LiveIntervals splitChild = new LiveIntervals(splitParent);
     splitParent.splitChildren.add(splitChild);
-    splitParent.sortedChildren = false;
+    splitParent.sortedChildren = splitParent.splitChildren.size() == 1;
     List<LiveRange> beforeSplit = new ArrayList<>();
     List<LiveRange> afterSplit = new ArrayList<>();
     if (start == getEnd()) {
@@ -610,10 +612,6 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
-    builder.append("(cons ");
-    // Use the field here to avoid toString to have side effects.
-    builder.append(numberOfConsecutiveRegisters);
-    builder.append("): ");
     for (LiveRange range : getRanges()) {
       builder.append(range);
       builder.append(" ");

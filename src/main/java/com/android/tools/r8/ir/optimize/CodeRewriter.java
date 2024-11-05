@@ -230,12 +230,14 @@ public class CodeRewriter {
         Instruction instruction = it.next();
         if (instruction.isMove()) {
           Move move = instruction.asMove();
+          int dst = allocator.getRegisterForValue(move.dest(), move.getNumber());
           if (unneededMoves.contains(move)) {
-            int dst = allocator.getRegisterForValue(move.dest(), move.getNumber());
             int src = allocator.getRegisterForValue(move.src(), move.getNumber());
             int mappedSrc = mapping.getOrDefault(src, src);
             mapping.put(dst, mappedSrc);
             it.removeInstructionIgnoreOutValue();
+          } else {
+            mapping.remove(dst);
           }
         } else if (instruction.isDebugLocalsChange()) {
           DebugLocalsChange change = instruction.asDebugLocalsChange();

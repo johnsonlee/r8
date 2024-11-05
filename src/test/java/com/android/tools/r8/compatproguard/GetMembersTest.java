@@ -15,7 +15,7 @@ import com.android.tools.r8.dex.code.DexAputObject;
 import com.android.tools.r8.dex.code.DexConst4;
 import com.android.tools.r8.dex.code.DexConstClass;
 import com.android.tools.r8.dex.code.DexConstString;
-import com.android.tools.r8.dex.code.DexFilledNewArray;
+import com.android.tools.r8.dex.code.DexFilledNewArrayRange;
 import com.android.tools.r8.dex.code.DexInvokeVirtual;
 import com.android.tools.r8.dex.code.DexMoveResultObject;
 import com.android.tools.r8.dex.code.DexNewArray;
@@ -75,9 +75,9 @@ public class GetMembersTest extends TestBase {
   private void inspectGetMethodTest(MethodSubject method) {
     // Accept either array construction style (differs based on minSdkVersion).
     DexCode code = method.getMethod().getCode().asDexCode();
-    if (code.instructions[1] instanceof DexFilledNewArray) {
+    if (code.instructions[1] instanceof DexFilledNewArrayRange) {
       assertTrue(code.instructions[0] instanceof DexConstClass);
-      assertTrue(code.instructions[1] instanceof DexFilledNewArray);
+      assertTrue(code.instructions[1] instanceof DexFilledNewArrayRange);
       assertTrue(code.instructions[2] instanceof DexMoveResultObject);
       assertTrue(code.instructions[3] instanceof DexConstClass);
       assertTrue(code.instructions[4] instanceof DexConstString);

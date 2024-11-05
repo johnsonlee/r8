@@ -38,6 +38,18 @@ public class IterableUtils {
     return true;
   }
 
+  public static <T> boolean allWithPrevious(
+      Iterable<? extends T> iterable, BiPredicate<? super T, ? super T> predicate) {
+    T previous = null;
+    for (T element : iterable) {
+      if (!predicate.test(element, previous)) {
+        return false;
+      }
+      previous = element;
+    }
+    return true;
+  }
+
   public static <S, T> boolean any(
       Iterable<S> iterable, Function<S, T> transform, Predicate<T> predicate) {
     for (S element : iterable) {

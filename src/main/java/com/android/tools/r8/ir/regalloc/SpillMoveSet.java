@@ -300,7 +300,7 @@ class SpillMoveSet {
     // the arguments are not live, so it is insufficient to check that the destination register
     // is in the argument register range.
     for (SpillMove move : moves) {
-      assert !allocator.isPinnedArgumentRegister(move.to);
+      assert !allocator.canSkipArgumentMove(move.to);
     }
     return true;
   }

@@ -13,8 +13,8 @@ import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.dex.code.DexInvokeDirect;
-import com.android.tools.r8.dex.code.DexInvokeVirtual;
+import com.android.tools.r8.dex.code.DexInvokeDirectRange;
+import com.android.tools.r8.dex.code.DexInvokeVirtualRange;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.smali.SmaliBuilder;
@@ -121,7 +121,7 @@ public class InvokeTypeConversionTest extends SmaliTestBase {
           assertNotNull(method);
           DexCode code = method.getCode().asDexCode();
           // The given invoke line is remained as-is.
-          assertTrue(code.instructions[2] instanceof DexInvokeDirect);
+          assertTrue(code.instructions[2] instanceof DexInvokeDirectRange);
         });
   }
 
@@ -152,7 +152,7 @@ public class InvokeTypeConversionTest extends SmaliTestBase {
           assertNotNull(method);
           DexCode code = method.getCode().asDexCode();
           // The given invoke line is changed to invoke-virtual
-          assertTrue(code.instructions[2] instanceof DexInvokeVirtual);
+          assertTrue(code.instructions[2] instanceof DexInvokeVirtualRange);
         });
   }
 

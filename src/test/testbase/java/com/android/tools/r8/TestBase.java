@@ -1523,10 +1523,11 @@ public class TestBase {
   }
 
   protected Stream<DexInstruction> filterInstructionKind(
-      DexCode dexCode, Class<? extends DexInstruction> kind) {
+      DexCode dexCode, Class<? extends DexInstruction>... kinds) {
     return Arrays.stream(dexCode.instructions)
-        .filter(kind::isInstance)
-        .map(kind::cast);
+        .filter(
+            instruction ->
+                Arrays.asList(kinds).stream().anyMatch(kind -> kind.isInstance(instruction)));
   }
 
   protected long countCall(MethodSubject method, String className, String methodName) {

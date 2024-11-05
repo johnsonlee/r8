@@ -67,6 +67,7 @@ import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.passes.TrivialGotosCollapser;
+import com.android.tools.r8.ir.regalloc.LinearScanRegisterAllocator;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.lightir.ByteUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -99,7 +100,7 @@ public class DexBuilder {
   private final BytecodeMetadata.Builder<DexInstruction> bytecodeMetadataBuilder;
 
   // The register allocator providing register assignments for the code to build.
-  private final RegisterAllocator registerAllocator;
+  private final LinearScanRegisterAllocator registerAllocator;
 
   private final InternalOptions options;
   private final MethodConversionOptions conversionOptions;
@@ -138,7 +139,7 @@ public class DexBuilder {
   public DexBuilder(
       IRCode ir,
       BytecodeMetadataProvider bytecodeMetadataProvider,
-      RegisterAllocator registerAllocator,
+      LinearScanRegisterAllocator registerAllocator,
       InternalOptions options) {
     this(
         ir,
@@ -158,7 +159,7 @@ public class DexBuilder {
     this.appView = registerAllocator.getAppView();
     this.ir = ir;
     this.bytecodeMetadataBuilder = BytecodeMetadata.builder(bytecodeMetadataProvider);
-    this.registerAllocator = registerAllocator;
+    this.registerAllocator = (LinearScanRegisterAllocator) registerAllocator;
     this.options = options;
     this.conversionOptions = conversionOptions;
     if (isBuildingForComparison()) {
@@ -664,6 +665,10 @@ public class DexBuilder {
     return registerAllocator.getArgumentOrAllocateRegisterForValue(value, instructionNumber);
   }
 
+  public int getArgumentRegister(Value value) {
+    return registerAllocator.getArgumentRegisterForValue(value);
+  }
+
   public void addGoto(com.android.tools.r8.ir.code.Goto jump) {
     if (jump.getTarget() != nextBlock) {
       add(jump, new GotoInfo(jump));
@@ -1078,7 +1083,7 @@ public class DexBuilder {
     return options;
   }
 
-  public RegisterAllocator getRegisterAllocator() {
+  public LinearScanRegisterAllocator getRegisterAllocator() {
     return registerAllocator;
   }
 
