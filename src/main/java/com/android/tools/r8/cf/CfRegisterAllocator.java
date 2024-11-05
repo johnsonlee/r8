@@ -319,7 +319,7 @@ public class CfRegisterAllocator implements RegisterAllocator {
 
   private void updateHints(LiveIntervals intervals) {
     for (Phi phi : intervals.getValue().uniquePhiUsers()) {
-      if (!phi.isValueOnStack() && phi.getLiveIntervals().getHint() == null) {
+      if (!phi.isValueOnStack() && !phi.getLiveIntervals().hasHint()) {
         phi.getLiveIntervals().setHint(intervals, unhandled);
         for (Value value : phi.getOperands()) {
           value.getLiveIntervals().setHint(intervals, unhandled);
@@ -329,7 +329,7 @@ public class CfRegisterAllocator implements RegisterAllocator {
   }
 
   private boolean tryHint(LiveIntervals unhandled) {
-    if (unhandled.getHint() == null) {
+    if (!unhandled.hasHint()) {
       return false;
     }
     boolean isWide = unhandled.getType().isWide();

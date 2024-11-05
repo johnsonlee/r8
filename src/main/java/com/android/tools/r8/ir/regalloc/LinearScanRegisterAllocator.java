@@ -1302,7 +1302,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   private void setHintForDestRegOfCheckCast(LiveIntervals unhandledInterval) {
-    if (unhandledInterval.getHint() != null) {
+    if (unhandledInterval.hasHint()) {
       return;
     }
     Value value = unhandledInterval.getValue();
@@ -1322,7 +1322,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
    * that is the left interval or the right interval if possible when intervals do not overlap.
    */
   private void setHintToPromote2AddrInstruction(LiveIntervals unhandledInterval) {
-    if (unhandledInterval.getHint() != null) {
+    if (unhandledInterval.hasHint()) {
       return;
     }
     Value value = unhandledInterval.getValue();
@@ -2355,14 +2355,14 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // phi and do not have hints yet.
     for (Phi phi : value.uniquePhiUsers()) {
       LiveIntervals phiIntervals = phi.getLiveIntervals();
-      if (phiIntervals.getHint() == null) {
+      if (!phiIntervals.hasHint()) {
         phiIntervals.setHint(intervals, unhandled);
         for (int i = 0; i < phi.getOperands().size(); i++) {
           Value operand = phi.getOperand(i);
           LiveIntervals operandIntervals = operand.getLiveIntervals();
           BasicBlock pred = phi.getBlock().getPredecessors().get(i);
           operandIntervals = operandIntervals.getSplitCovering(pred.exit().getNumber());
-          if (operandIntervals.getHint() == null) {
+          if (!operandIntervals.hasHint()) {
             operandIntervals.setHint(intervals, unhandled);
           }
         }
