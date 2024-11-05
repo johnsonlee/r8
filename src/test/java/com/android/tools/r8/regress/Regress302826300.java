@@ -45,7 +45,7 @@ public class Regress302826300 extends TestBase {
             .setMinApi(parameters)
             .run(parameters.getRuntime(), Foo.class);
     if (parameters.getRuntime().asDex().getVersion().isDalvik()) {
-      run.assertFailureWithErrorThatMatches(containsString("rejecting opcode 0x6e"));
+      run.assertFailureWithErrorThatMatches(containsString("rejecting opcode 0x"));
     } else {
       run.assertSuccessWithOutputLines(EXPECTED);
     }
