@@ -506,7 +506,7 @@ def compile_reflective_helper(temp, jdkhome):
     gradle.RunGradle([utils.GRADLE_TASK_MAIN_COMPILE])
     base_path = os.path.join(
         utils.REPO_ROOT,
-        'src/main/java/com/android/tools/r8/utils/compiledumputils')
+        'src/main/java/com/android/tools/r8/utils/compiledump')
 
     cmd = [
         jdk.GetJavacExecutable(jdkhome),
