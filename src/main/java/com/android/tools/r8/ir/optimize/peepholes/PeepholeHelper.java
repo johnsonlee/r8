@@ -58,18 +58,12 @@ public class PeepholeHelper {
       InstructionListIterator it, List<Instruction> instructions) {
     assert !instructions.isEmpty();
     for (Instruction instruction : instructions) {
+      // Add duplicate users to offset the users being removed by removeOrReplaceByDebugLocalRead().
       for (Value inValue : instruction.inValues()) {
         inValue.addUser(instruction);
       }
+      instruction.removeOrReplaceByDebugLocalRead();
       it.add(instruction);
     }
-    Instruction current = it.nextUntil(i -> i == instructions.get(0));
-    for (int i = 0; i < instructions.size(); i++) {
-      assert current == instructions.get(i);
-      it.removeOrReplaceByDebugLocalRead();
-      current = it.next();
-    }
-    it.previousUntil(i -> i == instructions.get(instructions.size() - 1));
-    it.next();
   }
 }

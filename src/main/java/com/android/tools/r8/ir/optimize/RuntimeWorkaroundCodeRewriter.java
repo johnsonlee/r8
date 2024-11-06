@@ -65,7 +65,6 @@ public class RuntimeWorkaroundCodeRewriter {
       // Split out the last recursive call in its own block.
       InstructionListIterator splitIterator =
           lastSelfRecursiveCall.getBlock().listIterator(code, lastSelfRecursiveCall);
-      splitIterator.previous();
       BasicBlock newBlock = splitIterator.split(code, 1);
       // Generate rethrow block.
       DexType guard = appView.dexItemFactory().throwableType;
@@ -251,7 +250,6 @@ public class RuntimeWorkaroundCodeRewriter {
               && target.getNormalPredecessors().size() > 1
               && target.getNormalSuccessors().size() > 1) {
             Instruction fixit = new AlwaysMaterializingNop();
-            fixit.setBlock(handler);
             fixit.setPosition(handler.getPosition());
             handler.getInstructions().addFirst(fixit);
           }
@@ -362,12 +360,10 @@ public class RuntimeWorkaroundCodeRewriter {
     // Forced definition of const-zero
     Value fixitValue = code.createValue(TypeElement.getInt());
     Instruction fixitDefinition = new AlwaysMaterializingDefinition(fixitValue);
-    fixitDefinition.setBlock(addBefore.getBlock());
     fixitDefinition.setPosition(addBefore.getPosition());
     it.add(fixitDefinition);
     // Forced user of the forced definition to ensure it has a user and thus live range.
     Instruction fixitUser = new AlwaysMaterializingUser(fixitValue);
-    fixitUser.setBlock(addBefore.getBlock());
     fixitUser.setPosition(addBefore.getPosition());
     it.add(fixitUser);
   }

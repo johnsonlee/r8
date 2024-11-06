@@ -8,25 +8,10 @@ import com.android.tools.r8.cf.code.CfGoto;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.lightir.LirBuilder;
-import com.android.tools.r8.utils.ListUtils;
 import java.util.List;
 import java.util.ListIterator;
 
 public class Goto extends JumpInstruction {
-
-  public Goto() {
-    super();
-  }
-
-  public Goto(BasicBlock block) {
-    this();
-    setBlock(block);
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
   @Override
   public int opcode() {
     return Opcodes.GOTO;
@@ -77,7 +62,7 @@ public class Goto extends JumpInstruction {
     // Avoids BasicBlock.exit(), since it will assert when block is invalid.
     if (myBlock != null
         && !myBlock.getSuccessors().isEmpty()
-        && ListUtils.last(myBlock.getInstructions()) == this) {
+        && myBlock.getInstructions().getLastOrNull() == this) {
       return super.toString() + "block " + getTarget().getNumberAsString();
     }
     return super.toString() + "block <unknown>";
@@ -128,25 +113,5 @@ public class Goto extends JumpInstruction {
   @Override
   public void buildLir(LirBuilder<Value, ?> builder) {
     builder.addGoto(getTarget());
-  }
-
-  public static class Builder extends BuilderBase<Builder, Goto> {
-
-    private BasicBlock target;
-
-    public Builder setTarget(BasicBlock target) {
-      this.target = target;
-      return self();
-    }
-
-    @Override
-    public Goto build() {
-      return amend(new Goto(target));
-    }
-
-    @Override
-    public Builder self() {
-      return this;
-    }
   }
 }

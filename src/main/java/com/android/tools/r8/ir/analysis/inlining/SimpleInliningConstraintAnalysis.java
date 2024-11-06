@@ -20,7 +20,6 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.JumpInstruction;
 import com.android.tools.r8.ir.code.StringSwitch;
@@ -78,21 +77,18 @@ public class SimpleInliningConstraintAnalysis {
 
     // Run a bounded depth-first traversal to collect the path constraints that lead to early
     // returns.
-    InstructionIterator instructionIterator =
-        code.entryBlock().iterator(code.getNumberOfArguments());
-    return analyzeInstructionsInBlock(code.entryBlock(), 0, 0, instructionIterator);
+    BasicBlock block = code.entryBlock();
+    Instruction firstNonArgument = block.getInstructions().getNth(code.getNumberOfArguments());
+    return analyzeInstructionsInBlock(block, 0, 0, firstNonArgument);
   }
 
   private SimpleInliningConstraintWithDepth analyzeInstructionsInBlock(
       BasicBlock block, int branchDepth, int instructionDepth) {
-    return analyzeInstructionsInBlock(block, branchDepth, instructionDepth, block.iterator());
+    return analyzeInstructionsInBlock(block, branchDepth, instructionDepth, block.entry());
   }
 
   private SimpleInliningConstraintWithDepth analyzeInstructionsInBlock(
-      BasicBlock block,
-      int branchDepth,
-      int instructionDepth,
-      InstructionIterator instructionIterator) {
+      BasicBlock block, int branchDepth, int instructionDepth, Instruction instruction) {
     if (!seen.add(block)
         || block.hasCatchHandlers()
         || block.exit().isThrow()
@@ -102,7 +98,6 @@ public class SimpleInliningConstraintAnalysis {
 
     // Move the instruction iterator forward to the block's jump instruction, while incrementing the
     // instruction depth of the depth-first traversal.
-    Instruction instruction = instructionIterator.next();
     SimpleInliningConstraint blockConstraint = AlwaysSimpleInliningConstraint.getInstance();
     while (!instruction.isJumpInstruction()) {
       assert !instruction.isArgument();
@@ -116,7 +111,7 @@ public class SimpleInliningConstraintAnalysis {
       } else {
         blockConstraint = blockConstraint.meet(instructionConstraint);
       }
-      instruction = instructionIterator.next();
+      instruction = instruction.getNext();
     }
 
     // If we have exceeded the threshold, then all paths from this instruction will not lead to any

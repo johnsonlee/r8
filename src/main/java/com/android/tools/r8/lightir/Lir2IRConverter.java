@@ -356,7 +356,7 @@ public class Lir2IRConverter {
       return blocks.computeIfAbsent(
           instructionIndex,
           k -> {
-            BasicBlock block = new BasicBlock();
+            BasicBlock block = new BasicBlock(irMetadata);
             block.setNumber(basicBlockNumberGenerator.next());
             return block;
           });
@@ -424,9 +424,7 @@ public class Lir2IRConverter {
       int index = toInstructionIndexInIR(peekNextInstructionIndex());
       advanceInstructionState();
       instruction.setPosition(currentPosition);
-      currentBlock.getInstructions().add(instruction);
-      irMetadata.record(instruction);
-      instruction.setBlock(currentBlock);
+      currentBlock.getInstructions().addLast(instruction);
       int[] debugEndIndices = code.getDebugLocalEnds(index);
       if (debugEndIndices != null) {
         for (int encodedDebugEndIndex : debugEndIndices) {
@@ -471,9 +469,7 @@ public class Lir2IRConverter {
       // which would otherwise advance the state.
       Argument argument = new Argument(dest, currentBlock.size(), isBooleanType);
       argument.setPosition(currentPosition);
-      currentBlock.getInstructions().add(argument);
-      irMetadata.record(argument);
-      argument.setBlock(currentBlock);
+      currentBlock.getInstructions().addLast(argument);
       return argument;
     }
 

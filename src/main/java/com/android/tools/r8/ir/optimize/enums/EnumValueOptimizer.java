@@ -296,8 +296,7 @@ public class EnumValueOptimizer extends CodeRewriterPass<AppInfoWithLiveness> {
       }
 
       if (ordinalToTargetMap.isEmpty()) {
-        switchInsn.replace(
-            Goto.builder().setTarget(block.getUniqueNormalSuccessor()).build(), code);
+        switchInsn.replace(new Goto(), code);
       } else {
         int[] keys = ordinalToTargetMap.keySet().toIntArray();
         Arrays.sort(keys);

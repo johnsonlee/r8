@@ -413,11 +413,11 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
 
     private void patchControlFlow(IRCode code, BasicBlock comparisonBlock) {
       assert loopExit.getPhis().isEmpty(); // Edges should be split.
-      comparisonBlock.replaceLastInstruction(new Goto(loopBodyEntry), code);
+      comparisonBlock.replaceLastInstruction(new Goto(), code);
       comparisonBlock.removeSuccessor(loopExit);
 
       backPredecessor.replaceSuccessor(comparisonBlock, loopExit);
-      backPredecessor.replaceLastInstruction(new Goto(loopExit), code);
+      backPredecessor.replaceLastInstruction(new Goto(), code);
       comparisonBlock.removePredecessor(backPredecessor);
       loopExit.replacePredecessor(comparisonBlock, backPredecessor);
     }

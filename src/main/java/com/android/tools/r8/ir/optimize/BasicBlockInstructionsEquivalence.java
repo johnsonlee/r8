@@ -7,12 +7,12 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CatchHandlers;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InstructionList;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.google.common.base.Equivalence;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 
 class BasicBlockInstructionsEquivalence extends Equivalence<BasicBlock> {
@@ -30,19 +30,19 @@ class BasicBlockInstructionsEquivalence extends Equivalence<BasicBlock> {
   }
 
   private boolean hasIdenticalInstructions(BasicBlock first, BasicBlock second) {
-    List<Instruction> instructions0 = first.getInstructions();
-    List<Instruction> instructions1 = second.getInstructions();
+    InstructionList instructions0 = first.getInstructions();
+    InstructionList instructions1 = second.getInstructions();
     if (instructions0.size() != instructions1.size()) {
       return false;
     }
-    Iterator<Instruction> it0 = instructions0.iterator();
-    Iterator<Instruction> it1 = instructions1.iterator();
-    while (it0.hasNext()) {
-      Instruction i0 = it0.next();
-      Instruction i1 = it1.next();
+    Instruction i0 = instructions0.getFirstOrNull();
+    Instruction i1 = instructions1.getFirstOrNull();
+    while (i0 != null) {
       if (!i0.identicalAfterRegisterAllocation(i1, allocator, conversionOptions)) {
         return false;
       }
+      i0 = i0.getNext();
+      i1 = i1.getNext();
     }
 
     if (!allocator.hasEqualTypesAtEntry(first, second)) {
@@ -93,21 +93,21 @@ class BasicBlockInstructionsEquivalence extends Equivalence<BasicBlock> {
   }
 
   private int computeHash(BasicBlock basicBlock) {
-    List<Instruction> instructions = basicBlock.getInstructions();
+    InstructionList instructions = basicBlock.getInstructions();
     int hash = instructions.size();
     int i = 0;
-    for (Instruction instruction : instructions) {
+    for (Instruction inst = instructions.getFirstOrNull(); inst != null; inst = inst.getNext()) {
       if (++i > MAX_HASH_INSTRUCTIONS) {
         break;
       }
       int hashPart = 0;
-      if (instruction.outValue() != null && instruction.outValue().needsRegister()) {
-        hashPart += allocator.getRegisterForValue(instruction.outValue(), instruction.getNumber());
+      if (inst.outValue() != null && inst.outValue().needsRegister()) {
+        hashPart += allocator.getRegisterForValue(inst.outValue(), inst.getNumber());
       }
-      for (Value inValue : instruction.inValues()) {
+      for (Value inValue : inst.inValues()) {
         hashPart = hashPart << 4;
         if (inValue.needsRegister()) {
-          hashPart += allocator.getRegisterForValue(inValue, instruction.getNumber());
+          hashPart += allocator.getRegisterForValue(inValue, inst.getNumber());
         }
       }
       hash = hash * 3 + hashPart;

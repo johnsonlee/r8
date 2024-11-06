@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover.DeadInstructionResult;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
@@ -48,13 +49,15 @@ import java.util.function.Predicate;
 
 public abstract class Instruction
     implements AbstractInstruction, InstructionOrPhi, MaterializingInstructionsInfo {
-
-  protected Value outValue = null;
+  // Package-private to be used by InstructionList.
+  BasicBlock block;
+  Instruction prev;
+  Instruction next;
+  protected Value outValue;
   protected final List<Value> inValues = new ArrayList<>();
-  private BasicBlock block = null;
   private int number = -1;
-  private Set<Value> debugValues = null;
-  private Position position = null;
+  private Set<Value> debugValues;
+  private Position position;
 
   protected Instruction(Value outValue) {
     setOutValue(outValue);
@@ -80,6 +83,14 @@ public abstract class Instruction
 
   final boolean hasPosition() {
     return position != null;
+  }
+
+  public Instruction getPrev() {
+    return prev;
+  }
+
+  public Instruction getNext() {
+    return next;
   }
 
   @Override
@@ -341,32 +352,56 @@ public abstract class Instruction
     return block;
   }
 
-  /**
-   * Set the basic block of this instruction. See IRBuilder.
-   */
-  public void setBlock(BasicBlock block) {
-    assert block != null;
-    this.block = block;
+  /** Prepares instruction for removal by removing its in-values. */
+  public Instruction detachInValues() {
+    for (Value value : inValues) {
+      value.removeUser(this);
+    }
+    // These needs to stay to ensure that an optimization incorrectly not taking debug info into
+    // account still produces valid code when run without enabled assertions.
+    if (debugValues != null) {
+      for (Value value : debugValues) {
+        value.removeDebugUser(this);
+      }
+    }
+    if (getLocalInfo() != null) {
+      for (Instruction user : outValue.debugUsers()) {
+        user.removeDebugValue(outValue);
+      }
+    }
+    return this;
   }
 
-  /**
-   * Clear the basic block of this instruction. Use when removing an instruction from a block.
-   */
-  public void clearBlock() {
-    assert block != null;
-    block = null;
+  public void removeOrReplaceByDebugLocalRead() {
+    block.getInstructions().removeOrReplaceByDebugLocalRead(this);
   }
 
-  public void removeOrReplaceByDebugLocalRead(IRCode code) {
-    getBlock().listIterator(code, this).removeOrReplaceByDebugLocalRead();
+  // TODO(b/376663044): Delete.
+  public void removeOrReplaceByDebugLocalRead(IRCode unused_code) {
+    block.getInstructions().removeOrReplaceByDebugLocalRead(this);
   }
 
-  public void replace(Instruction newInstruction, IRCode code) {
-    replace(newInstruction, code, null);
+  public void removeIgnoreValues() {
+    block.getInstructions().removeIgnoreValues(this);
   }
 
-  public void replace(Instruction newInstruction, IRCode code, Set<Value> affectedValues) {
-    getBlock().listIterator(code, this).replaceCurrentInstruction(newInstruction, affectedValues);
+  public void replace(Instruction newInstruction) {
+    block.getInstructions().replace(this, newInstruction);
+  }
+
+  // TODO(b/376663044): Delete.
+  public void replace(Instruction newInstruction, IRCode unused_code) {
+    block.getInstructions().replace(this, newInstruction);
+  }
+
+  public void replace(Instruction newInstruction, AffectedValues affectedValues) {
+    block.getInstructions().replace(this, newInstruction, affectedValues);
+  }
+
+  // TODO(b/376663044): Delete.
+  public void replace(
+      Instruction newInstruction, IRCode unused_code, AffectedValues affectedValues) {
+    block.getInstructions().replace(this, newInstruction, affectedValues);
   }
 
   /**
@@ -1628,6 +1663,20 @@ public abstract class Instruction
 
   void internalRegisterUse(UseRegistry<?> registry, DexClassAndMethod context) {
     // Intentionally empty.
+  }
+
+  /** Returns whether the given instruction is encountered via continuous calls to getNext(). */
+  public boolean comesBefore(Instruction target) {
+    assert target != this;
+    assert target.block == block; // Probably a bug if this does not hold.
+    Instruction cur = next;
+    while (cur != null) {
+      if (cur == target) {
+        return true;
+      }
+      cur = cur.next;
+    }
+    return false;
   }
 
   public static class SideEffectAssumption {

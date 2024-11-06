@@ -98,7 +98,7 @@ public interface InstructionListIterator
     next();
   }
 
-  /** See {@link #replaceCurrentInstruction(Instruction, Set)}. */
+  /** See {@link #replaceCurrentInstruction(Instruction, AffectedValues)}. */
   default void replaceCurrentInstruction(Instruction newInstruction) {
     replaceCurrentInstruction(newInstruction, null);
   }
@@ -119,7 +119,7 @@ public interface InstructionListIterator
    * @param newInstruction the instruction to insert instead of the current.
    * @param affectedValues if non-null, all users of the out value will be added to this set.
    */
-  void replaceCurrentInstruction(Instruction newInstruction, Set<Value> affectedValues);
+  void replaceCurrentInstruction(Instruction newInstruction, AffectedValues affectedValues);
 
   // Do not show a deprecation warning for InstructionListIterator.remove().
   @SuppressWarnings("deprecation")
@@ -229,7 +229,7 @@ public interface InstructionListIterator
   void replaceCurrentInstructionWithNullCheck(AppView<?> appView, Value object);
 
   void replaceCurrentInstructionWithStaticGet(
-      AppView<?> appView, IRCode code, DexField field, Set<Value> affectedValues);
+      AppView<?> appView, IRCode code, DexField field, AffectedValues affectedValues);
 
   void replaceCurrentInstructionWithThrow(
       AppView<?> appView,

@@ -23,7 +23,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.ir.code.Assume;
 import com.android.tools.r8.ir.code.BasicBlock;
-import com.android.tools.r8.ir.code.BasicBlockInstructionIterator;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.ConstString;
@@ -142,9 +141,8 @@ public abstract class FieldReadBeforeWriteDfsAnalysis extends FieldReadBeforeWri
       }
     }
 
-    AnalysisContinuation applyInstructions(BasicBlockInstructionIterator instructionIterator) {
-      while (instructionIterator.hasNext()) {
-        Instruction instruction = instructionIterator.next();
+    AnalysisContinuation applyInstructions(Instruction instruction) {
+      for (; instruction != null; instruction = instruction.getNext()) {
         assert !instruction.hasOutValue() || !isMaybeInstance(instruction.outValue());
         AnalysisContinuation continuation;
         // TODO(b/339210038): Extend this to many other instructions, such as ConstClass,
@@ -354,11 +352,9 @@ public abstract class FieldReadBeforeWriteDfsAnalysis extends FieldReadBeforeWri
       }
       addBlockToStack(block);
       addInstanceAlias(getNewInstance().outValue());
-      BasicBlockInstructionIterator instructionIterator = block.iterator(uniqueConstructorInvoke);
       // Start the analysis from the invoke-direct instruction. This is important if we can tell
       // that the constructor definitely writes some fields.
-      instructionIterator.previous();
-      return applyInstructions(instructionIterator).toTraversalContinuation();
+      return applyInstructions(uniqueConstructorInvoke).toTraversalContinuation();
     }
   }
 
@@ -379,7 +375,7 @@ public abstract class FieldReadBeforeWriteDfsAnalysis extends FieldReadBeforeWri
       }
       addBlockToStack(block);
       applyPhis(block);
-      AnalysisContinuation continuation = applyInstructions(block.iterator());
+      AnalysisContinuation continuation = applyInstructions(block.entry());
       assert continuation.isAbortOrContinue();
       return TraversalContinuation.breakIf(continuation.isAbort());
     }

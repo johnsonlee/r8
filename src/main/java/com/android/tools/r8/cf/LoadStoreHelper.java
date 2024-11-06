@@ -213,7 +213,7 @@ public class LoadStoreHelper {
       storeBlock = it.split(this.code, this.blockIterator);
       it = storeBlock.listIterator(code);
     }
-    add(store, storeBlock, instruction.getPosition(), it);
+    add(store, instruction.getPosition(), it);
     if (hasCatchHandlers && !instruction.instructionTypeCanThrow()) {
       splitAfterStoredOutValue(it);
     }
@@ -242,7 +242,7 @@ public class LoadStoreHelper {
       it = insertBlock.listIterator(code);
     }
     instruction.swapOutValue(newOutValue);
-    add(new Pop(newOutValue), insertBlock, instruction.getPosition(), it);
+    add(new Pop(newOutValue), instruction.getPosition(), it);
   }
 
   private static class PhiMove {
@@ -261,7 +261,7 @@ public class LoadStoreHelper {
     List<StackValue> temps = new ArrayList<>(moves.size());
     for (PhiMove move : moves) {
       StackValue tmp = createStackValue(move.phi, topOfStack++);
-      add(load(tmp, move.operand), move.phi.getBlock(), position, it);
+      add(load(tmp, move.operand), position, it);
       temps.add(tmp);
       move.operand.removePhiUser(move.phi);
     }
@@ -269,7 +269,7 @@ public class LoadStoreHelper {
       PhiMove move = moves.get(i);
       StackValue tmp = temps.get(i);
       FixedLocalValue out = new FixedLocalValue(move.phi);
-      add(new Store(out, tmp), move.phi.getBlock(), position, it);
+      add(new Store(out, tmp), position, it);
       move.phi.replaceUsers(out);
     }
   }
@@ -296,12 +296,11 @@ public class LoadStoreHelper {
 
   private static void add(
       Instruction newInstruction, Instruction existingInstruction, InstructionListIterator it) {
-    add(newInstruction, existingInstruction.getBlock(), existingInstruction.getPosition(), it);
+    add(newInstruction, existingInstruction.getPosition(), it);
   }
 
   private static void add(
-      Instruction newInstruction, BasicBlock block, Position position, InstructionListIterator it) {
-    newInstruction.setBlock(block);
+      Instruction newInstruction, Position position, InstructionListIterator it) {
     newInstruction.setPosition(position);
     it.add(newInstruction);
   }

@@ -104,7 +104,7 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
 
   @Override
   public void replaceCurrentInstructionWithStaticGet(
-      AppView<?> appView, IRCode code, DexField field, Set<Value> affectedValues) {
+      AppView<?> appView, IRCode code, DexField field, AffectedValues affectedValues) {
     instructionIterator.replaceCurrentInstructionWithStaticGet(
         appView, code, field, affectedValues);
   }
@@ -278,7 +278,7 @@ public class IRCodeInstructionListIterator implements InstructionListIterator {
   }
 
   @Override
-  public void replaceCurrentInstruction(Instruction newInstruction, Set<Value> affectedValues) {
+  public void replaceCurrentInstruction(Instruction newInstruction, AffectedValues affectedValues) {
     instructionIterator.replaceCurrentInstruction(newInstruction, affectedValues);
   }
 

@@ -517,14 +517,13 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         assert !instructionIterator.getBlock().hasCatchHandlers();
         for (Value inValue : copy.asNewArrayFilled().inValues()) {
           instructionIterator.add(inValue.getDefinition());
-          inValue.getDefinition().setBlock(instructionIterator.getBlock());
+          inValue.getDefinition();
           inValue.getDefinition().setPosition(newArrayEmpty.getPosition());
         }
       } else {
         assert false;
         return elementValue;
       }
-      copy.setBlock(instructionIterator.getBlock());
       copy.setPosition(newArrayEmpty.getPosition());
       instructionIterator.add(copy);
       addToRemove(elementValue.getDefinition());

@@ -341,7 +341,8 @@ public class GeneratedMessageLiteShrinker {
       ProtoMessageInfo protoMessageInfo) {
     // Position iterator immediately before the call to newMessageInfo().
     BasicBlock block = newMessageInfoInvoke.getBlock();
-    InstructionListIterator instructionIterator = block.listIterator(code, newMessageInfoInvoke);
+    InstructionListIterator instructionIterator =
+        block.listIterator(code, newMessageInfoInvoke.getNext());
     Instruction previous = instructionIterator.previous();
     instructionIterator.setInsertionPosition(newMessageInfoInvoke.getPosition());
     assert previous == newMessageInfoInvoke;

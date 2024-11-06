@@ -1305,16 +1305,12 @@ public class OutlinerImpl extends Outliner {
           returnValue = null;
         }
         Invoke outlineInvoke = new InvokeStatic(outlineMethod, returnValue, in);
-        outlineInvoke.setBlock(lastInstruction.getBlock());
+        lastInstruction.getBlock();
         outlineInvoke.setPosition(
             positionBuilder.hasOutlinePositions()
                 ? positionBuilder.build()
                 : Position.syntheticNone());
-        InstructionListIterator endIterator =
-            lastInstruction.getBlock().listIterator(code, lastInstruction);
-        Instruction instructionBeforeEnd = endIterator.previous();
-        assert instructionBeforeEnd == lastInstruction;
-        endIterator.set(outlineInvoke);
+        lastInstruction.replace(outlineInvoke);
         if (outlineInvoke.hasOutValue()
             && returnValue.getType().isReferenceType()
             && returnValue.getType().nullability().isDefinitelyNotNull()) {

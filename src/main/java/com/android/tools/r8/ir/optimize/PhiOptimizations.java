@@ -7,7 +7,6 @@ package com.android.tools.r8.ir.optimize;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.Load;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Store;
@@ -86,10 +85,8 @@ public class PhiOptimizations {
   private static int getStackHeightAtInstructionBackwards(Instruction instruction) {
     int stackHeight = 0;
     BasicBlock block = instruction.getBlock();
-    InstructionIterator it = block.iterator(block.getInstructions().size() - 1);
-    while (it.hasPrevious()) {
-      Instruction current = it.previous();
-      if (current == instruction) {
+    for (Instruction ins = block.exit().getPrev(); ins != null; ins = ins.getPrev()) {
+      if (ins == instruction) {
         break;
       }
       stackHeight -= PeepholeHelper.numberOfValuesPutOnStack(instruction);

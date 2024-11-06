@@ -354,7 +354,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       while (it.hasNext()) {
         Instruction instruction = it.next();
         if (instruction.isDebugLocalRead()) {
-          instruction.clearDebugValues();
           it.remove();
         }
       }
@@ -3166,9 +3165,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         }
       }
       LinkedHashSetUtils.addAll(live, phiOperands);
-      List<Instruction> instructions = block.getInstructions();
+      int numInstructionsDelta = block.getInstructions().size() * INSTRUCTION_NUMBER_DELTA;
       for (Value value : live) {
-        int end = block.entry().getNumber() + instructions.size() * INSTRUCTION_NUMBER_DELTA;
+        int end = block.entry().getNumber() + numInstructionsDelta;
         // Make sure that phi operands do not overlap the phi live range. The phi operand is
         // not live until the next instruction, but only until the gap before the next instruction
         // where the phi value takes over.
@@ -3177,10 +3176,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         }
         addLiveRange(value, block, end, liveIntervals, code);
       }
-      InstructionIterator iterator = block.iterator(block.getInstructions().size());
-      while (iterator.hasPrevious()) {
-        Instruction instruction = iterator.previous();
-        Value definition = instruction.outValue();
+      for (Instruction ins = block.getLastInstruction(); ins != null; ins = ins.getPrev()) {
+        Value definition = ins.outValue();
         if (definition != null) {
           // For instructions that define values which have no use create a live range covering
           // the instruction. This will typically be instructions that can have side effects even
@@ -3193,23 +3190,23 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             addLiveRange(
                 definition,
                 block,
-                instruction.getNumber() + INSTRUCTION_NUMBER_DELTA - 1,
+                ins.getNumber() + INSTRUCTION_NUMBER_DELTA - 1,
                 liveIntervals,
                 code);
-            assert !code.getConversionOptions().isGeneratingClassFiles() || instruction.isArgument()
+            assert !code.getConversionOptions().isGeneratingClassFiles() || ins.isArgument()
                 : "Arguments should be the only potentially unused local in CF";
           }
           live.remove(definition);
         }
-        for (Value use : instruction.inValues()) {
+        for (Value use : ins.inValues()) {
           if (use.needsRegister()) {
-            assert unconstrainedForCf(instruction.maxInValueRegister(), code);
+            assert unconstrainedForCf(ins.maxInValueRegister(), code);
             if (!live.contains(use)) {
               live.add(use);
-              addLiveRange(use, block, instruction.getNumber(), liveIntervals, code);
+              addLiveRange(use, block, ins.getNumber(), liveIntervals, code);
             }
             if (code.getConversionOptions().isGeneratingDex()) {
-              int inConstraint = instruction.maxInValueRegister();
+              int inConstraint = ins.maxInValueRegister();
               LiveIntervals useIntervals = use.getLiveIntervals();
               // Arguments are always kept in their original, incoming register. For every
               // unconstrained use of an argument we therefore use its incoming register.
@@ -3223,11 +3220,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
               // it in the argument register, the register allocator would use two registers for the
               // argument but in reality only use one.
               boolean isUnconstrainedArgumentUse =
-                  use.isArgument()
-                      && inConstraint == Constants.U16BIT_MAX
-                      && !isInvokeRange(instruction);
+                  use.isArgument() && inConstraint == Constants.U16BIT_MAX && !isInvokeRange(ins);
               if (!isUnconstrainedArgumentUse) {
-                useIntervals.addUse(new LiveIntervalsUse(instruction.getNumber(), inConstraint));
+                useIntervals.addUse(new LiveIntervalsUse(ins.getNumber(), inConstraint));
               }
             }
           }
@@ -3239,24 +3234,20 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         // 'r1 <- check-cast r0' maps to 'move r1, r0; check-cast r1' and when that
         // happens r1 could be clobbered on the exceptional edge if r1 initially contained
         // a value that is used in the exceptional code.
-        if (instruction.instructionTypeCanThrow()) {
+        if (ins.instructionTypeCanThrow()) {
           for (Value use : liveAtThrowingInstruction) {
             if (use.needsRegister() && !live.contains(use)) {
               live.add(use);
               addLiveRange(
-                  use,
-                  block,
-                  getLiveRangeEndOnExceptionalFlow(instruction, use),
-                  liveIntervals,
-                  code);
+                  use, block, getLiveRangeEndOnExceptionalFlow(ins, use), liveIntervals, code);
             }
           }
         }
         if (appView.options().debug || code.context().isReachabilitySensitive()) {
           // In debug mode, or if the method is reachability sensitive, extend the live range
           // to cover the full scope of a local variable (encoded as debug values).
-          int number = instruction.getNumber();
-          List<Value> sortedDebugValues = new ArrayList<>(instruction.getDebugValues());
+          int number = ins.getNumber();
+          List<Value> sortedDebugValues = new ArrayList<>(ins.getDebugValues());
           sortedDebugValues.sort(Value::compareTo);
           for (Value use : sortedDebugValues) {
             assert use.needsRegister();

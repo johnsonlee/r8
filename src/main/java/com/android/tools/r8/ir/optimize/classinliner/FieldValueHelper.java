@@ -14,7 +14,6 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Phi.RegisterReadType;
@@ -125,14 +124,9 @@ final class FieldValueHelper {
 
   @SuppressWarnings("ReferenceEquality")
   private Value getValueDefinedInTheBlock(BasicBlock block, Instruction stopAt) {
-    InstructionIterator iterator =
-        stopAt == null ? block.iterator(block.getInstructions().size()) : block.iterator(stopAt);
-
     Instruction valueProducingInsn = null;
-    while (iterator.hasPrevious()) {
-      Instruction instruction = iterator.previous();
-      assert instruction != null;
-
+    Instruction instruction = stopAt != null ? stopAt : block.getLastInstruction();
+    do {
       if (instruction == root
           || (instruction.isInstancePut()
               && instruction.asInstancePut().getField() == field
@@ -140,7 +134,8 @@ final class FieldValueHelper {
         valueProducingInsn = instruction;
         break;
       }
-    }
+      instruction = instruction.getPrev();
+    } while (instruction != null);
 
     if (valueProducingInsn == null) {
       return null;
@@ -151,7 +146,7 @@ final class FieldValueHelper {
 
     assert root == valueProducingInsn;
     if (defaultValue == null) {
-      InstructionListIterator it = block.listIterator(code, root);
+      InstructionListIterator it = block.listIterator(code, root.getNext());
       // If we met newInstance it means that default value is supposed to be used.
       if (field.type.isPrimitiveType()) {
         defaultValue =

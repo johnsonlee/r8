@@ -383,10 +383,10 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
       if (hasSeenThrowingInstruction) {
         List<BasicBlock> successors = block.getSuccessors();
         if (successors.size() == 1 && ListUtils.first(successors).getPredecessors().size() > 1) {
-          BasicBlock splitBlock = block.createSplitBlock(getNextBlockNumber(), true);
-          Goto newGoto = new Goto(block);
+          BasicBlock splitBlock = block.createSplitBlock(getNextBlockNumber(), true, null);
+          Goto newGoto = new Goto();
           newGoto.setPosition(Position.none());
-          splitBlock.listIterator(this).add(newGoto);
+          splitBlock.getInstructions().addLast(newGoto);
           blockIterator.add(splitBlock);
         }
       }
@@ -1202,10 +1202,10 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   }
 
   public Argument getLastArgument() {
-    InstructionIterator instructionIterator = entryBlock().iterator(getNumberOfArguments() - 1);
-    Argument lastArgument = instructionIterator.next().asArgument();
+    Instruction lastArgInstr = entryBlock().getInstructions().getNth(getNumberOfArguments() - 1);
+    Argument lastArgument = lastArgInstr.asArgument();
     assert lastArgument != null;
-    assert !instructionIterator.peekNext().isArgument();
+    assert !lastArgInstr.getNext().isArgument();
     return lastArgument;
   }
 

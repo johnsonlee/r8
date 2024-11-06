@@ -115,7 +115,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
                   typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
             }
             if (block.size() != blockSizeBeforeAssumeRemoval) {
-              it = previous != null ? block.listIterator(code, previous) : block.listIterator(code);
+              it = block.listIterator(code, previous != null ? previous.getNext() : block.entry());
             }
           }
         } else if (current.isInstanceOf()) {

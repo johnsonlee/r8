@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
+import com.android.tools.r8.ir.code.InstructionList;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.InvokeStatic;
@@ -525,21 +526,20 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
                 ConstNumber cstToUse = trueNumber.isIntegerOne() ? trueNumber : falseNumber;
                 BasicBlock phiBlock = phi.getBlock();
                 Position phiPosition = phiBlock.getPosition();
-                int insertIndex = 0;
+                InstructionList instructions = phiBlock.getInstructions();
+                Instruction prevHead = instructions.getFirst();
                 if (cstToUse.getBlock() == trueBlock || cstToUse.getBlock() == falseBlock) {
                   // The constant belongs to the block to remove, create a new one.
                   cstToUse = ConstNumber.copyOf(code, cstToUse);
-                  cstToUse.setBlock(phiBlock);
                   cstToUse.setPosition(phiPosition);
-                  phiBlock.getInstructions().add(insertIndex++, cstToUse);
+                  instructions.addBefore(cstToUse, prevHead);
                 }
                 phi.replaceUsers(newOutValue);
                 Instruction newInstruction =
                     Xor.create(NumericType.INT, newOutValue, testValue, cstToUse.outValue());
-                newInstruction.setBlock(phiBlock);
                 // The xor is replacing a phi so it does not have an actual position.
                 newInstruction.setPosition(phiPosition);
-                phiBlock.listIterator(code, insertIndex).add(newInstruction);
+                instructions.addBefore(newInstruction, prevHead);
                 deadPhis++;
               }
             }
@@ -565,7 +565,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
 
     int instructionSize = b.getInstructions().size();
     if (b.exit().isGoto() && (instructionSize == 2 || instructionSize == 3)) {
-      Instruction constInstruction = b.getInstructions().get(instructionSize - 2);
+      Instruction constInstruction = b.getInstructions().getLast().getPrev();
       if (constInstruction.isConstNumber()) {
         if (!constInstruction.asConstNumber().isIntegerOne()
             && !constInstruction.asConstNumber().isIntegerZero()) {

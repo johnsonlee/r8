@@ -23,7 +23,6 @@ import java.util.function.IntPredicate;
 class SwitchCaseEliminator {
 
   private final BasicBlock block;
-  private final BasicBlock defaultTarget;
   private final InstructionListIterator iterator;
   private final Switch theSwitch;
 
@@ -35,7 +34,6 @@ class SwitchCaseEliminator {
 
   SwitchCaseEliminator(Switch theSwitch, InstructionListIterator iterator) {
     this.block = theSwitch.getBlock();
-    this.defaultTarget = theSwitch.fallthroughBlock();
     this.iterator = iterator;
     this.theSwitch = theSwitch;
   }
@@ -147,8 +145,7 @@ class SwitchCaseEliminator {
 
   private void replaceSwitchByGoto() {
     assert !hasAlwaysHitCase() || alwaysHitTarget != null;
-    BasicBlock target = hasAlwaysHitCase() ? alwaysHitTarget : defaultTarget;
-    iterator.replaceCurrentInstruction(new Goto(target));
+    iterator.replaceCurrentInstruction(new Goto());
   }
 
   private void replaceSwitchByOptimizedSwitch(

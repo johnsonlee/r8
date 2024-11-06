@@ -103,11 +103,10 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
 
       if (ifInstruction.isZeroTest()) {
         changed |=
-            replaceDominatedConstNumbers(0, lhs, trueTarget, constantsByValue, code, dominatorTree);
+            replaceDominatedConstNumbers(0, lhs, trueTarget, constantsByValue, dominatorTree);
         if (lhs.knownToBeBoolean()) {
           changed |=
-              replaceDominatedConstNumbers(
-                  1, lhs, falseTarget, constantsByValue, code, dominatorTree);
+              replaceDominatedConstNumbers(1, lhs, falseTarget, constantsByValue, dominatorTree);
         }
       } else {
         assert rhs != null;
@@ -119,7 +118,6 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
                   rhs,
                   trueTarget,
                   constantsByValue,
-                  code,
                   dominatorTree);
           if (lhs.knownToBeBoolean() && rhs.knownToBeBoolean()) {
             changed |=
@@ -128,7 +126,6 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
                     rhs,
                     falseTarget,
                     constantsByValue,
-                    code,
                     dominatorTree);
           }
         } else {
@@ -140,7 +137,6 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
                   lhs,
                   trueTarget,
                   constantsByValue,
-                  code,
                   dominatorTree);
           if (lhs.knownToBeBoolean() && rhs.knownToBeBoolean()) {
             changed |=
@@ -149,7 +145,6 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
                     lhs,
                     falseTarget,
                     constantsByValue,
-                    code,
                     dominatorTree);
           }
         }
@@ -202,7 +197,6 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
       Value newValue,
       BasicBlock dominator,
       LazyBox<Long2ReferenceMap<List<ConstNumber>>> constantsByValueSupplier,
-      IRCode code,
       LazyBox<DominatorTree> dominatorTree) {
     if (newValue.hasLocalInfo()) {
       // We cannot replace a constant with a value that has local info, because that could change
@@ -254,7 +248,7 @@ public class RedundantConstNumberRemover extends CodeRewriterPass<AppInfo> {
       if (dominatorTree.computeIfAbsent().dominatedBy(block, dominator)) {
         if (newValue.getType().lessThanOrEqual(value.getType(), appView)) {
           value.replaceUsers(newValue);
-          block.listIterator(code, constNumber).removeOrReplaceByDebugLocalRead();
+          constNumber.removeOrReplaceByDebugLocalRead();
           constantWithValueIterator.remove();
           changed = true;
         } else if (value.getType().isNullType()) {

@@ -14,7 +14,6 @@ import com.android.tools.r8.ir.code.DebugLocalWrite;
 import com.android.tools.r8.ir.code.DebugLocalsChange;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Move;
 import com.android.tools.r8.ir.code.Position;
@@ -259,15 +258,13 @@ public class CodeRewriter {
     IntSet clobberedRegisters = new IntOpenHashSet();
     // Backwards instruction scan collecting the registers used by actual instructions.
     boolean inEntrySpillMoves = false;
-    InstructionIterator it = block.iterator(block.getInstructions().size());
-    while (it.hasPrevious()) {
-      Instruction instruction = it.previous();
-      if (instruction == postSpillLocalsChange) {
+    for (Instruction ins = block.getLastInstruction(); ins != null; ins = ins.getPrev()) {
+      if (ins == postSpillLocalsChange) {
         inEntrySpillMoves = true;
       }
       // If this is a move in the block-entry spill moves check if it is unneeded.
-      if (inEntrySpillMoves && instruction.isMove()) {
-        Move move = instruction.asMove();
+      if (inEntrySpillMoves && ins.isMove()) {
+        Move move = ins.asMove();
         int dst = allocator.getRegisterForValue(move.dest(), move.getNumber());
         int src = allocator.getRegisterForValue(move.src(), move.getNumber());
         if (!usedRegisters.contains(dst) && !clobberedRegisters.contains(src)) {
@@ -275,18 +272,17 @@ public class CodeRewriter {
           continue;
         }
       }
-      if (instruction.outValue() != null && instruction.outValue().needsRegister()) {
-        int register =
-            allocator.getRegisterForValue(instruction.outValue(), instruction.getNumber());
+      if (ins.outValue() != null && ins.outValue().needsRegister()) {
+        int register = allocator.getRegisterForValue(ins.outValue(), ins.getNumber());
         // The register is defined anew, so uses before this are on distinct values.
         usedRegisters.remove(register);
         // Mark it clobbered to avoid any uses in locals after this point to become invalid.
         clobberedRegisters.add(register);
       }
-      if (!instruction.inValues().isEmpty()) {
-        for (Value inValue : instruction.inValues()) {
+      if (!ins.inValues().isEmpty()) {
+        for (Value inValue : ins.inValues()) {
           if (inValue.needsRegister()) {
-            int register = allocator.getRegisterForValue(inValue, instruction.getNumber());
+            int register = allocator.getRegisterForValue(inValue, ins.getNumber());
             // Record the register as being used.
             usedRegisters.add(register);
           }

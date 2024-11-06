@@ -23,7 +23,6 @@ import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.WorkList;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -96,15 +95,14 @@ public class ParentConstructorHoistingCodeRewriter
         return;
       }
       // Change the instruction order and continue the hoisting.
-      List<Instruction> newInstructionOrder =
-          ImmutableList.<Instruction>builderWithExpectedSize(constants.size() + 2)
-              .addAll(constants)
-              .add(invoke)
-              .add(previousInstruction)
-              .build();
-      instructionIterator.next();
-      instructionIterator.set(newInstructionOrder);
-      IteratorUtils.skip(instructionIterator, -newInstructionOrder.size() - 1);
+      int numInstructions = constants.size() + 2;
+      for (int i = 0; i < numInstructions; ++i) {
+        instructionIterator.next().removeIgnoreValues();
+      }
+      instructionIterator.addAll(constants);
+      instructionIterator.add(invoke);
+      instructionIterator.add(previousInstruction);
+      IteratorUtils.skip(instructionIterator, -numInstructions);
     }
   }
 
@@ -121,8 +119,10 @@ public class ParentConstructorHoistingCodeRewriter
     }
 
     // Remove the constants and the invoke from the block.
-    constants.forEach(constant -> block.getInstructions().removeFirst());
-    block.getInstructions().removeFirst();
+    int numToRemove = constants.size() + 1;
+    for (int i = 0; i < numToRemove; ++i) {
+      block.entry().removeIgnoreValues();
+    }
 
     // Add the constants and the invoke before the exit instruction in the predecessor block.
     InstructionListIterator predecessorInstructionIterator =

@@ -120,9 +120,7 @@ public class TryRangeTestRunner extends TestBase {
       add = it.next();
     }
     it.removeInstructionIgnoreOutValue();
-    constNumber.setBlock(tryBlock);
-    add.setBlock(tryBlock);
-    tryBlock.getInstructions().add(0, add);
-    tryBlock.getInstructions().add(0, constNumber);
+    tryBlock.getInstructions().addFirst(add);
+    tryBlock.getInstructions().addFirst(constNumber);
   }
 }

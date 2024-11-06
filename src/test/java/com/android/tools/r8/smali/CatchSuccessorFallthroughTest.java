@@ -106,8 +106,7 @@ public class CatchSuccessorFallthroughTest extends SmaliTestBase {
           if (defBlock.canThrow()) {
             // Found the invoke instruction / block.
             assertEquals(2, defBlock.getSuccessors().size());
-            assertTrue(
-                defBlock.getInstructions().get(defBlock.getInstructions().size() - 2).isInvoke());
+            assertTrue(defBlock.getInstructions().getLast().getPrev().isInvoke());
             for (BasicBlock returnPredecessor : block.getPredecessors()) {
               if (defBlock.hasCatchSuccessor(returnPredecessor)) {
                 hasExceptionalPredecessor = true;

@@ -287,7 +287,7 @@ public class InstanceFieldValueAnalysis extends FieldValueAnalysis {
     // TODO(b/279877113): Extend this analysis to analyze the full remainder of this method.
     if (instancePut.getBlock().getSuccessors().isEmpty()) {
       InstructionListIterator instructionIterator =
-          instancePut.getBlock().listIterator(code, instancePut);
+          instancePut.getBlock().listIterator(code, instancePut.getNext());
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         if (instruction.readSet(appView, context).contains(field)) {

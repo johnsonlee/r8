@@ -282,9 +282,8 @@ public class IRBuilder {
     }
   }
 
-  public static class BlockInfo {
-
-    BasicBlock block = new BasicBlock();
+  public class BlockInfo {
+    BasicBlock block = new BasicBlock(metadata);
     IntSet normalPredecessors = new IntArraySet();
     IntSet normalSuccessors = new IntArraySet();
     IntSet exceptionalPredecessors = new IntArraySet();
@@ -697,14 +696,13 @@ public class IRBuilder {
     // Insert definitions for all uninitialized local values.
     if (uninitializedDebugLocalValues != null) {
       Position position = entryBlock.getPosition();
-      InstructionListIterator it = entryBlock.listIterator(metadata);
+      InstructionListIterator it = entryBlock.listIterator();
       it.nextUntil(i -> !i.isArgument());
       it.previous();
       for (List<Value> values : uninitializedDebugLocalValues.values()) {
         for (Value value : values) {
           if (value.isUsed()) {
             Instruction def = new DebugLocalUninitialized(value);
-            def.setBlock(entryBlock);
             def.setPosition(position);
             it.add(def);
           }
@@ -797,7 +795,7 @@ public class IRBuilder {
       return;
     }
     for (BasicBlock block : blocks) {
-      InstructionListIterator it = block.listIterator(metadata);
+      InstructionListIterator it = block.listIterator();
       Position current = null;
       while (it.hasNext()) {
         Instruction instruction = it.next();
@@ -1760,8 +1758,7 @@ public class IRBuilder {
   }
 
   public void addMoveResult(int dest) {
-    List<Instruction> instructions = currentBlock.getInstructions();
-    Invoke invoke = instructions.get(instructions.size() - 1).asInvoke();
+    Invoke invoke = currentBlock.getInstructions().getLast().asInvoke();
     assert invoke.outValue() == null;
     assert invoke.instructionTypeCanThrow();
     DexType outType = invoke.getReturnType();
@@ -2410,7 +2407,7 @@ public class IRBuilder {
         Set<BasicBlock> moveExceptionTargets = Sets.newIdentityHashSet();
         catchHandlers.forEach(
             (exceptionType, targetOffset) -> {
-              BasicBlock header = new BasicBlock();
+              BasicBlock header = new BasicBlock(currentBlock.getMetadata());
               header.incrementUnfilledPredecessorCount();
               ssaWorklist.add(
                   new MoveExceptionWorklistItem(
@@ -2669,7 +2666,7 @@ public class IRBuilder {
   }
 
   private static BasicBlock createSplitEdgeBlock(BasicBlock source, BasicBlock target) {
-    BasicBlock splitBlock = new BasicBlock();
+    BasicBlock splitBlock = new BasicBlock(source.getMetadata());
     splitBlock.incrementUnfilledPredecessorCount();
     splitBlock.getMutablePredecessors().add(source);
     splitBlock.getMutableSuccessors().add(target);

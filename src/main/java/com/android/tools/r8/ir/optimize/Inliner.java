@@ -660,7 +660,7 @@ public class Inliner {
         code.prepareBlocksForCatchHandlers();
 
         // Create a block for holding the monitor-exit instruction.
-        BasicBlock monitorExitBlock = new BasicBlock();
+        BasicBlock monitorExitBlock = new BasicBlock(code.metadata());
         monitorExitBlock.setNumber(code.getNextBlockNumber());
 
         // For each block in the code that may throw, add a catch-all handler targeting the

@@ -149,7 +149,7 @@ public class ClassInitializerMerger {
       NumberGenerator blockNumberGenerator = new NumberGenerator();
       NumberGenerator valueNumberGenerator = new NumberGenerator();
 
-      BasicBlock block = new BasicBlock();
+      BasicBlock block = new BasicBlock(metadata);
       block.setNumber(blockNumberGenerator.next());
 
       // Add "invoke-static <clinit>" for each of the class initializers to the exit block.

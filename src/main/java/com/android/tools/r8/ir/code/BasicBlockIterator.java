@@ -105,12 +105,10 @@ public class BasicBlockIterator implements ListIterator<BasicBlock> {
       throw new IllegalStateException();
     }
     // Remove all instructions from the block before removing the block.
-    InstructionListIterator iterator = current.listIterator(code);
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-      instruction.clearDebugValues();
-      iterator.remove();
+    for (Instruction ins = current.entry(); ins != null; ins = ins.getNext()) {
+      ins.detachInValues();
     }
+    current.getInstructions().clear();
     listIterator.remove();
     current = null;
   }

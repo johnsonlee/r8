@@ -47,7 +47,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -173,9 +172,8 @@ public class BasicBlock {
   // Catch handler information about which successors are catch handlers and what their guards are.
   private CatchHandlers<Integer> catchHandlers = CatchHandlers.EMPTY_INDICES;
 
-  // TODO(b/270398965): Replace LinkedList.
-  @SuppressWarnings("JdkObsolete")
-  private LinkedList<Instruction> instructions = new LinkedList<>();
+  // Linked list of instructions belonging to this block.
+  private final InstructionList instructions = new InstructionList(this);
 
   private int number = -1;
   private List<Phi> phis = new ArrayList<>();
@@ -201,6 +199,23 @@ public class BasicBlock {
 
   // Map of registers to current SSA value. Used during SSA numbering and cleared once filled.
   private Map<Integer, Value> currentDefinitions = new HashMap<>();
+
+  // Metadata shared by all blocks of an IRCode.
+  // TODO(b/376663044): Remove |metadata| parameter from methods in this class.
+  private IRMetadata metadata;
+
+  public BasicBlock(IRMetadata metadata) {
+    this.metadata = metadata;
+  }
+
+  public IRMetadata getMetadata() {
+    return metadata;
+  }
+
+  // Required when moving a block between code objects (inlining).
+  void setMetadata(IRMetadata metadata) {
+    this.metadata = metadata;
+  }
 
   public <BT, CT> TraversalContinuation<BT, CT> traverseNormalPredecessors(
       BiFunction<? super BasicBlock, ? super CT, TraversalContinuation<BT, CT>> fn,
@@ -524,7 +539,8 @@ public class BasicBlock {
       } else if (exit().isIf()) {
         if (indexOfNewBlock >= successors.size() - 2 && indexOfOldBlock >= successors.size() - 2) {
           // New and old are true target and fallthrough, replace last instruction with a goto.
-          Instruction instruction = getInstructions().removeLast();
+          Instruction instruction = instructions.getLast();
+          instructions.removeIgnoreValues(instruction);
           // Iterate in reverse order to ensure that POP instructions are inserted in correct order.
           for (int i = instruction.inValues().size() - 1; i >= 0; i--) {
             Value value = instruction.inValues().get(i);
@@ -536,7 +552,6 @@ public class BasicBlock {
               } else {
                 assert !(value instanceof StackValues);
                 Pop pop = new Pop(value);
-                pop.setBlock(this);
                 pop.setPosition(instruction.getPosition());
                 getInstructions().addLast(pop);
               }
@@ -546,7 +561,6 @@ public class BasicBlock {
             }
           }
           Instruction exit = new Goto();
-          exit.setBlock(this);
           exit.setPosition(instruction.getPosition());
           getInstructions().addLast(exit);
         } else if (indexOfOldBlock >= successors.size() - 2) {
@@ -738,7 +752,7 @@ public class BasicBlock {
     return nextInstructionNumber;
   }
 
-  public LinkedList<Instruction> getInstructions() {
+  public InstructionList getInstructions() {
     return instructions;
   }
 
@@ -797,22 +811,24 @@ public class BasicBlock {
   }
 
   public Instruction entry() {
-    return instructions.get(0);
+    return instructions.getFirst();
   }
 
   public JumpInstruction exit() {
     assert filled;
-    assert instructions.get(instructions.size() - 1).isJumpInstruction();
-    return instructions.get(instructions.size() - 1).asJumpInstruction();
+    assert instructions.getLast().isJumpInstruction();
+    return instructions.getLast().asJumpInstruction();
+  }
+
+  public Instruction getLastInstruction() {
+    return instructions.getLast();
   }
 
   public Instruction exceptionalExit() {
     assert hasCatchHandlers();
-    InstructionIterator it = iterator(instructions.size());
-    while (it.hasPrevious()) {
-      Instruction instruction = it.previous();
-      if (instruction.instructionTypeCanThrow()) {
-        return instruction;
+    for (Instruction ins = getLastInstruction(); ins != null; ins = ins.getPrev()) {
+      if (ins.instructionTypeCanThrow()) {
+        return ins;
       }
     }
     return null;
@@ -892,15 +908,9 @@ public class BasicBlock {
     phis.removeAll(phisToRemove);
   }
 
-  public void add(Instruction next, IRCode code) {
-    add(next, code.metadata());
-  }
-
-  public void add(Instruction next, IRMetadata metadata) {
+  public void add(Instruction next, IRMetadata unused_metadata) {
     assert !isFilled();
-    instructions.add(next);
-    metadata.record(next);
-    next.setBlock(this);
+    instructions.addLast(next);
   }
 
   public void close(IRBuilder builder) {
@@ -1493,49 +1503,11 @@ public class BasicBlock {
     return builder.toString();
   }
 
-  public void addPhiMove(Move move) {
-    // TODO(ager): Consider this more, is it always the case that we should add it before the
-    // exit instruction?
-    Instruction branch = exit();
-    instructions.set(instructions.size() - 1, move);
-    instructions.add(branch);
-  }
-
-  public void setInstructions(LinkedList<Instruction> instructions) {
-    this.instructions = instructions;
-  }
-
-  /**
-   * Remove a number of instructions. The instructions to remove are given as indexes in the
-   * instruction stream.
-   */
-  // TODO(b/270398965): Replace LinkedList.
-  @SuppressWarnings("JdkObsolete")
-  public void removeInstructions(List<Integer> toRemove) {
-    if (!toRemove.isEmpty()) {
-      LinkedList<Instruction> newInstructions = new LinkedList<>();
-      int nextIndex = 0;
-      for (Integer index : toRemove) {
-        assert index >= nextIndex;  // Indexes in toRemove must be sorted ascending.
-        newInstructions.addAll(instructions.subList(nextIndex, index));
-        instructions.get(index).clearBlock();
-        nextIndex = index + 1;
-      }
-      if (nextIndex < instructions.size()) {
-        newInstructions.addAll(instructions.subList(nextIndex, instructions.size()));
-      }
-      assert instructions.size() == newInstructions.size() + toRemove.size();
-      setInstructions(newInstructions);
-    }
-  }
-
   /**
    * Remove an instruction.
    */
   public void removeInstruction(Instruction toRemove) {
-    int index = instructions.indexOf(toRemove);
-    assert index >= 0;
-    removeInstructions(Collections.singletonList(index));
+    instructions.removeIgnoreValues(toRemove);
   }
 
   /**
@@ -1563,7 +1535,7 @@ public class BasicBlock {
    */
   public static BasicBlock createGotoBlock(
       int blockNumber, Position position, IRMetadata metadata) {
-    BasicBlock block = new BasicBlock();
+    BasicBlock block = new BasicBlock(metadata);
     block.add(new Goto(), metadata);
     block.close(null);
     block.setNumber(blockNumber);
@@ -1580,7 +1552,7 @@ public class BasicBlock {
    * @param theIf the if instruction
    */
   public static BasicBlock createIfBlock(int blockNumber, If theIf, IRMetadata metadata) {
-    BasicBlock block = new BasicBlock();
+    BasicBlock block = new BasicBlock(metadata);
     block.add(theIf, metadata);
     block.close(null);
     block.setNumber(blockNumber);
@@ -1598,7 +1570,7 @@ public class BasicBlock {
    */
   public static BasicBlock createIfBlock(
       int blockNumber, If theIf, IRMetadata metadata, Instruction... instructions) {
-    BasicBlock block = new BasicBlock();
+    BasicBlock block = new BasicBlock(metadata);
     for (Instruction instruction : instructions) {
       block.add(instruction, metadata);
     }
@@ -1610,7 +1582,7 @@ public class BasicBlock {
 
   public static BasicBlock createSwitchBlock(
       int blockNumber, IntSwitch theSwitch, IRMetadata metadata) {
-    BasicBlock block = new BasicBlock();
+    BasicBlock block = new BasicBlock(metadata);
     block.add(theSwitch, metadata);
     block.close(null);
     block.setNumber(blockNumber);
@@ -1621,14 +1593,14 @@ public class BasicBlock {
       IRCode code, Position position, DexType guard, AppView<?> appView) {
     TypeElement guardTypeLattice =
         TypeElement.fromDexType(guard, Nullability.definitelyNotNull(), appView);
-    BasicBlock block = new BasicBlock();
+    BasicBlock block = new BasicBlock(code.metadata());
     MoveException moveException =
         new MoveException(code.createValue(guardTypeLattice), guard, appView.options());
     moveException.setPosition(position);
     Throw throwInstruction = new Throw(moveException.outValue);
     throwInstruction.setPosition(position);
-    block.add(moveException, code);
-    block.add(throwInstruction, code);
+    block.instructions.addLast(moveException);
+    block.instructions.addLast(throwInstruction);
     block.close(null);
     block.setNumber(code.getNextBlockNumber());
     return block;
@@ -1779,9 +1751,9 @@ public class BasicBlock {
   // visible to exceptional successors.
   private boolean verifyNoValuesAfterThrowingInstruction() {
     if (hasCatchHandlers()) {
-      InstructionIterator iterator = iterator(instructions.size());
-      while (iterator.hasPrevious()) {
-        Instruction instruction = iterator.previous();
+      for (Instruction instruction = getLastInstruction();
+          instruction != null;
+          instruction = instruction.getPrev()) {
         if (instruction.instructionTypeCanThrow()) {
           return true;
         }
@@ -1791,58 +1763,53 @@ public class BasicBlock {
     return true;
   }
 
-  public BasicBlockInstructionIterator iterator() {
-    return new BasicBlockInstructionIterator(this);
+  public InstructionIterator iterator() {
+    return instructions.iterator();
   }
 
-  public BasicBlockInstructionIterator iterator(int index) {
-    return new BasicBlockInstructionIterator(this, index);
+  public InstructionIterator iterator(Instruction instruction) {
+    return instructions.iterator(instruction);
   }
 
-  public BasicBlockInstructionIterator iterator(Instruction instruction) {
-    return new BasicBlockInstructionIterator(this, instruction);
+  public BasicBlockInstructionListIterator listIterator(IRCode unused_code) {
+    return listIterator();
   }
 
-  public BasicBlockInstructionListIterator listIterator(IRCode code) {
-    return listIterator(code.metadata());
+  public BasicBlockInstructionListIterator listIterator() {
+    return new BasicBlockInstructionListIterator(this);
   }
 
-  public BasicBlockInstructionListIterator listIterator(IRMetadata metadata) {
-    return new BasicBlockInstructionListIterator(metadata, this);
+  public BasicBlockInstructionListIterator listIterator(IRCode unused_code, int index) {
+    // TODO(b/376663044): Convert uses of index to use Instruction instead.
+    return new BasicBlockInstructionListIterator(this, index);
   }
 
-  public BasicBlockInstructionListIterator listIterator(IRCode code, int index) {
-    return new BasicBlockInstructionListIterator(code.metadata(), this, index);
-  }
-
-  /**
-   * Creates an instruction list iterator starting at <code>instruction</code>.
-   *
-   * <p>The cursor will be positioned after <code>instruction</code>. Calling <code>next</code> on
-   * the returned iterator will return the instruction after <code>instruction</code>. Calling
-   * <code>previous</code> will return <code>instruction</code>.
-   */
-  public BasicBlockInstructionListIterator listIterator(IRCode code, Instruction instruction) {
-    return new BasicBlockInstructionListIterator(code.metadata(), this, instruction);
+  /** Creates an instruction list iterator starting at <code>firstInstructionToReturn</code>. */
+  public BasicBlockInstructionListIterator listIterator(
+      IRCode unused_code, Instruction firstInstructionToReturn) {
+    return new BasicBlockInstructionListIterator(this, firstInstructionToReturn);
   }
 
   /**
    * Creates a new empty block as a successor for this block.
    *
-   * The new block will have all the normal successors of the original block.
+   * <p>The new block will have all the normal successors of the original block.
    *
-   * The catch successors are either on the original block or the new block depending on the
+   * <p>The catch successors are either on the original block or the new block depending on the
    * value of <code>keepCatchHandlers</code>.
    *
-   * The current block still has all the instructions, and the new block is empty instruction-wise.
+   * <p>The current block still has all the instructions, and the new block is empty
+   * instruction-wise.
    *
    * @param blockNumber block number for new block
    * @param keepCatchHandlers keep catch successors on the original block
+   * @param firstInstructionOfNewBlock this and all following are moved to the new block
    * @return the new block
    */
-  BasicBlock createSplitBlock(int blockNumber, boolean keepCatchHandlers) {
+  BasicBlock createSplitBlock(
+      int blockNumber, boolean keepCatchHandlers, Instruction firstInstructionOfNewBlock) {
     boolean hadCatchHandlers = hasCatchHandlers();
-    BasicBlock newBlock = new BasicBlock();
+    BasicBlock newBlock = new BasicBlock(metadata);
     newBlock.setNumber(blockNumber);
 
     // Copy all successors including catch handlers to the new block, and update predecessors.
@@ -1861,6 +1828,10 @@ public class BasicBlock {
 
     // Link the two blocks
     link(newBlock);
+
+    if (firstInstructionOfNewBlock != null) {
+      newBlock.instructions.severFrom(firstInstructionOfNewBlock);
+    }
 
     // Mark the new block filled and sealed.
     newBlock.filled = true;
@@ -1936,7 +1907,7 @@ public class BasicBlock {
       exceptionTypeLattice = move.getOutType();
       exceptionType = move.getExceptionType();
       assert move.getDebugValues().isEmpty();
-      getInstructions().remove(0);
+      instructions.removeIgnoreValues(move);
     }
     // Create new predecessor blocks.
     List<BasicBlock> newPredecessors = new ArrayList<>(predecessors.size());
@@ -1946,19 +1917,19 @@ public class BasicBlock {
         throw new CompilationError(
             "Invalid block structure: catch block reachable via non-exceptional flow.");
       }
-      BasicBlock newBlock = new BasicBlock();
+      BasicBlock newBlock = new BasicBlock(metadata);
       newBlock.setNumber(code.getNextBlockNumber());
       newPredecessors.add(newBlock);
       if (hasMoveException) {
         Value value = code.createValue(exceptionTypeLattice, move.getLocalInfo());
         values.add(value);
         MoveException newMove = new MoveException(value, exceptionType, options);
-        newBlock.add(newMove, code);
+        newBlock.instructions.addLast(newMove);
         newMove.setPosition(position);
       }
       Goto next = new Goto();
       next.setPosition(position);
-      newBlock.add(next, code);
+      newBlock.instructions.addLast(next);
       newBlock.close(null);
       newBlock.getMutableSuccessors().add(this);
       newBlock.getMutablePredecessors().add(predecessor);

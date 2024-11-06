@@ -58,6 +58,7 @@ import com.android.tools.r8.ir.code.IRCode.BasicBlockIteratorCallback;
 import com.android.tools.r8.ir.code.If;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
+import com.android.tools.r8.ir.code.InstructionList;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.JumpInstruction;
@@ -74,7 +75,6 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOutputMode;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
@@ -947,8 +947,7 @@ public class DexBuilder {
       item = tryItems.get(i);
       coalescedTryItems.add(item);
       // Trim the range start for non-throwing instructions when starting a new range.
-      List<com.android.tools.r8.ir.code.Instruction> instructions = blocksWithHandlers.get(i)
-          .getInstructions();
+      InstructionList instructions = blocksWithHandlers.get(i).getInstructions();
       for (com.android.tools.r8.ir.code.Instruction insn : instructions) {
         if (insn.instructionTypeCanThrow()) {
           item.start = getInfo(insn).getOffset();
@@ -1033,10 +1032,9 @@ public class DexBuilder {
 
   private int trimEnd(BasicBlock block) {
     // Trim the range end for non-throwing instructions when end has been computed.
-    List<com.android.tools.r8.ir.code.Instruction> instructions = block.getInstructions();
-    for (com.android.tools.r8.ir.code.Instruction insn : Lists.reverse(instructions)) {
-      if (insn.instructionTypeCanThrow()) {
-        Info info = getInfo(insn);
+    for (Instruction ins = block.getLastInstruction(); ins != null; ins = ins.getPrev()) {
+      if (ins.instructionTypeCanThrow()) {
+        Info info = getInfo(ins);
         return info.getOffset() + info.getSize();
       }
     }

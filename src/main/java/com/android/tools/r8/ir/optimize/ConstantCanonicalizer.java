@@ -252,10 +252,7 @@ public class ConstantCanonicalizer {
       for (Instruction oldInstruction : entry.getValue()) {
         if (oldInstruction != newInstruction) {
           oldInstruction.outValue().replaceUsers(newInstruction.outValue());
-          oldInstruction
-              .getBlock()
-              .listIterator(code, oldInstruction)
-              .removeOrReplaceByDebugLocalRead();
+          oldInstruction.removeOrReplaceByDebugLocalRead();
 
           // If the removed instruction is an insertion point for another constant, then record that
           // the constant should instead be inserted at the point where the removed instruction has

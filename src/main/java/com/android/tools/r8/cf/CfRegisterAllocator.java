@@ -521,10 +521,11 @@ public class CfRegisterAllocator implements RegisterAllocator {
 
   private void applyInstructionsBackwardsToRegisterLiveness(
       BasicBlock block, IntSet liveRegisters, int suffixSize) {
-    InstructionIterator iterator = block.iterator(block.getInstructions().size());
-    int instructionsLeft = suffixSize;
-    while (--instructionsLeft >= 0 && iterator.hasPrevious()) {
-      Instruction current = iterator.previous();
+    int i = 0;
+    for (var current = block.getLastInstruction(); current != null; current = current.getPrev()) {
+      if (++i > suffixSize) {
+        break;
+      }
       Value outValue = current.outValue();
       if (outValue != null && outValue.needsRegister()) {
         int register = getRegisterForValue(outValue);

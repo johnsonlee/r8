@@ -102,8 +102,10 @@ public class IfThrowNullPointerExceptionTest extends TestBase {
       assertTrue(entryBlock.getInstructions().getFirst().isArgument());
       assertTrue(entryBlock.getInstructions().getLast().isReturn());
 
-      Instruction nullCheckInstruction =
-          entryBlock.getInstructions().get(1 + BooleanUtils.intValue(isNPEWithMessage));
+      Instruction nullCheckInstruction = entryBlock.getInstructions().getFirst().getNext();
+      if (isNPEWithMessage) {
+        nullCheckInstruction = nullCheckInstruction.getNext();
+      }
       assertFalse(isNPEWithMessage);
       assertTrue(nullCheckInstruction.isInvokeVirtual());
       assertEquals(

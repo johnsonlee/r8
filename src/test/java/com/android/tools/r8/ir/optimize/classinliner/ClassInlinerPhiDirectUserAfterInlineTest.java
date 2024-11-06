@@ -169,7 +169,7 @@ public class ClassInlinerPhiDirectUserAfterInlineTest extends TestBase {
       // and block 4 to have:
       // vY : phi(v3, vX)
       BasicBlock basicBlock = irCode.blocks.get(0);
-      Argument argument = basicBlock.getInstructions().get(0).asArgument();
+      Argument argument = basicBlock.getInstructions().getFirst().asArgument();
       assertNotNull(argument);
       Value argumentValue = argument.outValue();
 
@@ -203,7 +203,7 @@ public class ClassInlinerPhiDirectUserAfterInlineTest extends TestBase {
       secondPhi.addOperands(ImmutableList.of(argumentValue, firstPhi));
 
       // Replace the invoke to use the phi
-      InstanceGet instanceGet = block1.getInstructions().get(0).asInstanceGet();
+      InstanceGet instanceGet = block1.getInstructions().getFirst().asInstanceGet();
       assertNotNull(instanceGet);
       assertEquals(A.class.getTypeName(), instanceGet.getField().holder.toSourceString());
       instanceGet.replaceValue(0, firstPhi);

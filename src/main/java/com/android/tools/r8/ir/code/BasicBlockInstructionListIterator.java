@@ -33,35 +33,33 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public class BasicBlockInstructionListIterator implements InstructionListIterator {
 
-  protected final BasicBlock block;
-  protected final ListIterator<Instruction> listIterator;
+  private Instruction next;
   protected Instruction current;
-  private Position position = null;
+  protected final BasicBlock block;
+  private final InstructionList instructionList;
+  private Position position;
 
-  private final IRMetadata metadata;
-
-  BasicBlockInstructionListIterator(IRMetadata metadata, BasicBlock block) {
-    this.block = block;
-    this.listIterator = block.getInstructions().listIterator();
-    this.metadata = metadata;
+  BasicBlockInstructionListIterator(BasicBlock block) {
+    this(block, 0);
   }
 
-  BasicBlockInstructionListIterator(IRMetadata metadata, BasicBlock block, int index) {
-    this.block = block;
-    this.listIterator = block.getInstructions().listIterator(index);
-    this.metadata = metadata;
+  BasicBlockInstructionListIterator(BasicBlock block, int index) {
+    // TODO(b/376663044): Convert uses of index to use Instruction instead.
+    this(block, index == block.size() ? null : block.getInstructions().getNth(index));
   }
 
-  BasicBlockInstructionListIterator(
-      IRMetadata metadata, BasicBlock block, Instruction instruction) {
-    this(metadata, block);
-    nextUntil(x -> x == instruction);
+  BasicBlockInstructionListIterator(BasicBlock block, Instruction firstInstructionToReturn) {
+    this.block = block;
+    this.instructionList = block.getInstructions();
+    this.current = firstInstructionToReturn == null ? null : firstInstructionToReturn.getPrev();
+    this.next = firstInstructionToReturn;
   }
 
   public BasicBlock getBlock() {
@@ -70,54 +68,59 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
   @Override
   public boolean hasNext() {
-    return listIterator.hasNext();
+    return next != null;
   }
 
   @Override
   public Instruction next() {
-    current = listIterator.next();
-    return current;
+    Instruction ret = next;
+    if (ret == null) {
+      throw new NoSuchElementException();
+    }
+    assert ret.block == block : "Iterator invalidated: " + ret;
+    current = ret;
+    next = ret.next;
+    return ret;
   }
 
   @Override
   public int nextIndex() {
-    return listIterator.nextIndex();
+    throw new UnsupportedOperationException();
   }
 
   @Override
   public Instruction peekNext() {
-    // Reset current since listIterator.remove() changes based on whether next() or previous() was
-    // last called.
-    // E.g.: next() -> current=C
-    // peekNext(): next() -> current=D, previous() -> current=D
-    current = null;
-    return IteratorUtils.peekNext(listIterator);
+    assert next == null || next.block == block : "Iterator invalidated: " + next;
+    return next;
   }
 
   @Override
   public boolean hasPrevious() {
-    return listIterator.hasPrevious();
+    return next == null ? !instructionList.isEmpty() : next.prev != null;
   }
 
   @Override
   public Instruction previous() {
-    current = listIterator.previous();
-    return current;
+    Instruction ret = next == null ? instructionList.getLastOrNull() : next.prev;
+    if (ret == null) {
+      throw new NoSuchElementException();
+    }
+    assert ret.block == block : "Iterator invalidated: " + next;
+    current = ret;
+    next = ret;
+    return ret;
   }
 
   @Override
   public int previousIndex() {
-    return listIterator.previousIndex();
+    throw new UnsupportedOperationException();
   }
 
   @Override
   public Instruction peekPrevious() {
-    // Reset current since listIterator.remove() changes based on whether next() or previous() was
-    // last called.
-    // E.g.: previous() -> current=B
-    // peekPrevious(): previous() -> current=A, next() -> current=A
-    current = null;
-    return IteratorUtils.peekPrevious(listIterator);
+    Instruction ret = next == null ? instructionList.getLastOrNull() : next.prev;
+    assert ret == null || ret.block == block : "Iterator invalidated: " + next;
+    return ret;
   }
 
   @Override
@@ -153,13 +156,10 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
    */
   @Override
   public void add(Instruction instruction) {
-    instruction.setBlock(block);
-    assert instruction.getBlock() == block;
     if (!instruction.hasPosition() && hasInsertionPosition()) {
       instruction.setPosition(getInsertionPosition());
     }
-    listIterator.add(instruction);
-    metadata.record(instruction);
+    instructionList.addBefore(instruction, next);
   }
 
   private boolean hasPriorThrowingInstruction() {
@@ -239,10 +239,14 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
    */
   @Override
   public void set(Instruction instruction) {
-    instruction.setBlock(block);
-    assert instruction.getBlock() == block;
-    listIterator.set(instruction);
-    metadata.record(instruction);
+    if (current == null) {
+      throw new IllegalStateException();
+    }
+    instructionList.replace(current, instruction);
+    if (current == next) {
+      next = instruction;
+    }
+    current = instruction;
   }
 
   @Override
@@ -251,6 +255,19 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       set(instruction);
       next();
     }
+  }
+
+  /** Updates |current| and |next|, and returns the old |current|. */
+  private Instruction removeHelper() {
+    Instruction target = current;
+    if (target == null) {
+      throw new IllegalStateException();
+    }
+    if (target == next) {
+      next = target.next;
+    }
+    current = null;
+    return target;
   }
 
   /**
@@ -264,74 +281,31 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
    */
   @Override
   public void remove() {
-    if (current == null) {
-      throw new IllegalStateException();
-    }
-    assert current.outValue() == null || !current.outValue().isUsed();
-    assert current.getDebugValues().isEmpty();
-    for (int i = 0; i < current.inValues().size(); i++) {
-      Value value = current.inValues().get(i);
-      value.removeUser(current);
-    }
-    // These needs to stay to ensure that an optimization incorrectly not taking debug info into
-    // account still produces valid code when run without enabled assertions.
-    for (Value value : current.getDebugValues()) {
-      value.removeDebugUser(current);
-    }
-    if (current.getLocalInfo() != null) {
-      for (Instruction user : current.outValue().debugUsers()) {
-        user.removeDebugValue(current.outValue());
-      }
-    }
-    listIterator.remove();
-    current = null;
+    instructionList.removeAndDetachInValues(removeHelper());
   }
 
   @Override
   public void removeInstructionIgnoreOutValue() {
-    if (current == null) {
-      throw new IllegalStateException();
-    }
-    listIterator.remove();
-    current = null;
+    instructionList.removeIgnoreValues(removeHelper());
   }
 
   @Override
   public void removeOrReplaceByDebugLocalRead() {
-    if (current == null) {
-      throw new IllegalStateException();
-    }
-    if (current.getDebugValues().isEmpty()) {
-      remove();
-    } else {
-      replaceCurrentInstruction(new DebugLocalRead());
-    }
+    instructionList.removeOrReplaceByDebugLocalRead(removeHelper());
   }
 
   @Override
-  public void replaceCurrentInstruction(Instruction newInstruction, Set<Value> affectedValues) {
+  public void replaceCurrentInstruction(Instruction newInstruction, AffectedValues affectedValues) {
     if (current == null) {
       throw new IllegalStateException();
     }
-    for (Value value : current.inValues()) {
-      value.removeUser(current);
+    if (current == next) {
+      // TODO(b/376663044): This should not advance the cursor. Prior implementation used remove()
+      // and add() rather than set(), which causes replaced item to appear when iterating backwards.
+      // E.g.: Should be: next = newInstruction;
+      next = next.next;
     }
-    if (current.hasUsedOutValue()) {
-      assert newInstruction.outValue() != null;
-      if (affectedValues != null && !newInstruction.getOutType().equals(current.getOutType())) {
-        current.outValue().addAffectedValuesTo(affectedValues);
-      }
-      current.outValue().replaceUsers(newInstruction.outValue());
-    }
-    current.moveDebugValues(newInstruction);
-    newInstruction.setBlock(block);
-    if (!newInstruction.hasPosition()) {
-      newInstruction.setPosition(current.getPosition());
-    }
-    listIterator.remove();
-    listIterator.add(newInstruction);
-    current.clearBlock();
-    metadata.record(newInstruction);
+    instructionList.replace(current, newInstruction, affectedValues);
     current = newInstruction;
   }
 
@@ -508,7 +482,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
   @Override
   public void replaceCurrentInstructionWithStaticGet(
-      AppView<?> appView, IRCode code, DexField field, Set<Value> affectedValues) {
+      AppView<?> appView, IRCode code, DexField field, AffectedValues affectedValues) {
     if (current == null) {
       throw new IllegalStateException();
     }
@@ -691,22 +665,17 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     // Get the position at which the block is being split.
     Position position = getPreviousPosition();
 
-    // Prepare the new block, placing the exception handlers on the block with the throwing
-    // instruction.
-    BasicBlock newBlock = block.createSplitBlock(code.getNextBlockNumber(), keepCatchHandlers);
-
     // Add a goto instruction.
-    Goto newGoto = new Goto(block);
-    listIterator.add(newGoto);
+    Goto newGoto = new Goto();
+    instructionList.addBefore(newGoto, next);
     newGoto.setPosition(position);
 
-    // Move all remaining instructions to the new block.
-    while (listIterator.hasNext()) {
-      Instruction instruction = listIterator.next();
-      newBlock.getInstructions().addLast(instruction);
-      instruction.setBlock(newBlock);
-      listIterator.remove();
-    }
+    // Prepare the new block, placing the exception handlers on the block with the throwing
+    // instruction.
+    BasicBlock newBlock =
+        block.createSplitBlock(code.getNextBlockNumber(), keepCatchHandlers, next);
+    next = null;
+    current = null;
 
     // Insert the new block in the block list right after the current block.
     if (blocksIterator == null) {
@@ -917,10 +886,8 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
         entryBlockIterator = entryBlock.listIterator(code);
         // Insert cast instruction into the new block.
         inlineEntry.listIterator(code).add(castInstruction);
-        castInstruction.setBlock(inlineEntry);
         assert castInstruction.getBlock().getInstructions().size() == 2;
       } else {
-        castInstruction.setBlock(entryBlock);
         entryBlockIterator = entryBlock.listIterator(code);
         entryBlockIterator.add(castInstruction);
       }
@@ -1011,9 +978,12 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     assert IteratorUtils.peekNext(blocksIterator) == invokeBlock;
 
     // Insert inlinee blocks into the IR code of the callee, before the invoke block.
+    IRMetadata ourMetadata = block.getMetadata();
+    ourMetadata.merge(inlineEntry.getMetadata());
     for (BasicBlock bb : inlinee.blocks) {
       bb.setNumber(code.getNextBlockNumber());
       blocksIterator.add(bb);
+      bb.setMetadata(ourMetadata);
     }
 
     // If the invoke block had catch handlers copy those down to all inlined blocks.
@@ -1057,7 +1027,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       it.previous();
       return it;
     }
-    BasicBlock newExitBlock = new BasicBlock();
+    BasicBlock newExitBlock = new BasicBlock(code.metadata());
     newExitBlock.setNumber(code.getNextBlockNumber());
     Return newReturn;
     if (normalExits.get(0).exit().asReturn().isReturnVoid()) {
@@ -1090,7 +1060,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     }
     // The newly constructed return will be eliminated as part of inlining so we set position none.
     newReturn.setPosition(Position.none());
-    newExitBlock.add(newReturn, metadata);
+    newExitBlock.add(newReturn, code.metadata());
     for (BasicBlock exitBlock : normalExits) {
       InstructionListIterator it = exitBlock.listIterator(code, exitBlock.getInstructions().size());
       Instruction oldExit = it.previous();

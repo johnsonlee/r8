@@ -495,7 +495,7 @@ public class AssertionsRewriter {
                     dexItemFactory.createMethod(configuration.getAssertionHandler()),
                     null,
                     ImmutableList.of(throwInstruction.exception())));
-            Goto gotoBlockAfterAssertion = new Goto(throwingBlock);
+            Goto gotoBlockAfterAssertion = new Goto();
             gotoBlockAfterAssertion.setPosition(throwInstruction.getPosition());
             throwingBlock.link(throwSuccessorAfterHandler.get(throwInstruction));
             iterator.add(gotoBlockAfterAssertion);

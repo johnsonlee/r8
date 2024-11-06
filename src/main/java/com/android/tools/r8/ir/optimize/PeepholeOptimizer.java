@@ -11,7 +11,7 @@ import com.android.tools.r8.ir.code.DebugLocalsChange;
 import com.android.tools.r8.ir.code.Goto;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
+import com.android.tools.r8.ir.code.InstructionList;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Value;
@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -157,17 +156,15 @@ public class PeepholeOptimizer {
 
       // Remove the instruction from the normal successors.
       for (BasicBlock normalSuccessor : normalSuccessors) {
-        normalSuccessor.getInstructions().removeFirst();
+        normalSuccessor.entry().removeIgnoreValues();
       }
 
       // Move the instruction into the predecessor.
       if (instruction.isJumpInstruction()) {
         // Replace jump instruction in predecessor with the jump instruction from the normal
         // successors.
-        LinkedList<Instruction> instructions = block.getInstructions();
-        instructions.removeLast();
-        instructions.add(instruction);
-        instruction.setBlock(block);
+        block.getLastInstruction().removeIgnoreValues();
+        block.getInstructions().addLast(instruction);
 
         // Take a copy of the old normal successors before performing a destructive update.
         List<BasicBlock> oldNormalSuccessors = new ArrayList<>(normalSuccessors);
@@ -191,8 +188,7 @@ public class PeepholeOptimizer {
         }
       } else {
         // Insert instruction before the jump instruction in the predecessor.
-        block.getInstructions().listIterator(block.getInstructions().size() - 1).add(instruction);
-        instruction.setBlock(block);
+        block.getInstructions().addBefore(instruction, block.getLastInstruction());
 
         // Update locals-at-entry if needed.
         if (instruction.isDebugLocalsChange()) {
@@ -238,7 +234,7 @@ public class PeepholeOptimizer {
     BasicBlock normalExit = null;
     List<BasicBlock> normalExits = code.computeNormalExitBlocks();
     if (normalExits.size() > 1) {
-      normalExit = new BasicBlock();
+      normalExit = new BasicBlock(code.metadata());
       normalExit.getMutablePredecessors().addAll(normalExits);
       blocks = new ArrayList<>(code.blocks);
       blocks.add(normalExit);
@@ -259,8 +255,7 @@ public class PeepholeOptimizer {
           if (pred.exit().isGoto()
               && pred.getSuccessors().size() == 1
               && pred.getInstructions().size() > 1) {
-            List<Instruction> instructions = pred.getInstructions();
-            Instruction lastInstruction = instructions.get(instructions.size() - 2);
+            Instruction lastInstruction = pred.getLastInstruction().getPrev();
             List<BasicBlock> value = lastInstructionToBlocks.computeIfAbsent(
                 equivalence.wrap(lastInstruction), (k) -> new ArrayList<>());
             value.add(pred);
@@ -297,7 +292,7 @@ public class PeepholeOptimizer {
           }
           BasicBlock newBlock =
               createAndInsertBlockForSuffix(
-                  code.getNextBlockNumber(),
+                  code,
                   commonSuffixSize,
                   predsWithSameLastInstruction,
                   block == normalExit ? null : block,
@@ -318,7 +313,7 @@ public class PeepholeOptimizer {
   }
 
   private static BasicBlock createAndInsertBlockForSuffix(
-      int blockNumber,
+      IRCode code,
       int suffixSize,
       List<BasicBlock> preds,
       BasicBlock successorBlock,
@@ -326,49 +321,57 @@ public class PeepholeOptimizer {
     BasicBlock first = preds.get(0);
     assert (successorBlock != null && first.exit().isGoto())
         || (successorBlock == null && first.exit().isReturn());
-    BasicBlock newBlock = new BasicBlock();
-    newBlock.setNumber(blockNumber);
-    InstructionIterator from = first.iterator(first.getInstructions().size());
+    BasicBlock newBlock = new BasicBlock(code.metadata());
+    newBlock.setNumber(code.getNextBlockNumber());
     Int2ReferenceMap<DebugLocalInfo> newBlockEntryLocals = null;
     if (first.getLocalsAtEntry() != null) {
       newBlockEntryLocals = new Int2ReferenceOpenHashMap<>(first.getLocalsAtEntry());
       int prefixSize = first.getInstructions().size() - suffixSize;
-      InstructionIterator it = first.iterator();
+      Instruction instruction = first.entry();
       for (int i = 0; i < prefixSize; i++) {
-        Instruction instruction = it.next();
         if (instruction.isDebugLocalsChange()) {
           instruction.asDebugLocalsChange().apply(newBlockEntryLocals);
         }
+        instruction = instruction.getNext();
       }
     }
 
     allocator.addNewBlockToShareIdenticalSuffix(newBlock, suffixSize, preds);
 
     boolean movedThrowingInstruction = false;
+    Instruction instruction = first.getLastInstruction();
     for (int i = 0; i < suffixSize; i++) {
-      Instruction instruction = from.previous();
       movedThrowingInstruction = movedThrowingInstruction || instruction.instructionTypeCanThrow();
-      newBlock.getInstructions().addFirst(instruction);
-      instruction.setBlock(newBlock);
+      instruction = instruction.getPrev();
     }
+    newBlock
+        .getInstructions()
+        .severFrom(instruction == null ? first.entry() : instruction.getNext());
     if (movedThrowingInstruction && first.hasCatchHandlers()) {
       newBlock.transferCatchHandlers(first);
     }
+
     for (BasicBlock pred : preds) {
-      Position lastPosition = pred.getPosition();
-      LinkedList<Instruction> instructions = pred.getInstructions();
-      for (int i = 0; i < suffixSize; i++) {
-        instructions.removeLast();
+      Position lastPosition;
+      InstructionList instructions = pred.getInstructions();
+      if (pred == first) {
+        // Already removed from first via severFrom().
+        lastPosition = newBlock.getPosition();
+      } else {
+        lastPosition = pred.getPosition();
+        for (int i = 0; i < suffixSize; i++) {
+          instructions.removeIgnoreValues(instructions.getLast());
+        }
       }
-      for (Instruction instruction : pred.getInstructions()) {
-        if (instruction.getPosition().isSome()) {
-          lastPosition = instruction.getPosition();
+      for (Instruction ins = instructions.getLastOrNull(); ins != null; ins = ins.getPrev()) {
+        if (ins.getPosition().isSome()) {
+          lastPosition = ins.getPosition();
+          break;
         }
       }
       Goto jump = new Goto();
-      jump.setBlock(pred);
       jump.setPosition(lastPosition);
-      instructions.add(jump);
+      instructions.addLast(jump);
       newBlock.getMutablePredecessors().add(pred);
       if (successorBlock != null) {
         pred.replaceSuccessor(successorBlock, newBlock);
@@ -411,15 +414,15 @@ public class PeepholeOptimizer {
     if (!Objects.equals(localsAtBlockExit(block0), localsAtBlockExit(block1))) {
       return 0;
     }
-    InstructionIterator it0 = block0.iterator(block0.getInstructions().size());
-    InstructionIterator it1 = block1.iterator(block1.getInstructions().size());
+    Instruction i0 = block0.getLastInstruction();
+    Instruction i1 = block1.getLastInstruction();
     int suffixSize = 0;
-    while (it0.hasPrevious() && it1.hasPrevious()) {
-      Instruction i0 = it0.previous();
-      Instruction i1 = it1.previous();
+    while (i0 != null && i1 != null) {
       if (!i0.identicalAfterRegisterAllocation(i1, allocator, code.getConversionOptions())) {
         return suffixSize;
       }
+      i0 = i0.getPrev();
+      i1 = i1.getPrev();
       suffixSize++;
     }
     return suffixSize;
@@ -464,9 +467,8 @@ public class PeepholeOptimizer {
             assert !otherPred.getPredecessors().contains(pred);
             otherPred.getMutablePredecessors().add(pred);
             Goto exit = new Goto();
-            exit.setBlock(pred);
             exit.setPosition(otherPred.getPosition());
-            pred.getInstructions().add(exit);
+            pred.getInstructions().addLast(exit);
           } else {
             blockToIndex.put(wrapper, predIndex);
           }

@@ -1079,7 +1079,7 @@ public class LensCodeRewriter {
     AffectedValues affectedValues = new AffectedValues();
     for (UnusedArgument unusedArgument : unusedArguments) {
       InstructionListIterator instructionIterator =
-          unusedArgument.getBlock().listIterator(code, unusedArgument);
+          unusedArgument.getBlock().listIterator(code, unusedArgument.getNext());
       if (unusedArgument.outValue().hasAnyUsers()) {
         // This is an unused argument with a default value. The unused argument is an operand of the
         // phi. This use is eliminated after constant propagation + branch pruning. We eliminate the

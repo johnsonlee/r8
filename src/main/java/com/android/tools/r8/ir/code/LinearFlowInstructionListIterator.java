@@ -64,7 +64,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
   }
 
   @Override
-  public void replaceCurrentInstruction(Instruction newInstruction, Set<Value> affectedValues) {
+  public void replaceCurrentInstruction(Instruction newInstruction, AffectedValues affectedValues) {
     currentBlockIterator.replaceCurrentInstruction(newInstruction, affectedValues);
   }
 
@@ -133,7 +133,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
 
   @Override
   public void replaceCurrentInstructionWithStaticGet(
-      AppView<?> appView, IRCode code, DexField field, Set<Value> affectedValues) {
+      AppView<?> appView, IRCode code, DexField field, AffectedValues affectedValues) {
     currentBlockIterator.replaceCurrentInstructionWithStaticGet(
         appView, code, field, affectedValues);
   }
@@ -322,7 +322,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
     if (target == null || target.size() < 2) {
       return null;
     }
-    return target.getInstructions().get(target.size() - 2);
+    return target.getLastInstruction().getPrev();
   }
 
   @Override

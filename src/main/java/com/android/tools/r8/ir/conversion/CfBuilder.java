@@ -41,6 +41,7 @@ import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Inc;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InstructionList;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.JumpInstruction;
@@ -69,7 +70,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -79,7 +79,6 @@ public class CfBuilder {
 
   private static final int PEEPHOLE_OPTIMIZATION_PASSES = 2;
   private static final int SUFFIX_SHARING_OVERHEAD = 30;
-  private static final int IINC_PATTERN_SIZE = 4;
 
   public final AppView<?> appView;
   private final ProgramMethod method;
@@ -234,15 +233,13 @@ public class CfBuilder {
     Set<UninitializedThisLocalRead> uninitializedThisLocalReads = Sets.newIdentityHashSet();
     for (BasicBlock exitBlock : code.blocks) {
       if (exitBlock.exit().isThrow() && !exitBlock.hasCatchHandlers()) {
-        LinkedList<Instruction> instructions = exitBlock.getInstructions();
-        Instruction throwing = instructions.removeLast();
+        InstructionList instructions = exitBlock.getInstructions();
+        Instruction throwing = instructions.getLast();
         assert throwing.isThrow();
         UninitializedThisLocalRead read = new UninitializedThisLocalRead(code.getThis());
         read.setPosition(throwing.getPosition());
         uninitializedThisLocalReads.add(read);
-        read.setBlock(exitBlock);
-        instructions.addLast(read);
-        instructions.addLast(throwing);
+        instructions.addBefore(read, throwing);
       }
     }
     return uninitializedThisLocalReads;
@@ -322,7 +319,6 @@ public class CfBuilder {
         it.previous();
         Value constValue = code.createValue(inValue.getType());
         Instruction newInstruction = new ConstNumber(constValue, -1);
-        newInstruction.setBlock(block);
         newInstruction.setPosition(current.getPosition());
         it.add(newInstruction);
         it.next();
@@ -473,44 +469,43 @@ public class CfBuilder {
   @SuppressWarnings("ReferenceEquality")
   private void rewriteIincPatterns() {
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
-      // Test that we have enough instructions for iinc.
-      while (IINC_PATTERN_SIZE <= block.getInstructions().size() - it.nextIndex()) {
-        Instruction loadOrConst1 = it.next();
-        if (!loadOrConst1.isLoad() && !loadOrConst1.isConstNumber()) {
+      InstructionList instructions = block.getInstructions();
+      for (Instruction ins = instructions.getFirst(); ins != null; ins = ins.getNext()) {
+        boolean isLoad = ins.isLoad();
+        if (!isLoad && !ins.isConstNumber()) {
           continue;
         }
         Load load;
         ConstNumber constNumber;
-        if (loadOrConst1.isLoad()) {
-          load = loadOrConst1.asLoad();
-          constNumber = it.next().asConstNumber();
+        Instruction nextInstruction = ins.getNext();
+        if (isLoad) {
+          load = ins.asLoad();
+          constNumber = nextInstruction.asConstNumber();
         } else {
-          load = it.next().asLoad();
-          constNumber = loadOrConst1.asConstNumber();
+          load = nextInstruction.asLoad();
+          constNumber = ins.asConstNumber();
         }
-        Instruction add = it.next().asAdd();
-        Instruction store = it.next().asStore();
-        // Reset pointer to load.
-        it.previous();
-        it.previous();
-        it.previous();
-        it.previous();
         if (load == null
             || constNumber == null
-            || add == null
-            || store == null
             || constNumber.getOutType() != TypeElement.getInt()) {
-          it.next();
+          continue;
+        }
+        Instruction add = nextInstruction.getNext();
+        if (add == null) {
+          break;
+        }
+        Instruction store = add.getNext();
+        if (store == null) {
+          break;
+        }
+        if (!add.isAdd() || !store.isStore()) {
           continue;
         }
         int increment = constNumber.getIntValue();
         if (increment < Byte.MIN_VALUE || Byte.MAX_VALUE < increment) {
-          it.next();
           continue;
         }
         if (getLocalRegister(load.src()) != getLocalRegister(store.outValue())) {
-          it.next();
           continue;
         }
         Position position = add.getPosition();
@@ -519,16 +514,15 @@ public class CfBuilder {
             || position != store.getPosition()) {
           continue;
         }
-        it.removeInstructionIgnoreOutValue();
-        it.next();
-        it.removeInstructionIgnoreOutValue();
-        it.next();
-        it.removeInstructionIgnoreOutValue();
-        it.next();
+
         Inc inc = new Inc(store.outValue(), load.inValues().get(0), increment);
         inc.setPosition(position);
-        inc.setBlock(block);
-        it.set(inc);
+        instructions.addBefore(inc, store);
+
+        load.removeIgnoreValues();
+        constNumber.removeIgnoreValues();
+        add.removeIgnoreValues();
+        store.removeIgnoreValues();
       }
     }
   }

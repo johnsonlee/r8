@@ -27,7 +27,7 @@ public class DominatorTree implements BasicBlockChangeListener {
 
   private final BasicBlock[] sorted;
   private BasicBlock[] doms;
-  private final BasicBlock normalExitBlock = new BasicBlock();
+  private final BasicBlock normalExitBlock;
 
   private final int unreachableStartIndex;
 
@@ -40,6 +40,7 @@ public class DominatorTree implements BasicBlockChangeListener {
   public DominatorTree(IRCode code, Assumption assumption) {
     assert assumption != null;
     assert assumption == MAY_HAVE_UNREACHABLE_BLOCKS || code.getUnreachableBlocks().isEmpty();
+    normalExitBlock = new BasicBlock(code.metadata());
 
     ImmutableList<BasicBlock> blocks = code.topologicallySortedBlocks();
     // Add the internal exit block to the block list.

@@ -143,7 +143,7 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
             ConstNumber newConstant =
                 ConstNumber.copyOf(code, constValue.definition.asConstNumber());
             newConstant.setPosition(currentInstruction.getPosition());
-            newConstant.setBlock(currentInstruction.getBlock());
+            currentInstruction.getBlock();
             currentInstruction.replaceValue(constValue, newConstant.outValue());
             constValue.removeUser(currentInstruction);
             instructionIterator.previous();
@@ -274,9 +274,7 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
                   for (Instruction user : constantValue.uniqueUsers()) {
                     ConstNumber newCstNum = ConstNumber.copyOf(code, constNumber);
                     newCstNum.setPosition(user.getPosition());
-                    InstructionListIterator iterator = user.getBlock().listIterator(code, user);
-                    iterator.previous();
-                    iterator.add(newCstNum);
+                    user.getBlock().getInstructions().addBefore(newCstNum, user);
                     user.replaceValue(constantValue, newCstNum.outValue());
                   }
                   constantValue.clearUsers();

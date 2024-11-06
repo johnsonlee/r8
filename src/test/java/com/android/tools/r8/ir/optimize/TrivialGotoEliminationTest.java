@@ -69,10 +69,10 @@ public class TrivialGotoEliminationTest extends TestBase {
     //   return
     final NumberGenerator basicBlockNumberGenerator = new NumberGenerator();
     Position position = SyntheticPosition.builder().setLine(0).disableMethodCheck().build();
-    BasicBlock block2 = new BasicBlock();
+    BasicBlock block2 = new BasicBlock(metadata);
     BasicBlock block0 =
         BasicBlock.createGotoBlock(basicBlockNumberGenerator.next(), position, metadata, block2);
-    BasicBlock block1 = new BasicBlock();
+    BasicBlock block1 = new BasicBlock(metadata);
     block1.setNumber(basicBlockNumberGenerator.next());
     block2.setNumber(basicBlockNumberGenerator.next());
     block0.setFilledForTesting();
@@ -133,9 +133,9 @@ public class TrivialGotoEliminationTest extends TestBase {
     //   goto block3
     final NumberGenerator basicBlockNumberGenerator = new NumberGenerator();
     Position position = SyntheticPosition.builder().setLine(0).disableMethodCheck().build();
-    BasicBlock block0 = new BasicBlock();
+    BasicBlock block0 = new BasicBlock(metadata);
     block0.setNumber(basicBlockNumberGenerator.next());
-    BasicBlock block2 = new BasicBlock();
+    BasicBlock block2 = new BasicBlock(metadata);
     BasicBlock block1 =
         BasicBlock.createGotoBlock(basicBlockNumberGenerator.next(), position, metadata);
     block2.setNumber(basicBlockNumberGenerator.next());
@@ -144,7 +144,7 @@ public class TrivialGotoEliminationTest extends TestBase {
     block2.add(ret, metadata);
     block2.setFilledForTesting();
 
-    BasicBlock block3 = new BasicBlock();
+    BasicBlock block3 = new BasicBlock(metadata);
     block3.setNumber(basicBlockNumberGenerator.next());
     Instruction instruction = new Goto();
     instruction.setPosition(position);
@@ -196,8 +196,8 @@ public class TrivialGotoEliminationTest extends TestBase {
             IRMetadata.unknown(),
             MethodConversionOptions.forD8(appView));
     new TrivialGotosCollapser(appView).run(code, Timing.empty());
-    assertTrue(block0.getInstructions().get(1).isIf());
-    assertEquals(block1, block0.getInstructions().get(1).asIf().fallthroughBlock());
+    assertTrue(block0.getInstructions().getFirst().getNext().isIf());
+    assertEquals(block1, block0.getInstructions().getFirst().getNext().asIf().fallthroughBlock());
     assertTrue(blocks.containsAll(ImmutableList.of(block0, block1, block2, block3)));
   }
 }

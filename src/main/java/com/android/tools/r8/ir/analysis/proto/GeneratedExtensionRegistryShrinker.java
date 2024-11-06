@@ -154,7 +154,7 @@ public class GeneratedExtensionRegistryShrinker {
         // Already removed.
         continue;
       }
-      IRCodeUtils.removeInstructionAndTransitiveInputsIfNotUsed(code, instruction);
+      IRCodeUtils.removeInstructionAndTransitiveInputsIfNotUsed(instruction);
     }
     code.removeRedundantBlocks();
     assert code.isConsistentSSA(appView);

@@ -36,7 +36,6 @@ import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
 import com.android.tools.r8.ir.code.BasicBlock;
-import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
@@ -634,7 +633,7 @@ final class InlineCandidateProcessor {
       if (user.isInstanceOf()) {
         InstanceOf instanceOf = user.asInstanceOf();
         InstructionListIterator instructionIterator =
-            user.getBlock().listIterator(code, instanceOf);
+            user.getBlock().listIterator(code, instanceOf.getNext());
         instructionIterator.replaceCurrentInstructionWithConstBoolean(
             code, appView.appInfo().isSubtype(eligibleClass.getType(), instanceOf.type()));
         continue;
@@ -802,8 +801,7 @@ final class InlineCandidateProcessor {
       affectedValues.addAll(newValue.affectedValues());
     }
     if (replacement != null) {
-      BasicBlockInstructionListIterator it = fieldRead.getBlock().listIterator(code, fieldRead);
-      it.replaceCurrentInstruction(replacement, affectedValues);
+      fieldRead.replace(replacement, affectedValues);
     } else {
       removeInstruction(fieldRead);
     }

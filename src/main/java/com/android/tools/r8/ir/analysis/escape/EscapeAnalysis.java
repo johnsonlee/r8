@@ -131,9 +131,8 @@ public class EscapeAnalysis {
       if (user.getBlock() == block) {
         // When the value of interest has the definition
         if (!root.isPhi()) {
-          List<Instruction> instructions = block.getInstructions();
           // Make sure we're not considering instructions prior to the value of interest.
-          if (instructions.indexOf(user) < instructions.indexOf(root.definition)) {
+          if (user.comesBefore(root.definition)) {
             continue;
           }
         }

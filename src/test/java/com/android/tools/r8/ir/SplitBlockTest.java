@@ -18,6 +18,7 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InstructionList;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Position;
@@ -97,7 +98,8 @@ public class SplitBlockTest extends IrInjectionTestBase {
 
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
-      assertTrue(!block.getInstructions().get(i).isArgument());
+      InstructionList instructionList = block.getInstructions();
+      assertTrue(!instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code);
@@ -132,7 +134,8 @@ public class SplitBlockTest extends IrInjectionTestBase {
 
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
-      assertTrue(!block.getInstructions().get(i).isArgument());
+      InstructionList instructionList = block.getInstructions();
+      assertTrue(!instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code, 1);
@@ -337,7 +340,8 @@ public class SplitBlockTest extends IrInjectionTestBase {
 
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
-      assertTrue(!block.getInstructions().get(i).isArgument());
+      InstructionList instructionList = block.getInstructions();
+      assertTrue(!instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code);
@@ -459,7 +463,8 @@ public class SplitBlockTest extends IrInjectionTestBase {
 
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
-      assertTrue(!block.getInstructions().get(i).isArgument());
+      InstructionList instructionList = block.getInstructions();
+      assertTrue(!instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code);

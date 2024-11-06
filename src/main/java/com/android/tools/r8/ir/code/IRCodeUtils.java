@@ -100,7 +100,7 @@ public class IRCodeUtils {
     } else {
       assert false;
     }
-    internalRemoveInstructionAndTransitiveInputsIfNotUsed(code, worklist);
+    internalRemoveInstructionAndTransitiveInputsIfNotUsed(worklist);
   }
 
   /**
@@ -109,14 +109,12 @@ public class IRCodeUtils {
    *
    * <p>Use with caution!
    */
-  public static void removeInstructionAndTransitiveInputsIfNotUsed(
-      IRCode code, Instruction instruction) {
-    internalRemoveInstructionAndTransitiveInputsIfNotUsed(
-        code, DequeUtils.newArrayDeque(instruction));
+  public static void removeInstructionAndTransitiveInputsIfNotUsed(Instruction instruction) {
+    internalRemoveInstructionAndTransitiveInputsIfNotUsed(DequeUtils.newArrayDeque(instruction));
   }
 
   private static void internalRemoveInstructionAndTransitiveInputsIfNotUsed(
-      IRCode code, Deque<InstructionOrPhi> worklist) {
+      Deque<InstructionOrPhi> worklist) {
     Set<InstructionOrPhi> removed = Sets.newIdentityHashSet();
     while (!worklist.isEmpty()) {
       InstructionOrPhi instructionOrPhi = worklist.removeFirst();
@@ -145,7 +143,7 @@ public class IRCodeUtils {
       } else {
         Instruction current = instructionOrPhi.asInstruction();
         if (!current.hasOutValue() || !current.outValue().hasAnyUsers()) {
-          current.getBlock().listIterator(code, current).removeOrReplaceByDebugLocalRead();
+          current.removeOrReplaceByDebugLocalRead();
           for (Value inValue : current.inValues()) {
             worklist.add(inValue.isPhi() ? inValue.asPhi() : inValue.definition);
           }

@@ -87,11 +87,11 @@ public class ConstantRemovalTest {
     //
     // Then test that peephole optimization realizes that the last const number
     // is needed and the value 10 is *not* still in register 0 at that point.
+    IRMetadata metadata = IRMetadata.unknown();
     final NumberGenerator basicBlockNumberGenerator = new NumberGenerator();
-    BasicBlock block = new BasicBlock();
+    BasicBlock block = new BasicBlock(metadata);
     block.setNumber(basicBlockNumberGenerator.next());
 
-    IRMetadata metadata = IRMetadata.unknown();
     Position position = SyntheticPosition.builder().disableMethodCheck().setLine(0).build();
 
     Value v3 = new Value(3, TypeElement.getLong(), null);
