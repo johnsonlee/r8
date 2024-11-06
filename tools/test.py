@@ -409,6 +409,10 @@ def test(options, args):
 
     if options.low_priority:
         gradle_args.append('--priority=low')
+        # Default is 3, but some VMs become unresponsive with this value.
+        # Increase to reduce concurrency.
+        if not os.environ.get('R8_GRADLE_CORES_PER_FORK'):
+          os.environ['R8_GRADLE_CORES_PER_FORK'] = '5'
 
     # Set all necessary Gradle properties and options first.
     if options.shard_count:
