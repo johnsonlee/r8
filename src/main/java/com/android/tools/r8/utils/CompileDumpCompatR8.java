@@ -11,7 +11,8 @@ import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8;
 import com.android.tools.r8.R8Command;
 import com.android.tools.r8.StringConsumer;
-import com.android.tools.r8.utils.compiledump.ResourceShrinker;
+import com.android.tools.r8.utils.compiledump.ResourceShrinkerDumpUtils;
+import com.android.tools.r8.utils.compiledump.StartupProfileDumpUtils;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -238,7 +239,11 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
             .setOutput(outputPath, outputMode)
             .setMode(compilationMode);
     addArtProfilesForRewriting(commandBuilder, artProfileFiles);
-    addStartupProfileProviders(commandBuilder, startupProfileFiles);
+    if (!startupProfileFiles.isEmpty()) {
+      runIgnoreMissing(
+          () -> StartupProfileDumpUtils.addStartupProfiles(startupProfileFiles, commandBuilder),
+          "Could not add startup profiles.");
+    }
     setAndroidPlatformBuild(commandBuilder, androidPlatformBuild);
     setIsolatedSplits(commandBuilder, isolatedSplits);
     setEnableExperimentalMissingLibraryApiModeling(commandBuilder, enableMissingLibraryApiModeling);
@@ -250,7 +255,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
       Path finalAndroidResourcesOutput = androidResourcesOutput;
       runIgnoreMissing(
           () ->
-              ResourceShrinker.setupBaseResourceShrinking(
+              ResourceShrinkerDumpUtils.setupBaseResourceShrinking(
                   finalAndroidResourcesInput, finalAndroidResourcesOutput, commandBuilder),
           "Failed initializing resource shrinker.");
     }

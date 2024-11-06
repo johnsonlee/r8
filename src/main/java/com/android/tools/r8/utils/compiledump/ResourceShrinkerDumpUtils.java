@@ -9,7 +9,7 @@ import com.android.tools.r8.ArchiveProtoAndroidResourceProvider;
 import com.android.tools.r8.R8Command;
 import java.nio.file.Path;
 
-public class ResourceShrinker {
+public class ResourceShrinkerDumpUtils {
   public static void setupBaseResourceShrinking(
       Path input, Path output, R8Command.Builder builder) {
     builder.setAndroidResourceProvider(new ArchiveProtoAndroidResourceProvider(input));

@@ -10,13 +10,9 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class CompileDumpBase {
 
@@ -48,29 +44,6 @@ public class CompileDumpBase {
     }
   }
 
-  static void addStartupProfileProviders(Object builder, List<Path> startupProfileFiles) {
-    getReflectiveBuilderMethod(builder, "addStartupProfileProviders", Collection.class)
-        .accept(new Object[] {createStartupProfileProviders(startupProfileFiles)});
-  }
-
-  static Collection<Object> createStartupProfileProviders(List<Path> startupProfileFiles) {
-    List<Object> startupProfileProviders = new ArrayList<>();
-    for (Path startupProfileFile : startupProfileFiles) {
-      boolean found =
-          callReflectiveUtilsMethod(
-              "createStartupProfileProviderFromDumpFile",
-              new Class<?>[] {Path.class},
-              fn -> startupProfileProviders.add(fn.apply(new Object[] {startupProfileFile})));
-      if (!found) {
-        System.out.println(
-            "Unable to add startup profiles as input. "
-                + "Method createStartupProfileProviderFromDumpFile() was not found.");
-        break;
-      }
-    }
-    return startupProfileProviders;
-  }
-
   static Consumer<Object[]> getReflectiveBuilderMethod(
       Object builder, String setter, Class<?>... parameters) {
     try {
@@ -87,33 +60,6 @@ public class CompileDumpBase {
       // The option is not available so we just return an empty consumer
       return args -> {};
     }
-  }
-
-  static boolean callReflectiveUtilsMethod(
-      String methodName, Class<?>[] parameters, Consumer<Function<Object[], Object>> fnConsumer) {
-    Class<?> utilsClass;
-    try {
-      utilsClass = Class.forName("com.android.tools.r8.utils.CompileDumpUtils");
-    } catch (ClassNotFoundException e) {
-      return false;
-    }
-
-    Method declaredMethod;
-    try {
-      declaredMethod = utilsClass.getDeclaredMethod(methodName, parameters);
-    } catch (NoSuchMethodException e) {
-      return false;
-    }
-
-    fnConsumer.accept(
-        args -> {
-          try {
-            return declaredMethod.invoke(null, args);
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        });
-    return true;
   }
 
   @SuppressWarnings({"CatchAndPrintStackTrace", "DefaultCharset"})

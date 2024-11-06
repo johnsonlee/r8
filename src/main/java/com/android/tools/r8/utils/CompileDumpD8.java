@@ -9,6 +9,7 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.StringConsumer;
+import com.android.tools.r8.utils.compiledump.StartupProfileDumpUtils;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -177,7 +178,11 @@ public class CompileDumpD8 extends CompileDumpBase {
             .setOutput(outputPath, outputMode)
             .setMode(compilationMode);
     addArtProfilesForRewriting(commandBuilder, artProfileFiles);
-    addStartupProfileProviders(commandBuilder, startupProfileFiles);
+    if (!startupProfileFiles.isEmpty()) {
+      runIgnoreMissing(
+          () -> StartupProfileDumpUtils.addStartupProfiles(startupProfileFiles, commandBuilder),
+          "Could not add startup profiles.");
+    }
     setAndroidPlatformBuild(commandBuilder, androidPlatformBuild);
     setEnableExperimentalMissingLibraryApiModeling(commandBuilder, enableMissingLibraryApiModeling);
     if (desugaredLibJson != null) {
