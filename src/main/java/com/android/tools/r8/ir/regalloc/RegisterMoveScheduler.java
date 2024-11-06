@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.regalloc;
 
+import static com.android.tools.r8.ir.regalloc.LiveIntervals.NO_REGISTER;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Argument;
@@ -14,15 +16,15 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Move;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Value;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -31,7 +33,7 @@ public class RegisterMoveScheduler {
   private final Set<RegisterMove> moveSet = new TreeSet<>();
   // Mapping to keep track of which values currently corresponds to each other.
   // This is initially an identity map but changes as we insert moves.
-  private final Map<Integer, Integer> valueMap = new HashMap<>();
+  private final Int2IntMap valueMap = new Int2IntOpenHashMap();
   // Number of temp registers used to schedule the moves.
   private int usedTempRegisters = 0;
   // Location at which to insert the scheduled moves.
@@ -46,6 +48,7 @@ public class RegisterMoveScheduler {
     this.insertAt = insertAt;
     this.tempRegister = tempRegister;
     this.position = position;
+    this.valueMap.defaultReturnValue(NO_REGISTER);
   }
 
   public RegisterMoveScheduler(InstructionListIterator insertAt, int tempRegister) {
@@ -54,19 +57,17 @@ public class RegisterMoveScheduler {
 
   public void addMove(RegisterMove move) {
     moveSet.add(move);
-    if (move.src != LiveIntervals.NO_REGISTER) {
+    if (move.src != NO_REGISTER) {
       valueMap.put(move.src, move.src);
     }
     valueMap.put(move.dst, move.dst);
   }
 
-  // TODO(b/270398965): Replace LinkedList.
-  @SuppressWarnings("JdkObsolete")
   public void schedule() {
     assert everyDestinationOnlyWrittenOnce();
 
     // Worklist of moves that are ready to be inserted.
-    Deque<RegisterMove> worklist = new LinkedList<>();
+    Deque<RegisterMove> worklist = new ArrayDeque<>();
 
     // Initialize worklist with the moves that do not interfere with other moves.
     Iterator<RegisterMove> iterator = moveSet.iterator();
@@ -85,10 +86,10 @@ public class RegisterMoveScheduler {
         RegisterMove move = worklist.removeFirst();
         assert !move.isBlocked(moveSet, valueMap);
         // Insert the move.
-        Integer generatedDest = createMove(move);
+        int generatedDest = createMove(move);
         // Update the value map with the information that dest can be used instead of
         // src starting now.
-        if (move.src != LiveIntervals.NO_REGISTER) {
+        if (move.src != NO_REGISTER) {
           valueMap.put(move.src, generatedDest);
         }
         // Iterate and find the moves that were blocked because they need to write to
@@ -107,6 +108,9 @@ public class RegisterMoveScheduler {
         // temporary registers for its destination value(s).
         RegisterMove move = pickMoveToUnblock();
         createMoveDestToTemp(move);
+        // TODO(b/375147902): After emitting the newly unblocked move, try to prioritize the moves
+        //  that blocked it, so that we free up the temp register, rather than getting overlapping
+        //  temporary registers.
         worklist.addLast(move);
       }
     }
@@ -118,9 +122,9 @@ public class RegisterMoveScheduler {
 
   private List<RegisterMove> findMovesWithSrc(int src, TypeElement type) {
     List<RegisterMove> result = new ArrayList<>();
-    assert src != LiveIntervals.NO_REGISTER;
+    assert src != NO_REGISTER;
     for (RegisterMove move : moveSet) {
-      if (move.src == LiveIntervals.NO_REGISTER) {
+      if (move.src == NO_REGISTER) {
         continue;
       }
       int moveSrc = valueMap.get(move.src);
@@ -135,7 +139,7 @@ public class RegisterMoveScheduler {
     return result;
   }
 
-  private Integer createMove(RegisterMove move) {
+  private int createMove(RegisterMove move) {
     Instruction instruction;
     if (move.definition != null) {
       if (move.definition.isArgument()) {
@@ -171,18 +175,19 @@ public class RegisterMoveScheduler {
     List<RegisterMove> movesWithSrc = findMovesWithSrc(move.dst, move.type);
     assert movesWithSrc.size() > 0;
     for (RegisterMove moveWithSrc : movesWithSrc) {
-      // TODO(ager): For now we always use a new temporary register whenever we have to unblock
-      // a move. The move scheduler can have multiple unblocking temps live at the same time
-      // and therefore we cannot have just one tempRegister (pair). However, we could check here
-      // if the previously used tempRegisters is still needed by any of the moves in the move set
-      // (taking the value map into account). If not, we can reuse the temp register instead
-      // of generating a new one.
-      Value to = new FixedRegisterValue(moveWithSrc.type, tempRegister + usedTempRegisters);
+      // TODO(b/375147902): For now we always use a new temporary register whenever we have to
+      //  unblock a move. The move scheduler can have multiple unblocking temps live at the same
+      //  time and therefore we cannot have just one tempRegister (pair). However, we could check
+      //  here if the previously used tempRegisters is still needed by any of the moves in the move
+      //  set (taking the value map into account). If not, we can reuse the temp register instead
+      //  of generating a new one.
+      int register = tempRegister + usedTempRegisters;
+      Value to = new FixedRegisterValue(moveWithSrc.type, register);
       Value from = new FixedRegisterValue(moveWithSrc.type, valueMap.get(moveWithSrc.src));
       Move instruction = new Move(to, from);
       instruction.setPosition(position);
       insertAt.add(instruction);
-      valueMap.put(moveWithSrc.src, tempRegister + usedTempRegisters);
+      valueMap.put(moveWithSrc.src, register);
       usedTempRegisters += moveWithSrc.type.requiredRegisters();
     }
   }

@@ -3,9 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.regalloc;
 
+import static com.android.tools.r8.ir.regalloc.LiveIntervals.NO_REGISTER;
+
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Instruction;
-import java.util.Map;
+import com.android.tools.r8.utils.ObjectUtils;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import java.util.Objects;
 import java.util.Set;
 
 // Register moves used by the spilling register allocator. These are used both for spill and
@@ -27,51 +31,56 @@ public class RegisterMove implements Comparable<RegisterMove> {
   public RegisterMove(int dst, TypeElement type, Instruction definition) {
     assert definition.isOutConstant();
     this.dst = dst;
-    this.src = LiveIntervals.NO_REGISTER;
+    this.src = NO_REGISTER;
     this.definition = definition;
     this.type = type;
   }
 
-  private boolean writes(int register) {
-    if (type.isWidePrimitive() && (dst + 1) == register) {
+  public boolean writes(int register, boolean otherIsWide) {
+    if (dst == register) {
       return true;
     }
-    return dst == register;
+    if (isWide() && dst + 1 == register) {
+      return true;
+    }
+    if (otherIsWide && dst == register + 1) {
+      return true;
+    }
+    return false;
   }
 
-  @SuppressWarnings("ReferenceEquality")
-  public boolean isBlocked(Set<RegisterMove> moveSet, Map<Integer, Integer> valueMap) {
+  public boolean isBlocked(Set<RegisterMove> moveSet, Int2IntMap valueMap) {
     for (RegisterMove move : moveSet) {
-      if (move.src == LiveIntervals.NO_REGISTER) {
+      if (isIdentical(move) || move.src == NO_REGISTER) {
         continue;
       }
-      if (move != this) {
-        if (writes(valueMap.get(move.src))) {
-          return true;
-        }
-        if (move.type.isWidePrimitive()) {
-          if (writes(valueMap.get(move.src) + 1)) {
-            return true;
-          }
-        }
+      if (writes(valueMap.get(move.src), move.isWide())) {
+        return true;
       }
     }
     return false;
   }
 
-  @Override
-  public int hashCode() {
-    return src + dst * 3 + type.hashCode() * 5 + (definition == null ? 0 : definition.hashCode());
+  public boolean isIdentical(RegisterMove move) {
+    return ObjectUtils.identical(this, move);
+  }
+
+  public boolean isWide() {
+    return type.isWidePrimitive();
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
+  public int hashCode() {
+    return src + dst * 3 + type.hashCode() * 5 + Objects.hashCode(definition);
+  }
+
+  @Override
   public boolean equals(Object other) {
     if (!(other instanceof RegisterMove)) {
       return false;
     }
     RegisterMove o = (RegisterMove) other;
-    return o.src == src && o.dst == dst && o.type == type && o.definition == definition;
+    return o.src == src && o.dst == dst && type.equals(o.type) && o.definition == definition;
   }
 
   @Override
