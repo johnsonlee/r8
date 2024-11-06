@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.utils;
 
+import com.android.tools.r8.BaseCompilerCommand;
+import com.android.tools.r8.utils.compiledump.ArtProfileDumpUtils;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -12,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -34,62 +37,20 @@ public class CompileDumpBase {
         .accept(new Object[] {isolatedSplits});
   }
 
-  static void addArtProfilesForRewriting(Object builder, Map<Path, Path> artProfileFiles) {
-    try {
-      Class<?> artProfileProviderClass =
-          Class.forName("com.android.tools.r8.profile.art.ArtProfileProvider");
-      Class<?> artProfileConsumerClass =
-          Class.forName("com.android.tools.r8.profile.art.ArtProfileConsumer");
-      artProfileFiles.forEach(
-          (artProfile, residualArtProfile) ->
-              getReflectiveBuilderMethod(
-                      builder,
-                      "addArtProfileForRewriting",
-                      artProfileProviderClass,
-                      artProfileConsumerClass)
-                  .accept(
-                      new Object[] {
-                        createArtProfileProvider(artProfile),
-                        createResidualArtProfileConsumer(residualArtProfile)
-                      }));
-    } catch (ClassNotFoundException e) {
-      // Ignore.
+  static void addArtProfilesForRewriting(
+      BaseCompilerCommand.Builder<?, ?> builder, Map<Path, Path> artProfileFiles) {
+    for (Entry<Path, Path> inputOutput : artProfileFiles.entrySet()) {
+      runIgnoreMissing(
+          () ->
+              ArtProfileDumpUtils.addArtProfileForRewriting(
+                  inputOutput.getKey(), inputOutput.getValue(), builder),
+          "Unable to setup art profile rewriting for " + inputOutput.getKey());
     }
   }
 
   static void addStartupProfileProviders(Object builder, List<Path> startupProfileFiles) {
     getReflectiveBuilderMethod(builder, "addStartupProfileProviders", Collection.class)
         .accept(new Object[] {createStartupProfileProviders(startupProfileFiles)});
-  }
-
-  static Object callReflectiveDumpUtilsMethodWithPath(Path path, String method) {
-    Object[] returnObject = new Object[1];
-    boolean found =
-        callReflectiveUtilsMethod(
-            method,
-            new Class<?>[] {Path.class},
-            fn -> returnObject[0] = fn.apply(new Object[] {path}));
-    if (!found) {
-      System.out.println(
-          "Unable to call invoke method on path "
-              + path
-              + ". "
-              + "Method "
-              + method
-              + "() was not found.");
-      return null;
-    }
-    return returnObject[0];
-  }
-
-  static Object createArtProfileProvider(Path artProfile) {
-    return callReflectiveDumpUtilsMethodWithPath(
-        artProfile, "createArtProfileProviderFromDumpFile");
-  }
-
-  static Object createResidualArtProfileConsumer(Path residualArtProfile) {
-    return callReflectiveDumpUtilsMethodWithPath(
-        residualArtProfile, "createResidualArtProfileConsumerFromDumpFile");
   }
 
   static Collection<Object> createStartupProfileProviders(List<Path> startupProfileFiles) {
@@ -168,5 +129,13 @@ public class CompileDumpBase {
     }
 
     return content;
+  }
+
+  protected static void runIgnoreMissing(Runnable runnable, String onMissing) {
+    try {
+      runnable.run();
+    } catch (NoClassDefFoundError | NoSuchMethodError e) {
+      System.out.println(onMissing);
+    }
   }
 }

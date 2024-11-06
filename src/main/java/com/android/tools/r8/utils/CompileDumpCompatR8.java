@@ -283,12 +283,4 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
       R8.run(command);
     }
   }
-
-  private static void runIgnoreMissing(Runnable runnable, String onMissing) {
-    try {
-      runnable.run();
-    } catch (NoClassDefFoundError | NoSuchMethodError e) {
-      System.out.println(onMissing);
-    }
-  }
 }
