@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.Move;
+import com.android.tools.r8.ir.code.MoveException;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.Or;
 import com.android.tools.r8.ir.code.Phi;
@@ -1121,29 +1122,29 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // When we allow argument reuse we do not allow any splitting, therefore we cannot get into
     // trouble with move exception registers. When argument reuse is disallowed we block a fixed
     // register to be used only by move exception instructions.
-    if (!mode.is4Bit() || hasInvokeRangeLiveIntervals) {
-      // Force all move exception ranges to start out with the exception in a fixed register.
-      for (BasicBlock block : code.blocks) {
-        Instruction instruction = block.entry();
-        if (instruction.isMoveException()) {
-          LiveIntervals intervals = instruction.outValue().getLiveIntervals();
-          unhandled.remove(intervals);
-          moveExceptionIntervals.add(intervals);
-          intervals.setRegister(getMoveExceptionRegister());
-        }
+    if (mode.is4Bit() && !hasInvokeRangeLiveIntervals) {
+      return;
+    }
+    // Force all move exception ranges to start out with the exception in a fixed register.
+    for (BasicBlock block : code.blocks(block -> block.entry().isMoveException())) {
+      MoveException moveException = block.entry().asMoveException();
+      LiveIntervals intervals = moveException.outValue().getLiveIntervals();
+      if (intervals.getValue().hasAnyUsers()) {
+        LiveIntervals split = intervals.splitAfter(intervals.getValue().getDefinition());
+        unhandled.add(split);
       }
-      if (hasDedicatedMoveExceptionRegister()) {
-        int moveExceptionRegister = getMoveExceptionRegister();
-        assert moveExceptionRegister == maxRegisterNumber + 1;
-        increaseCapacity(moveExceptionRegister, true);
+      if (intervals.getStart() < moveException.getNumber()) {
+        intervals = intervals.splitBefore(moveException);
+      } else {
+        unhandled.remove(intervals);
       }
-      // Split their live ranges which will force another register if used.
-      for (LiveIntervals intervals : moveExceptionIntervals) {
-        if (intervals.getValue().hasAnyUsers()) {
-          LiveIntervals split = intervals.splitAfter(intervals.getValue().getDefinition());
-          unhandled.add(split);
-        }
-      }
+      moveExceptionIntervals.add(intervals);
+      intervals.setRegister(getMoveExceptionRegister());
+    }
+    if (hasDedicatedMoveExceptionRegister()) {
+      int moveExceptionRegister = getMoveExceptionRegister();
+      assert moveExceptionRegister == maxRegisterNumber + 1;
+      increaseCapacity(moveExceptionRegister, false);
     }
   }
 
