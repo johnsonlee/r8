@@ -38,16 +38,6 @@ class CompileDumpUtils {
   }
 
   @KeepMethodForCompileDump
-  static AndroidResourceProvider createAndroidResourceProviderFromDumpFile(Path resourceInput) {
-    return new ArchiveProtoAndroidResourceProvider(resourceInput);
-  }
-
-  @KeepMethodForCompileDump
-  static AndroidResourceConsumer createAndroidResourceConsumerFromDumpFile(Path resourceOutput) {
-    return new ArchiveProtoAndroidResourceConsumer(resourceOutput);
-  }
-
-  @KeepMethodForCompileDump
   static StartupProfileProvider createStartupProfileProviderFromDumpFile(Path path) {
     return new StartupProfileProvider() {
 

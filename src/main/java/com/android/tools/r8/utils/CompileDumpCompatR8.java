@@ -10,8 +10,8 @@ import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8;
 import com.android.tools.r8.R8Command;
-import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.StringConsumer;
+import com.android.tools.r8.utils.compiledump.ResourceShrinker;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -228,7 +228,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
         program.add(Paths.get(option));
       }
     }
-    Builder commandBuilder =
+    R8Command.Builder commandBuilder =
         new CompatProguardCommandBuilder(isCompatMode)
             .addProgramFiles(program)
             .addLibraryFiles(library)
@@ -246,7 +246,13 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
       commandBuilder.addDesugaredLibraryConfiguration(readAllBytesJava7(desugaredLibJson));
     }
     if (androidResourcesInput != null) {
-      setupResourceShrinking(androidResourcesInput, androidResourcesOutput, commandBuilder);
+      Path finalAndroidResourcesInput = androidResourcesInput;
+      Path finalAndroidResourcesOutput = androidResourcesOutput;
+      runIgnoreMissing(
+          () ->
+              ResourceShrinker.setupBaseResourceShrinking(
+                  finalAndroidResourcesInput, finalAndroidResourcesOutput, commandBuilder),
+          "Failed initializing resource shrinker.");
     }
     if (desugaredLibKeepRuleConsumer != null) {
       commandBuilder.setDesugaredLibraryKeepRuleConsumer(desugaredLibKeepRuleConsumer);
@@ -275,6 +281,14 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
       }
     } else {
       R8.run(command);
+    }
+  }
+
+  private static void runIgnoreMissing(Runnable runnable, String onMissing) {
+    try {
+      runnable.run();
+    } catch (NoClassDefFoundError | NoSuchMethodError e) {
+      System.out.println(onMissing);
     }
   }
 }

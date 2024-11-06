@@ -32,7 +32,8 @@ DEX_SEGMENTS_RESULT_PATTERN = re.compile('- ([^:]+): ([0-9]+)')
 DEPENDENCIES_DIR = os.path.join(THIRD_PARTY, 'dependencies')
 
 BUILD = os.path.join(REPO_ROOT, 'build')
-BUILD_JAVA_MAIN_DIR = os.path.join(BUILD, 'classes', 'java', 'main')
+BUILD_JAVA_MAIN_DIR = os.path.join(REPO_ROOT, 'd8_r8', 'main', 'build',
+                                   'classes', 'java', 'main')
 LIBS = os.path.join(BUILD, 'libs')
 CUSTOM_CONVERSION_DIR = os.path.join(THIRD_PARTY, 'openjdk',
                                      'custom_conversion')
@@ -44,6 +45,7 @@ GRADLE_TASK_CLEAN_TEST = ':test:cleanTest'
 GRADLE_TASK_CONSOLIDATED_LICENSE = ':main:consolidatedLicense'
 GRADLE_TASK_KEEP_ANNO_JAR = ':keepanno:keepAnnoAnnotationsJar'
 GRADLE_TASK_KEEP_ANNO_DOC = ':keepanno:keepAnnoAnnotationsDoc'
+GRADLE_TASK_MAIN_COMPILE = ':main:compileJava'
 GRADLE_TASK_R8 = ':main:r8WithRelocatedDeps'
 GRADLE_TASK_R8LIB = ':test:assembleR8LibWithRelocatedDeps'
 GRADLE_TASK_R8LIB_NO_DEPS = ':test:assembleR8LibNoDeps'

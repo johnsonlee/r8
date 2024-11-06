@@ -34,22 +34,6 @@ public class CompileDumpBase {
         .accept(new Object[] {isolatedSplits});
   }
 
-  static void setupResourceShrinking(
-      Path androidResourcesInput, Path androidResourcesOutput, Object builder) {
-    try {
-      Class<?> androidResourceProvider =
-          Class.forName("com.android.tools.r8.AndroidResourceProvider");
-      Class<?> androidResourceConsumer =
-          Class.forName("com.android.tools.r8.AndroidResourceConsumer");
-      getReflectiveBuilderMethod(builder, "setAndroidResourceProvider", androidResourceProvider)
-          .accept(new Object[] {createAndroidResourceProvider(androidResourcesInput)});
-      getReflectiveBuilderMethod(builder, "setAndroidResourceConsumer", androidResourceConsumer)
-          .accept(new Object[] {createAndroidResourceConsumer(androidResourcesOutput)});
-    } catch (ClassNotFoundException e) {
-      // Ignore
-    }
-  }
-
   static void addArtProfilesForRewriting(Object builder, Map<Path, Path> artProfileFiles) {
     try {
       Class<?> artProfileProviderClass =
@@ -96,16 +80,6 @@ public class CompileDumpBase {
       return null;
     }
     return returnObject[0];
-  }
-
-  static Object createAndroidResourceProvider(Path resourceInput) {
-    return callReflectiveDumpUtilsMethodWithPath(
-        resourceInput, "createAndroidResourceProviderFromDumpFile");
-  }
-
-  static Object createAndroidResourceConsumer(Path resourceOutput) {
-    return callReflectiveDumpUtilsMethodWithPath(
-        resourceOutput, "createAndroidResourceConsumerFromDumpFile");
   }
 
   static Object createArtProfileProvider(Path artProfile) {

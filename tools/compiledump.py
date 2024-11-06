@@ -502,7 +502,25 @@ def clean_config_line(line, minify, optimize, shrink):
     return False
 
 
+def compile_reflective_helper(temp, jdkhome):
+    gradle.RunGradle([utils.GRADLE_TASK_MAIN_COMPILE])
+    base_path = os.path.join(
+        utils.REPO_ROOT,
+        'src/main/java/com/android/tools/r8/utils/compiledumputils')
+
+    cmd = [
+        jdk.GetJavacExecutable(jdkhome),
+        '-d',
+        temp,
+        '-cp',
+        utils.BUILD_JAVA_MAIN_DIR,
+    ]
+    cmd.extend(os.path.join(base_path, f) for f in os.listdir(base_path))
+    utils.PrintCmd(cmd)
+    subprocess.check_output(cmd)
+
 def prepare_r8_wrapper(dist, temp, jdkhome):
+    compile_reflective_helper(temp, jdkhome)
     compile_wrapper_with_javac(
         dist, temp, jdkhome,
         os.path.join(
@@ -530,7 +548,7 @@ def compile_wrapper_with_javac(dist, temp, jdkhome, path):
         '-d',
         temp,
         '-cp',
-        dist,
+        "%s:%s" % (dist, temp),
     ]
     utils.PrintCmd(cmd)
     subprocess.check_output(cmd)
