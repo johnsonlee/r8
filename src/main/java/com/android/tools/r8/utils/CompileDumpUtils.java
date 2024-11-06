@@ -4,10 +4,6 @@
 
 package com.android.tools.r8.utils;
 
-import com.android.tools.r8.AndroidResourceConsumer;
-import com.android.tools.r8.AndroidResourceProvider;
-import com.android.tools.r8.ArchiveProtoAndroidResourceConsumer;
-import com.android.tools.r8.ArchiveProtoAndroidResourceProvider;
 import com.android.tools.r8.KeepMethodForCompileDump;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
