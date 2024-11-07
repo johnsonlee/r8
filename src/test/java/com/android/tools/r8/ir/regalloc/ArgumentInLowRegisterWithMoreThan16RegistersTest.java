@@ -44,7 +44,7 @@ public class ArgumentInLowRegisterWithMoreThan16RegistersTest extends TestBase {
                   inspector.clazz(Main.class).uniqueInstanceInitializer();
               assertThat(testMethodSubject, isPresent());
               assertEquals(
-                  2,
+                  1,
                   testMethodSubject
                       .streamInstructions()
                       .filter(InstructionSubject::isMove)
