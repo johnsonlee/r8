@@ -42,14 +42,6 @@ public class Monitor extends Instruction {
     return inValues.get(0);
   }
 
-  public boolean isEnter() {
-    return type == MonitorType.ENTER;
-  }
-
-  public boolean isExit() {
-    return type == MonitorType.EXIT;
-  }
-
   @Override
   public void buildDex(DexBuilder builder) {
     // If the monitor object is an argument, we use the argument register for all the monitor
@@ -96,7 +88,7 @@ public class Monitor extends Instruction {
 
   @Override
   public boolean isMonitorEnter() {
-    return isEnter();
+    return type == MonitorType.ENTER;
   }
 
   @Override

@@ -406,7 +406,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
             } else if (instruction.isInitClass()) {
               handleInitClass(it, instruction.asInitClass());
             } else if (instruction.isMonitor()) {
-              if (instruction.asMonitor().isEnter()) {
+              if (instruction.isMonitorEnter()) {
                 killAllNonFinalActiveFields();
               }
             } else if (instruction.isInvokeDirect()) {
