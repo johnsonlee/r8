@@ -50,6 +50,19 @@ public class FixedRegisterValue extends Value {
     return register;
   }
 
+  public boolean usesRegister(FixedRegisterValue other) {
+    if (register == other.getRegister()) {
+      return true;
+    }
+    if (getType().isWidePrimitive() && register + 1 == other.getRegister()) {
+      return true;
+    }
+    if (other.getType().isWidePrimitive() && register == other.getRegister() + 1) {
+      return true;
+    }
+    return false;
+  }
+
   @Override
   public boolean isDefinedByInstructionSatisfying(Predicate<Instruction> predicate) {
     return false;

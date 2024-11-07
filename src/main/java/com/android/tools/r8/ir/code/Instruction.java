@@ -85,6 +85,10 @@ public abstract class Instruction
     return position != null;
   }
 
+  public boolean hasPrev() {
+    return prev != null;
+  }
+
   public Instruction getPrev() {
     return prev;
   }
@@ -993,6 +997,10 @@ public abstract class Instruction
 
   public Dup2 asDup2() {
     return null;
+  }
+
+  public boolean isExit() {
+    return isJumpInstruction();
   }
 
   public boolean isJumpInstruction() {

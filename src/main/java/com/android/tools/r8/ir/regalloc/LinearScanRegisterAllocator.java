@@ -970,6 +970,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     assert !result.is8Bit() || highestUsedRegister() <= Constants.U8BIT_MAX;
     assert !result.is16Bit() || highestUsedRegister() <= Constants.U16BIT_MAX;
 
+    new MoveSorter(code).sortMovesForSuffixSharing();
+
     return result;
   }
 
