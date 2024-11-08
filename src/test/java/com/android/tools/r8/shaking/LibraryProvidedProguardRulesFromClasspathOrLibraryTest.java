@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.OriginMatcher.hasPart;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -28,6 +29,7 @@ import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -49,10 +51,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
     extends LibraryProvidedProguardRulesTestBase {
-
-  @interface Keep {}
-
-  public interface Interface {}
 
   private enum HowToAdd {
     API_CLASSPATH,
@@ -105,6 +103,33 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
 
   private CodeInspector runTest(String rules) throws Exception {
     return runTest(ImmutableList.of(rules));
+  }
+
+  @Test
+  public void testDuplicateClassesInLibraryJar() throws Exception {
+    assumeTrue(howToAdd == HowToAdd.API_LIBRARY);
+    assumeTrue(libraryType == LibraryType.JAR_WITH_RULES);
+    Path library =
+        buildLibrary(
+            ImmutableList.of(
+                "-keep class * implements " + Interface.class.getTypeName() + " { *; }"));
+    assertThrows(
+        CompilationFailedException.class,
+        () ->
+            testForR8(parameters.getBackend())
+                .addProgramClasses(A.class, B.class)
+                .addKeepRules("-libraryjars " + library.toAbsolutePath())
+                .addKeepRules("-libraryjars " + library.toAbsolutePath())
+                .setMinApi(parameters)
+                .allowStdoutMessages()
+                .apply(
+                    b ->
+                        ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(
+                            b.getBuilder(), true))
+                .compileWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics.assertErrorsMatch(
+                            diagnosticType(DuplicateTypesDiagnostic.class))));
   }
 
   @Test
@@ -263,6 +288,12 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
                                 diagnosticOrigin(is(Origin.unknown()))))));
   }
 
+  // Classes in the library.
+  @interface Keep {}
+
+  public interface Interface {}
+
+  // Classes in the program.
   static class A implements Interface {}
 
   @Keep
