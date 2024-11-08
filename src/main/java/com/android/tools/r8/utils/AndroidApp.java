@@ -1086,6 +1086,26 @@ public class AndroidApp {
       return null;
     }
 
+    public FilteredArchiveClassFileProvider createAndAddLibraryProvider(FilteredClassPath archive) {
+      if (isArchive(archive.getPath())) {
+        try {
+          FilteredArchiveClassFileProvider provider = new FilteredArchiveClassFileProvider(archive);
+          archiveProvidersToClose.add(provider);
+          libraryResourceProviders.add(provider);
+          return provider;
+        } catch (IOException e) {
+          reporter.error(new ExceptionDiagnostic(e, new PathOrigin(archive.getPath())));
+          return null;
+        }
+      }
+      reporter.error(
+          new StringDiagnostic(
+              "Unexpected input type. Only archive types are supported, e.g., .jar, .zip, etc.",
+              archive.getOrigin(),
+              archive.getPosition()));
+      return null;
+    }
+
     /** Add filtered archives of program resources. */
     public Builder addFilteredProgramArchives(Collection<FilteredClassPath> filteredArchives) {
       for (FilteredClassPath archive : filteredArchives) {
@@ -1149,22 +1169,7 @@ public class AndroidApp {
     /** Add library file resources. */
     public Builder addFilteredLibraryArchives(Collection<FilteredClassPath> filteredArchives) {
       for (FilteredClassPath archive : filteredArchives) {
-        if (isArchive(archive.getPath())) {
-          try {
-            FilteredArchiveClassFileProvider provider =
-                new FilteredArchiveClassFileProvider(archive);
-            archiveProvidersToClose.add(provider);
-            libraryResourceProviders.add(provider);
-          } catch (IOException e) {
-            reporter.error(new ExceptionDiagnostic(e, new PathOrigin(archive.getPath())));
-          }
-        } else {
-          reporter.error(
-              new StringDiagnostic(
-                  "Unexpected input type. Only archive types are supported, e.g., .jar, .zip, etc.",
-                  archive.getOrigin(),
-                  archive.getPosition()));
-        }
+        createAndAddLibraryProvider(archive);
       }
       return this;
     }

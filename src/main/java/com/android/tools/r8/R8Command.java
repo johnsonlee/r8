@@ -788,7 +788,6 @@ public final class R8Command extends BaseCompilerCommand {
       // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
       extractKeepAnnotationRules(parser);
       ProguardConfiguration configuration = configurationBuilder.build();
-      getAppBuilder().addFilteredLibraryArchives(configuration.getLibraryjars());
 
       assert getProgramConsumer() != null;
 
@@ -906,18 +905,23 @@ public final class R8Command extends BaseCompilerCommand {
             .map(ClassFileResourceProvider::getDataResourceProvider)
             .filter(Objects::nonNull)
             .forEach(providers::add);
-        // Find resources in library providers. Both from API and added through legacy -libraryjars
+        // Find resources in library providers from API and added through legacy -libraryjars
         // in configuration files.
         getAppBuilder().getLibraryResourceProviders().stream()
             .map(ClassFileResourceProvider::getDataResourceProvider)
             .filter(Objects::nonNull)
             .forEach(providers::add);
-        for (FilteredClassPath libraryjar :
-            parser.getConfigurationBuilder().build().getLibraryjars()) {
-          if (seen.add(libraryjar)) {
-            ArchiveResourceProvider provider = getAppBuilder().createAndAddProvider(libraryjar);
+      }
+      // Find resources in library providers added through legacy -libraryjars
+      // in configuration files.
+      for (FilteredClassPath libraryjar :
+          parser.getConfigurationBuilder().build().getLibraryjars()) {
+        if (seen.add(libraryjar)) {
+          ClassFileResourceProvider provider =
+              getAppBuilder().createAndAddLibraryProvider(libraryjar);
+          if (readEmbeddedRulesFromClasspathAndLibrary) {
             if (provider != null) {
-              providers.add(provider);
+              providers.add(provider.getDataResourceProvider());
             }
           }
         }
