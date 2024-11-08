@@ -7,31 +7,12 @@ package com.android.tools.r8.utils;
 import com.android.tools.r8.BaseCompilerCommand;
 import com.android.tools.r8.utils.compiledump.ArtProfileDumpUtils;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
 
 public class CompileDumpBase {
-
-  static void setEnableExperimentalMissingLibraryApiModeling(
-      Object builder, boolean enableMissingLibraryApiModeling) {
-    getReflectiveBuilderMethod(
-            builder, "setEnableExperimentalMissingLibraryApiModeling", boolean.class)
-        .accept(new Object[] {enableMissingLibraryApiModeling});
-  }
-
-  static void setAndroidPlatformBuild(Object builder, boolean androidPlatformBuild) {
-    getReflectiveBuilderMethod(builder, "setAndroidPlatformBuild", boolean.class)
-        .accept(new Object[] {androidPlatformBuild});
-  }
-
-  static void setIsolatedSplits(Object builder, boolean isolatedSplits) {
-    getReflectiveBuilderMethod(builder, "setEnableIsolatedSplits", boolean.class)
-        .accept(new Object[] {isolatedSplits});
-  }
 
   static void addArtProfilesForRewriting(
       BaseCompilerCommand.Builder<?, ?> builder, Map<Path, Path> artProfileFiles) {
@@ -41,24 +22,6 @@ public class CompileDumpBase {
               ArtProfileDumpUtils.addArtProfileForRewriting(
                   inputOutput.getKey(), inputOutput.getValue(), builder),
           "Unable to setup art profile rewriting for " + inputOutput.getKey());
-    }
-  }
-
-  static Consumer<Object[]> getReflectiveBuilderMethod(
-      Object builder, String setter, Class<?>... parameters) {
-    try {
-      Method declaredMethod = builder.getClass().getMethod(setter, parameters);
-      return args -> {
-        try {
-          declaredMethod.invoke(builder, args);
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      };
-    } catch (NoSuchMethodException e) {
-      System.out.println(setter + " is not available on the compiledump version.");
-      // The option is not available so we just return an empty consumer
-      return args -> {};
     }
   }
 
@@ -82,6 +45,22 @@ public class CompileDumpBase {
       runnable.run();
     } catch (NoClassDefFoundError | NoSuchMethodError e) {
       System.out.println(onMissing);
+    }
+  }
+
+  protected static class BooleanBox {
+    public boolean value = false;
+
+    public BooleanBox(boolean value) {
+      this.value = value;
+    }
+
+    public void set(boolean value) {
+      this.value = value;
+    }
+
+    public boolean get() {
+      return value;
     }
   }
 }

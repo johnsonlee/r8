@@ -9,6 +9,7 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.StringConsumer;
+import com.android.tools.r8.utils.compiledump.CompilerCommandDumpUtils;
 import com.android.tools.r8.utils.compiledump.StartupProfileDumpUtils;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -72,8 +73,8 @@ public class CompileDumpD8 extends CompileDumpBase {
     List<Path> startupProfileFiles = new ArrayList<>();
     int minApi = 1;
     int threads = -1;
-    boolean enableMissingLibraryApiModeling = false;
-    boolean androidPlatformBuild = false;
+    BooleanBox enableMissingLibraryApiModeling = new BooleanBox(false);
+    BooleanBox androidPlatformBuild = new BooleanBox(false);
     for (int i = 0; i < args.length; i++) {
       String option = args[i];
       if (VALID_OPTIONS.contains(option)) {
@@ -94,10 +95,10 @@ public class CompileDumpD8 extends CompileDumpBase {
               break;
             }
           case "--enable-missing-library-api-modeling":
-            enableMissingLibraryApiModeling = true;
+            enableMissingLibraryApiModeling.set(true);
             break;
           case "--android-platform-build":
-            androidPlatformBuild = true;
+            androidPlatformBuild.set(true);
             break;
           default:
             throw new IllegalArgumentException("Unimplemented option: " + option);
@@ -183,8 +184,16 @@ public class CompileDumpD8 extends CompileDumpBase {
           () -> StartupProfileDumpUtils.addStartupProfiles(startupProfileFiles, commandBuilder),
           "Could not add startup profiles.");
     }
-    setAndroidPlatformBuild(commandBuilder, androidPlatformBuild);
-    setEnableExperimentalMissingLibraryApiModeling(commandBuilder, enableMissingLibraryApiModeling);
+    runIgnoreMissing(
+        () ->
+            CompilerCommandDumpUtils.setAndroidPlatformBuild(
+                commandBuilder, androidPlatformBuild.get()),
+        "Android platform flag not available.");
+    runIgnoreMissing(
+        () ->
+            CompilerCommandDumpUtils.setEnableExperimentalMissingLibraryApiModeling(
+                commandBuilder, enableMissingLibraryApiModeling.get()),
+        "Missing library api modeling not available.");
     if (desugaredLibJson != null) {
       commandBuilder.addDesugaredLibraryConfiguration(readAllBytesJava7(desugaredLibJson));
     }
