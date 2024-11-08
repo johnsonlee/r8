@@ -19,7 +19,10 @@ import com.android.tools.r8.ir.code.Value;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntRBTreeSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -34,25 +37,27 @@ public class RegisterMoveScheduler {
   // Mapping to keep track of which values currently corresponds to each other.
   // This is initially an identity map but changes as we insert moves.
   private final Int2IntMap valueMap = new Int2IntOpenHashMap();
-  // Number of temp registers used to schedule the moves.
-  private int usedTempRegisters = 0;
   // Location at which to insert the scheduled moves.
   private final InstructionListIterator insertAt;
   // Debug position associated with insertion point.
   private final Position position;
   // The first available temporary register.
-  private final int tempRegister;
+  private final int firstTempRegister;
+  private int nextTempRegister;
+  // Free registers.
+  private final IntSortedSet freeRegisters = new IntRBTreeSet();
 
   public RegisterMoveScheduler(
-      InstructionListIterator insertAt, int tempRegister, Position position) {
+      InstructionListIterator insertAt, int firstTempRegister, Position position) {
     this.insertAt = insertAt;
-    this.tempRegister = tempRegister;
+    this.firstTempRegister = firstTempRegister;
+    this.nextTempRegister = firstTempRegister;
     this.position = position;
     this.valueMap.defaultReturnValue(NO_REGISTER);
   }
 
-  public RegisterMoveScheduler(InstructionListIterator insertAt, int tempRegister) {
-    this(insertAt, tempRegister, Position.none());
+  public RegisterMoveScheduler(InstructionListIterator insertAt, int firstTempRegister) {
+    this(insertAt, firstTempRegister, Position.none());
   }
 
   public void addMove(RegisterMove move) {
@@ -117,7 +122,7 @@ public class RegisterMoveScheduler {
   }
 
   public int getUsedTempRegisters() {
-    return usedTempRegisters;
+    return nextTempRegister - firstTempRegister;
   }
 
   private List<RegisterMove> findMovesWithSrc(int src, TypeElement type) {
@@ -159,14 +164,15 @@ public class RegisterMoveScheduler {
         }
       }
     } else {
+      int mappedSrc = valueMap.get(move.src);
       Value to = new FixedRegisterValue(move.type, move.dst);
-      Value from = new FixedRegisterValue(move.type, valueMap.get(move.src));
+      Value from = new FixedRegisterValue(move.type, mappedSrc);
       instruction = new Move(to, from);
+      returnTemporaryRegister(mappedSrc, move.isWide());
     }
     instruction.setPosition(position);
     insertAt.add(instruction);
     return move.dst;
-
   }
 
   private void createMoveDestToTemp(RegisterMove move) {
@@ -174,22 +180,68 @@ public class RegisterMoveScheduler {
     // registers if we are unlucky with the overlap for values that use two registers.
     List<RegisterMove> movesWithSrc = findMovesWithSrc(move.dst, move.type);
     assert movesWithSrc.size() > 0;
+    assert verifyMovesHaveDifferentSources(movesWithSrc);
     for (RegisterMove moveWithSrc : movesWithSrc) {
-      // TODO(b/375147902): For now we always use a new temporary register whenever we have to
-      //  unblock a move. The move scheduler can have multiple unblocking temps live at the same
-      //  time and therefore we cannot have just one tempRegister (pair). However, we could check
-      //  here if the previously used tempRegisters is still needed by any of the moves in the move
-      //  set (taking the value map into account). If not, we can reuse the temp register instead
-      //  of generating a new one.
-      int register = tempRegister + usedTempRegisters;
+      // TODO(b/375147902): Maybe seed the move scheduler with a set of registers known to be free
+      //  at this point.
+      int register = takeFreeRegister(moveWithSrc.isWide());
       Value to = new FixedRegisterValue(moveWithSrc.type, register);
       Value from = new FixedRegisterValue(moveWithSrc.type, valueMap.get(moveWithSrc.src));
       Move instruction = new Move(to, from);
       instruction.setPosition(position);
       insertAt.add(instruction);
       valueMap.put(moveWithSrc.src, register);
-      usedTempRegisters += moveWithSrc.type.requiredRegisters();
     }
+  }
+
+  private int takeFreeRegister(boolean wide) {
+    for (int freeRegister : freeRegisters) {
+      if (wide && !freeRegisters.remove(freeRegister + 1)) {
+        continue;
+      }
+      freeRegisters.remove(freeRegister);
+      return freeRegister;
+    }
+    // We don't have a free register.
+    int register = allocateExtraRegister();
+    if (!wide) {
+      return register;
+    }
+    if (freeRegisters.remove(register - 1)) {
+      return register - 1;
+    }
+    allocateExtraRegister();
+    return register;
+  }
+
+  private void returnTemporaryRegister(int register, boolean wide) {
+    // TODO(b/375147902): If we seed the move scheduler with a set of free registers, then this
+    //  should also return non-temporary registers that are below firstTempRegister.
+    if (isTemporaryRegister(register)) {
+      freeRegisters.add(register);
+      if (wide) {
+        assert isTemporaryRegister(register + 1);
+        freeRegisters.add(register + 1);
+      }
+    } else if (wide && isTemporaryRegister(register + 1)) {
+      freeRegisters.add(register + 1);
+    }
+  }
+
+  private boolean isTemporaryRegister(int register) {
+    return register >= firstTempRegister;
+  }
+
+  private int allocateExtraRegister() {
+    return nextTempRegister++;
+  }
+
+  private boolean verifyMovesHaveDifferentSources(List<RegisterMove> movesWithSrc) {
+    IntSet seen = new IntOpenHashSet();
+    for (RegisterMove move : movesWithSrc) {
+      assert seen.add(move.src);
+    }
+    return true;
   }
 
   private RegisterMove pickMoveToUnblock() {

@@ -5,6 +5,9 @@ package com.android.tools.r8.ir.regalloc;
 
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
@@ -39,8 +42,12 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
-public class RegisterMoveSchedulerTest {
+@RunWith(Parameterized.class)
+public class RegisterMoveSchedulerTest extends TestBase {
 
   private static class CollectMovesIterator implements InstructionListIterator {
 
@@ -242,6 +249,15 @@ public class RegisterMoveSchedulerTest {
         DexProgramClass downcast) {
       throw new Unimplemented();
     }
+  }
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
+  }
+
+  public RegisterMoveSchedulerTest(TestParameters parameters) {
+    parameters.assertNoneRuntime();
   }
 
   @Test
@@ -486,6 +502,26 @@ public class RegisterMoveSchedulerTest {
     assertEquals(43, moves.get(5).asMove().src().asFixedRegisterValue().getRegister());
   }
 
+  @Test
+  public void reuseTempRegister() {
+    CollectMovesIterator moves = new CollectMovesIterator();
+    int temp = 42;
+    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp);
+    scheduler.addMove(new RegisterMove(0, 1, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(1, 0, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(2, 3, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(3, 2, TypeElement.getInt()));
+    scheduler.schedule();
+    // Verify that the temp register has been reused.
+    assertEquals("42 <- 1", toString(moves.get(0)));
+    assertEquals("1 <- 0", toString(moves.get(1)));
+    assertEquals("0 <- 42", toString(moves.get(2)));
+    assertEquals("42 <- 3", toString(moves.get(3)));
+    assertEquals("3 <- 2", toString(moves.get(4)));
+    assertEquals("2 <- 42", toString(moves.get(5)));
+    assertEquals(1, scheduler.getUsedTempRegisters());
+  }
+
   // Debugging aid.
   private void printMoves(List<Instruction> moves) {
     System.out.println("Generated moves:");
@@ -495,5 +531,11 @@ public class RegisterMoveSchedulerTest {
           move.asMove().src().asFixedRegisterValue().getRegister() + " (" + move.outType() + ")");
     }
     System.out.println("----------------");
+  }
+
+  private String toString(Instruction move) {
+    return move.outValue().asFixedRegisterValue().getRegister()
+        + " <- "
+        + move.getFirstOperand().asFixedRegisterValue().getRegister();
   }
 }
