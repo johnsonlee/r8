@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 
 /**
@@ -116,29 +115,7 @@ public class ArchiveClassFileProvider
 
   @Override
   public void accept(Visitor resourceBrowser) throws ResourceException {
-    try (ZipFile zipFile = FileUtils.createZipFile(archive.toFile(), StandardCharsets.UTF_8)) {
-      final Enumeration<? extends ZipEntry> entries = zipFile.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry entry = entries.nextElement();
-        String name = entry.getName();
-        if (!ZipUtils.isClassFile(name)) {
-          if (entry.isDirectory()) {
-            resourceBrowser.visit(DataDirectoryResource.fromZip(zipFile, entry));
-          } else {
-            resourceBrowser.visit(DataEntryResource.fromZip(zipFile, entry));
-          }
-        }
-      }
-    } catch (ZipException e) {
-      throw new ResourceException(
-          origin,
-          new CompilationError("Zip error while reading '" + archive + "': " + e.getMessage(), e));
-    } catch (IOException e) {
-      throw new ResourceException(
-          origin,
-          new CompilationError(
-              "I/O exception while reading '" + archive + "': " + e.getMessage(), e));
-    }
+    ZipUtils.visitWithResourceBrowser(archive, origin, resourceBrowser);
   }
 
   private void reopenZipFile() throws IOException {
