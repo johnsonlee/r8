@@ -9,6 +9,7 @@ import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.cf.code.frame.PreciseFrameType;
 import com.android.tools.r8.cf.code.frame.UninitializedFrameType;
+import com.android.tools.r8.cf.code.frame.UninitializedNew;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -281,7 +282,10 @@ public class CfFrame extends CfInstruction implements Cloneable {
       registry.registerTypeReference(
           frameType.asInitializedNonNullReferenceTypeWithoutInterfaces().getInitializedType());
     } else if (frameType.isUninitializedNew()) {
-      registry.registerTypeReference(frameType.asUninitializedNew().getUninitializedNewType());
+      UninitializedNew uninitializedNew = frameType.asUninitializedNew();
+      if (uninitializedNew.getUninitializedNewType() != null) {
+        registry.registerTypeReference(uninitializedNew.getUninitializedNewType());
+      }
     }
   }
 
