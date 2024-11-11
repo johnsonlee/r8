@@ -43,6 +43,8 @@ public class ResourceShrinkingWithFeatures extends TestBase {
     return buildParameters(
         getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
         BooleanUtils.values(),
+        // Ensure that we can handle resource ids both bigger and smaller than 127, see
+        // b/378470047
         new Integer[] {0x7E, 0x80});
   }
 
@@ -118,16 +120,9 @@ public class ResourceShrinkingWithFeatures extends TestBase {
             })
         .inspectShrunkenResourcesForFeature(
             resourceTableInspector -> {
-              // TODO(b/378470047): Resource shrinker is currently not handling packageId>127
-              // correctly
-              if (featurePackageId > 127) {
-                resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
-                resourceTableInspector.assertContainsResourceWithName("string", "feature_unused");
-              } else {
                 resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
                 resourceTableInspector.assertDoesNotContainResourceWithName(
                     "string", "feature_unused");
-              }
             },
             FeatureSplit.class.getName())
         .run(parameters.getRuntime(), Base.class)

@@ -111,7 +111,7 @@ fun toIdentifier(
 private fun packageIdFromIdentifier(
     identifier: Int
 ): Int =
-    identifier shr 24
+    identifier ushr 24
 
 private fun typeIdFromIdentifier(
     identifier: Int
