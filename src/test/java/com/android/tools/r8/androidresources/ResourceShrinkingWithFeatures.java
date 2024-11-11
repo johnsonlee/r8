@@ -35,11 +35,15 @@ public class ResourceShrinkingWithFeatures extends TestBase {
   @Parameter(1)
   public boolean optimized;
 
-  @Parameters(name = "{0}, optimized: {1}")
+  @Parameter(2)
+  public int featurePackageId;
+
+  @Parameters(name = "{0}, optimized: {1}, feature_package_id: {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
-        BooleanUtils.values());
+        BooleanUtils.values(),
+        new Integer[] {0x7E, 0x80});
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -49,11 +53,10 @@ public class ResourceShrinkingWithFeatures extends TestBase {
         .build(temp);
   }
 
-  public static AndroidTestResource getFeatureSplitTestResources(TemporaryFolder temp)
-      throws IOException {
+  public AndroidTestResource getFeatureSplitTestResources(TemporaryFolder temp) throws IOException {
     return new AndroidTestResourceBuilder()
         .withSimpleManifestAndAppNameString()
-        .setPackageId(0x7E)
+        .setPackageId(featurePackageId)
         .addRClassInitializeWithDefaultValues(FeatureSplit.R.string.class)
         .build(temp);
   }
@@ -115,9 +118,16 @@ public class ResourceShrinkingWithFeatures extends TestBase {
             })
         .inspectShrunkenResourcesForFeature(
             resourceTableInspector -> {
-              resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "feature_unused");
+              // TODO(b/378470047): Resource shrinker is currently not handling packageId>127
+              // correctly
+              if (featurePackageId > 127) {
+                resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
+                resourceTableInspector.assertContainsResourceWithName("string", "feature_unused");
+              } else {
+                resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "feature_unused");
+              }
             },
             FeatureSplit.class.getName())
         .run(parameters.getRuntime(), Base.class)
