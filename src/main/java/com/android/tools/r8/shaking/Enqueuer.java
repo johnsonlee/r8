@@ -4187,7 +4187,7 @@ public class Enqueuer {
     }
   }
 
-  private void synthesize() throws ExecutionException {
+  private void synthesize(Timing timing) throws ExecutionException {
     if (!mode.isInitialTreeShaking()) {
       return;
     }
@@ -4195,20 +4195,20 @@ public class Enqueuer {
     // In particular these additions are order independent, i.e., it does not matter which are
     // registered first and no dependencies may exist among them.
     SyntheticAdditions additions = new SyntheticAdditions(appView.createProcessorContext());
-    desugar(additions);
-    synthesizeInterfaceMethodBridges();
+    timing.time("Desugar", () -> desugar(additions));
+    timing.time("Synthesize interface method bridges", this::synthesizeInterfaceMethodBridges);
     if (additions.isEmpty()) {
       return;
     }
 
     // Commit the pending synthetics and recompute subtypes.
-    appInfo = appInfo.rebuildWithClassHierarchy(app -> app);
+    appInfo = timing.time("Rebuild AppInfo", () -> appInfo.rebuildWithClassHierarchy(app -> app));
     appView.setAppInfo(appInfo);
-    subtypingInfo = SubtypingInfo.create(appView);
+    subtypingInfo = timing.time("Create SubtypingInfo", () -> SubtypingInfo.create(appView));
 
     // Finally once all synthesized items "exist" it is now safe to continue tracing. The new work
     // items are enqueued and the fixed point will continue once this subroutine returns.
-    additions.enqueueWorkItems(this);
+    timing.time("Enqueue work items", () -> additions.enqueueWorkItems(this));
   }
 
   private boolean mustMoveToInterfaceCompanionMethod(ProgramMethod method) {
@@ -4638,7 +4638,9 @@ public class Enqueuer {
   private void trace(ExecutorService executorService, Timing timing) throws ExecutionException {
     timing.begin("Grow the tree.");
     try {
+      int round = 1;
       while (true) {
+        timing.begin("Compute fixpoint #" + round++);
         long numberOfLiveItems = getNumberOfLiveItems();
         while (worklist.hasNext()) {
           EnqueuerAction action = worklist.poll();
@@ -4651,38 +4653,49 @@ public class Enqueuer {
           timing.time("Conditional rules", () -> applicableRules.evaluateConditionalRules(this));
           assert getNumberOfLiveItems() == numberOfLiveItemsAfterProcessing;
           if (worklist.hasNext()) {
+            timing.end();
             continue;
           }
         }
 
         // Process all deferred annotations.
+        timing.begin("Process deferred annotations");
         processDeferredAnnotations(deferredAnnotations, AnnotatedKind::from);
         processDeferredAnnotations(
             deferredParameterAnnotations, annotatedItem -> AnnotatedKind.PARAMETER);
+        timing.end();
 
         // Continue fix-point processing while there are additional work items to ensure items that
         // are passed to Java reflections are traced.
         if (!pendingReflectiveUses.isEmpty()) {
+          timing.begin("Handle reflective behavior");
           pendingReflectiveUses.forEach(this::handleReflectiveBehavior);
           pendingReflectiveUses.clear();
+          timing.end();
         }
         if (worklist.hasNext()) {
+          timing.end();
           continue;
         }
 
         // Allow deferred tracing to enqueue worklist items.
-        if (deferredTracing.enqueueWorklistActions(worklist)) {
+        if (deferredTracing.enqueueWorklistActions(worklist, timing)) {
           assert worklist.hasNext();
+          timing.end();
           continue;
         }
 
         // Notify each analysis that a fixpoint has been reached, and give each analysis an
         // opportunity to add items to the worklist.
-        analyses.notifyFixpoint(this, worklist, executorService, timing);
+        timing.time(
+            "Notify analyses",
+            () -> analyses.notifyFixpoint(this, worklist, executorService, timing));
         if (worklist.hasNext()) {
+          timing.end();
           continue;
         }
 
+        timing.begin("Process delayed root set items");
         for (DelayedRootSetActionItem delayedRootSetActionItem :
             rootSet.delayedRootSetActionItems) {
           if (delayedRootSetActionItem.isInterfaceMethodSyntheticBridgeAction()) {
@@ -4690,26 +4703,31 @@ public class Enqueuer {
                 delayedRootSetActionItem.asInterfaceMethodSyntheticBridgeAction());
           }
         }
+        timing.end();
 
-        synthesize();
+        timing.time("Synthesize", () -> synthesize(timing));
 
+        timing.begin("Delayed interface method synthetic bridges");
         ConsequentRootSet consequentRootSet = computeDelayedInterfaceMethodSyntheticBridges();
         addConsequentRootSet(consequentRootSet);
         rootSet
             .getDependentMinimumKeepInfo()
             .merge(consequentRootSet.getDependentMinimumKeepInfo());
         rootSet.delayedRootSetActionItems.clear();
+        timing.end();
 
         if (worklist.hasNext()) {
+          timing.end();
           continue;
         }
 
         // Reached the fixpoint.
+        timing.end();
         break;
       }
 
       if (mode.isInitialTreeShaking()) {
-        postProcessingDesugaring();
+        timing.time("Post processing desugaring", this::postProcessingDesugaring);
       }
     } finally {
       timing.end();

@@ -14,6 +14,7 @@ import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
 import com.android.tools.r8.shaking.Enqueuer.Mode;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Timing;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -56,7 +57,7 @@ public abstract class EnqueuerDeferredTracing {
    *
    * @return true if any worklist items were enqueued.
    */
-  public abstract boolean enqueueWorklistActions(EnqueuerWorklist worklist);
+  public abstract boolean enqueueWorklistActions(EnqueuerWorklist worklist, Timing timing);
 
   /**
    * Called when tree shaking has ended, to allow rewriting the application according to the tracing

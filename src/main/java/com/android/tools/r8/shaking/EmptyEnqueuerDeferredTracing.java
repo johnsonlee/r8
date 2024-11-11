@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
+import com.android.tools.r8.utils.Timing;
 import java.util.concurrent.ExecutorService;
 
 public class EmptyEnqueuerDeferredTracing extends EnqueuerDeferredTracing {
@@ -25,7 +26,7 @@ public class EmptyEnqueuerDeferredTracing extends EnqueuerDeferredTracing {
   }
 
   @Override
-  public boolean enqueueWorklistActions(EnqueuerWorklist worklist) {
+  public boolean enqueueWorklistActions(EnqueuerWorklist worklist, Timing timing) {
     return false;
   }
 

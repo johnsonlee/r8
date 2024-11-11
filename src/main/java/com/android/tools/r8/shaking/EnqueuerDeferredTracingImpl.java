@@ -229,15 +229,19 @@ public class EnqueuerDeferredTracingImpl extends EnqueuerDeferredTracing {
   }
 
   @Override
-  public boolean enqueueWorklistActions(EnqueuerWorklist worklist) {
-    return deferredEnqueuerActions.removeIf(
-        (field, worklistActions) -> {
-          if (isEligibleForPruning(field)) {
-            return false;
-          }
-          worklist.enqueueAll(worklistActions);
-          return true;
-        });
+  public boolean enqueueWorklistActions(EnqueuerWorklist worklist, Timing timing) {
+    timing.begin("Process deferred tracing");
+    boolean changed =
+        deferredEnqueuerActions.removeIf(
+            (field, worklistActions) -> {
+              if (isEligibleForPruning(field)) {
+                return false;
+              }
+              worklist.enqueueAll(worklistActions);
+              return true;
+            });
+    timing.end();
+    return changed;
   }
 
   @Override
