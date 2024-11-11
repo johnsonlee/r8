@@ -38,8 +38,7 @@ import java.util.zip.ZipFile;
  * resources in the descriptor set will then force the read of zip entry contents.
  */
 @KeepForApi
-public class ArchiveClassFileProvider
-    implements ClassFileResourceProvider, DataResourceProvider, Closeable {
+public class ArchiveClassFileProvider implements ClassFileResourceProvider, Closeable {
   private final Path archive;
   private final Origin origin;
   private final Predicate<String> include;
@@ -106,16 +105,6 @@ public class ArchiveClassFileProvider
     }
     lazyZipFile = null;
     lazyDescriptors = null;
-  }
-
-  @Override
-  public DataResourceProvider getDataResourceProvider() {
-    return this;
-  }
-
-  @Override
-  public void accept(Visitor resourceBrowser) throws ResourceException {
-    ZipUtils.visitWithResourceBrowser(archive, origin, resourceBrowser);
   }
 
   private void reopenZipFile() throws IOException {

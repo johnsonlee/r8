@@ -5,6 +5,8 @@ package com.android.tools.r8.utils;
 
 import static com.android.tools.r8.utils.FileUtils.isArchive;
 
+import com.android.tools.r8.DataDirectoryResource;
+import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
@@ -115,7 +117,27 @@ public class ArchiveResourceProvider implements ProgramResourceProvider, DataRes
 
   @Override
   public void accept(Visitor resourceBrowser) throws ResourceException {
-    ZipUtils.visitWithResourceBrowser(archive.getPath(), origin, resourceBrowser);
+    try (ZipFile zipFile =
+        FileUtils.createZipFile(archive.getPath().toFile(), StandardCharsets.UTF_8)) {
+      final Enumeration<? extends ZipEntry> entries = zipFile.entries();
+      while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        String name = entry.getName();
+        if (archive.matchesFile(name) && !isProgramResourceName(name)) {
+          if (entry.isDirectory()) {
+            resourceBrowser.visit(DataDirectoryResource.fromZip(zipFile, entry));
+          } else {
+            resourceBrowser.visit(DataEntryResource.fromZip(zipFile, entry));
+          }
+        }
+      }
+    } catch (ZipException e) {
+      throw new ResourceException(origin, new CompilationError(
+          "Zip error while reading '" + archive + "': " + e.getMessage(), e));
+    } catch (IOException e) {
+      throw new ResourceException(origin, new CompilationError(
+          "I/O exception while reading '" + archive + "': " + e.getMessage(), e));
+    }
   }
 
   private boolean isProgramResourceName(String name) {

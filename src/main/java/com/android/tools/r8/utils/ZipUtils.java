@@ -10,12 +10,10 @@ import static com.android.tools.r8.utils.FileUtils.MODULE_INFO_CLASS;
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.DataDirectoryResource;
 import com.android.tools.r8.DataEntryResource;
-import com.android.tools.r8.DataResourceProvider.Visitor;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.androidapi.AndroidApiDataAccess;
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
@@ -46,7 +44,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
@@ -394,30 +391,5 @@ public class ZipUtils {
       }
     }
     return -1;
-  }
-
-  public static void visitWithResourceBrowser(Path path, Origin origin, Visitor resourceBrowser)
-      throws ResourceException {
-    try {
-      ZipUtils.iterWithZipFile(
-          path,
-          (zipFile, entry) -> {
-            if (!ZipUtils.isClassFile(entry.getName())) {
-              if (entry.isDirectory()) {
-                resourceBrowser.visit(DataDirectoryResource.fromZip(zipFile, entry));
-              } else {
-                resourceBrowser.visit(DataEntryResource.fromZip(zipFile, entry));
-              }
-            }
-          });
-    } catch (ZipException e) {
-      throw new ResourceException(
-          origin,
-          new CompilationError("Zip error while reading '" + path + "': " + e.getMessage(), e));
-    } catch (IOException e) {
-      throw new ResourceException(
-          origin,
-          new CompilationError("I/O exception while reading '" + path + "': " + e.getMessage(), e));
-    }
   }
 }

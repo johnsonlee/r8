@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticOrigin;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.OriginMatcher.hasPart;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
@@ -28,6 +29,7 @@ import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.ResourceException;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -111,19 +113,23 @@ public class LibraryProvidedProguardRulesFromClasspathOrLibraryTest
         buildLibrary(
             ImmutableList.of(
                 "-keep class * implements " + Interface.class.getTypeName() + " { *; }"));
-    testForR8(parameters.getBackend())
-        .addProgramClasses(A.class, B.class)
-        .addKeepRules("-libraryjars " + library.toAbsolutePath())
-        .addKeepRules("-libraryjars " + library.toAbsolutePath())
-        .setMinApi(parameters)
-        .allowStdoutMessages()
-        .apply(b -> ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(b.getBuilder(), true))
-        .compile()
-        .inspect(
-            inspector -> {
-              assertThat(inspector.clazz(A.class), isPresent());
-              assertThat(inspector.clazz(B.class), not(isPresent()));
-            });
+    assertThrows(
+        CompilationFailedException.class,
+        () ->
+            testForR8(parameters.getBackend())
+                .addProgramClasses(A.class, B.class)
+                .addKeepRules("-libraryjars " + library.toAbsolutePath())
+                .addKeepRules("-libraryjars " + library.toAbsolutePath())
+                .setMinApi(parameters)
+                .allowStdoutMessages()
+                .apply(
+                    b ->
+                        ToolHelper.setReadEmbeddedRulesFromClasspathAndLibrary(
+                            b.getBuilder(), true))
+                .compileWithExpectedDiagnostics(
+                    diagnostics ->
+                        diagnostics.assertErrorsMatch(
+                            diagnosticType(DuplicateTypesDiagnostic.class))));
   }
 
   @Test

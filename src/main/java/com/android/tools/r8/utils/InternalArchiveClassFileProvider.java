@@ -7,6 +7,8 @@ import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.isArchive;
 
 import com.android.tools.r8.ClassFileResourceProvider;
+import com.android.tools.r8.DataDirectoryResource;
+import com.android.tools.r8.DataEntryResource;
 import com.android.tools.r8.DataResourceProvider;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.ProgramResource;
@@ -141,6 +143,22 @@ class InternalArchiveClassFileProvider
 
   @Override
   public void accept(Visitor resourceBrowser) throws ResourceException {
-    ZipUtils.visitWithResourceBrowser(path, origin, resourceBrowser);
+    try {
+      ZipUtils.iterWithZipFile(
+          path,
+          (zipFile, entry) -> {
+            if (!ZipUtils.isClassFile(entry.getName())) {
+              if (entry.isDirectory()) {
+                resourceBrowser.visit(DataDirectoryResource.fromZip(zipFile, entry));
+              } else {
+                resourceBrowser.visit(DataEntryResource.fromZip(zipFile, entry));
+              }
+            }
+          });
+    } catch (IOException e) {
+      throw new ResourceException(
+          origin,
+          new CompilationError("I/O exception while reading '" + path + "': " + e.getMessage(), e));
+    }
   }
 }
