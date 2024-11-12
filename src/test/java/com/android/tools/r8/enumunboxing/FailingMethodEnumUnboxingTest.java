@@ -9,7 +9,6 @@ import static org.junit.Assert.assertEquals;
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.R8TestCompileResult;
-import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.EnumSet;
@@ -72,11 +71,8 @@ public class FailingMethodEnumUnboxingTest extends EnumUnboxingTestBase {
     for (Class<?> main : TESTS) {
       compile
           .run(parameters.getRuntime(), main)
-          .applyIf(
-              main == EnumSetTest.class && enumKeepRules.getKeepRules().isEmpty(),
-              // EnumSet and EnumMap cannot be used without the enumKeepRules.
-              SingleTestRunResult::assertFailure,
-              result -> result.assertSuccess().inspectStdOut(this::assertLines2By2Correct));
+          .assertSuccess()
+          .inspectStdOut(this::assertLines2By2Correct);
     }
   }
 
