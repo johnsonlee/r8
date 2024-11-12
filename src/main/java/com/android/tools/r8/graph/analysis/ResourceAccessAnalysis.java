@@ -65,7 +65,11 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
                   && definition.getStaticValue().isDexValueResourceNumber()) {
                 appView
                     .getResourceShrinkerState()
-                    .trace(definition.getStaticValue().asDexValueResourceNumber().getValue());
+                    .trace(
+                        definition.getStaticValue().asDexValueResourceNumber().getValue(),
+                        // TODO(b/378625969): Consider wrapping this in a reachability structure
+                        // to avoid decoding.
+                        field.toString());
               }
             }
           });
@@ -110,7 +114,7 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
       // these.
       if (integers != null) {
         for (Integer integer : integers) {
-          resourceShrinkerState.trace(integer);
+          resourceShrinkerState.trace(integer, field.toString());
         }
       }
     }

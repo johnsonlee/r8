@@ -118,7 +118,20 @@ public class ResourceShrinkerLoggingTest extends TestBase {
       ensureResourceReachabilityState(strings, "drawable", "foobar", true);
       ensureRootResourceState(strings, "drawable", "foobar", true);
       ensureUnusedState(strings, "drawable", "foobar", false);
+    } else {
+      assertTrue(finished.get());
+      List<String> strings = StringUtils.splitLines(log.toString());
+      ensureReachableOptimized(strings, "string", "bar", true);
+      ensureReachableOptimized(strings, "string", "foo", true);
+      ensureReachableOptimized(strings, "drawable", "foobar", true);
+      ensureReachableOptimized(strings, "drawable", "unused_drawable", false);
     }
+  }
+
+  private void ensureReachableOptimized(
+      List<String> logStrings, String type, String name, boolean reachable) {
+    assertEquals(
+        logStrings.stream().anyMatch(s -> s.startsWith(type + ":" + name + ":")), reachable);
   }
 
   private void ensureDexReachableResourcesState(

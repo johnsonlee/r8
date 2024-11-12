@@ -44,6 +44,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -58,11 +59,13 @@ public class R8ResourceShrinkerState {
   private final List<Supplier<InputStream>> manifestProviders = new ArrayList<>();
   private final Map<String, Supplier<InputStream>> resfileProviders = new HashMap<>();
   private final Map<FeatureSplit, ResourceTable> resourceTables = new HashMap<>();
+  private final ShrinkerDebugReporter shrinkerDebugReporter;
   private ClassReferenceCallback enqueuerCallback;
   private Map<Integer, List<String>> resourceIdToXmlFiles;
   private Set<String> packageNames;
   private final Set<String> seenNoneClassValues = new HashSet<>();
   private final Set<Integer> seenResourceIds = new HashSet<>();
+  private final Map<Resource, String> reachabilityMap = new ConcurrentHashMap<>();
 
   private static final Set<String> SPECIAL_MANIFEST_ELEMENTS =
       ImmutableSet.of(
@@ -86,10 +89,11 @@ public class R8ResourceShrinkerState {
       Function<Exception, RuntimeException> errorHandler,
       ShrinkerDebugReporter shrinkerDebugReporter) {
     r8ResourceShrinkerModel = new R8ResourceShrinkerModel(shrinkerDebugReporter, true);
+    this.shrinkerDebugReporter = shrinkerDebugReporter;
     this.errorHandler = errorHandler;
   }
 
-  public void trace(int id) {
+  public void trace(int id, String reachableFrom) {
     if (!seenResourceIds.add(id)) {
       return;
     }
@@ -97,12 +101,17 @@ public class R8ResourceShrinkerState {
     if (resource == null) {
       return;
     }
+    assert reachableFrom != null;
+
+    // For deterministic output, sort the strings lexicographically.
+    reachabilityMap.compute(
+        resource, (r, v) -> v == null || v.compareTo(reachableFrom) > 0 ? reachableFrom : v);
     ResourceUsageModel.markReachable(resource);
     traceXmlForResourceId(id);
     if (resource.references != null) {
       for (Resource reference : resource.references) {
         if (!reference.isReachable()) {
-          trace(reference.value);
+          trace(reference.value, reference.toString());
         }
       }
     }
@@ -122,7 +131,7 @@ public class R8ResourceShrinkerState {
     r8ResourceShrinkerModel
         .getResourceStore()
         .processToolsAttributes()
-        .forEach(resource -> trace(resource.value));
+        .forEach(resource -> trace(resource.value, "keep xml file"));
     for (Supplier<InputStream> manifestProvider : manifestProviders) {
       traceXml("AndroidManifest.xml", manifestProvider.get());
     }
@@ -212,6 +221,13 @@ public class R8ResourceShrinkerState {
               featureSplit,
               ResourceTableUtilKt.nullOutEntriesWithIds(resourceTable, resourceIdsToRemove, true));
         });
+    for (Map.Entry<Resource, String> resourceStringEntry : reachabilityMap.entrySet()) {
+      shrinkerDebugReporter.debug(
+          () ->
+              resourceStringEntry.getKey().toString()
+                  + " reachable from "
+                  + resourceStringEntry.getValue());
+    }
     return new ShrinkerResult(resEntriesToKeep, shrunkenTables);
   }
 
@@ -243,7 +259,7 @@ public class R8ResourceShrinkerState {
       // resources for the reachable marker.
       ProtoAndroidManifestUsageRecorderKt.recordUsagesFromNode(xmlNode, r8ResourceShrinkerModel)
           .iterator()
-          .forEachRemaining(resource -> trace(resource.value));
+          .forEachRemaining(resource -> trace(resource.value, xmlFile));
     } catch (IOException e) {
       errorHandler.apply(e);
     }

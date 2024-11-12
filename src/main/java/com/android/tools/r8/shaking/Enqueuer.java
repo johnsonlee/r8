@@ -1129,7 +1129,7 @@ public class Enqueuer {
   }
 
   public void traceResourceValue(int value) {
-    appView.getResourceShrinkerState().trace(value);
+    appView.getResourceShrinkerState().trace(value, "from dex");
   }
 
   public void traceReflectiveFieldWrite(ProgramField field, ProgramMethod context) {
