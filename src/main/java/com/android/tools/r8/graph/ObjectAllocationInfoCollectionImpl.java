@@ -491,16 +491,13 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
         GraphLens lens,
         GraphLens appliedLens) {
       instantiatedHierarchy = null;
-      objectAllocationInfos.classesWithoutAllocationSiteTracking.forEach(
-          clazz -> {
-            DexType type = lens.lookupType(clazz.type, appliedLens);
-            if (type.isPrimitiveType()) {
-              return;
-            }
-            DexProgramClass rewrittenClass = asProgramClassOrNull(definitions.definitionFor(type));
-            assert rewrittenClass != null;
-            classesWithoutAllocationSiteTracking.add(rewrittenClass);
-          });
+      rewrittenWithLens(
+          objectAllocationInfos.classesWithoutAllocationSiteTracking,
+          definitions,
+          lens,
+          appliedLens,
+          classesWithoutAllocationSiteTracking,
+          true);
       objectAllocationInfos.classesWithAllocationSiteTracking.forEach(
           (clazz, allocationSitesForClass) -> {
             DexType type = lens.lookupType(clazz.type, appliedLens);
@@ -520,30 +517,20 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
                     LensUtils.rewrittenWithRenamedSignature(
                         allocationSitesForClass, definitions, lens));
           });
-      for (DexProgramClass abstractType :
-          objectAllocationInfos.interfacesWithUnknownSubtypeHierarchy) {
-        DexType type = lens.lookupType(abstractType.type, appliedLens);
-        if (type.isPrimitiveType()) {
-          assert false;
-          continue;
-        }
-        DexProgramClass rewrittenClass = asProgramClassOrNull(definitions.definitionFor(type));
-        assert rewrittenClass != null;
-        assert !interfacesWithUnknownSubtypeHierarchy.contains(rewrittenClass);
-        interfacesWithUnknownSubtypeHierarchy.add(rewrittenClass);
-      }
-      for (DexProgramClass abstractType :
-          objectAllocationInfos.annotationsWithUnknownSubtypeHierarchy) {
-        DexType type = lens.lookupType(abstractType.type, appliedLens);
-        if (type.isPrimitiveType()) {
-          assert false;
-          continue;
-        }
-        DexProgramClass rewrittenClass = asProgramClassOrNull(definitions.definitionFor(type));
-        assert rewrittenClass != null;
-        assert !annotationsWithUnknownSubtypeHierarchy.contains(rewrittenClass);
-        annotationsWithUnknownSubtypeHierarchy.add(rewrittenClass);
-      }
+      rewrittenWithLens(
+          objectAllocationInfos.interfacesWithUnknownSubtypeHierarchy,
+          definitions,
+          lens,
+          appliedLens,
+          interfacesWithUnknownSubtypeHierarchy,
+          false);
+      rewrittenWithLens(
+          objectAllocationInfos.annotationsWithUnknownSubtypeHierarchy,
+          definitions,
+          lens,
+          appliedLens,
+          annotationsWithUnknownSubtypeHierarchy,
+          false);
       LensCodeRewriterUtils rewriter = new LensCodeRewriterUtils(definitions, lens, appliedLens);
       objectAllocationInfos.instantiatedLambdas.forEach(
           (iface, lambdas) -> {
@@ -559,6 +546,26 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
             }
           });
       return this;
+    }
+
+    private void rewrittenWithLens(
+        Set<DexProgramClass> toRewrite,
+        DexDefinitionSupplier definitions,
+        GraphLens lens,
+        GraphLens appliedLens,
+        Set<DexProgramClass> rewritten,
+        boolean allowCollissionsAndPrimitives) {
+      for (DexProgramClass clazz : toRewrite) {
+        DexType type = lens.lookupType(clazz.type, appliedLens);
+        if (type.isPrimitiveType()) {
+          assert allowCollissionsAndPrimitives;
+          continue;
+        }
+        DexProgramClass rewrittenClass = asProgramClassOrNull(definitions.definitionFor(type));
+        assert rewrittenClass != null;
+        boolean added = rewritten.add(rewrittenClass);
+        assert allowCollissionsAndPrimitives || added;
+      }
     }
 
     // Validation that all types are linked in the instantiated hierarchy map.
