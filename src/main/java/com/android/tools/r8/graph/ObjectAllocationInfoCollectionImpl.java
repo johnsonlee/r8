@@ -122,6 +122,16 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
     return clazz.isInterface() && interfacesWithUnknownSubtypeHierarchy.contains(clazz);
   }
 
+  /**
+   * Returns true if the type is an annotation interface which (by design) has an unknown subtype
+   * hierarchy.
+   */
+  public boolean isAnnotationInterfaceWithUnknownSubtypeHierarchy(DexProgramClass iface) {
+    return iface.isInterface()
+        && iface.isAnnotation()
+        && annotationsWithUnknownSubtypeHierarchy.contains(iface);
+  }
+
   /** Returns true if the type is an immediate interface of an instantiated lambda. */
   @Override
   public boolean isImmediateInterfaceOfInstantiatedLambda(DexProgramClass iface) {
@@ -521,6 +531,18 @@ public abstract class ObjectAllocationInfoCollectionImpl implements ObjectAlloca
         assert rewrittenClass != null;
         assert !interfacesWithUnknownSubtypeHierarchy.contains(rewrittenClass);
         interfacesWithUnknownSubtypeHierarchy.add(rewrittenClass);
+      }
+      for (DexProgramClass abstractType :
+          objectAllocationInfos.annotationsWithUnknownSubtypeHierarchy) {
+        DexType type = lens.lookupType(abstractType.type, appliedLens);
+        if (type.isPrimitiveType()) {
+          assert false;
+          continue;
+        }
+        DexProgramClass rewrittenClass = asProgramClassOrNull(definitions.definitionFor(type));
+        assert rewrittenClass != null;
+        assert !annotationsWithUnknownSubtypeHierarchy.contains(rewrittenClass);
+        annotationsWithUnknownSubtypeHierarchy.add(rewrittenClass);
       }
       LensCodeRewriterUtils rewriter = new LensCodeRewriterUtils(definitions, lens, appliedLens);
       objectAllocationInfos.instantiatedLambdas.forEach(

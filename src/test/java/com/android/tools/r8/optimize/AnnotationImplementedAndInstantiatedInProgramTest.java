@@ -15,8 +15,9 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+// This is a reproduction of b/378473616 (extracted from KT-72888)
 @RunWith(Parameterized.class)
-public class ReproduceKT72888Test extends TestBase {
+public class AnnotationImplementedAndInstantiatedInProgramTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -57,7 +58,7 @@ public class ReproduceKT72888Test extends TestBase {
         .addKeepRuntimeVisibleAnnotations()
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertFailureWithErrorThatThrows(ClassCastException.class);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Retention(RetentionPolicy.RUNTIME)
