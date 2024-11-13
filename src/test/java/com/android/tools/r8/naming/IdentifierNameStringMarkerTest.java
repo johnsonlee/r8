@@ -18,10 +18,9 @@ import com.android.tools.r8.dex.code.DexAputObject;
 import com.android.tools.r8.dex.code.DexConst4;
 import com.android.tools.r8.dex.code.DexConstClass;
 import com.android.tools.r8.dex.code.DexConstString;
-import com.android.tools.r8.dex.code.DexFilledNewArrayRange;
-import com.android.tools.r8.dex.code.DexInvokeDirectRange;
+import com.android.tools.r8.dex.code.DexFilledNewArray;
+import com.android.tools.r8.dex.code.DexInvokeDirect;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
-import com.android.tools.r8.dex.code.DexInvokeStaticRange;
 import com.android.tools.r8.dex.code.DexInvokeVirtual;
 import com.android.tools.r8.dex.code.DexIputObject;
 import com.android.tools.r8.dex.code.DexMoveResultObject;
@@ -86,10 +85,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
-            DexConstString.class,
-            DexIputObject.class,
-            DexReturnVoid.class));
+            DexInvokeDirect.class, DexConstString.class, DexIputObject.class, DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[1];
     assertEquals(BOO, constString.getString().toString());
   }
@@ -123,7 +119,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
@@ -164,7 +160,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
@@ -415,7 +411,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexConstString.class,
             DexConstString.class,
             DexInvokeStatic.class,
@@ -459,11 +455,11 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
-            DexInvokeStaticRange.class,
+            DexInvokeStatic.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[2];
     assertEquals(BOO, constString.getString().toString());
@@ -504,12 +500,12 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexSgetObject.class,
             DexConstString.class,
             DexInvokeVirtual.class,
             DexConstString.class,
-            DexInvokeStaticRange.class,
+            DexInvokeStatic.class,
             DexReturnVoid.class));
     DexConstString constString = (DexConstString) code.instructions[2];
     assertEquals(BOO, constString.getString().toString());
@@ -559,7 +555,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexConstClass.class,
             DexConstString.class,
             DexInvokeStatic.class,
@@ -610,7 +606,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
     checkInstructions(
         code,
         ImmutableList.of(
-            DexInvokeDirectRange.class,
+            DexInvokeDirect.class,
             DexConstClass.class,
             DexConstString.class,
             DexInvokeStatic.class,
@@ -666,13 +662,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
 
     DexCode code = method.getCode().asDexCode();
     // Accept either array construction style (differs based on minSdkVersion).
-    if (code.instructions[2].getClass() == DexFilledNewArrayRange.class) {
+    if (code.instructions[2].getClass() == DexFilledNewArray.class) {
       checkInstructions(
           code,
           ImmutableList.of(
-              DexInvokeDirectRange.class,
+              DexInvokeDirect.class,
               DexConstClass.class,
-              DexFilledNewArrayRange.class,
+              DexFilledNewArray.class,
               DexMoveResultObject.class,
               DexConstString.class,
               DexInvokeStatic.class,
@@ -681,7 +677,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
       checkInstructions(
           code,
           ImmutableList.of(
-              DexInvokeDirectRange.class,
+              DexInvokeDirect.class,
               DexConstClass.class,
               DexConst4.class,
               DexNewArray.class,
@@ -742,13 +738,13 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
 
     DexCode code = method.getCode().asDexCode();
     // Accept either array construction style (differs based on minSdkVersion).
-    if (code.instructions[2].getClass() == DexFilledNewArrayRange.class) {
+    if (code.instructions[2].getClass() == DexFilledNewArray.class) {
       checkInstructions(
           code,
           ImmutableList.of(
-              DexInvokeDirectRange.class,
+              DexInvokeDirect.class,
               DexConstClass.class,
-              DexFilledNewArrayRange.class,
+              DexFilledNewArray.class,
               DexMoveResultObject.class,
               DexConstString.class,
               DexInvokeStatic.class,
@@ -757,7 +753,7 @@ public class IdentifierNameStringMarkerTest extends SmaliTestBase {
       checkInstructions(
           code,
           ImmutableList.of(
-              DexInvokeDirectRange.class,
+              DexInvokeDirect.class,
               DexConstClass.class,
               DexConst4.class,
               DexNewArray.class,

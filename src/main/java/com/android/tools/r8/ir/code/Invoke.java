@@ -258,8 +258,13 @@ public abstract class Invoke extends Instruction {
   // Used to decide if this invoke should be emitted as invoke/range.
   protected boolean needsRangedInvoke(DexBuilder builder) {
     if (arguments().size() == 1) {
-      // Prefer invoke-range since this does not impose any constraints on the operand register.
-      return true;
+      // Prefer non-range invoke since ART's LSE does not always consider invoke/range
+      // (b/378823200).
+      int registerEnd =
+          builder.getRegisterAllocator().getRegisterForValue(getFirstArgument(), getNumber())
+              + getFirstArgument().requiredRegisters()
+              - 1;
+      return registerEnd > Constants.U4BIT_MAX;
     }
     if (requiredArgumentRegisters() > 5) {
       // No way around using an invoke-range instruction.

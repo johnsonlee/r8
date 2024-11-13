@@ -575,7 +575,7 @@ public class OutlineTest extends SmaliTestBase {
         DexInvokeStatic invoke = (DexInvokeStatic) mainCode.instructions[4];
         assertTrue(isOutlineMethodName(invoke.getMethod()));
       } else if (i == 3) {
-        DexInvokeStaticRange invoke = (DexInvokeStaticRange) mainCode.instructions[1];
+        DexInvokeStatic invoke = (DexInvokeStatic) mainCode.instructions[1];
         assertTrue(isOutlineMethodName(invoke.getMethod()));
       } else {
         assert i == 4 || i == 5;
