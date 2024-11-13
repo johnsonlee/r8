@@ -555,7 +555,7 @@ public class RegisterMoveSchedulerTest extends TestBase {
     assertEquals(3, moves.size());
     assertEquals("42 <- 12", toString(moves.get(0)));
     assertEquals("11 <- 8", toString(moves.get(1)));
-    assertEquals("9 <- 42", toString(moves.get(3)));
+    assertEquals("9 <- 42", toString(moves.get(2)));
     assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
