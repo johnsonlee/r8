@@ -105,7 +105,7 @@ public class IRConverter {
   public final AppView<?> appView;
 
   public final Outliner outliner;
-  private final CodeRewriterPassCollection rewriterPassCollection;
+  protected final CodeRewriterPassCollection rewriterPassCollection;
   private final ClassInitializerDefaultsOptimization classInitializerDefaultsOptimization;
   protected final CfInstructionDesugaringCollection instructionDesugaring;
   protected FieldAccessAnalysis fieldAccessAnalysis;

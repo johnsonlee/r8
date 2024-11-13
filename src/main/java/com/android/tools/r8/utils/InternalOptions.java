@@ -2606,6 +2606,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableExperimentalMapFileVersion = false;
 
     public boolean alwaysGenerateLambdaFactoryMethods = false;
+
+    // Work-in-progress optimization: b/145280859.
+    public boolean listIterationRewritingEnabled =
+        System.getProperty("com.android.tools.r8.enableListIterationRewriting") != null;
+    public boolean listIterationRewritingRewriteInterfaces =
+        "all".equals(System.getProperty("com.android.tools.r8.enableListIterationRewriting"));
+    // Used by unit tests.
+    public boolean listIterationRewritingRewriteCustomIterators =
+        listIterationRewritingRewriteInterfaces;
   }
 
   public MapVersion getMapFileVersion() {

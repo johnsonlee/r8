@@ -49,6 +49,7 @@ import com.android.tools.r8.ir.desugar.records.RecordFieldValuesRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.ir.optimize.Inliner;
+import com.android.tools.r8.ir.optimize.ListIterationRewriter;
 import com.android.tools.r8.ir.optimize.NestReducer;
 import com.android.tools.r8.ir.optimize.SwitchMapCollector;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingCfMethods;
@@ -359,6 +360,7 @@ public class R8 {
       timing.begin("Strip unused code");
       timing.begin("Before enqueuer");
       List<ProguardConfigurationRule> synthesizedProguardRules;
+      boolean enableListIterationRewriter;
       try {
         synthesizedProguardRules = ProguardConfigurationUtils.synthesizeRules(appView);
         ProfileCollectionAdditions profileCollectionAdditions =
@@ -424,6 +426,7 @@ public class R8 {
           ExceptionUtils.withFinishedResourceHandler(
               options.reporter, options.proguardSeedsConsumer);
         }
+
         if (options.isShrinking()) {
           // Mark dead proto extensions fields as neither being read nor written. This step must
           // run prior to the tree pruner.
@@ -462,6 +465,10 @@ public class R8 {
 
           assert appView.checkForTesting(() -> allReferencesAssignedApiLevel(appViewWithLiveness));
         }
+
+        // Compute after initial round of tree shaking to not trigger on pruned classes.
+        enableListIterationRewriter = ListIterationRewriter.shouldEnable(appView, subtypingInfo);
+
         timing.end();
       } finally {
         timing.end();
@@ -536,7 +543,7 @@ public class R8 {
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
-      new PrimaryR8IRConverter(appViewWithLiveness, timing)
+      new PrimaryR8IRConverter(appViewWithLiveness, timing, enableListIterationRewriter)
           .optimize(appViewWithLiveness, executorService);
       assert LirConverter.verifyLirOnly(appView);
 

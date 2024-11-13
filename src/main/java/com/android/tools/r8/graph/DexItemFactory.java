@@ -225,6 +225,9 @@ public class DexItemFactory {
   public final DexString convertMethodName = createString("convert");
   public final DexString wrapperFieldName = createString("wrappedValue");
 
+  public final DexString iteratorName = createString("iterator");
+  public final DexString hasNextName = createString("hasNext");
+  public final DexString nextName = createString("next");
   public final DexString getClassMethodName = createString("getClass");
   public final DexString finalizeMethodName = createString("finalize");
   public final DexString ordinalMethodName = createString("ordinal");
@@ -484,7 +487,6 @@ public class DexItemFactory {
   public final DexType serviceLoaderType = createStaticallyKnownType(serviceLoaderDescriptor);
   public final DexType serviceLoaderConfigurationErrorType =
       createStaticallyKnownType(serviceLoaderConfigurationErrorDescriptor);
-  public final DexType listType = createStaticallyKnownType(listDescriptor);
   public final DexType setType = createStaticallyKnownType(setDescriptor);
   public final DexType mapType = createStaticallyKnownType(mapDescriptor);
   public final DexType mapEntryType = createStaticallyKnownType(mapEntryDescriptor);
@@ -613,12 +615,20 @@ public class DexItemFactory {
   public final DexType javaNioByteOrderType = createStaticallyKnownType("Ljava/nio/ByteOrder;");
   public final DexType javaUtilCollectionsType =
       createStaticallyKnownType("Ljava/util/Collections;");
+  public final DexType javaUtilIteratorType = createStaticallyKnownType("Ljava/util/Iterator;");
+  public final DexProto javaUtilIteratorProto = createProto(javaUtilIteratorType);
   public final DexType javaUtilComparatorType = createStaticallyKnownType("Ljava/util/Comparator;");
   public final DexType javaUtilConcurrentTimeUnitType =
       createStaticallyKnownType("Ljava/util/concurrent/TimeUnit;");
   public final DexType javaUtilFormattableType =
       createStaticallyKnownType("Ljava/util/Formattable;");
-  public final DexType javaUtilListType = createStaticallyKnownType("Ljava/util/List;");
+  public final DexType javaUtilListType = createStaticallyKnownType(listDescriptor);
+  public final DexType javaUtilArrayListType = createStaticallyKnownType("Ljava/util/ArrayList;");
+  public final DexType javaUtilLinkedListType = createStaticallyKnownType("Ljava/util/LinkedList;");
+  public final DexType comGoogleCommonCollectImmutableListType =
+      createStaticallyKnownType("Lcom/google/common/collect/ImmutableList;");
+  public final DexType javaUtilConcurrentCopyOnWriteArrayListType =
+      createStaticallyKnownType("Ljava/util/concurrent/CopyOnWriteArrayList;");
   public final DexType javaUtilLocaleType = createStaticallyKnownType(localeDescriptor);
   public final DexType javaUtilLoggingLevelType =
       createStaticallyKnownType("Ljava/util/logging/Level;");
@@ -741,6 +751,8 @@ public class DexItemFactory {
       new JavaUtilComparatorMembers();
   public final JavaUtilConcurrentTimeUnitMembers javaUtilConcurrentTimeUnitMembers =
       new JavaUtilConcurrentTimeUnitMembers();
+
+  public final JavaUtilListMembers javaUtilListMembers = new JavaUtilListMembers();
   public final JavaUtilLocaleMembers javaUtilLocaleMembers = new JavaUtilLocaleMembers();
   public final JavaUtilLoggingLevelMembers javaUtilLoggingLevelMembers =
       new JavaUtilLoggingLevelMembers();
@@ -862,7 +874,6 @@ public class DexItemFactory {
       createStaticallyKnownType("Ljava/lang/runtime/ObjectMethods;");
   public final DexType typeDescriptorType =
       createStaticallyKnownType("Ljava/lang/invoke/TypeDescriptor;");
-  public final DexType iteratorType = createStaticallyKnownType("Ljava/util/Iterator;");
   public final DexType listIteratorType = createStaticallyKnownType("Ljava/util/ListIterator;");
   public final DexType enumerationType = createStaticallyKnownType("Ljava/util/Enumeration;");
   public final DexType serializableType = createStaticallyKnownType("Ljava/io/Serializable;");
@@ -1509,6 +1520,15 @@ public class DexItemFactory {
       consumer.accept(NANOSECONDS);
       consumer.accept(SECONDS);
     }
+  }
+
+  public class JavaUtilListMembers {
+    public final DexMethod size =
+        createMethod(javaUtilListType, createProto(intType), createString("size"));
+    public final DexMethod get =
+        createMethod(javaUtilListType, createProto(objectType, intType), getString);
+    public final DexMethod iterator =
+        createMethod(javaUtilListType, createProto(javaUtilIteratorType), iteratorName);
   }
 
   public class JavaUtilLocaleMembers extends LibraryMembers {
@@ -2690,7 +2710,8 @@ public class DexItemFactory {
               createProto(serviceLoaderType, classType),
               createString("loadInstalled"));
       iterator =
-          createMethod(serviceLoaderType, createProto(iteratorType), createString("iterator"));
+          createMethod(
+              serviceLoaderType, createProto(javaUtilIteratorType), createString("iterator"));
     }
 
     @SuppressWarnings("ReferenceEquality")
@@ -2701,8 +2722,9 @@ public class DexItemFactory {
 
   public class IteratorMethods {
     public final DexMethod hasNext =
-        createMethod(iteratorType, createProto(booleanType), "hasNext");
-    public final DexMethod next = createMethod(iteratorType, createProto(objectType), "next");
+        createMethod(javaUtilIteratorType, createProto(booleanType), hasNextName);
+    public final DexMethod next =
+        createMethod(javaUtilIteratorType, createProto(objectType), nextName);
   }
 
   private static <T extends DexItem> T canonicalize(Map<T, T> map, T item) {

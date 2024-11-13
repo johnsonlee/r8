@@ -384,9 +384,6 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
         List<BasicBlock> successors = block.getSuccessors();
         if (successors.size() == 1 && ListUtils.first(successors).getPredecessors().size() > 1) {
           BasicBlock splitBlock = block.createSplitBlock(getNextBlockNumber(), true, null);
-          Goto newGoto = new Goto();
-          newGoto.setPosition(Position.none());
-          splitBlock.getInstructions().addLast(newGoto);
           blockIterator.add(splitBlock);
         }
       }

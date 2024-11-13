@@ -28,9 +28,15 @@ public class PrimaryR8IRConverter extends IRConverter {
 
   private final Timing timing;
 
-  public PrimaryR8IRConverter(AppView<? extends AppInfoWithClassHierarchy> appView, Timing timing) {
+  public PrimaryR8IRConverter(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Timing timing,
+      boolean enableListIterationRewriter) {
     super(appView);
     this.timing = timing;
+    if (enableListIterationRewriter) {
+      rewriterPassCollection.enableListIterationRewriter(appView);
+    }
   }
 
   public void optimize(AppView<AppInfoWithLiveness> appView, ExecutorService executorService)

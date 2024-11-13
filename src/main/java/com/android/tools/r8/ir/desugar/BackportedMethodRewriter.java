@@ -526,7 +526,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
       // Iterator<T> Collections.emptyIterator();
       name = factory.createString("emptyIterator");
-      proto = factory.createProto(factory.iteratorType);
+      proto = factory.createProto(factory.javaUtilIteratorType);
       method = factory.createMethod(type, proto, name);
       addProvider(new MethodGenerator(method, BackportedMethods::CollectionsMethods_emptyIterator));
 
@@ -1174,7 +1174,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       DexMethod method;
 
       // List<E> List.of(<args>) for 0 to 10 arguments and List.of(E[])
-      type = factory.listType;
+      type = factory.javaUtilListType;
       name = factory.createString("of");
       for (int i = 0; i <= 10; i++) {
         final int formalCount = i;
@@ -1249,11 +1249,11 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       DexMethod method;
 
       // List
-      type = factory.listType;
+      type = factory.javaUtilListType;
 
       // List List.copyOf(Collection)
       name = factory.createString("copyOf");
-      proto = factory.createProto(factory.listType, factory.collectionType);
+      proto = factory.createProto(factory.javaUtilListType, factory.collectionType);
       method = factory.createMethod(type, proto, name);
       addProvider(
           new MethodGenerator(

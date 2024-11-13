@@ -656,19 +656,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
   @Override
   public BasicBlock split(
       IRCode code, ListIterator<BasicBlock> blocksIterator, boolean keepCatchHandlers) {
-    List<BasicBlock> blocks = code.blocks;
     assert blocksIterator == null || IteratorUtils.peekPrevious(blocksIterator) == block;
-
-    // Don't allow splitting after the last instruction.
-    assert hasNext();
-
-    // Get the position at which the block is being split.
-    Position position = getPreviousPosition();
-
-    // Add a goto instruction.
-    Goto newGoto = new Goto();
-    instructionList.addBefore(newGoto, next);
-    newGoto.setPosition(position);
 
     // Prepare the new block, placing the exception handlers on the block with the throwing
     // instruction.
@@ -679,6 +667,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
     // Insert the new block in the block list right after the current block.
     if (blocksIterator == null) {
+      List<BasicBlock> blocks = code.blocks;
       blocks.add(blocks.indexOf(block) + 1, newBlock);
     } else {
       blocksIterator.add(newBlock);

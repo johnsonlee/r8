@@ -532,6 +532,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return definition;
   }
 
+  @Override
+  public final boolean hasDefinitionFor(DexType type) {
+    // Avoid assertion added in our definitionFor().
+    return super.definitionFor(type) != null;
+  }
+
   private CfVersion largestInputCfVersion = null;
 
   public boolean canUseConstClassInstructions(InternalOptions options) {

@@ -183,7 +183,7 @@ public class HumanRewritingFlags {
       // Equivalence for parsing specification with format version 100.
       DexMethod dontRewrite =
           factory.createMethod(
-              factory.iteratorType, factory.createProto(factory.voidType), "remove");
+              factory.javaUtilIteratorType, factory.createProto(factory.voidType), "remove");
       return !reference.isIdenticalTo(dontRewrite);
     }
   }

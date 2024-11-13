@@ -643,7 +643,8 @@ public class ServiceLoaderRewriter extends CodeRewriterPass<AppInfoWithLiveness>
       List<DexClass> classes,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
-    DexProto proto = appView.dexItemFactory().createProto(appView.dexItemFactory().iteratorType);
+    DexProto proto =
+        appView.dexItemFactory().createProto(appView.dexItemFactory().javaUtilIteratorType);
     ProgramMethod method =
         appView
             .getSyntheticItems()

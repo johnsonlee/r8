@@ -76,8 +76,8 @@ public class ServiceLoaderSourceCode {
         new CfInvoke(
             INVOKEINTERFACE,
             factory.createMethod(
-                factory.listType,
-                factory.createProto(factory.iteratorType),
+                factory.javaUtilListType,
+                factory.createProto(factory.javaUtilIteratorType),
                 factory.createString("iterator")),
             true),
         tryCatchEnd,

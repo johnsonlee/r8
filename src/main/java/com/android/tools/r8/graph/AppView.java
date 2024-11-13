@@ -514,6 +514,11 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return appInfo().definitionFor(type);
   }
 
+  @Override
+  public final boolean hasDefinitionFor(DexType type) {
+    return appInfo().hasDefinitionFor(type);
+  }
+
   public OptionalBool isInterface(DexType type) {
     assert type.isClassType();
     // Without whole program information we should not assume anything about any other class than

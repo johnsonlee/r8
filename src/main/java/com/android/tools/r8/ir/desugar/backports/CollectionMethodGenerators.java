@@ -28,7 +28,7 @@ public final class CollectionMethodGenerators {
   private CollectionMethodGenerators() {}
 
   public static CfCode generateListOf(DexItemFactory factory, DexMethod method, int formalCount) {
-    return generateFixedMethods(factory, method, formalCount, factory.listType);
+    return generateFixedMethods(factory, method, formalCount, factory.javaUtilListType);
   }
 
   public static CfCode generateSetOf(DexItemFactory factory, DexMethod method, int formalCount) {

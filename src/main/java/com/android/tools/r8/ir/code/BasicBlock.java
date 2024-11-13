@@ -1798,8 +1798,9 @@ public class BasicBlock {
    * <p>The catch successors are either on the original block or the new block depending on the
    * value of <code>keepCatchHandlers</code>.
    *
-   * <p>The current block still has all the instructions, and the new block is empty
-   * instruction-wise.
+   * <p>A Goto will be added to link the blocks (either to the end of this block when <code>
+   * firstInstructionOfNewBlock</code> is not null, or as the only instruction in the new block
+   * otherwise.
    *
    * @param blockNumber block number for new block
    * @param keepCatchHandlers keep catch successors on the original block
@@ -1829,14 +1830,51 @@ public class BasicBlock {
     // Link the two blocks
     link(newBlock);
 
+    Goto newGoto = new Goto();
     if (firstInstructionOfNewBlock != null) {
       newBlock.instructions.severFrom(firstInstructionOfNewBlock);
+      newGoto.setPosition(
+          firstInstructionOfNewBlock.getPrev() != null
+              ? firstInstructionOfNewBlock.getPrev().getPosition()
+              : firstInstructionOfNewBlock.getPosition());
+      instructions.addLast(newGoto);
+    } else {
+      newGoto.setPosition(Position.none());
+      newBlock.instructions.addLast(newGoto);
     }
 
     // Mark the new block filled and sealed.
     newBlock.filled = true;
     newBlock.sealed = true;
 
+    return newBlock;
+  }
+
+  /**
+   * Split the block into two. The existing block will have all the instructions before the
+   * |firstInstructionOfNewBlock, and the new block all the instructions after. A Goto will be added
+   * either to the new block (if firstInstructionOfNewBlock is null), or to this block.
+   *
+   * <p>If the current block has catch handlers these catch handlers will be attached to the block
+   * containing the throwing instruction after the split.
+   *
+   * @param code the IR code for the block this iterator originates from.
+   * @param keepCatchHandlers whether to keep catch handlers on the original block.
+   * @param firstInstructionOfNewBlock first instruction to put into the new block. Can be null.
+   * @return Returns the new block.
+   */
+  public BasicBlock split(
+      IRCode code, boolean keepCatchHandlers, Instruction firstInstructionOfNewBlock) {
+    List<BasicBlock> blocks = code.blocks;
+    assert blocks.contains(this);
+    assert firstInstructionOfNewBlock == null || firstInstructionOfNewBlock.block == this;
+
+    // Prepare the new block, placing the exception handlers on the block with the throwing
+    // instruction.
+    BasicBlock newBlock =
+        createSplitBlock(code.getNextBlockNumber(), keepCatchHandlers, firstInstructionOfNewBlock);
+
+    blocks.add(blocks.indexOf(this) + 1, newBlock);
     return newBlock;
   }
 
