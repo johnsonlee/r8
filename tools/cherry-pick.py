@@ -35,6 +35,10 @@ def parse_options():
     parser.add_argument('--remote',
                         default='origin',
                         help='The remote name (defaults to "origin")')
+    parser.add_argument('--yes',
+                        default=False,
+                        action='store_true',
+                        help='Answer "yes" to all questions')
     return parser.parse_args()
 
 
@@ -100,7 +104,7 @@ def run(args):
 
     subprocess.run(['git', 'commit', '-a', '-m', message])
     confirm_and_upload(branch, args, None)
-    if not args.current_checkout:
+    if not args.current_checkout and not args.yes:
         while True:
             try:
                 answer = input(
@@ -113,20 +117,21 @@ def run(args):
 
 
 def confirm_and_upload(branch, args, bugs):
-    question = ('Ready to continue (cwd %s, will not upload to Gerrit)' %
-                os.getcwd() if args.no_upload else
-                'Ready to upload %s (cwd %s)' % (branch, os.getcwd()))
+    if not args.yes:
+      question = ('Ready to continue (cwd %s, will not upload to Gerrit)' %
+                  os.getcwd() if args.no_upload else
+                  'Ready to upload %s (cwd %s)' % (branch, os.getcwd()))
 
-    while True:
-        try:
-            answer = input(question + ' [yes/abort]? ')
-            if answer == 'yes':
-                break
-            if answer == 'abort':
-                print('Aborting new branch for %s' % branch)
-                sys.exit(1)
-        except KeyboardInterrupt:
-            pass
+      while True:
+          try:
+              answer = input(question + ' [yes/abort]? ')
+              if answer == 'yes':
+                 break
+              if answer == 'abort':
+                  print('Aborting new branch for %s' % branch)
+                  sys.exit(1)
+          except KeyboardInterrupt:
+              pass
 
     # Compute the set of bug refs from the commit message after confirmation.
     # If done before a conflicting cherry-pick status will potentially include
@@ -149,7 +154,10 @@ def confirm_and_upload(branch, args, bugs):
                 bugs.add(bug.replace('b/', '').strip())
 
     if not args.no_upload:
-        subprocess.run(['git', 'cl', 'upload', '--bypass-hooks'])
+        cmd = ['git', 'cl', 'upload', '--bypass-hooks']
+        if (args.yes):
+            cmd.append('-f')
+        subprocess.run(cmd)
 
 
 def main():
