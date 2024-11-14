@@ -186,7 +186,7 @@ public class StartupInstrumentation {
     MutableMethodConversionOptions conversionOptions = MethodConversionOptions.forD8(appView);
     IRCode code = method.buildIR(appView, conversionOptions);
     BasicBlockIterator blocks = code.listIterator();
-    InstructionListIterator instructionIterator = blocks.next().listIterator(code);
+    InstructionListIterator instructionIterator = blocks.next().listIterator();
     instructionIterator.positionBeforeNextInstructionThatMatches(not(Instruction::isArgument));
 
     // Insert invoke to record that the enclosing class is a startup class.
@@ -253,7 +253,7 @@ public class StartupInstrumentation {
             }
           }
           if (blocks.hasNext()) {
-            instructionIterator = blocks.next().listIterator(code);
+            instructionIterator = blocks.next().listIterator();
           }
         } while (instructionIterator.hasNext());
       }

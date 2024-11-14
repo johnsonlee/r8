@@ -43,7 +43,7 @@ public class ReflectionOptimizer {
     BasicBlockIterator blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         InvokeMethod invoke = it.nextUntil(x -> x.isInvokeStatic() || x.isInvokeVirtual());
         if (invoke == null) {
@@ -130,7 +130,7 @@ public class ReflectionOptimizer {
         if (block.hasCatchHandlers()) {
           instructionIterator
               .splitCopyCatchHandlers(code, blockIterator, appView.options())
-              .listIterator(code)
+              .listIterator()
               .add(initClass);
         } else {
           instructionIterator.add(initClass);

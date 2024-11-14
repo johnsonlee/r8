@@ -91,7 +91,7 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
     }
 
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       // Collect all the non constant in values for binop/lit8 or binop/lit16 instructions.
       Set<Value> binopsWithLit8OrLit16NonConstantValues = Sets.newIdentityHashSet();
       while (instructionIterator.hasNext()) {
@@ -284,7 +284,7 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
 
       // Add constant into the dominator block of usages.
       boolean hasCatchHandlers = block.hasCatchHandlers();
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction insertionPoint = instructionIterator.next();
         if (insertionPoint.isJumpInstruction()
@@ -340,7 +340,7 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
       instructionIterator.add(movedInstruction);
 
       // Continue insertion at the entry of the split block.
-      instructionIterator = splitBlock.listIterator(code);
+      instructionIterator = splitBlock.listIterator();
     } else {
       instructionIterator.add(movedInstruction);
     }
@@ -366,7 +366,7 @@ public class DexConstantOptimizer extends CodeRewriterPass<AppInfo> {
       LazyBox<DominatorTree> dominatorTreeMemoization,
       Map<BasicBlock, LinkedHashMap<Value, Instruction>> addConstantInBlock,
       Predicate<Instruction> selector) {
-    InstructionListIterator iterator = block.listIterator(code);
+    InstructionListIterator iterator = block.listIterator();
     boolean seenCompareExit = false;
     while (iterator.hasNext()) {
       Instruction instruction = iterator.next();

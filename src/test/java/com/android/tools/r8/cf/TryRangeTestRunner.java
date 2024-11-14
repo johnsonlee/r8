@@ -109,7 +109,7 @@ public class TryRangeTestRunner extends TestBase {
     BasicBlock entryBlock = code.entryBlock();
     BasicBlock tryBlock = code.blocks.get(1);
     assertTrue(tryBlock.hasCatchHandlers());
-    InstructionListIterator it = entryBlock.listIterator(code);
+    InstructionListIterator it = entryBlock.listIterator();
     Instruction constNumber = it.next();
     while (!constNumber.isConstNumber()) {
       constNumber = it.next();

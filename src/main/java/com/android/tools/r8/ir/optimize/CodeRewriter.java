@@ -150,7 +150,7 @@ public class CodeRewriter {
 
   public void simplifyDebugLocals(IRCode code) {
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction prevInstruction = iterator.peekPrevious();
         Instruction instruction = iterator.next();
@@ -224,7 +224,7 @@ public class CodeRewriter {
       }
       Int2IntMap previousMapping = new Int2IntOpenHashMap();
       Int2IntMap mapping = new Int2IntOpenHashMap();
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
         if (instruction.isMove()) {

@@ -64,7 +64,7 @@ public class RuntimeWorkaroundCodeRewriter {
       assert lastSelfRecursiveCall != null;
       // Split out the last recursive call in its own block.
       InstructionListIterator splitIterator =
-          lastSelfRecursiveCall.getBlock().listIterator(code, lastSelfRecursiveCall);
+          lastSelfRecursiveCall.getBlock().listIterator(lastSelfRecursiveCall);
       BasicBlock newBlock = splitIterator.split(code, 1);
       // Generate rethrow block.
       DexType guard = appView.dexItemFactory().throwableType;
@@ -86,7 +86,7 @@ public class RuntimeWorkaroundCodeRewriter {
     }
     DexType objectType = appView.dexItemFactory().objectType;
     for (BasicBlock block : code.getBlocks()) {
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         InstanceOf instanceOf = instructionIterator.nextUntil(Instruction::isInstanceOf);
         if (instanceOf == null) {
@@ -133,7 +133,7 @@ public class RuntimeWorkaroundCodeRewriter {
     ListIterator<BasicBlock> blocksIterator = code.listIterator();
     while (blocksIterator.hasNext()) {
       BasicBlock block = blocksIterator.next();
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction instruction = iterator.next();
         assert !instruction.isStringSwitch();
@@ -200,7 +200,7 @@ public class RuntimeWorkaroundCodeRewriter {
                     factory.intDescriptor,
                     new DexString[] {factory.longDescriptor}));
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       Instruction firstMaterializing =
           it.nextUntil(RuntimeWorkaroundCodeRewriter::isNotPseudoInstruction);
       if (!isLongMul(firstMaterializing)) {
@@ -217,7 +217,7 @@ public class RuntimeWorkaroundCodeRewriter {
       Value outOfMul = firstMaterializing.outValue();
       for (Value inOfAddOrSub : secondMaterializing.inValues()) {
         if (isAliasOf(inOfAddOrSub, outOfMul)) {
-          it = block.listIterator(code);
+          it = block.listIterator();
           it.nextUntil(i -> i == firstMaterializing);
           Value longValue = firstMaterializing.inValues().get(0);
           InvokeStatic invokeLongSignum =
@@ -278,7 +278,7 @@ public class RuntimeWorkaroundCodeRewriter {
     // Only if the constructor contains a super constructor call taking only parameters as
     // inputs.
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       Instruction superConstructorCall =
           it.nextUntil(
               (i) ->
@@ -308,7 +308,7 @@ public class RuntimeWorkaroundCodeRewriter {
     ListIterator<BasicBlock> blocks = code.listIterator();
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
         if (instruction.isArithmeticBinop() || instruction.isNeg()) {
@@ -332,12 +332,12 @@ public class RuntimeWorkaroundCodeRewriter {
                   block.hasCatchHandlers() ? it.split(code, blocks) : block;
               if (blockWithInvokeNaN != block) {
                 // If we split, add the invoke at the end of the original block.
-                it = block.listIterator(code, block.getInstructions().size());
+                it = block.listIterator(block.getInstructions().size());
                 it.previous();
                 it.add(invokeIsNaN);
                 // Continue iteration in the split block.
                 block = blockWithInvokeNaN;
-                it = block.listIterator(code);
+                it = block.listIterator();
               } else {
                 // Otherwise, add it to the current block.
                 it.add(invokeIsNaN);
@@ -378,7 +378,7 @@ public class RuntimeWorkaroundCodeRewriter {
       BasicBlock split = it.split(code);
       assert split.hasCatchHandlers();
       assert !block.hasCatchHandlers();
-      it = block.listIterator(code, block.getInstructions().size() - 1);
+      it = block.listIterator(block.getInstructions().size() - 1);
     }
     instruction.setPosition(addBefore.getPosition());
     it.add(instruction);

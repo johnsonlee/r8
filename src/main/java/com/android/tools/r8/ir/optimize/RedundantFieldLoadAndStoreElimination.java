@@ -376,7 +376,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
         BasicBlock block = head;
         BasicBlock end = null;
         do {
-          InstructionListIterator it = block.listIterator(code);
+          InstructionListIterator it = block.listIterator();
           while (it.hasNext()) {
             Instruction instruction = it.next();
             if (instruction.isArrayAccess()) {
@@ -491,7 +491,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
           (block, instructionsToRemoveInBlock) -> {
             assert instructionsToRemoveInBlock.stream()
                 .allMatch(instruction -> instruction.getBlock() == block);
-            InstructionListIterator instructionIterator = block.listIterator(code);
+            InstructionListIterator instructionIterator = block.listIterator();
             while (instructionIterator.hasNext()) {
               Instruction instruction = instructionIterator.next();
               assert !instruction.isJumpInstruction();

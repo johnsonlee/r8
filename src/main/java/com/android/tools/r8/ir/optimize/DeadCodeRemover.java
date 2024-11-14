@@ -142,7 +142,7 @@ public class DeadCodeRemover {
       BasicBlock block,
       AffectedValues affectedValues,
       ValueIsDeadAnalysis valueIsDeadAnalysis) {
-    InstructionListIterator iterator = block.listIterator(code, block.getInstructions().size());
+    InstructionListIterator iterator = block.listIterator(block.getInstructions().size());
     while (iterator.hasPrevious()) {
       Instruction current = iterator.previous();
       if (current.hasOutValue()) {

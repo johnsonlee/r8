@@ -121,7 +121,7 @@ public class BasicBlock {
   }
 
   public void replaceLastInstruction(Instruction instruction, IRCode code) {
-    InstructionListIterator iterator = listIterator(code, getInstructions().size());
+    InstructionListIterator iterator = listIterator(getInstructions().size());
     iterator.previous();
     iterator.replaceCurrentInstruction(instruction);
   }
@@ -1771,22 +1771,17 @@ public class BasicBlock {
     return instructions.iterator(instruction);
   }
 
-  public BasicBlockInstructionListIterator listIterator(IRCode unused_code) {
-    return listIterator();
-  }
-
   public BasicBlockInstructionListIterator listIterator() {
     return new BasicBlockInstructionListIterator(this);
   }
 
-  public BasicBlockInstructionListIterator listIterator(IRCode unused_code, int index) {
-    // TODO(b/376663044): Convert uses of index to use Instruction instead.
+  // TODO(b/376663044): Convert uses of index to use Instruction instead.
+  public BasicBlockInstructionListIterator listIterator(int index) {
     return new BasicBlockInstructionListIterator(this, index);
   }
 
   /** Creates an instruction list iterator starting at <code>firstInstructionToReturn</code>. */
-  public BasicBlockInstructionListIterator listIterator(
-      IRCode unused_code, Instruction firstInstructionToReturn) {
+  public BasicBlockInstructionListIterator listIterator(Instruction firstInstructionToReturn) {
     return new BasicBlockInstructionListIterator(this, firstInstructionToReturn);
   }
 

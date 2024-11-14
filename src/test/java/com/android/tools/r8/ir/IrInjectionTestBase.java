@@ -109,7 +109,7 @@ public class IrInjectionTestBase extends SmaliTestBase {
     }
 
     public InstructionListIterator listIteratorAt(BasicBlock block, int index) {
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       for (int i = 0; i < index; i++) {
         iterator.next();
       }

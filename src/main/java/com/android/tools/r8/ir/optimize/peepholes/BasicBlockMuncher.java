@@ -48,7 +48,7 @@ public class BasicBlockMuncher {
       BasicBlock currentBlock = blocksIterator.previous();
       LinearFlowInstructionListIterator it =
           new LinearFlowInstructionListIterator(
-              code, currentBlock, currentBlock.getInstructions().size());
+              currentBlock, currentBlock.getInstructions().size());
       boolean matched = false;
       while (true) {
         for (BasicBlockPeephole peepHole : peepholes) {
@@ -56,7 +56,7 @@ public class BasicBlockMuncher {
           if (localMatch && peepHole.resetAfterMatch()) {
             it =
                 new LinearFlowInstructionListIterator(
-                    code, currentBlock, currentBlock.getInstructions().size());
+                    currentBlock, currentBlock.getInstructions().size());
           } else {
             matched |= localMatch;
           }
@@ -73,7 +73,7 @@ public class BasicBlockMuncher {
           matched = false;
           it =
               new LinearFlowInstructionListIterator(
-                  code, currentBlock, currentBlock.getInstructions().size());
+                  currentBlock, currentBlock.getInstructions().size());
         } else {
           // Move the iterator to the first block we have not seen.
           if (IteratorUtils.previousUntilUnsafe(blocksIterator, not(it::hasVisitedBlock)) != null) {

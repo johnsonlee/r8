@@ -84,7 +84,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         BasicBlockIterator blockIterator = code.listIterator();
         while (blockIterator.hasNext()) {
           BasicBlock block = blockIterator.next();
-          BasicBlockInstructionListIterator instructionIterator = block.listIterator(code);
+          BasicBlockInstructionListIterator instructionIterator = block.listIterator();
           while (instructionIterator.hasNext()) {
             Instruction instruction = instructionIterator.next();
             if (instruction.isNewArrayFilled()) {
@@ -393,7 +393,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       if (newArrayEmpty.getBlock().hasCatchHandlers()) {
         BasicBlock splitBlock =
             instructionIterator.splitCopyCatchHandlers(code, blockIterator, options);
-        splitBlock.listIterator(code).add(newArrayFilledData);
+        splitBlock.listIterator().add(newArrayFilledData);
       } else {
         instructionIterator.add(newArrayFilledData);
       }
@@ -447,7 +447,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         if (instructionIterator.getBlock().hasCatchHandlers()) {
           BasicBlock splitBlock =
               instructionIterator.splitCopyCatchHandlers(code, blockIterator, options);
-          instructionIterator = splitBlock.listIterator(code);
+          instructionIterator = splitBlock.listIterator();
           Value putValue =
               getPutValue(
                   code,
@@ -457,7 +457,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
                   constantMaterializingInstructionCache);
           blockIterator.positionAfterPreviousBlock(splitBlock);
           splitBlock = instructionIterator.splitCopyCatchHandlers(code, blockIterator, options);
-          instructionIterator = splitBlock.listIterator(code);
+          instructionIterator = splitBlock.listIterator();
           addArrayPut(code, instructionIterator, newArrayEmpty, index, putValue);
           blockIterator.positionAfterPreviousBlock(splitBlock);
           mayHaveRedundantBlocks = true;

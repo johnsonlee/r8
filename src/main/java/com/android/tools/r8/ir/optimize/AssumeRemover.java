@@ -113,7 +113,7 @@ public class AssumeRemover {
     }
     boolean changed = false;
     for (BasicBlock block : code.getBlocks()) {
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         if (instruction.isAssume()) {

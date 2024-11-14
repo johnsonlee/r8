@@ -677,8 +677,7 @@ public class Inliner {
           BasicBlock moveExceptionBlock =
               BasicBlock.createGotoBlock(
                   code.getNextBlockNumber(), Position.none(), code.metadata(), monitorExitBlock);
-          InstructionListIterator moveExceptionBlockIterator =
-              moveExceptionBlock.listIterator(code);
+          InstructionListIterator moveExceptionBlockIterator = moveExceptionBlock.listIterator();
           moveExceptionBlockIterator.setInsertionPosition(Position.syntheticNone());
           moveExceptionBlockIterator.add(
               new MoveException(
@@ -703,7 +702,7 @@ public class Inliner {
             exceptionValue = phi;
           }
 
-          monitorExitBlockIterator = monitorExitBlock.listIterator(code);
+          monitorExitBlockIterator = monitorExitBlock.listIterator();
           monitorExitBlockIterator.setInsertionPosition(Position.syntheticNone());
           monitorExitBlockIterator.add(new Throw(exceptionValue));
           monitorExitBlock.getMutablePredecessors().addAll(moveExceptionBlocks);
@@ -717,13 +716,13 @@ public class Inliner {
         // is created after we attach catch-all handlers to the code, this block will not have any
         // catch handlers.
         BasicBlock entryBlock = code.entryBlock();
-        InstructionListIterator entryBlockIterator = entryBlock.listIterator(code);
+        InstructionListIterator entryBlockIterator = entryBlock.listIterator();
         entryBlockIterator.nextUntil(not(Instruction::isArgument));
         entryBlockIterator.previous();
         BasicBlock monitorEnterBlock = entryBlockIterator.split(code, 0, null);
         assert !monitorEnterBlock.hasCatchHandlers();
 
-        InstructionListIterator monitorEnterBlockIterator = monitorEnterBlock.listIterator(code);
+        InstructionListIterator monitorEnterBlockIterator = monitorEnterBlock.listIterator();
         // MonitorEnter will only throw an NPE if the lock is null and that can only happen if the
         // receiver was null. To preserve NPE's at call-sites for synchronized methods we therefore
         // put in the invoke-position.
@@ -755,7 +754,7 @@ public class Inliner {
             assert !block.canThrow();
 
             InstructionListIterator instructionIterator =
-                block.listIterator(code, block.getInstructions().size() - 1);
+                block.listIterator(block.getInstructions().size() - 1);
             instructionIterator.setInsertionPosition(Position.syntheticNone());
             instructionIterator.add(new Monitor(MonitorType.EXIT, lockValue));
           }
@@ -793,11 +792,11 @@ public class Inliner {
       assert !block.hasCatchHandlers();
       BasicBlock initClassBlock =
           block
-              .listIterator(code, block.isEntry() ? code.collectArguments().size() : 0)
+              .listIterator(block.isEntry() ? code.collectArguments().size() : 0)
               .split(code, 0, null);
       assert !initClassBlock.hasCatchHandlers();
 
-      InstructionListIterator iterator = initClassBlock.listIterator(code);
+      InstructionListIterator iterator = initClassBlock.listIterator();
       iterator.setInsertionPosition(invoke.getPosition());
       iterator.add(new InitClass(code.createValue(TypeElement.getInt()), target.getHolderType()));
     }
@@ -811,10 +810,10 @@ public class Inliner {
         // Insert a new block between the last argument instruction and the first actual
         // instruction of the method.
         BasicBlock throwBlock =
-            block.listIterator(code, block.isEntry() ? arguments.size() : 0).split(code, 0, null);
+            block.listIterator(block.isEntry() ? arguments.size() : 0).split(code, 0, null);
         assert !throwBlock.hasCatchHandlers();
 
-        InstructionListIterator iterator = throwBlock.listIterator(code);
+        InstructionListIterator iterator = throwBlock.listIterator();
         iterator.setInsertionPosition(invoke.getPosition());
         DexMethod getClassMethod = appView.dexItemFactory().objectMembers.getClass;
         iterator.add(new InvokeVirtual(getClassMethod, null, ImmutableList.of(receiver)));
@@ -834,7 +833,7 @@ public class Inliner {
         // It is an invariant that return blocks do not have catch handlers.
         assert !block.hasCatchHandlers();
         InstructionListIterator instructionIterator =
-            block.listIterator(code, block.getInstructions().size() - 1);
+            block.listIterator(block.getInstructions().size() - 1);
         DexMethod storeStoreFenceMethod =
             appView.dexItemFactory().javaLangInvokeVarHandleMembers.storeStoreFence;
         assert appView.definitionFor(storeStoreFenceMethod) != null;
@@ -1057,7 +1056,7 @@ public class Inliner {
       if (blocksToRemove.contains(block)) {
         continue;
       }
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction current = iterator.next();
         if (current.isInvokeMethod()) {

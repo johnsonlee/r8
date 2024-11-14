@@ -206,7 +206,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
       if (blocksToRemove.contains(block)) {
         continue;
       }
-      InstructionListIterator instructionIterator = block.listIterator(irCode);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         FieldInstruction fieldInstruction = instructionIterator.next().asFieldInstruction();
         if (fieldInstruction == null) {

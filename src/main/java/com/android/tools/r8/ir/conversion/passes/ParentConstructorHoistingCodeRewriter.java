@@ -51,20 +51,20 @@ public class ParentConstructorHoistingCodeRewriter
   @Override
   protected CodeRewriterResult rewriteCode(IRCode code) {
     for (InvokeDirect invoke : getOrComputeSideEffectFreeConstructorCalls(code)) {
-      hoistSideEffectFreeConstructorCall(code, invoke);
+      hoistSideEffectFreeConstructorCall(invoke);
     }
     code.removeRedundantBlocks();
     return CodeRewriterResult.NONE;
   }
 
-  private void hoistSideEffectFreeConstructorCall(IRCode code, InvokeDirect invoke) {
+  private void hoistSideEffectFreeConstructorCall(InvokeDirect invoke) {
     Deque<Instruction> constants = new ArrayDeque<>();
     // TODO(b/281975599): This loop would not be needed if we did not have any trivial gotos.
     while (true) {
-      hoistSideEffectFreeConstructorCallInCurrentBlock(code, invoke, constants);
+      hoistSideEffectFreeConstructorCallInCurrentBlock(invoke, constants);
       Instruction firstHoistedInstruction = CollectionUtils.getFirstOrDefault(constants, invoke);
       if (invoke.getBlock().entry() != firstHoistedInstruction
-          || !hoistSideEffectFreeConstructorCallIntoPredecessorBlock(code, invoke, constants)) {
+          || !hoistSideEffectFreeConstructorCallIntoPredecessorBlock(invoke, constants)) {
         break;
       }
     }
@@ -73,8 +73,8 @@ public class ParentConstructorHoistingCodeRewriter
   // TODO(b/278975138): Instead of hoisting constructor call one instruction up at a time as a
   //  peephole optimization, consider finding the insertion position and then modifying the IR once.
   private void hoistSideEffectFreeConstructorCallInCurrentBlock(
-      IRCode code, InvokeDirect invoke, Deque<Instruction> constants) {
-    InstructionListIterator instructionIterator = invoke.getBlock().listIterator(code);
+      InvokeDirect invoke, Deque<Instruction> constants) {
+    InstructionListIterator instructionIterator = invoke.getBlock().listIterator();
     instructionIterator.positionBeforeNextInstruction(
         CollectionUtils.getFirstOrDefault(constants, invoke));
     while (instructionIterator.hasPrevious()) {
@@ -107,7 +107,7 @@ public class ParentConstructorHoistingCodeRewriter
   }
 
   private boolean hoistSideEffectFreeConstructorCallIntoPredecessorBlock(
-      IRCode code, InvokeDirect invoke, Deque<Instruction> constants) {
+      InvokeDirect invoke, Deque<Instruction> constants) {
     BasicBlock block = invoke.getBlock();
     if (!block.hasUniquePredecessor()) {
       return false;
@@ -126,7 +126,7 @@ public class ParentConstructorHoistingCodeRewriter
 
     // Add the constants and the invoke before the exit instruction in the predecessor block.
     InstructionListIterator predecessorInstructionIterator =
-        predecessorBlock.listIterator(code, predecessorBlock.getInstructions().size() - 1);
+        predecessorBlock.listIterator(predecessorBlock.getInstructions().size() - 1);
     constants.forEach(predecessorInstructionIterator::add);
     predecessorInstructionIterator.add(invoke);
 

@@ -41,7 +41,7 @@ public class KotlinInlineMarkerRewriter extends CodeRewriterPass<AppInfo> {
   protected CodeRewriterResult rewriteCode(IRCode code) {
     boolean changed = false;
     for (BasicBlock block : code.getBlocks()) {
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         InvokeStatic invoke = instructionIterator.next().asInvokeStatic();
         if (invoke != null

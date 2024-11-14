@@ -1500,7 +1500,7 @@ public class OutlinerImpl extends Outliner {
       if (seenBlocks.add(block)) {
         ImmutableList.Builder<Instruction> builder = ImmutableList.builder();
         LinearFlowInstructionListIterator instructionIterator =
-            new LinearFlowInstructionListIterator(code, block);
+            new LinearFlowInstructionListIterator(block);
         // Maintaining the last seen block ensure that we always consider all instructions in a
         // block before adding it to the seen set.
         BasicBlock lastSeenBlock = block;
@@ -1647,7 +1647,7 @@ public class OutlinerImpl extends Outliner {
       BasicBlockIterator blocksIterator = code.listIterator();
       while (blocksIterator.hasNext()) {
         BasicBlock block = blocksIterator.next();
-        InstructionListIterator instructionListIterator = block.listIterator(code);
+        InstructionListIterator instructionListIterator = block.listIterator();
         instructionListIterator.forEachRemaining(
             instruction -> {
               if (toRemove.remove(instruction)) {

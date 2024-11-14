@@ -148,7 +148,7 @@ public class SparseConditionalConstantPropagation extends CodeRewriterPass<AppIn
                   // D8 relies on dead code removal to get rid of the dead phi itself.
                   BasicBlock block = value.asPhi().getBlock();
                   blockToAnalyze.add(block);
-                  InstructionListIterator iterator = block.listIterator(code);
+                  InstructionListIterator iterator = block.listIterator();
                   Instruction inst = iterator.nextUntil(i -> !i.isMoveException());
                   if (!inst.isDebugPosition()) {
                     iterator.previous();
@@ -167,7 +167,7 @@ public class SparseConditionalConstantPropagation extends CodeRewriterPass<AppIn
                 } else {
                   Instruction definition = value.getDefinition();
                   BasicBlock block = definition.getBlock();
-                  InstructionListIterator iterator = block.listIterator(code);
+                  InstructionListIterator iterator = block.listIterator();
                   iterator.nextUntil(i -> i == definition);
                   if (!definition.isArgument()
                       && !definition.instructionMayHaveSideEffects(

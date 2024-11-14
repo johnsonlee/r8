@@ -148,13 +148,13 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
             // This block will have multiple predecessors, hence the need for the split-edge
             // block.
             BasicBlock idSwitchBlock =
-                hashSwitchFallthroughBlock.listIterator(code).split(code, blockIterator);
+                hashSwitchFallthroughBlock.listIterator().split(code, blockIterator);
 
             // Split again such that `idSwitchBlock` becomes a block consisting of a single goto
             // instruction that targets a block that is identical to the original fallthrough
             // block of the string-switch instruction.
             BasicBlock idSwitchFallthroughBlock =
-                idSwitchBlock.listIterator(code).split(code, blockIterator);
+                idSwitchBlock.listIterator().split(code, blockIterator);
             break;
           }
         }
@@ -280,7 +280,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
         newBlocksWithStrings.add(newBlock);
         if (previous == null) {
           // Replace the string-switch instruction by a goto instruction.
-          block.exit().replace(new Goto(), code);
+          block.exit().replace(new Goto());
           block.link(newBlock);
         } else {
           // Set the fallthrough block for the previously added if-instruction.
@@ -351,7 +351,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
 
       // 1. Insert `int id = -1`.
       InstructionListIterator instructionIterator =
-          hashSwitchBlock.listIterator(code, hashSwitchBlock.size());
+          hashSwitchBlock.listIterator(hashSwitchBlock.size());
       instructionIterator.previous();
 
       Phi idPhi = code.createPhi(idSwitchBlock, TypeElement.getInt());
@@ -412,7 +412,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
 
       // 6. Insert `switch (idValue)`.
       IntSwitch idSwitch = createIdSwitch(idPhi, targetBlockIndices);
-      InstructionListIterator idSwitchBlockInstructionIterator = idSwitchBlock.listIterator(code);
+      InstructionListIterator idSwitchBlockInstructionIterator = idSwitchBlock.listIterator();
       idSwitchBlockInstructionIterator.next();
       idSwitchBlockInstructionIterator.replaceCurrentInstruction(idSwitch);
     }
@@ -448,7 +448,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
           current.getMutableSuccessors().clear();
 
           // Insert `String key = <entry.getKey()>`.
-          InstructionListIterator instructionIterator = current.listIterator(code);
+          InstructionListIterator instructionIterator = current.listIterator();
           Value keyValue =
               instructionIterator.insertConstStringInstruction(appView, code, entry.getKey());
           newBlocksWithStrings.add(current);
@@ -473,7 +473,7 @@ public class StringSwitchRemover extends CodeRewriterPass<AppInfo> {
           // Insert `int id = <nextStringId++>`.
           Value idValue =
               equalsKeyBlock
-                  .listIterator(code)
+                  .listIterator()
                   .insertConstIntInstruction(code, appView.options(), nextStringId++);
           idPhi.appendOperand(idValue);
 

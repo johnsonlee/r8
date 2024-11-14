@@ -104,7 +104,7 @@ public abstract class NullCheckInserter {
       BasicBlockIterator blockIterator = code.listIterator();
       while (blockIterator.hasNext()) {
         BasicBlock block = blockIterator.next();
-        InstructionListIterator instructionIterator = block.listIterator(code);
+        InstructionListIterator instructionIterator = block.listIterator();
         while (instructionIterator.hasNext()) {
           Instruction instruction = instructionIterator.next();
           if (!instruction.isInvokeStatic()) {
@@ -159,7 +159,7 @@ public abstract class NullCheckInserter {
             BasicBlock previousBlock = blockIterator.previousUntil(b -> b == splitBlock);
             assert previousBlock == splitBlock;
             blockIterator.next();
-            instructionIterator = splitBlock.listIterator(code);
+            instructionIterator = splitBlock.listIterator();
           }
 
           Instruction next = instructionIterator.next();

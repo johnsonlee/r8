@@ -54,7 +54,7 @@ public class CommonSubexpressionElimination extends CodeRewriterPass<AppInfo> {
         if (block.isMarked(noCandidate)) {
           continue;
         }
-        InstructionListIterator iterator = block.listIterator(code);
+        InstructionListIterator iterator = block.listIterator();
         while (iterator.hasNext()) {
           Instruction instruction = iterator.next();
           if (isCSEInstructionCandidate(instruction)) {

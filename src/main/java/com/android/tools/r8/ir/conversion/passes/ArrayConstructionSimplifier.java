@@ -338,7 +338,7 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
 
     for (BasicBlock block : relevantBlocks) {
       boolean hasCatchHandlers = block.hasCatchHandlers();
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction possiblyNewArray = instructionsToChange.get(it.next());
         if (possiblyNewArray != null) {

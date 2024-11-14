@@ -162,7 +162,7 @@ public class MoveSorter {
 
   void sortSuffix(BasicBlock predecessor, Set<Wrapper<Instruction>> sharedSuffix) {
     InstructionListIterator iterator =
-        predecessor.listIterator(code, predecessor.getInstructions().size() - 1);
+        predecessor.listIterator(predecessor.getInstructions().size() - 1);
     Deque<Instruction> removedInstructions = new ArrayDeque<>();
     while (iterator.hasPrevious()) {
       Instruction instruction = iterator.previous();
@@ -176,9 +176,7 @@ public class MoveSorter {
       }
     }
     assert removedInstructions.size() == sharedSuffix.size();
-    predecessor
-        .listIterator(code, predecessor.getInstructions().size() - 1)
-        .addAll(removedInstructions);
+    predecessor.listIterator(predecessor.getInstructions().size() - 1).addAll(removedInstructions);
   }
 
   private boolean hasTwoPredecessorsWithUniqueSuccessor(BasicBlock block) {

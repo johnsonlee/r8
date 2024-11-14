@@ -283,7 +283,7 @@ public class GeneratedMessageLiteBuilderShrinker {
     assert newInstance != null;
     // Once the new instance is found, create a new linear iterator to allow subsequent instructions
     // to be in trivially split blocks.
-    instructionIterator = new LinearFlowInstructionListIterator(code, newInstance.getBlock());
+    instructionIterator = new LinearFlowInstructionListIterator(newInstance.getBlock());
     instructionIterator.nextUntil(i -> i == newInstance);
     instructionIterator.replaceCurrentInstruction(new NewInstance(builder.superType, builderValue));
 

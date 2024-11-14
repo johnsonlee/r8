@@ -77,7 +77,7 @@ public abstract class MemberValuePropagation<T extends AppInfo> {
       if (!blockTester.test(block)) {
         continue;
       }
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction current = iterator.next();
         switch (current.opcode()) {
@@ -204,7 +204,7 @@ public abstract class MemberValuePropagation<T extends AppInfo> {
     }
     if (block.hasCatchHandlers()) {
       BasicBlock splitBlock = iterator.split(code, blocks);
-      splitBlock.listIterator(code).add(replacement);
+      splitBlock.listIterator().add(replacement);
 
       // Process the materialized value.
       blocks.previous();

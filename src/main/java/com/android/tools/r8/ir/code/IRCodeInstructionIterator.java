@@ -12,12 +12,9 @@ public class IRCodeInstructionIterator implements InstructionIterator {
   private final ListIterator<BasicBlock> blockIterator;
   private InstructionListIterator instructionIterator;
 
-  private final IRCode code;
-
   public IRCodeInstructionIterator(IRCode code) {
     this.blockIterator = code.listIterator();
-    this.code = code;
-    this.instructionIterator = blockIterator.next().listIterator(code);
+    this.instructionIterator = blockIterator.next().listIterator();
   }
 
   @Override
@@ -33,7 +30,7 @@ public class IRCodeInstructionIterator implements InstructionIterator {
     if (!blockIterator.hasNext()) {
       throw new NoSuchElementException();
     }
-    instructionIterator = blockIterator.next().listIterator(code);
+    instructionIterator = blockIterator.next().listIterator();
     assert instructionIterator.hasNext();
     return instructionIterator.next();
   }
@@ -52,7 +49,7 @@ public class IRCodeInstructionIterator implements InstructionIterator {
       throw new NoSuchElementException();
     }
     BasicBlock block = blockIterator.previous();
-    instructionIterator = block.listIterator(code, block.getInstructions().size());
+    instructionIterator = block.listIterator(block.getInstructions().size());
     assert instructionIterator.hasPrevious();
     return instructionIterator.previous();
   }

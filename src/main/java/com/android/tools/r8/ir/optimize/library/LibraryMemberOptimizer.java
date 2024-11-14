@@ -130,7 +130,7 @@ public class LibraryMemberOptimizer implements CodeOptimization {
         continue;
       }
 
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       Map<LibraryMethodModelCollection<?>, LibraryMethodModelCollection.State> optimizationStates =
           new IdentityHashMap<>();
       while (instructionIterator.hasNext()) {

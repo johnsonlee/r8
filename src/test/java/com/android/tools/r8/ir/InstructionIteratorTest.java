@@ -49,7 +49,7 @@ public class InstructionIteratorTest extends SmaliTestBase {
     MethodSubject methodSubject = getMethodSubject(application, signature);
     IRCode code = methodSubject.buildIR();
     ListIterator<BasicBlock> blocks = code.listIterator();
-    InstructionListIterator iter = blocks.next().listIterator(code);
+    InstructionListIterator iter = blocks.next().listIterator();
     iter.nextUntil(i -> !i.isArgument());
     iter.previous();
     iter.split(code, 1, blocks);
@@ -61,7 +61,7 @@ public class InstructionIteratorTest extends SmaliTestBase {
     IRCode code = simpleCode();
 
     ListIterator<BasicBlock> blocks = code.listIterator();
-    InstructionListIterator instructions = blocks.next().listIterator(code);
+    InstructionListIterator instructions = blocks.next().listIterator();
     thrown.expect(IllegalStateException.class);
     instructions.remove();
   }
@@ -72,7 +72,7 @@ public class InstructionIteratorTest extends SmaliTestBase {
 
     ListIterator<BasicBlock> blocks = code.listIterator();
     blocks.next();
-    InstructionListIterator instructions = blocks.next().listIterator(code);
+    InstructionListIterator instructions = blocks.next().listIterator();
     instructions.next();
     instructions.remove();
     thrown.expect(IllegalStateException.class);

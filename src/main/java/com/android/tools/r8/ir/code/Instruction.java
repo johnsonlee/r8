@@ -380,11 +380,6 @@ public abstract class Instruction
     block.getInstructions().removeOrReplaceByDebugLocalRead(this);
   }
 
-  // TODO(b/376663044): Delete.
-  public void removeOrReplaceByDebugLocalRead(IRCode unused_code) {
-    block.getInstructions().removeOrReplaceByDebugLocalRead(this);
-  }
-
   public void removeIgnoreValues() {
     block.getInstructions().removeIgnoreValues(this);
   }
@@ -393,18 +388,7 @@ public abstract class Instruction
     block.getInstructions().replace(this, newInstruction);
   }
 
-  // TODO(b/376663044): Delete.
-  public void replace(Instruction newInstruction, IRCode unused_code) {
-    block.getInstructions().replace(this, newInstruction);
-  }
-
   public void replace(Instruction newInstruction, AffectedValues affectedValues) {
-    block.getInstructions().replace(this, newInstruction, affectedValues);
-  }
-
-  // TODO(b/376663044): Delete.
-  public void replace(
-      Instruction newInstruction, IRCode unused_code, AffectedValues affectedValues) {
     block.getInstructions().replace(this, newInstruction, affectedValues);
   }
 

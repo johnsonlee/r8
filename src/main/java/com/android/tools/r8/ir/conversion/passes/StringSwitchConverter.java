@@ -335,7 +335,7 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
       insertionBlock.link(fallthroughBlock);
       JumpInstruction exit = insertionBlock.exit();
       int fallthroughBlockIndex = nextTargetBlockIndex;
-      exit.replace(new StringSwitch(value, keys, targetBlockIndices, fallthroughBlockIndex), code);
+      exit.replace(new StringSwitch(value, keys, targetBlockIndices, fallthroughBlockIndex));
     }
   }
 

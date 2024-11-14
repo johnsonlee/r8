@@ -22,25 +22,21 @@ import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public class LinearFlowInstructionListIterator implements InstructionListIterator {
-
-  private final IRCode code;
-
   private BasicBlock currentBlock;
   private InstructionListIterator currentBlockIterator;
   private Set<BasicBlock> seenBlocks = Sets.newIdentityHashSet();
 
   public LinearFlowInstructionListIterator(IRCode code) {
-    this(code, code.entryBlock(), 0);
+    this(code.entryBlock(), 0);
   }
 
-  public LinearFlowInstructionListIterator(IRCode code, BasicBlock block) {
-    this(code, block, 0);
+  public LinearFlowInstructionListIterator(BasicBlock block) {
+    this(block, 0);
   }
 
-  public LinearFlowInstructionListIterator(IRCode code, BasicBlock block, int index) {
-    this.code = code;
+  public LinearFlowInstructionListIterator(BasicBlock block, int index) {
     this.currentBlock = block;
-    this.currentBlockIterator = block.listIterator(code, index);
+    this.currentBlockIterator = block.listIterator(index);
     // If index is pointing after the last instruction, and it is a goto with a linear edge,
     // we have to move the pointer. This is achieved by calling previous and next.
     seenBlocks.add(block);
@@ -246,7 +242,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
     }
     currentBlock = target;
     seenBlocks.add(target);
-    currentBlockIterator = currentBlock.listIterator(code);
+    currentBlockIterator = currentBlock.listIterator();
     return currentBlockIterator.next();
   }
 
@@ -305,7 +301,7 @@ public class LinearFlowInstructionListIterator implements InstructionListIterato
     }
     currentBlock = target;
     seenBlocks.add(target);
-    currentBlockIterator = currentBlock.listIterator(code, currentBlock.getInstructions().size());
+    currentBlockIterator = currentBlock.listIterator(currentBlock.getInstructions().size());
     // Iterate over the jump.
     currentBlockIterator.previous();
     return currentBlockIterator.previous();

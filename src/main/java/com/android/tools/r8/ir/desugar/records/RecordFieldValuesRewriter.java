@@ -88,7 +88,7 @@ public class RecordFieldValuesRewriter {
     ListIterator<BasicBlock> blockIterator = irCode.listIterator();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator iterator = block.listIterator(irCode);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction instruction = iterator.next();
         if (instruction.isRecordFieldValues()) {
@@ -146,7 +146,7 @@ public class RecordFieldValuesRewriter {
       BasicBlock blockWithIncorrectThrowingInstructions,
       ListIterator<BasicBlock> blockIterator) {
     InstructionListIterator instructionsIterator =
-        blockWithIncorrectThrowingInstructions.listIterator(code);
+        blockWithIncorrectThrowingInstructions.listIterator();
     BasicBlock currentBlock = blockWithIncorrectThrowingInstructions;
     while (currentBlock != null && instructionsIterator.hasNext()) {
       Instruction throwingInstruction =
@@ -160,7 +160,7 @@ public class RecordFieldValuesRewriter {
         BasicBlock b = blockIterator.next();
         assert b == nextBlock;
         // Switch iteration to the split block.
-        instructionsIterator = nextBlock.listIterator(code);
+        instructionsIterator = nextBlock.listIterator();
         currentBlock = nextBlock;
       } else {
         assert !instructionsIterator.hasNext();

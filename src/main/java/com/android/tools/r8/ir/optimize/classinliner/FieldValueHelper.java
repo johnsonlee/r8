@@ -146,7 +146,7 @@ final class FieldValueHelper {
 
     assert root == valueProducingInsn;
     if (defaultValue == null) {
-      InstructionListIterator it = block.listIterator(code, root.getNext());
+      InstructionListIterator it = block.listIterator(root.getNext());
       // If we met newInstance it means that default value is supposed to be used.
       if (field.type.isPrimitiveType()) {
         defaultValue =

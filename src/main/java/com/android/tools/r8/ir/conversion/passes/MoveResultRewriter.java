@@ -57,7 +57,7 @@ public class MoveResultRewriter extends CodeRewriterPass<AppInfo> {
         continue;
       }
 
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         InvokeMethod invoke = iterator.next().asInvokeMethod();
         if (invoke == null || !invoke.hasOutValue() || invoke.outValue().hasLocalInfo()) {
@@ -111,7 +111,7 @@ public class MoveResultRewriter extends CodeRewriterPass<AppInfo> {
                   assume -> removedAssumeInstructionInCurrentBlock.or(assume.getBlock() == block));
           if (removedAssumeInstructionInCurrentBlock.isTrue()) {
             // Workaround ConcurrentModificationException.
-            iterator = block.listIterator(code);
+            iterator = block.listIterator();
           }
         }
       }

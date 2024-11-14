@@ -80,7 +80,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
     // removal.
     boolean needToRemoveTrivialPhis = false;
     for (BasicBlock block : code.getBlocks()) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction current = it.next();
         if (current.isCheckCast()) {
@@ -115,7 +115,7 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
                   typeAnalysis -> typeAnalysis.setKeepRedundantBlocksAfterAssumeRemoval(true));
             }
             if (block.size() != blockSizeBeforeAssumeRemoval) {
-              it = block.listIterator(code, previous != null ? previous.getNext() : block.entry());
+              it = block.listIterator(previous != null ? previous.getNext() : block.entry());
             }
           }
         } else if (current.isInstanceOf()) {

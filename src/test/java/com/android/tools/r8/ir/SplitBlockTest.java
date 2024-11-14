@@ -371,7 +371,7 @@ public class SplitBlockTest extends IrInjectionTestBase {
     List<BasicBlock> exitBlocks = new ArrayList<>(code.computeNormalExitBlocks());
     for (BasicBlock originalReturnBlock : exitBlocks) {
       InstructionListIterator iterator =
-          originalReturnBlock.listIterator(code, originalReturnBlock.getInstructions().size());
+          originalReturnBlock.listIterator(originalReturnBlock.getInstructions().size());
       Instruction ret = iterator.previous();
       assert ret.isReturn();
       BasicBlock newReturnBlock = iterator.split(code);

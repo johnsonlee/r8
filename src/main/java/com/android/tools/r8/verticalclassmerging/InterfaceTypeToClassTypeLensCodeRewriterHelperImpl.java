@@ -155,7 +155,7 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
     boolean isCodeFullyRewrittenWithLens = true;
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         Deque<WorklistItem> worklistItems = worklist.get(instruction);
@@ -215,7 +215,7 @@ public class InterfaceTypeToClassTypeLensCodeRewriterHelperImpl
           instructionIterator.splitCopyCatchHandlers(code, blockIterator, appView.options());
       instructionIterator.previous();
       instructionIterator.add(checkCast);
-      instructionIterator = splitBlock.listIterator(code);
+      instructionIterator = splitBlock.listIterator();
     } else {
       instructionIterator.add(checkCast);
     }

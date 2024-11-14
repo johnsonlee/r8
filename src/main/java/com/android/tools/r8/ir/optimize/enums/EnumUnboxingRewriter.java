@@ -97,7 +97,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
       IRCode code, RewrittenPrototypeDescription prototypeChanges, Set<Phi> affectedPhis) {
     Map<Instruction, DexType> convertedEnums = new IdentityHashMap<>();
     List<Instruction> extraConstants = new ArrayList<>();
-    InstructionListIterator iterator = code.entryBlock().listIterator(code);
+    InstructionListIterator iterator = code.entryBlock().listIterator();
     int originalNumberOfArguments =
         code.getNumberOfArguments()
             + prototypeChanges.getArgumentInfoCollection().numberOfRemovedArguments();
@@ -174,7 +174,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
       BasicBlock block = blocks.next();
       seenBlocks.add(block);
       zeroConstValue = fixNullsInBlockPhis(code, block, zeroConstValue);
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction instruction = iterator.next();
         if (instructionsToRemove.contains(instruction)) {
@@ -250,7 +250,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
     BasicBlockIterator blocks = code.listIterator();
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       NewArrayFilled newArrayFilled;
       while ((newArrayFilled = instructionIterator.nextUntil(Instruction::isNewArrayFilled))
           != null) {
@@ -536,7 +536,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
         if (block.hasCatchHandlers()) {
           iterator
               .splitCopyCatchHandlers(code, blocks, appView.options())
-              .listIterator(code)
+              .listIterator()
               .add(invokeAppendString);
         } else {
           iterator.add(invokeAppendString);
@@ -833,7 +833,7 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
   }
 
   private Value insertConstZero(IRCode code) {
-    InstructionListIterator iterator = code.entryBlock().listIterator(code);
+    InstructionListIterator iterator = code.entryBlock().listIterator();
     while (iterator.hasNext() && iterator.peekNext().isArgument()) {
       iterator.next();
     }

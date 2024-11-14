@@ -386,7 +386,7 @@ public interface StringBuilderAction {
           iterator.insertConstStringInstruction(
               appView, code, appView.dexItemFactory().createString(newString));
     } else {
-      InstructionListIterator stringInsertIterator = code.entryBlock().listIterator(code);
+      InstructionListIterator stringInsertIterator = code.entryBlock().listIterator();
       while (stringInsertIterator.hasNext()) {
         Instruction next = stringInsertIterator.next();
         if (!next.isArgument()) {

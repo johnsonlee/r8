@@ -269,7 +269,7 @@ public class LensCodeRewriter {
           mayHaveUnreachableBlocks |= unlinkDeadCatchHandlers(block, graphLens, codeLens);
         }
       }
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction current = iterator.next();
         switch (current.opcode()) {
@@ -593,7 +593,7 @@ public class LensCodeRewriter {
                       BasicBlock previousBlock = blocks.previousUntil(splitBlock);
                       assert previousBlock == splitBlock;
                       blocks.next();
-                      iterator = splitBlock.listIterator(code);
+                      iterator = splitBlock.listIterator();
                       iterator.add(instruction);
                     }
                   } else {
@@ -911,7 +911,8 @@ public class LensCodeRewriter {
     int oldArgumentIndex = 0;
     int nextArgumentIndex = 0;
     int numberOfRemovedArguments = 0;
-    InstructionListIterator instructionIterator = code.entryBlock().listIterator(code);
+    BasicBlock basicBlock = code.entryBlock();
+    InstructionListIterator instructionIterator = basicBlock.listIterator();
     while (instructionIterator.hasNext()) {
       Instruction instruction = instructionIterator.next();
       if (!instruction.isArgument()) {
@@ -1079,7 +1080,7 @@ public class LensCodeRewriter {
     AffectedValues affectedValues = new AffectedValues();
     for (UnusedArgument unusedArgument : unusedArguments) {
       InstructionListIterator instructionIterator =
-          unusedArgument.getBlock().listIterator(code, unusedArgument.getNext());
+          unusedArgument.getBlock().listIterator(unusedArgument.getNext());
       if (unusedArgument.outValue().hasAnyUsers()) {
         // This is an unused argument with a default value. The unused argument is an operand of the
         // phi. This use is eliminated after constant propagation + branch pruning. We eliminate the
@@ -1159,7 +1160,7 @@ public class LensCodeRewriter {
         BasicBlock previousBlock = blocks.previousUntil(block -> block == splitBlock);
         assert previousBlock == splitBlock;
         blocks.next();
-        iterator = splitBlock.listIterator(code);
+        iterator = splitBlock.listIterator();
       }
 
       Instruction next = iterator.next();
@@ -1207,7 +1208,7 @@ public class LensCodeRewriter {
           BasicBlock previousBlock = blocks.previousUntil(block -> block == splitBlock);
           assert previousBlock == splitBlock;
           blocks.next();
-          iterator = splitBlock.listIterator(code);
+          iterator = splitBlock.listIterator();
         }
 
         Instruction next = iterator.next();
@@ -1236,7 +1237,7 @@ public class LensCodeRewriter {
       BasicBlock previousBlock = blocks.previousUntil(block -> block == splitBlock);
       assert previousBlock != null;
       blocks.next();
-      iterator = splitBlock.listIterator(code);
+      iterator = splitBlock.listIterator();
     }
 
     DexType castType = prototypeChanges.getRewrittenReturnInfo().getCastType();

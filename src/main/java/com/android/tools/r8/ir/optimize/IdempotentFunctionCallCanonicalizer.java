@@ -202,7 +202,7 @@ public class IdempotentFunctionCallCanonicalizer {
 
     if (!deadInvocations.isEmpty()) {
       for (BasicBlock block : code.blocks) {
-        InstructionListIterator it = block.listIterator(code);
+        InstructionListIterator it = block.listIterator();
         while (it.hasNext()) {
           Instruction current = it.next();
           if (!current.isInvokeMethod()) {
@@ -237,7 +237,7 @@ public class IdempotentFunctionCallCanonicalizer {
     BasicBlock entryBlock = code.entryBlock();
     // Insert the canonicalized invoke after in values.
     int numberOfInValuePassed = 0;
-    InstructionListIterator it = entryBlock.listIterator(code);
+    InstructionListIterator it = entryBlock.listIterator();
     while (it.hasNext()) {
       Instruction current = it.next();
       if (current.hasOutValue()) {
@@ -264,7 +264,7 @@ public class IdempotentFunctionCallCanonicalizer {
     BasicBlock entryBlock = code.entryBlock();
     // Insert the canonicalized invocation at the start of the block right after the argument
     // instructions.
-    InstructionListIterator it = entryBlock.listIterator(code);
+    InstructionListIterator it = entryBlock.listIterator();
     while (it.hasNext()) {
       if (!it.next().isArgument()) {
         it.previous();

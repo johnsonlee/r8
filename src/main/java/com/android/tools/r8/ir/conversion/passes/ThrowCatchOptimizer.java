@@ -74,7 +74,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
     boolean hasChanged = false;
     boolean shouldRemoveUnreachableBlocks = false;
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
 
@@ -237,7 +237,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
       if (blocksToRemove.contains(block)) {
         continue;
       }
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         if (instruction.throwsOnNullInput()) {
@@ -365,7 +365,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
   }
 
   private boolean isSingleHandlerTrivial(BasicBlock firstBlock, IRCode code) {
-    InstructionListIterator instructionIterator = firstBlock.listIterator(code);
+    InstructionListIterator instructionIterator = firstBlock.listIterator();
     Instruction instruction = instructionIterator.next();
     if (!instruction.isMoveException()) {
       // A catch handler which doesn't use its exception is not going to be a trivial rethrow.
@@ -395,7 +395,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
           }
           exceptionValue = phiAliasOfExceptionValue;
         }
-        instructionIterator = nextBlock.listIterator(code);
+        instructionIterator = nextBlock.listIterator();
       } else if (instruction.isThrow()) {
         List<Value> throwValues = instruction.inValues();
         assert throwValues.size() == 1;

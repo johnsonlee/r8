@@ -88,7 +88,7 @@ public class EffectivelyTrivialPhiOptimization {
       assert singleValueOrValue.hasSingleValue();
       SingleValue singleValue = singleValueOrValue.getSingleValue();
       assert singleValue.isMaterializableInContext(appView, code.context());
-      InstructionListIterator entryBlockIterator = code.entryBlock().listIterator(code);
+      InstructionListIterator entryBlockIterator = code.entryBlock().listIterator();
       entryBlockIterator.positionBeforeNextInstructionThatMatches(i -> !i.isArgument());
 
       // Insert materializing instruction.

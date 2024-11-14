@@ -296,7 +296,7 @@ public class EnumValueOptimizer extends CodeRewriterPass<AppInfoWithLiveness> {
       }
 
       if (ordinalToTargetMap.isEmpty()) {
-        switchInsn.replace(new Goto(), code);
+        switchInsn.replace(new Goto());
       } else {
         int[] keys = ordinalToTargetMap.keySet().toIntArray();
         Arrays.sort(keys);
@@ -309,7 +309,7 @@ public class EnumValueOptimizer extends CodeRewriterPass<AppInfoWithLiveness> {
             new IntSwitch(info.ordinalInvoke.outValue(), keys, targets, fallthroughBlockIndex);
 
         // Replace the switch itself.
-        switchInsn.replace(newSwitch, code);
+        switchInsn.replace(newSwitch);
       }
 
       // If the original input to the switch is now unused, remove it too. It is not dead

@@ -147,7 +147,7 @@ public class AssumeInserter {
     // 2) invocations that are guaranteed to return a non-null value.
     // 3) parameters that are not null after the invocation.
     // 4) field-get instructions that are guaranteed to read a non-null value.
-    InstructionListIterator instructionIterator = block.listIterator(code);
+    InstructionListIterator instructionIterator = block.listIterator();
     while (instructionIterator.hasNext()) {
       Instruction current = instructionIterator.next();
       boolean needsAssumeInstruction = false;
@@ -589,7 +589,7 @@ public class AssumeInserter {
         assumedValueInfo -> assumedValueInfo.dominance.isEverything());
     pendingInsertions.forEach(
         (block, pendingInsertionsPerInstruction) -> {
-          InstructionListIterator instructionIterator = block.listIterator(code);
+          InstructionListIterator instructionIterator = block.listIterator();
           while (instructionIterator.hasNext() && !pendingInsertionsPerInstruction.isEmpty()) {
             Instruction instruction = instructionIterator.next();
             List<Instruction> pendingAssumeInstructions =
@@ -672,7 +672,7 @@ public class AssumeInserter {
           }
           assumeInstruction.setPosition(instruction.getPosition());
           if (insertionBlock != block) {
-            insertionBlock.listIterator(code).add(assumeInstruction);
+            insertionBlock.listIterator().add(assumeInstruction);
           } else {
             pendingInsertions
                 .computeIfAbsent(block, ignore -> new IdentityHashMap<>())

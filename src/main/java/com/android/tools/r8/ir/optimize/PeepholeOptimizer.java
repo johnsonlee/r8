@@ -494,7 +494,7 @@ public class PeepholeOptimizer {
       // the same register.
       Map<Integer, ConstNumber> registerToNumber = new HashMap<>();
       MoveEliminator moveEliminator = new MoveEliminator(allocator);
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction current = iterator.next();
         if (moveEliminator.shouldBeEliminated(current)) {

@@ -162,7 +162,7 @@ public class GeneratedMessageLiteShrinker {
     BasicBlockIterator blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         DexType newMutableInstanceType = getNewMutableInstanceType(appView, instruction);
@@ -202,7 +202,7 @@ public class GeneratedMessageLiteShrinker {
           // the split block.
           BasicBlock splitBlock =
               instructionIterator.splitCopyCatchHandlers(code, blockIterator, appView.options());
-          instructionIterator = splitBlock.listIterator(code);
+          instructionIterator = splitBlock.listIterator();
           instructionIterator.add(constructorInvoke);
           BasicBlock previousBlock =
               blockIterator.previousUntil(previous -> previous == splitBlock);
@@ -332,7 +332,7 @@ public class GeneratedMessageLiteShrinker {
   private void rewriteInfoArgumentToNewMessageInfo(
       IRCode code, Value infoValue, ProtoMessageInfo protoMessageInfo) {
     infoValue.definition.replace(
-        new ConstString(code.createValue(stringType), encoder.encodeInfo(protoMessageInfo)), code);
+        new ConstString(code.createValue(stringType), encoder.encodeInfo(protoMessageInfo)));
   }
 
   private void rewriteObjectsArgumentToNewMessageInfo(
@@ -342,7 +342,7 @@ public class GeneratedMessageLiteShrinker {
     // Position iterator immediately before the call to newMessageInfo().
     BasicBlock block = newMessageInfoInvoke.getBlock();
     InstructionListIterator instructionIterator =
-        block.listIterator(code, newMessageInfoInvoke.getNext());
+        block.listIterator(newMessageInfoInvoke.getNext());
     Instruction previous = instructionIterator.previous();
     instructionIterator.setInsertionPosition(newMessageInfoInvoke.getPosition());
     assert previous == newMessageInfoInvoke;

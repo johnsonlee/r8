@@ -99,7 +99,7 @@ public class R8MemberValuePropagation extends MemberValuePropagation<AppInfoWith
     if (block.hasCatchHandlers()) {
       iterator
           .splitCopyCatchHandlers(code, blocks, appView.options())
-          .listIterator(code)
+          .listIterator()
           .add(replacement);
     } else {
       iterator.add(replacement);

@@ -58,7 +58,7 @@ public class LinearFlowIteratorTest extends TestBase {
     IRCode code = methodSubject.buildIR();
     ListIterator<BasicBlock> blocks = code.listIterator();
     blocks.next();
-    InstructionListIterator iter = blocks.next().listIterator(code);
+    InstructionListIterator iter = blocks.next().listIterator();
     iter.nextUntil(i -> !i.isConstNumber());
     iter.previous();
     iter.split(code, blocks);
@@ -92,7 +92,7 @@ public class LinearFlowIteratorTest extends TestBase {
     MethodSubject method = getMethodSubject(app, "foo", "void", "bar", ImmutableList.of("int"));
     IRCode code = method.buildIR();
     ListIterator<BasicBlock> blocks = code.listIterator();
-    InstructionListIterator iter = blocks.next().listIterator(code);
+    InstructionListIterator iter = blocks.next().listIterator();
     iter.nextUntil(i -> !i.isArgument());
     iter.split(code, 0, blocks);
     return code;
@@ -101,7 +101,7 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void hasNextWillCheckNextBlock() throws Exception {
     IRCode code = simpleCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.entryBlock());
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.entryBlock());
     it.next();
     it.next();
     assert it.hasNext();
@@ -110,7 +110,7 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void nextWillContinueThroughGotoBlocks() throws Exception {
     IRCode code = simpleCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.entryBlock());
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.entryBlock());
     assertTrue(it.next().isArgument());
     assertTrue(it.next().isConstNumber());
     assertTrue(it.next().isThrow());
@@ -119,14 +119,14 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void hasPreviousWillCheckPreviousBlock() throws Exception {
     IRCode code = simpleCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.blocks.get(2));
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.blocks.get(2));
     assert it.hasPrevious();
   }
 
   @Test
   public void hasPreviousWillJumpOverGotos() throws Exception {
     IRCode code = simpleCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.blocks.get(2));
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.blocks.get(2));
     assert it.previous().isConstNumber();
   }
 
@@ -134,7 +134,7 @@ public class LinearFlowIteratorTest extends TestBase {
   public void GoToFrontAndBackIsSameAmountOfInstructions() throws Exception {
     IRCode code = simpleCode();
     int moves = 0;
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.entryBlock());
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.entryBlock());
     while (it.hasNext()) {
       it.next();
       moves++;
@@ -150,7 +150,7 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void moveFromEmptyBlock() throws Exception {
     IRCode code = simpleCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.blocks.get(1));
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.blocks.get(1));
     Instruction current = it.previous();
     assertTrue(current.isConstNumber() && current.getOutType().isReferenceType());
     assertTrue(it.next().isConstNumber());
@@ -160,7 +160,7 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void doNotChangeToNextBlockWhenNotLinearFlow() throws Exception {
     IRCode code = branchingCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.entryBlock());
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.entryBlock());
     it.nextUntil((i) -> !i.isArgument());
     it.next();
     assert !it.hasNext();
@@ -169,14 +169,14 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void doNotChangeToPreviousBlockWhenNotLinearFlow() throws Exception {
     IRCode code = branchingCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.blocks.get(4));
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.blocks.get(4));
     assert !it.hasPrevious();
   }
 
   @Test
   public void followLinearSubPathDown() throws Exception {
     IRCode code = branchingCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.blocks.get(1));
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.blocks.get(1));
     Instruction current = null;
     while (it.hasNext()) {
       current = it.next();
@@ -187,7 +187,7 @@ public class LinearFlowIteratorTest extends TestBase {
   @Test
   public void followLinearSubPathUp() throws Exception {
     IRCode code = branchingCode();
-    InstructionListIterator it = new LinearFlowInstructionListIterator(code, code.blocks.get(2));
+    InstructionListIterator it = new LinearFlowInstructionListIterator(code.blocks.get(2));
     Instruction current = null;
     while (it.hasPrevious()) {
       current = it.previous();

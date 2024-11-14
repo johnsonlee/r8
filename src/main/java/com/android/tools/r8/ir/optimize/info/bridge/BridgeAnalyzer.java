@@ -39,7 +39,7 @@ public class BridgeAnalyzer {
     // instruction.
     InvokeMethodWithReceiver uniqueInvoke = null;
     CheckCast uniqueReturnCast = null;
-    InstructionListIterator instructionIterator = code.entryBlock().listIterator(code);
+    InstructionListIterator instructionIterator = code.entryBlock().listIterator();
     Set<BasicBlock> seenBlocks = null;
     while (instructionIterator.hasNext()) {
       Instruction instruction = instructionIterator.next();
@@ -95,7 +95,7 @@ public class BridgeAnalyzer {
             if (!seenBlocks.add(targetBlock)) {
               return failure();
             }
-            instructionIterator = targetBlock.listIterator(code);
+            instructionIterator = targetBlock.listIterator();
             break;
           }
 

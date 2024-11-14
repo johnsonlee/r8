@@ -123,7 +123,7 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
       if (blocks != null && !blocks.contains(block)) {
         continue;
       }
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction instruction = iterator.next();
         // v_n <- "x.y.z" // in.definition
@@ -204,10 +204,10 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
         block.hasCatchHandlers() ? iterator.split(code, blocks) : block;
     if (blockWithFieldInstruction != block) {
       // If we split, add const-string at the end of the currently visiting block.
-      iterator = block.listIterator(code, block.getInstructions().size() - 1);
+      iterator = block.listIterator(block.getInstructions().size() - 1);
       iterator.add(decoupled);
       // Restore the cursor and block.
-      iterator = blockWithFieldInstruction.listIterator(code);
+      iterator = blockWithFieldInstruction.listIterator();
       assert iterator.peekNext() == fieldPut;
       iterator.next();
     } else {
@@ -274,7 +274,7 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
           iterator.replaceCurrentInstruction(decoupled);
           iterator.nextUntil(instruction -> instruction == invoke);
         } else {
-          in.definition.replace(decoupled, code);
+          in.definition.replace(decoupled);
         }
       } else {
         decoupled.setPosition(invoke.getPosition());
@@ -290,11 +290,11 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
             block.hasCatchHandlers() ? iterator.split(code, blocks) : block;
         if (blockWithInvoke != block) {
           // If we split, add const-string at the end of the currently visiting block.
-          iterator = block.listIterator(code, block.getInstructions().size());
+          iterator = block.listIterator(block.getInstructions().size());
           iterator.previous();
           iterator.add(decoupled);
           // Restore the cursor and block.
-          iterator = blockWithInvoke.listIterator(code);
+          iterator = blockWithInvoke.listIterator();
           assert iterator.peekNext() == invoke;
           iterator.next();
         } else {
@@ -336,11 +336,11 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
             block.hasCatchHandlers() ? iterator.split(code, blocks) : block;
         if (blockWithInvoke != block) {
           // If we split, add const-string at the end of the currently visiting block.
-          iterator = block.listIterator(code, block.getInstructions().size());
+          iterator = block.listIterator(block.getInstructions().size());
           iterator.previous();
           iterator.add(decoupled);
           // Restore the cursor and block.
-          iterator = blockWithInvoke.listIterator(code);
+          iterator = blockWithInvoke.listIterator();
           assert iterator.peekNext() == invoke;
           iterator.next();
         } else {

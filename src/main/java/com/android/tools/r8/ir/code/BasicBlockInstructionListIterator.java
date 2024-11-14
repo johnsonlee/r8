@@ -213,7 +213,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       BasicBlock nextBlock =
           dstIterator.splitCopyCatchHandlers(
               code, blockIterator, options, UnaryOperator.identity());
-      dstIterator = nextBlock.listIterator(code);
+      dstIterator = nextBlock.listIterator();
     }
     do {
       boolean addedThrowing = dstIterator.addUntilThrowing(srcIterator);
@@ -223,7 +223,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       BasicBlock nextBlock =
           dstIterator.splitCopyCatchHandlers(
               code, blockIterator, options, UnaryOperator.identity());
-      dstIterator = nextBlock.listIterator(code);
+      dstIterator = nextBlock.listIterator();
     } while (srcIterator.hasNext());
 
     return dstIterator;
@@ -521,7 +521,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       // We need to insert the throw instruction in a block of its own, so split the current block
       // into three blocks, where the intermediate block only contains a goto instruction.
       throwBlock = splitCopyCatchHandlers(code, blockIterator, options);
-      throwBlock.listIterator(code).split(code, blockIterator, true);
+      throwBlock.listIterator().split(code, blockIterator, true);
     } else {
       splitCopyCatchHandlers(code, blockIterator, options);
       throwBlock = block;
@@ -540,7 +540,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       previous();
       next();
     } else {
-      throwBlockInstructionIterator = throwBlock.listIterator(code, 1);
+      throwBlockInstructionIterator = throwBlock.listIterator(1);
     }
     assert !throwBlockInstructionIterator.hasNext();
 
@@ -581,7 +581,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       // We need to insert the throw instruction in a block of its own, so split the current block
       // into three blocks, where the intermediate block only contains a goto instruction.
       throwBlock = split(code, blockIterator, true);
-      throwBlock.listIterator(code).split(code, blockIterator);
+      throwBlock.listIterator().split(code, blockIterator);
     } else {
       split(code, blockIterator, true);
       throwBlock = block;
@@ -602,7 +602,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     if (throwBlock == block) {
       throwBlockInstructionIterator = this;
     } else {
-      throwBlockInstructionIterator = throwBlock.listIterator(code);
+      throwBlockInstructionIterator = throwBlock.listIterator();
       throwBlockInstructionIterator.setInsertionPosition(getInsertionPosition());
     }
 
@@ -685,7 +685,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     BasicBlock newBlock = split(code, blocksIterator);
     assert blocksIterator == null || IteratorUtils.peekPrevious(blocksIterator) == newBlock;
     // Skip the requested number of instructions and split again.
-    InstructionListIterator iterator = newBlock.listIterator(code);
+    InstructionListIterator iterator = newBlock.listIterator();
     for (int i = 0; i < instructions; i++) {
       iterator.next();
     }
@@ -732,7 +732,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     // one throwing instruction in each block.
     // NOTE: This iterator is replaced in the loop below, so that the iteration continues in
     // the new block after the iterated block is split.
-    InstructionListIterator instructionsIterator = inlinedBlock.listIterator(code);
+    InstructionListIterator instructionsIterator = inlinedBlock.listIterator();
     BasicBlock currentBlock = inlinedBlock;
     while (currentBlock != null && instructionsIterator.hasNext()) {
       assert !currentBlock.hasCatchHandlers();
@@ -758,7 +758,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
           BasicBlock b = blocksIterator.next();
           assert b == nextBlock;
           // Switch iteration to the split block.
-          instructionsIterator = nextBlock.listIterator(code);
+          instructionsIterator = nextBlock.listIterator();
         } else {
           instructionsIterator = null;
         }
@@ -871,13 +871,13 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
         // the inlinee (by the call to appendCatchHandlers() later in this method), so we don't
         // need to do anything about that here.
         BasicBlock inlineEntry = entryBlock;
-        entryBlock = entryBlock.listIterator(code).split(inlinee);
-        entryBlockIterator = entryBlock.listIterator(code);
+        entryBlock = entryBlock.listIterator().split(inlinee);
+        entryBlockIterator = entryBlock.listIterator();
         // Insert cast instruction into the new block.
-        inlineEntry.listIterator(code).add(castInstruction);
+        inlineEntry.listIterator().add(castInstruction);
         assert castInstruction.getBlock().getInstructions().size() == 2;
       } else {
-        entryBlockIterator = entryBlock.listIterator(code);
+        entryBlockIterator = entryBlock.listIterator();
         entryBlockIterator.add(castInstruction);
       }
 
@@ -888,7 +888,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       removeArgumentInstruction(entryBlockIterator, argument);
       i++;
     } else {
-      entryBlockIterator = entryBlock.listIterator(code);
+      entryBlockIterator = entryBlock.listIterator();
     }
 
     // Map the remaining argument values.
@@ -933,7 +933,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       // Split before return and unlink return.
       BasicBlock returnBlock = inlineeIterator.split(inlinee);
       inlineExit = returnBlock.unlinkSinglePredecessor();
-      InstructionListIterator returnBlockIterator = returnBlock.listIterator(code);
+      InstructionListIterator returnBlockIterator = returnBlock.listIterator();
       returnBlockIterator.next();
       returnBlockIterator.remove(); // This clears out the users from the return.
       assert !returnBlockIterator.hasNext();
@@ -942,7 +942,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
       // Leaving the invoke block in the graph as an empty block. Still unlink its predecessor as
       // the exit block of the inlinee will become its new predecessor.
       invokeBlock.unlinkSinglePredecessor();
-      InstructionListIterator invokeBlockIterator = invokeBlock.listIterator(code);
+      InstructionListIterator invokeBlockIterator = invokeBlock.listIterator();
       invokeBlockIterator.next();
       invokeBlockIterator.remove();
       invokeSuccessor = invokeBlock;
@@ -1011,7 +1011,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
   private InstructionListIterator ensureSingleReturnInstruction(
       AppView<?> appView, IRCode code, List<BasicBlock> normalExits) {
     if (normalExits.size() == 1) {
-      InstructionListIterator it = normalExits.get(0).listIterator(code);
+      InstructionListIterator it = normalExits.get(0).listIterator();
       it.nextUntil(Instruction::isReturn);
       it.previous();
       return it;
@@ -1051,7 +1051,7 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     newReturn.setPosition(Position.none());
     newExitBlock.add(newReturn, code.metadata());
     for (BasicBlock exitBlock : normalExits) {
-      InstructionListIterator it = exitBlock.listIterator(code, exitBlock.getInstructions().size());
+      InstructionListIterator it = exitBlock.listIterator(exitBlock.getInstructions().size());
       Instruction oldExit = it.previous();
       assert oldExit.isReturn();
       it.replaceCurrentInstruction(new Goto());
@@ -1059,6 +1059,6 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
     }
     newExitBlock.close(null);
     code.blocks.add(newExitBlock);
-    return newExitBlock.listIterator(code);
+    return newExitBlock.listIterator();
   }
 }

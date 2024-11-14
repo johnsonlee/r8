@@ -36,7 +36,7 @@ public class CheckNotNullConverter {
     BasicBlockIterator blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         if (instruction.isInvokeMethod()) {

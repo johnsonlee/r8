@@ -633,7 +633,7 @@ final class InlineCandidateProcessor {
       if (user.isInstanceOf()) {
         InstanceOf instanceOf = user.asInstanceOf();
         InstructionListIterator instructionIterator =
-            user.getBlock().listIterator(code, instanceOf.getNext());
+            user.getBlock().listIterator(instanceOf.getNext());
         instructionIterator.replaceCurrentInstructionWithConstBoolean(
             code, appView.appInfo().isSubtype(eligibleClass.getType(), instanceOf.type()));
         continue;
@@ -821,7 +821,7 @@ final class InlineCandidateProcessor {
         continue;
       }
 
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         if (!users.contains(instruction)) {
@@ -859,7 +859,7 @@ final class InlineCandidateProcessor {
       BasicBlockIterator blocks = code.listIterator();
       while (blocks.hasNext()) {
         BasicBlock block = blocks.next();
-        InstructionListIterator instructionIterator = block.listIterator(code);
+        InstructionListIterator instructionIterator = block.listIterator();
         while (instructionIterator.hasNext()) {
           Instruction instruction = instructionIterator.next();
           Instruction[] replacementInstructions = pendingReplacements.get(instruction);

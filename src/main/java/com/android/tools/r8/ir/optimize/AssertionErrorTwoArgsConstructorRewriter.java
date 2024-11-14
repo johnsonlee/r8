@@ -53,7 +53,7 @@ public class AssertionErrorTwoArgsConstructorRewriter {
     ListIterator<BasicBlock> blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator insnIterator = block.listIterator(code);
+      InstructionListIterator insnIterator = block.listIterator();
       List<NewInstance> newInstancesToRemove = new ArrayList<>();
       while (insnIterator.hasNext()) {
         InvokeDirect invoke = insnIterator.next().asInvokeDirect();
@@ -82,8 +82,7 @@ public class AssertionErrorTwoArgsConstructorRewriter {
           }
         }
       }
-      newInstancesToRemove.forEach(
-          newInstance -> newInstance.removeOrReplaceByDebugLocalRead(code));
+      newInstancesToRemove.forEach(newInstance -> newInstance.removeOrReplaceByDebugLocalRead());
     }
     affectedValues.widening(appView, code);
     assert code.isConsistentSSA(appView);

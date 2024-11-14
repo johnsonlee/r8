@@ -336,7 +336,7 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
     Map<Instruction, Optional<Instruction>> instructionsToRemove = new IdentityHashMap<>();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
         Instruction instruction = instructionIterator.next();
         if (instructionsToRemove.containsKey(instruction)) {

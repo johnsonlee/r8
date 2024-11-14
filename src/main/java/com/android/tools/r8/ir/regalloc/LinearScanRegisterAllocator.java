@@ -409,7 +409,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
     boolean isEntryBlock = true;
     for (BasicBlock block : blocks) {
-      InstructionListIterator instructionIterator = block.listIterator(code);
+      InstructionListIterator instructionIterator = block.listIterator();
       Set<Value> liveLocalValues =
           SetUtils.newIdentityHashSet(liveAtEntrySets.get(block).liveLocalValues);
       // Skip past arguments and open argument and phi locals.
@@ -1015,7 +1015,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   void removeSpillAndPhiMoves() {
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
         if (isSpillInstruction(instruction)) {
@@ -3538,7 +3538,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   private void insertRangeInvokeMoves() {
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction instruction = it.next();
         if (isInvokeRange(instruction)) {

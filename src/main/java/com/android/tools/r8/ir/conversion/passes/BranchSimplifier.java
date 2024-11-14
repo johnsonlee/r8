@@ -695,7 +695,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     ListIterator<BasicBlock> blocksIterator = code.listIterator();
     while (blocksIterator.hasNext()) {
       BasicBlock block = blocksIterator.next();
-      InstructionListIterator iterator = block.listIterator(code);
+      InstructionListIterator iterator = block.listIterator();
       while (iterator.hasNext()) {
         Instruction instruction = iterator.next();
         if (instruction.isSwitch()) {

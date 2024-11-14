@@ -395,7 +395,7 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
               sizeInstr,
               appView,
               code.context());
-      listAssumeInstr.replace(newAssume, code);
+      listAssumeInstr.replace(newAssume);
       listValue = newAssume.outValue();
     }
 
@@ -415,7 +415,7 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     Phi indexPhi = code.createPhi(phiBlock, TypeElement.getInt());
     IfType newIfType = ifInstr.getType() == IfType.EQ ? IfType.GE : IfType.LT;
     If newIf = new If(newIfType, ImmutableList.of(indexPhi, sizeValue));
-    ifInstr.replace(newIf, code);
+    ifInstr.replace(newIf);
 
     // Replace "x = iterator.next()" with "x = list.get(i)".
     Value elementValue = nextInstr.outValue();
@@ -449,11 +449,11 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
 
     // Delete iterator assume now that .next() has been removed.
     if (iteratorAssumeInstr != null) {
-      iteratorAssumeInstr.removeOrReplaceByDebugLocalRead(code);
+      iteratorAssumeInstr.removeOrReplaceByDebugLocalRead();
     }
 
     // Delete iterator.hasNext() now that old If was removed.
-    hasNextInstr.removeOrReplaceByDebugLocalRead(code);
+    hasNextInstr.removeOrReplaceByDebugLocalRead();
 
     // Populate the index phi.
     for (BasicBlock b : phiBlock.getPredecessors()) {

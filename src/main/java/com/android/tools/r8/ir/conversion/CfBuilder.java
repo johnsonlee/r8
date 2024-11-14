@@ -306,7 +306,7 @@ public class CfBuilder {
 
   private void rewriteNots() {
     for (BasicBlock block : code.blocks) {
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction current = it.next();
         if (!current.isNot()) {

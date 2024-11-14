@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.proto.ArgumentInfo;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.graph.proto.RewrittenTypeInfo;
+import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
@@ -162,7 +163,8 @@ public class NumberUnboxerRewriter implements CustomLensCodeRewriter {
   private void rewriteArgs(
       IRCode code, RewrittenPrototypeDescription prototypeChanges, Set<Phi> affectedPhis) {
     List<InvokeStatic> boxingOperations = new ArrayList<>();
-    InstructionListIterator iterator = code.entryBlock().listIterator(code);
+    BasicBlock basicBlock = code.entryBlock();
+    InstructionListIterator iterator = basicBlock.listIterator();
     Position pos = iterator.peekNext().getPosition();
     assert prototypeChanges.getArgumentInfoCollection().numberOfRemovedArguments() == 0;
     int originalNumberOfArguments = code.getNumberOfArguments();

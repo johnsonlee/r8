@@ -68,7 +68,7 @@ public class Devirtualizer {
     BasicBlockIterator blocks = code.listIterator();
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
-      InstructionListIterator it = block.listIterator(code);
+      InstructionListIterator it = block.listIterator();
       while (it.hasNext()) {
         Instruction current = it.next();
 
@@ -286,11 +286,11 @@ public class Devirtualizer {
                       : block;
               if (blockWithDevirtualizedInvoke != block) {
                 // If we split, add the new checkcast at the end of the currently visiting block.
-                block.listIterator(code, block.getInstructions().size() - 1).add(checkCast);
+                block.listIterator(block.getInstructions().size() - 1).add(checkCast);
                 // Update the dominator tree after the split.
                 dominatorTree = new DominatorTree(code);
                 // Restore the cursor.
-                it = blockWithDevirtualizedInvoke.listIterator(code);
+                it = blockWithDevirtualizedInvoke.listIterator();
                 assert it.peekNext() == devirtualizedInvoke;
                 it.next();
               } else {

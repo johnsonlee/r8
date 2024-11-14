@@ -271,7 +271,7 @@ public class ConstantCanonicalizer {
       BasicBlockIterator blockIterator = code.listIterator();
       while (blockIterator.hasNext()) {
         BasicBlock block = blockIterator.next();
-        InstructionListIterator instructionIterator = block.listIterator(code);
+        InstructionListIterator instructionIterator = block.listIterator();
         for (Phi insertionPoint : block.getPhis()) {
           instructionIterator =
               insertPendingInsertions(
@@ -591,7 +591,7 @@ public class ConstantCanonicalizer {
     // Insert the constant instruction at the start of the block right after the argument
     // instructions. It is important that the const instruction is put before any instruction
     // that can throw exceptions (since the value could be used on the exceptional edge).
-    InstructionListIterator it = entryBlock.listIterator(code);
+    InstructionListIterator it = entryBlock.listIterator();
     while (it.hasNext()) {
       Instruction next = it.next();
       if (!next.isArgument()) {
@@ -635,7 +635,7 @@ public class ConstantCanonicalizer {
         // Otherwise, we insert it in the end of the insertion block.
         if (insertionPoint.getBlock().canThrow()) {
           assert !splitBlock.canThrow();
-          splitBlock.listIterator(code).add(newInstruction);
+          splitBlock.listIterator().add(newInstruction);
         } else {
           assert splitBlock.canThrow();
           instructionIterator.addBeforeAndPositionBeforeNewInstruction(newInstruction);

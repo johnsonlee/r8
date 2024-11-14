@@ -587,7 +587,7 @@ public class DexBuilder {
     // require a pop on JVM. See b/340669208 for context.
     ir.forEachBlockWithPreviousAndNext(
         (currentBlock, unused, nextBlock) -> {
-          BasicBlockInstructionListIterator it = currentBlock.listIterator(ir);
+          BasicBlockInstructionListIterator it = currentBlock.listIterator();
           while (it.hasNext()) {
             Instruction instruction = it.next();
             if (!instruction.isInvoke()

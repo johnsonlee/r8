@@ -44,7 +44,7 @@ public class ArgumentPropagatorIROptimizer {
     AffectedValues affectedValues = new AffectedValues();
     List<Assume> assumeInstructions = new LinkedList<>();
     List<Instruction> instructionsToAdd = new LinkedList<>();
-    InstructionListIterator iterator = code.entryBlock().listIterator(code);
+    InstructionListIterator iterator = code.entryBlock().listIterator();
     while (iterator.hasNext()) {
       Argument argument = iterator.next().asArgument();
       if (argument == null) {

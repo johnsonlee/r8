@@ -178,12 +178,12 @@ public class ClassInitializerMerger {
               conversionOptions);
 
       ListIterator<BasicBlock> blockIterator = code.listIterator();
-      InstructionListIterator instructionIterator = blockIterator.next().listIterator(code);
+      InstructionListIterator instructionIterator = blockIterator.next().listIterator();
 
       Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
       for (ProgramMethod classInitializer : classInitializers) {
         if (!instructionIterator.hasNext()) {
-          instructionIterator = blockIterator.next().listIterator(code);
+          instructionIterator = blockIterator.next().listIterator();
         }
 
         InvokeStatic invoke = instructionIterator.next().asInvokeStatic();
