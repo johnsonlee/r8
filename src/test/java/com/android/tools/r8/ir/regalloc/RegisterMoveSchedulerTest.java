@@ -51,8 +51,8 @@ public class RegisterMoveSchedulerTest extends TestBase {
 
   private static class CollectMovesIterator implements InstructionListIterator {
 
-    private LinkedList<Instruction> list = new LinkedList<>();
-    private ListIterator<Instruction> it = list.listIterator();
+    private final LinkedList<Instruction> list = new LinkedList<>();
+    private final ListIterator<Instruction> it = list.listIterator();
 
     public Move get(int i) {
       return list.get(i).asMove();
@@ -388,18 +388,10 @@ public class RegisterMoveSchedulerTest extends TestBase {
     scheduler.addMove(new RegisterMove(0, 3, TypeElement.getLong()));
     scheduler.schedule();
     assertEquals(3, moves.size());
-    Move firstMove = moves.get(0).asMove();
-    Move secondMove = moves.get(1).asMove();
-    Move thirdMove = moves.get(2).asMove();
-    assertEquals(ValueType.LONG, firstMove.outType());
-    assertEquals(ValueType.LONG, secondMove.outType());
-    assertEquals(ValueType.LONG, thirdMove.outType());
-    assertEquals(42, firstMove.dest().asFixedRegisterValue().getRegister());
-    assertEquals(1, firstMove.src().asFixedRegisterValue().getRegister());
-    assertEquals(0, secondMove.dest().asFixedRegisterValue().getRegister());
-    assertEquals(3, secondMove.src().asFixedRegisterValue().getRegister());
-    assertEquals(2, thirdMove.dest().asFixedRegisterValue().getRegister());
-    assertEquals(42, thirdMove.src().asFixedRegisterValue().getRegister());
+    assertEquals("42 <- 3", toString(moves.get(0)));
+    assertEquals("2 <- 1", toString(moves.get(1)));
+    assertEquals("0 <- 42", toString(moves.get(2)));
+    assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
   @Test
@@ -460,12 +452,13 @@ public class RegisterMoveSchedulerTest extends TestBase {
     scheduler.addMove(new RegisterMove(12, 19, TypeElement.getLong()));
     scheduler.schedule();
     // In order to resolve these moves, we need to use two temporary register pairs.
-    assertEquals(6, moves.size());
-    assertEquals(42, moves.get(0).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(11, moves.get(0).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(44, moves.get(1).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(13, moves.get(1).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(12, moves.get(2).asMove().dest().asFixedRegisterValue().getRegister());
+    assertEquals(5, moves.size());
+    assertEquals("42 <- 13", toString(moves.get(0)));
+    assertEquals("14 <- 11", toString(moves.get(1)));
+    assertEquals("10 <- 17", toString(moves.get(2)));
+    assertEquals("16 <- 42", toString(moves.get(3)));
+    assertEquals("12 <- 19", toString(moves.get(4)));
+    assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
   @Test
@@ -487,19 +480,13 @@ public class RegisterMoveSchedulerTest extends TestBase {
     scheduler.addMove(new RegisterMove(23, 28, TypeElement.getLong()));
     scheduler.schedule();
     // For this example we need recursive unblocking.
-    assertEquals(6, moves.size());
-    assertEquals(42, moves.get(0).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(26, moves.get(0).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(26, moves.get(1).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(22, moves.get(1).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(43, moves.get(2).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(28, moves.get(2).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(28, moves.get(3).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(42, moves.get(3).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(29, moves.get(4).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(24, moves.get(4).asMove().src().asFixedRegisterValue().getRegister());
-    assertEquals(23, moves.get(5).asMove().dest().asFixedRegisterValue().getRegister());
-    assertEquals(43, moves.get(5).asMove().src().asFixedRegisterValue().getRegister());
+    assertEquals(5, moves.size());
+    assertEquals("42 <- 28", toString(moves.get(0)));
+    assertEquals("29 <- 24", toString(moves.get(1)));
+    assertEquals("23 <- 42", toString(moves.get(2)));
+    assertEquals("28 <- 26", toString(moves.get(3)));
+    assertEquals("26 <- 22", toString(moves.get(4)));
+    assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
   @Test
@@ -531,12 +518,12 @@ public class RegisterMoveSchedulerTest extends TestBase {
     scheduler.addMove(new RegisterMove(1, 0, TypeElement.getInt()));
     scheduler.addMove(new RegisterMove(2, 3, TypeElement.getInt()));
     scheduler.schedule();
-    // TODO(b/375147902): Verify that the temp register has been reused.
-    assertEquals("2 <- 3", toString(moves.get(0)));
-    assertEquals("42 <- 1", toString(moves.get(1)));
-    assertEquals("1 <- 0", toString(moves.get(2)));
-    assertEquals("0 <- 42", toString(moves.get(3)));
-    assertEquals(1, scheduler.getUsedTempRegisters());
+    // Verify that the temp register has been reused.
+    assertEquals("2 <- 1", toString(moves.get(0)));
+    assertEquals("1 <- 0", toString(moves.get(1)));
+    assertEquals("0 <- 2", toString(moves.get(2)));
+    assertEquals("2 <- 3", toString(moves.get(3)));
+    assertEquals(0, scheduler.getUsedTempRegisters());
   }
 
   @Test
@@ -566,9 +553,9 @@ public class RegisterMoveSchedulerTest extends TestBase {
     scheduler.addMove(new RegisterMove(11, 8, TypeElement.getLong()));
     scheduler.schedule();
     assertEquals(3, moves.size());
-    assertEquals("42 <- 8", toString(moves.get(0)));
-    assertEquals("9 <- 12", toString(moves.get(1)));
-    assertEquals("11 <- 42", toString(moves.get(2)));
+    assertEquals("42 <- 12", toString(moves.get(0)));
+    assertEquals("11 <- 8", toString(moves.get(1)));
+    assertEquals("9 <- 42", toString(moves.get(2)));
     assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
@@ -576,7 +563,8 @@ public class RegisterMoveSchedulerTest extends TestBase {
   public void regressionTestBug379007412() {
     CollectMovesIterator moves = new CollectMovesIterator();
     int temp = 42;
-    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp);
+    int args = 3;
+    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp, args);
     scheduler.addMove(new RegisterMove(2, 8, TypeElement.getInt()));
     scheduler.addMove(new RegisterMove(21, 13, TypeElement.getInt()));
     scheduler.addMove(new RegisterMove(8, 15, TypeElement.getInt()));
@@ -585,13 +573,13 @@ public class RegisterMoveSchedulerTest extends TestBase {
     scheduler.addMove(new RegisterMove(15, 25, TypeElement.getLong()));
     scheduler.schedule();
     assertEquals(7, moves.size());
-    assertEquals("2 <- 8", toString(moves.get(0)));
-    assertEquals("8 <- 15", toString(moves.get(1)));
-    assertEquals("3 <- 16", toString(moves.get(2)));
-    assertEquals("15 <- 25", toString(moves.get(3)));
-    assertEquals("42 <- 21", toString(moves.get(4)));
-    assertEquals("21 <- 13", toString(moves.get(5)));
-    assertEquals("13 <- 42", toString(moves.get(6)));
+    assertEquals("42 <- 21", toString(moves.get(0)));
+    assertEquals("21 <- 13", toString(moves.get(1)));
+    assertEquals("13 <- 42", toString(moves.get(2)));
+    assertEquals("2 <- 8", toString(moves.get(3)));
+    assertEquals("8 <- 15", toString(moves.get(4)));
+    assertEquals("3 <- 16", toString(moves.get(5)));
+    assertEquals("15 <- 25", toString(moves.get(6)));
     assertEquals(2, scheduler.getUsedTempRegisters());
   }
 

@@ -310,7 +310,9 @@ class SpillMoveSet {
     if (moves.isEmpty()) {
       return;
     }
-    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(insertAt, tempRegister, position);
+    RegisterMoveScheduler scheduler =
+        new RegisterMoveScheduler(
+            insertAt, tempRegister, allocator.numberOfArgumentRegisters, position);
     for (SpillMove move : moves) {
       // Do not generate moves to spill a value that can be rematerialized.
       if (move.to.isSpilledAndRematerializable()) {
