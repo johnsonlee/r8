@@ -557,7 +557,6 @@ public class ListIterationRewriterTest extends TestBase {
 
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
-        .addOptionsModification(o -> o.testing.listIterationRewritingEnabled = true)
         .addProgramClassesAndInnerClasses(classes)
         .addProgramClasses(RewritesMain.class, TestCase.class)
         .addKeepMainRule(RewritesMain.class)
@@ -632,7 +631,6 @@ public class ListIterationRewriterTest extends TestBase {
         .setMinApi(parameters)
         .addOptionsModification(
             o -> {
-              o.testing.listIterationRewritingEnabled = true;
               // Ensure tests do not pass due to the optimization being disabled.
               o.testing.listIterationRewritingRewriteCustomIterators = true;
             })
@@ -654,7 +652,6 @@ public class ListIterationRewriterTest extends TestBase {
   public void testCustomIteratorThatDisablesOptimization() throws Exception {
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
-        .addOptionsModification(o -> o.testing.listIterationRewritingEnabled = true)
         .addProgramClassesAndInnerClasses(CustomArrayListWithIterator.class)
         .addKeepMainRule(CustomArrayListWithIterator.class)
         .compile()
