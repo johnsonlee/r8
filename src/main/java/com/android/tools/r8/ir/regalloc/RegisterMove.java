@@ -11,7 +11,6 @@ import com.android.tools.r8.utils.ObjectUtils;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.IntConsumer;
 
 // Register moves used by the spilling register allocator. These are used both for spill and
 // for phi moves and they are moves between actual registers represented by their register number.
@@ -37,22 +36,6 @@ public class RegisterMove implements Comparable<RegisterMove> {
     this.type = type;
   }
 
-  public void forEachDestinationRegister(IntConsumer consumer) {
-    consumer.accept(dst);
-    if (isWide()) {
-      consumer.accept(dst + 1);
-    }
-  }
-
-  public void forEachSourceRegister(IntConsumer consumer) {
-    if (src != NO_REGISTER) {
-      consumer.accept(src);
-      if (isWide()) {
-        consumer.accept(src + 1);
-      }
-    }
-  }
-
   public boolean writes(int register, boolean otherIsWide) {
     if (dst == register) {
       return true;
@@ -66,11 +49,7 @@ public class RegisterMove implements Comparable<RegisterMove> {
     return false;
   }
 
-  public boolean isBlocked(
-      RegisterMoveScheduler scheduler, Set<RegisterMove> moveSet, Int2IntMap valueMap) {
-    if (isDestUsedAsTemporary(scheduler)) {
-      return true;
-    }
+  public boolean isBlocked(Set<RegisterMove> moveSet, Int2IntMap valueMap) {
     for (RegisterMove move : moveSet) {
       if (isIdentical(move) || move.src == NO_REGISTER) {
         continue;
@@ -82,17 +61,8 @@ public class RegisterMove implements Comparable<RegisterMove> {
     return false;
   }
 
-  public boolean isDestUsedAsTemporary(RegisterMoveScheduler scheduler) {
-    return scheduler.activeTempRegisters.contains(dst)
-        || (isWide() && scheduler.activeTempRegisters.contains(dst + 1));
-  }
-
   public boolean isIdentical(RegisterMove move) {
     return ObjectUtils.identical(this, move);
-  }
-
-  public boolean isNotIdentical(RegisterMove move) {
-    return !isIdentical(move);
   }
 
   public boolean isWide() {
@@ -142,17 +112,5 @@ public class RegisterMove implements Comparable<RegisterMove> {
       return 1;
     }
     return definition.getNumber() - o.definition.getNumber();
-  }
-
-  @Override
-  public String toString() {
-    if (type.isSinglePrimitive()) {
-      return "move " + dst + ", " + src;
-    } else if (type.isWidePrimitive()) {
-      return "move-wide " + dst + ", " + src;
-    } else {
-      assert type.isReferenceType();
-      return "move-object " + dst + ", " + src;
-    }
   }
 }

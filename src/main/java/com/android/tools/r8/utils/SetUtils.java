@@ -13,7 +13,6 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -117,12 +116,6 @@ public class SetUtils {
       }
     }
     return builder.build();
-  }
-
-  public static <T extends Comparable<T>> TreeSet<T> newTreeSet(T element) {
-    TreeSet<T> result = new TreeSet<>();
-    result.add(element);
-    return result;
   }
 
   public static <T, S> Set<T> mapIdentityHashSet(Collection<S> set, Function<S, T> fn) {
