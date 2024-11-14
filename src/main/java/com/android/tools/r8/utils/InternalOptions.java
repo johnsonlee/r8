@@ -356,7 +356,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public void disableGlobalOptimizations() {
-    inlinerOptions.enableInlining = false;
     enableClassInlining = false;
     enableDevirtualization = false;
     enableEnumUnboxing = false;
@@ -1872,6 +1871,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public InlinerOptions(InternalOptions options) {
       this.options = options;
+    }
+
+    public boolean isEnabled() {
+      // Note that this is deliberately enabled in release mode even when optimizations and
+      // shrinking are disabled, since we still allow inlining of javac synthetic lambda methods
+      // into their R8 generated accessor methods.
+      return enableInlining && !options.debug;
     }
 
     public static void disableInlining(InternalOptions options) {

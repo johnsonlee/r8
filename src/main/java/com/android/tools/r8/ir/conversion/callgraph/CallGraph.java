@@ -59,10 +59,22 @@ public class CallGraph extends CallGraphBase<Node> {
 
   public CallSiteInformation createCallSiteInformation(
       AppView<AppInfoWithLiveness> appView, MethodProcessorWithWave methodProcessor) {
-    // Don't leverage single/dual call site information when we are not tree shaking.
-    return appView.options().isShrinking()
+    return needsCallSiteInformation(appView)
         ? new CallGraphBasedCallSiteInformation(appView, this, methodProcessor)
         : CallSiteInformation.empty();
+  }
+
+  private boolean needsCallSiteInformation(AppView<AppInfoWithLiveness> appView) {
+    InternalOptions options = appView.options();
+    if (options.debug) {
+      return false;
+    }
+    if (options.isOptimizing() && options.isShrinking()) {
+      return true;
+    }
+    // When we are neither optimizing nor shrinking, we still allow inlining of javac synthetic
+    // lambda methods into R8 generated accessor methods.
+    return options.isGeneratingDex();
   }
 
   public ProgramMethodSet extractLeaves() {

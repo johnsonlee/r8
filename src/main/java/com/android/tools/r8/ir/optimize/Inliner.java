@@ -156,7 +156,7 @@ public class Inliner {
   @SuppressWarnings("ReferenceEquality")
   public ConstraintWithTarget computeInliningConstraint(IRCode code) {
     InternalOptions options = appView.options();
-    if (!options.inlinerOptions().enableInlining) {
+    if (!options.inlinerOptions().isEnabled()) {
       return ConstraintWithTarget.NEVER;
     }
     ProgramMethod method = code.context();
@@ -165,7 +165,7 @@ public class Inliner {
       return ConstraintWithTarget.NEVER;
     }
     KeepMethodInfo keepInfo = appView.getKeepInfo(method);
-    if (!keepInfo.isInliningAllowed(options) && !keepInfo.isClassInliningAllowed(options)) {
+    if (!keepInfo.isInliningAllowed(options, method) && !keepInfo.isClassInliningAllowed(options)) {
       return ConstraintWithTarget.NEVER;
     }
 
@@ -1342,7 +1342,8 @@ public class Inliner {
           singleCallerInlinedMethodsForClass.removeIf(
               (callee, caller) -> {
                 boolean convertToAbstractOrThrowNullMethod =
-                    callee.getDefinition().belongsToVirtualPool();
+                    callee.getDefinition().belongsToVirtualPool()
+                        && !callee.getAccessFlags().wasPrivate();
                 if (callee.getDefinition().getGenericSignature().hasSignature()) {
                   // TODO(b/203188583): Enable pruning of methods with generic signatures. For this
                   //  to work we need to pass in a seed to GenericSignatureContextBuilder.create in

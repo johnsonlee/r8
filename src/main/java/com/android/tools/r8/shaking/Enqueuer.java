@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCESS_INFO;
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
@@ -121,6 +122,8 @@ import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicClass;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
+import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsumer;
+import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
@@ -4288,6 +4291,7 @@ public class Enqueuer {
             profileCollectionAdditions,
             lambdaCallback,
             this::recordConstantDynamicSynthesizingContext,
+            this::recordSyntheticLambdaAccessorMethod,
             this::recordTwrCloseResourceMethodSynthesizingContext,
             additions,
             (method, companion) -> {
@@ -4347,6 +4351,33 @@ public class Enqueuer {
       ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
     synchronized (synthesizingContexts) {
       synthesizingContexts.put(constantDynamicClass.getConstantDynamicProgramClass(), context);
+    }
+  }
+
+  private SyntheticLambdaAccessorMethodConsumer recordSyntheticLambdaAccessorMethod(
+      LambdaClass lambdaClass) {
+    return (accessor, target) -> recordSyntheticLambdaAccessorMethod(lambdaClass, accessor, target);
+  }
+
+  private void recordSyntheticLambdaAccessorMethod(
+      LambdaClass lambdaClass, ProgramMethod accessor, DexMethod target) {
+    assert mode.isInitialTreeShaking();
+    if (options.debug) {
+      return;
+    }
+    if (options.isOptimizing() && options.isShrinking()) {
+      return;
+    }
+    if (!lambdaClass.canAccessModifyLambdaImplMethodInD8()) {
+      return;
+    }
+    ProgramMethod targetMethod = asProgramMethodOrNull(appView.definitionFor(target));
+    if (targetMethod != null && targetMethod.getHolder() == accessor.getHolder()) {
+      MutableMethodOptimizationInfo optimizationInfo =
+          targetMethod.getDefinition().getMutableOptimizationInfo();
+      optimizationInfo.markSingleCallerInlineIntoSyntheticLambdaAccessor();
+    } else {
+      assert false;
     }
   }
 

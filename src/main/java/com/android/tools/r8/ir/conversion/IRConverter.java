@@ -219,9 +219,12 @@ public class IRConverter {
       AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
       assumeInserter = new AssumeInserter(appViewWithLiveness);
       this.lensCodeRewriter = new LensCodeRewriter(appViewWithLiveness);
-      this.inliner = new Inliner(appViewWithLiveness, this, lensCodeRewriter);
+      this.inliner =
+          options.inlinerOptions().isEnabled()
+              ? new Inliner(appViewWithLiveness, this, lensCodeRewriter)
+              : null;
       this.classInliner =
-          options.enableClassInlining && options.inlinerOptions().enableInlining
+          options.enableClassInlining && inliner != null
               ? new ClassInliner(appViewWithLiveness, inliner)
               : null;
       this.dynamicTypeOptimization = new DynamicTypeOptimization(appViewWithLiveness);
@@ -638,7 +641,7 @@ public class IRConverter {
 
     previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
 
-    if (!isDebugMode && options.inlinerOptions().enableInlining && inliner != null) {
+    if (inliner != null && !isDebugMode) {
       timing.begin("Inlining");
       inliner.performInlining(code.context(), code, feedback, methodProcessor, timing);
       timing.end();
@@ -716,8 +719,6 @@ public class IRConverter {
       timing.begin("Inline classes");
       // Class inliner should work before lambda merger, so if it inlines the
       // lambda, it does not get collected by merger.
-      assert options.inlinerOptions().enableInlining;
-      assert inliner != null;
       classInliner.processMethodCode(
           context, code, feedback, methodProcessor, methodProcessingContext);
       timing.end();

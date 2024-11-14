@@ -524,7 +524,7 @@ public class DefaultInliningOracle implements InliningOracle {
       ProgramMethod singleTarget,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     DexMethod singleTargetReference = singleTarget.getReference();
-    if (!appView.getKeepInfo(singleTarget).isInliningAllowed(options)) {
+    if (!appView.getKeepInfo(singleTarget).isInliningAllowed(options, singleTarget)) {
       whyAreYouNotInliningReporter.reportPinned();
       return true;
     }

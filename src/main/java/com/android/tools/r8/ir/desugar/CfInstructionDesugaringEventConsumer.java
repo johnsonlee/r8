@@ -4,6 +4,10 @@
 
 package com.android.tools.r8.ir.desugar;
 
+import static com.android.tools.r8.ir.desugar.lambda.ForcefullyMovedLambdaMethodConsumer.emptyForcefullyMovedLambdaMethodConsumer;
+import static com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsumer.emptySyntheticLambdaAccessorMethodConsumer;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -30,6 +34,7 @@ import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceSynthesizerEventCons
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDeserializationMethodRemover;
 import com.android.tools.r8.ir.desugar.lambda.LambdaDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsumer;
 import com.android.tools.r8.ir.desugar.nest.NestBasedAccessDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.twr.TwrCloseResourceDesugaringEventConsumer;
@@ -51,6 +56,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Class that gets notified for structural changes made as a result of desugaring (e.g., the
@@ -93,6 +99,8 @@ public abstract class CfInstructionDesugaringEventConsumer
       ProfileCollectionAdditions profileCollectionAdditions,
       BiConsumer<LambdaClass, ProgramMethod> lambdaClassConsumer,
       BiConsumer<ConstantDynamicClass, ProgramMethod> constantDynamicClassConsumer,
+      Function<LambdaClass, SyntheticLambdaAccessorMethodConsumer>
+          syntheticLambdaAccessorMethodConsumer,
       BiConsumer<ProgramMethod, ProgramMethod> twrCloseResourceMethodConsumer,
       SyntheticAdditions additions,
       BiConsumer<ProgramMethod, ProgramMethod> companionMethodConsumer) {
@@ -101,6 +109,7 @@ public abstract class CfInstructionDesugaringEventConsumer
             appView,
             lambdaClassConsumer,
             constantDynamicClassConsumer,
+            syntheticLambdaAccessorMethodConsumer,
             twrCloseResourceMethodConsumer,
             additions,
             companionMethodConsumer);
@@ -436,7 +445,9 @@ public abstract class CfInstructionDesugaringEventConsumer
       synthesizedLambdaClasses.sort(Comparator.comparing(LambdaClass::getType));
       for (LambdaClass lambdaClass : synthesizedLambdaClasses) {
         lambdaClass.target.ensureAccessibilityIfNeeded(
-            classConverterResultBuilder, needsProcessing);
+            classConverterResultBuilder,
+            emptySyntheticLambdaAccessorMethodConsumer(),
+            needsProcessing);
         lambdaClass.getLambdaProgramClass().forEachProgramMethod(needsProcessing);
       }
       synthesizedLambdaClasses.clear();
@@ -474,6 +485,8 @@ public abstract class CfInstructionDesugaringEventConsumer
     //  synthetic items.
     private final BiConsumer<LambdaClass, ProgramMethod> lambdaClassConsumer;
     private final BiConsumer<ConstantDynamicClass, ProgramMethod> constantDynamicClassConsumer;
+    private final Function<LambdaClass, SyntheticLambdaAccessorMethodConsumer>
+        syntheticLambdaAccessorMethodConsumer;
     private final BiConsumer<ProgramMethod, ProgramMethod> twrCloseResourceMethodConsumer;
     private final SyntheticAdditions additions;
 
@@ -488,12 +501,15 @@ public abstract class CfInstructionDesugaringEventConsumer
         AppView<? extends AppInfoWithClassHierarchy> appView,
         BiConsumer<LambdaClass, ProgramMethod> lambdaClassConsumer,
         BiConsumer<ConstantDynamicClass, ProgramMethod> constantDynamicClassConsumer,
+        Function<LambdaClass, SyntheticLambdaAccessorMethodConsumer>
+            syntheticLambdaAccessorMethodConsumer,
         BiConsumer<ProgramMethod, ProgramMethod> twrCloseResourceMethodConsumer,
         SyntheticAdditions additions,
         BiConsumer<ProgramMethod, ProgramMethod> onCompanionMethodCallback) {
       this.appView = appView;
       this.lambdaClassConsumer = lambdaClassConsumer;
       this.constantDynamicClassConsumer = constantDynamicClassConsumer;
+      this.syntheticLambdaAccessorMethodConsumer = syntheticLambdaAccessorMethodConsumer;
       this.twrCloseResourceMethodConsumer = twrCloseResourceMethodConsumer;
       this.additions = additions;
       this.onCompanionMethodCallback = onCompanionMethodCallback;
@@ -789,7 +805,10 @@ public abstract class CfInstructionDesugaringEventConsumer
             LambdaClass lambdaClass = entry.getKey();
             ProgramMethod context = entry.getValue();
 
-            lambdaClass.target.ensureAccessibilityIfNeeded();
+            lambdaClass.target.ensureAccessibilityIfNeeded(
+                emptyForcefullyMovedLambdaMethodConsumer(),
+                syntheticLambdaAccessorMethodConsumer.apply(lambdaClass),
+                emptyConsumer());
 
             // Populate set of types with serialized lambda method for removal.
             if (lambdaClass.descriptor.interfaces.contains(

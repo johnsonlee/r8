@@ -184,6 +184,10 @@ public abstract class AccessFlags<T extends AccessFlags<T>> implements Structura
     unset(Constants.ACC_PRIVATE);
   }
 
+  public boolean wasPrivate() {
+    return wasSet(Constants.ACC_PRIVATE);
+  }
+
   public boolean isProtected() {
     return isSet(Constants.ACC_PROTECTED);
   }

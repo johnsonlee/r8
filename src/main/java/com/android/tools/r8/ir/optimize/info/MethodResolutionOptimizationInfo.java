@@ -241,6 +241,11 @@ public class MethodResolutionOptimizationInfo extends MethodOptimizationInfo {
   }
 
   @Override
+  public boolean shouldSingleCallerInlineIntoSyntheticLambdaAccessor() {
+    throw new Unreachable();
+  }
+
+  @Override
   public boolean returnValueHasBeenPropagated() {
     throw new Unreachable();
   }

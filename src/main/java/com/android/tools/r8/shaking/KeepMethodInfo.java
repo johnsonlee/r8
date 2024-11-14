@@ -128,6 +128,14 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return isOptimizationAllowed(configuration) && internalIsClosedWorldReasoningAllowed();
   }
 
+  public boolean isClosedWorldReasoningAllowed(
+      GlobalKeepInfoConfiguration configuration, ProgramMethod method) {
+    if (method.getOptimizationInfo().shouldSingleCallerInlineIntoSyntheticLambdaAccessor()) {
+      return true;
+    }
+    return isClosedWorldReasoningAllowed(configuration);
+  }
+
   boolean internalIsClosedWorldReasoningAllowed() {
     return allowClosedWorldReasoning;
   }
@@ -136,6 +144,14 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return configuration.isCodeReplacementForceEnabled()
         ? !isOptimizationAllowed(configuration)
         : internalIsCodeReplacementAllowed();
+  }
+
+  public boolean isCodeReplacementAllowed(
+      GlobalKeepInfoConfiguration configuration, ProgramMethod method) {
+    if (method.getOptimizationInfo().shouldSingleCallerInlineIntoSyntheticLambdaAccessor()) {
+      return false;
+    }
+    return isCodeReplacementAllowed(configuration);
   }
 
   boolean internalIsCodeReplacementAllowed() {
@@ -150,7 +166,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return allowConstantArgumentOptimization;
   }
 
-  public boolean isInliningAllowed(GlobalKeepInfoConfiguration configuration) {
+  public boolean isInliningAllowed(
+      GlobalKeepInfoConfiguration configuration, ProgramMethod method) {
+    if (method.getOptimizationInfo().shouldSingleCallerInlineIntoSyntheticLambdaAccessor()) {
+      return true;
+    }
     return isOptimizationAllowed(configuration) && internalIsInliningAllowed();
   }
 
@@ -225,7 +245,11 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
     return allowReturnTypeStrengthening;
   }
 
-  public boolean isSingleCallerInliningAllowed(GlobalKeepInfoConfiguration configuration) {
+  public boolean isSingleCallerInliningAllowed(
+      GlobalKeepInfoConfiguration configuration, ProgramMethod method) {
+    if (method.getOptimizationInfo().shouldSingleCallerInlineIntoSyntheticLambdaAccessor()) {
+      return true;
+    }
     return isOptimizationAllowed(configuration)
         && isShrinkingAllowed(configuration)
         && internalIsSingleCallerInliningAllowed();
@@ -747,7 +771,6 @@ public class KeepMethodInfo extends KeepMemberInfo<KeepMethodInfo.Builder, KeepM
 
     public Joiner disallowParameterAnnotationsRemoval(RetentionInfo retention) {
       builder.getParameterAnnotationsInfo().destructiveJoinAnyTypeInfo(retention);
-      builder.self();
       return self();
     }
 

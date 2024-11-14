@@ -48,7 +48,7 @@ public class SingleCallerScanner {
     singleCallerMethodCandidates.removeIf(
         (callee, caller) ->
             callee.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
-                || !appView.getKeepInfo(callee).isSingleCallerInliningAllowed(options)
+                || !appView.getKeepInfo(callee).isSingleCallerInliningAllowed(options, callee)
                 || !AndroidApiLevelUtils.isApiSafeForInlining(caller, callee, appView.options()));
     return traceInstructions(singleCallerMethodCandidates, executorService);
   }

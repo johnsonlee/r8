@@ -32,18 +32,18 @@ import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
 import com.android.tools.r8.utils.Box;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.objectweb.asm.Opcodes;
 
 public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
 
   private final AppView<?> appView;
   private final Set<DexMethod> directTargetedLambdaImplementationMethods =
-      Sets.newIdentityHashSet();
+      ConcurrentHashMap.newKeySet();
 
   public boolean isDirectTargetedLambdaImplementationMethod(DexMethodHandle implMethod) {
     return implMethod.type.isInvokeDirect()

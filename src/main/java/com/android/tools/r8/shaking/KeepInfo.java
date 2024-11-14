@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Builder;
 import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
@@ -156,6 +157,13 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
   @Deprecated
   public boolean isPinned(GlobalKeepInfoConfiguration configuration) {
     return !isOptimizationAllowed(configuration) || !isShrinkingAllowed(configuration);
+  }
+
+  public boolean isPinned(GlobalKeepInfoConfiguration configuration, ProgramMethod method) {
+    if (method.getOptimizationInfo().shouldSingleCallerInlineIntoSyntheticLambdaAccessor()) {
+      return false;
+    }
+    return isPinned(configuration);
   }
 
   /**

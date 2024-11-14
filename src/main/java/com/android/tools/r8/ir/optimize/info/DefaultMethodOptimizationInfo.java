@@ -195,6 +195,11 @@ public class DefaultMethodOptimizationInfo extends MethodOptimizationInfo {
   }
 
   @Override
+  public boolean shouldSingleCallerInlineIntoSyntheticLambdaAccessor() {
+    return false;
+  }
+
+  @Override
   public boolean mayHaveSideEffects() {
     return UNKNOWN_MAY_HAVE_SIDE_EFFECTS;
   }

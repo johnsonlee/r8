@@ -109,7 +109,7 @@ public class RetraceLambdaTest extends TestBase {
             parameters.isCfRuntime(), this::checkNoOutputSynthetics, this::checkOneOutputSynthetic)
         .inspectStackTrace(
             stackTrace -> {
-              int frames = parameters.isCfRuntime() ? 3 : 5;
+              int frames = parameters.isCfRuntime() ? 3 : 4;
               checkRawStackTraceFrameCount(stackTrace, frames, "Expected nothing to be inlined");
               checkExpectedStackTrace(stackTrace);
             });

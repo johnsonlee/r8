@@ -598,6 +598,11 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
   }
 
   @Override
+  public boolean shouldSingleCallerInlineIntoSyntheticLambdaAccessor() {
+    return inlining == InlinePreference.SingleCallerInlineIntoSyntheticLambdaAccessor;
+  }
+
+  @Override
   public boolean mayHaveSideEffects() {
     return isFlagSet(MAY_HAVE_SIDE_EFFECT_FLAG);
   }
@@ -801,6 +806,12 @@ public class MutableMethodOptimizationInfo extends MethodOptimizationInfo
 
   void unsetForceInline() {
     inlining = InlinePreference.Default;
+  }
+
+  public void markSingleCallerInlineIntoSyntheticLambdaAccessor() {
+    assert inlining == InlinePreference.Default
+        || inlining == InlinePreference.SingleCallerInlineIntoSyntheticLambdaAccessor;
+    inlining = InlinePreference.SingleCallerInlineIntoSyntheticLambdaAccessor;
   }
 
   void setMultiCallerMethod() {

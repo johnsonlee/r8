@@ -299,12 +299,6 @@ public class StartupSyntheticPlacementTest extends TestBase {
                         null))
                 .build());
       }
-      builder.add(
-          ExternalStartupMethod.builder()
-              .setMethodReference(
-                  Reference.methodFromMethod(
-                      B.class.getDeclaredMethod("lambda$synthesize$0", Object.class)))
-              .build());
     }
     builder.add(
         ExternalStartupClass.builder().setClassReference(Reference.classFromClass(C.class)).build(),

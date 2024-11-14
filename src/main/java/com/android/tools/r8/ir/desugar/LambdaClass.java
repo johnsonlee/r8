@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.ir.desugar;
 
-import static com.android.tools.r8.ir.desugar.lambda.ForcefullyMovedLambdaMethodConsumer.emptyForcefullyMovedLambdaMethodConsumer;
-import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 import static com.android.tools.r8.utils.DesugarUtils.appendFullyQualifiedHolderToMethodName;
 
 import com.android.tools.r8.dex.Constants;
@@ -33,6 +31,7 @@ import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.lambda.ForcefullyMovedLambdaMethodConsumer;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring.DesugarInvoke;
+import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsumer;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
 import java.util.ArrayList;
 import java.util.List;
@@ -285,12 +284,16 @@ public final class LambdaClass {
   }
 
   private boolean canAccessModifyLambdaImplMethod() {
-    MethodHandleType invokeType = descriptor.implHandle.type;
     return appView.options().canAccessModifyLambdaImplementationMethods(appView)
-        && !isPrivateOrStaticInterfaceMethodInvokeThatWillBeDesugared()
-        && (invokeType.isInvokeDirect() || invokeType.isInvokeStatic())
-        && descriptor.delegatesToLambdaImplMethod(appView.dexItemFactory())
+        && canAccessModifyLambdaImplMethodInD8()
         && !desugaring.isDirectTargetedLambdaImplementationMethod(descriptor.implHandle);
+  }
+
+  public boolean canAccessModifyLambdaImplMethodInD8() {
+    MethodHandleType invokeType = descriptor.implHandle.type;
+    return !isPrivateOrStaticInterfaceMethodInvokeThatWillBeDesugared()
+        && (invokeType.isInvokeDirect() || invokeType.isInvokeStatic())
+        && descriptor.delegatesToLambdaImplMethod(appView.dexItemFactory());
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -478,18 +481,19 @@ public final class LambdaClass {
     // Ensure access of the referenced symbol(s).
     abstract ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer);
-
-    public final void ensureAccessibilityIfNeeded() {
-      ensureAccessibilityIfNeeded(emptyForcefullyMovedLambdaMethodConsumer(), emptyConsumer());
-    }
 
     // Ensure access of the referenced symbol(s).
     public final void ensureAccessibilityIfNeeded(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       if (!hasEnsuredAccessibility) {
-        ensureAccessibility(forcefullyMovedLambdaMethodConsumer, needsProcessingConsumer);
+        ensureAccessibility(
+            forcefullyMovedLambdaMethodConsumer,
+            syntheticLambdaAccessorMethodConsumer,
+            needsProcessingConsumer);
         hasEnsuredAccessibility = true;
       }
     }
@@ -534,6 +538,7 @@ public final class LambdaClass {
     @Override
     ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       return null;
     }
@@ -552,6 +557,7 @@ public final class LambdaClass {
     @Override
     ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       // We already found the static method to be called, just relax its accessibility.
       MethodAccessFlags flags = target.getAccessFlags();
@@ -580,6 +586,7 @@ public final class LambdaClass {
     @Override
     ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       // For all instantiation points for which the compiler creates lambda$
       // methods, it creates these methods in the same class/interface.
@@ -659,6 +666,7 @@ public final class LambdaClass {
     @Override
     ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       return null;
     }
@@ -680,6 +688,7 @@ public final class LambdaClass {
     @Override
     ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       // When compiling with whole program optimization, check that we are not inplace modifying.
       // For all instantiation points for which the compiler creates lambda$
@@ -782,6 +791,7 @@ public final class LambdaClass {
     @Override
     ProgramMethod ensureAccessibility(
         ForcefullyMovedLambdaMethodConsumer forcefullyMovedLambdaMethodConsumer,
+        SyntheticLambdaAccessorMethodConsumer syntheticLambdaAccessorMethodConsumer,
         Consumer<ProgramMethod> needsProcessingConsumer) {
       // Create a static accessor with proper accessibility.
       DexProgramClass accessorClass = appView.definitionForProgramType(callTarget.holder);
@@ -811,6 +821,8 @@ public final class LambdaClass {
                   .disableAndroidApiLevelCheck()
                   .build());
       accessorClass.addDirectMethod(accessorMethod.getDefinition());
+      syntheticLambdaAccessorMethodConsumer.acceptSyntheticLambdaAccessorMethod(
+          accessorMethod, implMethod);
       needsProcessingConsumer.accept(accessorMethod);
       return accessorMethod;
     }

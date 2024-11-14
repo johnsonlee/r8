@@ -287,7 +287,6 @@ public class ArgumentPropagator {
             classesWithSingleCallerInlinedInstanceInitializers, executorService, timing);
     classesWithSingleCallerInlinedInstanceInitializers = null;
 
-    // TODO(b/296030319): Also publish the computed optimization information for fields.
     PrunedItems prunedItems =
         new ArgumentPropagatorOptimizationInfoPopulator(
                 appView, converter, fieldStates, methodStates, postMethodProcessorBuilder)
@@ -313,7 +312,9 @@ public class ArgumentPropagator {
   public void onMethodPruned(ProgramMethod method) {
     if (codeScanner != null) {
       MethodState methodState = codeScanner.getMethodStates().removeOrElse(method, null);
-      assert methodState == null || method.getDefinition().belongsToDirectPool();
+      assert methodState == null
+          || method.getDefinition().belongsToDirectPool()
+          || method.getAccessFlags().wasPrivate();
     }
 
     assert effectivelyUnusedArgumentsAnalysis != null;

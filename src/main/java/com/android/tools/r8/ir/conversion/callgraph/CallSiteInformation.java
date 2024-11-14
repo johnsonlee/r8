@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.MethodProcessorWithWave;
+import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.synthesis.SyntheticItems;
@@ -19,6 +20,7 @@ import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 public abstract class CallSiteInformation {
 
@@ -94,16 +96,32 @@ public abstract class CallSiteInformation {
       this.methodProcessor = methodProcessor;
 
       InternalOptions options = appView.options();
-      ProgramMethodSet pinned =
-          MethodOverridesCollector.findAllMethodsAndOverridesThatMatches(
-              appView,
-              ImmediateProgramSubtypingInfo.create(appView),
-              appView.appInfo().classes(),
-              method -> {
+      Predicate<ProgramMethod> pinnedPredicate;
+      if (options.isOptimizing() && options.isShrinking()) {
+        ProgramMethodSet pinnedMethods =
+            MethodOverridesCollector.findAllMethodsAndOverridesThatMatches(
+                appView,
+                ImmediateProgramSubtypingInfo.create(appView),
+                appView.appInfo().classes(),
+                method -> {
+                  KeepMethodInfo keepInfo = appView.getKeepInfo(method);
+                  return !keepInfo.isClosedWorldReasoningAllowed(options, method)
+                      || keepInfo.isPinned(options, method);
+                });
+        pinnedPredicate = pinnedMethods::contains;
+      } else {
+        pinnedPredicate =
+            method -> {
+              MethodOptimizationInfo optimizationInfo = method.getOptimizationInfo();
+              if (optimizationInfo.shouldSingleCallerInlineIntoSyntheticLambdaAccessor()) {
                 KeepMethodInfo keepInfo = appView.getKeepInfo(method);
-                return !keepInfo.isClosedWorldReasoningAllowed(options)
-                    || keepInfo.isPinned(options);
-              });
+                assert keepInfo.isClosedWorldReasoningAllowed(options, method);
+                assert !keepInfo.isPinned(options, method);
+                return false;
+              }
+              return true;
+            };
+      }
 
       for (Node node : graph.getNodes()) {
         ProgramMethod method = node.getProgramMethod();
@@ -111,7 +129,7 @@ public abstract class CallSiteInformation {
 
         // For non-pinned methods and methods that override library methods we do not know the exact
         // number of call sites.
-        if (pinned.contains(method)) {
+        if (pinnedPredicate.test(method)) {
           continue;
         }
 
@@ -128,7 +146,7 @@ public abstract class CallSiteInformation {
 
         int numberOfCallSites = node.getNumberOfCallSites();
         if (numberOfCallSites == 1) {
-          if (!appView.getKeepInfo(method).isSingleCallerInliningAllowed(options)) {
+          if (!appView.getKeepInfo(method).isSingleCallerInliningAllowed(options, method)) {
             continue;
           }
           if (methodProcessor.isPostMethodProcessor()) {

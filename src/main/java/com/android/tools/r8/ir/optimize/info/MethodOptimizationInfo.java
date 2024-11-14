@@ -26,7 +26,8 @@ public abstract class MethodOptimizationInfo
   enum InlinePreference {
     MultiCallerInline,
     ForceInline,
-    Default
+    Default,
+    SingleCallerInlineIntoSyntheticLambdaAccessor
   }
 
   public boolean isDefault() {
@@ -107,6 +108,8 @@ public abstract class MethodOptimizationInfo
   public abstract OptionalBool isReturnValueUsed();
 
   public abstract boolean forceInline();
+
+  public abstract boolean shouldSingleCallerInlineIntoSyntheticLambdaAccessor();
 
   public abstract boolean mayHaveSideEffects();
 
