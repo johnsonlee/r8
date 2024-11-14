@@ -79,8 +79,12 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
 
   private static GenerateDatabaseResourceFilesResult generateResourcesFiles() throws Exception {
     return generateResourcesFiles(
-        AndroidApiVersionsXmlParser.getParsedApiClasses(
-            ToolHelper.getApiVersionsXmlFile(API_LEVEL).toFile(), API_LEVEL),
+        AndroidApiVersionsXmlParser.builder()
+            .setApiVersionsXml(ToolHelper.getApiVersionsXmlFile(API_LEVEL))
+            .setAndroidJar(ToolHelper.getAndroidJar(API_LEVEL))
+            .setApiLevel(API_LEVEL)
+            .build()
+            .run(),
         API_LEVEL);
   }
 
@@ -98,8 +102,12 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
     // This tests makes a rudimentary check on the number of classes, fields and methods in
     // api-versions.xml to ensure that the runtime tests do not vacuously succeed.
     List<ParsedApiClass> parsedApiClasses =
-        AndroidApiVersionsXmlParser.getParsedApiClasses(
-            ToolHelper.getApiVersionsXmlFile(API_LEVEL).toFile(), API_LEVEL);
+        AndroidApiVersionsXmlParser.builder()
+            .setApiVersionsXml(ToolHelper.getApiVersionsXmlFile(API_LEVEL))
+            .setAndroidJar(ToolHelper.getAndroidJar(API_LEVEL))
+            .setApiLevel(API_LEVEL)
+            .build()
+            .run();
     IntBox numberOfFields = new IntBox(0);
     IntBox numberOfMethods = new IntBox(0);
     parsedApiClasses.forEach(
@@ -173,8 +181,12 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
   @Test
   public void testCanLookUpAllParsedApiClassesAndMembers() throws Exception {
     List<ParsedApiClass> parsedApiClasses =
-        AndroidApiVersionsXmlParser.getParsedApiClasses(
-            ToolHelper.getApiVersionsXmlFile(API_LEVEL).toFile(), API_LEVEL);
+        AndroidApiVersionsXmlParser.builder()
+            .setApiVersionsXml(ToolHelper.getApiVersionsXmlFile(API_LEVEL))
+            .setAndroidJar(ToolHelper.getAndroidJar(API_LEVEL))
+            .setApiLevel(API_LEVEL)
+            .build()
+            .run();
     DexItemFactory factory = new DexItemFactory();
     TestDiagnosticMessagesImpl diagnosticsHandler = new TestDiagnosticMessagesImpl();
     AndroidApiLevelHashingDatabaseImpl androidApiLevelDatabase =

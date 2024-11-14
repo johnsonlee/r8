@@ -6,7 +6,6 @@ package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
 
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
@@ -16,7 +15,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
-import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -35,11 +34,48 @@ public class AndroidApiVersionsXmlParser {
 
   private final List<ParsedApiClass> classes = new ArrayList<>();
 
-  private final File apiVersionsXml;
+  private final Path apiVersionsXml;
+  private final Path androidJar;
   private final AndroidApiLevel maxApiLevel;
 
-  private AndroidApiVersionsXmlParser(File apiVersionsXml, AndroidApiLevel maxApiLevel) {
+  static class Builder {
+    private Path apiVersionsXml;
+    private Path androidJar;
+    private AndroidApiLevel apiLevel;
+
+    Builder setApiVersionsXml(Path apiVersionsXml) {
+      this.apiVersionsXml = apiVersionsXml;
+      return this;
+    }
+
+    Builder setAndroidJar(Path androidJar) {
+      this.androidJar = androidJar;
+      return this;
+    }
+
+    Builder setApiLevel(AndroidApiLevel apiLevel) {
+      this.apiLevel = apiLevel;
+      return this;
+    }
+
+    AndroidApiVersionsXmlParser build() {
+      return new AndroidApiVersionsXmlParser(apiVersionsXml, androidJar, apiLevel);
+    }
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public List<ParsedApiClass> run() throws Exception {
+    readApiVersionsXmlFile();
+    return classes;
+  }
+
+  private AndroidApiVersionsXmlParser(
+      Path apiVersionsXml, Path androidJar, AndroidApiLevel maxApiLevel) {
     this.apiVersionsXml = apiVersionsXml;
+    this.androidJar = androidJar;
     this.maxApiLevel = maxApiLevel;
   }
 
@@ -62,9 +98,9 @@ public class AndroidApiVersionsXmlParser {
   }
 
   private void readApiVersionsXmlFile() throws Exception {
-    CodeInspector inspector = new CodeInspector(ToolHelper.getAndroidJar(maxApiLevel));
+    CodeInspector inspector = new CodeInspector(androidJar);
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-    Document document = factory.newDocumentBuilder().parse(apiVersionsXml);
+    Document document = factory.newDocumentBuilder().parse(apiVersionsXml.toFile());
     NodeList classes = document.getElementsByTagName("class");
     Set<String> exemptionList = getDeletedTypesMissingRemovedAttribute();
     for (int i = 0; i < classes.getLength(); i++) {
@@ -175,13 +211,6 @@ public class AndroidApiVersionsXmlParser {
       return defaultValue;
     }
     return defaultValue.max(getSince(node));
-  }
-
-  public static List<ParsedApiClass> getParsedApiClasses(
-      File apiVersionsXml, AndroidApiLevel apiLevel) throws Exception {
-    AndroidApiVersionsXmlParser parser = new AndroidApiVersionsXmlParser(apiVersionsXml, apiLevel);
-    parser.readApiVersionsXmlFile();
-    return parser.classes;
   }
 
   public static class ParsedApiClass {
