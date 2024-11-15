@@ -7,6 +7,7 @@ import com.android.tools.r8.CompatProguardCommandBuilder;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
+import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8;
 import com.android.tools.r8.R8Command;
@@ -14,6 +15,7 @@ import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.utils.compiledump.CompilerCommandDumpUtils;
 import com.android.tools.r8.utils.compiledump.ResourceShrinkerDumpUtils;
 import com.android.tools.r8.utils.compiledump.StartupProfileDumpUtils;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -76,7 +78,26 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
         || name.endsWith(".aar");
   }
 
-  @SuppressWarnings("BadImport")
+  static class FeatureInputOutput {
+    private final Path input;
+    private final Path resourceInput;
+    private final Path output;
+    private final Path resourceOutput;
+
+    public FeatureInputOutput(Path input, Path resourceInput, Path output, Path resourceOutput) {
+      this.input = input;
+      this.resourceInput = resourceInput;
+      this.output = output;
+      this.resourceOutput = resourceOutput;
+      assert (resourceInput == null) == (resourceOutput == null);
+    }
+
+    public boolean hasResources() {
+      return resourceInput != null;
+    }
+  }
+
+  @SuppressWarnings({"StringSplitter", "BadImport"})
   public static void main(String[] args) throws CompilationFailedException {
     boolean isCompatMode = false;
     OutputMode outputMode = OutputMode.DexIndexed;
@@ -86,7 +107,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     StringConsumer desugaredLibKeepRuleConsumer = null;
     CompilationMode compilationMode = CompilationMode.RELEASE;
     List<Path> program = new ArrayList<>();
-    Map<Path, Path> features = new LinkedHashMap<>();
+    List<FeatureInputOutput> features = new ArrayList<>();
     List<Path> library = new ArrayList<>();
     List<Path> classpath = new ArrayList<>();
     List<Path> config = new ArrayList<>();
@@ -214,13 +235,25 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
             }
           case "--feature-jar":
             {
-              Path featureIn = Paths.get(firstOperand);
-              Path featureOut = Paths.get(secondOperand);
+              String[] firstOperandSplit = firstOperand.split(File.pathSeparator);
+              String[] secondOperandSplit = secondOperand.split(File.pathSeparator);
+
+              Path featureIn = Paths.get(firstOperandSplit[0]);
+              Path featureOut = Paths.get(secondOperandSplit[0]);
               if (!FileUtils_isArchive(featureIn)) {
                 throw new IllegalArgumentException(
                     "Expected an archive, got `" + featureIn.toString() + "`.");
               }
-              features.put(featureIn, featureOut);
+              Path featureResIn =
+                  firstOperandSplit.length == 2 ? Paths.get(firstOperandSplit[1]) : null;
+              Path featureResOut =
+                  secondOperandSplit.length == 2 ? Paths.get(secondOperandSplit[1]) : null;
+              if ((featureResIn == null) != (featureResOut == null)) {
+                throw new IllegalArgumentException(
+                    "Either provide both feature resource in and out, or none");
+              }
+              features.add(
+                  new FeatureInputOutput(featureIn, featureResIn, featureOut, featureResOut));
               break;
             }
           default:
@@ -277,13 +310,25 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
       commandBuilder.setMinApiLevel(minApi);
     }
     features.forEach(
-        (in, out) ->
+        (featureInputOutput) ->
             commandBuilder.addFeatureSplit(
-                featureBuilder ->
-                    featureBuilder
-                        .addProgramResourceProvider(ArchiveResourceProvider.fromArchive(in, true))
-                        .setProgramConsumer(new ArchiveConsumer(out))
-                        .build()));
+                featureBuilder -> {
+                  FeatureSplit.Builder featureSplitBuilder =
+                      featureBuilder
+                          .addProgramResourceProvider(
+                              ArchiveResourceProvider.fromArchive(featureInputOutput.input, true))
+                          .setProgramConsumer(new ArchiveConsumer(featureInputOutput.output));
+                  if (featureInputOutput.hasResources()) {
+                    runIgnoreMissing(
+                        () ->
+                            ResourceShrinkerDumpUtils.setupFeatureSplitResourceShrinking(
+                                featureInputOutput.resourceInput,
+                                featureInputOutput.resourceOutput,
+                                featureSplitBuilder),
+                        "Can't add feature split resources.");
+                  }
+                  return featureSplitBuilder.build();
+                }));
     if (pgMapOutput != null) {
       commandBuilder.setProguardMapOutputPath(pgMapOutput);
     }

@@ -198,8 +198,14 @@ class Dump(object):
         i = 1
         while True:
             feature_jar = self.if_exists('feature-%s.jar' % i)
-            if feature_jar:
-                feature_jars.append(feature_jar)
+            feature_res = self.if_exists('feature-%s.ap_' % i)
+            if feature_jar or feature_res:
+                # We can have either jar, res or both.
+                input_string = feature_jar
+                if feature_res:
+                   input_string = '%s:%s' % (
+                       feature_jar if feature_jar else '', feature_res)
+                feature_jars.append(input_string)
                 i = i + 1
             else:
                 return feature_jars
@@ -389,11 +395,20 @@ def determine_residual_art_profile_output(art_profile, temp):
 def determine_desugared_lib_pg_conf_output(temp):
     return os.path.join(temp, 'desugared-library-keep-rules.config')
 
+def output_name(input_name, suffix):
+    return os.path.basename(input_name)[:-4] + ".out" + suffix
 
-def determine_feature_output(feature_jar, temp):
-    return os.path.join(
-        args.output if args.output and os.path.isdir(args.output) else temp,
-        os.path.basename(feature_jar)[:-4] + ".out.jar")
+
+def determine_feature_output(feature_input, temp):
+    output_exists = args.output and os.path.isdir(args.output)
+    base_path = args.output if output_exists else temp
+    if ":" in feature_input:
+        split = feature_input.split(':')
+        feature_jar = '' if len(split[0]) == 0 else os.path.join(
+            base_path, output_name(split[0], '.jar'))
+        feature_res = os.path.join(base_path, output_name(split[1], '.ap_'))
+        return '%s:%s' % (feature_jar, feature_res)
+    return os.path.join(base_path, output_name(feature_input))
 
 
 def determine_program_jar(args, dump):
