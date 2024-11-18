@@ -190,15 +190,17 @@ public class MoveSorter {
     // Check if either of the two instructions write the operand of the other instruction.
     if (instruction.isMove()) {
       FixedRegisterValue inValue = instruction.getFirstOperand().asFixedRegisterValue();
+      FixedRegisterValue outValue = instruction.outValue().asFixedRegisterValue();
       FixedRegisterValue laterOutValue = laterInstruction.outValue().asFixedRegisterValue();
-      if (laterOutValue.usesRegister(inValue)) {
+      if (laterOutValue.usesRegister(inValue) || laterOutValue.usesRegister(outValue)) {
         return true;
       }
     }
     if (laterInstruction.isMove()) {
       FixedRegisterValue outValue = instruction.outValue().asFixedRegisterValue();
       FixedRegisterValue laterInValue = laterInstruction.getFirstOperand().asFixedRegisterValue();
-      if (outValue.usesRegister(laterInValue)) {
+      FixedRegisterValue laterOutValue = laterInstruction.outValue().asFixedRegisterValue();
+      if (outValue.usesRegister(laterInValue) || outValue.usesRegister(laterOutValue)) {
         return true;
       }
     }

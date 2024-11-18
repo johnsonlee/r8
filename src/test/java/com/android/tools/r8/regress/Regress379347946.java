@@ -40,8 +40,7 @@ public class Regress379347946 extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/379347946): Should produce same result as D8 below
-        .assertSuccessWithOutputLines("12771252");
+        .assertSuccessWithOutputLines(EXPECTED);
   }
 
   @Test
