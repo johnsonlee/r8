@@ -202,7 +202,7 @@ public class StringMethodOptimizer extends StatelessLibraryMethodModelCollection
               invoke,
               affectedValues,
               (s, i, j) ->
-                  i <= 0 && i <= j && j <= s.length() ? s.substring(i, j, dexItemFactory) : null);
+                  0 <= i && i <= j && j <= s.length() ? s.substring(i, j, dexItemFactory) : null);
         }
         break;
       case 't':
