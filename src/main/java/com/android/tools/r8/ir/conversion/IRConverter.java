@@ -516,7 +516,7 @@ public class IRConverter {
       timing.begin("Lens rewrite");
       lensCodeRewriter.rewrite(code, context, methodProcessor);
       timing.end();
-      previous = printMethod(code, "IR after disable assertions (SSA)", previous);
+      previous = printMethod(code, "IR after lens code rewriting (SSA)", previous);
     }
 
     boolean isDebugMode = options.debug || context.isReachabilitySensitive();
@@ -592,17 +592,17 @@ public class IRConverter {
     }
 
     assertionsRewriter.run(method, code, deadCodeRemover, timing);
+    previous = printMethod(code, "IR after assertions rewriter (SSA)", previous);
+
     CheckNotNullConverter.runIfNecessary(appView, code);
-    previous = printMethod(code, "IR after disable assertions (SSA)", previous);
+    previous = printMethod(code, "IR after check not null converter (SSA)", previous);
 
     timing.begin("Run proto shrinking tasks");
     appView.withGeneratedExtensionRegistryShrinker(shrinker -> shrinker.rewriteCode(method, code));
-
     previous = printMethod(code, "IR after generated extension registry shrinking (SSA)", previous);
 
     appView.withGeneratedMessageLiteShrinker(shrinker -> shrinker.run(code));
     timing.end();
-
     previous = printMethod(code, "IR after generated message lite shrinking (SSA)", previous);
 
     if (memberValuePropagation != null) {
@@ -637,18 +637,18 @@ public class IRConverter {
 
     if (assumeInserter != null) {
       assumeInserter.insertAssumeInstructions(code, timing);
+      previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
     }
 
-    previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
 
     if (inliner != null && !isDebugMode) {
       timing.begin("Inlining");
       inliner.performInlining(code.context(), code, feedback, methodProcessor, timing);
       timing.end();
       assert code.verifyTypes(appView);
+      previous = printMethod(code, "IR after inlining (SSA)", previous);
     }
 
-    previous = printMethod(code, "IR after inlining (SSA)", previous);
 
     if (appView.appInfo().hasLiveness()) {
       // Reflection optimization 1. getClass() / forName() -> const-class
@@ -665,9 +665,9 @@ public class IRConverter {
           .libraryMethodOptimizer()
           .optimize(code, feedback, methodProcessor, methodProcessingContext);
       timing.end();
-      previous = printMethod(code, "IR after class library method optimizer (SSA)", previous);
       code.removeRedundantBlocks();
       assert code.isConsistentSSA(appView);
+      previous = printMethod(code, "IR after class library method optimizer (SSA)", previous);
     }
 
     assert code.verifyTypes(appView);
@@ -704,16 +704,15 @@ public class IRConverter {
     // dead code which is removed right before register allocation in performRegisterAllocation.
     deadCodeRemover.run(code, timing);
     assert code.isConsistentSSA(appView);
+    previous = printMethod(code, "IR after dead code removal (SSA)", previous);
 
     if (options.testing.invertConditionals) {
       invertConditionalsForTesting(code);
+      previous = printMethod(code, "IR after inverting conditionals for testing (SSA)", previous);
     }
 
-    previous = printMethod(code, "IR after dead code removal (SSA)", previous);
 
     assert code.verifyTypes(appView);
-
-    previous = printMethod(code, "IR before class inlining (SSA)", previous);
 
     if (classInliner != null) {
       timing.begin("Inline classes");
@@ -725,25 +724,21 @@ public class IRConverter {
       code.removeRedundantBlocks();
       assert code.isConsistentSSA(appView);
       assert code.verifyTypes(appView);
+      previous = printMethod(code, "IR after class inlining (SSA)", previous);
     }
 
-    previous = printMethod(code, "IR after class inlining (SSA)", previous);
-
     assert code.verifyTypes(appView);
-
-    previous = printMethod(code, "IR after interface method rewriting (SSA)", previous);
 
     // TODO(b/140766440): an ideal solution would be putting CodeOptimization for this into
     //  the list for primary processing only.
     outliner.collectOutlineSites(code, timing);
-
     assert code.verifyTypes(appView);
-
     previous = printMethod(code, "IR after outline handler (SSA)", previous);
 
     if (!code.getConversionOptions().isGeneratingLir()) {
       new FilledNewArrayRewriter(appView)
           .run(code, methodProcessor, methodProcessingContext, timing);
+      previous = printMethod(code, "IR after filled-new-array rewriter (SSA)", previous);
     }
 
     // Remove string switches prior to canonicalization to ensure that the constants that are
@@ -761,7 +756,7 @@ public class IRConverter {
       previous = printMethod(code, "IR after constant canonicalization (SSA)", previous);
       new DexConstantOptimizer(appView, constantCanonicalizer)
           .run(code, methodProcessor, methodProcessingContext, timing);
-      previous = printMethod(code, "IR after dex constant optimization (SSA)", previous);
+      previous = printMethod(code, "IR after DEX constant optimization (SSA)", previous);
     }
 
     if (removeVerificationErrorForUnknownReturnedValues != null) {
@@ -771,11 +766,8 @@ public class IRConverter {
     timing.begin("Canonicalize idempotent calls");
     idempotentFunctionCallCanonicalizer.canonicalize(code);
     timing.end();
-
     previous =
         printMethod(code, "IR after idempotent function call canonicalization (SSA)", previous);
-
-    previous = printMethod(code, "IR after argument type logging (SSA)", previous);
 
     assert code.verifyTypes(appView);
 
@@ -810,17 +802,16 @@ public class IRConverter {
       code.removeRedundantBlocks();
       timing.end();
       assert code.isConsistentSSA(appView);
+      previous = printMethod(code, "IR after removing assume instructions (SSA)", previous);
 
       // TODO(b/214496607): Remove when dynamic types are safe w.r.t. interface assignment rules.
       new MoveResultRewriter(appView).run(code, methodProcessor, methodProcessingContext, timing);
+      previous = printMethod(code, "IR after move result rewriter (SSA)", previous);
     }
 
     // Assert that we do not have unremoved non-sense code in the output, e.g., v <- non-null NULL.
     assert code.verifyNoNullabilityBottomTypes();
     assert code.verifyTypes(appView);
-
-    previous =
-        printMethod(code, "IR after computation of optimization info summary (SSA)", previous);
 
     previous = printMethod(code, "Optimized IR (SSA)", previous);
     timing.begin("Finalize IR");
