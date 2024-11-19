@@ -12,7 +12,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 // Regression test for b/379241435.
 @RunWith(Parameterized.class)
-public class B379241435Test extends TestBase {
+public class B379241435InterfaceInitializedAftertInstantiatingImplementorTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -22,7 +22,7 @@ public class B379241435Test extends TestBase {
     return getTestParameters().withAllRuntimesAndApiLevels().build();
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("A.A()", "I.f()");
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("B.B()", "A.A()", "I.f()");
 
   @Test
   public void testJvm() throws Exception {
@@ -56,12 +56,14 @@ public class B379241435Test extends TestBase {
                     .getApiLevel()
                     .isLessThan(apiLevelWithDefaultInterfaceMethodsSupport()),
             r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
-            r -> r.assertSuccessWithOutputLines("I.f()"));
+            r -> r.assertSuccessWithOutputLines("B.B()", "I.f()"));
   }
 
   public static class TestClass {
     public static void main(String[] args) {
+      // Instantiating B does not trigger class initialization of I.
       I b = new B();
+      // Invoking the static method on I trigger class initialization of I.
       I.f();
     }
   }
@@ -80,5 +82,9 @@ public class B379241435Test extends TestBase {
     }
   }
 
-  static class B implements I {}
+  static class B implements I {
+    B() {
+      System.out.println("B.B()");
+    }
+  }
 }
