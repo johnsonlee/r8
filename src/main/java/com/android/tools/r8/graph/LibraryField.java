@@ -32,4 +32,9 @@ public class LibraryField extends DexClassAndField
   public boolean isLibraryMember() {
     return true;
   }
+
+  @Override
+  public boolean isFinalOrEffectivelyFinal(AppView<?> appView) {
+    return appView.libraryMethodOptimizer().isFinalLibraryField(getDefinition());
+  }
 }

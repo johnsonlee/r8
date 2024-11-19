@@ -773,6 +773,7 @@ public class DexItemFactory {
           androidSystemOsConstantsMembers,
           androidViewViewMembers,
           // java.**
+          enumMembers,
           javaIoFileMembers,
           javaMathBigIntegerMembers,
           javaNioByteOrderMembers,
@@ -2114,7 +2115,7 @@ public class DexItemFactory {
     private JavaIoPrintStreamMembers() {}
   }
 
-  public class EnumMembers {
+  public class EnumMembers extends LibraryMembers {
 
     public final DexField nameField = createField(enumType, stringType, "name");
     public final DexField ordinalField = createField(enumType, intType, "ordinal");
@@ -2165,6 +2166,12 @@ public class DexItemFactory {
     }
 
     public void forEachField(Consumer<DexField> fn) {
+      fn.accept(nameField);
+      fn.accept(ordinalField);
+    }
+
+    @Override
+    public void forEachFinalField(Consumer<DexField> fn) {
       fn.accept(nameField);
       fn.accept(ordinalField);
     }

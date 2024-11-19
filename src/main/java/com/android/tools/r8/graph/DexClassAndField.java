@@ -61,7 +61,7 @@ public abstract class DexClassAndField extends DexClassAndMember<DexEncodedField
     return this;
   }
 
-  public final boolean isFinalOrEffectivelyFinal(AppView<?> appView) {
+  public boolean isFinalOrEffectivelyFinal(AppView<?> appView) {
     return getAccessFlags().isFinal()
         || (appView.hasLiveness() && isEffectivelyFinal(appView.withLiveness()));
   }

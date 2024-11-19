@@ -157,12 +157,11 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object other) {
       if (this == other) {
         return true;
       }
-      if (other == null || getClass() != other.getClass()) {
+      if (!(other instanceof ArraySlotWithConstantIndex)) {
         return false;
       }
       ArraySlotWithConstantIndex arraySlot = (ArraySlotWithConstantIndex) other;
@@ -190,12 +189,11 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     }
 
     @Override
-    @SuppressWarnings("EqualsGetClass")
     public boolean equals(Object other) {
       if (this == other) {
         return true;
       }
-      if (other == null || getClass() != other.getClass()) {
+      if (!(other instanceof ArraySlotWithValueIndex)) {
         return false;
       }
       ArraySlotWithValueIndex arraySlot = (ArraySlotWithValueIndex) other;
@@ -220,13 +218,15 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     }
 
     @Override
-    @SuppressWarnings("ReferenceEquality")
     public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
       if (!(other instanceof FieldAndObject)) {
         return false;
       }
       FieldAndObject o = (FieldAndObject) other;
-      return o.object == object && o.field == field;
+      return o.object == object && o.field.isIdenticalTo(field);
     }
   }
 
@@ -345,14 +345,13 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       return appView.libraryMethodOptimizer().isFinalLibraryField(field.getDefinition());
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private DexClassAndField resolveField(DexField field) {
       if (appView.enableWholeProgramOptimizations()) {
         SingleFieldResolutionResult resolutionResult =
             appView.appInfo().withLiveness().resolveField(field).asSingleFieldResolutionResult();
         return resolutionResult != null ? resolutionResult.getResolutionPair() : null;
       }
-      if (field.getHolderType() == method.getHolderType()) {
+      if (field.getHolderType().isIdenticalTo(method.getHolderType())) {
         return method.getHolder().lookupProgramField(field);
       }
       return null;
@@ -614,10 +613,10 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       return activeState.markClassAsInitialized(type);
     }
 
-    @SuppressWarnings("ReferenceEquality")
     private void markMostRecentInitClassForRemoval(DexType initializedType) {
       InitClass mostRecentInitClass = activeState.getMostRecentInitClass();
-      if (mostRecentInitClass != null && mostRecentInitClass.getClassValue() == initializedType) {
+      if (mostRecentInitClass != null
+          && mostRecentInitClass.getClassValue().isIdenticalTo(initializedType)) {
         instructionsToRemove
             .computeIfAbsent(mostRecentInitClass.getBlock(), ignoreKey(Sets::newIdentityHashSet))
             .add(mostRecentInitClass);
@@ -1113,10 +1112,9 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       clearMostRecentStaticFieldWrites();
     }
 
-    @SuppressWarnings("ReferenceEquality")
     public void clearMostRecentInstanceFieldWrite(DexField field) {
       if (mostRecentInstanceFieldWrites != null) {
-        mostRecentInstanceFieldWrites.keySet().removeIf(key -> key.field == field);
+        mostRecentInstanceFieldWrites.keySet().removeIf(key -> key.field.isIdenticalTo(field));
       }
     }
 
@@ -1329,10 +1327,9 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       }
     }
 
-    @SuppressWarnings("ReferenceEquality")
     public void removeNonFinalInstanceFields(DexField field) {
       if (nonFinalInstanceFieldValues != null) {
-        nonFinalInstanceFieldValues.keySet().removeIf(key -> key.field == field);
+        nonFinalInstanceFieldValues.keySet().removeIf(key -> key.field.isIdenticalTo(field));
       }
     }
 
