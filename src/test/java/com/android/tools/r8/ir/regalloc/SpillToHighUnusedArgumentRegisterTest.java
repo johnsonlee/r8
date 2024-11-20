@@ -5,11 +5,12 @@ package com.android.tools.r8.ir.regalloc;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.dex.code.DexMoveFrom16;
 import com.android.tools.r8.dex.code.DexMoveResult;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -56,13 +57,15 @@ public class SpillToHighUnusedArgumentRegisterTest extends TestBase {
                       .asDexInstruction()
                       .getInstruction();
 
-              // TODO(b/375142715): The test no longer spills the `i` value. Look into if the test
-              //  can be tweeked so that `i` is spilled, and validate that it is spilled to the
-              //  unused argument register.
-              assertTrue(
+              DexMoveFrom16 spillMove =
                   testMethodSubject
                       .streamInstructions()
-                      .noneMatch(i -> i.isMoveFrom(moveResult.AA)));
+                      .filter(i -> i.isMoveFrom(moveResult.AA))
+                      .collect(MoreCollectors.onlyElement())
+                      .asDexInstruction()
+                      .getInstruction();
+              int lastArgumentRegister = code.registerSize - 1;
+              assertEquals(lastArgumentRegister, spillMove.AA);
             });
   }
 

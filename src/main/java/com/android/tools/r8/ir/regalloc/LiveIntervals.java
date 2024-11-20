@@ -427,6 +427,18 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return Integer.MAX_VALUE;
   }
 
+  public int firstUseWithConstraintAfter(int unhandledStart, ArgumentReuseMode mode) {
+    if (isInvokeRangeIntervals()) {
+      return getFirstUse();
+    }
+    for (LiveIntervalsUse use : uses) {
+      if (use.hasConstraint(mode) && use.getPosition() >= unhandledStart) {
+        return use.getPosition();
+      }
+    }
+    return Integer.MAX_VALUE;
+  }
+
   public boolean hasUses() {
     return !uses.isEmpty();
   }
@@ -451,17 +463,19 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     }
   }
 
-  public LiveIntervals splitBefore(Instruction instruction) {
-    return splitBefore(instruction.getNumber());
+  public LiveIntervals splitBefore(Instruction instruction, ArgumentReuseMode mode) {
+    return splitBefore(instruction.getNumber(), mode);
   }
 
-  public LiveIntervals splitAfter(Instruction instruction) {
-    return splitBefore(instruction.getNumber() + INSTRUCTION_NUMBER_DELTA);
+  public LiveIntervals splitAfter(Instruction instruction, ArgumentReuseMode mode) {
+    return splitBefore(instruction.getNumber() + INSTRUCTION_NUMBER_DELTA, mode);
   }
 
-  public LiveIntervals splitBefore(int start) {
+  public LiveIntervals splitBefore(int start, ArgumentReuseMode mode) {
     if (toInstructionPosition(start) == toInstructionPosition(getStart())) {
-      assert uses.size() == 0 || getFirstUse() != start;
+      assert uses.isEmpty()
+          || getFirstUse() != start
+          || (!uses.first().hasConstraint(mode) && !isInvokeRangeIntervals());
       register = NO_REGISTER;
       return this;
     }
