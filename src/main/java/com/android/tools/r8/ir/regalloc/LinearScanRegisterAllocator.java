@@ -1076,7 +1076,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   int unadjustedRealRegisterFromAllocated(int allocated) {
     assert allocated != NO_REGISTER;
     assert allocated >= 0;
-    if (allocated < numberOfArgumentRegisters) {
+    if (isArgumentRegister(allocated)) {
       // For the |numberOfArguments| first registers map to the correct argument register.
       return maxRegisterNumber - (numberOfArgumentRegisters - allocated - 1);
     } else if (hasDedicatedMoveExceptionRegister()
@@ -1130,7 +1130,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       // invoke/range. This looks forward and propagate hints backwards to avoid many moves in
       // connection with ranged invokes.
       allocateRegistersForInvokeRangeSplits(unhandledInterval);
-      if (unhandledInterval.getRegister() != NO_REGISTER) {
+      if (unhandledInterval.hasRegister()) {
         // The value itself is in the chain that has now gotten registers allocated.
         continue;
       }
@@ -1282,7 +1282,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         }
       } else if (!activeIntervals.overlapsPosition(start)) {
         activeIterator.remove();
-        assert activeIntervals.getRegister() != NO_REGISTER;
+        assert activeIntervals.hasRegister();
         inactive.add(activeIntervals);
         freeOccupiedRegistersForIntervals(activeIntervals);
       }
@@ -1302,7 +1302,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         }
       } else if (inactiveIntervals.overlapsPosition(start)) {
         inactiveIterator.remove();
-        assert inactiveIntervals.getRegister() != NO_REGISTER;
+        assert inactiveIntervals.hasRegister();
         active.add(inactiveIntervals);
         takeFreeRegistersForIntervals(inactiveIntervals);
       }
@@ -1367,7 +1367,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   private boolean verifyRegisterAssignmentNotConflictingWithArgument(LiveIntervals interval) {
-    assert interval.getRegister() != NO_REGISTER;
+    assert interval.hasRegister();
     for (Value argumentValue = firstArgumentValue;
         argumentValue != null;
         argumentValue = argumentValue.getNextConsecutive()) {
@@ -1629,7 +1629,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   private int getSpillRegister(LiveIntervals intervals, IntList excludedRegisters) {
-    if (intervals.isArgumentInterval()) {
+    if (isPinnedArgumentRegister(intervals)) {
       // Arguments are always in the argument registers, so for arguments just use that register
       // for the unconstrained prefix. For everything else, get a spill register.
       return intervals.getSplitParent().getRegister();
@@ -1690,7 +1690,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     //
     // Note that this is *not* guaranteed when overlapsInactiveIntervals is null, because it is
     // possible that some live ranges of the argument are still in the unhandled set.
-    if (register < numberOfArgumentRegisters) {
+    if (isArgumentRegister(register)) {
       // Find the first argument value that uses the given register.
       LiveIntervals argumentLiveIntervals = firstArgumentValue.getLiveIntervals();
       while (!argumentLiveIntervals.usesRegister(register, intervals.getType().isWide())) {
@@ -2139,7 +2139,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           i += requiredRegisters;
         }
       }
-      for (; i < numberOfArgumentRegisters && i <= registerConstraint; i++) {
+      for (; isArgumentRegister(i) && i <= registerConstraint; i++) {
         freePositions.setBlocked(i);
       }
     }
@@ -2644,7 +2644,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
     // Disallow the reuse of argument registers by always treating them as being used
     // at instruction number 0.
-    for (int i = 0; i < numberOfArgumentRegisters; i++) {
+    for (int i = 0; isArgumentRegister(i); i++) {
       usePositions.setBlocked(i);
     }
 
@@ -2811,7 +2811,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   private void spillOverlappingActiveIntervals(
       LiveIntervals unhandledInterval, int candidate, boolean candidateIsWide) {
-    assert unhandledInterval.getRegister() == NO_REGISTER;
+    assert !unhandledInterval.hasRegister();
     assert atLeastOneOfRegistersAreTaken(candidate, candidateIsWide);
     // Registers that we cannot choose for spilling.
     IntList excludedRegisters = new IntArrayList(candidateIsWide ? 2 : 1);
@@ -2842,8 +2842,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         assignRegister(splitChild, registerNumber);
         splitChild.setSpilled(true);
         takeFreeRegistersForIntervals(splitChild);
-        assert splitChild.getRegister() != NO_REGISTER;
-        assert intervals.getRegister() != NO_REGISTER;
+        assert splitChild.hasRegister();
+        assert intervals.hasRegister();
         newActive.add(splitChild);
         // If the constant is split before its first actual use, mark the constant as being
         // spilled. That will allows us to remove it afterwards if it is rematerializable.
@@ -2852,7 +2852,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             && intervals.getUses().size() == 1) {
           intervals.setSpilled(true);
         }
-        if (splitChild.getUses().size() > 0) {
+        if (splitChild.hasUses()) {
           if (splitChild.isLinked() && !splitChild.isArgumentInterval()) {
             // Spilling a value with a pinned register. We need to move back at the next use.
             LiveIntervals splitOfSplit = splitChild.splitBefore(splitChild.getFirstUse());
@@ -2860,7 +2860,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             inactive.add(splitOfSplit);
           } else if (intervals.getValue().isConstNumber()) {
             // TODO(ager): Do this for all constants. Currently we only rematerialize const
-            // number and therefore we only do it for numbers at this point.
+            //  number and therefore we only do it for numbers at this point.
             splitRangesForSpilledConstant(splitChild, registerNumber);
           } else if (intervals.isArgumentInterval()) {
             splitRangesForSpilledArgument(splitChild);
@@ -2893,7 +2893,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     assert !spilled.getValue().isConstNumber();
     assert !spilled.isLinked() || spilled.isArgumentInterval();
     boolean isSpillingToArgumentRegister =
-        (spilled.isArgumentInterval() || registerNumber < numberOfArgumentRegisters);
+        spilled.isArgumentInterval() || isArgumentRegister(registerNumber);
     if (isSpillingToArgumentRegister) {
       if (mode.is8Bit()) {
         registerNumber = Constants.U8BIT_MAX;
@@ -3137,7 +3137,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       return false;
     }
     assert intervals.hasRegister();
-    if (intervals.getRegister() >= numberOfArgumentRegisters) {
+    if (!isArgumentRegister(intervals.getRegister())) {
       return false;
     }
     // An argument register could be moved to another argument register.
@@ -3608,8 +3608,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       freeRegistersWithDesiredOrdering =
           new IntRBTreeSet(
               (Integer x, Integer y) -> {
-                boolean xIsArgument = x < numberOfArgumentRegisters;
-                boolean yIsArgument = y < numberOfArgumentRegisters;
+                boolean xIsArgument = isArgumentRegister(x);
+                boolean yIsArgument = isArgumentRegister(y);
                 // If x is an argument and y is not, then prioritize y.
                 if (xIsArgument && !yIsArgument) {
                   return 1;
@@ -3646,10 +3646,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     }
     // Either all the consecutive registers are from the argument registers, or all are from the
     // non-argument registers.
-    assert (first < numberOfArgumentRegisters
-            && first + numberOfRegisters - 1 < numberOfArgumentRegisters)
-        || (first >= numberOfArgumentRegisters
-            && first + numberOfRegisters - 1 >= numberOfArgumentRegisters);
+    assert (isArgumentRegister(first) && isArgumentRegister(first + numberOfRegisters - 1))
+        || (!isArgumentRegister(first) && !isArgumentRegister(first + numberOfRegisters - 1));
     return first;
   }
 
@@ -3749,7 +3747,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   private boolean registersForIntervalsAreTaken(LiveIntervals intervals) {
-    assert intervals.getRegister() != NO_REGISTER;
+    assert intervals.hasRegister();
     return registersAreTaken(intervals.getRegister(), intervals.getType().isWide());
   }
 
@@ -3785,10 +3783,10 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     builder.append("\nLive range ascii art: \n");
     for (LiveIntervals intervals : liveIntervals) {
       Value value = intervals.getValue();
-      if (intervals.getRegister() == NO_REGISTER) {
-        StringUtils.appendRightPadded(builder, value + " (no reg): ", 20);
-      } else {
+      if (intervals.hasRegister()) {
         StringUtils.appendRightPadded(builder, value + " r" + intervals.getRegister() + ": ", 20);
+      } else {
+        StringUtils.appendRightPadded(builder, value + " (no reg): ", 20);
       }
       builder.append("|");
       builder.append(intervals.toAscciArtString());
