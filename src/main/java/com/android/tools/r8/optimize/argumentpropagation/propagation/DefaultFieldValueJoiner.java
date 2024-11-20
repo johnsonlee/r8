@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DefaultUseRegistryWithResult;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
@@ -36,6 +37,8 @@ import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanOpenHashMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,17 +60,20 @@ public class DefaultFieldValueJoiner {
   private final Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers;
   private final FieldStateCollection fieldStates;
   private final List<FlowGraph> flowGraphs;
+  private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
 
   public DefaultFieldValueJoiner(
       AppView<AppInfoWithLiveness> appView,
       Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers,
       FieldStateCollection fieldStates,
-      List<FlowGraph> flowGraphs) {
+      List<FlowGraph> flowGraphs,
+      ImmediateProgramSubtypingInfo immediateSubtypingInfo) {
     this.appView = appView;
     this.classesWithSingleCallerInlinedInstanceInitializers =
         classesWithSingleCallerInlinedInstanceInitializers;
     this.fieldStates = fieldStates;
     this.flowGraphs = flowGraphs;
+    this.immediateSubtypingInfo = immediateSubtypingInfo;
   }
 
   public Map<FlowGraph, Deque<FlowGraphNode>> joinDefaultFieldValuesForFieldsWithReadBeforeWrite(
@@ -79,12 +85,35 @@ public class DefaultFieldValueJoiner {
       return Collections.emptyMap();
     }
 
+    // Classes that are kept or have a kept subclass can be instantiated in a way that does not use
+    // any instance initializers. For all fields on such classes, we therefore include the default
+    // field value.
+    Map<DexProgramClass, Boolean> classesWithKeptSubclasses =
+        computeClassesWithKeptSubclasses(fieldsOfInterest);
+    ProgramFieldSet fieldsWithLiveDefaultValue = ProgramFieldSet.createConcurrent();
+    MapUtils.removeIf(
+        fieldsOfInterest,
+        (clazz, fields) -> {
+          Boolean isKeptOrHasKeptSubclass = classesWithKeptSubclasses.get(clazz);
+          assert isKeptOrHasKeptSubclass != null;
+          if (isKeptOrHasKeptSubclass) {
+            fields.removeIf(
+                field -> {
+                  if (field.getDefinition().isInstance()) {
+                    fieldsWithLiveDefaultValue.add(field);
+                    return true;
+                  }
+                  return false;
+                });
+          }
+          return fields.isEmpty();
+        });
+
     // If constructor inlining is disabled, then we focus on whether each instance initializer
     // definitely assigns the given field before it is read. We do the same for final and static
     // fields.
     Map<DexType, ProgramFieldSet> fieldsNotSubjectToInitializerAnalysis =
         removeFieldsNotSubjectToInitializerAnalysis(fieldsOfInterest);
-    ProgramFieldSet fieldsWithLiveDefaultValue = ProgramFieldSet.createConcurrent();
     analyzeInitializers(
         fieldsOfInterest,
         field -> {
@@ -108,7 +137,46 @@ public class DefaultFieldValueJoiner {
     return updateFlowGraphs(fieldsWithLiveDefaultValue, executorService);
   }
 
-  protected Map<DexProgramClass, List<ProgramField>> getFieldsOfInterest() {
+  /**
+   * For each of the classes in the key set of the given {@param fieldsOfInterest}, this computes
+   * whether the class is kept or has a kept subclass.
+   */
+  private Map<DexProgramClass, Boolean> computeClassesWithKeptSubclasses(
+      Map<DexProgramClass, List<ProgramField>> fieldsOfInterest) {
+    Reference2BooleanMap<DexProgramClass> classesWithKeptSubclasses =
+        new Reference2BooleanOpenHashMap<>();
+    for (DexProgramClass clazz : fieldsOfInterest.keySet()) {
+      computeClassHasKeptSubclass(clazz, classesWithKeptSubclasses);
+    }
+    return classesWithKeptSubclasses;
+  }
+
+  private boolean computeClassHasKeptSubclass(
+      DexProgramClass clazz, Reference2BooleanMap<DexProgramClass> classesWithKeptSubclasses) {
+    if (classesWithKeptSubclasses.containsKey(clazz)) {
+      return classesWithKeptSubclasses.getBoolean(clazz);
+    }
+    if (isKeptDirectly(clazz)) {
+      classesWithKeptSubclasses.put(clazz, true);
+      return true;
+    }
+    for (DexProgramClass subclass : immediateSubtypingInfo.getSubclasses(clazz)) {
+      if (computeClassHasKeptSubclass(subclass, classesWithKeptSubclasses)) {
+        classesWithKeptSubclasses.put(clazz, true);
+        return true;
+      }
+    }
+    assert !classesWithKeptSubclasses.containsKey(clazz)
+        || !classesWithKeptSubclasses.getBoolean(clazz);
+    classesWithKeptSubclasses.put(clazz, false);
+    return false;
+  }
+
+  private boolean isKeptDirectly(DexProgramClass clazz) {
+    return appView.getKeepInfo(clazz).isPinned(appView.options());
+  }
+
+  private Map<DexProgramClass, List<ProgramField>> getFieldsOfInterest() {
     Map<DexProgramClass, List<ProgramField>> fieldsOfInterest = new IdentityHashMap<>();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       clazz.forEachProgramField(
@@ -262,12 +330,6 @@ public class DefaultFieldValueJoiner {
         (holderType, fields) -> {
           assert !fields.isEmpty();
           DexProgramClass holder = fields.iterator().next().getHolder();
-          // If the class is kept it could be instantiated directly, in which case all default field
-          // values could be live.
-          if (appView.getKeepInfo(holder).isPinned(appView.options())) {
-            fields.forEach(liveDefaultValueConsumer);
-            return true;
-          }
           if (holder.isFinal() || !appView.appInfo().isInstantiatedIndirectly(holder)) {
             // When the class is not explicitly marked final, the class could in principle have
             // injected subclasses if it is pinned. However, none of the fields are pinned, so we

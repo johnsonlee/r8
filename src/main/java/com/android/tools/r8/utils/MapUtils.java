@@ -96,6 +96,11 @@ public class MapUtils {
     return value != null ? value : defaultValue;
   }
 
+  public static <K, V> V removeOrComputeDefault(Map<K, V> map, K key, Function<K, V> defaultValue) {
+    V value = map.remove(key);
+    return value != null ? value : defaultValue.apply(key);
+  }
+
   public static String toString(Map<?, ?> map) {
     return StringUtils.join(
         ",", map.entrySet(), entry -> entry.getKey() + ":" + entry.getValue(), BraceType.TUBORG);

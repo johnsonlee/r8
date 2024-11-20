@@ -118,7 +118,7 @@ public class MergedFieldTypeTest extends MergedTypeBaseTest {
       ClassSubject testClassSubject = inspector.clazz(TestClass.class);
       assertThat(testClassSubject, isPresent());
 
-      if (enableVerticalClassMerging && parameters.canInitNewInstanceUsingSuperclassConstructor()) {
+      if (enableVerticalClassMerging) {
         // Verify that TestClass.field has been removed.
         assertEquals(1, testClassSubject.allFields().size());
 

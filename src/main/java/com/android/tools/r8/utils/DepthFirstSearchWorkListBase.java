@@ -255,11 +255,12 @@ public abstract class DepthFirstSearchWorkListBase<N, T extends DFSNodeImpl<N>, 
     protected TraversalContinuation<TB, S> internalOnJoin(DFSNodeWithStateImpl<N, S> node) {
       return joiner(
           node,
-          childStateMap.computeIfAbsent(
+          MapUtils.removeOrComputeDefault(
+              childStateMap,
               node,
               n -> {
                 assert false : "Unexpected joining of not visited node";
-                return new ArrayList<>();
+                return Collections.emptyList();
               }));
     }
 

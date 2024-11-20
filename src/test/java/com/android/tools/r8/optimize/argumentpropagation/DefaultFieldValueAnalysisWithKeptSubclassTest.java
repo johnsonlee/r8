@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.optimize.argumentpropagation;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -65,11 +64,10 @@ public class DefaultFieldValueAnalysisWithKeptSubclassTest extends TestBase {
             inspector -> {
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
-              assertThat(aClassSubject.uniqueFieldWithOriginalName("f"), isAbsent());
+              assertThat(aClassSubject.uniqueFieldWithOriginalName("f"), isPresent());
             })
-        // TODO(b/379034741): Should succeed with expected output.
         .run(parameters.getRuntime(), Main.class, B.class.getTypeName())
-        .assertSuccessWithEmptyOutput();
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   static class Main {
