@@ -782,7 +782,7 @@ public class ArgumentPropagatorProgramOptimizer {
 
       // We need to find a new name for this method, since the signature is already occupied.
       // TODO(b/190154391): Instead of generating a new name, we could also try permuting the order
-      // of parameters.
+      //  of parameters.
       IntBox suffix =
           newMethodSignatureSuffixes.computeIfAbsent(
               methodSignatureWithParametersRemoved, ignoreKey(IntBox::new));

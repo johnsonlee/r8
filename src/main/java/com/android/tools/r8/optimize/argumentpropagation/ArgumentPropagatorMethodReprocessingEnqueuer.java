@@ -7,6 +7,7 @@ package com.android.tools.r8.optimize.argumentpropagation;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DefaultUseRegistryWithResult;
+import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
@@ -25,6 +26,7 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
+import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.lightir.LirCode;
@@ -314,6 +316,30 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
       if (rewrittenMethodReference != resolvedMethod.getReference()
           || graphLens.hasPrototypeChanges(rewrittenMethodReference)) {
         markAffected();
+      }
+    }
+
+    @Override
+    public void registerCallSite(DexCallSite callSite) {
+      LambdaDescriptor descriptor =
+          LambdaDescriptor.tryInfer(callSite, appView, appViewWithLiveness.appInfo(), getContext());
+      if (descriptor == null || descriptor.interfaces.isEmpty()) {
+        return;
+      }
+      ProgramMethod resolvedMainMethod =
+          appViewWithLiveness
+              .appInfo()
+              .resolveMethodOnInterface(descriptor.interfaces.get(0), descriptor.getMainMethod())
+              .getResolvedProgramMethod();
+      if (resolvedMainMethod == null) {
+        return;
+      }
+      DexMethod rewrittenMainMethod =
+          graphLens.getNextMethodSignature(resolvedMainMethod.getReference());
+      if (rewrittenMainMethod.isNotIdenticalTo(resolvedMainMethod.getReference())) {
+        markAffected();
+      } else {
+        assert !graphLens.hasPrototypeChanges(rewrittenMainMethod);
       }
     }
 

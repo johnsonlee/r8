@@ -153,10 +153,13 @@ public final class LambdaDescriptor {
         if (target == null) {
             target = appInfo.lookupDirectTarget(method, context, appView, appInfo);
         }
-        assert target == null
-            || (implHandle.type.isInvokeInstance() && isInstanceMethod(target))
-            || (implHandle.type.isInvokeDirect() && isPrivateInstanceMethod(target))
-            || (implHandle.type.isInvokeDirect() && isPublicizedInstanceMethod(target));
+          assert target == null
+              // TODO(b/366932318): We should disallow staticizing of methods called from lambdas
+              //  or update the implHandle accordingly.
+              || (implHandle.type.isInvokeInstance()
+                  && (isInstanceMethod(target) || target.getAccessFlags().isStatic()))
+              || (implHandle.type.isInvokeDirect() && isPrivateInstanceMethod(target))
+              || (implHandle.type.isInvokeDirect() && isPublicizedInstanceMethod(target));
         return target;
       }
 
