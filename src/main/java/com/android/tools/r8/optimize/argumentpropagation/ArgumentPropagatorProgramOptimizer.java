@@ -314,7 +314,8 @@ public class ArgumentPropagatorProgramOptimizer {
             method -> {
               KeepMethodInfo keepInfo = appView.getKeepInfo(method);
               if (!keepInfo.isOptimizationAllowed(options)
-                  || !keepInfo.isShrinkingAllowed(options)) {
+                  || !keepInfo.isShrinkingAllowed(options)
+                  || !keepInfo.isClosedWorldReasoningAllowed(options)) {
                 pinnedMethodSignatures.add(method.getMethodSignature());
               }
             });
