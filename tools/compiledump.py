@@ -150,6 +150,10 @@ def make_parser():
                         help='Run as a platform build',
                         default=False,
                         action='store_true')
+    parser.add_argument('--optimized-resource-shrinking',
+                        help='Use optimized resource shrinking',
+                        default=False,
+                        action='store_true')
     parser.add_argument('--compilation-mode',
                         '--compilation_mode',
                         help='Run compilation in specified mode',
@@ -427,6 +431,10 @@ def determine_android_platform_build(args, build_properties):
         return True
     return build_properties.get('android-platform-build') == 'true'
 
+def determine_optimized_resource_shrinking(args, build_properties):
+    if args.optimized_resource_shrinking:
+        return True
+    return build_properties.get('optimized-resource-shrinking') == 'true'
 
 def determine_enable_missing_library_api_modeling(args, build_properties):
     if args.enable_missing_library_api_modeling:
@@ -600,6 +608,8 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
         classfile = determine_class_file(args, build_properties)
         android_platform_build = determine_android_platform_build(
             args, build_properties)
+        optimized_resource_shrinking = determine_optimized_resource_shrinking(
+            args, build_properties)
         enable_missing_library_api_modeling = determine_enable_missing_library_api_modeling(
             args, build_properties)
         mode = determine_compilation_mode(args, build_properties)
@@ -715,6 +725,8 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.extend(['--classfile'])
         if android_platform_build:
             cmd.extend(['--android-platform-build'])
+        if optimized_resource_shrinking:
+            cmd.extend(['--optimized-resource-shrinking'])
         if enable_missing_library_api_modeling:
             cmd.extend(['--enable-missing-library-api-modeling'])
         if args.threads:

@@ -22,4 +22,8 @@ public class ResourceShrinkerDumpUtils {
     builder.setAndroidResourceProvider(new ArchiveProtoAndroidResourceProvider(input));
     builder.setAndroidResourceConsumer(new ArchiveProtoAndroidResourceConsumer(output));
   }
+
+  public static void setOptimziedResourceShrinking(boolean value, R8Command.Builder builder) {
+    builder.setResourceShrinkerConfiguration(b -> b.enableOptimizedShrinkingWithR8().build());
+  }
 }

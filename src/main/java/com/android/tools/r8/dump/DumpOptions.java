@@ -47,6 +47,7 @@ public class DumpOptions {
   private static final String INTERMEDIATE_KEY = "intermediate";
   private static final String INCLUDE_DATA_RESOURCES_KEY = "include-data-resources";
   private static final String ISOLATED_SPLITS_KEY = "isolated-splits";
+  private static final String OPTIMIZED_RESOURCE_SHRINKING = "optimized-resource-shrinking";
   private static final String TREE_SHAKING_KEY = "tree-shaking";
   private static final String MINIFICATION_KEY = "minification";
   private static final String FORCE_PROGUARD_COMPATIBILITY_KEY = "force-proguard-compatibility";
@@ -66,6 +67,7 @@ public class DumpOptions {
   private final Optional<Boolean> intermediate;
   private final Optional<Boolean> includeDataResources;
   private final Optional<Boolean> isolatedSplits;
+  private final Optional<Boolean> optimizedResourceShrinking;
   private final Optional<Boolean> treeShaking;
   private final Optional<Boolean> minification;
   private final Optional<Boolean> forceProguardCompatibility;
@@ -113,7 +115,8 @@ public class DumpOptions {
       Map<String, String> systemProperties,
       boolean dumpInputToFile,
       String traceReferencesConsumer,
-      AndroidResourceProvider androidResourceProvider) {
+      AndroidResourceProvider androidResourceProvider,
+      Optional<Boolean> optimizedResourceShrinking) {
     this.backend = backend;
     this.tool = tool;
     this.compilationMode = compilationMode;
@@ -125,6 +128,7 @@ public class DumpOptions {
     this.intermediate = intermediate;
     this.includeDataResources = includeDataResources;
     this.isolatedSplits = isolatedSplits;
+    this.optimizedResourceShrinking = optimizedResourceShrinking;
     this.treeShaking = treeShaking;
     this.minification = minification;
     this.forceProguardCompatibility = forceProguardCompatibility;
@@ -173,9 +177,12 @@ public class DumpOptions {
       addOptionalDumpEntry(buildProperties, INTERMEDIATE_KEY, intermediate);
       addOptionalDumpEntry(buildProperties, INCLUDE_DATA_RESOURCES_KEY, includeDataResources);
       addOptionalDumpEntry(buildProperties, ISOLATED_SPLITS_KEY, isolatedSplits);
+      addOptionalDumpEntry(buildProperties, OPTIMIZED_RESOURCE_SHRINKING, isolatedSplits);
       addOptionalDumpEntry(buildProperties, TREE_SHAKING_KEY, treeShaking);
       addOptionalDumpEntry(
           buildProperties, FORCE_PROGUARD_COMPATIBILITY_KEY, forceProguardCompatibility);
+      addOptionalDumpEntry(
+          buildProperties, OPTIMIZED_RESOURCE_SHRINKING, optimizedResourceShrinking);
     } else {
       addDumpEntry(buildProperties, TRACE_REFERENCES_CONSUMER, traceReferencesConsumer);
     }
@@ -250,6 +257,9 @@ public class DumpOptions {
         return;
       case ISOLATED_SPLITS_KEY:
         builder.setIsolatedSplits(Boolean.parseBoolean(value));
+        return;
+      case OPTIMIZED_RESOURCE_SHRINKING:
+        builder.setOptimizedResourceShrinking(Boolean.parseBoolean(value));
         return;
       case TREE_SHAKING_KEY:
         builder.setTreeShaking(Boolean.parseBoolean(value));
@@ -391,6 +401,7 @@ public class DumpOptions {
     private Collection<ArtProfileProvider> artProfileProviders;
     private Collection<StartupProfileProvider> startupProfileProviders;
     private AndroidResourceProvider androidResourceProvider;
+    private Optional<Boolean> optimizedResourceShrinking = Optional.empty();
 
     private boolean enableMissingLibraryApiModeling = false;
     private boolean isAndroidPlatformBuild = false;
@@ -470,6 +481,10 @@ public class DumpOptions {
     public Builder setIsolatedSplits(boolean isolatedSplits) {
       this.isolatedSplits = Optional.of(isolatedSplits);
       return this;
+    }
+
+    public void setOptimizedResourceShrinking(boolean optimizedResourceShrinking) {
+      this.optimizedResourceShrinking = Optional.of(optimizedResourceShrinking);
     }
 
     public Builder setForceProguardCompatibility(boolean forceProguardCompatibility) {
@@ -581,7 +596,8 @@ public class DumpOptions {
           systemProperties,
           dumpInputToFile,
           traceReferencesConsumer,
-          androidResourceProvider);
+          androidResourceProvider,
+          optimizedResourceShrinking);
     }
 
     public AndroidResourceProvider getAndroidResourceProvider() {

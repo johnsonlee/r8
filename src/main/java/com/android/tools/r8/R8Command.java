@@ -1526,6 +1526,11 @@ public final class R8Command extends BaseCompilerCommand {
         .applyIf(
             featureSplitConfiguration != null,
             b -> b.setIsolatedSplits(featureSplitConfiguration.isIsolatedSplitsEnabled()))
+        .applyIf(
+            resourceShrinkerConfiguration != null,
+            b ->
+                b.setOptimizedResourceShrinking(
+                    resourceShrinkerConfiguration.isOptimizedShrinking()))
         .build();
   }
 

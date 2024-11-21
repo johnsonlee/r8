@@ -49,6 +49,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           "--release",
           "--enable-missing-library-api-modeling",
           "--android-platform-build",
+          "--optimized-resource-shrinking",
           ISOLATED_SPLITS_FLAG);
 
   private static final List<String> VALID_OPTIONS_WITH_SINGLE_OPERAND =
@@ -120,6 +121,7 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
     int threads = -1;
     BooleanBox enableMissingLibraryApiModeling = new BooleanBox(false);
     BooleanBox androidPlatformBuild = new BooleanBox(false);
+    BooleanBox optimizedResourceShrinking = new BooleanBox(false);
     BooleanBox isolatedSplits = new BooleanBox(false);
     for (int i = 0; i < args.length; i++) {
       String option = args[i];
@@ -150,6 +152,9 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
             break;
           case "--android-platform-build":
             androidPlatformBuild.set(true);
+            break;
+          case "--optimized-resource-shrinking":
+            optimizedResourceShrinking.set(true);
             break;
           case ISOLATED_SPLITS_FLAG:
             isolatedSplits.set(true);
@@ -302,6 +307,11 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
               ResourceShrinkerDumpUtils.setupBaseResourceShrinking(
                   finalAndroidResourcesInput, finalAndroidResourcesOutput, commandBuilder),
           "Failed initializing resource shrinker.");
+      runIgnoreMissing(
+          () ->
+              ResourceShrinkerDumpUtils.setOptimziedResourceShrinking(
+                  optimizedResourceShrinking.get(), commandBuilder),
+          "Failed setting optimized resource shrinking flag.");
     }
     if (desugaredLibKeepRuleConsumer != null) {
       commandBuilder.setDesugaredLibraryKeepRuleConsumer(desugaredLibKeepRuleConsumer);
