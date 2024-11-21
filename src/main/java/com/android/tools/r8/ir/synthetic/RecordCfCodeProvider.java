@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.ir.synthetic;
 
+import com.android.tools.r8.cf.code.CfArithmeticBinop;
+import com.android.tools.r8.cf.code.CfArithmeticBinop.Opcode;
 import com.android.tools.r8.cf.code.CfArrayStore;
 import com.android.tools.r8.cf.code.CfCheckCast;
 import com.android.tools.r8.cf.code.CfConstNumber;
@@ -28,12 +30,78 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
+import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import java.util.ArrayList;
 import java.util.List;
 import org.objectweb.asm.Opcodes;
 
-public abstract class RecordCfCodeProvider {
+public abstract class RecordCfCodeProvider extends SyntheticCfCodeProvider {
+
+  protected RecordCfCodeProvider(AppView<?> appView, DexType holder) {
+    super(appView, holder);
+  }
+
+  /**
+   * Generates a method which hashes all the fields. If outline, the method has all fields as
+   * parameters, else it's a local public method in the record class.
+   */
+  public static class RecordHashCfCodeProvider extends RecordCfCodeProvider {
+
+    private final List<DexField> fieldsToHash;
+    private final boolean outline;
+
+    public RecordHashCfCodeProvider(
+        AppView<?> appView, DexType holder, List<DexField> fieldsToHash, boolean outline) {
+      super(appView, holder);
+      this.fieldsToHash = fieldsToHash;
+      this.outline = outline;
+    }
+
+    private void addInvokeStatic(List<CfInstruction> instructions, DexMethod method) {
+      instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method, false));
+    }
+
+    private void pushHashCode(List<CfInstruction> instructions, DexField field, int index) {
+      DexItemFactory factory = appView.dexItemFactory();
+      ValueType valueType = ValueType.fromDexType(field.getType());
+      if (outline) {
+        instructions.add(new CfLoad(valueType, index));
+      } else {
+        instructions.add(new CfLoad(ValueType.OBJECT, 0));
+        instructions.add(new CfInstanceFieldRead(field));
+      }
+      if (valueType == ValueType.DOUBLE) {
+        addInvokeStatic(instructions, factory.doubleMembers.staticHashCode);
+      } else if (valueType == ValueType.FLOAT) {
+        addInvokeStatic(instructions, factory.floatMembers.staticHashCode);
+      } else if (field.getType().isBooleanType()) {
+        addInvokeStatic(instructions, factory.booleanMembers.staticHashCode);
+      } else if (valueType == ValueType.LONG) {
+        addInvokeStatic(instructions, factory.longMembers.staticHashCode);
+      } else if (valueType.isObject()) {
+        addInvokeStatic(instructions, factory.objectsMethods.hashCode);
+      } else {
+        assert valueType == ValueType.INT;
+      }
+    }
+
+    @Override
+    public CfCode generateCfCode() {
+      List<CfInstruction> instructions = new ArrayList<>();
+      pushHashCode(instructions, fieldsToHash.get(0), 0);
+      int argIndex = fieldsToHash.get(0).getType().getRequiredRegisters();
+      for (int i = 1; i < fieldsToHash.size(); i++) {
+        instructions.add(new CfConstNumber(31, ValueType.INT));
+        instructions.add(new CfArithmeticBinop(Opcode.Mul, NumericType.INT));
+        pushHashCode(instructions, fieldsToHash.get(i), argIndex);
+        instructions.add(new CfArithmeticBinop(Opcode.Add, NumericType.INT));
+        argIndex += fieldsToHash.get(i).getType().getRequiredRegisters();
+      }
+      instructions.add(new CfReturn(ValueType.INT));
+      return new CfCode(getHolder(), argIndex + 1, argIndex + 3, instructions);
+    }
+  }
 
   /**
    * Generates a method which answers all field values as an array of objects. If the field value is
@@ -59,6 +127,11 @@ public abstract class RecordCfCodeProvider {
             factory.createSynthesizedType(primitiveType.toDescriptorString());
             factory.createSynthesizedType(boxedType.toDescriptorString());
           });
+    }
+
+    @Override
+    protected int defaultMaxStack() {
+      return fields.length + 3;
     }
 
     private final DexField[] fields;

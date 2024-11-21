@@ -232,7 +232,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptRecordHashCodeHelperMethod(ProgramMethod method, ProgramMethod context) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(method);
+      methodProcessor.scheduleMethodForProcessing(method, outermostEventConsumer);
     }
 
     @Override

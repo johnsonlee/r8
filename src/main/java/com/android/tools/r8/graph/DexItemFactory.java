@@ -1340,6 +1340,8 @@ public class DexItemFactory {
         createMethod(boxedBooleanType, createProto(boxedBooleanType, booleanType), "valueOf");
     public final DexMethod toString =
         createMethod(boxedBooleanType, createProto(stringType), "toString");
+    public final DexMethod staticHashCode =
+        createMethod(boxedBooleanType, createProto(intType, booleanType), "hashCode");
 
     private BooleanMembers() {}
 
@@ -1404,6 +1406,8 @@ public class DexItemFactory {
         createMethod(boxedFloatType, createProto(stringType), "toString");
     public final DexMethod valueOf =
         createMethod(boxedFloatType, createProto(boxedFloatType, floatType), "valueOf");
+    public final DexMethod staticHashCode =
+        createMethod(boxedFloatType, createProto(intType, floatType), "hashCode");
 
     private FloatMembers() {}
 
@@ -1607,6 +1611,8 @@ public class DexItemFactory {
         createMethod(boxedLongType, createProto(stringType), "toString");
     public final DexMethod valueOf =
         createMethod(boxedLongType, createProto(boxedLongType, longType), "valueOf");
+    public final DexMethod staticHashCode =
+        createMethod(boxedLongType, createProto(intType, longType), "hashCode");
 
     private LongMembers() {}
 
@@ -1633,6 +1639,8 @@ public class DexItemFactory {
         createMethod(boxedDoubleType, createProto(stringType), "toString");
     public final DexMethod valueOf =
         createMethod(boxedDoubleType, createProto(boxedDoubleType, doubleType), "valueOf");
+    public final DexMethod staticHashCode =
+        createMethod(boxedDoubleType, createProto(intType, doubleType), "hashCode");
 
     private DoubleMembers() {}
 
