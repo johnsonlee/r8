@@ -775,6 +775,7 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
 
         if (idValue == null
             || !idValue.getType().isInt()
+            || !idValue.hasSingleUniqueUserAndNoOtherUsers()
             || (toBeExtended != null && idValue != toBeExtended.idValue)) {
           // Not an extension of `toBeExtended`.
           return setFallthroughBlock(toBeExtended, fallthroughBlock);
@@ -808,7 +809,9 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
       private IdToTargetMapping extendWithSwitch(
           IdToTargetMapping toBeExtended, IntSwitch theSwitch, BasicBlock fallthroughBlock) {
         Value switchValue = theSwitch.value();
-        if (!switchValue.isPhi() || (toBeExtended != null && switchValue != toBeExtended.idValue)) {
+        if (!switchValue.isPhi()
+            || !switchValue.hasSingleUniqueUserAndNoOtherUsers()
+            || (toBeExtended != null && switchValue != toBeExtended.idValue)) {
           // Not an extension of `toBeExtended`.
           return setFallthroughBlock(toBeExtended, fallthroughBlock);
         }
@@ -830,6 +833,7 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
     private final Int2ReferenceMap<BasicBlock> mapping = new Int2ReferenceOpenHashMap<>();
 
     private IdToTargetMapping(Phi idValue) {
+      assert idValue.hasSingleUniqueUserAndNoOtherUsers();
       this.idValue = idValue;
     }
 

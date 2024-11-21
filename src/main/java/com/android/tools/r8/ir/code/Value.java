@@ -374,6 +374,10 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     return uniqueUsers().size() == 1;
   }
 
+  public boolean hasSingleUniqueUserAndNoOtherUsers() {
+    return hasSingleUniqueUser() && !hasPhiUsers() && !hasDebugUsers();
+  }
+
   public Instruction singleUniqueUser() {
     assert hasSingleUniqueUser();
     return firstUser();
