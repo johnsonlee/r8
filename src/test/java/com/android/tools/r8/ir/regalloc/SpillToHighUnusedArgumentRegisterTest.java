@@ -37,8 +37,6 @@ public class SpillToHighUnusedArgumentRegisterTest extends TestBase {
   public void testD8() throws Exception {
     testForD8()
         .addInnerClasses(getClass())
-        .addOptionsModification(
-            options -> options.getTestingOptions().enableRegisterAllocation8BitRefinement = true)
         .release()
         .setMinApi(parameters)
         .compile()

@@ -34,10 +34,7 @@ public class RedundantSpillingBeforeInvokeRangeTest extends TestBase {
     testForD8()
         .addInnerClasses(getClass())
         .addOptionsModification(
-            options -> {
-              options.getTestingOptions().enableRegisterAllocation8BitRefinement = true;
-              options.getTestingOptions().enableRegisterHintsForBlockedRegisters = true;
-            })
+            options -> options.getTestingOptions().enableRegisterHintsForBlockedRegisters = true)
         .release()
         .setMinApi(parameters)
         .compile()

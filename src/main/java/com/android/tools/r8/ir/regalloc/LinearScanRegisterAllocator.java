@@ -308,8 +308,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private boolean retry8BitAllocationWith4BitArgumentRegisters() {
     assert mode.is8Bit();
     assert numberOf4BitArgumentRegisters == 0;
-    if (!options().getTestingOptions().enableRegisterAllocation8BitRefinement
-        || code.context().getDefinition().getNumberOfArguments() == 0) {
+    if (code.context().getDefinition().getNumberOfArguments() == 0) {
       return false;
     }
     numberOf4BitArgumentRegisters = computeNumberOf4BitArgumentRegisters();

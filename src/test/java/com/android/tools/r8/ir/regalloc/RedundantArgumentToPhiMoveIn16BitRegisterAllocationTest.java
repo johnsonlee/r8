@@ -51,9 +51,10 @@ public class RedundantArgumentToPhiMoveIn16BitRegisterAllocationTest extends Tes
 
   static class Main {
 
-    static void test(long a, long b, long c, long d, long e, long f, long g, long h, int def) {
-      long i = (def & 1) == 0 ? a : 42;
-      accept(i);
+    static void test(
+        long a, long b, long c, long d, long e, long f, long g, long h, long i, int def) {
+      long j = (def & 1) == 0 ? i : 42;
+      accept(j);
     }
 
     static void accept(long a) {}

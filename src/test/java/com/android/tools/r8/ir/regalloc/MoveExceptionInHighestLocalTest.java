@@ -39,10 +39,9 @@ public class MoveExceptionInHighestLocalTest extends TestBase {
     testForD8()
         .addInnerClasses(getClass())
         .addOptionsModification(
-            options -> {
-              options.getTestingOptions().enableRegisterAllocation8BitRefinement = true;
-              options.getTestingOptions().enableUseLastLocalRegisterAsMoveExceptionRegister = true;
-            })
+            options ->
+                options.getTestingOptions().enableUseLastLocalRegisterAsMoveExceptionRegister =
+                    true)
         .release()
         .setMinApi(parameters)
         .compile()

@@ -2488,11 +2488,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean alwaysUseExistingAccessInfoCollectionsInMemberRebinding = true;
     public boolean alwaysUsePessimisticRegisterAllocation = false;
     public boolean enableRegisterHintsForBlockedRegisters = false;
-    // TODO(b/374266460): Investigate why enabling this leads to more moves, for example, in
-    //  JetNews. Also investigate the impact on performance and how often the refinement pass is
-    //  successful (i.e., how often the assumed 4 bit argument registers actually end up being 4
-    //  bit). If the failure rate is too high maybe add a some buffer.
-    public boolean enableRegisterAllocation8BitRefinement = false;
     // TODO(b/374715251): Look into enabling this.
     public boolean enableUseLastLocalRegisterAsMoveExceptionRegister = false;
     public boolean enableKeepInfoCanonicalizer = true;

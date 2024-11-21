@@ -33,8 +33,6 @@ public class ArgumentIn4BitRegisterTest extends TestBase {
   public void test() throws Exception {
     testForD8()
         .addInnerClasses(getClass())
-        .addOptionsModification(
-            options -> options.getTestingOptions().enableRegisterAllocation8BitRefinement = true)
         .release()
         .setMinApi(parameters)
         .compile()
