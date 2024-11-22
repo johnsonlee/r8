@@ -21,6 +21,10 @@ def parse_options():
                         required=True,
                         metavar=('<name>'),
                         help='Name of the SDK, either API level or code name')
+    parser.add_argument('--api-level',
+                        '--api_level',
+                        metavar=('<level>'),
+                        help='API level to add this as in third_party')
     return parser.parse_args()
 
 
@@ -60,7 +64,15 @@ def main():
         print('Path %s does not exist' % source)
         sys.exit(1)
 
-    destination = utils.get_android_jar_dir(args.sdk_name)
+    api_level = -1
+    try:
+        api_level = int(args.api_level if args.api_level else args.sdk_name)
+    except:
+        print('API level "%s" must be an integer'
+            % (args.api_level if args.api_level else args.sdk_name))
+        sys.exit(1)
+
+    destination = utils.get_android_jar_dir(api_level)
 
     # Remove existing if present.
     shutil.rmtree(destination, ignore_errors=True)

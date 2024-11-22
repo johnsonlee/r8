@@ -200,19 +200,6 @@ public class AndroidApiHashingDatabaseBuilderGenerator extends TestBase {
     expectedMissingMembers.add(factory.createType("Landroid/nfc/tech/NfcB;"));
     expectedMissingMembers.add(factory.createType("Landroid/nfc/tech/Ndef;"));
     expectedMissingMembers.add(factory.createType("Landroid/webkit/CookieSyncManager;"));
-    expectedMissingMembers.add(
-        factory.createType("Landroid/adservices/customaudience/CustomAudienceManager;"));
-    expectedMissingMembers.add(
-        factory.createType("Landroid/adservices/customaudience/PartialCustomAudience$Builder;"));
-    expectedMissingMembers.add(
-        factory.createType("Landroid/adservices/customaudience/PartialCustomAudience;"));
-    expectedMissingMembers.add(
-        factory.createType(
-            "Landroid/adservices/customaudience/ScheduleCustomAudienceUpdateRequest$Builder;"));
-    expectedMissingMembers.add(
-        factory.createType(
-            "Landroid/adservices/customaudience/ScheduleCustomAudienceUpdateRequest;"));
-    expectedMissingMembers.add(factory.createType("Landroid/app/appsearch/AppSearchResult;"));
     assertEquals(
         expectedMissingMembers.stream()
                 .map(DexType::toDescriptorString)

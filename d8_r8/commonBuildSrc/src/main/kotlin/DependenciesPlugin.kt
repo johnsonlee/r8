@@ -817,7 +817,8 @@ fun getThirdPartyAndroidJars() : List<ThirdPartyDependency> {
     "lib-v32",
     "lib-v33",
     "lib-v34",
-    "lib-v35"
+    "lib-v35",
+    "lib-v36"
   ).map(::getThirdPartyAndroidJar)
 }
 

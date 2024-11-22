@@ -45,14 +45,15 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
   T(33),
   U(34),
   V(35),
-  MAIN(36), // API level for main is tentative.
+  BAKLAVA(36),
+  MAIN(37), // API level for main is tentative.
   EXTENSION(Integer.MAX_VALUE); // Used for API modeling of Android extension APIs.
 
   // When updating LATEST and a new version goes public, add a new api-versions.xml to third_party
   // and update the version and generated jar in AndroidApiDatabaseBuilderGeneratorTest. Together
   // with that update third_party/android_jar/libcore_latest/core-oj.jar and run
   // GenerateCovariantReturnTypeMethodsTest.
-  public static final AndroidApiLevel LATEST = V;
+  public static final AndroidApiLevel LATEST = BAKLAVA;
 
   public static final AndroidApiLevel API_DATABASE_LEVEL = LATEST;
 
@@ -116,7 +117,7 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
 
   public static AndroidApiLevel getAndroidApiLevel(int apiLevel) {
     assert apiLevel > 0;
-    assert V == LATEST; // This has to be updated when we add new api levels.
+    assert BAKLAVA == LATEST; // This has to be updated when we add new api levels.
     assert UNKNOWN.isGreaterThan(LATEST);
     switch (apiLevel) {
       case 1:
@@ -189,6 +190,8 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
         return U;
       case 35:
         return V;
+      case 36:
+        return BAKLAVA;
       default:
         return MAIN;
     }
