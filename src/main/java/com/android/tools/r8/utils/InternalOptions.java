@@ -2487,7 +2487,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean allowUnusedDontWarnRules = true;
     public boolean alwaysUseExistingAccessInfoCollectionsInMemberRebinding = true;
     public boolean alwaysUsePessimisticRegisterAllocation = false;
-    public boolean enableRegisterHintsForBlockedRegisters = false;
     // TODO(b/374715251): Look into enabling this.
     public boolean enableUseLastLocalRegisterAsMoveExceptionRegister = false;
     public boolean enableKeepInfoCanonicalizer = true;

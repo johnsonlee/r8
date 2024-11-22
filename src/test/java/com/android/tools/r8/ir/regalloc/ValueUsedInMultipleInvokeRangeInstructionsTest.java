@@ -27,8 +27,6 @@ public class ValueUsedInMultipleInvokeRangeInstructionsTest extends TestBase {
   public void testD8() throws Exception {
     testForD8()
         .addInnerClasses(getClass())
-        .addOptionsModification(
-            options -> options.getTestingOptions().enableRegisterHintsForBlockedRegisters = true)
         .release()
         .setMinApi(parameters)
         .compile()
