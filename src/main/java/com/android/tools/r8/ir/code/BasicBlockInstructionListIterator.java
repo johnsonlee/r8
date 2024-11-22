@@ -24,6 +24,7 @@ import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.NestUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IteratorUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -1010,6 +1011,34 @@ public class BasicBlockInstructionListIterator implements InstructionListIterato
 
   private InstructionListIterator ensureSingleReturnInstruction(
       AppView<?> appView, IRCode code, List<BasicBlock> normalExits) {
+    // First ensure that there will be not critical edges after inlining. This is needed since
+    // return blocks are allowed to have catch handlers.
+    if (Iterables.any(normalExits, BasicBlock::hasCatchHandlers)) {
+      normalExits =
+          ListUtils.map(
+              normalExits,
+              exitBlock -> {
+                if (!exitBlock.hasCatchHandlers()) {
+                  return exitBlock;
+                }
+                Return exit = exitBlock.exit().asReturn();
+
+                // Create new exit block.
+                BasicBlock newExitBlock = new BasicBlock(code.metadata());
+                newExitBlock.setNumber(code.getNextBlockNumber());
+                Return newReturn =
+                    exit.isReturnVoid() ? new Return() : new Return(exit.returnValue());
+                newReturn.setPosition(exit.getPosition());
+                newExitBlock.add(newReturn, code.metadata());
+
+                // Fixup old exit.
+                exit.replace(new Goto());
+                exitBlock.link(newExitBlock);
+                newExitBlock.close(null);
+                code.blocks.add(newExitBlock);
+                return newExitBlock;
+              });
+    }
     if (normalExits.size() == 1) {
       InstructionListIterator it = normalExits.get(0).listIterator();
       it.nextUntil(Instruction::isReturn);

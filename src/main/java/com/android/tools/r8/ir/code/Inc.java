@@ -71,7 +71,7 @@ public class Inc extends Unop {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Inc is inserted after load/store insertion, after register allocation.
     throw new Unreachable();
   }

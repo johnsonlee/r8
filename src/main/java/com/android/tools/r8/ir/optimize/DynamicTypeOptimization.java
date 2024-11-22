@@ -7,11 +7,13 @@ package com.android.tools.r8.ir.optimize;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
+import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.JumpInstruction;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.shaking.AssumeInfoCollection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +40,11 @@ public class DynamicTypeOptimization {
         returnedTypes.add(returnValue.getDynamicType(appView));
       }
     }
-    return DynamicType.join(appView, returnedTypes);
+    DynamicType dynamicReturnType = DynamicType.join(appView, returnedTypes);
+    AssumeInfoCollection assumeInfoCollection = appView.getAssumeInfoCollection();
+    if (assumeInfoCollection.get(method).getAssumeType().getNullability().isDefinitelyNotNull()) {
+      return dynamicReturnType.withNullability(Nullability.definitelyNotNull());
+    }
+    return dynamicReturnType;
   }
 }

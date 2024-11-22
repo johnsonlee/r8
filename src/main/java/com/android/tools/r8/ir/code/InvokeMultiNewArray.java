@@ -101,9 +101,9 @@ public class InvokeMultiNewArray extends Invoke {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
-    helper.loadInValues(this, it);
-    helper.storeOrPopOutValue(type, this, it);
+  public void insertLoadAndStores(LoadStoreHelper helper) {
+    helper.loadInValues(this);
+    helper.storeOrPopOutValue(type, this);
   }
 
   @Override

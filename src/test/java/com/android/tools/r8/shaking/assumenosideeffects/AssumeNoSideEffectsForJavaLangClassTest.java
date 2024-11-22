@@ -70,19 +70,14 @@ public class AssumeNoSideEffectsForJavaLangClassTest extends TestBase {
   private void inspectMethod(
       MethodSubject methodSubject, boolean maybeNullReceiver, boolean maybeSubtype) {
     assertThat(methodSubject, isPresent());
-    assertThat(
-        methodSubject, onlyIf(maybeNullReceiver || maybeSubtype, invokesMethodWithName("equals")));
-    assertThat(
-        methodSubject,
-        onlyIf(maybeNullReceiver || maybeSubtype, invokesMethodWithName("hashCode")));
+    assertThat(methodSubject, onlyIf(maybeSubtype, invokesMethodWithName("equals")));
+    assertThat(methodSubject, onlyIf(maybeSubtype, invokesMethodWithName("hashCode")));
     assertThat(
         methodSubject,
         onlyIf(
             maybeNullReceiver,
             anyOf(invokesMethodWithName("getClass"), invokesMethodWithName("requireNonNull"))));
-    assertThat(
-        methodSubject,
-        onlyIf(maybeNullReceiver || maybeSubtype, invokesMethodWithName("toString")));
+    assertThat(methodSubject, onlyIf(maybeSubtype, invokesMethodWithName("toString")));
   }
 
   static class TestClass {

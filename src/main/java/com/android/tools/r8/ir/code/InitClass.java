@@ -164,8 +164,8 @@ public class InitClass extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
-    helper.storeOutValue(this, it);
+  public void insertLoadAndStores(LoadStoreHelper helper) {
+    helper.storeOutValue(this);
   }
 
   @Override

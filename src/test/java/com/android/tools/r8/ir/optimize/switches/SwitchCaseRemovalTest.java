@@ -55,7 +55,6 @@ public class SwitchCaseRemovalTest extends TestBase {
         .addOptionsModification(
             options -> {
               options.testing.enableSwitchToIfRewriting = false;
-              options.testing.enableDeadSwitchCaseElimination = true;
             })
         .enableInliningAnnotations()
         .enableMemberValuePropagationAnnotations()

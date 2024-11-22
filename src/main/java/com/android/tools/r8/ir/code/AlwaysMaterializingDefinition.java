@@ -77,7 +77,7 @@ public class AlwaysMaterializingDefinition extends ConstInstruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw new Unreachable();
   }
 }

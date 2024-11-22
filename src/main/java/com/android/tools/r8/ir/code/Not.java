@@ -96,7 +96,7 @@ public class Not extends Unop {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // JVM has no Not instruction, they should be replaced by "Load -1, Xor" before building CF.
     throw new Unreachable();
   }

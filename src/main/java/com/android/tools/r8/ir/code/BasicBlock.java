@@ -1175,7 +1175,7 @@ public class BasicBlock {
   public boolean consistentCatchHandlers() {
     // Check that catch handlers are always the first successors of a block.
     if (hasCatchHandlers()) {
-      assert exit().isGoto() || exit().isThrow();
+      assert exit().isGoto() || exit().isReturn() || exit().isThrow();
       CatchHandlers<Integer> catchHandlers = getCatchHandlersWithSuccessorIndexes();
       // Check that guards are unique.
       assert catchHandlers.getGuards().size()

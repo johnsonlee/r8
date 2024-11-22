@@ -92,7 +92,7 @@ public class Store extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw new Unreachable("This IR must not be inserted before load and store insertion.");
   }
 

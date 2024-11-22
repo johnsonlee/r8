@@ -249,9 +249,9 @@ public class CheckCast extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
-    helper.loadInValues(this, it);
-    helper.storeOutValue(this, it);
+  public void insertLoadAndStores(LoadStoreHelper helper) {
+    helper.loadInValues(this);
+    helper.storeOutValue(this);
   }
 
   @Override

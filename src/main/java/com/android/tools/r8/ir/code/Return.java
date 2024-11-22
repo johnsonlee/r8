@@ -58,6 +58,10 @@ public class Return extends JumpInstruction {
     return !isReturnVoid();
   }
 
+  public Value getReturnValueOrNull() {
+    return hasReturnValue() ? returnValue() : null;
+  }
+
   public Value returnValue() {
     assert !isReturnVoid();
     return inValues.get(0);
@@ -129,10 +133,15 @@ public class Return extends JumpInstruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     if (!isReturnVoid()) {
-      helper.loadInValues(this, it);
+      helper.loadInValues(this);
     }
+  }
+
+  @Override
+  public boolean isAllowedAfterThrowingInstruction() {
+    return true;
   }
 
   @Override

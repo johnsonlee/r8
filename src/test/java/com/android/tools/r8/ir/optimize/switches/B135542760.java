@@ -34,7 +34,6 @@ public class B135542760 extends TestBase {
         .addOptionsModification(
             options -> {
               options.testing.enableSwitchToIfRewriting = false;
-              options.testing.enableDeadSwitchCaseElimination = true;
             })
         .enableInliningAnnotations()
         .setMinApi(parameters)

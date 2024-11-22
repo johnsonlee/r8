@@ -91,7 +91,7 @@ public class Load extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Nothing to do. This is only hit because loads and stores are insert for phis.
   }
 

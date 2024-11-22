@@ -139,7 +139,7 @@ public class NewArrayFilled extends Invoke {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw cfUnsupported();
   }
 

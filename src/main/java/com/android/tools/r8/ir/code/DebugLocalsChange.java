@@ -123,7 +123,7 @@ public class DebugLocalsChange extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw new Unreachable();
   }
 

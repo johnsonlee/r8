@@ -746,17 +746,20 @@ public class Inliner {
           monitorExitBlock.close(null);
         }
 
-        for (BasicBlock block : code.blocks) {
+        BasicBlockIterator blockIterator = code.listIterator();
+        while (blockIterator.hasNext()) {
+          BasicBlock block = blockIterator.next();
           if (block.exit().isReturn()) {
-            // Since return instructions are not allowed after a throwing instruction in a block
-            // with catch handlers, the call to prepareBlocksForCatchHandlers() has already taken
-            // care of ensuring that all return blocks have no throwing instructions.
-            assert !block.canThrow();
-
             InstructionListIterator instructionIterator =
                 block.listIterator(block.getInstructions().size() - 1);
-            instructionIterator.setInsertionPosition(Position.syntheticNone());
-            instructionIterator.add(new Monitor(MonitorType.EXIT, lockValue));
+            if (block.canThrow()) {
+              BasicBlock splitBlock =
+                  instructionIterator.splitCopyCatchHandlers(code, blockIterator, options);
+              instructionIterator = splitBlock.listIterator();
+            }
+            Monitor monitorExit = new Monitor(MonitorType.EXIT, lockValue);
+            monitorExit.setPosition(Position.syntheticNone());
+            instructionIterator.add(monitorExit);
           }
         }
       }

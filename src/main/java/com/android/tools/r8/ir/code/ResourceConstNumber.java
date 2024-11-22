@@ -56,7 +56,7 @@ public class ResourceConstNumber extends ConstInstruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw new Unreachable("We never write cf code with resource numbers");
   }
 

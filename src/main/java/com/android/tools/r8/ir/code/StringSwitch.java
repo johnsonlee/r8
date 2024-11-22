@@ -130,7 +130,7 @@ public class StringSwitch extends Switch {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw new Unreachable();
   }
 

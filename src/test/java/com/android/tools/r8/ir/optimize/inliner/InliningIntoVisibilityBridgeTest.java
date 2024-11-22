@@ -5,11 +5,9 @@
 package com.android.tools.r8.ir.optimize.inliner;
 
 import static com.android.tools.r8.ir.optimize.inliner.testclasses.InliningIntoVisibilityBridgeTestClasses.getClassA;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestRunResult;
@@ -64,27 +62,23 @@ public class InliningIntoVisibilityBridgeTest extends TestBase {
             .run(parameters.getRuntime(), TestClass.class)
             .assertSuccessWithOutput(expectedOutput);
 
-    // Verify that A.method() is only there if there is an explicit -neverinline rule.
+    // Verify that A.method() is removed unless there is an explicit -neverinline rule.
     {
       ClassSubject classSubject = result.inspector().clazz(getClassA());
-      assertThat(classSubject, isPresent());
+      assertThat(classSubject, isPresentIf(neverInline || parameters.isDexRuntime()));
 
       MethodSubject methodSubject = classSubject.uniqueMethodWithOriginalName("method");
       assertEquals(neverInline, methodSubject.isPresent());
     }
 
-    // Verify that B.method() is still there, and that B.method() is neither a bridge nor a
-    // synthetic method unless there is an explicit -neverinline rule.
+    // Verify that B.method() is removed.
     {
       ClassSubject classSubject =
           result.inspector().clazz(InliningIntoVisibilityBridgeTestClassB.class);
-      assertThat(classSubject, isPresent());
+      assertThat(classSubject, isPresentIf(neverInline || parameters.isDexRuntime()));
 
-      MethodSubject methodSubject = classSubject.uniqueMethodWithOriginalName("method");
-      if (!neverInline) {
-        assertThat(methodSubject, isPresentAndRenamed());
-        assertFalse(methodSubject.isBridge());
-        assertFalse(methodSubject.isSynthetic());
+      if (neverInline) {
+        assertEquals(0, classSubject.allMethods().size());
       }
     }
   }

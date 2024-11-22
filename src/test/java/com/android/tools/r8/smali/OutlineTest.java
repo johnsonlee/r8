@@ -15,7 +15,6 @@ import com.android.tools.r8.dex.code.DexConstWide;
 import com.android.tools.r8.dex.code.DexConstWideHigh16;
 import com.android.tools.r8.dex.code.DexDivInt;
 import com.android.tools.r8.dex.code.DexDivInt2Addr;
-import com.android.tools.r8.dex.code.DexGoto;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
 import com.android.tools.r8.dex.code.DexInvokeStaticRange;
@@ -1294,7 +1293,7 @@ public class OutlineTest extends SmaliTestBase {
     assertTrue(code.instructions[1] instanceof DexInvokeStatic);
     assertTrue(code.instructions[2] instanceof DexMoveResult);
     assertTrue(code.instructions[3] instanceof DexDivInt2Addr);
-    assertTrue(code.instructions[4] instanceof DexGoto);
+    assertTrue(code.instructions[4] instanceof DexReturn);
     assertTrue(code.instructions[5] instanceof DexConst4);
     assertTrue(code.instructions[6] instanceof DexReturn);
     DexInvokeStatic invoke = (DexInvokeStatic) code.instructions[1];

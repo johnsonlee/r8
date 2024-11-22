@@ -187,14 +187,14 @@ public final class InvokeCustom extends Invoke {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Essentially the same as InvokeMethod but with call site's method proto
     // instead of a static called method.
-    helper.loadInValues(this, it);
+    helper.loadInValues(this);
     if (getCallSite().methodProto.returnType.isVoidType()) {
       return;
     }
-    helper.storeOrPopOutValue(getCallSite().methodProto.returnType, this, it);
+    helper.storeOrPopOutValue(getCallSite().methodProto.returnType, this);
   }
 
   @Override

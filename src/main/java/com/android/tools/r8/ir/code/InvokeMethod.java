@@ -265,12 +265,12 @@ public abstract class InvokeMethod extends Invoke {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
-    helper.loadInValues(this, it);
+  public void insertLoadAndStores(LoadStoreHelper helper) {
+    helper.loadInValues(this);
     if (getReturnType().isVoidType()) {
       return;
     }
-    helper.storeOrPopOutValue(getReturnType(), this, it);
+    helper.storeOrPopOutValue(getReturnType(), this);
   }
 
   @Override

@@ -133,7 +133,7 @@ public class Argument extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Arguments are defined by locals so nothing to load or store.
   }
 

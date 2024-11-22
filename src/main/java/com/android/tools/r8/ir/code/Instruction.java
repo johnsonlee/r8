@@ -1567,7 +1567,7 @@ public abstract class Instruction
   public abstract ConstraintWithTarget inliningConstraint(
       InliningConstraints inliningConstraints, ProgramMethod context);
 
-  public abstract void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper);
+  public abstract void insertLoadAndStores(LoadStoreHelper helper);
 
   public DexType computeVerificationType(AppView<?> appView, TypeVerificationHelper helper) {
     assert outValue == null || !outValue.getType().isReferenceType();

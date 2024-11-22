@@ -103,7 +103,7 @@ public class Dup extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Intentionally empty. Dup is a stack operation.
   }
 

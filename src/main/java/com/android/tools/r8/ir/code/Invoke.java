@@ -317,5 +317,5 @@ public abstract class Invoke extends Instruction {
    * Subclasses must implement load and store handling and make sure to deal with a null out-value
    */
   @Override
-  public abstract void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper);
+  public abstract void insertLoadAndStores(LoadStoreHelper helper);
 }

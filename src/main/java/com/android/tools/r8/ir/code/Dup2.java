@@ -117,7 +117,7 @@ public class Dup2 extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Intentionally empty. Dup2 is a stack operation.
   }
 

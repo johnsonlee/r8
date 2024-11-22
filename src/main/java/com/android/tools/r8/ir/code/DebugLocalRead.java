@@ -90,7 +90,7 @@ public class DebugLocalRead extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Non-materializing so no stack values are needed.
   }
 

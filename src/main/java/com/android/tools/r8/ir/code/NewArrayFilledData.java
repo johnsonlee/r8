@@ -114,7 +114,7 @@ public class NewArrayFilledData extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     throw new Unreachable(ERROR_MESSAGE);
   }
 

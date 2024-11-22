@@ -74,7 +74,7 @@ public class DebugPosition extends Instruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
+  public void insertLoadAndStores(LoadStoreHelper helper) {
     // Nothing to do for positions which are not actual instructions.
   }
 

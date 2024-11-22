@@ -83,8 +83,8 @@ public class Throw extends JumpInstruction {
   }
 
   @Override
-  public void insertLoadAndStores(InstructionListIterator it, LoadStoreHelper helper) {
-    helper.loadInValues(this, it);
+  public void insertLoadAndStores(LoadStoreHelper helper) {
+    helper.loadInValues(this);
   }
 
   @Override

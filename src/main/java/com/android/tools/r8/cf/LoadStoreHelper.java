@@ -7,6 +7,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstInstruction;
 import com.android.tools.r8.ir.code.ConstNumber;
@@ -25,7 +26,6 @@ import com.android.tools.r8.ir.code.Value;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 
 public class LoadStoreHelper {
@@ -34,8 +34,12 @@ public class LoadStoreHelper {
   private final IRCode code;
   private final TypeVerificationHelper typesHelper;
 
-  private Map<Value, ConstInstruction> clonableConstants = null;
-  private ListIterator<BasicBlock> blockIterator = null;
+  private Map<Value, ConstInstruction> clonableConstants;
+
+  // The active block and instruction iterator used by the pass. These are stored in fields to avoid
+  // needing to pass them back and forth through Instruction#insertLoadAndStores.
+  private BasicBlockIterator blockIterator;
+  private InstructionListIterator instructionIterator;
 
   public LoadStoreHelper(AppView<?> appView, IRCode code, TypeVerificationHelper typesHelper) {
     this.appView = appView;
@@ -99,9 +103,11 @@ public class LoadStoreHelper {
     clonableConstants = new IdentityHashMap<>();
     blockIterator = code.listIterator();
     while (blockIterator.hasNext()) {
-      InstructionListIterator it = blockIterator.next().listIterator();
-      while (it.hasNext()) {
-        it.next().insertLoadAndStores(it, this);
+      BasicBlock block = blockIterator.next();
+      instructionIterator = block.listIterator();
+      while (instructionIterator.hasNext()) {
+        Instruction instruction = instructionIterator.next();
+        instruction.insertLoadAndStores(this);
       }
       clonableConstants.clear();
     }
@@ -128,10 +134,10 @@ public class LoadStoreHelper {
               moves.add(new PhiMove(phi, value));
             }
           }
-          InstructionListIterator it = pred.listIterator(pred.getInstructions().size());
-          Instruction exit = it.previous();
+          instructionIterator = pred.listIterator(pred.getInstructions().size());
+          Instruction exit = instructionIterator.previous();
           assert pred.exit() == exit;
-          movePhis(moves, it, exit.getPosition());
+          movePhis(moves, exit.getPosition());
         }
         allocator.addToLiveAtEntrySet(block, block.getPhis());
       }
@@ -147,9 +153,9 @@ public class LoadStoreHelper {
     return StackValue.create(typesHelper.createInitializedType(type), height, appView);
   }
 
-  public void loadInValues(Instruction instruction, InstructionListIterator it) {
+  public void loadInValues(Instruction instruction) {
     int topOfStack = 0;
-    it.previous();
+    instructionIterator.previous();
     for (int i = 0; i < instruction.inValues().size(); i++) {
       Value value = instruction.inValues().get(i);
       StackValue stackValue = createStackValue(value, topOfStack++);
@@ -158,26 +164,25 @@ public class LoadStoreHelper {
       if (constInstruction != null) {
         ConstInstruction clonedConstInstruction =
             ConstInstruction.copyOf(stackValue, constInstruction);
-        add(clonedConstInstruction, instruction, it);
+        add(clonedConstInstruction, instruction);
       } else {
-        add(load(stackValue, value), instruction, it);
+        add(load(stackValue, value), instruction);
       }
       instruction.replaceValue(i, stackValue);
     }
-    it.next();
+    instructionIterator.next();
   }
 
-  public void storeOrPopOutValue(
-      DexType type, Instruction instruction, InstructionListIterator it) {
+  public void storeOrPopOutValue(DexType type, Instruction instruction) {
     if (instruction.hasOutValue()) {
       assert instruction.outValue().isUsed();
-      storeOutValue(instruction, it);
+      storeOutValue(instruction);
     } else {
-      popOutType(type, instruction, it);
+      popOutType(type, instruction);
     }
   }
 
-  public void storeOutValue(Instruction instruction, InstructionListIterator it) {
+  public void storeOutValue(Instruction instruction) {
     assert instruction.hasOutValue();
     assert !(instruction.outValue() instanceof StackValue);
     if (instruction.isConstInstruction()) {
@@ -187,7 +192,7 @@ public class LoadStoreHelper {
             || constInstruction.outValue().numberOfUsers() == 1;
         clonableConstants.put(instruction.outValue(), constInstruction);
         instruction.outValue().clearUsers();
-        it.removeOrReplaceByDebugLocalRead();
+        instructionIterator.removeOrReplaceByDebugLocalRead();
         return;
       }
       assert instruction.outValue().isUsed()
@@ -195,7 +200,7 @@ public class LoadStoreHelper {
           : "Expected instruction to be removed: " + instruction;
     }
     if (!instruction.outValue().isUsed()) {
-      popOutValue(instruction.outValue(), instruction, it);
+      popOutValue(instruction.outValue(), instruction);
       return;
     }
     StackValue newOutValue = createStackValue(instruction.outValue(), 0);
@@ -208,41 +213,40 @@ public class LoadStoreHelper {
     // instruction is throwing, the action should be moved to a new block - otherwise, the store
     // should be inserted and the remaining instructions should be moved along with the handlers to
     // the new block.
-    boolean hasCatchHandlers = instruction.getBlock().hasCatchHandlers();
+    boolean hasCatchHandlers = storeBlock.hasCatchHandlers();
     if (hasCatchHandlers && instruction.instructionTypeCanThrow()) {
-      storeBlock = it.split(this.code, this.blockIterator);
-      it = storeBlock.listIterator();
+      storeBlock = instructionIterator.split(this.code, this.blockIterator);
+      instructionIterator = storeBlock.listIterator();
     }
-    add(store, instruction.getPosition(), it);
+    add(store, instruction.getPosition());
     if (hasCatchHandlers && !instruction.instructionTypeCanThrow()) {
-      splitAfterStoredOutValue(it);
+      splitAfterStoredOutValue();
     }
   }
 
   // DebugLocalWrite encodes a store and it needs to consistently split out the catch range after
   // its store.
-  public void splitAfterStoredOutValue(InstructionListIterator it) {
-    it.split(this.code, this.blockIterator);
-    this.blockIterator.previous();
+  public void splitAfterStoredOutValue() {
+    instructionIterator.split(this.code, this.blockIterator);
+    blockIterator.previous();
   }
 
-  public void popOutType(DexType type, Instruction instruction, InstructionListIterator it) {
-    popOutValue(createStackValue(type, 0), instruction, it);
+  public void popOutType(DexType type, Instruction instruction) {
+    popOutValue(createStackValue(type, 0), instruction);
   }
 
-  private void popOutValue(Value value, Instruction instruction, InstructionListIterator it) {
-    popOutValue(createStackValue(value, 0), instruction, it);
+  private void popOutValue(Value value, Instruction instruction) {
+    popOutValue(createStackValue(value, 0), instruction);
   }
 
-  private void popOutValue(
-      StackValue newOutValue, Instruction instruction, InstructionListIterator it) {
+  private void popOutValue(StackValue newOutValue, Instruction instruction) {
     BasicBlock insertBlock = instruction.getBlock();
     if (insertBlock.hasCatchHandlers() && instruction.instructionTypeCanThrow()) {
-      insertBlock = it.split(this.code, this.blockIterator);
-      it = insertBlock.listIterator();
+      insertBlock = instructionIterator.split(this.code, this.blockIterator);
+      instructionIterator = insertBlock.listIterator();
     }
     instruction.swapOutValue(newOutValue);
-    add(new Pop(newOutValue), instruction.getPosition(), it);
+    add(new Pop(newOutValue), instruction.getPosition());
   }
 
   private static class PhiMove {
@@ -255,13 +259,13 @@ public class LoadStoreHelper {
     }
   }
 
-  private void movePhis(List<PhiMove> moves, InstructionListIterator it, Position position) {
+  private void movePhis(List<PhiMove> moves, Position position) {
     // TODO(zerny): Accounting for non-interfering phis would lower the max stack size.
     int topOfStack = 0;
     List<StackValue> temps = new ArrayList<>(moves.size());
     for (PhiMove move : moves) {
       StackValue tmp = createStackValue(move.phi, topOfStack++);
-      add(load(tmp, move.operand), position, it);
+      add(load(tmp, move.operand), position);
       temps.add(tmp);
       move.operand.removePhiUser(move.phi);
     }
@@ -269,7 +273,7 @@ public class LoadStoreHelper {
       PhiMove move = moves.get(i);
       StackValue tmp = temps.get(i);
       FixedLocalValue out = new FixedLocalValue(move.phi);
-      add(new Store(out, tmp), position, it);
+      add(new Store(out, tmp), position);
       move.phi.replaceUsers(out);
     }
   }
@@ -294,14 +298,12 @@ public class LoadStoreHelper {
     return new Load(stackValue, value);
   }
 
-  private static void add(
-      Instruction newInstruction, Instruction existingInstruction, InstructionListIterator it) {
-    add(newInstruction, existingInstruction.getPosition(), it);
+  private void add(Instruction newInstruction, Instruction existingInstruction) {
+    add(newInstruction, existingInstruction.getPosition());
   }
 
-  private static void add(
-      Instruction newInstruction, Position position, InstructionListIterator it) {
+  private void add(Instruction newInstruction, Position position) {
     newInstruction.setPosition(position);
-    it.add(newInstruction);
+    instructionIterator.add(newInstruction);
   }
 }
