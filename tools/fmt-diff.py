@@ -13,8 +13,8 @@ import utils
 from subprocess import Popen, PIPE
 
 GOOGLE_JAVA_FORMAT_DIFF = os.path.join(utils.THIRD_PARTY, 'google',
-                                       'google-java-format', '1.14.0',
-                                       'google-java-format-1.14.0', 'scripts',
+                                       'google-java-format', '1.24.0',
+                                       'google-java-format-1.24.0', 'scripts',
                                        'google-java-format-diff.py')
 
 GOOGLE_YAPF = os.path.join(utils.THIRD_PARTY, 'google/yapf/20231013')

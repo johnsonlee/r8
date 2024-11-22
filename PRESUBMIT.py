@@ -19,16 +19,16 @@ FMT_CMD = path.join(
     'third_party',
     'google',
     'google-java-format',
-    '1.14.0',
-    'google-java-format-1.14.0',
+    '1.24.0',
+    'google-java-format-1.24.0',
     'scripts',
     'google-java-format-diff.py')
 
 FMT_CMD_JDK17 = path.join('tools','google-java-format-diff.py')
 FMT_SHA1 = path.join(
-    'third_party', 'google', 'google-java-format', '1.14.0.tar.gz.sha1')
+    'third_party', 'google', 'google-java-format', '1.24.0.tar.gz.sha1')
 FMT_TGZ = path.join(
-    'third_party', 'google', 'google-java-format', '1.14.0.tar.gz')
+    'third_party', 'google', 'google-java-format', '1.24.0.tar.gz')
 
 def CheckDoNotMerge(input_api, output_api):
   for l in input_api.change.FullDescriptionText().splitlines():
@@ -73,7 +73,7 @@ If formatting fails with 'No enum constant javax.lang.model.element.Modifier.SEA
     FMT_CMD,
     FMT_CMD_JDK17,
     '--google-java-format-jar',
-    'third_party/google/google-java-format/1.14.0/google-java-format-1.14.0-all-deps.jar'
+    'third_party/google/google-java-format/1.24.0/google-java-format-1.24.0-all-deps.jar'
 )))
   return results
 
