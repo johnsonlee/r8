@@ -20,9 +20,9 @@ import java.nio.file.Paths;
 public abstract class CodeGenerationBase extends TestBase {
 
   private static final Path GOOGLE_FORMAT_DIR =
-      Paths.get(ToolHelper.THIRD_PARTY_DIR, "google", "google-java-format", "1.14.0");
+      Paths.get(ToolHelper.THIRD_PARTY_DIR, "google", "google-java-format", "1.24.0");
   private static final Path GOOGLE_FORMAT_JAR =
-      GOOGLE_FORMAT_DIR.resolve("google-java-format-1.14.0-all-deps.jar");
+      GOOGLE_FORMAT_DIR.resolve("google-java-format-1.24.0-all-deps.jar");
 
   protected final DexItemFactory factory = new DexItemFactory();
 

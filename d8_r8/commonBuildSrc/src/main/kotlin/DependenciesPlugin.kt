@@ -627,6 +627,10 @@ object ThirdPartyDeps {
     "google-java-format-1.14",
     Paths.get("third_party", "google", "google-java-format", "1.14.0").toFile(),
     Paths.get("third_party", "google", "google-java-format", "1.14.0.tar.gz.sha1").toFile())
+  val googleJavaFormat_1_24 = ThirdPartyDependency(
+    "google-java-format-1.24",
+    Paths.get("third_party", "google", "google-java-format", "1.24.0").toFile(),
+    Paths.get("third_party", "google", "google-java-format", "1.24.0.tar.gz.sha1").toFile())
   val googleYapf_20231013 = ThirdPartyDependency(
     "google-yapf-20231013",
     Paths.get("third_party", "google", "yapf", "20231013").toFile(),
