@@ -14,8 +14,11 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.BasicBlock;
+import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
@@ -191,12 +194,26 @@ public class RemoveVerificationErrorForUnknownReturnedValues {
     if (returnsNeedingCast.isEmpty()) {
       return;
     }
-    InstructionListIterator iterator = code.instructionListIterator();
-    while (iterator.hasNext()) {
-      Return returnInstruction = iterator.next().asReturn();
+    BasicBlockIterator blockIterator = code.listIterator();
+    while (blockIterator.hasNext()) {
+      BasicBlock block = blockIterator.next();
+      Return returnInstruction = block.exit().asReturn();
       if (returnInstruction == null) {
         continue;
       }
+
+      BasicBlock insertionBlock;
+      if (block.hasCatchHandlers() && block.canThrow()) {
+        InstructionListIterator instructionIterator = block.listIterator();
+        instructionIterator.nextUntil(Instruction::instructionTypeCanThrow);
+        insertionBlock =
+            instructionIterator.splitCopyCatchHandlers(code, blockIterator, appView.options());
+      } else {
+        insertionBlock = block;
+      }
+      InstructionListIterator instructionIterator =
+          insertionBlock.listIterator(insertionBlock.size() - 1);
+
       DexType returnType = context.getReturnType();
       Value returnValue = returnInstruction.returnValue();
       CheckCast checkCast =
@@ -207,12 +224,10 @@ public class RemoveVerificationErrorForUnknownReturnedValues {
               .setCastType(returnType)
               .setPosition(returnInstruction.getPosition())
               .build();
-      iterator.replaceCurrentInstruction(checkCast);
-      iterator.add(
-          Return.builder()
-              .setPosition(returnInstruction.getPosition())
-              .setReturnValue(checkCast.outValue())
-              .build());
+      instructionIterator.add(checkCast);
+      Instruction next = instructionIterator.next();
+      assert next.isReturn();
+      next.replaceValue(0, checkCast.outValue());
     }
   }
 }
