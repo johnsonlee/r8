@@ -8,6 +8,7 @@ import static com.android.tools.r8.dex.Constants.U8BIT_MAX;
 import static com.android.tools.r8.ir.code.IRCode.INSTRUCTION_NUMBER_DELTA;
 
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.Invoke;
 import com.android.tools.r8.ir.code.JumpInstruction;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
@@ -41,7 +42,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   private int register = NO_REGISTER;
   private int hint = NO_REGISTER;
   private boolean spilled = false;
-  private boolean isInvokeRangeIntervals = false;
+  private Invoke isInvokeRangeIntervals = null;
   private boolean usedInMonitorOperations = false;
   private boolean liveAtMoveExceptionEntry = false;
 
@@ -297,17 +298,21 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   }
 
   public boolean isInvokeRangeIntervals() {
+    return isInvokeRangeIntervals != null;
+  }
+
+  public Invoke getIsInvokeRangeIntervals() {
     return isInvokeRangeIntervals;
   }
 
-  public void setIsInvokeRangeIntervals() {
-    assert !isInvokeRangeIntervals;
-    isInvokeRangeIntervals = true;
+  public void setIsInvokeRangeIntervals(Invoke invoke) {
+    assert !isInvokeRangeIntervals();
+    isInvokeRangeIntervals = invoke;
   }
 
   public void unsetIsInvokeRangeIntervals() {
     assert isSplitParent();
-    isInvokeRangeIntervals = false;
+    isInvokeRangeIntervals = null;
   }
 
   public boolean isLiveAtMoveExceptionEntry() {

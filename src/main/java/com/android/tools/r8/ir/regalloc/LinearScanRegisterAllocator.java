@@ -871,7 +871,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     assert numberOf4BitArgumentRegisters == 0 || mode.is8BitRefinement();
     ArgumentReuseMode result = mode;
     this.mode = mode;
-
     if (retry) {
       clearRegisterAssignments();
       removeSpillAndPhiMoves();
@@ -1131,6 +1130,12 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     boolean hasInvokeRangeLiveIntervals = splitLiveIntervalsForInvokeRange();
     allocateRegistersForMoveExceptionIntervals(hasInvokeRangeLiveIntervals);
 
+    for (Value argumentValue = firstArgumentValue;
+        argumentValue != null;
+        argumentValue = argumentValue.getNextConsecutive()) {
+      allocateRegistersForInvokeRangeSplits(argumentValue.getLiveIntervals());
+    }
+
     // Go through each unhandled live interval and find a register for it.
     while (!unhandled.isEmpty()) {
       assert invariantsHold(mode);
@@ -1255,7 +1260,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           invokeRangeIntervals = overlappingIntervals.splitBefore(invoke, mode);
           unhandled.add(invokeRangeIntervals);
         }
-        invokeRangeIntervals.setIsInvokeRangeIntervals();
+        invokeRangeIntervals.setIsInvokeRangeIntervals(invoke);
         if (invoke.getNumber() + 1 < invokeRangeIntervals.getEnd()) {
           LiveIntervals successorIntervals = invokeRangeIntervals.splitAfter(invoke, mode);
           unhandled.add(successorIntervals);
@@ -1446,21 +1451,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
    */
   @SuppressWarnings("JdkObsolete")
   private void allocateRegistersForInvokeRangeSplits(LiveIntervals unhandledIntervals) {
-    Value value = unhandledIntervals.getValue();
-    for (Invoke invoke : value.<Invoke>uniqueUsers(this::needsInvokeRangeLiveIntervals)) {
-      LiveIntervals overlappingIntervals =
-          unhandledIntervals.getSplitParent().getSplitCovering(invoke);
-      if (overlappingIntervals.hasRegister()) {
-        assert invoke.arguments().stream()
-            .allMatch(
-                invokeArgument -> {
-                  LiveIntervals overlappingInvokeArgumentIntervals =
-                      invokeArgument.getLiveIntervals().getSplitCovering(invoke);
-                  assert overlappingInvokeArgumentIntervals.hasRegister();
-                  return true;
-                });
-        continue;
-      }
+    if (!unhandledIntervals.isSplitParent()) {
+      return;
+    }
+    List<LiveIntervals> invokeRangeIntervals =
+        ListUtils.filter(
+            unhandledIntervals.getSplitChildren(),
+            split -> split.isInvokeRangeIntervals() && !split.hasRegister());
+    for (LiveIntervals split : invokeRangeIntervals) {
+      Invoke invoke = split.getIsInvokeRangeIntervals();
       List<LiveIntervals> intervalsList =
           ListUtils.map(
               invoke.arguments(),
@@ -1591,22 +1590,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       current.setRegister(nextRegister);
       assert verifyRegisterAssignmentNotConflictingWithArgument(current);
       nextRegister += current.requiredRegisters();
-    }
-
-    // Add hints.
-    for (LiveIntervals intervals : intervalsList) {
-      LiveIntervals parentIntervals = intervals.getSplitParent();
-      parentIntervals.setHint(intervals, unhandled);
-      for (LiveIntervals siblingIntervals : parentIntervals.getSplitChildren()) {
-        if (siblingIntervals != intervals && !siblingIntervals.hasRegister()) {
-          siblingIntervals.setHint(intervals, unhandled);
-        }
-      }
-      Value value = intervals.getValue();
-      if (value.isDefinedByInstructionSatisfying(Instruction::isMove)) {
-        Move move = value.getDefinition().asMove();
-        move.src().getLiveIntervals().setHint(intervals, unhandled);
-      }
     }
   }
 
