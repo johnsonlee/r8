@@ -7,6 +7,7 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
@@ -88,14 +89,13 @@ public class SplitReturnRewriter extends CodeRewriterPass<AppInfo> {
       if (!predecessorsToRemove.isEmpty()) {
         if (predecessorsToRemove.size() == block.getPredecessors().size()) {
           blocksToRemove.add(block);
-          if (returnValue != null) {
-            if (returnValue.isPhi() && returnValue.getBlock() == block) {
-              for (Value operand : returnValue.asPhi().getOperands()) {
-                operand.removePhiUser(returnValue.asPhi());
-              }
-            } else {
-              returnValue.removeUser(returnInstruction);
+          for (Phi phi : block.getPhis()) {
+            for (Value operand : phi.getOperands()) {
+              operand.removePhiUser(phi);
             }
+          }
+          if (returnValue != null) {
+            returnValue.removeUser(returnInstruction);
           }
         } else {
           block.removePredecessorsByIndex(predecessorsToRemove);
