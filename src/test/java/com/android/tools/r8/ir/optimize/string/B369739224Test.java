@@ -49,8 +49,7 @@ public class B369739224Test extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        // TODO(b/369739224): Should throw IndexOutOfBoundsException.
-        .assertSuccessWithOutputLines("46");
+        .assertFailureWithErrorThatThrows(IndexOutOfBoundsException.class);
   }
 
   static class TestClass {
