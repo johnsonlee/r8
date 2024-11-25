@@ -8,6 +8,7 @@ import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.isInv
 import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.parseInvokeDynamicOnRecord;
 
 import com.android.tools.r8.cf.code.CfConstClass;
+import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfConstString;
 import com.android.tools.r8.cf.code.CfDexItemBasedConstString;
 import com.android.tools.r8.cf.code.CfInstanceFieldRead;
@@ -363,6 +364,10 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     return recordClass.instanceFields().size() < MAX_FIELDS_FOR_OUTLINE;
   }
 
+  public static int fixedHashCodeForEmptyRecord() {
+    return 0;
+  }
+
   // Answers an ordered map of the fields with the type for the hashCode proto.
   private Pair<List<DexField>, List<DexType>> sortedInstanceFields(
       List<DexEncodedField> instanceFields) {
@@ -400,6 +405,11 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     ArrayList<CfInstruction> instructions = new ArrayList<>();
     DexProgramClass recordClass = recordInvokeDynamic.getRecordClass();
     DexMethod hashCodeMethod = hashCodeMethod(recordInvokeDynamic.getRecordType());
+    if (recordClass.instanceFields().isEmpty()) {
+      localStackAllocator.allocateLocalStack(1);
+      instructions.add(new CfConstNumber(fixedHashCodeForEmptyRecord(), ValueType.INT));
+      return instructions;
+    }
     if (shouldOutlineMethods(recordClass)) {
       Pair<List<DexField>, List<DexType>> sortedFields =
           sortedInstanceFields(recordClass.instanceFields());

@@ -35,6 +35,7 @@ import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.ir.desugar.records.RecordInstructionDesugaring;
 import java.util.ArrayList;
 import java.util.List;
 import org.objectweb.asm.Opcodes;
@@ -99,18 +100,31 @@ public abstract class RecordCfCodeProvider extends SyntheticCfCodeProvider {
 
     @Override
     public CfCode generateCfCode() {
+      int stackUsed = 0;
+      int localsUsed = 0;
       List<CfInstruction> instructions = new ArrayList<>();
-      pushHashCode(instructions, fieldsToHash.get(0), 0);
-      int argIndex = fieldsToHash.get(0).getType().getRequiredRegisters();
-      for (int i = 1; i < fieldsToHash.size(); i++) {
-        instructions.add(new CfConstNumber(31, ValueType.INT));
-        instructions.add(new CfArithmeticBinop(Opcode.Mul, NumericType.INT));
-        pushHashCode(instructions, fieldsToHash.get(i), argIndex);
-        instructions.add(new CfArithmeticBinop(Opcode.Add, NumericType.INT));
-        argIndex += fieldsToHash.get(i).getType().getRequiredRegisters();
+      if (fieldsToHash.isEmpty()) {
+        stackUsed++;
+        instructions.add(
+            new CfConstNumber(
+                RecordInstructionDesugaring.fixedHashCodeForEmptyRecord(), ValueType.INT));
+      } else {
+        pushHashCode(instructions, fieldsToHash.get(0), 0);
+        boolean seenWide = fieldsToHash.get(0).getType().isWideType();
+        int argIndex = fieldsToHash.get(0).getType().getRequiredRegisters();
+        for (int i = 1; i < fieldsToHash.size(); i++) {
+          instructions.add(new CfConstNumber(31, ValueType.INT));
+          instructions.add(new CfArithmeticBinop(Opcode.Mul, NumericType.INT));
+          pushHashCode(instructions, fieldsToHash.get(i), argIndex);
+          seenWide |= fieldsToHash.get(i).getType().isWideType();
+          instructions.add(new CfArithmeticBinop(Opcode.Add, NumericType.INT));
+          argIndex += fieldsToHash.get(i).getType().getRequiredRegisters();
+        }
+        stackUsed += seenWide ? 3 : 2;
+        localsUsed += argIndex;
       }
       instructions.add(new CfReturn(ValueType.INT));
-      return new CfCode(getHolder(), argIndex + 1, argIndex + 3, instructions);
+      return new CfCode(getHolder(), stackUsed, localsUsed, instructions);
     }
   }
 
