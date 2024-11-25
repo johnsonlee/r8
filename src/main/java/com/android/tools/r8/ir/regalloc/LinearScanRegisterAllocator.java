@@ -50,6 +50,7 @@ import com.android.tools.r8.utils.LinkedHashSetUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -253,6 +254,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   // because their values can be rematerialized.
   private int[] unusedRegisters = null;
 
+  private final Timing timing;
+
   // Whether or not the code has a move exception instruction. Used to pin the move exception
   // register.
   private boolean hasDedicatedMoveExceptionRegister() {
@@ -291,7 +294,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return !isDedicatedMoveExceptionRegisterInFirstLocalRegister();
   }
 
-  public LinearScanRegisterAllocator(AppView<?> appView, IRCode code) {
+  public LinearScanRegisterAllocator(AppView<?> appView, IRCode code, Timing timing) {
     this.appView = appView;
     this.code = code;
     int argumentRegisters = 0;
@@ -303,6 +306,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       }
     }
     numberOfArgumentRegisters = argumentRegisters;
+    this.timing = timing;
   }
 
   private boolean retry8BitAllocationWith4BitArgumentRegisters() {
@@ -353,11 +357,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     if (this.code.method().accessFlags.isBridge() && implementationIsBridge(this.code)) {
       transformBridgeMethod();
     }
+    timing.begin("Setup");
     computeNeedsRegister();
     constrainArgumentIntervals();
     insertRangeInvokeMoves();
     ImmutableList<BasicBlock> blocks = computeLivenessInformation();
+    timing.end();
+    timing.begin("Allocate");
     performAllocation();
+    timing.end();
     assert code.isConsistentGraph(appView);
     assert mode.is4Bit() || registersUsed() == 0 || unusedRegisters != null;
     // Even if the method is reachability sensitive, we do not compute debug information after
@@ -871,14 +879,18 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     assert numberOf4BitArgumentRegisters == 0 || mode.is8BitRefinement();
     ArgumentReuseMode result = mode;
     this.mode = mode;
+    timing.begin(mode.toString());
+    timing.begin("Prepare");
     if (retry) {
       clearRegisterAssignments();
       removeSpillAndPhiMoves();
     }
 
     pinArgumentRegisters();
+    timing.end();
 
     boolean succeeded = performLinearScan(mode);
+    timing.end();
     if (succeeded) {
       InsertMovesResult insertMovesResult = insertMoves();
 
@@ -1126,21 +1138,31 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private boolean performLinearScan(ArgumentReuseMode mode) {
     unhandled.addAll(liveIntervals);
 
+    timing.begin("Prelude");
     processArgumentLiveIntervals();
     boolean hasInvokeRangeLiveIntervals = splitLiveIntervalsForInvokeRange();
     allocateRegistersForMoveExceptionIntervals(hasInvokeRangeLiveIntervals);
+    timing.end();
 
+    timing.begin("Argument linked");
     for (Value argumentValue = firstArgumentValue;
         argumentValue != null;
         argumentValue = argumentValue.getNextConsecutive()) {
       allocateRegistersForInvokeRangeSplits(argumentValue.getLiveIntervals());
     }
+    timing.end();
 
     // Go through each unhandled live interval and find a register for it.
+    timing.begin("Process all unhandled");
     while (!unhandled.isEmpty()) {
       assert invariantsHold(mode);
 
       LiveIntervals unhandledInterval = unhandled.poll();
+      if (unhandledInterval.isHandled()) {
+        assert unhandledInterval.hasRegister();
+        continue;
+      }
+
       setHintForDestRegOfCheckCast(unhandledInterval);
       setHintToPromote2AddrInstruction(unhandledInterval);
 
@@ -1148,21 +1170,30 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       // consecutive arguments now and add hints to the live intervals leading up to this
       // invoke/range. This looks forward and propagate hints backwards to avoid many moves in
       // connection with ranged invokes.
+      timing.begin("Linked");
       allocateRegistersForInvokeRangeSplits(unhandledInterval);
+      timing.end();
       if (unhandledInterval.hasRegister()) {
         // The value itself is in the chain that has now gotten registers allocated.
         continue;
       }
 
+      timing.begin("Advance state");
       advanceStateToLiveIntervals(unhandledInterval);
+      timing.end();
 
       // Perform the actual allocation.
+      timing.begin("Alloc single");
       if (!allocateSingleInterval(unhandledInterval)
           || maxRegisterNumber > mode.getMaxRegisterNumber()) {
+        timing.end();
+        timing.end();
         return false;
       }
+      timing.end();
       expiredHere.clear();
     }
+    timing.end();
     assert invariantsHold(mode);
     return true;
   }
@@ -1173,7 +1204,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         argumentValue = argumentValue.getNextConsecutive()) {
       LiveIntervals argumentInterval = argumentValue.getLiveIntervals();
       assert argumentInterval.hasRegister();
-      unhandled.remove(argumentInterval);
+      argumentInterval.setHandled();
       if (!mode.hasRegisterConstraint(argumentInterval)) {
         // All the argument intervals are active in the beginning and have preallocated registers.
         active.add(argumentInterval);
@@ -1235,7 +1266,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       if (intervals.getStart() < moveException.getNumber()) {
         intervals = intervals.splitBefore(moveException, mode);
       } else {
-        unhandled.remove(intervals);
+        intervals.setHandled();
       }
       moveExceptionIntervals.add(intervals);
       intervals.setRegister(getMoveExceptionRegister());
@@ -1454,11 +1485,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     if (!unhandledIntervals.isSplitParent()) {
       return;
     }
+    timing.begin("Extract splits");
     List<LiveIntervals> invokeRangeIntervals =
         ListUtils.filter(
             unhandledIntervals.getSplitChildren(),
             split -> split.isInvokeRangeIntervals() && !split.hasRegister());
+    timing.end();
+    timing.begin("Process splits");
     for (LiveIntervals split : invokeRangeIntervals) {
+      timing.begin("Extract list");
       Invoke invoke = split.getIsInvokeRangeIntervals();
       List<LiveIntervals> intervalsList =
           ListUtils.map(
@@ -1472,13 +1507,18 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
                     || overlappingInvokeArgumentIntervals.getEnd() == invoke.getNumber() + 1;
                 return overlappingInvokeArgumentIntervals;
               });
+      timing.end();
+      timing.begin("Prelude");
 
       // Save the current register allocation state so we can restore it at the end.
+      timing.begin("Copy free registers");
       IntSortedSet savedFreeRegisters = new IntRBTreeSet(freeRegisters);
       int savedMaxRegisterNumber = maxRegisterNumber;
+      timing.end();
 
       // Simulate adding all the active intervals to the inactive set by blocking their register if
       // they overlap with any of the invoke/range intervals.
+      timing.begin("Overlaps active");
       for (LiveIntervals active : active) {
         // We could allow the use of all the currently active registers for the ranged invoke (by
         // adding the registers for all the active intervals to freeRegisters here). That could lead
@@ -1494,10 +1534,16 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
           freeOccupiedRegistersForIntervals(active);
         }
       }
+      timing.end();
 
-      unhandled.removeAll(intervalsList);
+      timing.begin("Remove intervals from unhandled");
+      intervalsList.forEach(LiveIntervals::setHandled);
+      timing.end();
+      timing.end();
+      timing.begin("Allocate");
       allocateLinkedIntervals(intervalsList, invoke);
-
+      timing.end();
+      timing.begin("Postlude");
       // Restore the register allocation state.
       freeRegisters = savedFreeRegisters;
       // In case maxRegisterNumber has changed, update freeRegisters.
@@ -1506,12 +1552,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       }
       // Move all the argument intervals to the inactive set.
       inactive.addAll(intervalsList);
+      timing.end();
     }
+    timing.end();
   }
 
   private void allocateLinkedIntervals(List<LiveIntervals> intervalsList, Invoke invoke) {
     LiveIntervals start = ListUtils.first(intervalsList);
 
+    timing.begin("Prelude");
     boolean consecutiveArguments =
         IterableUtils.allWithPrevious(
             intervalsList,
@@ -1521,6 +1570,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
                         == previous.getSplitParent());
     boolean consecutivePinnedArguments =
         consecutiveArguments && Iterables.all(intervalsList, this::isPinnedArgumentRegister);
+    timing.end();
 
     int nextRegister;
     if (consecutivePinnedArguments) {
@@ -1529,6 +1579,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     } else {
       // Ensure that there is a free register for the out value (or two consecutive registers if
       // wide).
+      timing.begin("Not consecutive pinned args");
       int numberOfRegisters = getNumberOfRequiredRegisters(intervalsList);
       int numberOfOutRegisters = invoke.hasOutValue() ? invoke.outValue().requiredRegisters() : 0;
       if (numberOfOutRegisters > 0
@@ -1546,20 +1597,32 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
       // Exclude the registers that overlap the start of one of the live ranges we are going to
       // assign registers to now.
+      timing.begin("Overlaps inactive");
       for (LiveIntervals inactiveIntervals : inactive) {
-        if (Iterables.any(intervalsList, inactiveIntervals::overlaps)) {
+        if (inactiveIntervals.isInvokeRangeIntervals()) {
+          // This is the live intervals for another invoke-range, these can never overlap.
+          assert !Iterables.any(intervalsList, inactiveIntervals::overlaps);
+          continue;
+        }
+        // All of the invoke-range live intervals usually start at the same instruction number.
+        if (inactiveIntervals.overlapsAnyInvokeRangeIntervals(intervalsList)) {
           excludeRegistersForInterval(inactiveIntervals);
         }
       }
+      timing.end();
 
+      timing.begin("Register range is free");
       if (consecutiveArguments
           && registerRangeIsFree(start.getSplitParent().getRegister(), numberOfRegisters)) {
         // For consecutive arguments we always to use the input argument registers, if they are
         // free.
+        timing.end();
         nextRegister = start.getSplitParent().getRegister();
       } else {
+        timing.end();
         // Exclude the pinned argument registers for which there exists a split that overlaps with
         // one of the inputs to the invoke-range instruction.
+        timing.begin("Exclude pinned args");
         for (Value argument = firstArgumentValue;
             argument != null;
             argument = argument.getNextConsecutive()) {
@@ -1569,9 +1632,11 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             excludeRegistersForInterval(argumentLiveIntervals);
           }
         }
+        timing.end();
         // Exclude move exception register if the first interval overlaps a move exception interval.
         // It is not necessary to check the remaining consecutive intervals, since we always use
         // register 0 (after remapping) for the argument register.
+        timing.begin("Exclude move exc");
         if (hasDedicatedMoveExceptionRegister()) {
           boolean canUseMoveExceptionRegisterForLinkedIntervals =
               isDedicatedMoveExceptionRegisterInFirstLocalRegister()
@@ -1580,17 +1645,22 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             freeRegisters.remove(getMoveExceptionRegister());
           }
         }
+        timing.end();
+
         // Select registers.
         nextRegister = getFreeConsecutiveRegisters(numberOfRegisters);
       }
+      timing.end();
     }
 
     // Assign registers.
+    timing.begin("Assign regs");
     for (LiveIntervals current : intervalsList) {
       current.setRegister(nextRegister);
       assert verifyRegisterAssignmentNotConflictingWithArgument(current);
       nextRegister += current.requiredRegisters();
     }
+    timing.end();
   }
 
   private int getNumberOfRequiredRegisters(List<LiveIntervals> intervalsList) {
@@ -1604,10 +1674,15 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   // Returns true if intervals has a split, which overlaps with any of the live intervals in the
   // given list.
   private boolean liveIntervalsOverlappingAnyOf(
-      LiveIntervals intervals, List<LiveIntervals> intervalsList) {
-    assert intervals == intervals.getSplitParent();
-    for (LiveIntervals split : intervals.getSplitChildren()) {
-      if (Iterables.any(intervalsList, split::overlaps)) {
+      LiveIntervals argumentLiveIntervals, List<LiveIntervals> intervalsList) {
+    assert argumentLiveIntervals == argumentLiveIntervals.getSplitParent();
+    for (LiveIntervals intervals : intervalsList) {
+      if (intervals.getValue() == argumentLiveIntervals.getValue()) {
+        return true;
+      }
+    }
+    for (LiveIntervals split : argumentLiveIntervals.getSplitChildren()) {
+      if (split.overlapsAnyInvokeRangeIntervals(intervalsList)) {
         return true;
       }
     }
@@ -1999,9 +2074,12 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     assert freePositionsAreConsistentWithFreeRegisters(freePositions, registerConstraint);
 
     // Attempt to use register hints.
+    timing.begin("Try hint");
     if (useRegisterHint(unhandledInterval, registerConstraint, freePositions, needsRegisterPair)) {
+      timing.end();
       return true;
     }
+    timing.end();
 
     // Get the register (pair) that is free the longest. That is the register with the largest
     // free position.

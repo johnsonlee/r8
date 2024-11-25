@@ -71,7 +71,8 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
     // does not allow dead code (to make sure that we do not waste registers for unneeded values).
     assert deadCodeRemover.verifyNoDeadCode(code);
     timing.begin("Allocate registers");
-    LinearScanRegisterAllocator registerAllocator = new LinearScanRegisterAllocator(appView, code);
+    LinearScanRegisterAllocator registerAllocator =
+        new LinearScanRegisterAllocator(appView, code, timing);
     registerAllocator.allocateRegisters();
     timing.end();
     TrivialGotosCollapser trivialGotosCollapser = new TrivialGotosCollapser(appView);

@@ -37,7 +37,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   private final List<LiveIntervals> splitChildren = new ArrayList<>();
   private final IntArrayList sortedSplitChildrenEnds = new IntArrayList();
   private boolean sortedChildren = false;
-  private List<LiveRange> ranges = new ArrayList<>();
+  private ArrayList<LiveRange> ranges = new ArrayList<>();
   private final TreeSet<LiveIntervalsUse> uses = new TreeSet<>();
   private int register = NO_REGISTER;
   private int hint = NO_REGISTER;
@@ -45,6 +45,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   private Invoke isInvokeRangeIntervals = null;
   private boolean usedInMonitorOperations = false;
   private boolean liveAtMoveExceptionEntry = false;
+  private boolean handled = false;
 
   // Only registers up to and including the registerLimit are allowed for this interval.
   private int registerLimit = U16BIT_MAX;
@@ -109,6 +110,15 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   public int getHint() {
     assert hasHint();
     return hint;
+  }
+
+  public boolean isHandled() {
+    return handled;
+  }
+
+  // Equivalent to removing the live intervals from the unhandled set. This is O(1) instead of O(n).
+  public void setHandled() {
+    handled = true;
   }
 
   public void setSpilled(boolean value) {
@@ -377,6 +387,9 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   }
 
   public boolean overlapsPosition(int position) {
+    if (position < getStart() || position >= getEnd()) {
+      return false;
+    }
     for (LiveRange range : ranges) {
       if (range.start > position) {
         // Ranges are sorted. When a range starts after position there is no overlap.
@@ -391,6 +404,25 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
 
   public boolean overlaps(LiveIntervals other) {
     return nextOverlap(other) != -1;
+  }
+
+  public boolean overlapsAnyInvokeRangeIntervals(List<LiveIntervals> intervalsList) {
+    boolean checked = false;
+    for (LiveIntervals intervals : intervalsList) {
+      boolean skip;
+      if (intervals.getValue().isDefinedByInstructionSatisfying(Instruction::isMove)) {
+        skip = false;
+      } else {
+        skip = checked;
+        if (!checked) {
+          checked = true;
+        }
+      }
+      if (!skip && overlaps(intervals)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public boolean anySplitOverlaps(LiveIntervals other) {
@@ -491,8 +523,8 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     LiveIntervals splitChild = new LiveIntervals(splitParent);
     splitParent.splitChildren.add(splitChild);
     splitParent.sortedChildren = splitParent.splitChildren.size() == 1;
-    List<LiveRange> beforeSplit = new ArrayList<>();
-    List<LiveRange> afterSplit = new ArrayList<>();
+    ArrayList<LiveRange> beforeSplit = new ArrayList<>();
+    ArrayList<LiveRange> afterSplit = new ArrayList<>();
     if (start == getEnd()) {
       beforeSplit = ranges;
       afterSplit.add(new LiveRange(start, start));

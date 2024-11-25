@@ -16,6 +16,7 @@ import com.android.tools.r8.smali.SmaliTestBase;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.util.PriorityQueue;
@@ -25,7 +26,7 @@ public class Regress68656641 extends SmaliTestBase {
 
   private static class MyRegisterAllocator extends LinearScanRegisterAllocator {
     public MyRegisterAllocator(AppView<?> appView, IRCode code) {
-      super(appView, code);
+      super(appView, code, Timing.empty());
     }
 
     public void addInactiveIntervals(LiveIntervals intervals) {
