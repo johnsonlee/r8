@@ -9,6 +9,7 @@ import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.StringResource;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.lint.SupportedClasses.MethodAnnotation;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -106,6 +107,14 @@ public class GenerateDesugaredLibraryLintFiles extends AbstractGenerateFiles {
               extraMethod.getHolderType().descriptor.toString());
       desugaredApisSignatures.add(
           classBinaryName + '#' + extraMethod.name + extraMethod.proto.toDescriptorString());
+    }
+    if (FORMAT_WITH_FIELD) {
+      for (DexField extraField : supportedClasses.getExtraFields()) {
+        String classBinaryName =
+            DescriptorUtils.getClassBinaryNameFromDescriptor(
+                extraField.getHolderType().descriptor.toString());
+        desugaredApisSignatures.add(classBinaryName + '#' + extraField.name);
+      }
     }
 
     // Write a plain text file with the desugared APIs.

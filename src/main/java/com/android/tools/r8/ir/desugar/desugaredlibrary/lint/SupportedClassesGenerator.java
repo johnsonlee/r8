@@ -43,7 +43,6 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.IOException;
@@ -53,6 +52,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 
 public class SupportedClassesGenerator {
 
@@ -181,7 +181,8 @@ public class SupportedClassesGenerator {
       AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
 
       // This should depend only on machine specification and min api.
-      List<DexMethod> backports = generateListOfBackportedMethods();
+      List<DexMethod> backports = new ArrayList<>();
+      generateListOfBackportedMethodsAndFields(backports::add, f -> {});
 
       int finalApi = api;
       builder.forEachClassAndMethod(
@@ -306,7 +307,9 @@ public class SupportedClassesGenerator {
     DirectMappedDexApplication implementationApplication =
         new ApplicationReader(implementation, options, Timing.empty()).read().toDirect();
 
-    List<DexMethod> backports = generateListOfBackportedMethods();
+    List<DexMethod> backports = new ArrayList<>();
+    List<DexField> backportFields = new ArrayList<>();
+    generateListOfBackportedMethodsAndFields(backports::add, backportFields::add);
 
     for (DexProgramClass clazz : implementationApplication.classes()) {
       // All emulated interfaces static and default methods are supported.
@@ -389,14 +392,24 @@ public class SupportedClassesGenerator {
       }
       extraMethods.sort(Comparator.naturalOrder());
       builder.setExtraMethods(extraMethods);
+
+      List<DexField> extraFields = new ArrayList<>();
+      for (DexField backport : backportFields) {
+        if (implementationApplication.definitionFor(backport.getHolderType()) == null) {
+          extraFields.add(backport);
+        }
+      }
+      extraFields.sort(Comparator.naturalOrder());
+      builder.setExtraFields(extraFields);
     }
   }
 
-  private List<DexMethod> generateListOfBackportedMethods() throws IOException {
-    if (androidPlatformBuild) {
-      return ImmutableList.of();
+  private void generateListOfBackportedMethodsAndFields(
+      Consumer<DexMethod> methods, Consumer<DexField> fields) throws IOException {
+    if (!androidPlatformBuild) {
+      BackportedMethodRewriter.generateListOfBackportedMethodsAndFields(
+          appForMax, options, methods, fields);
     }
-    return BackportedMethodRewriter.generateListOfBackportedMethods(appForMax, options);
   }
 
   private void registerMethod(

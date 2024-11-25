@@ -43,6 +43,7 @@ public abstract class AbstractBackportTest extends TestBase {
   private final Path testJar;
   private final String testClassName;
   private final Int2IntSortedMap invokeStaticCounts = new Int2IntAVLTreeMap();
+  private final Int2IntSortedMap staticGetCounts = new Int2IntAVLTreeMap();
   private final Set<String> ignoredInvokes = new HashSet<>();
 
   private static class ClassInfo {
@@ -136,17 +137,27 @@ public abstract class AbstractBackportTest extends TestBase {
       this.testClassName = testClassName;
     }
 
-    // Assume all method calls will be rewritten on the lowest API level.
+    // Assume all method calls and static gets will be rewritten on the lowest API level.
     invokeStaticCounts.put(AndroidApiLevel.B.getLevel(), 0);
+    staticGetCounts.put(AndroidApiLevel.B.getLevel(), 0);
   }
 
   protected void registerTarget(AndroidApiLevel apiLevel, int invokeStaticCount) {
     invokeStaticCounts.put(apiLevel.getLevel(), invokeStaticCount);
   }
 
+  void registerFieldTarget(AndroidApiLevel apiLevel, int getStaticCount) {
+    staticGetCounts.put(apiLevel.getLevel(), getStaticCount);
+  }
+
   private int getTargetInvokesCount(AndroidApiLevel apiLevel) {
     int key = invokeStaticCounts.headMap(apiLevel.getLevel() + 1).lastIntKey();
     return invokeStaticCounts.get(key);
+  }
+
+  private int getTargetGetCount(AndroidApiLevel apiLevel) {
+    int key = staticGetCounts.headMap(apiLevel.getLevel() + 1).lastIntKey();
+    return staticGetCounts.get(key);
   }
 
   protected void ignoreInvokes(String methodName) {
@@ -243,6 +254,27 @@ public abstract class AbstractBackportTest extends TestBase {
         + actualTargetInvokes
         + ": "
         + javaInvokeStatics, expectedTargetInvokes, actualTargetInvokes);
+
+    List<InstructionSubject> javaStaticGets =
+        testSubject.allMethods().stream()
+            .flatMap(MethodSubject::streamInstructions)
+            .filter(InstructionSubject::isStaticGet)
+            .filter(is -> is.getField().holder.toSourceString().equals(targetClass.getName()))
+            .collect(toList());
+
+    long expectedTargetStaticGets = getTargetGetCount(apiLevel);
+    long actualTargetStaticGets = javaStaticGets.size();
+    assertEquals(
+        "Expected "
+            + expectedTargetStaticGets
+            + " static gets on "
+            + targetClass.getName()
+            + " but found "
+            + actualTargetStaticGets
+            + ": "
+            + javaStaticGets,
+        expectedTargetStaticGets,
+        actualTargetStaticGets);
   }
 
   public String getTestClassName() {

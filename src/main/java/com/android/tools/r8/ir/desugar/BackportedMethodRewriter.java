@@ -17,6 +17,7 @@ import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
+import com.android.tools.r8.cf.code.CfStaticFieldRead;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.Constants;
@@ -32,7 +33,9 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexItem;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexProto;
@@ -100,22 +103,40 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
   @Override
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    if (!instruction.isInvoke()) {
+    // Only invokes and static field gets are backported.
+    if (!instruction.isInvoke() && !instruction.isStaticFieldGet()) {
       return DesugarDescription.nothing();
     }
-
-    CfInvoke invoke = instruction.asInvoke();
-    MethodProvider methodProvider = getMethodProviderOrNull(invoke.getMethod(), context);
-    if (methodProvider == null
-        || appView
-            .getSyntheticItems()
-            .isSyntheticOfKind(context.getContextType(), kinds -> kinds.BACKPORT_WITH_FORWARDING)) {
-      return DesugarDescription.nothing();
+    if (instruction.isInvoke()) {
+      CfInvoke invoke = instruction.asInvoke();
+      MethodProvider<DexMethod> methodProvider = getProviderOrNull(invoke.getMethod(), context);
+      if (methodProvider == null
+          || appView
+              .getSyntheticItems()
+              .isSyntheticOfKind(
+                  context.getContextType(), kinds -> kinds.BACKPORT_WITH_FORWARDING)) {
+        return DesugarDescription.nothing();
+      }
+      return desugarInstruction(invoke, methodProvider);
+    } else {
+      assert instruction.isStaticFieldGet();
+      CfStaticFieldRead staticGet = instruction.asStaticFieldGet();
+      MethodProvider<DexField> methodProvider = getProviderOrNull(staticGet.getField());
+      if (methodProvider == null
+          || appView
+              .getSyntheticItems()
+              .isSyntheticOfKind(context.getContextType(), kinds -> kinds.BACKPORT_WITH_FORWARDING)
+          || appView
+              .getSyntheticItems()
+              .isSyntheticOfKind(context.getContextType(), kinds -> kinds.API_MODEL_OUTLINE)) {
+        return DesugarDescription.nothing();
+      }
+      return desugarInstruction(staticGet, methodProvider);
     }
-    return desugarInstruction(invoke, methodProvider);
   }
 
-  private DesugarDescription desugarInstruction(CfInvoke invoke, MethodProvider methodProvider) {
+  private DesugarDescription desugarInstruction(
+      CfInvoke invoke, MethodProvider<DexMethod> methodProvider) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
             (position,
@@ -127,7 +148,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
                 methodProcessingContext,
                 desugaringCollection,
                 dexItemFactory) ->
-                methodProvider.rewriteInvoke(
+                methodProvider.rewriteInstruction(
                     position,
                     invoke,
                     appView,
@@ -137,35 +158,63 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         .build();
   }
 
-  public static List<DexMethod> generateListOfBackportedMethods(
-      AndroidApp androidApp, InternalOptions options, ExecutorService executor) throws IOException {
+  private DesugarDescription desugarInstruction(
+      CfStaticFieldRead staticGet, MethodProvider<DexField> methodProvider) {
+    return DesugarDescription.builder()
+        .setDesugarRewrite(
+            (position,
+                freshLocalProvider,
+                localStackAllocator,
+                desugaringInfo,
+                eventConsumer,
+                context,
+                methodProcessingContext,
+                desugaringCollection,
+                dexItemFactory) ->
+                methodProvider.rewriteInstruction(
+                    position,
+                    staticGet,
+                    appView,
+                    eventConsumer,
+                    methodProcessingContext,
+                    localStackAllocator))
+        .build();
+  }
+
+  public static void generateListOfBackportedMethodsAndFields(
+      AndroidApp androidApp,
+      InternalOptions options,
+      ExecutorService executor,
+      Consumer<DexMethod> methods,
+      Consumer<DexField> fields)
+      throws IOException {
     DexApplication app = null;
     if (androidApp != null) {
       app = new ApplicationReader(androidApp, options, Timing.empty()).read(executor);
     }
-    return generateListOfBackportedMethods(app, options);
+    generateListOfBackportedMethodsAndFields(app, options, methods, fields);
   }
 
-  public static List<DexMethod> generateListOfBackportedMethods(
-      DexApplication app, InternalOptions options) throws IOException {
-    List<DexMethod> methods = new ArrayList<>();
+  public static void generateListOfBackportedMethodsAndFields(
+      DexApplication app,
+      InternalOptions options,
+      Consumer<DexMethod> methods,
+      Consumer<DexField> fields)
+      throws IOException {
     options.loadMachineDesugaredLibrarySpecification(Timing.empty(), app);
     TypeRewriter typeRewriter = options.getTypeRewriter();
-    AppInfo appInfo = null;
-    if (app != null) {
-      appInfo = AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing());
-
-    }
+    AppInfo appInfo =
+        AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing());
     AppView<?> appView = AppView.createForD8(appInfo, typeRewriter, Timing.empty());
     BackportedMethodRewriter.RewritableMethods rewritableMethods =
         new BackportedMethodRewriter.RewritableMethods(appView);
-    rewritableMethods.visit(methods::add);
+    rewritableMethods.visit(methods);
     if (appInfo != null) {
       DesugaredLibraryRetargeter desugaredLibraryRetargeter =
           new DesugaredLibraryRetargeter(appView);
-      desugaredLibraryRetargeter.visit(methods::add);
+      desugaredLibraryRetargeter.visit(methods);
     }
-    return methods;
+    rewritableMethods.visitFields(fields);
   }
 
   public static void registerAssumedLibraryTypes(InternalOptions options) {
@@ -173,10 +222,11 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     BackportedMethods.registerSynthesizedCodeReferences(options.itemFactory);
   }
 
-  private MethodProvider getMethodProviderOrNull(DexMethod method, ProgramMethod context) {
+  private MethodProvider<DexMethod> getProviderOrNull(DexMethod member, ProgramMethod context) {
+    DexMethod method = member.asDexMethod();
     DexMethod original = appView.graphLens().getOriginalMethodSignature(method);
     assert original != null;
-    MethodProvider provider = rewritableMethods.getProvider(original);
+    MethodProvider<DexMethod> provider = rewritableMethods.getProvider(original);
     // Old versions of desugared library have in the jar file pre-desugared code. This is used
     // to undesugar pre-desugared code, then the code is re-desugared with D8/R8. This is
     // maintained for legacy only, recent desugared library should not be shipped with
@@ -196,14 +246,14 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       // unit, assume that the compilation is the defining instance and no backport is needed.
       DexClass clazz =
           appView
-              .contextIndependentDefinitionForWithResolutionResult(provider.method.holder)
+              .contextIndependentDefinitionForWithResolutionResult(provider.member.getHolderType())
               .toSingleClassWithProgramOverLibrary();
       if (clazz == null || !clazz.isProgramDefinition()) {
         appView
             .reporter()
             .warning(
                 new IgnoredBackportMethodDiagnostic(
-                    provider.method,
+                    provider.member,
                     context.getOrigin(),
                     MethodPosition.create(context),
                     appView.options().getMinApiLevel().getLevel()));
@@ -213,14 +263,24 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     return provider;
   }
 
+  private MethodProvider<DexField> getProviderOrNull(DexField field) {
+    MethodProvider<DexField> provider = rewritableMethods.getProvider(field);
+    return provider;
+  }
+
   private static final class RewritableMethods {
 
     private final Map<DexType, AndroidApiLevel> typeMinApi;
 
     private final AppView<?> appView;
 
-    // Map backported method to a provider for creating the actual target method (with code).
-    private final Map<DexMethod, MethodProvider> rewritable = new IdentityHashMap<>();
+    // Map backported field or method to a provider for creating the actual target method
+    // (with code).
+    private final Map<DexMethod, MethodProvider<DexMethod>> rewritableMethods =
+        new IdentityHashMap<>();
+    private final Map<DexField, MethodProvider<DexField>> rewritableFields =
+        new IdentityHashMap<>();
+    MethodProvider<DexField> singleBackportedField = null; // As there is only one now skip map.
 
     RewritableMethods(AppView<?> appView) {
       InternalOptions options = appView.options();
@@ -297,6 +357,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       }
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.V)) {
         initializeAndroidVMethodProviders(factory);
+      }
+      if (options.getMinApiLevel().isLessThan(AndroidApiLevel.BAKLAVA)) {
+        initializeAndroidBaklavaMethodProviders(factory);
       }
     }
 
@@ -384,11 +447,15 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     boolean isEmpty() {
-      return rewritable.isEmpty();
+      return rewritableMethods.isEmpty() && rewritableFields.isEmpty();
     }
 
     public void visit(Consumer<DexMethod> consumer) {
-      rewritable.keySet().forEach(consumer);
+      rewritableMethods.keySet().forEach(consumer);
+    }
+
+    public void visitFields(Consumer<DexField> consumer) {
+      rewritableFields.keySet().forEach(consumer);
     }
 
     private void initializeAndroidKObjectsMethodProviders(DexItemFactory factory) {
@@ -1694,6 +1761,20 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       }
     }
 
+    private void initializeAndroidBaklavaMethodProviders(DexItemFactory factory) {
+      // android.os.Build$VERSION
+      DexType type = factory.androidOsBuildVersionType;
+
+      // int android.os.Build$VERSION.SDK_INT_FULL
+      DexString name = factory.createString("SDK_INT_FULL");
+      DexField field = factory.createField(type, factory.intType, name);
+      addProviderForField(
+          new StaticFieldGetMethodWithForwardingGenerator(
+              field,
+              // Template code calls the method again.
+              BackportedMethods::AndroidOsBuildVersionMethods_getSdkIntFull));
+    }
+
     private void initializeAndroidUMethodProviders(DexItemFactory factory) {
       DexType type;
       DexString name;
@@ -1815,34 +1896,50 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       addProvider(new ThreadLocalWithInitialWithSupplierGenerator(method));
     }
 
-    private void addProvider(MethodProvider generator) {
-      MethodProvider replaced = rewritable.put(generator.method, generator);
+    private void addProvider(MethodProvider<DexMethod> generator) {
+      MethodProvider<DexMethod> replaced = rewritableMethods.put(generator.member, generator);
       assert replaced == null;
     }
 
-    MethodProvider getProvider(DexMethod method) {
-      return rewritable.get(method);
+    MethodProvider<DexMethod> getProvider(DexMethod method) {
+      return rewritableMethods.get(method);
+    }
+
+    private void addProviderForField(MethodProvider<DexField> generator) {
+      MethodProvider<DexField> replaced = rewritableFields.put(generator.member, generator);
+      assert replaced == null;
+      assert singleBackportedField == null;
+      singleBackportedField = generator;
+    }
+
+    MethodProvider<DexField> getProvider(DexField field) {
+      if (field.isIdenticalTo(singleBackportedField.member)) {
+        return singleBackportedField;
+      }
+      assert !rewritableFields.containsKey(field);
+      return null;
     }
   }
 
-  public abstract static class MethodProvider {
+  public abstract static class MethodProvider<
+      T extends DexMember<? extends DexItem, ? extends DexMember<?, ?>>> {
 
-    final DexMethod method;
+    final T member;
 
-    public MethodProvider(DexMethod method) {
-      this.method = method;
+    public MethodProvider(T member) {
+      this.member = member;
     }
 
-    public abstract Collection<CfInstruction> rewriteInvoke(
+    public abstract Collection<CfInstruction> rewriteInstruction(
         Position position,
-        CfInvoke invoke,
+        CfInstruction instruction,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
         MethodProcessingContext methodProcessingContext,
         LocalStackAllocator localStackAllocator);
   }
 
-  private static final class InvokeRewriter extends MethodProvider {
+  private static final class InvokeRewriter extends MethodProvider<DexMethod> {
 
     private final MethodInvokeRewriter rewriter;
 
@@ -1852,15 +1949,15 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     @Override
-    public Collection<CfInstruction> rewriteInvoke(
+    public Collection<CfInstruction> rewriteInstruction(
         Position position,
-        CfInvoke invoke,
+        CfInstruction instruction,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
         MethodProcessingContext methodProcessingContext,
         LocalStackAllocator localStackAllocator) {
       Collection<CfInstruction> instructions =
-          rewriter.rewrite(invoke, appView.dexItemFactory(), localStackAllocator);
+          rewriter.rewrite(instruction.asInvoke(), appView.dexItemFactory(), localStackAllocator);
       if (position == null) {
         return instructions;
       }
@@ -1868,7 +1965,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       CfLabel start = new CfLabel();
       CfLabel end = new CfLabel();
       Position inlinePosition =
-          SourcePosition.builder().setCallerPosition(position).setMethod(method).setLine(0).build();
+          SourcePosition.builder().setCallerPosition(position).setMethod(member).setLine(0).build();
       instructionsWithPositions.add(start);
       instructionsWithPositions.add(new CfPosition(start, inlinePosition));
       instructionsWithPositions.addAll(instructions);
@@ -1878,7 +1975,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
   }
 
-  private static class MethodGenerator extends MethodProvider {
+  private static class MethodGenerator extends MethodProvider<DexMethod> {
 
     private final TemplateMethodFactory factory;
 
@@ -1897,9 +1994,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     @Override
-    public Collection<CfInstruction> rewriteInvoke(
+    public Collection<CfInstruction> rewriteInstruction(
         Position position,
-        CfInvoke invoke,
+        CfInstruction instruction,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
         MethodProcessingContext methodProcessingContext,
@@ -1927,14 +2024,14 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
                             Code code = generateTemplateMethod(appView.dexItemFactory(), methodSig);
                             if (appView.options().hasMappingFileSupport()) {
                               return code.getCodeAsInlining(
-                                  methodSig, true, method, false, appView.dexItemFactory());
+                                  methodSig, true, member, false, appView.dexItemFactory());
                             }
                             return code;
                           }));
     }
 
     public DexProto getProto(DexItemFactory itemFactory) {
-      return method.proto;
+      return member.getProto();
     }
 
     public Code generateTemplateMethod(DexItemFactory dexItemFactory, DexMethod method) {
@@ -1957,7 +2054,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
     @Override
     public DexProto getProto(DexItemFactory factory) {
-      return method.getProto().prependParameter(receiverType, factory);
+      return member.getProto().prependParameter(receiverType, factory);
     }
   }
 
@@ -2008,9 +2105,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     @Override
-    public Collection<CfInstruction> rewriteInvoke(
+    public Collection<CfInstruction> rewriteInstruction(
         Position position,
-        CfInvoke invoke,
+        CfInstruction instruction,
         AppView<?> appView,
         BackportedMethodDesugaringEventConsumer eventConsumer,
         MethodProcessingContext methodProcessingContext,
@@ -2171,5 +2268,66 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     @Override
     public abstract Collection<CfInstruction> rewrite(
         CfInvoke invoke, DexItemFactory factory, LocalStackAllocator localStackAllocator);
+  }
+
+  // Generator for backports of static field gets which will again read the field they backport in
+  // the backport code. So using BACKPORT_WITH_FORWARDING as such backports cannot not go through
+  // backporting again as that would cause an infinite backporting loop.
+  private static class StaticFieldGetMethodWithForwardingGenerator
+      extends MethodProvider<DexField> {
+
+    private final TemplateMethodFactory factory;
+
+    StaticFieldGetMethodWithForwardingGenerator(DexField field, TemplateMethodFactory factory) {
+      super(field);
+      this.factory = factory;
+    }
+
+    @Override
+    public Collection<CfInstruction> rewriteInstruction(
+        Position position,
+        CfInstruction instruction,
+        AppView<?> appView,
+        BackportedMethodDesugaringEventConsumer eventConsumer,
+        MethodProcessingContext methodProcessingContext,
+        LocalStackAllocator localStackAllocator) {
+      ProgramMethod method = getSyntheticMethod(appView, methodProcessingContext);
+      eventConsumer.acceptBackportedMethod(method, methodProcessingContext.getMethodContext());
+      return ImmutableList.of(new CfInvoke(Opcodes.INVOKESTATIC, method.getReference(), false));
+    }
+
+    protected SyntheticKind getSyntheticKind(SyntheticNaming naming) {
+      return naming.BACKPORT_WITH_FORWARDING;
+    }
+
+    private ProgramMethod getSyntheticMethod(
+        AppView<?> appView, MethodProcessingContext methodProcessingContext) {
+      return appView
+          .getSyntheticItems()
+          .createMethod(
+              this::getSyntheticKind,
+              methodProcessingContext.createUniqueContext(),
+              appView,
+              builder ->
+                  builder
+                      // As this is forwarding to the field read set the API level accordingly to
+                      // ensure API outlining when needed.
+                      .setApiLevelForCode(
+                          appView.apiLevelCompute().computeApiLevelForLibraryReference(member))
+                      .setProto(getProto(appView.dexItemFactory()))
+                      .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                      .setCode(
+                          methodSig ->
+                              generateTemplateMethod(appView.dexItemFactory(), methodSig)));
+    }
+
+    public DexProto getProto(DexItemFactory itemFactory) {
+      // Proto for the method replacing the field read.
+      return itemFactory.createProto(member.getType());
+    }
+
+    public Code generateTemplateMethod(DexItemFactory dexItemFactory, DexMethod method) {
+      return factory.create(dexItemFactory, method);
+    }
   }
 }

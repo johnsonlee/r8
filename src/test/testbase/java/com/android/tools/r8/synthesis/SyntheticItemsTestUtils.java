@@ -134,6 +134,10 @@ public class SyntheticItemsTestUtils {
     return syntheticClass(classReference, naming.BACKPORT, id);
   }
 
+  public static ClassReference syntheticBackportWithForwardingClass(Class<?> clazz, int id) {
+    return syntheticClass(clazz, naming.BACKPORT_WITH_FORWARDING, id);
+  }
+
   public static ClassReference syntheticBackportWithForwardingClass(
       ClassReference classReference, int id) {
     return syntheticClass(classReference, naming.BACKPORT_WITH_FORWARDING, id);

@@ -1216,6 +1216,8 @@ public class DexItemFactory {
     public final DexField RELEASE = createField(androidOsBuildVersionType, stringType, "RELEASE");
     public final DexField SDK = createField(androidOsBuildVersionType, stringType, "SDK");
     public final DexField SDK_INT = createField(androidOsBuildVersionType, intType, "SDK_INT");
+    public final DexField SDK_INT_FULL =
+        createField(androidOsBuildVersionType, intType, "SDK_INT_FULL");
     public final DexField SECURITY_PATCH =
         createField(androidOsBuildVersionType, stringType, "SECURITY_PATCH");
 

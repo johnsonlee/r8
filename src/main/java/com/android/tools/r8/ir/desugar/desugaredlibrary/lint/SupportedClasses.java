@@ -32,10 +32,15 @@ import java.util.function.Consumer;
 public class SupportedClasses {
   private final Map<DexType, SupportedClass> supportedClasses;
   private final List<DexMethod> extraMethods;
+  private final List<DexField> extraFields;
 
-  SupportedClasses(Map<DexType, SupportedClass> supportedClasses, List<DexMethod> extraMethods) {
+  SupportedClasses(
+      Map<DexType, SupportedClass> supportedClasses,
+      List<DexMethod> extraMethods,
+      List<DexField> extraFields) {
     this.supportedClasses = supportedClasses;
     this.extraMethods = extraMethods;
+    this.extraFields = extraFields;
   }
 
   public void forEachClass(Consumer<SupportedClass> consumer) {
@@ -44,6 +49,10 @@ public class SupportedClasses {
 
   public List<DexMethod> getExtraMethods() {
     return extraMethods;
+  }
+
+  public List<DexField> getExtraFields() {
+    return extraFields;
   }
 
   public static class SupportedClass {
@@ -199,6 +208,7 @@ public class SupportedClasses {
 
     Map<DexType, SupportedClass.Builder> supportedClassBuilders = new IdentityHashMap<>();
     private List<DexMethod> extraMethods = ImmutableList.of();
+    private List<DexField> extraFields = ImmutableList.of();
 
     ClassAnnotation getClassAnnotation(DexType type) {
       SupportedClass.Builder builder = supportedClassBuilders.get(type);
@@ -282,6 +292,10 @@ public class SupportedClasses {
       this.extraMethods = extraMethods;
     }
 
+    public void setExtraFields(List<DexField> extraFields) {
+      this.extraFields = extraFields;
+    }
+
     public boolean hasOnlyExtraMethods() {
       return supportedClassBuilders.isEmpty();
     }
@@ -292,7 +306,7 @@ public class SupportedClasses {
           (type, classBuilder) -> {
             map.put(type, classBuilder.build());
           });
-      return new SupportedClasses(ImmutableSortedMap.copyOf(map), extraMethods);
+      return new SupportedClasses(ImmutableSortedMap.copyOf(map), extraMethods, extraFields);
     }
   }
 

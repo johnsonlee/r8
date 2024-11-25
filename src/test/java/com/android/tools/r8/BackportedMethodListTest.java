@@ -118,6 +118,11 @@ public class BackportedMethodListTest extends TestBase {
     assertEquals(
         apiLevel < AndroidApiLevel.V.getLevel(),
         backports.contains("java/lang/Character#toString(I)Ljava/lang/String;"));
+
+    // BAKLAVA added static field android/os/Build$VERSION.SDK_INT_FULL.
+    assertEquals(
+        apiLevel < AndroidApiLevel.BAKLAVA.getLevel(),
+        backports.contains("android/os/Build$VERSION#SDK_INT_FULL"));
   }
 
   private void addLibraryDesugaring(BackportedMethodListCommand.Builder builder) {

@@ -95,7 +95,13 @@ public class ApiInvokeOutlinerDesugaring implements CfInstructionDesugaring {
 
   private ComputedApiLevel getComputedApiLevelInstructionOnHolderWithMinApi(
       CfInstruction instruction, ProgramMethod context) {
-    if (context.getDefinition().isD8R8Synthesized()) {
+    // Some backports will forward to the method/field they backport. For such synthetics run
+    // outlining. Other synthetics should not need it. And explicitly not API outlines, as that
+    // would cause infinite outlining.
+    if (context.getDefinition().isD8R8Synthesized()
+        && !appView
+            .getSyntheticItems()
+            .isSyntheticOfKind(context.getHolderType(), k -> k.BACKPORT_WITH_FORWARDING)) {
       return appView.computedMinApiLevel();
     }
     DexReference reference = getReferenceFromInstruction(instruction);
@@ -194,10 +200,11 @@ public class ApiInvokeOutlinerDesugaring implements CfInstructionDesugaring {
       ApiInvokeOutlinerDesugaringEventConsumer eventConsumer,
       ProgramMethod context) {
     assert instruction.isInvoke()
-        || instruction.isFieldInstruction()
-        || instruction.isCheckCast()
-        || instruction.isInstanceOf()
-        || instruction.isConstClass();
+            || instruction.isFieldInstruction()
+            || instruction.isCheckCast()
+            || instruction.isInstanceOf()
+            || instruction.isConstClass()
+        : instruction;
     ProgramMethod outlinedMethod =
         ensureOutlineMethod(uniqueContext, instruction, computedApiLevel, factory, context);
     eventConsumer.acceptOutlinedMethod(outlinedMethod, context);

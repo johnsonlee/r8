@@ -12,6 +12,7 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.TestDataSourceSet;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfStaticFieldRead;
 import com.android.tools.r8.cfmethodgeneration.MethodGenerationBase;
 import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -35,6 +36,7 @@ public class GenerateBackportMethods extends MethodGenerationBase {
       factory.createType("Lcom/android/tools/r8/ir/desugar/backports/BackportedMethods;");
   private final List<Class<?>> METHOD_TEMPLATE_CLASSES =
       ImmutableList.of(
+          AndroidOsBuildVersionMethods.class,
           AssertionErrorMethods.class,
           AtomicReferenceArrayMethods.class,
           AtomicReferenceFieldUpdaterMethods.class,
@@ -139,6 +141,28 @@ public class GenerateBackportMethods extends MethodGenerationBase {
     return instruction;
   }
 
+  private static CfInstruction rewriteToAndroidOsBuildVersion(
+      DexItemFactory itemFactory, CfInstruction instruction) {
+    // Rewrite references to UnsafeStub to sun.misc.Unsafe.
+    if (instruction.isStaticFieldGet()) {
+      CfStaticFieldRead fieldGet = instruction.asStaticFieldGet();
+      return new CfStaticFieldRead(
+          itemFactory.createField(
+              itemFactory.createType("Landroid/os/Build$VERSION;"),
+              fieldGet.getField().getType(),
+              fieldGet.getField().getName()));
+    }
+    if (instruction.isFrame()) {
+      return instruction
+          .asFrame()
+          .mapReferenceTypes(
+              type -> {
+                throw new RuntimeException("Unexpected CfFrame instruction.");
+              });
+    }
+    return instruction;
+  }
+
   @Override
   protected CfCode getCode(String holderName, String methodName, CfCode code) {
     if (methodName.endsWith("Stub")) {
@@ -155,6 +179,12 @@ public class GenerateBackportMethods extends MethodGenerationBase {
       code.setInstructions(
           code.getInstructions().stream()
               .map(instruction -> rewriteToUnsafe(factory, instruction))
+              .collect(Collectors.toList()));
+    }
+    if (holderName.equals("AndroidOsBuildVersionMethods") && methodName.equals("getSdkIntFull")) {
+      code.setInstructions(
+          code.getInstructions().stream()
+              .map(instruction -> rewriteToAndroidOsBuildVersion(factory, instruction))
               .collect(Collectors.toList()));
     }
     return code;

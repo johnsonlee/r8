@@ -3,22 +3,23 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.errors;
 
-import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
+import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 
 @KeepForApi
 public class IgnoredBackportMethodDiagnostic implements DesugarDiagnostic {
 
-  private final DexMethod backport;
+  private final DexMember<?, ?> backport;
   private final Origin origin;
   private final Position position;
   private final int minApiLevel;
 
   public IgnoredBackportMethodDiagnostic(
-      DexMethod backport, Origin origin, Position position, int minApiLevel) {
+      DexMember<?, ?> backport, Origin origin, Position position, int minApiLevel) {
     this.backport = backport;
     this.origin = origin;
     this.position = position;
@@ -26,7 +27,11 @@ public class IgnoredBackportMethodDiagnostic implements DesugarDiagnostic {
   }
 
   public MethodReference getIgnoredBackportMethod() {
-    return backport.asMethodReference();
+    return backport.isDexMethod() ? backport.asDexMethod().asMethodReference() : null;
+  }
+
+  public FieldReference getIgnoredBackportField() {
+    return backport.isDexField() ? backport.asDexField().asFieldReference() : null;
   }
 
   public int getConfiguredMinApiLevel() {

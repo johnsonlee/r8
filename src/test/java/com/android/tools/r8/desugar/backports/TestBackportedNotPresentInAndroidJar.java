@@ -6,12 +6,14 @@ package com.android.tools.r8.desugar.backports;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.notIf;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
@@ -24,9 +26,11 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.FieldSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableSet;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -100,14 +104,19 @@ public class TestBackportedNotPresentInAndroidJar extends TestBase {
       CodeInspector inspector = new CodeInspector(ToolHelper.getAndroidJar(apiLevel));
       InternalOptions options = new InternalOptions();
       options.setMinApiLevel(apiLevel);
-      List<DexMethod> backportedMethods =
-          BackportedMethodRewriter.generateListOfBackportedMethods(
-              AndroidApp.builder().build(), options, ThreadUtils.getExecutorService(options));
+      List<DexMethod> backportedMethods = new ArrayList<>();
+      List<DexField> backportedFields = new ArrayList<>();
+      BackportedMethodRewriter.generateListOfBackportedMethodsAndFields(
+          AndroidApp.builder().build(),
+          options,
+          ThreadUtils.getExecutorService(options),
+          backportedMethods::add,
+          backportedFields::add);
       Set<DexMethod> alwaysPresent = expectedToAlwaysBePresentInAndroidJar(options.itemFactory);
       for (DexMethod method : backportedMethods) {
         // Two different DexItemFactories are in play, but as toSourceString is used for lookup
         // that is not an issue.
-        ClassSubject clazz = inspector.clazz(method.holder.toSourceString());
+        ClassSubject clazz = inspector.clazz(method.getHolderType().toSourceString());
         MethodSubject foundInAndroidJar =
             clazz.method(
                 method.proto.returnType.toSourceString(),
@@ -119,6 +128,15 @@ public class TestBackportedNotPresentInAndroidJar extends TestBase {
             foundInAndroidJar + " present in " + apiLevel,
             foundInAndroidJar,
             notIf(isPresent(), !alwaysPresent.contains(method)));
+      }
+      for (DexField field : backportedFields) {
+        // Two different DexItemFactories are in play, but as toSourceString is used for lookup
+        // that is not an issue.
+        ClassSubject clazz = inspector.clazz(field.getHolderType().toSourceString());
+        FieldSubject foundInAndroidJar =
+            clazz.field(field.getType().toSourceString(), field.getName().toSourceString());
+        assertThat(
+            foundInAndroidJar + " present in " + apiLevel, foundInAndroidJar, not(isPresent()));
       }
     }
   }

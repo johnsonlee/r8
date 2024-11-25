@@ -129,7 +129,8 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
                     finalApp, GlobalSyntheticsStrategy.forNonSynthesizing()))
             .appInfoForDesugaring();
     Set<DexMethod> backports = Sets.newIdentityHashSet();
-    backports.addAll(BackportedMethodRewriter.generateListOfBackportedMethods(libHolder, options));
+    BackportedMethodRewriter.generateListOfBackportedMethodsAndFields(
+        libHolder, options, backports::add, f -> {});
     Map<DexMethod, Object> failures = new IdentityHashMap<>();
     for (FoundClassSubject clazz : inspector.allClasses()) {
       if (clazz.toString().startsWith("j$.sun.nio.cs.")

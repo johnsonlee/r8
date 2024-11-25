@@ -56,6 +56,7 @@ import java.util.Arrays;
 public final class BackportedMethods {
 
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
+    factory.createSynthesizedType("Landroid/os/Build$VERSION;");
     factory.createSynthesizedType("Ljava/lang/ArithmeticException;");
     factory.createSynthesizedType("Ljava/lang/AssertionError;");
     factory.createSynthesizedType("Ljava/lang/Double;");
@@ -120,6 +121,45 @@ public final class BackportedMethods {
     factory.createSynthesizedType("[Ljava/lang/Object;");
     factory.createSynthesizedType("[Ljava/lang/Throwable;");
     factory.createSynthesizedType("[Ljava/util/Map$Entry;");
+  }
+
+  public static CfCode AndroidOsBuildVersionMethods_getSdkIntFull(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        0,
+        ImmutableList.of(
+            label0,
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Landroid/os/Build$VERSION;"),
+                    factory.intType,
+                    factory.createString("SDK_INT"))),
+            new CfConstNumber(36, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label2),
+            label1,
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Landroid/os/Build$VERSION;"),
+                    factory.intType,
+                    factory.createString("SDK_INT"))),
+            new CfConstNumber(100000, ValueType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.INT),
+            new CfReturn(ValueType.INT),
+            label2,
+            new CfFrame(),
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Landroid/os/Build$VERSION;"),
+                    factory.intType,
+                    factory.createString("SDK_INT_FULL"))),
+            new CfReturn(ValueType.INT)),
+        ImmutableList.of(),
+        ImmutableList.of());
   }
 
   public static CfCode AssertionErrorMethods_createAssertionError(

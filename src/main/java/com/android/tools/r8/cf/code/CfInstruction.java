@@ -220,6 +220,10 @@ public abstract class CfInstruction implements CfOrDexInstruction {
     return false;
   }
 
+  public CfStaticFieldRead asStaticFieldGet() {
+    return null;
+  }
+
   public boolean isFieldPut() {
     return false;
   }
