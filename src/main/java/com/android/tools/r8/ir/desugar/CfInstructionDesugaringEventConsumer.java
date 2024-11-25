@@ -221,7 +221,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptRecordEqualsHelperMethod(ProgramMethod method, ProgramMethod context) {
-      // Intentionally empty. Added to the program using ProgramAdditions.
+      methodProcessor.scheduleMethodForProcessing(method, outermostEventConsumer);
     }
 
     @Override

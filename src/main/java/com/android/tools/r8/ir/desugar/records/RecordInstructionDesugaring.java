@@ -15,6 +15,9 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
 import com.android.tools.r8.cf.code.CfLoad;
+import com.android.tools.r8.cf.code.CfStackInstruction;
+import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
+import com.android.tools.r8.cf.code.CfStore;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
@@ -36,10 +39,12 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
+import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
 import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.RecordInvokeDynamic;
+import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordEqCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordEqualsCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordGetFieldsAsObjectsCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordHashCfCodeProvider;
@@ -179,6 +184,7 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
                 dexItemFactory) ->
                 desugarInvokeDynamicOnRecord(
                     instruction.asInvokeDynamic(),
+                    freshLocalProvider,
                     localStackAllocator,
                     eventConsumer,
                     context,
@@ -206,6 +212,7 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
   @SuppressWarnings("ReferenceEquality")
   private List<CfInstruction> desugarInvokeDynamicOnRecord(
       CfInvokeDynamic invokeDynamic,
+      FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod context,
@@ -223,6 +230,7 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     if (recordInvokeDynamic.getMethodName() == factory.hashCodeMethodName) {
       return desugarInvokeRecordHashCode(
           recordInvokeDynamic,
+          freshLocalProvider,
           localStackAllocator,
           eventConsumer,
           context,
@@ -232,12 +240,6 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
       return desugarInvokeRecordEquals(recordInvokeDynamic);
     }
     throw new Unreachable("Invoke dynamic needs record desugaring but could not be desugared.");
-  }
-
-  private ProgramMethod synthesizeEqualsRecordMethod(
-      DexProgramClass clazz, DexMethod getFieldsAsObjects, DexMethod method) {
-    return synthesizeMethod(
-        clazz, new RecordEqualsCfCodeProvider(appView, clazz.type, getFieldsAsObjects), method);
   }
 
   private ProgramMethod synthesizeGetFieldsAsObjectsMethod(
@@ -290,14 +292,18 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
       ProgramAdditions programAdditions,
       ProgramMethod context,
       RecordInstructionDesugaringEventConsumer eventConsumer) {
-    DexMethod getFieldsAsObjects =
-        ensureGetFieldsAsObjects(recordInvokeDynamic, programAdditions, context, eventConsumer);
     DexProgramClass clazz = recordInvokeDynamic.getRecordClass();
     DexMethod method = equalsRecordMethod(clazz.type);
     assert clazz.lookupProgramMethod(method) == null;
+    Pair<List<DexField>, List<DexType>> pair = sortedInstanceFields(clazz.instanceFields());
     ProgramMethod equalsHelperMethod =
         programAdditions.ensureMethod(
-            method, () -> synthesizeEqualsRecordMethod(clazz, getFieldsAsObjects, method));
+            method,
+            () ->
+                synthesizeMethod(
+                    clazz,
+                    new RecordEqCfCodeProvider(appView, clazz.type, pair.getFirst()),
+                    method));
     eventConsumer.acceptRecordEqualsHelperMethod(equalsHelperMethod, context);
   }
 
@@ -358,8 +364,36 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     return recordClass.instanceFields().size() < MAX_FIELDS_FOR_OUTLINE;
   }
 
+  // Answers an ordered map of the fields with the type for the hashCode proto.
+  private Pair<List<DexField>, List<DexType>> sortedInstanceFields(
+      List<DexEncodedField> instanceFields) {
+    Map<DexType, List<DexField>> temp = new IdentityHashMap<>();
+    for (DexEncodedField instanceField : instanceFields) {
+      DexType protoType =
+          instanceField.getType().isBooleanType()
+              ? instanceField.getType()
+              : ValueType.fromDexType(instanceField.getType()).toDexType(factory);
+      temp.computeIfAbsent(protoType, ignored -> new ArrayList<>())
+          .add(instanceField.getReference());
+    }
+    Pair<List<DexField>, List<DexType>> pair = new Pair<>(new ArrayList<>(), new ArrayList<>());
+    for (DexType orderedSharedType : orderedSharedTypes) {
+      List<DexField> dexFields = temp.get(orderedSharedType);
+      if (dexFields != null) {
+        for (DexField dexField : dexFields) {
+          pair.getFirst().add(dexField);
+          pair.getSecond().add(orderedSharedType);
+        }
+      }
+    }
+    assert pair.getFirst().size() == instanceFields.size();
+    assert pair.getSecond().size() == instanceFields.size();
+    return pair;
+  }
+
   private List<CfInstruction> desugarInvokeRecordHashCode(
       RecordInvokeDynamic recordInvokeDynamic,
+      FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       RecordInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod context,
@@ -370,11 +404,14 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     if (shouldOutlineMethods(recordClass)) {
       Pair<List<DexField>, List<DexType>> sortedFields =
           sortedInstanceFields(recordClass.instanceFields());
+      int freshLocal = freshLocalProvider.getFreshLocal(ValueType.OBJECT.requiredRegisters());
+      instructions.add(new CfStackInstruction(Opcode.Dup));
+      instructions.add(new CfStore(ValueType.OBJECT, freshLocal));
       DexField field = sortedFields.getFirst().get(0);
       int extraStack = field.getType().getRequiredRegisters();
       instructions.add(new CfInstanceFieldRead(field));
       for (int i = 1; i < sortedFields.getFirst().size(); i++) {
-        instructions.add(new CfLoad(ValueType.OBJECT, 0));
+        instructions.add(new CfLoad(ValueType.OBJECT, freshLocal));
         field = sortedFields.getFirst().get(i);
         instructions.add(new CfInstanceFieldRead(field));
         extraStack += field.getType().getRequiredRegisters();
@@ -411,37 +448,13 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     return instructions;
   }
 
-  // Answers an ordered map of the fields with the type for the hashCode proto.
-  private Pair<List<DexField>, List<DexType>> sortedInstanceFields(
-      List<DexEncodedField> instanceFields) {
-    Map<DexType, List<DexField>> temp = new IdentityHashMap<>();
-    for (DexEncodedField instanceField : instanceFields) {
-      DexType protoType =
-          instanceField.getType().isBooleanType()
-              ? instanceField.getType()
-              : ValueType.fromDexType(instanceField.getType()).toDexType(factory);
-      temp.computeIfAbsent(protoType, ignored -> new ArrayList<>())
-          .add(instanceField.getReference());
-    }
-    Pair<List<DexField>, List<DexType>> pair = new Pair<>(new ArrayList<>(), new ArrayList<>());
-    for (DexType orderedSharedType : orderedSharedTypes) {
-      List<DexField> dexFields = temp.get(orderedSharedType);
-      if (dexFields != null) {
-        for (DexField dexField : dexFields) {
-          pair.getFirst().add(dexField);
-          pair.getSecond().add(orderedSharedType);
-        }
-      }
-    }
-    assert pair.getFirst().size() == instanceFields.size();
-    assert pair.getSecond().size() == instanceFields.size();
-    return pair;
-  }
-
   private List<CfInstruction> desugarInvokeRecordEquals(RecordInvokeDynamic recordInvokeDynamic) {
-    DexMethod equalsRecord = equalsRecordMethod(recordInvokeDynamic.getRecordType());
-    assert recordInvokeDynamic.getRecordClass().lookupProgramMethod(equalsRecord) != null;
-    return Collections.singletonList(new CfInvoke(Opcodes.INVOKESPECIAL, equalsRecord, false));
+    ArrayList<CfInstruction> instructions = new ArrayList<>();
+    DexProgramClass recordClass = recordInvokeDynamic.getRecordClass();
+    DexMethod equalsMethod = equalsRecordMethod(recordInvokeDynamic.getRecordType());
+    assert recordClass.lookupProgramMethod(equalsMethod) != null;
+    instructions.add(new CfInvoke(Opcodes.INVOKESPECIAL, equalsMethod, false));
+    return instructions;
   }
 
   private List<CfInstruction> desugarInvokeRecordToString(
