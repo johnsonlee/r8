@@ -42,45 +42,9 @@ import java.util.Arrays;
 public final class RecordCfMethods {
 
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
-    factory.createSynthesizedType("Ljava/util/Arrays;");
     factory.createSynthesizedType("[Ljava/lang/Object;");
     factory.createSynthesizedType("[Ljava/lang/String;");
   }
-
-  public static CfCode RecordMethods_hashCode(DexItemFactory factory, DexMethod method) {
-    CfLabel label0 = new CfLabel();
-    CfLabel label1 = new CfLabel();
-    return new CfCode(
-        method.holder,
-        2,
-        2,
-        ImmutableList.of(
-            label0,
-            new CfConstNumber(31, ValueType.INT),
-            new CfLoad(ValueType.OBJECT, 1),
-            new CfInvoke(
-                184,
-                factory.createMethod(
-                    factory.createType("Ljava/util/Arrays;"),
-                    factory.createProto(factory.intType, factory.createType("[Ljava/lang/Object;")),
-                    factory.createString("hashCode")),
-                false),
-            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Mul, NumericType.INT),
-            new CfLoad(ValueType.OBJECT, 0),
-            new CfInvoke(
-                182,
-                factory.createMethod(
-                    factory.objectType,
-                    factory.createProto(factory.intType),
-                    factory.createString("hashCode")),
-                false),
-            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Add, NumericType.INT),
-            new CfReturn(ValueType.INT),
-            label1),
-        ImmutableList.of(),
-        ImmutableList.of());
-  }
-
   public static CfCode RecordMethods_toString(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();

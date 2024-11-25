@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.desugar.records;
 
-import java.util.Arrays;
-
 // This class implements support methods for record desugaring. The RecordRewriter
 // rewrites relevant calls to one of the following methods.
 public class RecordMethods {
@@ -24,9 +22,5 @@ public class RecordMethods {
     }
     builder.append("]");
     return builder.toString();
-  }
-
-  public static int hashCode(Class<?> recordClass, Object[] recordFieldsAsObjects) {
-    return 31 * Arrays.hashCode(recordFieldsAsObjects) + recordClass.hashCode();
   }
 }

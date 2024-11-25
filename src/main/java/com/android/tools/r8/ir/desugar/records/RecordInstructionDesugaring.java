@@ -45,7 +45,6 @@ import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer.RecordInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.RecordInvokeDynamic;
 import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordEqCfCodeProvider;
-import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordEqualsCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordGetFieldsAsObjectsCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.RecordCfCodeProvider.RecordHashCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.SyntheticCfCodeProvider;
@@ -103,8 +102,8 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
     RecordCfMethods.registerSynthesizedCodeReferences(factory);
     RecordGetFieldsAsObjectsCfCodeProvider.registerSynthesizedCodeReferences(factory);
-    RecordEqualsCfCodeProvider.registerSynthesizedCodeReferences(factory);
-    factory.createSynthesizedType("Ljava/lang/Objects;");
+    RecordEqCfCodeProvider.registerSynthesizedCodeReferences(factory);
+    RecordHashCfCodeProvider.registerSynthesizedCodeReferences(factory);
   }
 
   @Override
