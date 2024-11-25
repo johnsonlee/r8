@@ -2,14 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.nest;
+package com.android.tools.r8.desugar.nestaccesscontrol;
 
 import static com.android.tools.r8.TestRuntime.CfVm.JDK11;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.desugar.nest.NestBasedAccessToNativeMethodTest.Main.Inner;
+import com.android.tools.r8.desugar.nestaccesscontrol.NestBasedAccessToNativeMethodTest.Main.Inner;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
