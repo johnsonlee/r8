@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
-import com.android.tools.r8.ir.code.InvokeMethodWithReceiver;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Value;
 import java.util.List;
@@ -38,6 +37,8 @@ interface StringBuilderOracle {
   boolean isInspecting(Instruction instruction);
 
   boolean isAppend(Instruction instruction);
+
+  boolean isAppendWithSubArray(Instruction instruction);
 
   boolean canObserveStringBuilderCall(Instruction instruction);
 
@@ -182,7 +183,11 @@ interface StringBuilderOracle {
           || factory.stringBufferMethods.isAppendMethod(invokedMethod);
     }
 
-    public boolean isAppendWithSubArray(InvokeMethodWithReceiver instruction) {
+    @Override
+    public boolean isAppendWithSubArray(Instruction instruction) {
+      if (!instruction.isInvokeMethodWithReceiver()) {
+        return false;
+      }
       DexMethod invokedMethod = instruction.asInvokeMethod().getInvokedMethod();
       return factory.stringBuilderMethods.isAppendSubArrayMethod(invokedMethod)
           || factory.stringBufferMethods.isAppendSubArrayMethod(invokedMethod);

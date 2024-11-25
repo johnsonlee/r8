@@ -385,13 +385,16 @@ class StringBuilderNodeMuncher {
           boolean canRemoveIfLastAndNoLoop =
               !isLoopingOnPath(root, currentNode, munchingState)
                   && currentNode.getSuccessors().isEmpty();
+          Instruction instruction = currentNode.asAppendNode().getInstruction();
           boolean hasKnownArgumentOrCannotBeObserved =
               appendNode.hasConstantOrNonConstantArgument()
-                  || !munchingState.oracle.canObserveStringBuilderCall(
-                      currentNode.asAppendNode().getInstruction());
+                  || !munchingState.oracle.canObserveStringBuilderCall(instruction);
+          // R8 would need to check for range overflow if removing append with sub arrays.
+          boolean canRemoveNonSub = !munchingState.oracle.isAppendWithSubArray(instruction);
           if (canRemoveIfNoInspectionOrMaterializing
               && canRemoveIfLastAndNoLoop
-              && hasKnownArgumentOrCannotBeObserved) {
+              && hasKnownArgumentOrCannotBeObserved
+              && canRemoveNonSub) {
             removeNode = true;
           }
         } else if (currentNode.isInitNode()
