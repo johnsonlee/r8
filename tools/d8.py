@@ -17,6 +17,11 @@ def ParseOptions(argv):
                       '--commit_hash',
                       help='Commit hash of D8 to use.',
                       default=None)
+    parser.add_option('--disable-assertions',
+                      '--disable_assertions',
+                      help='Disable assertions when running',
+                      default=False,
+                      action='store_true')
     parser.add_option('--print-runtimeraw',
                       '--print_runtimeraw',
                       metavar='BENCHMARKNAME',
@@ -40,6 +45,7 @@ def main(argv):
     return toolhelper.run('d8',
                           d8_args,
                           build=not options.no_build,
+                          debug=not options.disable_assertions,
                           jar=utils.find_r8_jar_from_options(options),
                           main='com.android.tools.r8.D8',
                           time_consumer=time_consumer)

@@ -23,12 +23,11 @@ def ParseOptions(argv):
         'Enable Java debug agent and suspend compilation (default disabled)',
         default=False,
         action='store_true')
-    parser.add_option(
-        '--ea',
-        help=
-        'Enable Java assertions when running the compiler (default disabled)',
-        default=False,
-        action='store_true')
+    parser.add_option('--disable-assertions',
+                      '--disable_assertions',
+                      help='Disable assertions when running',
+                      default=False,
+                      action='store_true')
     parser.add_option('--lib-android',
                       help='Add the android.jar for the given API level',
                       default=None,
@@ -64,7 +63,7 @@ def main(argv):
     return toolhelper.run('r8',
                           r8_args,
                           build=not options.no_build,
-                          debug=options.ea,
+                          debug=not options.disable_assertions,
                           debug_agent=options.debug_agent,
                           jar=utils.find_r8_jar_from_options(options),
                           main='com.android.tools.r8.R8',
