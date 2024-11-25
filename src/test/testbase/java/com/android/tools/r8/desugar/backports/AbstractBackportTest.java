@@ -36,7 +36,7 @@ import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
 
-abstract class AbstractBackportTest extends TestBase {
+public abstract class AbstractBackportTest extends TestBase {
   protected final TestParameters parameters;
   private final ClassInfo targetClass;
   private final ClassInfo testClass;
@@ -85,22 +85,22 @@ abstract class AbstractBackportTest extends TestBase {
     }
   }
 
-  AbstractBackportTest(TestParameters parameters, Class<?> targetClass,
-      Class<?> testClass) {
+  protected AbstractBackportTest(
+      TestParameters parameters, Class<?> targetClass, Class<?> testClass) {
     this(parameters, new ClassInfo(targetClass), new ClassInfo(testClass), null, null);
   }
 
-  AbstractBackportTest(
+  protected AbstractBackportTest(
       TestParameters parameters, Class<?> targetClass, List<byte[]> testClassFileData) {
     this(parameters, new ClassInfo(targetClass), new ClassInfo(testClassFileData), null, null);
   }
 
-  AbstractBackportTest(
+  protected AbstractBackportTest(
       TestParameters parameters, String className, List<byte[]> testClassFileData) {
     this(parameters, new ClassInfo(className), new ClassInfo(testClassFileData), null, null);
   }
 
-  AbstractBackportTest(
+  protected AbstractBackportTest(
       TestParameters parameters, byte[] targetClassFileData, List<byte[]> testClassFileData) {
     this(
         parameters,
@@ -110,8 +110,8 @@ abstract class AbstractBackportTest extends TestBase {
         null);
   }
 
-  AbstractBackportTest(TestParameters parameters, Class<?> targetClass,
-      Path testJar, String testClassName) {
+  public AbstractBackportTest(
+      TestParameters parameters, Class<?> targetClass, Path testJar, String testClassName) {
     this(parameters, new ClassInfo(targetClass), null, testJar, testClassName);
   }
 
@@ -140,7 +140,7 @@ abstract class AbstractBackportTest extends TestBase {
     invokeStaticCounts.put(AndroidApiLevel.B.getLevel(), 0);
   }
 
-  void registerTarget(AndroidApiLevel apiLevel, int invokeStaticCount) {
+  protected void registerTarget(AndroidApiLevel apiLevel, int invokeStaticCount) {
     invokeStaticCounts.put(apiLevel.getLevel(), invokeStaticCount);
   }
 
@@ -149,7 +149,7 @@ abstract class AbstractBackportTest extends TestBase {
     return invokeStaticCounts.get(key);
   }
 
-  void ignoreInvokes(String methodName) {
+  protected void ignoreInvokes(String methodName) {
     ignoredInvokes.add(methodName);
   }
 
@@ -250,7 +250,7 @@ abstract class AbstractBackportTest extends TestBase {
   }
 
   /** JUnit {@link Assert} isn't available in the VM runtime. This is a mini mirror of its API. */
-  static abstract class MiniAssert {
+  public abstract static class MiniAssert {
     static void assertTrue(boolean value) {
       assertEquals(true, value);
     }
