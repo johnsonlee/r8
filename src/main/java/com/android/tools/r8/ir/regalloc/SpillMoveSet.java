@@ -7,12 +7,12 @@ package com.android.tools.r8.ir.regalloc;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.utils.MapUtils;
 import java.util.Collection;
 import java.util.Collections;
@@ -135,12 +135,9 @@ class SpillMoveSet {
           insertAt.next();
         }
         // Generate moves for each argument.
-        for (Value argumentValue = allocator.firstArgumentValue;
-            argumentValue != null;
-            argumentValue = argumentValue.getNextConsecutive()) {
-          Instruction instruction = argumentValue.definition;
-          if (needsMovesBeforeInstruction(instruction)) {
-            scheduleMovesBeforeInstruction(tempRegister, instruction, insertAt);
+        for (Argument argument : code.arguments()) {
+          if (needsMovesBeforeInstruction(argument)) {
+            scheduleMovesBeforeInstruction(tempRegister, argument, insertAt);
           }
         }
       }

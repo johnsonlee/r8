@@ -1156,7 +1156,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   }
 
   public Iterator<Argument> argumentIterator() {
-    return new Iterator<Argument>() {
+    return new Iterator<>() {
 
       private final InstructionIterator instructionIterator = entryBlock().iterator();
       private Argument next = instructionIterator.next().asArgument();
@@ -1176,6 +1176,10 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
         return previous;
       }
     };
+  }
+
+  public Iterable<Argument> arguments() {
+    return () -> argumentIterator();
   }
 
   public List<Value> collectArguments() {

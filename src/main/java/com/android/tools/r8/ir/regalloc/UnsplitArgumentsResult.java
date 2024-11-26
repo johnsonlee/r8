@@ -5,7 +5,6 @@ package com.android.tools.r8.ir.regalloc;
 
 import static com.android.tools.r8.ir.regalloc.LiveIntervals.NO_REGISTER;
 
-import com.android.tools.r8.ir.code.Value;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 
 public class UnsplitArgumentsResult {
@@ -28,10 +27,8 @@ public class UnsplitArgumentsResult {
   // Returns true if any changes were made.
   public boolean revertPartial() {
     boolean changed = false;
-    for (Value argument = allocator.firstArgumentValue;
-        argument != null;
-        argument = argument.getNextConsecutive()) {
-      for (LiveIntervals child : argument.getLiveIntervals().getSplitChildren()) {
+    for (LiveIntervals argumentLiveIntervals : allocator.getArgumentLiveIntervals()) {
+      for (LiveIntervals child : argumentLiveIntervals.getSplitChildren()) {
         changed |= revertPartial(child);
       }
     }

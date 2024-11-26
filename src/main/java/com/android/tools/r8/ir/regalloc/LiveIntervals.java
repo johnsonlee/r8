@@ -154,10 +154,6 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     next.previousConsecutive = this;
   }
 
-  public boolean isLinked() {
-    return splitParent.previousConsecutive != null || splitParent.nextConsecutive != null;
-  }
-
   public boolean isArgumentInterval() {
     Instruction definition = this.splitParent.value.definition;
     return definition != null && definition.isArgument();

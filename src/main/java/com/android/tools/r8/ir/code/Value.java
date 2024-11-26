@@ -12,7 +12,6 @@ import static com.android.tools.r8.ir.code.Opcodes.CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.DEX_ITEM_BASED_CONST_STRING;
 import static com.android.tools.r8.ir.code.Opcodes.INSTANCE_OF;
 
-import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -33,7 +32,6 @@ import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.LongInterval;
 import com.android.tools.r8.utils.ObjectUtils;
@@ -180,8 +178,6 @@ public class Value implements Comparable<Value>, InstructionOrValue {
   private LinkedList<Phi> phiUsers = new LinkedList<>();
 
   private Set<Phi> uniquePhiUsers = null;
-  private Value nextConsecutive = null;
-  private Value previousConsecutive = null;
   private LiveIntervals liveIntervals;
   private int needsRegister = -1;
   private boolean isThis = false;
@@ -211,6 +207,14 @@ public class Value implements Comparable<Value>, InstructionOrValue {
   public Instruction getDefinition() {
     assert !isPhi();
     return definition;
+  }
+
+  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
+  public <T extends Instruction> T getDefinitionOrNull(Predicate<Instruction> predicate) {
+    if (definition != null && predicate.test(definition)) {
+      return (T) definition;
+    }
+    return null;
   }
 
   public boolean hasAliasedValue() {
@@ -304,47 +308,6 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     assert end != null;
     debugData.users.add(end);
     end.addDebugValue(this);
-  }
-
-  public void linkTo(Value other) {
-    assert nextConsecutive == null || nextConsecutive == other;
-    assert other.previousConsecutive == null || other.previousConsecutive == this;
-    other.previousConsecutive = this;
-    nextConsecutive = other;
-  }
-
-  public void replaceLink(Value newArgument) {
-    assert isLinked();
-    if (previousConsecutive != null) {
-      previousConsecutive.nextConsecutive = newArgument;
-      newArgument.previousConsecutive = previousConsecutive;
-      previousConsecutive = null;
-    }
-    if (nextConsecutive != null) {
-      nextConsecutive.previousConsecutive = newArgument;
-      newArgument.nextConsecutive = nextConsecutive;
-      nextConsecutive = null;
-    }
-  }
-
-  public boolean isLinked() {
-    return nextConsecutive != null || previousConsecutive != null;
-  }
-
-  public Value getStartOfConsecutive() {
-    Value current = this;
-    while (current.getPreviousConsecutive() != null) {
-      current = current.getPreviousConsecutive();
-    }
-    return current;
-  }
-
-  public Value getNextConsecutive() {
-    return nextConsecutive;
-  }
-
-  public Value getPreviousConsecutive() {
-    return previousConsecutive;
   }
 
   public boolean onlyUsedInBlock(BasicBlock block) {
@@ -783,15 +746,6 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     return false;
   }
 
-  public boolean hasRegisterConstraint() {
-    for (Instruction instruction : uniqueUsers()) {
-      if (instruction.maxInValueRegister() != Constants.U16BIT_MAX) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   public boolean isValueOnStack() {
     return false;
   }
@@ -895,11 +849,6 @@ public class Value implements Comparable<Value>, InstructionOrValue {
     return isConstant()
         && getConstInstruction().isConstNumber()
         && getConstInstruction().asConstNumber().getRawValue() == rawValue;
-  }
-
-  public boolean isConstBoolean(boolean value) {
-    return isConstNumber()
-        && definition.asConstNumber().getRawValue() == BooleanUtils.longValue(value);
   }
 
   public boolean isConstZero() {
