@@ -229,23 +229,6 @@ tasks {
             "r8lib.jar")
   }
 
-  val resourceshrinkercli by registering(Exec::class) {
-    dependsOn(r8WithRelocatedDepsTask)
-    val r8 = r8WithRelocatedDepsTask.getSingleOutputFile()
-    val keepTxt = getRoot().resolveAll("src", "main", "resourceshrinker_cli.txt")
-    val cliKeep = getRoot().resolveAll("src", "main", "keep_r8resourceshrinker.txt")
-    inputs.files(keepTxt, cliKeep)
-    val output = file(Paths.get("build", "libs", "resourceshrinkercli.jar"))
-    outputs.file(output)
-    commandLine = createR8LibCommandLine(
-      r8,
-      r8,
-      output,
-      listOf(keepTxt, cliKeep),
-      false,
-      false)
-  }
-
   fun Task.generateTestKeepRulesForR8Lib(
           r8LibJarProvider: TaskProvider<Exec>, artifactName: String) {
     dependsOn(r8LibJarProvider)
