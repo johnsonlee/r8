@@ -45,7 +45,7 @@ def main(argv):
     return toolhelper.run('d8',
                           d8_args,
                           build=not options.no_build,
-                          debug=not options.disable_assertions,
+                          disable_assertions=options.disable_assertions,
                           jar=utils.find_r8_jar_from_options(options),
                           main='com.android.tools.r8.D8',
                           time_consumer=time_consumer)

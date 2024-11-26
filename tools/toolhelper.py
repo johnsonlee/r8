@@ -15,7 +15,7 @@ import utils
 def run(tool,
         args,
         build=None,
-        debug=True,
+        disable_assertions=False,
         profile=False,
         track_memory_file=None,
         extra_args=None,
@@ -51,7 +51,7 @@ def run(tool,
         cmd.append(
             '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005'
         )
-    if debug:
+    if not disable_assertions:
         cmd.append('-ea')
     if profile:
         cmd.append('-agentlib:hprof=cpu=samples,interval=1,depth=8')

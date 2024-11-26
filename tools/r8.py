@@ -63,7 +63,7 @@ def main(argv):
     return toolhelper.run('r8',
                           r8_args,
                           build=not options.no_build,
-                          debug=not options.disable_assertions,
+                          disable_assertions=options.disable_assertions,
                           debug_agent=options.debug_agent,
                           jar=utils.find_r8_jar_from_options(options),
                           main='com.android.tools.r8.R8',

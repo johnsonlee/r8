@@ -125,7 +125,7 @@ def minify_tool(mainclass=None,
         start_time = time.time()
         return_code = toolhelper.run('r8',
                                      args,
-                                     debug=debug,
+                                     disable_assertions=not debug,
                                      build=build,
                                      track_memory_file=track_memory_file,
                                      extra_args=java_args)
