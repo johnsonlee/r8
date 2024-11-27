@@ -29,8 +29,6 @@ import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntAVLTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2IntSortedMap;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -81,22 +79,9 @@ public abstract class AbstractBackportTest extends TestBase {
 
     TestBuilder<?, ?> addAsProgramClass(TestBuilder<?, ?> builder) throws IOException {
       if (clazz != null) {
-        addStrippedOuter(builder);
         return builder.addProgramClassesAndInnerClasses(clazz);
       } else {
         return builder.addProgramClassFileData(classFileData);
-      }
-    }
-
-    private void addStrippedOuter(TestBuilder<?, ?> builder) throws IOException {
-      try {
-        Method getNestHost = Class.class.getDeclaredMethod("getNestHost");
-        Class<?> nestHost = (Class<?>) getNestHost.invoke(clazz);
-        if (nestHost != null && nestHost != clazz) {
-          builder.addStrippedOuter(nestHost);
-        }
-      } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-        // Ignored on old JDKs.
       }
     }
   }
