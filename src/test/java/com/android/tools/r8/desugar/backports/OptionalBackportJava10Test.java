@@ -2,21 +2,24 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package backport;
+package com.android.tools.r8.desugar.backports;
+
+import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.desugar.backports.AbstractBackportTest;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import java.util.NoSuchElementException;
-import java.util.OptionalLong;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Optional;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public final class OptionalLongBackportJava10Test extends AbstractBackportTest {
+public final class OptionalBackportJava10Test extends AbstractBackportTest {
   @Parameters(name = "{0}")
   public static Iterable<?> data() {
     return getTestParameters()
@@ -27,40 +30,19 @@ public final class OptionalLongBackportJava10Test extends AbstractBackportTest {
         .build();
   }
 
-  public OptionalLongBackportJava10Test(TestParameters parameters) {
-    super(parameters, OptionalLong.class, OptionalLongBackportJava10Main.class);
+  private static final Path TEST_JAR =
+      Paths.get(ToolHelper.EXAMPLES_JAVA10_BUILD_DIR).resolve("backport" + JAR_EXTENSION);
+
+  public OptionalBackportJava10Test(TestParameters parameters) {
+    super(parameters, Optional.class, TEST_JAR, "backport.OptionalBackportJava10Main");
     // Note: The methods in this test exist in android.jar from Android T. When R8 builds targeting
     // Java 11 move these tests to OptionalBackportTest (out of examplesJava10).
 
     // Available since N.
     ignoreInvokes("empty");
-    ignoreInvokes("getAsLong");
+    ignoreInvokes("get");
     ignoreInvokes("of");
 
     registerTarget(AndroidApiLevel.T, 2);
-  }
-
-  public static class OptionalLongBackportJava10Main {
-
-    public static void main(String[] args) {
-      testOrElseThrow();
-    }
-
-    private static void testOrElseThrow() {
-      OptionalLong present = OptionalLong.of(2L);
-      assertEquals(2L, present.orElseThrow());
-
-      OptionalLong absent = OptionalLong.empty();
-      try {
-        throw new AssertionError(absent.orElseThrow());
-      } catch (NoSuchElementException expected) {
-      }
-    }
-
-    private static void assertEquals(Object expected, Object actual) {
-      if (expected != actual && !expected.equals(actual)) {
-        throw new AssertionError("Expected <" + expected + "> but was <" + actual + ">");
-      }
-    }
   }
 }
