@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import org.gradle.api.JavaVersion
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
   `kotlin-dsl`
