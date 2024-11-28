@@ -35,6 +35,12 @@ public class LibraryField extends DexClassAndField
 
   @Override
   public boolean isFinalOrEffectivelyFinal(AppView<?> appView) {
+    // We currently assume that fields declared final in the given android.jar are final at runtime.
+    // If this turns out not to be the case for some fields, we can either add a deny list or extend
+    // the API database.
+    //
+    // We explicitly do not treat System.in, System.out and System.err as final since they have
+    // explicit setters, e.g., System#setIn.
     return getAccessFlags().isFinal()
         && getHolderType().isNotIdenticalTo(appView.dexItemFactory().javaLangSystemType);
   }
