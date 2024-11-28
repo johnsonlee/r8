@@ -35,6 +35,7 @@ public class LibraryField extends DexClassAndField
 
   @Override
   public boolean isFinalOrEffectivelyFinal(AppView<?> appView) {
-    return appView.libraryMethodOptimizer().isFinalLibraryField(getDefinition());
+    return getAccessFlags().isFinal()
+        && getHolderType().isNotIdenticalTo(appView.dexItemFactory().javaLangSystemType);
   }
 }
