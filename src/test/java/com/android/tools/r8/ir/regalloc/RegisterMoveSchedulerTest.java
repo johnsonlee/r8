@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.regalloc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -22,6 +23,7 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
+import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InitClass;
 import com.android.tools.r8.ir.code.Instruction;
@@ -38,6 +40,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -581,6 +584,42 @@ public class RegisterMoveSchedulerTest extends TestBase {
     assertEquals("3 <- 16", toString(moves.get(5)));
     assertEquals("15 <- 25", toString(moves.get(6)));
     assertEquals(2, scheduler.getUsedTempRegisters());
+  }
+
+  @Test
+  public void reproNoSuchElementException() {
+    CollectMovesIterator moves = new CollectMovesIterator();
+    int temp = 53;
+    int args = 1;
+    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp, args);
+    scheduler.addMove(new RegisterMove(23, 15, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(26, 14, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(15, 20, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(17, 27, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(19, 4, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(21, 16, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(24, 6, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(25, 7, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(14, 8, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(30, 9, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(31, 13, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(34, 1, TypeElement.getInt()));
+    scheduler.addMove(
+        new RegisterMove(
+            27,
+            TypeElement.getInt(),
+            new ConstNumber(new Value(0, TypeElement.getInt(), null), 3)));
+    scheduler.addMove(
+        new RegisterMove(
+            28,
+            TypeElement.getInt(),
+            new ConstNumber(new Value(1, TypeElement.getInt(), null), 18)));
+    try {
+      scheduler.schedule();
+      fail();
+    } catch (NoSuchElementException e) {
+      // Expected.
+    }
   }
 
   // Debugging aid.
