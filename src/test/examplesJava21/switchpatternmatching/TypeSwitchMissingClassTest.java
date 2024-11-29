@@ -17,7 +17,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.List;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableList;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +37,7 @@ public class TypeSwitchMissingClassTest extends TestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
-        ImmutableList.of(new ClassHolder(C.class), new ClassHolder(Color.class)));
+        List.of(new ClassHolder(C.class), new ClassHolder(Color.class)));
   }
 
   // ClassHolder allows to correctly print parameters in the IntelliJ test IDE with {1}.
