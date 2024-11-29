@@ -24,6 +24,14 @@ public abstract class RegisterPositions {
 
   public abstract int get(int index);
 
+  public final int get(int index, boolean isWide) {
+    int result = get(index);
+    if (isWide) {
+      return Math.min(result, get(index + 1));
+    }
+    return result;
+  }
+
   public abstract int getLimit();
 
   public abstract void setBlocked(int index);

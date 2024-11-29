@@ -89,6 +89,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return getType().requiredRegisters();
   }
 
+  public boolean isWide() {
+    return getType().isWide();
+  }
+
   public void setHint(LiveIntervals intervals, PriorityQueue<LiveIntervals> unhandled) {
     assert intervals.hasRegister();
     // Do not set hints if they cannot be used anyway.

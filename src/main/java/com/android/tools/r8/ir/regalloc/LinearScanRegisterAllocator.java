@@ -2064,7 +2064,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
     // Attempt to use register hints.
     timing.begin("Try hint");
-    if (useRegisterHint(unhandledInterval, registerConstraint, freePositions, needsRegisterPair)) {
+    if (useRegisterHint(unhandledInterval, registerConstraint, freePositions)) {
       timing.end();
       return true;
     }
@@ -2086,10 +2086,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // we need to spill a valid candidate. That path is triggered when largestFreePosition is 0.
     int largestFreePosition = 0;
     if (candidate != REGISTER_CANDIDATE_NOT_FOUND) {
-      largestFreePosition = freePositions.get(candidate);
-      if (needsRegisterPair) {
-        largestFreePosition = Math.min(largestFreePosition, freePositions.get(candidate + 1));
-      }
+      largestFreePosition = freePositions.get(candidate, unhandledInterval.isWide());
     }
 
     // Determine what to do based on how long the selected candidate is free.
@@ -2273,10 +2270,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   // Attempt to use the register hint for the unhandled interval in order to avoid generating
   // moves.
   private boolean useRegisterHint(
-      LiveIntervals unhandledInterval,
-      int registerConstraint,
-      RegisterPositions freePositions,
-      boolean needsRegisterPair) {
+      LiveIntervals unhandledInterval, int registerConstraint, RegisterPositions freePositions) {
     // If the unhandled interval has a hint we give it that register if it is available without
     // spilling. For phis we also use the hint before looking at the operand registers. The
     // phi could have a hint from an argument moves which it seems more important to honor in
@@ -2288,7 +2282,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             unhandledInterval,
             registerConstraint,
             freePositions,
-            needsRegisterPair,
             unhandledInterval.getHint())) {
       return true;
     }
@@ -2300,22 +2293,22 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             unhandledInterval,
             registerConstraint,
             freePositions,
-            needsRegisterPair,
             previousSplit.getRegister())) {
       return true;
     }
 
     LiveIntervals nextSplit = unhandledInterval.getNextSplit();
-    if (nextSplit != null
-        && nextSplit.hasRegister()
-        && triedHints.add(nextSplit.getRegister())
-        && tryHint(
-            unhandledInterval,
-            registerConstraint,
-            freePositions,
-            needsRegisterPair,
-            nextSplit.getRegister())) {
-      return true;
+    if (nextSplit != null && nextSplit.hasRegister()) {
+      if (triedHints.add(nextSplit.getRegister())
+          && tryHint(
+              unhandledInterval, registerConstraint, freePositions, nextSplit.getRegister())) {
+        return true;
+      }
+      if (freePositions.isBlocked(nextSplit.getRegister(), unhandledInterval.isWide())
+          && tryAllocateBlockedHint(
+              unhandledInterval, registerConstraint, nextSplit.getRegister())) {
+        return true;
+      }
     }
 
     // If there is no hint or it cannot be applied we search for a good register for phis using
@@ -2338,8 +2331,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       }
       for (Multiset.Entry<Integer> entry : Multisets.copyHighestCountFirst(map).entrySet()) {
         int register = entry.getElement();
-        if (tryHint(unhandledInterval, registerConstraint, freePositions, needsRegisterPair,
-            register)) {
+        if (tryHint(unhandledInterval, registerConstraint, freePositions, register)) {
           return true;
         }
       }
@@ -2349,25 +2341,20 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   }
 
   // Attempt to allocate the hint register to the unhandled intervals.
-  private boolean tryHint(LiveIntervals unhandledInterval, int registerConstraint,
-      RegisterPositions freePositions, boolean needsRegisterPair, int register) {
-    // At some point after the hint has been added, the register allocator can
-    // decide to redo allocation for the hint interval. In that case, the hint will be
-    // reset to NO_REGISTER and provides no hinting info.
-    if (register == NO_REGISTER) {
-      return false;
-    }
-    int registerEnd = register + (needsRegisterPair ? 1 : 0);
+  private boolean tryHint(
+      LiveIntervals unhandledInterval,
+      int registerConstraint,
+      RegisterPositions freePositions,
+      int register) {
+    assert register != NO_REGISTER;
+    int registerEnd = register + unhandledInterval.requiredRegisters() - 1;
     if (registerEnd > registerConstraint) {
       return false;
     }
-    if (freePositions.isBlocked(register, needsRegisterPair)) {
-      return tryAllocateBlockedHint(unhandledInterval, register);
+    if (freePositions.isBlocked(register, unhandledInterval.isWide())) {
+      return false;
     }
-    int freePosition = freePositions.get(register);
-    if (needsRegisterPair) {
-      freePosition = Math.min(freePosition, freePositions.get(register + 1));
-    }
+    int freePosition = freePositions.get(register, unhandledInterval.isWide());
     if (freePosition < unhandledInterval.getEnd()) {
       return false;
     }
@@ -2385,71 +2372,62 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return true;
   }
 
-  private boolean tryAllocateBlockedHint(LiveIntervals unhandledInterval, int candidate) {
-    if (!options().getTestingOptions().enableRegisterHintsForBlockedRegisters) {
-      return false;
-    }
-    LiveIntervals nextSplit = unhandledInterval.getNextSplit();
-    int alternativeHint = nextSplit != null ? nextSplit.getRegister() : NO_REGISTER;
-    if (candidate != alternativeHint) {
+  private boolean tryAllocateBlockedHint(
+      LiveIntervals unhandledInterval, int registerConstraint, int candidate) {
+    int registerEnd = candidate + unhandledInterval.requiredRegisters() - 1;
+    if (registerEnd > registerConstraint) {
       return false;
     }
     if (needsArrayGetWideWorkaround(unhandledInterval)
-        || needsLongResultOverlappingLongOperandsWorkaround(unhandledInterval)) {
+        || needsLongResultOverlappingLongOperandsWorkaround(unhandledInterval)
+        || needsSingleResultOverlappingLongOperandsWorkaround(unhandledInterval)) {
+      return false;
+    }
+    if (unhandledInterval.isLiveAtMoveExceptionEntry()
+        && isDedicatedMoveExceptionRegister(candidate)) {
       return false;
     }
     if (isArgumentRegister(candidate)) {
       for (LiveIntervals argumentLiveIntervals : getArgumentLiveIntervals()) {
-        if (isPinnedArgumentRegister(argumentLiveIntervals)) {
+        if (isPinnedArgumentRegister(argumentLiveIntervals)
+            && argumentLiveIntervals.usesRegister(candidate, unhandledInterval.isWide())) {
           return false;
         }
       }
     }
-    if (isDedicatedMoveExceptionRegister(candidate)) {
-      return false;
-    }
+    // Check if the current live intervals is blocked by an inactive (overlapping live intervals).
     if (!getLiveIntervalsWithRegister(
             inactive, unhandledInterval, candidate, unhandledInterval::overlaps)
         .isEmpty()) {
       return false;
     }
-    // Find the value occupying the register of interest. Note that the current live intervals may
-    // be blocked by an inactive (overlapping) live intervals.
+    // Find the value occupying the register of interest.
     Collection<LiveIntervals> blockingIntervals =
         getLiveIntervalsWithRegister(active, unhandledInterval, candidate);
     assert !blockingIntervals.isEmpty();
-    if (blockingIntervals.size() != 1) {
-      // Validate that not finding any blocking live intervals means the current live intervals is
-      // blocked by an inactive live intervals.
-      return false;
-    }
-    LiveIntervals blockingInterval = blockingIntervals.iterator().next();
-    if (unhandledInterval.getType().isWide()) {
-      if (blockingInterval.getRegister() != candidate || !blockingInterval.getType().isWide()) {
-        // Conservatively bail out. It could be that the low-half of the register pair is blocked by
-        // an inactive live intervals.
+    for (LiveIntervals blockingInterval : blockingIntervals) {
+      if (toInstructionPosition(blockingInterval.getStart())
+          == toInstructionPosition(unhandledInterval.getStart())) {
+        // TODO(b/302281605): Look into allowing this when the blocking interval starts at the same
+        //  offset.
+        return false;
+      }
+      if (hasConstrainedUseInRange(
+          blockingInterval, unhandledInterval.getStart(), unhandledInterval.getEnd())) {
         return false;
       }
     }
-    if (isArgumentRegister(candidate) && isPinnedArgumentRegister(blockingInterval)) {
-      return false;
-    }
-    if (toInstructionPosition(blockingInterval.getStart())
-        == toInstructionPosition(unhandledInterval.getStart())) {
-      return false;
-    }
-    if (hasConstrainedUseInRange(
-        blockingInterval, unhandledInterval.getStart(), unhandledInterval.getEnd())) {
-      return false;
-    }
+    // TODO(b/302281605): Look into allowing this even when expiredHere is non-empty.
     if (!expiredHere.isEmpty()) {
       return false;
     }
-    LiveIntervals split = blockingInterval.splitBefore(unhandledInterval.getStart(), mode);
-    freeOccupiedRegistersForIntervals(blockingInterval);
-    assignFreeRegisterToUnhandledInterval(unhandledInterval, blockingInterval.getRegister());
-    active.remove(blockingInterval);
-    unhandled.add(split);
+    for (LiveIntervals blockingInterval : blockingIntervals) {
+      LiveIntervals split = blockingInterval.splitBefore(unhandledInterval.getStart(), mode);
+      freeOccupiedRegistersForIntervals(blockingInterval);
+      active.remove(blockingInterval);
+      unhandled.add(split);
+    }
+    assignFreeRegisterToUnhandledInterval(unhandledInterval, candidate);
     return true;
   }
 
@@ -2554,7 +2532,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       if (freePositions.isBlocked(i, needsRegisterPair) || !freePositions.hasType(i, type)) {
         continue;
       }
-      int usePosition = freePositions.get(i);
       if (needsRegisterPair) {
         if (i == numberOfArgumentRegisters - 1) {
           // The last register of the method is |i|, so we cannot use the pair (|i|, |i+1|).
@@ -2570,8 +2547,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         if (i >= registerConstraint) {
           break;
         }
-        usePosition = Math.min(usePosition, freePositions.get(i + 1));
       }
+      int usePosition = freePositions.get(i, needsRegisterPair);
       if (unhandledInterval.hasUses() && usePosition == unhandledInterval.getFirstUse()) {
         // This register has a use at the same instruction as the value we are allocation a register
         // for. Find another register.
@@ -2810,36 +2787,33 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
       if (blockedPosition > unhandledInterval.getEnd()) {
         // Spilling can make a register available for the entire interval.
-        assignRegisterAndSpill(unhandledInterval, candidate, needsRegisterPair);
+        assignRegisterAndSpill(unhandledInterval, candidate);
       } else {
         // Spilling only makes a register available for the first part of current.
         LiveIntervals splitChild = unhandledInterval.splitBefore(blockedPosition, mode);
         unhandled.add(splitChild);
-        assignRegisterAndSpill(unhandledInterval, candidate, needsRegisterPair);
+        assignRegisterAndSpill(unhandledInterval, candidate);
       }
     }
   }
 
   private int getLargestPosition(
       RegisterPositions positions, int register, boolean needsRegisterPair) {
-    int position = positions.get(register);
-    if (needsRegisterPair) {
-      return Math.min(position, positions.get(register + 1));
-    }
-    return position;
+    return positions.get(register, needsRegisterPair);
   }
 
-  private void assignRegisterAndSpill(
-      LiveIntervals unhandledInterval, int candidate, boolean candidateIsWide) {
+  private void assignRegisterAndSpill(LiveIntervals unhandledInterval, int candidate) {
     // Split and spill intersecting active intervals for this register.
-    spillOverlappingActiveIntervals(unhandledInterval, candidate, candidateIsWide);
+    if (atLeastOneOfRegistersAreTaken(candidate, unhandledInterval.isWide())) {
+      spillOverlappingActiveIntervals(unhandledInterval, candidate, unhandledInterval.isWide());
+    }
     // Now that that active intervals have been spilled, we are free to take the candidate.
     assignRegister(unhandledInterval, candidate);
     takeFreeRegistersForIntervals(unhandledInterval);
     active.add(unhandledInterval);
     // Split all overlapping inactive intervals for this register. They need to have a new
     // register assigned at the next use.
-    splitOverlappingInactiveIntervals(unhandledInterval, candidate, candidateIsWide);
+    splitOverlappingInactiveIntervals(unhandledInterval, candidate, unhandledInterval.isWide());
   }
 
   protected void splitOverlappingInactiveIntervals(
@@ -2868,7 +2842,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private void spillOverlappingActiveIntervals(
       LiveIntervals unhandledInterval, int candidate, boolean candidateIsWide) {
     assert !unhandledInterval.hasRegister();
-    assert atLeastOneOfRegistersAreTaken(candidate, candidateIsWide);
     // Registers that we cannot choose for spilling.
     IntList excludedRegisters = new IntArrayList(candidateIsWide ? 2 : 1);
     excludedRegisters.add(candidate);
