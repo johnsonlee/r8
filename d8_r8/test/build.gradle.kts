@@ -32,6 +32,7 @@ val javaTestBaseJarTask = projectTask("testbase", "testJar")
 val javaTestBaseDepsJar = projectTask("testbase", "depsJar")
 val java8TestJarTask = projectTask("tests_java_8", "testJar")
 val java11TestJarTask = projectTask("tests_java_11", "testJar")
+val java17TestJarTask = projectTask("tests_java_17", "testJar")
 val bootstrapTestsDepsJarTask = projectTask("tests_bootstrap", "depsJar")
 val bootstrapTestJarTask = projectTask("tests_bootstrap", "testJar")
 val testsJava8SourceSetDependenciesTask = projectTask("tests_java_8", "sourceSetDependencyTask")
@@ -63,9 +64,11 @@ tasks {
   val packageTests by registering(Jar::class) {
     dependsOn(java8TestJarTask)
     dependsOn(java11TestJarTask)
+    dependsOn(java17TestJarTask)
     dependsOn(bootstrapTestJarTask)
     from(java8TestJarTask.outputs.files.map(::zipTree))
     from(java11TestJarTask.outputs.files.map(::zipTree))
+    from(java17TestJarTask.outputs.files.map(::zipTree))
     from(bootstrapTestJarTask.outputs.files.map(::zipTree))
     exclude("META-INF/*.kotlin_module", "**/*.kotlin_metadata")
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
@@ -149,7 +152,7 @@ tasks {
     val argList = mutableListOf("--keep-rules",
                     "--allowobfuscation",
                     "--lib",
-                    "${org.gradle.internal.jvm.Jvm.current().getJavaHome()}",
+                    "${getJavaHome(Jdk.JDK_17)}",
                     "--lib",
                     "$mainDepsJar",
                     "--lib",
@@ -283,7 +286,7 @@ tasks {
       "--classfile",
       "--debug",
       "--lib",
-      "${org.gradle.internal.jvm.Jvm.current().getJavaHome()}",
+      "${getJavaHome(Jdk.JDK_17)}",
       "--classpath",
       "$r8Jar",
       "--classpath",
@@ -423,6 +426,8 @@ tasks {
     systemProperty("R8_DEPS", mainDepsJarTask.getSingleOutputFile())
     systemProperty("com.android.tools.r8.artprofilerewritingcompletenesscheck", "true")
     systemProperty("R8_WITH_RELOCATED_DEPS", r8WithRelocatedDepsTask.outputs.files.singleFile)
+
+    javaLauncher = getJavaLauncher(Jdk.JDK_17)
 
     reports.junitXml.outputLocation.set(getRoot().resolveAll("build", "test-results", "test"))
     reports.html.outputLocation.set(getRoot().resolveAll("build", "reports", "tests", "test"))
