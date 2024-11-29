@@ -241,9 +241,30 @@ public class RecordProfileRewritingTest extends TestBase {
         equalsMethodSubject,
         ifThen(!recordDesugaringIsOff, invokesMethod(equalsHelperMethodSubject)));
 
+    // Objects.hashCode(Object) (used by helper generated for record hashCode).
+    ClassSubject objectsHashCodeClassSubject =
+        inspector.clazz(SyntheticItemsTestUtils.syntheticBackportClass(PERSON_REFERENCE, 0));
+    assertThat(
+        objectsHashCodeClassSubject,
+        isAbsentIf(recordDesugaringIsOff || canUseJavaUtilObjects(parameters)));
+    MethodSubject objectsHashCodeMethodSubject = objectsHashCodeClassSubject.uniqueMethod();
+    assertThat(objectsHashCodeMethodSubject, isAbsentIf(objectsHashCodeClassSubject.isAbsent()));
+
+    // Objects.equals(Object, Object) (used by helper generated for record compare).
+    ClassSubject objectsEqualsClassSubject =
+        inspector.clazz(SyntheticItemsTestUtils.syntheticBackportClass(PERSON_REFERENCE, 1));
+    assertThat(
+        objectsEqualsClassSubject,
+        isAbsentIf(recordDesugaringIsOff || canUseJavaUtilObjects(parameters)));
+    MethodSubject objectsEqualsMethodSubject = objectsEqualsClassSubject.uniqueMethod();
+    assertThat(objectsEqualsMethodSubject, isAbsentIf(objectsEqualsClassSubject.isAbsent()));
+    assertEquals(objectsHashCodeClassSubject.isPresent(), objectsEqualsClassSubject.isPresent());
+
     // int hashCode()
     ClassSubject hashCodeHelperClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 0));
+        inspector.clazz(
+            SyntheticItemsTestUtils.syntheticRecordHelperClass(
+                PERSON_REFERENCE, objectsHashCodeClassSubject.isAbsent() ? 0 : 2));
     assertThat(hashCodeHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject hashCodeHelperMethodSubject = hashCodeHelperClassSubject.uniqueMethod();
@@ -254,14 +275,13 @@ public class RecordProfileRewritingTest extends TestBase {
     assertThat(hashCodeMethodSubject, isPresent());
     assertThat(
         hashCodeMethodSubject,
-        ifThen(!recordDesugaringIsOff, invokesMethod(getFieldsAsObjectsMethodSubject)));
-    assertThat(
-        hashCodeMethodSubject,
         ifThen(!recordDesugaringIsOff, invokesMethod(hashCodeHelperMethodSubject)));
 
     // String toString()
     ClassSubject toStringHelperClassSubject =
-        inspector.clazz(SyntheticItemsTestUtils.syntheticRecordHelperClass(PERSON_REFERENCE, 1));
+        inspector.clazz(
+            SyntheticItemsTestUtils.syntheticRecordHelperClass(
+                PERSON_REFERENCE, objectsHashCodeClassSubject.isAbsent() ? 1 : 3));
     assertThat(toStringHelperClassSubject, isAbsentIf(recordDesugaringIsOff));
 
     MethodSubject toStringHelperMethodSubject = toStringHelperClassSubject.uniqueMethod();
@@ -287,6 +307,12 @@ public class RecordProfileRewritingTest extends TestBase {
             equalsMethodSubject,
             hashCodeMethodSubject,
             toStringMethodSubject)
+        .applyIf(
+            !recordDesugaringIsOff && !canUseJavaUtilObjects(parameters),
+            i ->
+                i.assertContainsClassRules(objectsHashCodeClassSubject, objectsEqualsClassSubject)
+                    .assertContainsMethodRules(
+                        objectsHashCodeMethodSubject, objectsEqualsMethodSubject))
         .applyIf(
             canMergeRecordTag && !partialDesugaring,
             i -> i.assertContainsMethodRule(personDefaultInstanceInitializerSubject))

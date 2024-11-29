@@ -108,7 +108,11 @@ public class JdkClassFileProviderTest extends TestBase implements Opcodes {
     assertJavaUtilConcurrentFlowSubscriber(provider);
     CfVersion version = extractClassFileVersion(readJavaLangObject(provider));
     // When not passing an explicit JAVA_HOME the underlying test runner JDK is used.
-    assertEquals(CfVersion.V11, version);
+    String classFileVersion = System.getProperty("java.class.version");
+    int dotIndex = classFileVersion.indexOf('.');
+    assertTrue(dotIndex > 0);
+    assertEquals(
+        CfVersion.fromRaw(Integer.parseInt(classFileVersion.substring(0, dotIndex))), version);
     assert provider instanceof AutoCloseable;
     ((AutoCloseable) provider).close();
   }

@@ -1781,7 +1781,7 @@ public class TestBase {
   }
 
   public static boolean canUseJavaUtilObjects(TestParameters parameters) {
-    return parameters.isCfRuntime()
+    return (parameters.isCfRuntime() && parameters.getApiLevel() == null)
         || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.K);
   }
 
