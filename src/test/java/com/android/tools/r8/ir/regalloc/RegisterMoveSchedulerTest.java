@@ -4,7 +4,6 @@
 package com.android.tools.r8.ir.regalloc;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -40,7 +39,6 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -59,6 +57,10 @@ public class RegisterMoveSchedulerTest extends TestBase {
 
     public Move get(int i) {
       return list.get(i).asMove();
+    }
+
+    public ConstNumber getConst(int i) {
+      return list.get(i).asConstNumber();
     }
 
     public int size() {
@@ -589,37 +591,29 @@ public class RegisterMoveSchedulerTest extends TestBase {
   @Test
   public void reproNoSuchElementException() {
     CollectMovesIterator moves = new CollectMovesIterator();
-    int temp = 53;
-    int args = 1;
-    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp, args);
-    scheduler.addMove(new RegisterMove(23, 15, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(26, 14, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(15, 20, TypeElement.getLong()));
-    scheduler.addMove(new RegisterMove(17, 27, TypeElement.getLong()));
-    scheduler.addMove(new RegisterMove(19, 4, TypeElement.getLong()));
-    scheduler.addMove(new RegisterMove(21, 16, TypeElement.getLong()));
-    scheduler.addMove(new RegisterMove(24, 6, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(25, 7, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(14, 8, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(30, 9, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(31, 13, TypeElement.getInt()));
-    scheduler.addMove(new RegisterMove(34, 1, TypeElement.getInt()));
+    int temp = 42;
+    RegisterMoveScheduler scheduler = new RegisterMoveScheduler(moves, temp);
+    scheduler.addMove(new RegisterMove(10, 2, TypeElement.getInt()));
+    scheduler.addMove(new RegisterMove(2, 7, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(4, 11, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(6, 0, TypeElement.getLong()));
+    scheduler.addMove(new RegisterMove(8, 3, TypeElement.getLong()));
     scheduler.addMove(
         new RegisterMove(
-            27,
+            11,
             TypeElement.getInt(),
-            new ConstNumber(new Value(0, TypeElement.getInt(), null), 3)));
-    scheduler.addMove(
-        new RegisterMove(
-            28,
-            TypeElement.getInt(),
-            new ConstNumber(new Value(1, TypeElement.getInt(), null), 18)));
-    try {
-      scheduler.schedule();
-      fail();
-    } catch (NoSuchElementException e) {
-      // Expected.
-    }
+            new ConstNumber(new Value(0, TypeElement.getInt(), null), 0)));
+    scheduler.schedule();
+    assertEquals(8, moves.size());
+    assertEquals("10 <- 2", toString(moves.get(0)));
+    assertEquals("5 <- 11", toString(moves.get(1)));
+    assertEquals("11 <- const 0", toString(moves.getConst(2)));
+    assertEquals("42 <- 7", toString(moves.get(3)));
+    assertEquals("8 <- 3", toString(moves.get(4)));
+    assertEquals("2 <- 42", toString(moves.get(5)));
+    assertEquals("4 <- 5", toString(moves.get(6)));
+    assertEquals("6 <- 0", toString(moves.get(7)));
+    assertEquals(2, scheduler.getUsedTempRegisters());
   }
 
   // Debugging aid.
@@ -633,7 +627,13 @@ public class RegisterMoveSchedulerTest extends TestBase {
     System.out.println("----------------");
   }
 
-  private String toString(Instruction move) {
+  private String toString(ConstNumber move) {
+    return move.outValue().asFixedRegisterValue().getRegister()
+        + " <- const "
+        + move.asConstNumber().getRawValue();
+  }
+
+  private String toString(Move move) {
     return move.outValue().asFixedRegisterValue().getRegister()
         + " <- "
         + move.getFirstOperand().asFixedRegisterValue().getRegister();

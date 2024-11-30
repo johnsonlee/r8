@@ -87,6 +87,48 @@ public class RegisterMove implements Comparable<RegisterMove> {
         || (isWide() && scheduler.activeTempRegisters.contains(dst + 1));
   }
 
+  // In order to unblock another move, the src register of a move can be moved to a temporary
+  // register. When the move is wide, the src register may be moved to one of its own destination
+  // registers.
+  //
+  // Example: Consider `move-wide r1, r2 <- r4, r5`. If one of the src registers r4, r5 are blocking
+  // another move, we need to move r4, r5 to a temp. Since the current move-wide has not already
+  // been scheduled, it must be the case that it is itself blocked, i.e., some other move is reading
+  // either r1, r2, or both.
+  //
+  // If both r1, r2 are read by other moves, then r1, r2 cannot be used as temporary registers, and
+  // there is no issue.
+  //
+  // If r1 is read by another move, but r2 is not, then we can use r2 as a temporary register. Thus
+  // to unblock another move, we might create the temporary move `move-wide r2, r3 <- r4, r5`. A
+  // prerequisite for this is that there exists a move `r3 <- _` and that `r3` is not read by any
+  // moves in the move set, so that r3 can also be used as a temporary register.
+  //
+  // (Similarly, we could create the temporary move `move-wide r0, r1 <- r4, r5`.)
+  //
+  // This leads to a situation where a move is blocking itself, because it is using one of its own
+  // registers as a temporary register to unblock another move.
+  public boolean isDestUsedAsTemporaryForSelf(RegisterMoveScheduler scheduler) {
+    assert isDestUsedAsTemporary(scheduler);
+    if (!isWide()) {
+      return false;
+    }
+    // We don't move constants to temporary registers.
+    if (definition != null) {
+      assert src == NO_REGISTER;
+      return false;
+    }
+    int mappedSrc = scheduler.valueMap.get(src);
+    assert mappedSrc != dst;
+    if (mappedSrc == dst - 1 && scheduler.activeTempRegisters.contains(dst)) {
+      return true;
+    }
+    if (mappedSrc == dst + 1 && scheduler.activeTempRegisters.contains(dst + 1)) {
+      return true;
+    }
+    return false;
+  }
+
   public boolean isIdentical(RegisterMove move) {
     return ObjectUtils.identical(this, move);
   }

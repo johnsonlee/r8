@@ -39,7 +39,7 @@ public class RegisterMoveScheduler {
   private final TreeSet<RegisterMove> moveSet = new TreeSet<>();
   // Mapping to keep track of which values currently corresponds to each other.
   // This is initially an identity map but changes as we insert moves.
-  private final Int2IntMap valueMap = new Int2IntOpenHashMap();
+  final Int2IntMap valueMap = new Int2IntOpenHashMap();
   // Location at which to insert the scheduled moves.
   private final InstructionListIterator insertAt;
   // Debug position associated with insertion point.
@@ -56,7 +56,7 @@ public class RegisterMoveScheduler {
   // Registers that are the destination register of some move in the move set, but which are
   // currently being used as a temporary register for another value. Moves in the move set that
   // write a register in this set are blocked until the temporary registers are released.
-  public final IntSet activeTempRegisters = new IntOpenHashSet();
+  final IntSet activeTempRegisters = new IntOpenHashSet();
 
   public RegisterMoveScheduler(
       InstructionListIterator insertAt,
@@ -141,7 +141,8 @@ public class RegisterMoveScheduler {
       while (!worklist.isEmpty()) {
         while (!worklist.isEmpty()) {
           RegisterMove move = worklist.removeFirst();
-          assert !move.isBlocked(this, moveSet, valueMap);
+          assert !move.isBlocked(this, moveSet, valueMap)
+              || move.isDestUsedAsTemporaryForSelf(this);
           createMove(move);
         }
         enqueueUnblockedMoves(worklist, movesToSchedule);
@@ -253,7 +254,10 @@ public class RegisterMoveScheduler {
     // In order to unblock this move we might have to move more than one value to temporary
     // registers if we are unlucky with the overlap for values that use two registers.
     List<RegisterMove> movesWithSrc = findMovesWithSrc(move.dst, move.type);
-    assert movesWithSrc.size() > 0;
+    if (movesWithSrc.isEmpty()) {
+      assert move.isDestUsedAsTemporaryForSelf(this);
+      return;
+    }
     assert verifyMovesHaveDifferentSources(movesWithSrc);
     for (RegisterMove moveWithSrc : movesWithSrc) {
       // TODO(b/375147902): Maybe seed the move scheduler with a set of registers known to be free
@@ -385,7 +389,9 @@ public class RegisterMoveScheduler {
   private RegisterMove pickMoveToUnblock(TreeSet<RegisterMove> moves) {
     // Pick a non-wide move to unblock if possible.
     Iterable<RegisterMove> eligible =
-        Iterables.filter(moves, move -> !move.isDestUsedAsTemporary(this));
+        Iterables.filter(
+            moves,
+            move -> !move.isDestUsedAsTemporary(this) || move.isDestUsedAsTemporaryForSelf(this));
     RegisterMove move =
         Iterables.find(eligible, not(RegisterMove::isWide), eligible.iterator().next());
     moves.remove(move);
