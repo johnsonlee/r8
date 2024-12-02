@@ -95,7 +95,7 @@ def download_newest():
             top_most_version_and_build), KOTLINC_LIB,
         "kotlin-script-runtime.jar")
     download_and_save(
-        "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.jar", KOTLINC_LIB, "kotlinx-coroutines-core-jvm.jar")
+        "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.0/kotlinx-coroutines-core-jvm-1.8.0.jar", KOTLINC_LIB, "kotlinx-coroutines-core-jvm.jar")
     download_and_save(
         "https://repo1.maven.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.jar", KOTLINC_LIB, "trove4j.jar")
 
@@ -127,7 +127,7 @@ def check_pom(top_most_version_and_build):
                     .format(artifactId=artifactId, version=top_most_version_and_build))
         expected_dependencies.add('org.jetbrains.kotlin:kotlin-reflect:1.6.10')
         expected_dependencies.add('org.jetbrains.intellij.deps:trove4j:1.0.20200330')
-        expected_dependencies.add('org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4')
+        expected_dependencies.add('org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.0')
         if not coordinates in expected_dependencies:
             raise Exception('Unexpected dependency: ' + coordinates)
 
