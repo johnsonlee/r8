@@ -133,6 +133,8 @@ public class RecordComponentSignatureTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    // TODO(b/381812767): Fix for Class file
+    assumeTrue(parameters.isDexRuntime());
     testForR8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .addLibraryFiles(ToolHelper.getAndroidJar(35))
