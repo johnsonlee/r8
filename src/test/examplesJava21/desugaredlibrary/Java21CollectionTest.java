@@ -76,7 +76,7 @@ public class Java21CollectionTest extends DesugaredLibraryTestBase {
   }
 
   public String[] getExpectedResult() {
-    if (parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.MASTER)) {
+    if (parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V15_0_0)) {
       return EXPECTED_RESULT;
     }
     if (parameters.getDexRuntimeVersion().isOlderThanOrEqual(Version.V4_4_4)) {
