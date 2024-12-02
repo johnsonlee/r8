@@ -57,8 +57,8 @@ public class InlineLibraryInterfaceMethodTest extends TestBase {
             });
 
     // TODO(b/126323172) Add test here to check the same with desugared lambdas.
-    assertEquals(1, counts.run);
-    assertEquals(1, counts.println);
+    assertEquals(0, counts.run);
+    assertEquals(2, counts.println);
   }
 
   private static long countInvokesWithName(MethodSubject methodSubject, String name) {

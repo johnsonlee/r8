@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin.lambda;
 
 import static junit.framework.TestCase.assertEquals;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -100,36 +99,21 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
                   .assertNoOtherClassesMerged());
     } else {
       ClassReference mainKt = Reference.classFromTypeName(getMainClassName());
-      inspector.applyIf(
-          kotlinParameters.getLambdaGeneration().isClass(),
-          i -> {
-            i.assertIsCompleteMergeGroup(
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$3"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$4"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$5"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$6"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$7"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$8"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$9"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$10"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$11"),
-                lambdasInInput.getKStyleLambdaReferenceFromTypeName(
-                    getTestName(), "MainKt$testStateless$12"));
-          },
-          i ->
-              i.assertIsCompleteMergeGroup(
+      inspector
+          .applyIf(
+              kotlinParameters.getLambdaGeneration().isClass(),
+              i -> {
+                i.assertIsCompleteMergeGroup(
+                    lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                        getTestName(), "MainKt$testStateless$11"),
+                    lambdasInInput.getKStyleLambdaReferenceFromTypeName(
+                        getTestName(), "MainKt$testStateless$12"));
+              },
+              i ->
+                  i.assertIsCompleteMergeGroup(
                       SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 0),
-                      SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1))
-                  .assertNoOtherClassesMerged());
+                      SyntheticItemsTestUtils.syntheticLambdaClass(mainKt, 1)))
+          .assertNoOtherClassesMerged();
     }
   }
 
@@ -143,7 +127,7 @@ public class KotlinLambdaMergingTrivialKotlinStyleTest extends KotlinTestBase {
     assertEquals(
         kotlinParameters.getLambdaGeneration().isInvokeDynamic()
             ? 0
-            : allowAccessModification && parameters.isCfRuntime() ? 1 : 2,
+            : allowAccessModification && parameters.isCfRuntime() ? 1 : 1,
         lambdasInOutput.size());
   }
 

@@ -218,6 +218,9 @@ public class RootSetUtils {
         DexClass clazz,
         ProguardConfigurationRule rule,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      if (!satisfyNonSyntheticClass(clazz, appView)) {
+        return;
+      }
       if (!satisfyClassType(rule, clazz)) {
         return;
       }
@@ -862,6 +865,11 @@ public class RootSetUtils {
               },
               options);
       out.close();
+    }
+
+    static boolean satisfyNonSyntheticClass(DexClass clazz, AppView<?> appView) {
+      return !clazz.isProgramClass()
+          || !appView.getSyntheticItems().isSynthetic(clazz.asProgramClass());
     }
 
     static boolean satisfyClassType(ProguardConfigurationRule rule, DexClass clazz) {

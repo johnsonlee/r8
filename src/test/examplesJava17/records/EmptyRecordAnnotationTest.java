@@ -10,20 +10,17 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class EmptyRecordAnnotationTest extends TestBase {
-
-  private static final String EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD =
-      StringUtils.lines("class java.lang.Record", "class records.EmptyRecordAnnotationTest$Empty");
-  private static final String EXPECTED_RESULT_DESUGARED_RECORD =
-      StringUtils.lines(
-          "class com.android.tools.r8.RecordTag", "class records.EmptyRecordAnnotationTest$Empty");
 
   private final TestParameters parameters;
 
@@ -31,7 +28,7 @@ public class EmptyRecordAnnotationTest extends TestBase {
     this.parameters = parameters;
   }
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
@@ -46,7 +43,7 @@ public class EmptyRecordAnnotationTest extends TestBase {
     testForJvm(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD);
+        .apply(rr -> rr.assertSuccessWithOutput(getExpectedOutput(rr.inspector(), false, false)));
   }
 
   @Test
@@ -57,10 +54,11 @@ public class EmptyRecordAnnotationTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            isRecordsFullyDesugaredForD8(parameters),
-            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_DESUGARED_RECORD),
-            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD));
+        .apply(
+            rr ->
+                rr.assertSuccessWithOutput(
+                    getExpectedOutput(
+                        rr.inspector(), isRecordsFullyDesugaredForD8(parameters), true)));
   }
 
   @Test
@@ -74,17 +72,32 @@ public class EmptyRecordAnnotationTest extends TestBase {
         .addKeepRules("-keepattributes *Annotation*")
         .addKeepRules("-keep class records.EmptyRecordAnnotationTest$Empty")
         .addKeepMainRule(TestClass.class)
-        // This is used to avoid renaming com.android.tools.r8.RecordTag.
-        .applyIf(
-            isRecordsFullyDesugaredForR8(parameters),
-            b -> b.addKeepRules("-keep class java.lang.Record"))
         .compile()
         .applyIf(parameters.isCfRuntime(), r -> r.inspect(RecordTestUtils::assertRecordsAreRecords))
         .run(parameters.getRuntime(), TestClass.class)
-        .applyIf(
-            isRecordsFullyDesugaredForR8(parameters),
-            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_DESUGARED_RECORD),
-            r -> r.assertSuccessWithOutput(EXPECTED_RESULT_NATIVE_OR_PARTIALLY_DESUGARED_RECORD));
+        .apply(
+            rr ->
+                rr.assertSuccessWithOutput(
+                    getExpectedOutput(
+                        rr.inspector(), isRecordsFullyDesugaredForD8(parameters), false)));
+  }
+
+  private String getExpectedOutput(CodeInspector inspector, boolean isDesugared, boolean isD8) {
+    if (isDesugared) {
+      ClassSubject recordClass = inspector.clazz("java.lang.Record");
+      String recordName;
+      if (recordClass.isPresent() && !isD8) {
+        recordName = recordClass.getFinalName();
+      } else if (parameters.isCfRuntime()) {
+        recordName = "java.lang.Record";
+      } else {
+        recordName = "com.android.tools.r8.RecordTag";
+      }
+      return StringUtils.lines(
+          "class " + recordName, "class records.EmptyRecordAnnotationTest$Empty");
+    }
+    return StringUtils.lines(
+        "class java.lang.Record", "class records.EmptyRecordAnnotationTest$Empty");
   }
 
   record Empty() {}

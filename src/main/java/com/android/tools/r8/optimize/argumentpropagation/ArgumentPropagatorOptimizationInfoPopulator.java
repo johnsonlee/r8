@@ -142,7 +142,18 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
     } else if (fieldType.isClassType()) {
       ConcreteClassTypeValueState classState = state.asClassState();
       setAbstractValue(field, classState.getAbstractValue(appView));
-      setDynamicType(field, classState.getDynamicType());
+
+      DynamicTypeWithUpperBound existingDynamicType =
+          field.getOptimizationInfo().getDynamicType().asDynamicTypeWithUpperBound();
+      DynamicType computedDynamicType = classState.getDynamicType();
+      if (existingDynamicType == null
+          || existingDynamicType.isUnknown()
+          || (computedDynamicType.isDynamicTypeWithUpperBound()
+              && computedDynamicType
+                  .asDynamicTypeWithUpperBound()
+                  .strictlyLessThan(existingDynamicType, appView))) {
+        setDynamicType(field, computedDynamicType);
+      }
     } else {
       assert fieldType.isPrimitiveType();
       ConcretePrimitiveTypeValueState primitiveState = state.asPrimitiveState();

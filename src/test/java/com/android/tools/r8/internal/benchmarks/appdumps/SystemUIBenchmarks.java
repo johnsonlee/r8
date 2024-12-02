@@ -83,4 +83,9 @@ public class SystemUIBenchmarks extends BenchmarkBase {
   public void testBenchmarks() throws Exception {
     super.testBenchmarks();
   }
+
+  @Test
+  public void testSystemUIApp() throws Exception {
+    testBenchmarkWithName("SystemUIApp");
+  }
 }
