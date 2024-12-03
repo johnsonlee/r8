@@ -11,7 +11,9 @@ import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
@@ -27,6 +29,7 @@ import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
+import com.android.tools.r8.ir.desugar.records.RecordRewriterHelper;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.info.CallSiteOptimizationInfo;
 import com.android.tools.r8.lightir.LirCode;
@@ -323,9 +326,15 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
     public void registerCallSite(DexCallSite callSite) {
       LambdaDescriptor descriptor =
           LambdaDescriptor.tryInfer(callSite, appView, appViewWithLiveness.appInfo(), getContext());
-      if (descriptor == null || descriptor.interfaces.isEmpty()) {
-        return;
+      if (descriptor != null) {
+        registerLambdaCallSite(descriptor);
+      } else if (RecordRewriterHelper.isInvokeDynamicOnRecord(callSite, appView, getContext())) {
+        registerRecordCallSite(callSite);
       }
+    }
+
+    private void registerLambdaCallSite(LambdaDescriptor descriptor) {
+      assert !descriptor.interfaces.isEmpty();
       ProgramMethod resolvedMainMethod =
           appViewWithLiveness
               .appInfo()
@@ -340,6 +349,18 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
         markAffected();
       } else {
         assert !graphLens.hasPrototypeChanges(rewrittenMainMethod);
+      }
+    }
+
+    private void registerRecordCallSite(DexCallSite callSite) {
+      for (DexValue bootstrapArg : callSite.getBootstrapArgs()) {
+        if (bootstrapArg.isDexValueMethodHandle()) {
+          DexMethodHandle handle = bootstrapArg.asDexValueMethodHandle().getValue();
+          assert handle.isFieldHandle();
+          if (registerFieldAccess(handle.asField())) {
+            break;
+          }
+        }
       }
     }
 
@@ -363,19 +384,20 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
       registerFieldAccess(field);
     }
 
-    @SuppressWarnings("ReferenceEquality")
-    private void registerFieldAccess(DexField field) {
+    private boolean registerFieldAccess(DexField field) {
       FieldResolutionResult resolutionResult = appViewWithLiveness.appInfo().resolveField(field);
       if (resolutionResult.getSingleProgramField() == null) {
-        return;
+        return false;
       }
 
       ProgramField resolvedField = resolutionResult.getSingleProgramField();
       DexField rewrittenFieldReference =
           graphLens.getNextFieldSignature(resolvedField.getReference());
-      if (rewrittenFieldReference != resolvedField.getReference()) {
+      if (rewrittenFieldReference.isNotIdenticalTo(resolvedField.getReference())) {
         markAffected();
+        return true;
       }
+      return false;
     }
   }
 }
