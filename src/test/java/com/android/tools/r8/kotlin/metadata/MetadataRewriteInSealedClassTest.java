@@ -145,14 +145,14 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
         testForR8(parameters.getBackend())
             .addClasspathFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar())
             .addProgramFiles(sealedLibJarMap.getForConfiguration(kotlinParameters))
-            // Keep the Expr class
+            // Keep the Expr class.
             .applyIf(
                 kotlinc
                     .getCompilerVersion()
                     .isLessThanOrEqualTo(KotlinCompilerVersion.KOTLINC_1_4_20),
                 b -> b.addKeepClassAndDefaultConstructor("**.Expr"),
                 b -> b.addKeepClassRules("**.Expr"))
-            // Keep the extension function
+            // Keep the extension function.
             .addKeepRules("-keep class **.LibKt { <methods>; }")
             .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
             .compile()
@@ -177,9 +177,7 @@ public class MetadataRewriteInSealedClassTest extends KotlinMetadataTestBase {
   }
 
   private String sealedClassErrorMessage() {
-    if (kotlinParameters.isKotlinDev()) {
-      return "a class can only extend a sealed class or interface declared in the same package";
-    } else if (kotlinParameters.is(KOTLINC_2_0_20)) {
+    if (kotlinParameters.isNewerThanOrEqualTo(KOTLINC_2_0_20)) {
       return "extending sealed classes or interfaces from a different module is prohibited";
     } else {
       return "inheritance of sealed classes or interfaces from different module is prohibited";
