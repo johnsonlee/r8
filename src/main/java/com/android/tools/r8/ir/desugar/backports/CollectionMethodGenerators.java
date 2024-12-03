@@ -32,7 +32,7 @@ public final class CollectionMethodGenerators {
   }
 
   public static CfCode generateSetOf(DexItemFactory factory, DexMethod method, int formalCount) {
-    return generateFixedMethods(factory, method, formalCount, factory.setType);
+    return generateFixedMethods(factory, method, formalCount, factory.javaUtilSetType);
   }
 
   @SuppressWarnings("BadImport")
@@ -56,7 +56,7 @@ public final class CollectionMethodGenerators {
             factory.createMethod(
                 returnType,
                 factory.createProto(returnType, factory.objectArrayType),
-                factory.createString("of")),
+                factory.ofMethodName),
             false),
         new CfReturn(ValueType.OBJECT));
 
@@ -94,8 +94,8 @@ public final class CollectionMethodGenerators {
         new CfInvoke(
             Opcodes.INVOKESTATIC,
             factory.createMethod(
-                factory.mapType,
-                factory.createProto(factory.mapType, mapEntryArray),
+                factory.javaUtilMapType,
+                factory.createProto(factory.javaUtilMapType, mapEntryArray),
                 factory.createString("ofEntries")),
             false),
         new CfReturn(ValueType.OBJECT));

@@ -187,6 +187,7 @@ public class DexItemFactory {
   public final DexString notifyMethodName = createString("notify");
   public final DexString notifyAllMethodName = createString("notifyAll");
 
+  public final DexString ofMethodName = createString("of");
   public final DexString unboxBooleanMethodName = createString("booleanValue");
   public final DexString unboxByteMethodName = createString("byteValue");
   public final DexString unboxCharMethodName = createString("charValue");
@@ -487,8 +488,6 @@ public class DexItemFactory {
   public final DexType serviceLoaderType = createStaticallyKnownType(serviceLoaderDescriptor);
   public final DexType serviceLoaderConfigurationErrorType =
       createStaticallyKnownType(serviceLoaderConfigurationErrorDescriptor);
-  public final DexType setType = createStaticallyKnownType(setDescriptor);
-  public final DexType mapType = createStaticallyKnownType(mapDescriptor);
   public final DexType mapEntryType = createStaticallyKnownType(mapEntryDescriptor);
   public final DexType abstractMapSimpleEntryType =
       createStaticallyKnownType("Ljava/util/AbstractMap$SimpleEntry;");
@@ -623,6 +622,8 @@ public class DexItemFactory {
   public final DexType javaUtilFormattableType =
       createStaticallyKnownType("Ljava/util/Formattable;");
   public final DexType javaUtilListType = createStaticallyKnownType(listDescriptor);
+  public final DexType javaUtilMapType = createStaticallyKnownType(mapDescriptor);
+  public final DexType javaUtilSetType = createStaticallyKnownType(setDescriptor);
   public final DexType javaUtilArrayListType = createStaticallyKnownType("Ljava/util/ArrayList;");
   public final DexType javaUtilLinkedListType = createStaticallyKnownType("Ljava/util/LinkedList;");
   public final DexType comGoogleCommonCollectImmutableListType =
@@ -634,7 +635,6 @@ public class DexItemFactory {
       createStaticallyKnownType("Ljava/util/logging/Level;");
   public final DexType javaUtilLoggingLoggerType =
       createStaticallyKnownType("Ljava/util/logging/Logger;");
-  public final DexType javaUtilSetType = createStaticallyKnownType("Ljava/util/Set;");
   public final DexType javaUtilEnumMapType = createStaticallyKnownType("Ljava/util/EnumMap;");
   public final DexType javaUtilEnumSetType = createStaticallyKnownType("Ljava/util/EnumSet;");
 
@@ -747,12 +747,14 @@ public class DexItemFactory {
       new JavaMathBigIntegerMembers();
   public final JavaNioByteOrderMembers javaNioByteOrderMembers = new JavaNioByteOrderMembers();
   public final JavaUtilArraysMethods javaUtilArraysMethods = new JavaUtilArraysMethods();
-  public final JavaUtilComparatorMembers javaUtilComparatorMembers =
-      new JavaUtilComparatorMembers();
+  public final JavaUtilCollectionsMembers javaUtilCollectionsMembers =
+      new JavaUtilCollectionsMembers();
   public final JavaUtilConcurrentTimeUnitMembers javaUtilConcurrentTimeUnitMembers =
       new JavaUtilConcurrentTimeUnitMembers();
 
   public final JavaUtilListMembers javaUtilListMembers = new JavaUtilListMembers();
+  public final JavaUtilMapMembers javaUtilMapMembers = new JavaUtilMapMembers();
+  public final JavaUtilSetMembers javaUtilSetMembers = new JavaUtilSetMembers();
   public final JavaUtilLocaleMembers javaUtilLocaleMembers = new JavaUtilLocaleMembers();
   public final JavaUtilLoggingLevelMembers javaUtilLoggingLevelMembers =
       new JavaUtilLoggingLevelMembers();
@@ -777,7 +779,7 @@ public class DexItemFactory {
           javaIoFileMembers,
           javaMathBigIntegerMembers,
           javaNioByteOrderMembers,
-          javaUtilComparatorMembers,
+          javaUtilCollectionsMembers,
           javaUtilConcurrentTimeUnitMembers,
           javaUtilLocaleMembers,
           javaUtilLoggingLevelMembers);
@@ -868,9 +870,10 @@ public class DexItemFactory {
       createMethod(switchBootstrapType, switchBootstrapMethodProto, createString("enumSwitch"));
   public final DexProto typeSwitchProto = createProto(intType, objectType, intType);
   public final DexMethod enumDescMethod =
-      createMethod(enumDescType, createProto(enumDescType, classDescType, stringType), "of");
+      createMethod(
+          enumDescType, createProto(enumDescType, classDescType, stringType), ofMethodName);
   public final DexMethod classDescMethod =
-      createMethod(classDescType, createProto(classDescType, stringType), "of");
+      createMethod(classDescType, createProto(classDescType, stringType), ofMethodName);
   public final DexType objectMethodsType =
       createStaticallyKnownType("Ljava/lang/runtime/ObjectMethods;");
   public final DexType typeDescriptorType =
@@ -1486,16 +1489,26 @@ public class DexItemFactory {
     }
   }
 
-  public class JavaUtilComparatorMembers extends LibraryMembers {
+  public class JavaUtilCollectionsMembers extends LibraryMembers {
 
     public final DexField EMPTY_LIST =
         createField(javaUtilCollectionsType, javaUtilListType, "EMPTY_LIST");
+    public final DexField EMPTY_MAP =
+        createField(javaUtilCollectionsType, javaUtilMapType, "EMPTY_MAP");
     public final DexField EMPTY_SET =
         createField(javaUtilCollectionsType, javaUtilSetType, "EMPTY_SET");
+
+    public final DexMethod emptyList =
+        createMethod(javaUtilCollectionsType, createProto(javaUtilListType), "emptyList");
+    public final DexMethod emptyMap =
+        createMethod(javaUtilCollectionsType, createProto(javaUtilMapType), "emptyMap");
+    public final DexMethod emptySet =
+        createMethod(javaUtilCollectionsType, createProto(javaUtilSetType), "emptySet");
 
     @Override
     public void forEachFinalField(Consumer<DexField> consumer) {
       consumer.accept(EMPTY_LIST);
+      consumer.accept(EMPTY_MAP);
       consumer.accept(EMPTY_SET);
     }
   }
@@ -1536,6 +1549,18 @@ public class DexItemFactory {
         createMethod(javaUtilListType, createProto(objectType, intType), getString);
     public final DexMethod iterator =
         createMethod(javaUtilListType, createProto(javaUtilIteratorType), iteratorName);
+    public final DexMethod of0 =
+        createMethod(javaUtilListType, createProto(javaUtilListType), ofMethodName);
+  }
+
+  public class JavaUtilMapMembers {
+    public final DexMethod of0 =
+        createMethod(javaUtilMapType, createProto(javaUtilMapType), ofMethodName);
+  }
+
+  public class JavaUtilSetMembers {
+    public final DexMethod of0 =
+        createMethod(javaUtilSetType, createProto(javaUtilSetType), ofMethodName);
   }
 
   public class JavaUtilLocaleMembers extends LibraryMembers {
@@ -1586,7 +1611,6 @@ public class DexItemFactory {
   public class JavaUtilEnumSetMembers {
     private final DexString allOfString = createString("allOf");
     private final DexString noneOfString = createString("noneOf");
-    private final DexString ofString = createString("of");
     private final DexString rangeString = createString("range");
 
     public boolean isFactoryMethod(DexMethod invokedMethod) {
@@ -1596,7 +1620,7 @@ public class DexItemFactory {
       DexString name = invokedMethod.getName();
       return name.isIdenticalTo(allOfString)
           || name.isIdenticalTo(noneOfString)
-          || name.isIdenticalTo(ofString)
+          || name.isIdenticalTo(ofMethodName)
           || name.isIdenticalTo(rangeString);
     }
   }

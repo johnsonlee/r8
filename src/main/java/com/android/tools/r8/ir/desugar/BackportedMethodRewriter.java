@@ -320,7 +320,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       }
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.R)) {
         if (options.testing.alwaysBackportListSetMapMethods
-            || typeIsPresentWithoutBackportsFrom(factory.setType, AndroidApiLevel.R)) {
+            || typeIsPresentWithoutBackportsFrom(factory.javaUtilSetType, AndroidApiLevel.R)) {
           initializeAndroidRSetListMapMethodProviders(factory);
         }
         if (typeIsAbsentOrPresentWithoutBackportsFrom(factory.objectsType, AndroidApiLevel.R)) {
@@ -333,7 +333,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.S)) {
         initializeAndroidSMethodProviders(factory);
         if (options.testing.alwaysBackportListSetMapMethods
-            || typeIsPresentWithoutBackportsFrom(factory.setType, AndroidApiLevel.S)) {
+            || typeIsPresentWithoutBackportsFrom(factory.javaUtilSetType, AndroidApiLevel.S)) {
           initializeAndroidSSetListMapMethodProviders(factory);
         }
       }
@@ -368,7 +368,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       builder.put(factory.objectsType, AndroidApiLevel.K);
       builder.put(factory.optionalType, AndroidApiLevel.N);
       builder.put(factory.predicateType, AndroidApiLevel.N);
-      builder.put(factory.setType, AndroidApiLevel.B);
+      builder.put(factory.javaUtilSetType, AndroidApiLevel.B);
       builder.put(factory.streamType, AndroidApiLevel.N);
       builder.put(factory.supplierType, AndroidApiLevel.N);
       ImmutableMap<DexType, AndroidApiLevel> typeMinApi = builder.build();
@@ -1240,61 +1240,65 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       DexProto proto;
       DexMethod method;
 
-      // List<E> List.of(<args>) for 0 to 10 arguments and List.of(E[])
+      // Map empty collections to Collections.{EMPTY_LIST,EMPTY_MAP,EMPTY_SET}.
+      addProvider(
+          new InvokeRewriter(
+              factory.javaUtilListMembers.of0, CollectionMethodRewrites.REWRITE_EMPTY_LIST));
+      addProvider(
+          new InvokeRewriter(
+              factory.javaUtilMapMembers.of0, CollectionMethodRewrites.REWRITE_EMPTY_MAP));
+      addProvider(
+          new InvokeRewriter(
+              factory.javaUtilSetMembers.of0, CollectionMethodRewrites.REWRITE_EMPTY_SET));
+
+      // List<E> List.of(<args>) for 1 to 10 arguments and List.of(E[])
       type = factory.javaUtilListType;
       name = factory.createString("of");
-      for (int i = 0; i <= 10; i++) {
+      for (int i = 1; i <= 10; i++) {
         final int formalCount = i;
         proto = factory.createProto(type, Collections.nCopies(i, factory.objectType));
         method = factory.createMethod(type, proto, name);
         addProvider(
-            i == 0
-                ? new InvokeRewriter(method, CollectionMethodRewrites.rewriteListOfEmpty())
-                : new MethodGenerator(
-                    method,
-                    (options, methodArg) ->
-                        CollectionMethodGenerators.generateListOf(
-                            options, methodArg, formalCount)));
+            new MethodGenerator(
+                method,
+                (options, methodArg) ->
+                    CollectionMethodGenerators.generateListOf(options, methodArg, formalCount)));
       }
       proto = factory.createProto(type, factory.objectArrayType);
       method = factory.createMethod(type, proto, name);
       addProvider(
           new MethodGenerator(method, BackportedMethods::CollectionMethods_listOfArray, "ofArray"));
 
-      // Set<E> Set.of(<args>) for 0 to 10 arguments and Set.of(E[])
-      type = factory.setType;
+      // Set<E> Set.of(<args>) for 1 to 10 arguments and Set.of(E[])
+      type = factory.javaUtilSetType;
       name = factory.createString("of");
-      for (int i = 0; i <= 10; i++) {
+      for (int i = 1; i <= 10; i++) {
         final int formalCount = i;
         proto = factory.createProto(type, Collections.nCopies(i, factory.objectType));
         method = factory.createMethod(type, proto, name);
         addProvider(
-            i == 0
-                ? new InvokeRewriter(method, CollectionMethodRewrites.rewriteSetOfEmpty())
-                : new MethodGenerator(
-                    method,
-                    (options, methodArg) ->
-                        CollectionMethodGenerators.generateSetOf(options, methodArg, formalCount)));
+            new MethodGenerator(
+                method,
+                (options, methodArg) ->
+                    CollectionMethodGenerators.generateSetOf(options, methodArg, formalCount)));
       }
       proto = factory.createProto(type, factory.objectArrayType);
       method = factory.createMethod(type, proto, name);
       addProvider(
           new MethodGenerator(method, BackportedMethods::CollectionMethods_setOfArray, "ofArray"));
 
-      // Map<K, V> Map.of(<K, V args>) for 0 to 10 pairs and Map.ofEntries(Map.Entry<K, V>[])
-      type = factory.mapType;
+      // Map<K, V> Map.of(<K, V args>) for 1 to 10 pairs and Map.ofEntries(Map.Entry<K, V>[])
+      type = factory.javaUtilMapType;
       name = factory.createString("of");
-      for (int i = 0; i <= 10; i++) {
+      for (int i = 1; i <= 10; i++) {
         final int formalCount = i;
         proto = factory.createProto(type, Collections.nCopies(i * 2, factory.objectType));
         method = factory.createMethod(type, proto, name);
         addProvider(
-            i == 0
-                ? new InvokeRewriter(method, CollectionMethodRewrites.rewriteMapOfEmpty())
-                : new MethodGenerator(
-                    method,
-                    (ignore, methodArg) ->
-                        CollectionMethodGenerators.generateMapOf(factory, methodArg, formalCount)));
+            new MethodGenerator(
+                method,
+                (ignore, methodArg) ->
+                    CollectionMethodGenerators.generateMapOf(factory, methodArg, formalCount)));
       }
       proto = factory.createProto(type, factory.createArrayType(1, factory.mapEntryType));
       method = factory.createMethod(type, proto, "ofEntries");
@@ -1303,7 +1307,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
               method, BackportedMethods::CollectionMethods_mapOfEntries, "ofEntries"));
 
       // Map.Entry<K, V> Map.entry(K, V)
-      type = factory.mapType;
+      type = factory.javaUtilMapType;
       proto = factory.createProto(factory.mapEntryType, factory.objectType, factory.objectType);
       method = factory.createMethod(type, proto, "entry");
       addProvider(new MethodGenerator(method, BackportedMethods::CollectionMethods_mapEntry));
@@ -1327,22 +1331,22 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
               method, BackportedMethods::CollectionsMethods_copyOfList, "copyOfList"));
 
       // Set
-      type = factory.setType;
+      type = factory.javaUtilSetType;
 
       // Set Set.copyOf(Collection)
       name = factory.createString("copyOf");
-      proto = factory.createProto(factory.setType, factory.collectionType);
+      proto = factory.createProto(factory.javaUtilSetType, factory.collectionType);
       method = factory.createMethod(type, proto, name);
       addProvider(
           new MethodGenerator(
               method, BackportedMethods::CollectionsMethods_copyOfSet, "copyOfSet"));
 
       // Map
-      type = factory.mapType;
+      type = factory.javaUtilMapType;
 
       // Map Map.copyOf(Map)
       name = factory.createString("copyOf");
-      proto = factory.createProto(factory.mapType, factory.mapType);
+      proto = factory.createProto(factory.javaUtilMapType, factory.javaUtilMapType);
       method = factory.createMethod(type, proto, name);
       addProvider(
           new MethodGenerator(

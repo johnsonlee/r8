@@ -9,8 +9,11 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -25,6 +28,9 @@ public final class CollectionsBackportTest extends AbstractBackportTest {
   public CollectionsBackportTest(TestParameters parameters) {
     super(parameters, Collections.class, Main.class);
     registerTarget(AndroidApiLevel.K, 3);
+    if (parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.R)) {
+      registerFieldTarget(AndroidApiLevel.B, 3);
+    }
   }
 
   static final class Main extends MiniAssert {
@@ -32,6 +38,16 @@ public final class CollectionsBackportTest extends AbstractBackportTest {
       testEmptyEnumeration();
       testEmptyIterator();
       testEmptyListIterator();
+      testEmptyCollections();
+    }
+
+    private static void testEmptyCollections() {
+      // Do not exist on Java 8 and below.
+      if (!System.getProperty("java.version").startsWith("1.")) {
+        assertTrue(List.of().isEmpty());
+        assertTrue(Set.of().isEmpty());
+        assertTrue(Map.of().isEmpty());
+      }
     }
 
     private static void testEmptyEnumeration() {
