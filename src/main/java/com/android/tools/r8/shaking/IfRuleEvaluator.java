@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexDefinition;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
@@ -19,6 +20,7 @@ import com.android.tools.r8.shaking.ifrules.MaterializedSubsequentRulesOptimizer
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Pair;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.base.Equivalence.Wrapper;
@@ -122,8 +124,10 @@ public class IfRuleEvaluator {
 
   public void processActiveIfRulesWithoutMembers(
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
-      Iterable<DexProgramClass> newlyLiveClasses)
+      Map<DexType, DexProgramClass> newlyLiveClasses,
+      Timing timing)
       throws ExecutionException {
+    List<DexProgramClass> classMatches = new ArrayList<>(newlyLiveClasses.size());
     MapUtils.removeIf(
         ifRules,
         (ifRuleWrapper, ifRulesInEquivalence) -> {
@@ -131,15 +135,11 @@ public class IfRuleEvaluator {
           // -keep rule may vary (due to back references). So, we need to try all pairs of -if
           // rule and live types.
           ProguardIfRule ifRuleKey = ifRuleWrapper.get();
-          List<DexProgramClass> classMatches = new ArrayList<>();
-          for (DexProgramClass clazz : newlyLiveClasses) {
-            if (evaluateClassForIfRule(ifRuleKey, clazz)) {
-              classMatches.add(clazz);
-            }
-          }
+          evaluateClassesForIfRule(ifRuleKey, newlyLiveClasses, classMatches, timing);
           if (!classMatches.isEmpty()) {
             ifRulesInEquivalence.removeIf(
                 ifRule -> processActiveIfRuleWithWithoutMembers(ifRule, classMatches));
+            classMatches.clear();
           }
           return ifRulesInEquivalence.isEmpty();
         });
@@ -204,6 +204,32 @@ public class IfRuleEvaluator {
       boolean inheritanceResult = rootSetBuilder.satisfyInheritanceRule(target, memberRule);
       assert inheritanceResult;
     }
+  }
+
+  private void evaluateClassesForIfRule(
+      ProguardIfRule rule,
+      Map<DexType, DexProgramClass> newlyLiveClasses,
+      List<DexProgramClass> classMatches,
+      Timing timing) {
+    timing.begin("Evaluate precondition");
+    if (rule.getClassNames().hasSingleSpecificType()) {
+      timing.begin("Evaluate single class");
+      DexType singleSpecificType = rule.getClassNames().getSingleSpecificType();
+      DexProgramClass singleSpecificClass = newlyLiveClasses.get(singleSpecificType);
+      if (singleSpecificClass != null && evaluateClassForIfRule(rule, singleSpecificClass)) {
+        classMatches.add(singleSpecificClass);
+      }
+      timing.end();
+    } else {
+      for (DexProgramClass clazz : newlyLiveClasses.values()) {
+        timing.begin("Evaluate class");
+        if (evaluateClassForIfRule(rule, clazz)) {
+          classMatches.add(clazz);
+        }
+        timing.end();
+      }
+    }
+    timing.end();
   }
 
   /** Determines if {@param clazz} satisfies the given if-rule class specification. */

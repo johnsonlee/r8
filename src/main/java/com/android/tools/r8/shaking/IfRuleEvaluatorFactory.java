@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -30,6 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -151,7 +153,7 @@ public class IfRuleEvaluatorFactory
     ConsequentRootSet consequentRootSet =
         timing.time(
             "Find consequent items for -if rules...",
-            () -> processActiveIfRules(enqueuer, isFirstFixpoint));
+            () -> processActiveIfRules(enqueuer, isFirstFixpoint, timing));
     enqueuer.addConsequentRootSet(consequentRootSet);
     assert enqueuer.getNumberOfLiveItems() == numberOfLiveItemsAtStart;
   }
@@ -166,19 +168,23 @@ public class IfRuleEvaluatorFactory
     return !classesWithNewlyLiveMembers.isEmpty();
   }
 
-  private ConsequentRootSet processActiveIfRules(Enqueuer enqueuer, boolean isFirstFixpoint)
-      throws ExecutionException {
+  private ConsequentRootSet processActiveIfRules(
+      Enqueuer enqueuer, boolean isFirstFixpoint, Timing timing) throws ExecutionException {
     SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
     ConsequentRootSetBuilder consequentRootSetBuilder =
         ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
     IfRuleEvaluator evaluator =
         new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
+    timing.begin("If rules with members");
     if (shouldProcessActiveIfRulesWithMembers(isFirstFixpoint)) {
       processActiveIfRulesWithMembers(evaluator, isFirstFixpoint);
     }
+    timing.end();
+    timing.begin("If rules without members");
     if (shouldProcessActiveIfRulesWithoutMembers(isFirstFixpoint)) {
-      processActiveIfRulesWithoutMembers(evaluator, isFirstFixpoint);
+      processActiveIfRulesWithoutMembers(evaluator, isFirstFixpoint, timing);
     }
+    timing.end();
     return consequentRootSetBuilder.buildConsequentRootSet();
   }
 
@@ -211,13 +217,20 @@ public class IfRuleEvaluatorFactory
   }
 
   private void processActiveIfRulesWithoutMembers(
-      IfRuleEvaluator evaluator, boolean isFirstFixpoint) throws ExecutionException {
+      IfRuleEvaluator evaluator, boolean isFirstFixpoint, Timing timing) throws ExecutionException {
     if (isFirstFixpoint && !effectivelyFakeLiveClasses.isEmpty()) {
+      Map<DexType, DexProgramClass> newlyLiveClassesMap =
+          new IdentityHashMap<>(effectivelyFakeLiveClasses.size() + newlyLiveClasses.size());
+      effectivelyFakeLiveClasses.forEach(clazz -> newlyLiveClassesMap.put(clazz.getType(), clazz));
+      newlyLiveClasses.forEach(clazz -> newlyLiveClassesMap.put(clazz.getType(), clazz));
       evaluator.processActiveIfRulesWithoutMembers(
-          activeIfRulesWithoutMembers,
-          Iterables.concat(effectivelyFakeLiveClasses, newlyLiveClasses));
+          activeIfRulesWithoutMembers, newlyLiveClassesMap, timing);
     } else {
-      evaluator.processActiveIfRulesWithoutMembers(activeIfRulesWithoutMembers, newlyLiveClasses);
+      Map<DexType, DexProgramClass> newlyLiveClassesMap =
+          new IdentityHashMap<>(newlyLiveClasses.size());
+      newlyLiveClasses.forEach(clazz -> newlyLiveClassesMap.put(clazz.getType(), clazz));
+      evaluator.processActiveIfRulesWithoutMembers(
+          activeIfRulesWithoutMembers, newlyLiveClassesMap, timing);
     }
     newlyLiveClasses.clear();
   }

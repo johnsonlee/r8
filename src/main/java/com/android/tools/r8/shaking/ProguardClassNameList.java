@@ -85,9 +85,17 @@ public abstract class ProguardClassNameList {
   @Override
   public abstract int hashCode();
 
+  public abstract boolean hasSingleSpecificType();
+
+  public DexType getSingleSpecificType() {
+    return null;
+  }
+
   public abstract boolean hasSpecificTypes();
 
-  public abstract Set<DexType> getSpecificTypes();
+  public Set<DexType> getSpecificTypes() {
+    return null;
+  }
 
   public abstract boolean matches(DexType type);
 
@@ -165,13 +173,13 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
-    public boolean hasSpecificTypes() {
+    public boolean hasSingleSpecificType() {
       return false;
     }
 
     @Override
-    public Set<DexType> getSpecificTypes() {
-      return null;
+    public boolean hasSpecificTypes() {
+      return false;
     }
 
     @Override
@@ -227,6 +235,16 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
+    public boolean hasSingleSpecificType() {
+      return className.hasSpecificType();
+    }
+
+    @Override
+    public DexType getSingleSpecificType() {
+      return className.getSpecificType();
+    }
+
+    @Override
     public boolean hasSpecificTypes() {
       return className.hasSpecificType() || className.hasSpecificTypes();
     }
@@ -278,6 +296,7 @@ public abstract class ProguardClassNameList {
 
     private PositiveClassNameList(Collection<ProguardTypeMatcher> classNames) {
       this.classNames = ImmutableList.copyOf(classNames);
+      assert !hasSpecificTypes() || getSpecificTypes().size() > 1;
     }
 
     @Override
@@ -313,6 +332,11 @@ public abstract class ProguardClassNameList {
     @Override
     public int hashCode() {
       return Objects.hash(classNames);
+    }
+
+    @Override
+    public boolean hasSingleSpecificType() {
+      return false;
     }
 
     @Override
@@ -426,13 +450,13 @@ public abstract class ProguardClassNameList {
     }
 
     @Override
-    public boolean hasSpecificTypes() {
+    public boolean hasSingleSpecificType() {
       return false;
     }
 
     @Override
-    public Set<DexType> getSpecificTypes() {
-      return null;
+    public boolean hasSpecificTypes() {
+      return false;
     }
 
     @Override
