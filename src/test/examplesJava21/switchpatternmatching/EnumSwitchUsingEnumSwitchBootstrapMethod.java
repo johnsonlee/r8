@@ -42,6 +42,16 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
           "Trumps or Atouts",
           "The Fool or L'Excuse");
 
+  public static String EXPECTED_OUTPUT_ASCII =
+      StringUtils.lines(
+          "null",
+          "Spades or Piques",
+          "Hearts or Coeur",
+          "Diamonds or Carreaux",
+          "Clubs or Trefles",
+          "Trumps or Atouts",
+          "The Fool or L'Excuse");
+
   @Test
   public void testJvm() throws Exception {
     assumeTrue(parameters.isCfRuntime());
@@ -64,8 +74,9 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
     testForD8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        // Windows does not like the non ascii characters.
+        .run(parameters.getRuntime(), Main.class, ToolHelper.isWindows() ? "ascii" : "")
+        .assertSuccessWithOutput(ToolHelper.isWindows() ? EXPECTED_OUTPUT_ASCII : EXPECTED_OUTPUT);
   }
 
   @Test
@@ -96,8 +107,10 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
   }
 
   public static class Main {
+    static boolean ascii = false;
 
     public static void main(String[] args) {
+      ascii = args.length > 0 && args[0].equals("ascii");
       enumSwitch(null);
       enumSwitch(Tarot.SPADE);
       enumSwitch(Tarot.HEART);
@@ -111,7 +124,7 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
       switch (t1) {
         case null -> System.out.println("null");
         case SPADE -> System.out.println("Spades or Piques");
-        case HEART -> System.out.println("Hearts or C\u0153ur");
+        case HEART -> System.out.println(ascii ? "Hearts or Coeur" : "Hearts or C\u0153ur");
         case Tarot t when t == Tarot.DIAMOND -> System.out.println("Diamonds or Carreaux");
         case Tarot t when t == Tarot.CLUB -> System.out.println("Clubs or Trefles");
         case Tarot t when t == Tarot.TRUMP -> System.out.println("Trumps or Atouts");

@@ -8,6 +8,7 @@ import static org.junit.Assert.fail;
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8Command;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -29,7 +30,9 @@ public class JasminTestBase extends TestBase {
   protected ProcessResult runOnJavaRaw(JasminBuilder builder, String main) throws Exception {
     Path out = temp.newFolder().toPath();
     builder.writeClassFiles(out);
-    return ToolHelper.runJava(out, main);
+    // Run the code on the JVM from JDK-17, as at least one test in test InvalidClassNames will
+    // fail with a LinkageError and exit code != 0 for some invalid class names tested (a/b/c/a/D/).
+    return ToolHelper.runJava(CfRuntime.getCheckedInJdk17(), ImmutableList.of(out), main);
   }
 
   protected ProcessResult runOnJavaNoVerifyRaw(JasminBuilder builder, String main)
