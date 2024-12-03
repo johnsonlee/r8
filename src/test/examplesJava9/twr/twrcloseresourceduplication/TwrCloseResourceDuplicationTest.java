@@ -1,7 +1,7 @@
 // Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.desugar.twr;
+package twr.twrcloseresourceduplication;
 
 import static org.junit.Assert.assertEquals;
 
@@ -10,7 +10,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.examples.JavaExampleClassProxy;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
@@ -19,7 +19,6 @@ import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,18 +28,19 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import twr.twrcloseresourceduplication.asm.TwrCloseResourceDuplication$BarDump;
+import twr.twrcloseresourceduplication.asm.TwrCloseResourceDuplication$FooDump;
+import twr.twrcloseresourceduplication.asm.TwrCloseResourceDuplicationDump;
 
 @RunWith(Parameterized.class)
 public class TwrCloseResourceDuplicationTest extends TestBase {
 
-  private static final String PKG = "twrcloseresourceduplication";
-  private static final String EXAMPLE = "examplesJava9/" + PKG;
-  protected static final JavaExampleClassProxy MAIN =
-      new JavaExampleClassProxy(EXAMPLE, PKG + "/TwrCloseResourceDuplication");
-  protected static final JavaExampleClassProxy FOO =
-      new JavaExampleClassProxy(EXAMPLE, PKG + "/TwrCloseResourceDuplication$Foo");
-  protected static final JavaExampleClassProxy BAR =
-      new JavaExampleClassProxy(EXAMPLE, PKG + "/TwrCloseResourceDuplication$Bar");
+  protected static final String MAIN =
+      "twr.twrcloseresourceduplication.TwrCloseResourceDuplication";
+  protected static final String FOO =
+      "twr.twrcloseresourceduplication.TwrCloseResourceDuplication$Foo";
+  protected static final String BAR =
+      "twr.twrcloseresourceduplication.TwrCloseResourceDuplication$Bar";
 
   static final int INPUT_CLASSES = 3;
 
@@ -87,26 +87,29 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
         .toString();
   }
 
-  protected static List<Path> getProgramInputs() {
-    return ImmutableList.of(JavaExampleClassProxy.examplesJar(EXAMPLE));
+  protected static List<byte[]> getProgramInputs() throws Exception {
+    return ImmutableList.of(
+        TwrCloseResourceDuplicationDump.dump(),
+        TwrCloseResourceDuplication$FooDump.dump(),
+        TwrCloseResourceDuplication$BarDump.dump());
   }
 
   @Test
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
-        .addProgramFiles(getProgramInputs())
-        .run(parameters.getRuntime(), MAIN.typeName(), getZipFile())
+        .addProgramClassFileData(getProgramInputs())
+        .run(parameters.getRuntime(), MAIN, getZipFile())
         .assertSuccessWithOutput(EXPECTED);
   }
 
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
-        .addProgramFiles(getProgramInputs())
+        .addProgramClassFileData(getProgramInputs())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
         .setMinApi(parameters)
-        .run(parameters.getRuntime(), MAIN.typeName(), getZipFile())
+        .run(parameters.getRuntime(), MAIN, getZipFile())
         .assertSuccessWithOutput(EXPECTED)
         .inspect(
             inspector -> {
@@ -132,13 +135,13 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
-        .addProgramFiles(getProgramInputs())
+        .addProgramClassFileData(getProgramInputs())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
-        .addKeepMainRule(MAIN.typeName())
-        .addKeepClassAndMembersRules(FOO.typeName(), BAR.typeName())
+        .addKeepMainRule(MAIN)
+        .addKeepClassAndMembersRules(FOO, BAR)
         .setMinApi(parameters)
         .addDontObfuscate()
-        .run(parameters.getRuntime(), MAIN.typeName(), getZipFile())
+        .run(parameters.getRuntime(), MAIN, getZipFile())
         .assertSuccessWithOutput(EXPECTED)
         .inspect(
             inspector -> {
@@ -149,12 +152,12 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
                       .collect(Collectors.toSet());
               // R8 will optimize the generated methods for the two cases below where the thrown
               // exception is known or not, thus the synthetic methods will be 2.
-              Set<String> nonSyntheticClassOutput =
-                  ImmutableSet.of(FOO.typeName(), BAR.typeName(), MAIN.typeName());
+              Set<String> nonSyntheticClassOutput = ImmutableSet.of(FOO, BAR, MAIN);
               if (!hasTwrCloseResourceSupport(parameters.isDexRuntime())) {
                 Set<String> classOutputWithSynthetics = new HashSet<>(nonSyntheticClassOutput);
                 classOutputWithSynthetics.add(
-                    SyntheticItemsTestUtils.syntheticApiOutlineClass(BAR.getClassReference(), 0)
+                    SyntheticItemsTestUtils.syntheticApiOutlineClass(
+                            Reference.classFromTypeName(BAR), 0)
                         .getTypeName());
                 assertEquals(classOutputWithSynthetics, foundClasses);
               } else {
@@ -162,5 +165,4 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               }
             });
   }
-
 }

@@ -23,4 +23,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "tests_java_9"
 val root = rootProject.projectDir.parentFile.parentFile
+
 includeBuild(root.resolve("shared"))
+includeBuild(root.resolve("main"))
+includeBuild(root.resolve("test_modules").resolve("testbase"))

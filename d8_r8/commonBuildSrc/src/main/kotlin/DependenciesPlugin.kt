@@ -193,6 +193,7 @@ fun Project.buildExampleJars(name : String) : Task {
               from(compileOutput) {
                 include("${exampleDir.name}/**/*.class")
                 exclude("**/TestGenerator*")
+                exclude("${exampleDir.name}/twr/**")
               }
               // Copy additional resources into the jar.
               from(exampleDir) {

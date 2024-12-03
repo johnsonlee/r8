@@ -65,11 +65,6 @@ public abstract class RunExamplesJava9Test<B extends BaseCommand.Builder<? exten
       return self();
     }
 
-    C withArg(String arg) {
-      args.add(arg);
-      return self();
-    }
-
     void combinedOptionConsumer(InternalOptions options) {
       for (Consumer<InternalOptions> consumer : optionConsumers) {
         consumer.accept(options);
@@ -136,11 +131,6 @@ public abstract class RunExamplesJava9Test<B extends BaseCommand.Builder<? exten
   // Defines methods failing on JVM, specifies the output to be used for comparison.
   private static Map<String, String> expectedJvmResult =
       ImmutableMap.of(
-          "twr-close-resource",
-          "A\nE\nG\nH\nI\nJ\nK\n"
-              + "iA\niE\niG\niH\niI\niJ\niK\n"
-              + "1\n2\n3\n4\n5\n6\n7\n8\n99\n"
-              + "i1\ni2\ni3\ni4\ni5\ni6\ni7\ni8\ni99\n",
           "native-private-interface-methods",
           "0: s>i>a\n" + "1: d>i>s>i>a\n" + "2: l>i>s>i>a\n" + "3: x>s\n" + "4: c>d>i>s>i>a\n",
           "desugared-private-interface-methods",
@@ -197,16 +187,6 @@ public abstract class RunExamplesJava9Test<B extends BaseCommand.Builder<? exten
               assertThat(iFoo, isPresent());
               assertTrue(iFoo.getMethod().isPublicMethod());
             })
-        .run();
-  }
-
-  @Test
-  public void testTwrCloseResourceMethod() throws Throwable {
-    TestRunner<?> test = test("twr-close-resource", "twrcloseresource", "TwrCloseResourceTest");
-    test
-        .withMinApiLevel(AndroidApiLevel.I.getLevel())
-        .withKeepAll()
-        .withArg(test.getInputJar().toAbsolutePath().toString())
         .run();
   }
 

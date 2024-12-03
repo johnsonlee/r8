@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.desugar.suppressedexceptions;
 
-import static com.android.tools.r8.desugar.suppressedexceptions.TwrSuppressedExceptionsTest.getInvokesTo;
-import static com.android.tools.r8.desugar.suppressedexceptions.TwrSuppressedExceptionsTest.hasInvokesTo;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.DesugarTestConfiguration;
@@ -14,6 +12,10 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -135,5 +137,17 @@ public class SuppressedExceptionsTest extends TestBase {
         }
       }
     }
+  }
+
+  public static void hasInvokesTo(MethodSubject method, String callee, int count) {
+    List<InstructionSubject> getSuppressedCalls = getInvokesTo(method, callee);
+    assertEquals(count, getSuppressedCalls.size());
+  }
+
+  public static List<InstructionSubject> getInvokesTo(MethodSubject method, String callee) {
+    return method
+        .streamInstructions()
+        .filter(i -> i.isInvoke() && i.getMethod().getName().toString().equals(callee))
+        .collect(Collectors.toList());
   }
 }
