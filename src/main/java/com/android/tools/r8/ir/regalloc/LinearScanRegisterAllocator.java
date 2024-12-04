@@ -2901,17 +2901,20 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
   private void splitRangesForSpilledArgument(LiveIntervals spilled) {
     assert spilled.isSpilled();
     assert spilled.isArgumentInterval();
-    // Argument intervals are spilled to the original argument register. We don't know what
-    // that is yet, and therefore we split before the next use to make sure we get a usable
+    // Argument intervals are spilled to the original argument register. We don't know what that is
+    // yet, and therefore we split before the next constrained use to make sure we get a usable
     // register at the next use.
-    if (!spilled.getUses().isEmpty()) {
-      LiveIntervals split = spilled.splitBefore(spilled.getUses().first().getPosition(), mode);
-      if (split != spilled) {
-        unhandled.add(split);
-      } else {
-        spilled.setRegister(spilled.getSplitParent().getRegister());
-      }
+    LiveIntervalsUse firstUseWithConstraint = spilled.firstUseWithConstraint(mode);
+    if (firstUseWithConstraint == null
+        || (mode.is8BitRefinement()
+            && spilled.getSplitParent().getRegisterEnd() < numberOf4BitArgumentRegisters)) {
+      spilled.setRegister(spilled.getSplitParent().getRegister());
+      spilled.setSpilled(false);
+      return;
     }
+    LiveIntervals splitOfSplit = spilled.splitBefore(firstUseWithConstraint.getPosition(), mode);
+    assert splitOfSplit != spilled;
+    unhandled.add(splitOfSplit);
   }
 
   private void splitRangesForSpilledInterval(LiveIntervals spilled) {
