@@ -98,10 +98,11 @@ public abstract class PrimitiveMethodOptimizer extends StatelessLibraryMethodMod
   void optimizeUnboxMethod(
       IRCode code, InstructionListIterator instructionIterator, InvokeMethod unboxInvoke) {
     Value firstArg = unboxInvoke.getFirstArgument();
+    Value outValue = unboxInvoke.outValue();
     AbstractValue abstractValue = firstArg.getAbstractValue(appView, code.context());
     if (isMatchingSingleBoxedPrimitive(abstractValue)) {
       // Optimize Primitive.box(cst).unbox() into cst, possibly inter-procedurally.
-      if (unboxInvoke.hasOutValue()) {
+      if (outValue != null) {
         SingleBoxedPrimitiveValue singleBoxedNumber = abstractValue.asSingleBoxedPrimitive();
         instructionIterator.replaceCurrentInstruction(
             singleBoxedNumber
@@ -118,7 +119,9 @@ public abstract class PrimitiveMethodOptimizer extends StatelessLibraryMethodMod
       // Optimize Primitive.box(unboxed).unbox() into unboxed.
       InvokeMethod boxInvoke = firstArg.getAliasedValue().getDefinition().asInvokeMethod();
       assert boxInvoke.isInvokeStatic();
-      unboxInvoke.outValue().replaceUsers(boxInvoke.getFirstArgument());
+      if (outValue != null) {
+        outValue.replaceUsers(boxInvoke.getFirstArgument());
+      }
       instructionIterator.replaceCurrentInstructionByNullCheckIfPossible(appView, code.context());
     }
   }
