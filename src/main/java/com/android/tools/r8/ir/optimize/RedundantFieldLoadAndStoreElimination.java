@@ -336,13 +336,13 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
     }
 
     public boolean isFinal(DexClassAndField field) {
-      if (field.isProgramField()) {
+      if (field.isProgramField() || field.isClasspathField()) {
         // Treat this field as being final if it is declared final or we have determined a constant
         // value for it.
         return field.getDefinition().isFinal()
             || field.getDefinition().getOptimizationInfo().getAbstractValue().isSingleValue();
       }
-      return appView.libraryMethodOptimizer().isFinalLibraryField(field.getDefinition());
+      return appView.libraryMethodOptimizer().isFinalLibraryField(field.asLibraryField());
     }
 
     private DexClassAndField resolveField(DexField field) {

@@ -99,8 +99,12 @@ public class AbstractValueFactory {
 
   public SingleFieldValue createSingleFieldValue(DexField field, ObjectState state) {
     return state.isEmpty()
-        ? new SingleStatelessFieldValue(field)
+        ? createSingleStatelessFieldValue(field)
         : new SingleStatefulFieldValue(field, state);
+  }
+
+  public SingleFieldValue createSingleStatelessFieldValue(DexField field) {
+    return new SingleStatelessFieldValue(field);
   }
 
   public SingleNumberValue createSingleBooleanValue(boolean value) {

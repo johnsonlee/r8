@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
+import static com.android.tools.r8.utils.AndroidApiLevelUtils.isApiSafeForValueMaterialization;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
@@ -972,7 +973,9 @@ public class ArgumentPropagatorProgramOptimizer {
       if (staticType.isVoidType()) {
         return null;
       }
-      if (returnValue != null) {
+      if (returnValue != null
+          && isApiSafeForValueMaterialization(
+              returnValue, appView.computedMinApiLevel(), appView)) {
         return dexItemFactory.voidType;
       }
       KeepMethodInfo keepInfo = appView.getKeepInfo(method);

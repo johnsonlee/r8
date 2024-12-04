@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.analysis.fieldvalueanalysis.EmptyFieldSet;
 import com.android.tools.r8.ir.analysis.fieldvalueanalysis.UnknownFieldSet;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Collections;
@@ -223,8 +224,7 @@ public abstract class FieldInstruction extends Instruction {
     }
     AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy =
         appView.withClassHierarchy();
-    DexEncodedField field =
-        appViewWithClassHierarchy.appInfo().resolveField(getField()).getResolvedField();
+    DexClassAndField field = resolveField(appViewWithClassHierarchy, context).getResolutionPair();
     if (field == null) {
       return AbstractValue.unknown();
     }
@@ -233,6 +233,16 @@ public abstract class FieldInstruction extends Instruction {
     if (!assumeValue.isUnknown()) {
       return assumeValue;
     }
-    return field.getOptimizationInfo().getAbstractValue();
+    AbstractValue abstractValue = field.getOptimizationInfo().getAbstractValue();
+    if (!abstractValue.isUnknown()) {
+      return abstractValue;
+    }
+    if (field.isLibraryField()
+        && field.getAccessFlags().isStatic()
+        && appView.libraryMethodOptimizer().isFinalLibraryField(field.asLibraryField())) {
+      AbstractValueFactory factory = appView.abstractValueFactory();
+      return factory.createSingleStatelessFieldValue(field.getReference());
+    }
+    return abstractValue;
   }
 }

@@ -15,7 +15,6 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
-import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.LongInterval;
 
@@ -141,8 +140,7 @@ public class ProguardMemberRuleReturnValue {
         if (holder != null) {
           DexEncodedField field = holder.lookupUniqueStaticFieldWithName(fieldName);
           if (field != null) {
-            return abstractValueFactory.createSingleFieldValue(
-                field.getReference(), ObjectState.empty());
+            return abstractValueFactory.createSingleStatelessFieldValue(field.getReference());
           }
         }
         return AbstractValue.unknown();

@@ -5,6 +5,7 @@
 package com.android.tools.r8.utils;
 
 import static com.android.tools.r8.graph.DexLibraryClass.asLibraryClassOrNull;
+import static com.android.tools.r8.graph.LibraryField.asLibraryFieldOrNull;
 
 import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.androidapi.ComputedApiLevel;
@@ -21,6 +22,9 @@ import com.android.tools.r8.graph.LibraryClass;
 import com.android.tools.r8.graph.LibraryDefinition;
 import com.android.tools.r8.graph.LibraryMethod;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.analysis.value.SingleConstClassValue;
+import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
+import com.android.tools.r8.ir.analysis.value.SingleValue;
 import com.android.tools.r8.ir.optimize.inliner.NopWhyAreYouNotInliningReporter;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.google.common.collect.Sets;
@@ -63,6 +67,50 @@ public class AndroidApiLevelUtils {
       return false;
     }
     return true;
+  }
+
+  public static boolean isApiSafeForValueMaterialization(
+      SingleValue singleValue,
+      ProgramMethod context,
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    return isApiSafeForValueMaterialization(
+        singleValue, context.getDefinition().getApiLevelForCode(), appView);
+  }
+
+  public static boolean isApiSafeForValueMaterialization(
+      SingleValue singleValue,
+      ComputedApiLevel contextApiLevelForCode,
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    if (!appView.options().apiModelingOptions().isApiCallerIdentificationEnabled()) {
+      return true;
+    }
+    LibraryDefinition singleValueDefinition;
+    if (singleValue.isSingleConstClassValue()) {
+      SingleConstClassValue singleConstClassValue = singleValue.asSingleConstClassValue();
+      DexType baseType = singleConstClassValue.getType().toBaseType(appView.dexItemFactory());
+      if (baseType.isPrimitiveType()) {
+        return true;
+      }
+      assert baseType.isClassType();
+      singleValueDefinition = asLibraryClassOrNull(appView.definitionFor(baseType));
+    } else if (singleValue.isSingleFieldValue()) {
+      SingleFieldValue singleFieldValue = singleValue.asSingleFieldValue();
+      singleValueDefinition =
+          asLibraryFieldOrNull(appView.definitionFor(singleFieldValue.getField()));
+    } else {
+      return true;
+    }
+    if (singleValueDefinition == null) {
+      return true;
+    }
+    ComputedApiLevel singleValueApiLevel =
+        appView
+            .apiLevelCompute()
+            .computeApiLevelForLibraryReference(singleValueDefinition.getReference());
+    if (contextApiLevelForCode.isUnknownApiLevel()) {
+      return singleValueApiLevel.isEqualTo(appView.computedMinApiLevel());
+    }
+    return contextApiLevelForCode.isGreaterThanOrEqualTo(singleValueApiLevel);
   }
 
   public static ComputedApiLevel getApiReferenceLevelForMerging(

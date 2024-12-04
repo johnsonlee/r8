@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
-import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import java.util.Objects;
 
 public class AssumeInfo {
@@ -115,9 +114,7 @@ public class AssumeInfo {
       DexField rewrittenField = graphLens.getRenamedFieldSignature(field);
       if (rewrittenField != field) {
         SingleFieldValue rewrittenAssumeValue =
-            appView
-                .abstractValueFactory()
-                .createSingleFieldValue(rewrittenField, ObjectState.empty());
+            appView.abstractValueFactory().createSingleStatelessFieldValue(rewrittenField);
         return create(assumeType, rewrittenAssumeValue, isSideEffectFree);
       }
     }

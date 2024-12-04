@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.code.MaterializingInstructionsInfo;
 import com.android.tools.r8.ir.code.ValueFactory;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 
 public abstract class SingleValue extends AbstractValue implements InstanceFieldInitializationInfo {
 
@@ -53,7 +54,13 @@ public abstract class SingleValue extends AbstractValue implements InstanceField
   public final boolean isMaterializableInContext(AppView<?> appView, ProgramMethod context) {
     if (appView.enableWholeProgramOptimizations()) {
       assert appView.hasClassHierarchy();
-      return internalIsMaterializableInContext(appView.withClassHierarchy(), context);
+      AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy =
+          appView.withClassHierarchy();
+      if (!internalIsMaterializableInContext(appViewWithClassHierarchy, context)
+          || !AndroidApiLevelUtils.isApiSafeForValueMaterialization(
+              this, context, appViewWithClassHierarchy)) {
+        return false;
+      }
     }
     // All abstract values created in D8 should be accessible in all contexts.
     return true;
