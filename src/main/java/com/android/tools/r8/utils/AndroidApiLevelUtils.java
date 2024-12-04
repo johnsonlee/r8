@@ -34,30 +34,34 @@ import java.util.Set;
 public class AndroidApiLevelUtils {
 
   public static boolean isApiSafeForInlining(
-      ProgramMethod caller, ProgramMethod inlinee, InternalOptions options) {
+      ProgramMethod caller,
+      ProgramMethod inlinee,
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
     return isApiSafeForInlining(
-        caller, inlinee, options, NopWhyAreYouNotInliningReporter.getInstance());
+        caller, inlinee, appView, NopWhyAreYouNotInliningReporter.getInstance());
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public static boolean isApiSafeForInlining(
       ProgramMethod caller,
       ProgramMethod inlinee,
-      InternalOptions options,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
-    if (!options.apiModelingOptions().isApiCallerIdentificationEnabled()) {
+    if (!appView.options().apiModelingOptions().isApiCallerIdentificationEnabled()) {
       return true;
     }
-    if (caller.getHolderType() == inlinee.getHolderType()) {
+    if (caller.getHolder() == inlinee.getHolder()) {
       return true;
     }
     ComputedApiLevel callerApiLevelForCode = caller.getDefinition().getApiLevelForCode();
+    ComputedApiLevel inlineeApiLevelForCode = inlinee.getDefinition().getApiLevelForCode();
     if (callerApiLevelForCode.isUnknownApiLevel()) {
+      if (inlineeApiLevelForCode.isEqualTo(appView.computedMinApiLevel())) {
+        return true;
+      }
       whyAreYouNotInliningReporter.reportCallerHasUnknownApiLevel();
       return false;
     }
     // For inlining we only measure if the code has invokes into the library.
-    ComputedApiLevel inlineeApiLevelForCode = inlinee.getDefinition().getApiLevelForCode();
     if (!caller
         .getDefinition()
         .getApiLevelForCode()

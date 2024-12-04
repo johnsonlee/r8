@@ -28,7 +28,9 @@ public class EquivalentInstanceInitializerMergingWithApiUnsafeParameterTest exte
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    // Always use the min API level to prohibit constructor inlining so that the constructors of
+    // interest are still present at the time of horizontal class merging.
+    return getTestParameters().withAllRuntimes().withMinimumApiLevel().build();
   }
 
   @Test

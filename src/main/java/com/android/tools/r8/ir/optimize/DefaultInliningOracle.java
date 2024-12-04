@@ -156,7 +156,7 @@ public class DefaultInliningOracle implements InliningOracle {
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     // Do not inline if the inlinee is greater than the api caller level.
     // TODO(b/188498051): We should not force inline lower api method calls.
-    if (!isApiSafeForInlining(method, singleTarget, options, whyAreYouNotInliningReporter)) {
+    if (!isApiSafeForInlining(method, singleTarget, appView, whyAreYouNotInliningReporter)) {
       return false;
     }
 

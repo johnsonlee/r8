@@ -49,7 +49,7 @@ public class SingleCallerScanner {
         (callee, caller) ->
             callee.getDefinition().isLibraryMethodOverride().isPossiblyTrue()
                 || !appView.getKeepInfo(callee).isSingleCallerInliningAllowed(options, callee)
-                || !AndroidApiLevelUtils.isApiSafeForInlining(caller, callee, appView.options()));
+                || !AndroidApiLevelUtils.isApiSafeForInlining(caller, callee, appView));
     return traceInstructions(singleCallerMethodCandidates, executorService);
   }
 
