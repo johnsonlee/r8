@@ -57,6 +57,7 @@ public final class BackportedMethods {
 
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
     factory.createSynthesizedType("Landroid/os/Build$VERSION;");
+    factory.createSynthesizedType("Landroid/os/Build;");
     factory.createSynthesizedType("Ljava/lang/ArithmeticException;");
     factory.createSynthesizedType("Ljava/lang/AssertionError;");
     factory.createSynthesizedType("Ljava/lang/Double;");
@@ -121,6 +122,86 @@ public final class BackportedMethods {
     factory.createSynthesizedType("[Ljava/lang/Object;");
     factory.createSynthesizedType("[Ljava/lang/Throwable;");
     factory.createSynthesizedType("[Ljava/util/Map$Entry;");
+  }
+
+  public static CfCode AndroidOsBuildMethods_getMajorSdkVersion(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Landroid/os/Build$VERSION;"),
+                    factory.intType,
+                    factory.createString("SDK_INT"))),
+            new CfConstNumber(36, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label2),
+            label1,
+            new CfLoad(ValueType.INT, 0),
+            new CfConstNumber(100000, ValueType.INT),
+            new CfArithmeticBinop(CfArithmeticBinop.Opcode.Div, NumericType.INT),
+            new CfReturn(ValueType.INT),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(new int[] {0}, new FrameType[] {FrameType.intType()})),
+            new CfLoad(ValueType.INT, 0),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Landroid/os/Build;"),
+                    factory.createProto(factory.intType, factory.intType),
+                    factory.createString("getMajorSdkVersion")),
+                false),
+            new CfReturn(ValueType.INT),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode AndroidOsBuildMethods_getMinorSdkVersion(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Landroid/os/Build$VERSION;"),
+                    factory.intType,
+                    factory.createString("SDK_INT"))),
+            new CfConstNumber(36, ValueType.INT),
+            new CfIfCmp(IfType.GE, ValueType.INT, label2),
+            label1,
+            new CfConstNumber(0, ValueType.INT),
+            new CfReturn(ValueType.INT),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(new int[] {0}, new FrameType[] {FrameType.intType()})),
+            new CfLoad(ValueType.INT, 0),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Landroid/os/Build;"),
+                    factory.createProto(factory.intType, factory.intType),
+                    factory.createString("getMinorSdkVersion")),
+                false),
+            new CfReturn(ValueType.INT),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
   }
 
   public static CfCode AndroidOsBuildVersionMethods_getSdkIntFull(

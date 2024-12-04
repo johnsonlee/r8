@@ -36,6 +36,7 @@ public class GenerateBackportMethods extends MethodGenerationBase {
       factory.createType("Lcom/android/tools/r8/ir/desugar/backports/BackportedMethods;");
   private final List<Class<?>> METHOD_TEMPLATE_CLASSES =
       ImmutableList.of(
+          AndroidOsBuildMethods.class,
           AndroidOsBuildVersionMethods.class,
           AssertionErrorMethods.class,
           AtomicReferenceArrayMethods.class,
@@ -141,6 +142,30 @@ public class GenerateBackportMethods extends MethodGenerationBase {
     return instruction;
   }
 
+  private static CfInstruction rewriteToAndroidOsBuild(
+      DexItemFactory itemFactory, CfInstruction instruction) {
+    // Rewrite references to UnsafeStub to sun.misc.Unsafe.
+    if (instruction.isInvokeStatic()) {
+      CfInvoke invoke = instruction.asInvoke();
+      return new CfInvoke(
+          invoke.getOpcode(),
+          itemFactory.createMethod(
+              itemFactory.createType("Landroid/os/Build;"),
+              invoke.getMethod().getProto(),
+              invoke.getMethod().getName()),
+          invoke.isInterface());
+    }
+    if (instruction.isFrame()) {
+      return instruction
+          .asFrame()
+          .mapReferenceTypes(
+              type -> {
+                throw new RuntimeException("Unexpected CfFrame instruction.");
+              });
+    }
+    return instruction;
+  }
+
   private static CfInstruction rewriteToAndroidOsBuildVersion(
       DexItemFactory itemFactory, CfInstruction instruction) {
     // Rewrite references to UnsafeStub to sun.misc.Unsafe.
@@ -185,6 +210,14 @@ public class GenerateBackportMethods extends MethodGenerationBase {
       code.setInstructions(
           code.getInstructions().stream()
               .map(instruction -> rewriteToAndroidOsBuildVersion(factory, instruction))
+              .collect(Collectors.toList()));
+    }
+    if (holderName.equals("AndroidOsBuildMethods")
+        && (methodName.equals("getMinorSdkVersion") || methodName.equals("getMajorSdkVersion"))) {
+      code.setInstructions(
+          code.getInstructions().stream()
+              .map(instruction -> rewriteToAndroidOsBuildVersion(factory, instruction))
+              .map(instruction -> rewriteToAndroidOsBuild(factory, instruction))
               .collect(Collectors.toList()));
     }
     return code;

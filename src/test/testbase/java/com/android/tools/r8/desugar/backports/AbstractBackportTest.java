@@ -13,6 +13,8 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.D8TestBuilder;
+import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.D8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
@@ -225,9 +227,19 @@ public abstract class AbstractBackportTest extends TestBase {
         .apply(this::configureProgram)
         .setIncludeClassesChecksum(true)
         .compileWithExpectedDiagnostics(this::checkDiagnostics)
+        .apply(this::configure)
         .inspect(this::assertDesugaring)
+        .apply(this::configure)
         .run(parameters.getRuntime(), testClassName)
         .apply(runResultConsumer);
+  }
+
+  protected void configure(D8TestBuilder builder) throws Exception {
+    // For subclasses to further configure the test builder.
+  }
+
+  protected void configure(D8TestCompileResult result) throws Exception {
+    // For subclasses to further configure the compile result.
   }
 
   @Test

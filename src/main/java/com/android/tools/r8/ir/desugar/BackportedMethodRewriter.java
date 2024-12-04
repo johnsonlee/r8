@@ -110,11 +110,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     if (instruction.isInvoke()) {
       CfInvoke invoke = instruction.asInvoke();
       MethodProvider<DexMethod> methodProvider = getProviderOrNull(invoke.getMethod(), context);
-      if (methodProvider == null
-          || appView
-              .getSyntheticItems()
-              .isSyntheticOfKind(
-                  context.getContextType(), kinds -> kinds.BACKPORT_WITH_FORWARDING)) {
+      if (methodProvider == null || shouldNotBackportInContext(context)) {
         return DesugarDescription.nothing();
       }
       return desugarInstruction(invoke, methodProvider);
@@ -122,17 +118,20 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       assert instruction.isStaticFieldGet();
       CfStaticFieldRead staticGet = instruction.asStaticFieldGet();
       MethodProvider<DexField> methodProvider = getProviderOrNull(staticGet.getField());
-      if (methodProvider == null
-          || appView
-              .getSyntheticItems()
-              .isSyntheticOfKind(context.getContextType(), kinds -> kinds.BACKPORT_WITH_FORWARDING)
-          || appView
-              .getSyntheticItems()
-              .isSyntheticOfKind(context.getContextType(), kinds -> kinds.API_MODEL_OUTLINE)) {
+      if (methodProvider == null || shouldNotBackportInContext(context)) {
         return DesugarDescription.nothing();
       }
       return desugarInstruction(staticGet, methodProvider);
     }
+  }
+
+  private boolean shouldNotBackportInContext(ProgramMethod context) {
+    return appView
+            .getSyntheticItems()
+            .isSyntheticOfKind(context.getContextType(), kinds -> kinds.BACKPORT_WITH_FORWARDING)
+        || appView
+            .getSyntheticItems()
+            .isSyntheticOfKind(context.getContextType(), kinds -> kinds.API_MODEL_OUTLINE);
   }
 
   private DesugarDescription desugarInstruction(
@@ -1766,11 +1765,35 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     private void initializeAndroidBaklavaMethodProviders(DexItemFactory factory) {
+      DexType type;
+      DexString name;
+      DexProto proto;
+      DexMethod method;
+
+      // android.os.Build
+      type = factory.androidOsBuildType;
+
+      // int android.os.Build.getMajorSdkVersion(int)
+      name = factory.createString("getMajorSdkVersion");
+      proto = factory.createProto(factory.intType, factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(
+              method, BackportedMethods::AndroidOsBuildMethods_getMajorSdkVersion));
+
+      // int android.os.Build.getMinorSdkVersion(int)
+      name = factory.createString("getMinorSdkVersion");
+      proto = factory.createProto(factory.intType, factory.intType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new MethodWithForwardingGenerator(
+              method, BackportedMethods::AndroidOsBuildMethods_getMinorSdkVersion));
+
       // android.os.Build$VERSION
-      DexType type = factory.androidOsBuildVersionType;
+      type = factory.androidOsBuildVersionType;
 
       // int android.os.Build$VERSION.SDK_INT_FULL
-      DexString name = factory.createString("SDK_INT_FULL");
+      name = factory.createString("SDK_INT_FULL");
       DexField field = factory.createField(type, factory.intType, name);
       addProviderForField(
           new StaticFieldGetMethodWithForwardingGenerator(
@@ -2040,6 +2063,19 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
     public Code generateTemplateMethod(DexItemFactory dexItemFactory, DexMethod method) {
       return factory.create(dexItemFactory, method);
+    }
+  }
+
+  // Version of MethodGenerator for backports which will call the method they backport.
+  // Such backports will not go through backporting again as that would cause infinite recursion.
+  private static class MethodWithForwardingGenerator extends MethodGenerator {
+    MethodWithForwardingGenerator(DexMethod method, TemplateMethodFactory factory) {
+      super(method, factory);
+    }
+
+    @Override
+    protected SyntheticKind getSyntheticKind(SyntheticNaming naming) {
+      return naming.BACKPORT_WITH_FORWARDING;
     }
   }
 

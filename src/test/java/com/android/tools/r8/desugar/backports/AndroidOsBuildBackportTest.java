@@ -9,6 +9,7 @@ import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.desugar.backports.AndroidOsBuildVersionBackportTest.VERSION;
 import com.android.tools.r8.graph.AccessFlags;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -19,11 +20,14 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class AndroidOsBuildVersionBackportTest extends AbstractBackportTest {
+public class AndroidOsBuildBackportTest extends AbstractBackportTest {
 
   private static final String ANDROID_OS_BUILD_VERSION_TYPE_NAME = "android.os.Build$VERSION";
   private static final String ANDROID_OS_BUILD_VERSION_DESCRIPTOR =
       DescriptorUtils.javaTypeToDescriptor(ANDROID_OS_BUILD_VERSION_TYPE_NAME);
+  private static final String ANDROID_OS_BUILD_TYPE_NAME = "android.os.Build";
+  private static final String ANDROID_OS_BUILD_DESCRIPTOR =
+      DescriptorUtils.javaTypeToDescriptor(ANDROID_OS_BUILD_TYPE_NAME);
 
   @Parameters(name = "{0}")
   public static Iterable<?> data() {
@@ -33,11 +37,11 @@ public class AndroidOsBuildVersionBackportTest extends AbstractBackportTest {
         .build();
   }
 
-  public AndroidOsBuildVersionBackportTest(TestParameters parameters) throws IOException {
-    super(parameters, ANDROID_OS_BUILD_VERSION_TYPE_NAME, ImmutableList.of(getTestRunner()));
+  public AndroidOsBuildBackportTest(TestParameters parameters) throws IOException {
+    super(parameters, ANDROID_OS_BUILD_TYPE_NAME, ImmutableList.of(getTestRunner()));
 
-    // android.os.Build$VERSION.SDK_INT_FULL is on API 36.
-    registerFieldTarget(AndroidApiLevel.BAKLAVA, 1);
+    // android.os.Build getMajorSdkVersion and getMinorSdkVersion added on API 36.
+    registerTarget(AndroidApiLevel.BAKLAVA, 4);
   }
 
   @Override
@@ -51,41 +55,51 @@ public class AndroidOsBuildVersionBackportTest extends AbstractBackportTest {
   protected void configure(D8TestCompileResult result) throws Exception {
     result.addRunClasspathFiles(
         testForD8()
-            .addProgramClassFileData(getTransformedBuildVERSIONClassForRuntimeClasspath())
+            .addProgramClassFileData(getTransformedBuildVERSIONClass())
             .setMinApi(parameters.getApiLevel())
             .compile()
             .writeToZip());
   }
 
-  private static byte[] getTransformedBuildVERSIONClassForRuntimeClasspath()
-      throws IOException, NoSuchFieldException {
+  private static byte[] getTransformedBuildVERSIONClass() throws IOException, NoSuchFieldException {
     return transformer(VERSION.class)
         .setClassDescriptor(ANDROID_OS_BUILD_VERSION_DESCRIPTOR)
         .setAccessFlags(VERSION.class.getDeclaredField("SDK_INT"), AccessFlags::setFinal)
-        // Add the field SDK_INT_FULL at runtime. Even though it is backported and the field access
-        // is outlined the host VM fails with NoSuchFieldError.
-        .setAccessFlags(VERSION.class.getDeclaredField("SDK_INT_FULL"), AccessFlags::setFinal)
         .transform();
   }
 
   private static byte[] getTestRunner() throws IOException {
     return transformer(TestRunner.class)
         .replaceClassDescriptorInMethodInstructions(
-            descriptor(VERSION.class), ANDROID_OS_BUILD_VERSION_DESCRIPTOR)
+            descriptor(Build.class), ANDROID_OS_BUILD_DESCRIPTOR)
         .transform();
   }
 
-  // Minimal android.os.Build$VERSION for building TestRunner and for runtime classpath.
+  // Minimal android.os.Build for building TestRunner.
+  public static class /*android.os.*/ Build {
+
+    public static int getMajorSdkVersion(int sdkIntFull) {
+      throw new RuntimeException();
+    }
+
+    public static int getMinorSdkVersion(int sdkIntFull) {
+      throw new RuntimeException();
+    }
+  }
+
+  // Minimal android.os.Build$VERSION for runtime classpath.
   public static class /*android.os.Build$*/ VERSION {
 
-    public static /*final*/ int SDK_INT = 21; // Fake API level 21 for test.
-    public static /*final*/ int SDK_INT_FULL = -1;
+    public static /*final*/ int SDK_INT = -1;
   }
 
   public static class TestRunner extends MiniAssert {
 
     public static void main(String[] args) throws Exception {
-      assertEquals(2100_000, VERSION.SDK_INT_FULL);
+      assertEquals(1, Build.getMajorSdkVersion(100_000));
+      assertEquals(0, Build.getMinorSdkVersion(100_000));
+      assertEquals(35, Build.getMajorSdkVersion(3500_000));
+      assertEquals(0, Build.getMinorSdkVersion(3500_000));
     }
   }
 }
