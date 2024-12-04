@@ -67,7 +67,6 @@ public abstract class TestCompilerBuilder<
         options.testing.listIterationRewritingEnabled = true;
         options.horizontalClassMergerOptions().enable();
         options.horizontalClassMergerOptions().setEnableInterfaceMerging();
-        options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
         options
             .getCfCodeAnalysisOptions()
             .setAllowUnreachableCfBlocks(false)

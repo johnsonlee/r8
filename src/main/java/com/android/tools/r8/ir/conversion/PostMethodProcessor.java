@@ -85,11 +85,6 @@ public class PostMethodProcessor extends MethodProcessorWithWave {
   }
 
   @Override
-  public boolean hasWaves() {
-    return true;
-  }
-
-  @Override
   public boolean isPostMethodProcessor() {
     return true;
   }

@@ -21,7 +21,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
-import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.proto.ProtoInliningReasonStrategy;
@@ -70,7 +69,6 @@ import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
-import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.ImmutableList;
@@ -86,7 +84,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -103,10 +100,6 @@ public class Inliner {
 
   private final MultiCallerInliner multiCallerInliner;
 
-  // The set of final fields that have been assigned by a constructor that has been inlined in the
-  // current wave.
-  private final ProgramFieldSet inlinedFinalFieldsInWave = ProgramFieldSet.createConcurrent();
-
   // The set of methods that have been single caller inlined in the current wave. These need to be
   // pruned when the wave ends.
   private final Map<DexProgramClass, ProgramMethodMap<ProgramMethod>>
@@ -115,8 +108,6 @@ public class Inliner {
       Sets.newIdentityHashSet();
 
   private final AvailableApiExceptions availableApiExceptions;
-
-  private final AtomicBoolean waveDoneScheduled = new AtomicBoolean();
 
   public Inliner(AppView<AppInfoWithLiveness> appView) {
     this(appView, null);
@@ -574,7 +565,7 @@ public class Inliner {
     final Reason reason;
 
     private boolean shouldEnsureStaticInitialization;
-    private ProgramFieldSet shouldEnsureStoreStoreFenceCauses;
+    private boolean shouldEnsureStoreStoreBarrier;
 
     private DexProgramClass downcastClass;
 
@@ -605,8 +596,8 @@ public class Inliner {
       shouldEnsureStaticInitialization = true;
     }
 
-    void setShouldEnsureStoreStoreFenceCauses(ProgramFieldSet shouldEnsureStoreStoreFenceCauses) {
-      this.shouldEnsureStoreStoreFenceCauses = shouldEnsureStoreStoreFenceCauses;
+    void setShouldEnsureStoreStoreBarrier() {
+      shouldEnsureStoreStoreBarrier = true;
     }
 
     boolean mustBeInlined() {
@@ -635,9 +626,9 @@ public class Inliner {
             failingBlock -> synthesizeInitClass(code, failingBlock));
       }
 
-      // Insert a store-store fence at the end of the method.
-      if (shouldEnsureStoreStoreFenceCauses != null) {
-        synthesizeStoreStoreFence(appView, code);
+      // Insert a store-store barrier at the end of the method.
+      if (shouldEnsureStoreStoreBarrier) {
+        synthesizeStoreStoreBarrier(appView, code);
       }
 
       // Insert a null check if this is needed to preserve the implicit null check for the receiver.
@@ -834,7 +825,7 @@ public class Inliner {
       }
     }
 
-    private void synthesizeStoreStoreFence(AppView<AppInfoWithLiveness> appView, IRCode code) {
+    private void synthesizeStoreStoreBarrier(AppView<AppInfoWithLiveness> appView, IRCode code) {
       assert target.getDefinition().isInstanceInitializer();
       BasicBlockIterator blockIterator = code.listIterator();
       while (blockIterator.hasNext()) {
@@ -842,23 +833,10 @@ public class Inliner {
         if (!block.isReturnBlock()) {
           continue;
         }
-        InstructionListIterator instructionIterator;
-        if (block.hasCatchHandlers()) {
-          instructionIterator = block.listIterator();
-          Instruction throwingInstruction =
-              instructionIterator.nextUntil(Instruction::instructionTypeCanThrow);
-          if (throwingInstruction != null) {
-            instructionIterator =
-                instructionIterator
-                    .splitCopyCatchHandlers(code, blockIterator, appView.options())
-                    .listIterator();
-          } else {
-            Instruction previousInstruction = instructionIterator.previous();
-            assert previousInstruction.isReturn();
-          }
-        } else {
-          instructionIterator = block.listIterator(block.getInstructions().size() - 1);
-        }
+        // It is an invariant that return blocks do not have catch handlers.
+        assert !block.hasCatchHandlers();
+        InstructionListIterator instructionIterator =
+            block.listIterator(block.getInstructions().size() - 1);
         DexMethod storeStoreFenceMethod =
             appView.dexItemFactory().javaLangInvokeVarHandleMembers.storeStoreFence;
         assert appView.definitionFor(storeStoreFenceMethod) != null;
@@ -889,7 +867,7 @@ public class Inliner {
       private InvokeMethod invoke;
       private Reason reason;
       private boolean shouldEnsureStaticInitialization;
-      private ProgramFieldSet shouldEnsureStoreStoreFenceCauses;
+      private boolean shouldEnsureStoreStoreBarrier;
       private ProgramMethod target;
 
       Builder setDowncastClass(DexProgramClass downcastClass) {
@@ -912,11 +890,8 @@ public class Inliner {
         return this;
       }
 
-      Builder setShouldEnsureStoreStoreFence(ProgramField finalFieldCause) {
-        if (shouldEnsureStoreStoreFenceCauses == null) {
-          shouldEnsureStoreStoreFenceCauses = ProgramFieldSet.create();
-        }
-        shouldEnsureStoreStoreFenceCauses.add(finalFieldCause);
+      Builder setShouldEnsureStoreStoreBarrier() {
+        this.shouldEnsureStoreStoreBarrier = true;
         return this;
       }
 
@@ -933,8 +908,8 @@ public class Inliner {
         if (shouldEnsureStaticInitialization) {
           action.setShouldEnsureStaticInitialization();
         }
-        if (shouldEnsureStoreStoreFenceCauses != null) {
-          action.setShouldEnsureStoreStoreFenceCauses(shouldEnsureStoreStoreFenceCauses);
+        if (shouldEnsureStoreStoreBarrier) {
+          action.setShouldEnsureStoreStoreBarrier();
         }
         return action;
       }
@@ -1174,13 +1149,6 @@ public class Inliner {
           iterator.inlineInvoke(
               appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
 
-          if (action.shouldEnsureStoreStoreFenceCauses != null) {
-            assert !action.shouldEnsureStoreStoreFenceCauses.isEmpty();
-            assert converter.isInWave();
-            inlinedFinalFieldsInWave.addAll(action.shouldEnsureStoreStoreFenceCauses);
-            scheduleWaveDone();
-          }
-
           if (methodProcessor.getCallSiteInformation().hasSingleCallSite(singleTarget, context)) {
             feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
             appView.withArgumentPropagator(
@@ -1189,7 +1157,9 @@ public class Inliner {
                         singleTarget, context, methodProcessor));
             if (!(methodProcessor instanceof OneTimeMethodProcessor)) {
               assert converter.isInWave();
-              scheduleWaveDone();
+              if (singleCallerInlinedMethodsInWave.isEmpty()) {
+                converter.addWaveDoneAction(this::onWaveDone);
+              }
               singleCallerInlinedMethodsInWave
                   .computeIfAbsent(
                       singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
@@ -1369,7 +1339,6 @@ public class Inliner {
   }
 
   private void onWaveDone() {
-    inlinedFinalFieldsInWave.forEach(field -> field.getAccessFlags().demoteFromFinal());
     singleCallerInlinedMethodsInWave.forEach(
         (clazz, singleCallerInlinedMethodsForClass) -> {
           // Convert and remove virtual single caller inlined methods to abstract or throw null.
@@ -1415,15 +1384,7 @@ public class Inliner {
                 });
           }
         });
-    inlinedFinalFieldsInWave.clear();
     singleCallerInlinedMethodsInWave.clear();
-    waveDoneScheduled.set(false);
-  }
-
-  private void scheduleWaveDone() {
-    if (!waveDoneScheduled.getAndSet(true)) {
-      converter.addWaveDoneAction(this::onWaveDone);
-    }
   }
 
   public void onLastWaveDone(
