@@ -5,9 +5,10 @@ package com.android.tools.r8.ir.optimize.inliner;
 
 import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isFinal;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.AlwaysInline;
 import com.android.tools.r8.TestBase;
@@ -15,9 +16,9 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.Reference;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.FieldSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,11 +46,6 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
             parameters.isDexRuntime(),
             testBuilder -> testBuilder.addLibraryFiles(ToolHelper.getMostRecentAndroidJar()))
         .addKeepMainRule(Main.class)
-        .addOptionsModification(
-            options -> {
-              assertFalse(options.inlinerOptions().enableConstructorInliningWithFinalFields);
-              options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
-            })
         .enableAlwaysInliningAnnotations()
         .setMinApi(parameters)
         .compile()
@@ -58,17 +54,24 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
               ClassSubject mainClassSubject = inspector.clazz(Main.class);
               assertThat(mainClassSubject, isPresent());
 
+              FieldSubject xFieldSubject = mainClassSubject.uniqueFieldWithOriginalName("x");
+              assertThat(xFieldSubject, isPresent());
+
+              FieldSubject yFieldSubject = mainClassSubject.uniqueFieldWithOriginalName("y");
+              assertThat(yFieldSubject, isPresent());
+
               MethodSubject initMethodSubject = mainClassSubject.init("int", "int");
               assertThat(
                   initMethodSubject,
-                  isAbsentIf(
-                      parameters.isDexRuntime()
-                          && parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.P)));
+                  isAbsentIf(parameters.canUseJavaLangInvokeVarHandleStoreStoreFence()));
 
               MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
               assertThat(mainMethodSubject, isPresent());
+
               if (initMethodSubject.isPresent()) {
                 assertThat(mainMethodSubject, invokesMethod(initMethodSubject));
+                assertThat(xFieldSubject, isFinal());
+                assertThat(yFieldSubject, isFinal());
               } else {
                 assertThat(
                     mainMethodSubject,
@@ -78,6 +81,8 @@ public class InlineConstructorWithFinalFieldsTest extends TestBase {
                     invokesMethod(
                         Reference.methodFromDescriptor(
                             "Ljava/lang/invoke/VarHandle;", "storeStoreFence", "()V")));
+                assertThat(xFieldSubject, not(isFinal()));
+                assertThat(yFieldSubject, not(isFinal()));
               }
             })
         .run(parameters.getRuntime(), Main.class, "20", "22")

@@ -8,6 +8,10 @@ import com.android.tools.r8.ir.conversion.callgraph.CallSiteInformation;
 
 public abstract class MethodProcessor {
 
+  public boolean hasWaves() {
+    return false;
+  }
+
   public boolean isD8MethodProcessor() {
     return false;
   }

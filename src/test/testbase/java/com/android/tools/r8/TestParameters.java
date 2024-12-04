@@ -85,6 +85,10 @@ public class TestParameters {
         .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport());
   }
 
+  public boolean canUseJavaLangInvokeVarHandleStoreStoreFence() {
+    return isDexRuntime() && getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.T);
+  }
+
   public boolean canUseNativeDexPC() {
     assert isCfRuntime() || isDexRuntime();
     return isDexRuntime() && getDexRuntimeVersion().isNewerThanOrEqual(DexVm.Version.V8_1_0);

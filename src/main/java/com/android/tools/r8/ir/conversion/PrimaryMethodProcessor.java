@@ -71,6 +71,11 @@ public class PrimaryMethodProcessor extends MethodProcessorWithWave {
   }
 
   @Override
+  public boolean hasWaves() {
+    return true;
+  }
+
+  @Override
   public boolean isPrimaryMethodProcessor() {
     return true;
   }

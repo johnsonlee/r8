@@ -2681,11 +2681,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return !appView.enableWholeProgramOptimizations();
   }
 
-  public boolean canAssignFinalInstanceFieldOutsideConstructor() {
-    // ART does not check this property.
-    return isGeneratingDex();
-  }
-
   /**
    * Dex2Oat issues a warning for abstract methods on non-abstract classes, so we never allow this.
    *
@@ -2887,7 +2882,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public boolean canUseJavaLangVarHandleStoreStoreFence(DexDefinitionSupplier definitions) {
-    if (isGeneratingDex() && hasMinApi(AndroidApiLevel.P)) {
+    if (isGeneratingDex() && hasMinApi(AndroidApiLevel.T)) {
       DexItemFactory factory = definitions.dexItemFactory();
       return definitions.hasDefinitionFor(factory.javaLangInvokeVarHandleMembers.storeStoreFence);
     }
