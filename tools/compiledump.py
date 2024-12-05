@@ -412,7 +412,7 @@ def determine_feature_output(feature_input, temp):
             base_path, output_name(split[0], '.jar'))
         feature_res = os.path.join(base_path, output_name(split[1], '.ap_'))
         return '%s:%s' % (feature_jar, feature_res)
-    return os.path.join(base_path, output_name(feature_input))
+    return os.path.join(base_path, output_name(feature_input, '.jar'))
 
 
 def determine_program_jar(args, dump):
