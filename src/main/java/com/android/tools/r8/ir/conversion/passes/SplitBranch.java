@@ -141,7 +141,7 @@ public class SplitBranch extends CodeRewriterPass<AppInfo> {
         BasicBlock phiBlock = phi.getBlock();
         for (int i = 0; i < phi.getOperands().size(); i++) {
           Value value = phi.getOperand(i);
-          if (value.isConstant()) {
+          if (value.isConstNumber()) {
             recordNewTargetForGoto(value, phiBlock.getPredecessors().get(i), theIf, newTargets);
           }
         }
