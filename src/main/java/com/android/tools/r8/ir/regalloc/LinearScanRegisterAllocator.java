@@ -1484,68 +1484,76 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
             split -> split.isInvokeRangeIntervals() && !split.hasRegister());
     timing.end();
     timing.begin("Process splits");
-    for (LiveIntervals split : invokeRangeIntervals) {
-      timing.begin("Extract list");
-      Invoke invoke = split.getIsInvokeRangeIntervals();
-      List<LiveIntervals> intervalsList =
-          ListUtils.map(
-              invoke.arguments(),
-              invokeArgument -> {
-                LiveIntervals overlappingInvokeArgumentIntervals =
-                    invokeArgument.getLiveIntervals().getSplitCovering(invoke);
-                assert !overlappingInvokeArgumentIntervals.hasRegister();
-                assert overlappingInvokeArgumentIntervals.getStart() == invoke.getNumber() - 1;
-                assert overlappingInvokeArgumentIntervals.getEnd() == invoke.getNumber()
-                    || overlappingInvokeArgumentIntervals.getEnd() == invoke.getNumber() + 1;
-                return overlappingInvokeArgumentIntervals;
-              });
-      timing.end();
-      timing.begin("Prelude");
-
-      // Save the current register allocation state so we can restore it at the end.
-      timing.begin("Copy free registers");
-      IntSortedSet savedFreeRegisters = new IntRBTreeSet(freeRegisters);
-      int savedMaxRegisterNumber = maxRegisterNumber;
-      timing.end();
-
-      // Simulate adding all the active intervals to the inactive set by blocking their register if
-      // they overlap with any of the invoke/range intervals.
-      timing.begin("Overlaps active");
-      for (LiveIntervals active : active) {
-        // We could allow the use of all the currently active registers for the ranged invoke (by
-        // adding the registers for all the active intervals to freeRegisters here). That could lead
-        // to lower register pressure. However, it would also often mean that we cannot allocate the
-        // right argument register to the current unhandled interval. Size measurements on GMSCore
-        // indicate that blocking the current active registers works the best for code size.
-        if (Iterables.any(intervalsList, active::overlaps)) {
-          excludeRegistersForInterval(active);
-        } else if (active.isArgumentInterval()) {
-          // Allow the ranged invoke to use argument registers if free. This improves register
-          // allocation for bridge methods that forwards all of their arguments after check-cast
-          // checks on their types.
-          freeOccupiedRegistersForIntervals(active);
-        }
-      }
-      timing.end();
-
-      timing.begin("Remove intervals from unhandled");
-      intervalsList.forEach(LiveIntervals::setHandled);
-      timing.end();
-      timing.end();
-      timing.begin("Allocate");
-      allocateLinkedIntervals(intervalsList, invoke);
-      timing.end();
-      timing.begin("Postlude");
-      // Restore the register allocation state.
-      freeRegisters = savedFreeRegisters;
-      // In case maxRegisterNumber has changed, update freeRegisters.
-      for (int i = savedMaxRegisterNumber + 1; i <= maxRegisterNumber; i++) {
-        freeRegisters.add(i);
-      }
-      // Move all the argument intervals to the inactive set.
-      inactive.addAll(intervalsList);
-      timing.end();
+    if (unhandledIntervals.isSplitParent() && unhandledIntervals.isInvokeRangeIntervals()) {
+      allocateRegistersForInvokeRangeSplit(unhandledIntervals);
     }
+    for (LiveIntervals split : invokeRangeIntervals) {
+      allocateRegistersForInvokeRangeSplit(split);
+    }
+    timing.end();
+  }
+
+  private void allocateRegistersForInvokeRangeSplit(LiveIntervals split) {
+
+    timing.begin("Extract list");
+    Invoke invoke = split.getIsInvokeRangeIntervals();
+    List<LiveIntervals> intervalsList =
+        ListUtils.map(
+            invoke.arguments(),
+            invokeArgument -> {
+              LiveIntervals overlappingInvokeArgumentIntervals =
+                  invokeArgument.getLiveIntervals().getSplitCovering(invoke);
+              assert !overlappingInvokeArgumentIntervals.hasRegister();
+              assert overlappingInvokeArgumentIntervals.getStart() == invoke.getNumber() - 1;
+              assert overlappingInvokeArgumentIntervals.getEnd() == invoke.getNumber()
+                  || overlappingInvokeArgumentIntervals.getEnd() == invoke.getNumber() + 1;
+              return overlappingInvokeArgumentIntervals;
+            });
+    timing.end();
+    timing.begin("Prelude");
+
+    // Save the current register allocation state so we can restore it at the end.
+    timing.begin("Copy free registers");
+    IntSortedSet savedFreeRegisters = new IntRBTreeSet(freeRegisters);
+    int savedMaxRegisterNumber = maxRegisterNumber;
+    timing.end();
+
+    // Simulate adding all the active intervals to the inactive set by blocking their register if
+    // they overlap with any of the invoke/range intervals.
+    timing.begin("Overlaps active");
+    for (LiveIntervals active : active) {
+      // We could allow the use of all the currently active registers for the ranged invoke (by
+      // adding the registers for all the active intervals to freeRegisters here). That could lead
+      // to lower register pressure. However, it would also often mean that we cannot allocate the
+      // right argument register to the current unhandled interval. Size measurements on GMSCore
+      // indicate that blocking the current active registers works the best for code size.
+      if (Iterables.any(intervalsList, active::overlaps)) {
+        excludeRegistersForInterval(active);
+      } else if (active.isArgumentInterval()) {
+        // Allow the ranged invoke to use argument registers if free. This improves register
+        // allocation for bridge methods that forwards all of their arguments after check-cast
+        // checks on their types.
+        freeOccupiedRegistersForIntervals(active);
+      }
+    }
+    timing.end();
+
+    timing.begin("Remove intervals from unhandled");
+    intervalsList.forEach(LiveIntervals::setHandled);
+    timing.end();
+    timing.end();
+    timing.begin("Allocate");
+    allocateLinkedIntervals(intervalsList, invoke);
+    timing.end();
+    timing.begin("Postlude");
+    // Restore the register allocation state.
+    freeRegisters = savedFreeRegisters;
+    // In case maxRegisterNumber has changed, update freeRegisters.
+    for (int i = savedMaxRegisterNumber + 1; i <= maxRegisterNumber; i++) {
+      freeRegisters.add(i);
+    }
+    // Move all the argument intervals to the inactive set.
+    inactive.addAll(intervalsList);
     timing.end();
   }
 
