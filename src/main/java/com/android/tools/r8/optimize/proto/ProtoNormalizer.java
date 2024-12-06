@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexTypeList;
+import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
@@ -152,14 +153,36 @@ public class ProtoNormalizer {
         return TraversalContinuation.doContinue(localReservationState);
       }
     }.run(appView.appInfo().classesWithDeterministicOrder());
-
     if (!lensBuilder.isEmpty()) {
-      appView.rewriteWithLens(lensBuilder.build(), executorService, timing);
+      ProtoNormalizerGraphLens protoNormalizerGraphLens = lensBuilder.build();
+      updateEnclosingMethodAttributes(executorService, protoNormalizerGraphLens);
+      appView.rewriteWithLens(protoNormalizerGraphLens, executorService, timing);
       LirConverter.rewriteLirWithLens(appView, timing, executorService);
       appView.clearCodeRewritings(executorService, timing);
     }
     appView.notifyOptimizationFinishedForTesting();
     timing.end();
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  public void updateEnclosingMethodAttributes(
+      ExecutorService executorService, ProtoNormalizerGraphLens protoNormalizerGraphLens)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz -> {
+          if (clazz.hasEnclosingMethodAttribute()
+              && clazz.getEnclosingMethodAttribute().hasEnclosingMethod()) {
+            DexMethod enclosingMethod = clazz.getEnclosingMethodAttribute().getEnclosingMethod();
+            DexMethod newMethodSignature =
+                protoNormalizerGraphLens.getNextMethodSignature(enclosingMethod);
+            if (newMethodSignature.isNotIdenticalTo(enclosingMethod)) {
+              clazz.setEnclosingMethodAttribute(new EnclosingMethodAttribute(newMethodSignature));
+            }
+          }
+        },
+        appView.options().getThreadingModule(),
+        executorService);
   }
 
   private GlobalReservationState computeGlobalReservationState(ExecutorService executorService)

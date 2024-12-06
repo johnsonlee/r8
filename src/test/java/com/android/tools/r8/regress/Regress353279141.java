@@ -3,7 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.regress;
 
-import static org.junit.Assert.assertFalse;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationFailedException;
@@ -44,16 +45,7 @@ public class Regress353279141 extends TestBase {
                       .clazz(TestClass.class.getName() + "$1")
                       .getFinalEnclosingMethod()
                       .asMethodReference();
-
-              // TODO(b/353279141): Rewrite the enclosing method to the correct one.
-              // This does not illustrate the exact issue in the bug, where we would rename a
-              // different
-              // method, with the same proto to the original name, and then have it output twice
-              // in the method table. This does trigger the same issue, the original method is
-              // present in the indexed items though (because we add it when iterating the
-              // annotation)
-              // although there are no classes that have it.
-              assertFalse(codeInspector.clazz(TestClass.class).method(method).isPresent());
+              assertThat(codeInspector.clazz(TestClass.class).method(method), isPresent());
             });
   }
 
