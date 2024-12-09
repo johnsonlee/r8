@@ -10,8 +10,9 @@ import defines
 
 JDK_DIR = os.path.join(defines.THIRD_PARTY, 'openjdk')
 
+# TODO(b/383073689) Remove JDK-22 when bots test JDK-23.
 ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-15', 'jdk-16', 'jdk-17',
-            'jdk-18', 'jdk-21', 'jdk-22']
+            'jdk-18', 'jdk-21', 'jdk-22', 'jdk-23']
 
 
 def GetJdkHome():

@@ -43,8 +43,11 @@ public abstract class TestRuntime {
     JDK17("jdk17", 61),
     JDK18("jdk18", 62),
     JDK20("jdk20", 64),
+    // From JDK-21 only include LTS and latest non-LTS.
     JDK21("jdk21", 65),
-    JDK22("jdk22", 66);
+    // TODO(b/383073689) Remove JDK-22 when bots test JDK-23.
+    JDK22("jdk22", 66),
+    JDK23("jdk23", 67);
 
     /** This should generally be the latest checked in CF runtime we fully support. */
     private static final CfVm DEFAULT = JDK11;
@@ -100,6 +103,7 @@ public abstract class TestRuntime {
   private static final Path JDK17_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-17");
   private static final Path JDK21_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-21");
   private static final Path JDK22_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-22");
+  private static final Path JDK23_PATH = Paths.get(ToolHelper.THIRD_PARTY_DIR, "openjdk", "jdk-23");
   private static final Map<CfVm, Path> jdkPaths =
       ImmutableMap.of(
           CfVm.JDK8, JDK8_PATH,
@@ -107,7 +111,8 @@ public abstract class TestRuntime {
           CfVm.JDK11, JDK11_PATH,
           CfVm.JDK17, JDK17_PATH,
           CfVm.JDK21, JDK21_PATH,
-          CfVm.JDK22, JDK22_PATH);
+          CfVm.JDK22, JDK22_PATH,
+          CfVm.JDK23, JDK23_PATH);
 
   public static CfRuntime getCheckedInJdk(CfVm vm) {
     if (vm == CfVm.JDK8) {
@@ -164,6 +169,10 @@ public abstract class TestRuntime {
     return new CfRuntime(CfVm.JDK22, getCheckedInJdkHome(CfVm.JDK22));
   }
 
+  public static CfRuntime getCheckedInJdk23() {
+    return new CfRuntime(CfVm.JDK23, getCheckedInJdkHome(CfVm.JDK23));
+  }
+
   public static List<CfRuntime> getCheckedInCfRuntimes() {
     CfRuntime[] jdks =
         new CfRuntime[] {
@@ -172,7 +181,8 @@ public abstract class TestRuntime {
           getCheckedInJdk11(),
           getCheckedInJdk17(),
           getCheckedInJdk21(),
-          getCheckedInJdk22()
+          getCheckedInJdk22(),
+          getCheckedInJdk23()
         };
     Builder<CfRuntime> builder = ImmutableList.builder();
     for (CfRuntime jdk : jdks) {
@@ -235,6 +245,9 @@ public abstract class TestRuntime {
     }
     if (version.equals("22") || version.startsWith("22.")) {
       return new CfRuntime(CfVm.JDK22, Paths.get(home));
+    }
+    if (version.equals("23") || version.startsWith("23.")) {
+      return new CfRuntime(CfVm.JDK23, Paths.get(home));
     }
     throw new Unimplemented("No support for JDK version: " + version);
   }

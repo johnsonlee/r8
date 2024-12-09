@@ -50,12 +50,14 @@ class DependenciesPlugin: Plugin<Project> {
 }
 
 enum class Jdk(val folder : String, val version: Int) {
+  // Only include LTS and latest non-LTS GA.
   JDK_8("jdk8", 8),
-  JDK_9("openjdk-9.0.4", 9),
+  JDK_9("openjdk-9.0.4", 9), // JDK-9 not LTS, but still used.
   JDK_11("jdk-11", 11),
   JDK_17("jdk-17", 17),
   JDK_21("jdk-21", 21),
-  JDK_22("jdk-22", 22);
+  JDK_22("jdk-22", 22),  // TODO(b/383073689) Remove JDK-22 when bots test JDK-23.
+  JDK_23("jdk-23", 23);
 
   fun isJdk8() : Boolean {
     return this == JDK_8

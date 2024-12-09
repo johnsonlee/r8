@@ -45,6 +45,7 @@ BUCKET = 'r8-test-results'
 NUMBER_OF_TEST_REPORTS = 5
 REPORTS_PATH = os.path.join(utils.BUILD, 'reports')
 REPORT_INDEX = ['tests', 'test', 'index.html']
+# TODO(b/383073689) Remove JDK-22 when bots test JDK-23.
 VALID_RUNTIMES = [
     'none',
     'jdk8',
@@ -53,6 +54,7 @@ VALID_RUNTIMES = [
     'jdk17',
     'jdk21',
     'jdk22',
+    'jdk23',
 ] + ['dex-%s' % dexvm for dexvm in ALL_ART_VMS]
 
 
