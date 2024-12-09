@@ -47,6 +47,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.code.Position.SourcePosition;
 import com.android.tools.r8.ir.code.ValueType;
+import com.android.tools.r8.ir.desugar.backports.AndroidOsBuildVersionCodesFullRewrites;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethods;
 import com.android.tools.r8.ir.desugar.backports.BooleanMethodRewrites;
@@ -279,7 +280,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         new IdentityHashMap<>();
     private final Map<DexField, MethodProvider<DexField>> rewritableFields =
         new IdentityHashMap<>();
-    MethodProvider<DexField> singleBackportedField = null; // As there is only one now skip map.
 
     RewritableMethods(AppView<?> appView) {
       InternalOptions options = appView.options();
@@ -1769,6 +1769,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       DexString name;
       DexProto proto;
       DexMethod method;
+      DexField field;
 
       // android.os.Build
       type = factory.androidOsBuildType;
@@ -1794,12 +1795,61 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
       // int android.os.Build$VERSION.SDK_INT_FULL
       name = factory.createString("SDK_INT_FULL");
-      DexField field = factory.createField(type, factory.intType, name);
+      field = factory.createField(type, factory.intType, name);
       addProviderForField(
           new StaticFieldGetMethodWithForwardingGenerator(
               field,
               // Template code calls the method again.
               BackportedMethods::AndroidOsBuildVersionMethods_getSdkIntFull));
+
+      // android.os.Build$VERSION_CODES_FULL
+      Object[][] versionCodesFull = {
+        {"BASE", 10_000},
+        {"BASE_1_1", 20_000},
+        {"CUPCAKE", 30_000},
+        {"DONUT", 40_000},
+        {"ECLAIR", 50_000},
+        {"ECLAIR_0_1", 60_000},
+        {"ECLAIR_MR1", 70_000},
+        {"FROYO", 80_000},
+        {"GINGERBREAD", 90_000},
+        {"GINGERBREAD_MR1", 100_000},
+        {"HONEYCOMB", 110_000},
+        {"HONEYCOMB_MR1", 120_000},
+        {"HONEYCOMB_MR2", 130_000},
+        {"ICE_CREAM_SANDWICH", 140_000},
+        {"ICE_CREAM_SANDWICH_MR1", 150_000},
+        {"JELLY_BEAN", 160_000},
+        {"JELLY_BEAN_MR1", 170_000},
+        {"JELLY_BEAN_MR2", 180_000},
+        {"KITKAT", 190_000},
+        {"KITKAT_WATCH", 200_000},
+        {"LOLLIPOP", 210_000},
+        {"LOLLIPOP_MR1", 220_000},
+        {"M", 230_000},
+        {"N", 240_000},
+        {"N_MR1", 250_000},
+        {"O", 260_000},
+        {"O_MR1", 270_000},
+        {"P", 280_000},
+        {"Q", 290_000},
+        {"R", 300_000},
+        {"S", 310_000},
+        {"S_V2", 320_000},
+        {"TIRAMISU", 330_000},
+        {"UPSIDE_DOWN_CAKE", 340_000},
+        {"VANILLA_ICE_CREAM", 350_000},
+      };
+      type = factory.createType("Landroid/os/Build$VERSION_CODES_FULL;");
+      for (Object[] versionCodeFull : versionCodesFull) {
+        name = factory.createString((String) versionCodeFull[0]);
+        field = factory.createField(type, factory.intType, name);
+        addProviderForField(
+            new StaticGetRewriter(
+                field,
+                AndroidOsBuildVersionCodesFullRewrites.rewriteToConstInstruction(
+                    (Integer) versionCodeFull[1])));
+      }
     }
 
     private void initializeAndroidUMethodProviders(DexItemFactory factory) {
@@ -1935,16 +1985,10 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     private void addProviderForField(MethodProvider<DexField> generator) {
       MethodProvider<DexField> replaced = rewritableFields.put(generator.member, generator);
       assert replaced == null;
-      assert singleBackportedField == null;
-      singleBackportedField = generator;
     }
 
     MethodProvider<DexField> getProvider(DexField field) {
-      if (field.isIdenticalTo(singleBackportedField.member)) {
-        return singleBackportedField;
-      }
-      assert !rewritableFields.containsKey(field);
-      return null;
+      return rewritableFields.get(field);
     }
   }
 
@@ -1999,6 +2043,28 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       instructionsWithPositions.add(end);
       instructionsWithPositions.add(new CfPosition(end, position));
       return instructionsWithPositions;
+    }
+  }
+
+  private static final class StaticGetRewriter extends MethodProvider<DexField> {
+
+    private final StaticFieldReadRewriter rewriter;
+
+    StaticGetRewriter(DexField field, StaticFieldReadRewriter rewriter) {
+      super(field);
+      this.rewriter = rewriter;
+    }
+
+    @Override
+    public Collection<CfInstruction> rewriteInstruction(
+        Position position,
+        CfInstruction instruction,
+        AppView<?> appView,
+        BackportedMethodDesugaringEventConsumer eventConsumer,
+        MethodProcessingContext methodProcessingContext,
+        LocalStackAllocator localStackAllocator) {
+      return rewriter.rewrite(
+          instruction.asStaticFieldGet(), appView.dexItemFactory(), localStackAllocator);
     }
   }
 
@@ -2295,6 +2361,19 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     default Collection<CfInstruction> rewrite(
         CfInvoke invoke, DexItemFactory factory, LocalStackAllocator localStackAllocator) {
       return ImmutableList.of(rewriteSingle(invoke, factory));
+    }
+  }
+
+  public interface StaticFieldReadRewriter {
+
+    CfInstruction rewriteSingle(CfStaticFieldRead staticGet, DexItemFactory factory);
+
+    // Convenience wrapper since most rewrites are to a single instruction.
+    default Collection<CfInstruction> rewrite(
+        CfStaticFieldRead staticGet,
+        DexItemFactory factory,
+        LocalStackAllocator localStackAllocator) {
+      return ImmutableList.of(rewriteSingle(staticGet, factory));
     }
   }
 
