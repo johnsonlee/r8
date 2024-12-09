@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -39,11 +40,13 @@ public class TiviBenchmarks extends BenchmarkBase {
         AppDumpBenchmarkBuilder.builder()
             .setName("TiviApp")
             .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.DEBUG)
             .setFromRevision(12370)
             .buildBatchD8(),
         AppDumpBenchmarkBuilder.builder()
             .setName("TiviIncremental")
             .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.DEBUG)
             .setFromRevision(12370)
             .addProgramPackages("app/tivi")
             .buildIncrementalD8());

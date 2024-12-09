@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
@@ -57,6 +58,7 @@ public class AppDumpBenchmarkBuilder {
   private String name;
   private BenchmarkDependency dumpDependency;
   private int fromRevision = -1;
+  private CompilationMode compilationMode;
   private boolean enableLibraryDesugaring = true;
   private final List<String> programPackages = new ArrayList<>();
 
@@ -70,6 +72,11 @@ public class AppDumpBenchmarkBuilder {
     if (fromRevision < 0) {
       throw new BenchmarkConfigError("Missing from-revision");
     }
+  }
+
+  public AppDumpBenchmarkBuilder setCompilationMode(CompilationMode compilationMode) {
+    this.compilationMode = compilationMode;
+    return this;
   }
 
   public AppDumpBenchmarkBuilder setEnableLibraryDesugaring(boolean enableLibraryDesugaring) {
@@ -325,6 +332,7 @@ public class AppDumpBenchmarkBuilder {
   }
 
   private static BenchmarkMethod runBatchD8(AppDumpBenchmarkBuilder builder) {
+    assert builder.compilationMode != null;
     return environment ->
         BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
@@ -336,6 +344,7 @@ public class AppDumpBenchmarkBuilder {
                       .addProgramFiles(dump.getProgramArchive())
                       .addLibraryFiles(dump.getLibraryArchive())
                       .setMinApi(dumpProperties.getMinApi())
+                      .setMode(builder.compilationMode)
                       .applyIf(builder.enableLibraryDesugaring, b -> addDesugaredLibrary(b, dump))
                       .benchmarkCompile(results)
                       .benchmarkCodeSize(results);
@@ -343,6 +352,7 @@ public class AppDumpBenchmarkBuilder {
   }
 
   private static BenchmarkMethod runIncrementalD8(AppDumpBenchmarkBuilder builder) {
+    assert builder.compilationMode.isDebug();
     return environment ->
         BenchmarkBase.runner(environment)
             .setWarmupIterations(1)

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -35,23 +36,40 @@ public class NowInAndroidBenchmarks extends BenchmarkBase {
         AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidApp")
             .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.DEBUG)
+            .setFromRevision(16017)
+            .buildBatchD8(),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("NowInAndroidAppRelease")
+            .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.RELEASE)
             .setFromRevision(16017)
             .buildBatchD8(),
         AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidAppNoJ$")
             .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.DEBUG)
+            .setEnableLibraryDesugaring(false)
+            .setFromRevision(16017)
+            .buildBatchD8(),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("NowInAndroidAppNoJ$Release")
+            .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.RELEASE)
             .setEnableLibraryDesugaring(false)
             .setFromRevision(16017)
             .buildBatchD8(),
         AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidAppIncremental")
             .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.DEBUG)
             .setFromRevision(16017)
             .addProgramPackages("com/google/samples/apps/nowinandroid")
             .buildIncrementalD8(),
         AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidAppNoJ$Incremental")
             .setDumpDependencyPath(dump)
+            .setCompilationMode(CompilationMode.DEBUG)
             .setEnableLibraryDesugaring(false)
             .setFromRevision(16017)
             .addProgramPackages("com/google/samples/apps/nowinandroid")

@@ -53,6 +53,9 @@ EXTERNAL_BENCHMARKS = {
     'NowInAndroidApp': {
         'targets': ['d8', 'r8-full']
     },
+    'NowInAndroidAppRelease': {
+        'targets': ['d8']
+    },
     'NowInAndroidAppIncremental': {
         'targets': ['d8'],
         'subBenchmarks': {
@@ -67,6 +70,9 @@ EXTERNAL_BENCHMARKS = {
         'subBenchmarks': {
             'd8': ['Dex']
         }
+    },
+    'NowInAndroidAppNoJ$Release': {
+        'targets': ['d8']
     },
     'OwlApp': {
         'targets': ['r8-full']
