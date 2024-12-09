@@ -51,6 +51,7 @@ public class GenerateBackportMethods extends MethodGenerationBase {
           CollectionMethods.class,
           CollectionsMethods.class,
           DoubleMethods.class,
+          ExecutorServiceMethods.class,
           FloatMethods.class,
           IntegerMethods.class,
           LongMethods.class,
