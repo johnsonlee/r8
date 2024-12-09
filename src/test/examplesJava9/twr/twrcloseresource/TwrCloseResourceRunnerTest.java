@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -48,6 +49,7 @@ public class TwrCloseResourceRunnerTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
+    Assume.assumeFalse("Missing jar", ToolHelper.isWindows());
     testForD8(parameters.getBackend())
         .addProgramClassFileData(IfaceDump.dump(), TwrCloseResourceTestDump.dump())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
@@ -61,6 +63,7 @@ public class TwrCloseResourceRunnerTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    Assume.assumeFalse("Missing jar", ToolHelper.isWindows());
     parameters.assumeRuntimeTestParameters();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(IfaceDump.dump(), TwrCloseResourceTestDump.dump())
