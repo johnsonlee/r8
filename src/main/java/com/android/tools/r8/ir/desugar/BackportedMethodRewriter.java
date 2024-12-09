@@ -1800,18 +1800,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
               field,
               // Template code calls the method again.
               BackportedMethods::AndroidOsBuildVersionMethods_getSdkIntFull));
-
-      // void java.util.concurrent.ExecutorService.close()
-      type = factory.createType("Ljava/util/concurrent/ExecutorService;");
-      name = factory.createString("close");
-      DexProto proto = factory.createProto(factory.voidType);
-      DexMethod method = factory.createMethod(type, proto, name);
-      addProvider(
-          new StatifyingMethodGenerator(
-              method,
-              BackportedMethods::ExecutorServiceMethods_closeExecutorService,
-              "closeExecutorService",
-              type));
     }
 
     private void initializeAndroidUMethodProviders(DexItemFactory factory) {

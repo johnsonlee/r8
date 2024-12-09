@@ -25,7 +25,6 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,13 +42,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class LookUpCloseResourceTest extends TestBase {
 
-  private static final Set<String> CANNOT_FIX =
-      ImmutableSet.of(
-          "java.net.URLClassLoader",
-          "android.net.wifi.p2p.WifiP2pManager$Channel",
-          "android.content.res.AssetFileDescriptor$AutoCloseInputStream");
-  private static final Set<String> TOO_OLD_TO_FIX =
-      ImmutableSet.of("java.nio.channels.FileLock", "android.database.sqlite.SQLiteClosable");
   private static final boolean DEBUG_PRINT = false;
   private static int MAX_PROCESSED_ANDROID_API_LEVEL = 36;
 
@@ -142,15 +134,14 @@ public class LookUpCloseResourceTest extends TestBase {
     Assert.assertEquals(5, closeBackports.size());
 
     if (DEBUG_PRINT) {
-      print(closeBackports, classIntroducedBeforeClose, toSuper, appViewForMax);
+      print(closeBackports, classIntroducedBeforeClose, toSuper);
     }
   }
 
   private void print(
       List<DexMethod> closeBackports,
       Map<DexType, AndroidApiLevel> classIntroducedBeforeClose,
-      Map<DexType, DexType> toSuper,
-      AppView<?> appView) {
+      Map<DexType, DexType> toSuper) {
     Map<DexType, List<DexType>> toSub = new IdentityHashMap<>();
     toSuper.forEach(
         (sup, sub) -> {
@@ -159,26 +150,18 @@ public class LookUpCloseResourceTest extends TestBase {
     System.out.println("Classes introduced in android.jar before their close() method override :");
     classIntroducedBeforeClose.forEach(
         (type, api) -> {
-          System.out.print(api + " ");
-          System.out.print(appView.definitionFor(type).isFinal() ? "f " : "nf ");
           System.out.print(type + " ");
-          if (closeBackports.stream().anyMatch(m -> m.getHolderType() == type)) {
-            System.out.print("-- backport");
-          }
-          if (CANNOT_FIX.contains(type.toString())) {
-            System.out.print("-- cannotfix");
-          }
-          if (TOO_OLD_TO_FIX.contains(type.toString())) {
-            System.out.print("-- tooOldToFix");
-          }
-          System.out.println();
           if (toSub.containsKey(type)) {
             System.out.print("[");
             for (DexType sub : toSub.get(type)) {
               System.out.print(sub + ", ");
             }
-            System.out.println("] ");
+            System.out.print("] ");
           }
+          if (closeBackports.stream().anyMatch(m -> m.getHolderType() == type)) {
+            System.out.print("-- backport");
+          }
+          System.out.println();
         });
   }
 
