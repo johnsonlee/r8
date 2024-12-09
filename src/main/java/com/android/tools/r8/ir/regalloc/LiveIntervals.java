@@ -43,6 +43,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   private int hint = NO_REGISTER;
   private boolean spilled = false;
   private Invoke isInvokeRangeIntervals = null;
+  private boolean isInvokeRangeIntervalsProcessed = false;
   private boolean usedInMonitorOperations = false;
   private boolean liveAtMoveExceptionEntry = false;
   private boolean handled = false;
@@ -123,6 +124,10 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   // Equivalent to removing the live intervals from the unhandled set. This is O(1) instead of O(n).
   public void setHandled() {
     handled = true;
+  }
+
+  public void unsetHandled() {
+    handled = false;
   }
 
   public void setSpilled(boolean value) {
@@ -323,6 +328,15 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
   public void unsetIsInvokeRangeIntervals() {
     assert isSplitParent();
     isInvokeRangeIntervals = null;
+    isInvokeRangeIntervalsProcessed = false;
+  }
+
+  public boolean isInvokeRangeIntervalsProcessed() {
+    return isInvokeRangeIntervalsProcessed;
+  }
+
+  public void setInvokeRangeIntervalsProcessed() {
+    isInvokeRangeIntervalsProcessed = true;
   }
 
   public boolean isLiveAtMoveExceptionEntry() {

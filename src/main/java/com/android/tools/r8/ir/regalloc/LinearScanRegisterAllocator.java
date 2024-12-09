@@ -22,6 +22,7 @@ import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.ArithmeticBinop;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.CheckCast;
+import com.android.tools.r8.ir.code.DebugLocalWrite;
 import com.android.tools.r8.ir.code.DebugLocalsChange;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRCode.LiveAtEntrySets;
@@ -1087,13 +1088,12 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         intervals.setSpilled(false);
       }
       intervals.clearRegisterAssignment();
+      intervals.unsetHandled();
       intervals.unsetIsInvokeRangeIntervals();
     }
   }
 
-  /**
-   * Get the register allocated to a given set of live intervals.
-   */
+  /** Get the register allocated to a given set of live intervals. */
   private int getRegisterForIntervals(LiveIntervals intervals) {
     int intervalsRegister = intervals.getRegister();
     return realRegisterNumberFromAllocated(intervalsRegister);
@@ -1143,12 +1143,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     processArgumentLiveIntervals();
     boolean hasInvokeRangeLiveIntervals = splitLiveIntervalsForInvokeRange();
     allocateRegistersForMoveExceptionIntervals(hasInvokeRangeLiveIntervals);
-    timing.end();
-
-    timing.begin("Argument linked");
-    for (LiveIntervals argumentLiveIntervals : getArgumentLiveIntervals()) {
-      allocateRegistersForInvokeRangeSplits(argumentLiveIntervals);
-    }
     timing.end();
 
     // Go through each unhandled live interval and find a register for it.
@@ -1474,22 +1468,24 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
    */
   @SuppressWarnings("JdkObsolete")
   private void allocateRegistersForInvokeRangeSplits(LiveIntervals unhandledIntervals) {
-    if (!unhandledIntervals.isSplitParent()) {
+    LiveIntervals splitParent = unhandledIntervals.getSplitParent();
+    if (splitParent.isInvokeRangeIntervalsProcessed()) {
       return;
     }
     timing.begin("Extract splits");
     List<LiveIntervals> invokeRangeIntervals =
         ListUtils.filter(
-            unhandledIntervals.getSplitChildren(),
+            splitParent.getSplitChildren(),
             split -> split.isInvokeRangeIntervals() && !split.hasRegister());
     timing.end();
     timing.begin("Process splits");
-    if (unhandledIntervals.isSplitParent() && unhandledIntervals.isInvokeRangeIntervals()) {
+    if (splitParent.isInvokeRangeIntervals() && !splitParent.hasRegister()) {
       allocateRegistersForInvokeRangeSplit(unhandledIntervals);
     }
     for (LiveIntervals split : invokeRangeIntervals) {
       allocateRegistersForInvokeRangeSplit(split);
     }
+    splitParent.setInvokeRangeIntervalsProcessed();
     timing.end();
   }
 
@@ -2284,34 +2280,38 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // phi could have a hint from an argument moves which it seems more important to honor in
     // practice.
     IntSet triedHints = new IntArraySet();
-    if (unhandledInterval.hasHint()
-        && triedHints.add(unhandledInterval.getHint())
-        && tryHint(
-            unhandledInterval,
-            registerConstraint,
-            freePositions,
-            unhandledInterval.getHint())) {
+    Multiset<Integer> hints = HashMultiset.create();
+    for (LiveIntervals sibling : unhandledInterval.getSplitParent().getSplitChildren()) {
+      if (sibling.hasRegister()) {
+        hints.add(sibling.getRegister());
+      }
+    }
+    if (options().debug) {
+      for (Instruction user :
+          unhandledInterval.getValue().uniqueUsers(Instruction::isDebugLocalWrite)) {
+        for (LiveIntervals aliasSibling : user.outValue().getLiveIntervals().getSplitChildren()) {
+          if (aliasSibling.hasRegister()) {
+            hints.add(aliasSibling.getRegister());
+          }
+        }
+      }
+    }
+    if (tryHints(unhandledInterval, registerConstraint, freePositions, hints, triedHints)) {
       return true;
     }
 
-    LiveIntervals previousSplit = unhandledInterval.getPreviousSplit();
-    if (previousSplit != null
-        && triedHints.add(previousSplit.getRegister())
+    if (unhandledInterval.hasHint()
         && tryHint(
             unhandledInterval,
             registerConstraint,
             freePositions,
-            previousSplit.getRegister())) {
+            unhandledInterval.getHint(),
+            triedHints)) {
       return true;
     }
 
     LiveIntervals nextSplit = unhandledInterval.getNextSplit();
     if (nextSplit != null && nextSplit.hasRegister()) {
-      if (triedHints.add(nextSplit.getRegister())
-          && tryHint(
-              unhandledInterval, registerConstraint, freePositions, nextSplit.getRegister())) {
-        return true;
-      }
       if (freePositions.isBlocked(nextSplit.getRegister(), unhandledInterval.isWide())
           && tryAllocateBlockedHint(
               unhandledInterval, registerConstraint, nextSplit.getRegister())) {
@@ -2323,29 +2323,51 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     // the registers assigned to the operand intervals. We determine all the registers used
     // for operands and try them one by one based on frequency.
     Value value = unhandledInterval.getValue();
-    if (value.isPhi()) {
+    if (value.isDefinedByInstructionSatisfying(Instruction::isDebugLocalWrite)) {
+      DebugLocalWrite debugLocalWrite = value.getDefinition().asDebugLocalWrite();
+      LiveIntervals theIntervals =
+          debugLocalWrite.src().getLiveIntervals().getSplitCovering(debugLocalWrite);
+      assert theIntervals != null;
+      if (tryHint(unhandledInterval, registerConstraint, freePositions, theIntervals, triedHints)) {
+        return true;
+      }
+    } else if (value.isPhi()) {
       Phi phi = value.asPhi();
-      Multiset<Integer> map = HashMultiset.create();
-      List<Value> operands = phi.getOperands();
-      for (int i = 0; i < operands.size(); i++) {
-        LiveIntervals intervals = operands.get(i).getLiveIntervals();
+      hints.clear();
+      for (int i = 0; i < phi.getOperands().size(); i++) {
+        LiveIntervals intervals = phi.getOperand(i).getLiveIntervals();
         if (intervals.hasSplits()) {
           BasicBlock pred = phi.getBlock().getPredecessor(i);
           intervals = intervals.getSplitCovering(pred.exit().getNumber());
         }
         if (intervals.hasRegister()) {
-          map.add(intervals.getRegister());
+          hints.add(intervals.getRegister());
         }
       }
-      for (Multiset.Entry<Integer> entry : Multisets.copyHighestCountFirst(map).entrySet()) {
-        int register = entry.getElement();
-        if (tryHint(unhandledInterval, registerConstraint, freePositions, register)) {
-          return true;
-        }
-      }
+      return tryHints(unhandledInterval, registerConstraint, freePositions, hints, triedHints);
     }
-
     return false;
+  }
+
+  private boolean tryHint(
+      LiveIntervals unhandledInterval,
+      int registerConstraint,
+      RegisterPositions freePositions,
+      LiveIntervals hint,
+      IntSet triedHints) {
+    return hint.hasRegister()
+        && tryHint(
+            unhandledInterval, registerConstraint, freePositions, hint.getRegister(), triedHints);
+  }
+
+  private boolean tryHint(
+      LiveIntervals unhandledInterval,
+      int registerConstraint,
+      RegisterPositions freePositions,
+      int hint,
+      IntSet triedHints) {
+    return triedHints.add(hint)
+        && tryHint(unhandledInterval, registerConstraint, freePositions, hint);
   }
 
   // Attempt to allocate the hint register to the unhandled intervals.
@@ -2378,6 +2400,21 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     }
     assignFreeRegisterToUnhandledInterval(unhandledInterval, register);
     return true;
+  }
+
+  private boolean tryHints(
+      LiveIntervals unhandledInterval,
+      int registerConstraint,
+      RegisterPositions freePositions,
+      Multiset<Integer> hints,
+      IntSet triedHints) {
+    for (Multiset.Entry<Integer> entry : Multisets.copyHighestCountFirst(hints).entrySet()) {
+      int hint = entry.getElement();
+      if (tryHint(unhandledInterval, registerConstraint, freePositions, hint, triedHints)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean tryAllocateBlockedHint(
