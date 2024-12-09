@@ -1,9 +1,9 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package switchpatternmatching;
+package com.android.tools.r8.java23.switchpatternmatching;
 
-import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
+import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -22,8 +22,11 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+// This is a copy of the same test from JDK-21. The reason for the copy is that from JDK-23 the
+// code generation for pattern matching switch changed (the bootstrap method signature used in the
+// invokedynamic changed).
 @RunWith(Parameterized.class)
-public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
+public class TypeSwitchTest extends TestBase {
 
   @Parameter public TestParameters parameters;
 
@@ -34,37 +37,21 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
 
   public static String EXPECTED_OUTPUT =
       StringUtils.lines(
-          "null",
-          "Spades or Piques",
-          "Hearts or C\u0153ur",
-          "Diamonds or Carreaux",
-          "Clubs or Trefles",
-          "Trumps or Atouts",
-          "The Fool or L'Excuse");
-
-  public static String EXPECTED_OUTPUT_ASCII =
-      StringUtils.lines(
-          "null",
-          "Spades or Piques",
-          "Hearts or Coeur",
-          "Diamonds or Carreaux",
-          "Clubs or Trefles",
-          "Trumps or Atouts",
-          "The Fool or L'Excuse");
+          "null", "String", "Color: RED", "Point: [0;0]", "Array of int, length = 0", "Other");
 
   @Test
   public void testJvm() throws Exception {
     assumeTrue(parameters.isCfRuntime());
     CodeInspector inspector = new CodeInspector(ToolHelper.getClassFileForTestClass(Main.class));
     assertTrue(
-        hasJdk21EnumSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("enumSwitch")));
+        hasJdk21TypeSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("typeSwitch")));
 
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
-            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
+            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23),
             r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
@@ -74,9 +61,12 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
     testForD8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
-        // Windows does not like the non ascii characters.
-        .run(parameters.getRuntime(), Main.class, ToolHelper.isWindows() ? "ascii" : "")
-        .assertSuccessWithOutput(ToolHelper.isWindows() ? EXPECTED_OUTPUT_ASCII : EXPECTED_OUTPUT);
+        .run(parameters.getRuntime(), Main.class)
+        .applyIf(
+            isRecordsFullyDesugaredForD8(parameters)
+                || runtimeWithRecordsSupport(parameters.getRuntime()),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
+            r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
   }
 
   @Test
@@ -85,51 +75,46 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethod extends TestBase {
     Assume.assumeTrue(
         parameters.isDexRuntime()
             || (parameters.isCfRuntime()
-                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21)));
+                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23)));
     testForR8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .setMinApi(parameters)
         .addKeepMainRule(Main.class)
+        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  public enum Tarot {
-    SPADE,
-    HEART,
-    DIAMOND,
-    CLUB,
-    TRUMP,
-    EXCUSE
+  record Point(int i, int j) {}
+
+  enum Color {
+    RED,
+    GREEN,
+    BLUE;
   }
 
-  public static class Main {
-    static boolean ascii = false;
+  static class Main {
 
-    public static void main(String[] args) {
-      ascii = args.length > 0 && args[0].equals("ascii");
-      enumSwitch(null);
-      enumSwitch(Tarot.SPADE);
-      enumSwitch(Tarot.HEART);
-      enumSwitch(Tarot.DIAMOND);
-      enumSwitch(Tarot.CLUB);
-      enumSwitch(Tarot.TRUMP);
-      enumSwitch(Tarot.EXCUSE);
+    static void typeSwitch(Object obj) {
+      switch (obj) {
+        case null -> System.out.println("null");
+        case String string -> System.out.println("String");
+        case Color color -> System.out.println("Color: " + color);
+        case Point point -> System.out.println("Point: [" + point.i + ";" + point.j + "]");
+        case int[] intArray -> System.out.println("Array of int, length = " + intArray.length);
+        default -> System.out.println("Other");
+      }
     }
 
-    static void enumSwitch(Tarot t1) {
-      switch (t1) {
-        case null -> System.out.println("null");
-        case SPADE -> System.out.println("Spades or Piques");
-        case HEART -> System.out.println(ascii ? "Hearts or Coeur" : "Hearts or C\u0153ur");
-        case Tarot t when t == Tarot.DIAMOND -> System.out.println("Diamonds or Carreaux");
-        case Tarot t when t == Tarot.CLUB -> System.out.println("Clubs or Trefles");
-        case Tarot t when t == Tarot.TRUMP -> System.out.println("Trumps or Atouts");
-        case Tarot t -> System.out.println("The Fool or L'Excuse");
-      }
+    public static void main(String[] args) {
+      typeSwitch(null);
+      typeSwitch("s");
+      typeSwitch(Color.RED);
+      typeSwitch(new Point(0, 0));
+      typeSwitch(new int[] {});
+      typeSwitch(new Object());
     }
   }
 }

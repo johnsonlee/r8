@@ -1,15 +1,17 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package switchpatternmatching;
+package com.android.tools.r8.java23.switchpatternmatching;
 
-import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.desugarMatchException;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
-import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.matchException;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
@@ -17,19 +19,22 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Assume;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// This test is copied into later JDK tests (currently JDK-23). The reason for the copy is that
-// from JDK-23 the code generation changed. Please update the copy as well if updating this test.
+// This is a copy of the same test from JDK-21. The reason for the copy is that from JDK-23 the
+// code generation for pattern matching switch changed (the bootstrap method signature used in the
+// invokedynamic changed).
 @RunWith(Parameterized.class)
-public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
+public class EnumLessCasesAtRuntimeSwitchTest extends TestBase {
 
   @Parameter public TestParameters parameters;
 
@@ -39,40 +44,7 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
   }
 
   public static String EXPECTED_OUTPUT =
-      StringUtils.lines(
-          "TYPE",
-          "null",
-          "E1",
-          "class %s",
-          "E3",
-          "class %s",
-          "E5",
-          "a C",
-          "ENUM",
-          "null",
-          "1",
-          "0",
-          "3",
-          "4",
-          "0");
-
-  public static String UNEXPECTED_OUTPUT_R8_DEX =
-      StringUtils.lines(
-          "TYPE",
-          "null",
-          "E1",
-          "class %s",
-          "E3",
-          "class %s",
-          "E5",
-          "a C",
-          "ENUM",
-          "null",
-          "1",
-          "0",
-          "3",
-          "0", // This is the difference from the EXPECTED_OUTPUT.
-          "0");
+      StringUtils.lines("TYPE", "null", "E1", "E3", "E5", "a C", "ENUM", "null", "1", "3", "0");
 
   @Test
   public void testJvm() throws Exception {
@@ -88,10 +60,8 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
         .apply(this::addModifiedProgramClasses)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
-            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
-            r ->
-                r.assertSuccessWithOutput(
-                    String.format(EXPECTED_OUTPUT, matchException(), matchException())),
+            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23),
+            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
   }
 
@@ -99,7 +69,7 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
       TestBuilder<?, T> testBuilder) throws Exception {
     testBuilder
         .addStrippedOuter(getClass())
-        .addProgramClasses(FakeI.class, C.class, I.class)
+        .addProgramClasses(FakeI.class, C.class, I.class, Main.class)
         .addProgramClassFileData(
             transformer(CompileTimeE.class)
                 .setImplements(FakeI.class)
@@ -109,33 +79,37 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
             transformer(RuntimeE.class)
                 .setImplements(I.class)
                 .setClassDescriptor(CompileTimeE.class.descriptorString())
-                .transform())
-        .addProgramClassFileData(
-            transformer(Main.class)
-                .transformFieldInsnInMethod(
-                    "getE2",
-                    (opcode, owner, name, descriptor, visitor) -> {
-                      visitor.visitFieldInsn(opcode, owner, "E2", descriptor);
-                    })
-                .transformFieldInsnInMethod(
-                    "getE4",
-                    (opcode, owner, name, descriptor, visitor) -> {
-                      visitor.visitFieldInsn(opcode, owner, "E4", descriptor);
-                    })
                 .transform());
   }
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
-        .apply(this::addModifiedProgramClasses)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(
-            String.format(EXPECTED_OUTPUT, desugarMatchException(), desugarMatchException()));
+    if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)
+        && parameters.getApiLevel().isLessThan(AndroidApiLevel.BAKLAVA)) {
+      assertThrows(
+          CompilationFailedException.class,
+          () ->
+              testForD8(parameters.getBackend())
+                  .apply(this::addModifiedProgramClasses)
+                  .setMinApi(parameters)
+                  .compileWithExpectedDiagnostics(
+                      diagnostics -> {
+                        diagnostics.assertOnlyErrors();
+                        diagnostics.assertErrorsMatch(
+                            diagnosticMessage(
+                                containsString("DexValueConstDynamic should be desugared")));
+                      }));
+    } else {
+      testForD8(parameters.getBackend())
+          .apply(this::addModifiedProgramClasses)
+          .setMinApi(parameters)
+          .run(parameters.getRuntime(), Main.class)
+          .assertFailure();
+    }
   }
 
   @Test
+  @Ignore("TODO(b/382880986) enable test when fixed.")
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     Assume.assumeTrue(
@@ -150,34 +124,22 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.isDexRuntime(),
-            // TODO(b/381825147): Should same output.
-            r ->
-                r.assertSuccessWithOutput(
-                    String.format(
-                        UNEXPECTED_OUTPUT_R8_DEX,
-                        matchException(parameters),
-                        matchException(parameters))),
-            r ->
-                r.assertSuccessWithOutput(
-                    String.format(
-                        EXPECTED_OUTPUT, matchException(parameters), matchException(parameters))));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   sealed interface I permits CompileTimeE, C {}
 
-  public enum RuntimeE implements FakeI {
+  public enum CompileTimeE implements I {
     E1,
-    E2, // Case present at runtime.
+    E2, // Case missing at runtime.
     E3,
-    E4, // Case present at runtime.
+    E4, // Case missing at runtime.
     E5
   }
 
   interface FakeI {}
 
-  public enum CompileTimeE implements I {
+  public enum RuntimeE implements FakeI {
     E1,
     E3,
     E5
@@ -192,8 +154,14 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
         case CompileTimeE.E1 -> {
           System.out.println("E1");
         }
+        case CompileTimeE.E2 -> { // Case missing at runtime.
+          System.out.println("E2");
+        }
         case CompileTimeE.E3 -> {
           System.out.println("E3");
+        }
+        case CompileTimeE.E4 -> { // Case missing at runtime.
+          System.out.println("E4");
         }
         case CompileTimeE.E5 -> {
           System.out.println("E5");
@@ -208,21 +176,12 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
       switch (e) {
         case null -> System.out.println("null");
         case CompileTimeE.E1 -> System.out.println("1");
+        case CompileTimeE.E2 -> System.out.println("2"); // Case missing at runtime.
         case CompileTimeE t when t == CompileTimeE.E3 -> System.out.println("3");
         case CompileTimeE t when t.name().equals("E4") ->
-            System.out.println("4"); // Case present at runtime.
+            System.out.println("4"); // Case missing at runtime.
         case CompileTimeE t -> System.out.println("0");
       }
-    }
-
-    public static CompileTimeE getE2() {
-      // Replaced by RuntimeE.E2;
-      return CompileTimeE.E1;
-    }
-
-    public static CompileTimeE getE4() {
-      // Replaced by RuntimeE.E4;
-      return CompileTimeE.E1;
     }
 
     public static void main(String[] args) {
@@ -233,26 +192,14 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
         System.out.println("null");
       }
       typeSwitch(CompileTimeE.E1);
-      try {
-        typeSwitch(getE2());
-      } catch (Exception e) {
-        System.out.println(e.getClass().toString());
-      }
       typeSwitch(CompileTimeE.E3);
-      try {
-        typeSwitch(getE4());
-      } catch (Exception e) {
-        System.out.println(e.getClass().toString());
-      }
       typeSwitch(CompileTimeE.E5);
       typeSwitch(new C());
 
       System.out.println("ENUM");
       enumSwitch(null);
       enumSwitch(CompileTimeE.E1);
-      enumSwitch(getE2());
       enumSwitch(CompileTimeE.E3);
-      enumSwitch(getE4());
       enumSwitch(CompileTimeE.E5);
     }
   }

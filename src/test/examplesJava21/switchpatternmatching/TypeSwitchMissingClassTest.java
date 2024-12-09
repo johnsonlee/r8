@@ -24,6 +24,8 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+// This test is copied into later JDK tests (currently JDK-23). The reason for the copy is that
+// from JDK-23 the code generation changed. Please update the copy as well if updating this test.
 @RunWith(Parameterized.class)
 public class TypeSwitchMissingClassTest extends TestBase {
 

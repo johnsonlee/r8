@@ -1,15 +1,18 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package switchpatternmatching;
+package com.android.tools.r8.java23.switchpatternmatching;
 
-import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.desugarMatchException;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.matchException;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
@@ -17,17 +20,20 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Assume;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// This test is copied into later JDK tests (currently JDK-23). The reason for the copy is that
-// from JDK-23 the code generation changed. Please update the copy as well if updating this test.
+// This is a copy of the same test from JDK-21. The reason for the copy is that from JDK-23 the
+// code generation for pattern matching switch changed (the bootstrap method signature used in the
+// invokedynamic changed).
 @RunWith(Parameterized.class)
 public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
 
@@ -88,7 +94,7 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
         .apply(this::addModifiedProgramClasses)
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
-            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21),
+            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23),
             r ->
                 r.assertSuccessWithOutput(
                     String.format(EXPECTED_OUTPUT, matchException(), matchException())),
@@ -127,15 +133,32 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
-        .apply(this::addModifiedProgramClasses)
-        .setMinApi(parameters)
-        .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutput(
-            String.format(EXPECTED_OUTPUT, desugarMatchException(), desugarMatchException()));
+    if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)
+        && parameters.getApiLevel().isLessThan(AndroidApiLevel.BAKLAVA)) {
+      assertThrows(
+          CompilationFailedException.class,
+          () ->
+              testForD8(parameters.getBackend())
+                  .apply(this::addModifiedProgramClasses)
+                  .setMinApi(parameters)
+                  .compileWithExpectedDiagnostics(
+                      diagnostics -> {
+                        diagnostics.assertOnlyErrors();
+                        diagnostics.assertErrorsMatch(
+                            diagnosticMessage(
+                                containsString("DexValueConstDynamic should be desugared")));
+                      }));
+    } else {
+      testForD8(parameters.getBackend())
+          .apply(this::addModifiedProgramClasses)
+          .setMinApi(parameters)
+          .run(parameters.getRuntime(), Main.class)
+          .assertFailure();
+    }
   }
 
   @Test
+  @Ignore("TODO(b/382880986) enable test when fixed.")
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     Assume.assumeTrue(
