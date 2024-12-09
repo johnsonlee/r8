@@ -865,6 +865,11 @@ public class R8 {
           && options.androidResourceConsumer != null
           // We trace the dex directly in the enqueuer.
           && !options.resourceShrinkerConfiguration.isOptimizedShrinking()) {
+        // We don't support legacy resource shrinking with new dex container format, b/305677642
+        if (options.testing.dexContainerExperiment) {
+          options.reporter.error(
+              "Dex container experiment is not compatible with legacy resource shrinking");
+        }
         options.programConsumer =
             wrapConsumerStoreBytesInList(
                 dexFileContent, (DexIndexedConsumer) options.programConsumer, "base");
