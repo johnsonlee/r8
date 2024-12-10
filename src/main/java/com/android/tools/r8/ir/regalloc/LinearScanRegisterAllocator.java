@@ -2271,15 +2271,17 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     return freePositions;
   }
 
-  // Attempt to use the register hint for the unhandled interval in order to avoid generating
-  // moves.
+  // Looks at surrounding alias live intervals and tries to assign similar registers to the current
+  // register. If an explicit hint is set on the live intervals we also try to use that.
   private boolean useRegisterHint(
       LiveIntervals unhandledInterval, int registerConstraint, RegisterPositions freePositions) {
-    // If the unhandled interval has a hint we give it that register if it is available without
-    // spilling. For phis we also use the hint before looking at the operand registers. The
-    // phi could have a hint from an argument moves which it seems more important to honor in
-    // practice.
+    // Keep track of which hints have been tested to avoid redundant analysis.
     IntSet triedHints = new IntArraySet();
+
+    // First attempt to assign a register that has already been assigned to another live intervals
+    // for the current value. We also consider the live intervals for any alias SSA values through
+    // DebugLocalWrite instructions (debug mode only). Prioritize the most frequently used
+    // registers.
     Multiset<Integer> hints = HashMultiset.create();
     for (LiveIntervals sibling : unhandledInterval.getSplitParent().getSplitChildren()) {
       if (sibling.hasRegister()) {
@@ -2300,6 +2302,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       return true;
     }
 
+    // Try to use the explicit hint, if any.
     if (unhandledInterval.hasHint()
         && tryHint(
             unhandledInterval,
@@ -2310,6 +2313,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
       return true;
     }
 
+    // If the next split has already assigned a register, then it is an invoke-range intervals. Try
+    // to "steal" the register if it is blocked by spilling the values that occupy the register.
     LiveIntervals nextSplit = unhandledInterval.getNextSplit();
     if (nextSplit != null && nextSplit.hasRegister()) {
       if (freePositions.isBlocked(nextSplit.getRegister(), unhandledInterval.isWide())
@@ -2332,6 +2337,9 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         return true;
       }
     } else if (value.isPhi()) {
+      // Search for a good register for phis using the registers assigned to the operand intervals.
+      // We determine all the registers used for operands and try them one by one based on
+      // frequency.
       Phi phi = value.asPhi();
       hints.clear();
       for (int i = 0; i < phi.getOperands().size(); i++) {
