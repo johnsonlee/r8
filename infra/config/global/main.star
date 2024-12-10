@@ -350,8 +350,8 @@ r8_tester_with_default("linux-jdk17",
 r8_tester_with_default("linux-jdk21",
         ["--runtimes=jdk21", "--command_cache_dir=/tmp/ccache"],
         release_trigger=["branch-gitiles-8.3-forward"])
-r8_tester_with_default("linux-jdk22",
-        ["--runtimes=jdk22", "--command_cache_dir=/tmp/ccache"],
+r8_tester_with_default("linux-jdk23",
+        ["--runtimes=jdk23", "--command_cache_dir=/tmp/ccache"],
         release_trigger=["branch-gitiles-8.5-forward"])
 
 r8_tester_with_default("linux-android-4.0",
