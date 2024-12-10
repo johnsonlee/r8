@@ -68,6 +68,7 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/lang/IllegalArgumentException;");
     factory.createSynthesizedType("Ljava/lang/IndexOutOfBoundsException;");
     factory.createSynthesizedType("Ljava/lang/Integer;");
+    factory.createSynthesizedType("Ljava/lang/InterruptedException;");
     factory.createSynthesizedType("Ljava/lang/Iterable;");
     factory.createSynthesizedType("Ljava/lang/Long;");
     factory.createSynthesizedType("Ljava/lang/Math;");
@@ -78,6 +79,7 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/lang/Runnable;");
     factory.createSynthesizedType("Ljava/lang/RuntimeException;");
     factory.createSynthesizedType("Ljava/lang/SecurityException;");
+    factory.createSynthesizedType("Ljava/lang/Thread;");
     factory.createSynthesizedType("Ljava/lang/reflect/Constructor;");
     factory.createSynthesizedType("Ljava/lang/reflect/InvocationTargetException;");
     factory.createSynthesizedType("Ljava/lang/reflect/Method;");
@@ -103,6 +105,8 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/util/OptionalInt;");
     factory.createSynthesizedType("Ljava/util/OptionalLong;");
     factory.createSynthesizedType("Ljava/util/Set;");
+    factory.createSynthesizedType("Ljava/util/concurrent/ExecutorService;");
+    factory.createSynthesizedType("Ljava/util/concurrent/TimeUnit;");
     factory.createSynthesizedType("Ljava/util/concurrent/atomic/AtomicReference;");
     factory.createSynthesizedType("Ljava/util/concurrent/atomic/AtomicReferenceArray;");
     factory.createSynthesizedType("Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;");
@@ -2405,6 +2409,176 @@ public final class BackportedMethods {
             new CfReturn(ValueType.INT),
             label3),
         ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode ExecutorServiceMethods_closeExecutorService(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    CfLabel label11 = new CfLabel();
+    CfLabel label12 = new CfLabel();
+    CfLabel label13 = new CfLabel();
+    CfLabel label14 = new CfLabel();
+    CfLabel label15 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        4,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                185,
+                factory.createMethod(
+                    factory.createType("Ljava/util/concurrent/ExecutorService;"),
+                    factory.createProto(factory.booleanType),
+                    factory.createString("isTerminated")),
+                true),
+            new CfStore(ValueType.INT, 1),
+            label1,
+            new CfLoad(ValueType.INT, 1),
+            new CfIf(IfType.NE, ValueType.INT, label14),
+            label2,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                185,
+                factory.createMethod(
+                    factory.createType("Ljava/util/concurrent/ExecutorService;"),
+                    factory.createProto(factory.voidType),
+                    factory.createString("shutdown")),
+                true),
+            label3,
+            new CfConstNumber(0, ValueType.INT),
+            new CfStore(ValueType.INT, 2),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/util/concurrent/ExecutorService;")),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 1),
+            new CfIf(IfType.NE, ValueType.INT, label12),
+            label5,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfConstNumber(1, ValueType.LONG),
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Ljava/util/concurrent/TimeUnit;"),
+                    factory.createType("Ljava/util/concurrent/TimeUnit;"),
+                    factory.createString("DAYS"))),
+            new CfInvoke(
+                185,
+                factory.createMethod(
+                    factory.createType("Ljava/util/concurrent/ExecutorService;"),
+                    factory.createProto(
+                        factory.booleanType,
+                        factory.longType,
+                        factory.createType("Ljava/util/concurrent/TimeUnit;")),
+                    factory.createString("awaitTermination")),
+                true),
+            new CfStore(ValueType.INT, 1),
+            label6,
+            new CfGoto(label4),
+            label7,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/util/concurrent/ExecutorService;")),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    }),
+                new ArrayDeque<>(
+                    Arrays.asList(
+                        FrameType.initializedNonNullReference(
+                            factory.createType("Ljava/lang/InterruptedException;"))))),
+            new CfStore(ValueType.OBJECT, 3),
+            label8,
+            new CfLoad(ValueType.INT, 2),
+            new CfIf(IfType.NE, ValueType.INT, label11),
+            label9,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                185,
+                factory.createMethod(
+                    factory.createType("Ljava/util/concurrent/ExecutorService;"),
+                    factory.createProto(factory.createType("Ljava/util/List;")),
+                    factory.createString("shutdownNow")),
+                true),
+            new CfStackInstruction(CfStackInstruction.Opcode.Pop),
+            label10,
+            new CfConstNumber(1, ValueType.INT),
+            new CfStore(ValueType.INT, 2),
+            label11,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/util/concurrent/ExecutorService;")),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfGoto(label4),
+            label12,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/util/concurrent/ExecutorService;")),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 2),
+            new CfIf(IfType.EQ, ValueType.INT, label14),
+            label13,
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Thread;"),
+                    factory.createProto(factory.createType("Ljava/lang/Thread;")),
+                    factory.createString("currentThread")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Thread;"),
+                    factory.createProto(factory.voidType),
+                    factory.createString("interrupt")),
+                false),
+            label14,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/util/concurrent/ExecutorService;")),
+                      FrameType.intType()
+                    })),
+            new CfReturnVoid(),
+            label15),
+        ImmutableList.of(
+            new CfTryCatch(
+                label5,
+                label6,
+                ImmutableList.of(factory.createType("Ljava/lang/InterruptedException;")),
+                ImmutableList.of(label7))),
         ImmutableList.of());
   }
 
