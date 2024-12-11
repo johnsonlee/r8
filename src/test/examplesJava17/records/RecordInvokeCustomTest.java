@@ -4,18 +4,17 @@
 
 package records;
 
+import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.desugar.LibraryFilesHelper;
 import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import records.RecordInvokeCustom.Empty;
-import records.RecordInvokeCustom.Person;
 
 @RunWith(Parameterized.class)
 public class RecordInvokeCustomTest extends TestBase {
@@ -83,7 +82,9 @@ public class RecordInvokeCustomTest extends TestBase {
             .addKeepMainRule(RecordInvokeCustom.class);
     if (parameters.isCfRuntime()) {
       builder
-          .addLibraryFiles(LibraryFilesHelper.getJdk15LibraryFiles(temp))
+          .addLibraryProvider(
+              JdkClassFileProvider.fromSystemModulesJdk(
+                  CfRuntime.getCheckedInJdk17().getJavaHome()))
           .compile()
           .inspect(RecordTestUtils::assertRecordsAreRecords)
           .run(parameters.getRuntime(), RecordInvokeCustom.class)

@@ -39,48 +39,6 @@ public class LibraryFilesHelper implements Opcodes {
     return getJdk9LibraryFiles(temp);
   }
 
-  public static Path[] getJdk15LibraryFiles(TemporaryFolder temp) throws Exception {
-    // TODO(b/270105162): We should be able to run this on windows.
-    Assume.assumeFalse(ToolHelper.isWindows());
-    // TODO(b/169645628): Add JDK-15 runtime jar instead. As a temporary solution we use the jdk 8
-    //   runtime with additional stubs.
-    Path generatedJar = temp.newFolder().toPath().resolve("stubs.jar");
-    ZipBuilder builder = ZipBuilder.builder(generatedJar);
-    addRecord(builder);
-    addRecordComponent(builder);
-    addObjectsMethod(builder);
-    addTypeDescriptor(builder);
-    builder.build();
-    return ObjectArrays.concat(getJdk9LibraryFiles(temp), new Path[] {generatedJar}, Path.class);
-  }
-
-  // Generates a class file for:
-  // <pre>
-  // public class ObjectMethods {}
-  // </pre>
-  private static void addObjectsMethod(ZipBuilder builder) throws Exception {
-    addClassToZipBuilder(
-        builder, ACC_PUBLIC, "java/lang/runtime/ObjectMethods", ConsumerUtils.emptyConsumer());
-  }
-
-  // Generates a class file for:
-  // <pre>
-  // public interface TypeDescriptor {
-  //   String descriptorString();
-  // }
-  // </pre>
-  private static void addTypeDescriptor(ZipBuilder builder) throws Exception {
-    addClassToZipBuilder(
-        builder,
-        ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT,
-        "java/lang/invoke/TypeDescriptor",
-        methodAdder ->
-            methodAdder.add(
-                ACC_PUBLIC | ACC_ABSTRACT,
-                "descriptorString",
-                methodDescriptor(false, String.class)));
-  }
-
   // Generates a class file for:
   // <pre>
   // public class StringConcatFactory {}
@@ -97,45 +55,6 @@ public class LibraryFilesHelper implements Opcodes {
   private static void addVarHandle(ZipBuilder builder) throws Exception {
     addClassToZipBuilder(
         builder, ACC_PUBLIC, "java/lang/invoke/VarHandle", ConsumerUtils.emptyConsumer());
-  }
-
-  // Generates a class file for:
-  // <pre>
-  // public abstract class Record {
-  //   protected Record() {}
-  //
-  //   public abstract boolean equals(Object obj);
-  //
-  //   public abstract int hashCode();
-  //
-  //   public abstract String toString();
-  // }
-  // </pre>
-  private static void addRecord(ZipBuilder builder) throws Exception {
-    addClassToZipBuilder(
-        builder,
-        ACC_PUBLIC | ACC_ABSTRACT,
-        "java/lang/Record",
-        methodAdder -> {
-          methodAdder.add(ACC_PROTECTED, "<init>", "()V");
-          methodAdder.add(
-              ACC_PUBLIC | ACC_ABSTRACT,
-              "equals",
-              methodDescriptor(false, Object.class, boolean.class));
-          methodAdder.add(
-              ACC_PUBLIC | ACC_ABSTRACT, "hashCode", methodDescriptor(false, int.class));
-          methodAdder.add(
-              ACC_PUBLIC | ACC_ABSTRACT, "toString", methodDescriptor(false, String.class));
-        });
-  }
-
-  // Generates a class file for:
-  // <pre>
-  // public class RecordComponent {}
-  // </pre>
-  private static void addRecordComponent(ZipBuilder builder) throws Exception {
-    addClassToZipBuilder(
-        builder, ACC_PUBLIC, "java/lang/reflect/RecordComponent", ConsumerUtils.emptyConsumer());
   }
 
   // Generates a class file for:

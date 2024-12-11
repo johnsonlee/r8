@@ -47,7 +47,7 @@ public class SimpleRecordTest extends TestBase {
 
   private boolean isCfRuntimeWithNativeRecordSupport() {
     return parameters.isCfRuntime()
-        && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK14)
+        && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)
         && parameters.getApiLevel().equals(AndroidApiLevel.B);
   }
 

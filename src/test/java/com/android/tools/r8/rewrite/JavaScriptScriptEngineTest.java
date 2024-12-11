@@ -85,7 +85,7 @@ public class JavaScriptScriptEngineTest extends ScriptEngineTestBase {
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             // No default JS engine starting from JDK-14 where Nashorn was removed, see b/227162584.
-            parameters.isCfRuntime() && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK14),
+            parameters.isCfRuntime() && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
             r -> r.assertFailureWithErrorThatThrows(NullPointerException.class),
             r ->
                 r.assertSuccessWithOutput(
