@@ -94,8 +94,16 @@ public abstract class AbstractBackportTest extends TestBase {
       try {
         Method getNestHost = Class.class.getDeclaredMethod("getNestHost");
         Class<?> nestHost = (Class<?>) getNestHost.invoke(clazz);
-        if (nestHost != null && nestHost != clazz) {
-          builder.addStrippedOuter(nestHost);
+        if (nestHost != null) {
+          if (nestHost != clazz) {
+            builder.addStrippedOuter(nestHost);
+          } else {
+            // TODO(b/383494861): In Java 21 reflection on getNestHost fails from command line.
+            nestHost = clazz.getEnclosingClass();
+            if (nestHost != clazz) {
+              builder.addStrippedOuter(nestHost);
+            }
+          }
         }
       } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
         // Ignored on old JDKs.
