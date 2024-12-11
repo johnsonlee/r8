@@ -3,15 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.java23.switchpatternmatching;
 
-import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21EnumSwitch;
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
@@ -19,11 +15,9 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -84,38 +78,20 @@ public class EnumLessCasesAtRuntimeSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.O)
-        && parameters.getApiLevel().isLessThan(AndroidApiLevel.BAKLAVA)) {
-      assertThrows(
-          CompilationFailedException.class,
-          () ->
-              testForD8(parameters.getBackend())
-                  .apply(this::addModifiedProgramClasses)
-                  .setMinApi(parameters)
-                  .compileWithExpectedDiagnostics(
-                      diagnostics -> {
-                        diagnostics.assertOnlyErrors();
-                        diagnostics.assertErrorsMatch(
-                            diagnosticMessage(
-                                containsString("DexValueConstDynamic should be desugared")));
-                      }));
-    } else {
-      testForD8(parameters.getBackend())
-          .apply(this::addModifiedProgramClasses)
-          .setMinApi(parameters)
-          .run(parameters.getRuntime(), Main.class)
-          .assertFailure();
-    }
+    testForD8(parameters.getBackend())
+        .apply(this::addModifiedProgramClasses)
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
-  @Ignore("TODO(b/382880986) enable test when fixed.")
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     Assume.assumeTrue(
         parameters.isDexRuntime()
             || (parameters.isCfRuntime()
-                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK21)));
+                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23)));
     testForR8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .applyIf(

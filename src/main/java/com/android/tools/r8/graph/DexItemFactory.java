@@ -868,7 +868,6 @@ public class DexItemFactory {
       createMethod(switchBootstrapType, switchBootstrapMethodProto, createString("typeSwitch"));
   public final DexMethod enumSwitchMethod =
       createMethod(switchBootstrapType, switchBootstrapMethodProto, createString("enumSwitch"));
-  public final DexProto typeSwitchProto = createProto(intType, objectType, intType);
   public final DexMethod enumDescMethod =
       createMethod(
           enumDescType, createProto(enumDescType, classDescType, stringType), ofMethodName);

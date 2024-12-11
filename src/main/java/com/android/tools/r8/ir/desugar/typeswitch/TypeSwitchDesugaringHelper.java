@@ -29,9 +29,15 @@ public class TypeSwitchDesugaringHelper {
         "Unexpected ConstantDynamic in TypeSwitch: " + msg, context.getOrigin());
   }
 
+  private static boolean isTypeSwitchProto(DexProto proto) {
+    return proto.getReturnType().isIntType()
+        && proto.getArity() == 2
+        && proto.getParameter(1).isIntType();
+  }
+
   public static boolean isTypeSwitchCallSite(DexCallSite callSite, DexItemFactory factory) {
     return callSite.methodName.isIdenticalTo(factory.typeSwitchMethod.getName())
-        && callSite.methodProto.isIdenticalTo(factory.typeSwitchProto)
+        && isTypeSwitchProto(callSite.methodProto)
         && methodHandleIsInvokeStaticTo(callSite.bootstrapMethod, factory.typeSwitchMethod);
   }
 

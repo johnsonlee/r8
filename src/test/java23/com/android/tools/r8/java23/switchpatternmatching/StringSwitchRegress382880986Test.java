@@ -4,7 +4,6 @@
 package com.android.tools.r8.java23.switchpatternmatching;
 
 import static com.android.tools.r8.desugar.switchpatternmatching.SwitchTestHelper.hasJdk21TypeSwitch;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.JdkClassFileProvider;
@@ -13,11 +12,9 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -62,17 +59,10 @@ public class StringSwitchRegress382880986Test extends TestBase {
         .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
-        // TODO(b/382880986): This should not fail.
-        .applyIf(
-            parameters.getApiLevel().isLessThan(AndroidApiLevel.O),
-            r ->
-                r.assertFailureWithErrorThatMatches(
-                    containsString("Instruction is unrepresentable in DEX")),
-            r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
-  @Ignore("TODO(b/382880986) enable test when fixed.")
   public void testR8() throws Exception {
     Assume.assumeTrue(
         parameters.isDexRuntime()
