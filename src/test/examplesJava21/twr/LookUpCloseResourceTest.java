@@ -139,7 +139,7 @@ public class LookUpCloseResourceTest extends TestBase {
 
     Assert.assertEquals(10, toSuper.size());
     Assert.assertEquals(11, classIntroducedBeforeClose.size());
-    Assert.assertEquals(5, closeBackports.size());
+    Assert.assertEquals(6, closeBackports.size());
 
     if (DEBUG_PRINT) {
       print(closeBackports, classIntroducedBeforeClose, toSuper, appViewForMax);
