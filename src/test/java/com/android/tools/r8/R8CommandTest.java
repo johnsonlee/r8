@@ -17,6 +17,7 @@ import static org.junit.Assert.fail;
 import com.android.tools.r8.AssertionsConfiguration.AssertionTransformationScope;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.ToolHelper.ProcessResult;
+import com.android.tools.r8.androidapi.AndroidApiModelingOptions;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.dex.Marker;
@@ -28,7 +29,6 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ExtractMarkerUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.InternalOptions.ApiModelTestingOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
@@ -999,7 +999,7 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
 
   @Test
   public void defaultApiModelingState() throws Exception {
-    ApiModelTestingOptions options = parse("").getInternalOptions().apiModelingOptions();
+    AndroidApiModelingOptions options = parse("").getInternalOptions().apiModelingOptions();
     assertTrue(options.isApiCallerIdentificationEnabled());
     assertTrue(options.enableOutliningOfMethods);
     assertTrue(options.enableStubbingOfClasses);
