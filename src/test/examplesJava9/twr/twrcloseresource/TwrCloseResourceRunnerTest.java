@@ -12,10 +12,10 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -30,10 +30,10 @@ public class TwrCloseResourceRunnerTest extends TestBase {
   public static Path ANY_REACHABLE_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR, "flow.jar");
 
   private static final String EXPECTED_RESULT =
-      "A\n" + "E\n" + "G\n" + "H\n" + "I\n" + "J\n" + "K\n" + "iA\n" + "iE\n" + "iG\n" + "iH\n"
-          + "iI\n" + "iJ\n" + "iK\n" + "1\n" + "2\n" + "3\n" + "4\n" + "5\n" + "6\n" + "7\n" + "8\n"
-          + "99\n" + "i1\n" + "i2\n" + "i3\n" + "i4\n" + "i5\n" + "i6\n" + "i7\n" + "i8\n"
-          + "i99\n";
+      StringUtils.lines(
+          "A", "E", "G", "H", "I", "J", "K", "iA", "iE", "iG", "iH", "iI", "iJ", "iK", "1", "2",
+          "3", "4", "5", "6", "7", "8", "99", "i1", "i2", "i3", "i4", "i5", "i6", "i7", "i8",
+          "i99");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -49,7 +49,6 @@ public class TwrCloseResourceRunnerTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    Assume.assumeFalse("Missing jar", ToolHelper.isWindows());
     testForD8(parameters.getBackend())
         .addProgramClassFileData(IfaceDump.dump(), TwrCloseResourceTestDump.dump())
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.LATEST))
@@ -63,7 +62,6 @@ public class TwrCloseResourceRunnerTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    Assume.assumeFalse("Missing jar", ToolHelper.isWindows());
     parameters.assumeRuntimeTestParameters();
     testForR8(parameters.getBackend())
         .addProgramClassFileData(IfaceDump.dump(), TwrCloseResourceTestDump.dump())
