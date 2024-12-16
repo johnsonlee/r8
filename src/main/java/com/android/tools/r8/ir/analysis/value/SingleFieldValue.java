@@ -29,6 +29,7 @@ import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.ObjectAllocationInfoCollectionUtils;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 
 public abstract class SingleFieldValue extends SingleValue {
 
@@ -141,7 +142,8 @@ public abstract class SingleFieldValue extends SingleValue {
         && classToFeatureSplitMap.isInFeature(holder.asProgramClass(), appView)) {
       return false;
     }
-    return true;
+    return AndroidApiLevelUtils.isApiSafeForValueMaterialization(
+        this, appView.computedMinApiLevel(), appView);
   }
 
   @Override

@@ -24,6 +24,7 @@ import com.android.tools.r8.ir.code.MaterializingInstructionsInfo;
 import com.android.tools.r8.ir.code.ValueFactory;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfo;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.AndroidApiLevelUtils;
 
 public class SingleConstClassValue extends SingleConstValue {
 
@@ -104,20 +105,21 @@ public class SingleConstClassValue extends SingleConstValue {
   @Override
   public boolean isMaterializableInAllContexts(AppView<AppInfoWithLiveness> appView) {
     DexType baseType = type.toBaseType(appView.dexItemFactory());
-    if (baseType.isClassType()) {
-      DexClass clazz = appView.definitionFor(baseType);
-      if (clazz == null || !clazz.isPublic() || !clazz.isResolvable(appView)) {
-        return false;
-      }
-      ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
-      if (clazz.isProgramClass()
-          && classToFeatureSplitMap.isInFeature(clazz.asProgramClass(), appView)) {
-        return false;
-      }
+    if (baseType.isPrimitiveType()) {
       return true;
     }
-    assert baseType.isPrimitiveType();
-    return true;
+    assert baseType.isClassType();
+    DexClass clazz = appView.definitionFor(baseType);
+    if (clazz == null || !clazz.isPublic() || !clazz.isResolvable(appView)) {
+      return false;
+    }
+    ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
+    if (clazz.isProgramClass()
+        && classToFeatureSplitMap.isInFeature(clazz.asProgramClass(), appView)) {
+      return false;
+    }
+    return AndroidApiLevelUtils.isApiSafeForValueMaterialization(
+        this, appView.computedMinApiLevel(), appView);
   }
 
   @Override
