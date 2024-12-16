@@ -4,6 +4,7 @@
 package com.android.tools.r8.optimize.argumentpropagation;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.NeverClassInline;
@@ -11,10 +12,12 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.lang.reflect.Field;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -26,15 +29,20 @@ import sun.misc.Unsafe;
 public class DefaultFieldValueAnalysisWithKeptSubclassTest extends TestBase {
 
   @Parameter(0)
+  public boolean keepFields;
+
+  @Parameter(1)
   public TestParameters parameters;
 
   @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters()
-        .withCfRuntimes()
-        .withDexRuntimesStartingFromIncluding(Version.V5_1_1)
-        .withAllApiLevels()
-        .build();
+  public static List<Object[]> data() {
+    return buildParameters(
+        BooleanUtils.values(),
+        getTestParameters()
+            .withCfRuntimes()
+            .withDexRuntimesStartingFromIncluding(Version.V5_1_1)
+            .withAllApiLevels()
+            .build());
   }
 
   @Test
@@ -55,6 +63,13 @@ public class DefaultFieldValueAnalysisWithKeptSubclassTest extends TestBase {
         .addInnerClasses(getClass())
         .addKeepClassAndMembersRules(Main.class)
         .addKeepClassRules(B.class)
+        .applyIf(
+            keepFields,
+            b ->
+                b.addKeepRules(
+                    "-keepclassmembers class " + A.class.getTypeName() + " {",
+                    "  !static <fields>;",
+                    "}"))
         .enableInliningAnnotations()
         .enableNeverClassInliningAnnotations()
         .enableNoVerticalClassMergingAnnotations()
@@ -64,10 +79,13 @@ public class DefaultFieldValueAnalysisWithKeptSubclassTest extends TestBase {
             inspector -> {
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
-              assertThat(aClassSubject.uniqueFieldWithOriginalName("f"), isPresent());
+              assertThat(aClassSubject.uniqueFieldWithOriginalName("f"), isPresentIf(keepFields));
             })
         .run(parameters.getRuntime(), Main.class, B.class.getTypeName())
-        .assertSuccessWithOutputLines("Hello, world!");
+        .applyIf(
+            keepFields,
+            rr -> rr.assertSuccessWithOutputLines("Hello, world!"),
+            TestRunResult::assertSuccessWithEmptyOutput);
   }
 
   static class Main {

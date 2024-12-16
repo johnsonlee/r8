@@ -56,6 +56,9 @@ import java.util.function.Predicate;
 
 public class DefaultFieldValueJoiner {
 
+  private static final boolean includeDefaultValueForAllFieldsWhereHolderIsKeptOrHasKeptSubclass =
+      false;
+
   private final AppView<AppInfoWithLiveness> appView;
   private final Set<DexProgramClass> classesWithSingleCallerInlinedInstanceInitializers;
   private final FieldStateCollection fieldStates;
@@ -88,26 +91,28 @@ public class DefaultFieldValueJoiner {
     // Classes that are kept or have a kept subclass can be instantiated in a way that does not use
     // any instance initializers. For all fields on such classes, we therefore include the default
     // field value.
-    Map<DexProgramClass, Boolean> classesWithKeptSubclasses =
-        computeClassesWithKeptSubclasses(fieldsOfInterest);
     ProgramFieldSet fieldsWithLiveDefaultValue = ProgramFieldSet.createConcurrent();
-    MapUtils.removeIf(
-        fieldsOfInterest,
-        (clazz, fields) -> {
-          Boolean isKeptOrHasKeptSubclass = classesWithKeptSubclasses.get(clazz);
-          assert isKeptOrHasKeptSubclass != null;
-          if (isKeptOrHasKeptSubclass) {
-            fields.removeIf(
-                field -> {
-                  if (field.getDefinition().isInstance()) {
-                    fieldsWithLiveDefaultValue.add(field);
-                    return true;
-                  }
-                  return false;
-                });
-          }
-          return fields.isEmpty();
-        });
+    if (includeDefaultValueForAllFieldsWhereHolderIsKeptOrHasKeptSubclass) {
+      Map<DexProgramClass, Boolean> classesWithKeptSubclasses =
+          computeClassesWithKeptSubclasses(fieldsOfInterest);
+      MapUtils.removeIf(
+          fieldsOfInterest,
+          (clazz, fields) -> {
+            Boolean isKeptOrHasKeptSubclass = classesWithKeptSubclasses.get(clazz);
+            assert isKeptOrHasKeptSubclass != null;
+            if (isKeptOrHasKeptSubclass) {
+              fields.removeIf(
+                  field -> {
+                    if (field.getDefinition().isInstance()) {
+                      fieldsWithLiveDefaultValue.add(field);
+                      return true;
+                    }
+                    return false;
+                  });
+            }
+            return fields.isEmpty();
+          });
+    }
 
     // If constructor inlining is disabled, then we focus on whether each instance initializer
     // definitely assigns the given field before it is read. We do the same for final and static
@@ -330,6 +335,12 @@ public class DefaultFieldValueJoiner {
         (holderType, fields) -> {
           assert !fields.isEmpty();
           DexProgramClass holder = fields.iterator().next().getHolder();
+          // If the class is kept it could be instantiated directly, in which case all default field
+          // values could be live.
+          if (appView.getKeepInfo(holder).isPinned(appView.options())) {
+            fields.forEach(liveDefaultValueConsumer);
+            return true;
+          }
           if (holder.isFinal() || !appView.appInfo().isInstantiatedIndirectly(holder)) {
             // When the class is not explicitly marked final, the class could in principle have
             // injected subclasses if it is pinned. However, none of the fields are pinned, so we

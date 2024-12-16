@@ -33,7 +33,7 @@ public class RecordBlogTest extends TestBase {
       ImmutableMap.<String, String>builder()
           .put("-dontobfuscate\n-dontoptimize", "RecordBlog$Person[name=%s, age=42]")
           .put("", "a[a=%s]")
-          .put("-keep,allowshrinking class " + CLASS, "RecordBlog$Person[a=%s, b=42]")
+          .put("-keep,allowshrinking class " + CLASS, "RecordBlog$Person[a=%s]")
           .put(
               "-keepclassmembers,allowshrinking,allowoptimization class "
                   + CLASS
