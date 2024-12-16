@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.kotlin.lambda.b148525512;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;
@@ -31,7 +29,7 @@ public class B148525512 extends KotlinTestBase {
   private static final Package pkg = B148525512.class.getPackage();
   private static final String kotlinTestClassesPackage = pkg.getName();
   private static final String baseKtClassName = kotlinTestClassesPackage + ".BaseKt";
-  private static final String featureKtClassNamet = kotlinTestClassesPackage + ".FeatureKt";
+  private static final String featureKtClassName = kotlinTestClassesPackage + ".FeatureKt";
   private static final String baseClassName = kotlinTestClassesPackage + ".Base";
 
   private static Path featureApiPath;
@@ -87,10 +85,16 @@ public class B148525512 extends KotlinTestBase {
             .addProgramClasses(FeatureAPI.class)
             .addKeepMainRule(baseKtClassName)
             .addKeepClassAndMembersRules(baseClassName)
-            .addKeepClassAndMembersRules(featureKtClassNamet)
+            .addKeepClassAndMembersRules(featureKtClassName)
             .addKeepClassAndMembersRules(FeatureAPI.class)
+            .addKeepRules(
+                "-reprocessmethod class * {",
+                "  void main(java.lang.String[]);",
+                "  void feature(int);",
+                "}")
             .addHorizontallyMergedClassesInspector(
                 HorizontallyMergedClassesInspector::assertNoClassesMerged)
+            .enableProguardTestOptions()
             .setMinApi(parameters)
             .addFeatureSplit(
                 builder ->

@@ -51,9 +51,7 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.DeterminismAnalysis;
 import com.android.tools.r8.ir.analysis.InitializedClassesOnNormalExitAnalysis;
@@ -956,11 +954,6 @@ public class MethodOptimizationInfoCollector {
     if (method.isSynchronized()) {
       // If the method is synchronized then it acquires a lock.
       mayHaveSideEffects = true;
-    } else if (method.isInstanceInitializer() && hasNonTrivialFinalizeMethod(context.getHolder())) {
-      // If a class T overrides java.lang.Object.finalize(), then treat the constructor as having
-      // side effects. This ensures that we won't remove instructions on the form `new-instance
-      // {v0}, T`.
-      mayHaveSideEffects = true;
     } else {
       mayHaveSideEffects = false;
       // Otherwise, check if there is an instruction that has side effects.
@@ -985,23 +978,6 @@ public class MethodOptimizationInfoCollector {
     if (!mayHaveSideEffects) {
       feedback.methodMayNotHaveSideEffects(method);
     }
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  // Returns true if the given class overrides the method `void java.lang.Object.finalize()`.
-  private boolean hasNonTrivialFinalizeMethod(DexProgramClass clazz) {
-    if (clazz.isInterface()) {
-      return false;
-    }
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    MethodResolutionResult resolutionResult =
-        appView
-            .appInfo()
-            .resolveMethodOnClassLegacy(clazz, appView.dexItemFactory().objectMembers.finalize);
-    DexEncodedMethod target = resolutionResult.getSingleTarget();
-    return target != null
-        && target.getReference() != dexItemFactory.enumMembers.finalize
-        && target.getReference() != dexItemFactory.objectMembers.finalize;
   }
 
   private void computeReturnValueOnlyDependsOnArguments(

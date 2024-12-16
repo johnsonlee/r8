@@ -169,6 +169,10 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
     onAdd(NumericType.DOUBLE, leftValueIndex, rightValueIndex);
   }
 
+  public void onStoreStoreFence(EV value) {
+    onInstruction();
+  }
+
   public void onSub(NumericType type, EV leftValueIndex, EV rightValueIndex) {
     onArithmeticBinop(type, leftValueIndex, rightValueIndex);
   }
@@ -1299,6 +1303,12 @@ public abstract class LirParsedInstructionCallback<EV> implements LirInstruction
               (OriginalFieldWitness) getConstantItem(view.getNextConstantOperand());
           EV value = getNextValueOperand(view);
           onOriginalFieldWitness(witness, value);
+          return;
+        }
+      case LirOpcodes.STORESTOREFENCE:
+        {
+          EV value = getNextValueOperand(view);
+          onStoreStoreFence(value);
           return;
         }
       default:

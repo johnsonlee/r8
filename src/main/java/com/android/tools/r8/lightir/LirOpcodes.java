@@ -214,6 +214,7 @@ public interface LirOpcodes {
   int STRINGSWITCH = 227;
   int RESOURCENUMBER = 228;
   int ORIGINALFIELDWITNESS = 229;
+  int STORESTOREFENCE = 230;
 
   static String toString(int opcode) {
     switch (opcode) {
@@ -551,6 +552,8 @@ public interface LirOpcodes {
         return "CHECKCAST_IGNORE_COMPAT";
       case CONSTCLASS_IGNORE_COMPAT:
         return "CONSTCLASS_IGNORE_COMPAT";
+      case STORESTOREFENCE:
+        return "STORESTOREFENCE";
       case STRINGSWITCH:
         return "STRINGSWITCH";
       case RESOURCENUMBER:

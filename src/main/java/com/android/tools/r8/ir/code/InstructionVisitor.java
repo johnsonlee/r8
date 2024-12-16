@@ -136,6 +136,8 @@ public interface InstructionVisitor<T> {
 
   T visit(Store instruction);
 
+  T visit(StoreStoreFence instruction);
+
   T visit(Sub instruction);
 
   T visit(Swap instruction);

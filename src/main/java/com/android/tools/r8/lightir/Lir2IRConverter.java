@@ -93,6 +93,7 @@ import com.android.tools.r8.ir.code.Shl;
 import com.android.tools.r8.ir.code.Shr;
 import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.StaticPut;
+import com.android.tools.r8.ir.code.StoreStoreFence;
 import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Sub;
 import com.android.tools.r8.ir.code.Throw;
@@ -821,6 +822,11 @@ public class Lir2IRConverter {
     @Override
     public void onStaticPut(DexField field, EV value) {
       addInstruction(new StaticPut(getValue(value), field));
+    }
+
+    @Override
+    public void onStoreStoreFence(EV value) {
+      addInstruction(new StoreStoreFence(getValue(value)));
     }
 
     @Override

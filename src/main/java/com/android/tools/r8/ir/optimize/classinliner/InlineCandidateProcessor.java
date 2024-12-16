@@ -349,6 +349,10 @@ final class InlineCandidateProcessor {
           }
         }
 
+        if (user.isStoreStoreFence()) {
+          continue;
+        }
+
         return user; // Not eligible.
       }
       currentUsers = indirectUsers;
@@ -702,6 +706,11 @@ final class InlineCandidateProcessor {
       if (user.isMonitor()) {
         // Since this instance never escapes and is guaranteed to be non-null, any monitor
         // instructions are no-ops.
+        removeInstruction(user);
+        continue;
+      }
+
+      if (user.isStoreStoreFence()) {
         removeInstruction(user);
         continue;
       }

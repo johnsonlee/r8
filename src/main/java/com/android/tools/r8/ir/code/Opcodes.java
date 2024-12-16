@@ -79,4 +79,5 @@ public interface Opcodes {
   int RECORD_FIELD_VALUES = 70;
   int RESOURCE_CONST_NUMBER = 71;
   int ORIGINAL_FIELD_WITNESS = 72;
+  int STORE_STORE_FENCE = 73;
 }

@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin.reflection;
 
-
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestBase;
 import com.android.tools.r8.KotlinTestParameters;

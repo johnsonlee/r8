@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.optimize.unusedarguments;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -19,6 +20,8 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
@@ -29,22 +32,23 @@ import org.objectweb.asm.Opcodes;
 public class UnusedAnnotatedArgumentsWithMissingAnnotationsTest extends TestBase
     implements Opcodes {
 
-  private final boolean enableProguardCompatibilityMode;
-  private final TestParameters parameters;
+  @Parameter(0)
+  public boolean enableProguardCompatibilityMode;
 
-  @Parameterized.Parameters(name = "{1}, compat: {0}")
+  @Parameter(1)
+  public TestParameters parameters;
+
+  @Parameters(name = "{1}, compat: {0}")
   public static List<Object[]> data() {
     return buildParameters(
         BooleanUtils.values(), getTestParameters().withAllRuntimesAndApiLevels().build());
   }
 
-  public UnusedAnnotatedArgumentsWithMissingAnnotationsTest(
-      boolean enableProguardCompatibilityMode, TestParameters parameters) {
-    this.enableProguardCompatibilityMode = enableProguardCompatibilityMode;
-    this.parameters = parameters;
-  }
-
   private void checkClass(ClassSubject clazz, String expectedAnnotationClass) {
+    if (parameters.canUseJavaLangInvokeVarHandleStoreStoreFence()) {
+      assertThat(clazz, isAbsent());
+      return;
+    }
     assertThat(clazz, isPresent());
     MethodSubject init = clazz.init("Test", "java.lang.String");
     assertThat(init, isPresent());

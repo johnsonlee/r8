@@ -296,6 +296,10 @@ public class IRMetadata implements StructuralItem<IRMetadata> {
     return get(Opcodes.STATIC_PUT);
   }
 
+  public boolean mayHaveStoreStoreFence() {
+    return get(Opcodes.STORE_STORE_FENCE);
+  }
+
   public boolean mayHaveStringSwitch() {
     return get(Opcodes.STRING_SWITCH);
   }

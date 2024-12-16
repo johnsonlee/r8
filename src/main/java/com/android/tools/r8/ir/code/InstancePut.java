@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.optimize.DeadCodeRemover.DeadInstructionResult;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.regalloc.RegisterAllocator;
@@ -123,6 +124,15 @@ public class InstancePut extends FieldInstruction implements FieldPut, InstanceF
         throw new Unreachable("Unexpected type: " + getType());
     }
     builder.add(this, instruction);
+  }
+
+  @Override
+  public DeadInstructionResult canBeDeadCode(AppView<?> appView, IRCode code) {
+    if (object().isDefinedByInstructionSatisfying(Instruction::isNewInstance)
+        && !instructionInstanceCanThrow(appView, code.context())) {
+      return DeadInstructionResult.deadIfInValueIsDead(object());
+    }
+    return DeadInstructionResult.notDead();
   }
 
   @Override

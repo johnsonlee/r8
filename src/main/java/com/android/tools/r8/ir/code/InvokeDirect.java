@@ -9,6 +9,7 @@ import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeDirect;
 import com.android.tools.r8.dex.code.DexInvokeDirectRange;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -170,7 +171,16 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
     if (getReceiver().getAliasedValue() == code.getThis()) {
       return DeadInstructionResult.notDead();
     }
-    // Constructor calls can only be removed if the receiver is dead.
+    // Constructor calls can only be removed if the receiver is dead and there is no finalize
+    // method.
+    if (appView.hasClassHierarchy() && getReceiver().getType().isClassType()) {
+      DexType receiverType = getReceiver().getType().asClassType().getClassType();
+      DexClass receiverClass = appView.definitionFor(receiverType);
+      if (receiverClass == null
+          || appView.appInfoWithClassHierarchy().hasNonTrivialFinalizeMethod(receiverClass)) {
+        return DeadInstructionResult.notDead();
+      }
+    }
     return DeadInstructionResult.deadIfInValueIsDead(getReceiver());
   }
 

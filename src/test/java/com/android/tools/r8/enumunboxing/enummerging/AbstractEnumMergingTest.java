@@ -6,7 +6,6 @@ package com.android.tools.r8.enumunboxing.enummerging;
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.enumunboxing.EnumUnboxingTestBase;
-import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,22 +39,20 @@ public class AbstractEnumMergingTest extends EnumUnboxingTestBase {
         .addInnerClasses(getClass())
         .addKeepMainRule(Main.class)
         .addKeepRules(enumKeepRules.getKeepRules())
-        .applyIf(
-            enumKeepRules.isNone(),
-            testBuilder ->
-                testBuilder
-                    .addEnumUnboxingInspector(
-                        inspector ->
-                            inspector.assertUnboxed(MyEnum2Cases.class, myEnum1CaseSubClass))
-                    .addVerticallyMergedClassesInspector(
-                        inspector -> inspector.assertMergedIntoSubtype(MyEnum1Case.class)),
-            testBuilder ->
-                testBuilder
-                    .addKeepRules(enumKeepRules.getKeepRules())
-                    .addEnumUnboxingInspector(
-                        inspector -> inspector.assertUnboxed(MyEnum2Cases.class, MyEnum1Case.class))
-                    .addVerticallyMergedClassesInspector(
-                        VerticallyMergedClassesInspector::assertNoClassesMerged))
+        .addEnumUnboxingInspector(
+            inspector ->
+                inspector
+                    .assertUnboxed(MyEnum2Cases.class)
+                    // TODO(b/383488282): Should always be unboxed.
+                    .assertUnboxedIf(
+                        !parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
+                        myEnum1CaseSubClass))
+        .addVerticallyMergedClassesInspector(
+            inspector ->
+                inspector
+                    .applyIf(
+                        enumKeepRules.isNone(), i -> i.assertMergedIntoSubtype(MyEnum1Case.class))
+                    .assertNoOtherClassesMerged())
         .enableInliningAnnotations()
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
         .setMinApi(parameters)

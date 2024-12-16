@@ -257,6 +257,7 @@ public class LirSizeEstimation<EV> extends LirParsedInstructionCallback<EV> impl
       case INVOKESPECIAL:
       case INVOKESTATIC:
       case INVOKEINTERFACE:
+      case STORESTOREFENCE:
         return DexBase3Format.SIZE;
 
       case INVOKEDYNAMIC:

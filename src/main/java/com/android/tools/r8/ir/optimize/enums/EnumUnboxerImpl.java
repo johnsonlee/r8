@@ -26,6 +26,7 @@ import static com.android.tools.r8.ir.code.Opcodes.NEW_ARRAY_FILLED;
 import static com.android.tools.r8.ir.code.Opcodes.RETURN;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_GET;
 import static com.android.tools.r8.ir.code.Opcodes.STATIC_PUT;
+import static com.android.tools.r8.ir.code.Opcodes.STORE_STORE_FENCE;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.graph.AppView;
@@ -1191,6 +1192,8 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         return analyzeReturnUser(context, enumClass);
       case STATIC_PUT:
         return analyzeFieldPutUser(instruction.asStaticPut(), code, context, enumClass, enumValue);
+      case STORE_STORE_FENCE:
+        return analyzeStoreStoreFenceUser();
       default:
         return Reason.OTHER_UNSUPPORTED_INSTRUCTION;
     }
@@ -1619,6 +1622,10 @@ public class EnumUnboxerImpl extends EnumUnboxer {
         && returnType.toBaseType(factory).isNotIdenticalTo(enumClass.type)) {
       return Reason.IMPLICIT_UP_CAST_IN_RETURN;
     }
+    return Reason.ELIGIBLE;
+  }
+
+  private Reason analyzeStoreStoreFenceUser() {
     return Reason.ELIGIBLE;
   }
 

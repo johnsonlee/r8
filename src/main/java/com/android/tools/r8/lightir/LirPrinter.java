@@ -332,6 +332,11 @@ public class LirPrinter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   @Override
+  public void onStoreStoreFence(EV value) {
+    appendValueArguments(value);
+  }
+
+  @Override
   public void onInstanceGet(DexField field, EV object) {
     appendOutValue();
     builder.append(field).append(' ');

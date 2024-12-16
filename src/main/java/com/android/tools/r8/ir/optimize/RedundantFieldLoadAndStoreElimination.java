@@ -335,16 +335,6 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
       }
     }
 
-    public boolean isFinal(DexClassAndField field) {
-      if (field.isProgramField() || field.isClasspathField()) {
-        // Treat this field as being final if it is declared final or we have determined a constant
-        // value for it.
-        return field.getDefinition().isFinal()
-            || field.getDefinition().getOptimizationInfo().getAbstractValue().isSingleValue();
-      }
-      return appView.libraryMethodOptimizer().isFinalLibraryField(field.asLibraryField());
-    }
-
     private DexClassAndField resolveField(DexField field) {
       if (appView.enableWholeProgramOptimizations()) {
         SingleFieldResolutionResult resolutionResult =
@@ -456,6 +446,7 @@ public class RedundantFieldLoadAndStoreElimination extends CodeRewriterPass<AppI
                       || instruction.isThrow()
                       || instruction.isUnop()
                       || instruction.isRecordFieldValues()
+                      || instruction.isStoreStoreFence()
                   : "Unexpected instruction of type " + instruction.getClass().getTypeName();
             }
           }

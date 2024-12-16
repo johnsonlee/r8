@@ -18,8 +18,7 @@ import com.android.tools.r8.features.FeatureSplitBoundaryOptimizationUtils;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DefaultUseRegistryWithResult;
-import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexItemFactory.BoxUnboxPrimitiveMethodRoundtrip;
 import com.android.tools.r8.graph.DexMethod;
@@ -726,20 +725,19 @@ public class DefaultInliningOracle implements InliningOracle {
       } else if (instruction.isInstancePut()) {
         // Final fields may not be initialized outside of a constructor in the enclosing class.
         InstancePut instancePut = instruction.asInstancePut();
-        DexField field = instancePut.getField();
-        DexEncodedField target = appView.appInfo().lookupInstanceTarget(field);
+        DexClassAndField target =
+            instancePut.resolveField(appView, singleTarget).getResolutionPair();
         if (target == null) {
           whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToMissingFieldAssignment(
               instancePut);
           return false;
         }
-        if (target.isFinal()) {
-          // TODO(b/278964529): We should unset the final flag for good measure. Find a way to do
-          //  this in a thread safe manner.
+        if (target.getAccessFlags().isFinal()) {
           if (inlinerOptions.enableConstructorInliningWithFinalFields
-              && options.canAssignFinalInstanceFieldOutsideConstructor()
-              && options.canUseJavaLangVarHandleStoreStoreFence(appView)) {
-            actionBuilder.setShouldEnsureStoreStoreBarrier();
+              && options.canUseJavaLangVarHandleStoreStoreFence(appView)
+              && methodProcessor.hasWaves()
+              && target.isProgramField()) {
+            actionBuilder.setShouldEnsureStoreStoreFence(target.asProgramField());
           } else {
             whyAreYouNotInliningReporter.reportUnsafeConstructorInliningDueToFinalFieldAssignment(
                 instancePut);

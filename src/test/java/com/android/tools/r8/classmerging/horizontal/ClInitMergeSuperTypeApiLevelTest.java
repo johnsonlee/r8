@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.classmerging.horizontal;
 
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -85,7 +86,9 @@ public class ClInitMergeSuperTypeApiLevelTest extends TestBase {
                   clazz.allMethods(MethodSubject::isInstanceInitializer).size());
               if (canUseExecutable()) {
                 MethodSubject constructorInit = clazz.init(Executable.class.getTypeName(), "int");
-                assertThat(constructorInit, isPresent());
+                assertThat(
+                    constructorInit,
+                    isAbsentIf(parameters.canUseJavaLangInvokeVarHandleStoreStoreFence()));
               } else {
                 MethodSubject constructorInit = clazz.init(Constructor.class.getTypeName());
                 assertThat(constructorInit, isPresent());

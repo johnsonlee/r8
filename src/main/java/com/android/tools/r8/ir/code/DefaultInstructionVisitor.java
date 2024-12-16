@@ -335,6 +335,11 @@ public abstract class DefaultInstructionVisitor<T> implements InstructionVisitor
   }
 
   @Override
+  public T visit(StoreStoreFence instruction) {
+    return null;
+  }
+
+  @Override
   public T visit(Sub instruction) {
     return null;
   }

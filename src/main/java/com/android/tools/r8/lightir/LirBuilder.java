@@ -1110,6 +1110,11 @@ public class LirBuilder<V, EV> {
     return addOneItemInstruction(LirOpcodes.INITCLASS, clazz);
   }
 
+  public LirBuilder<V, EV> addStoreStoreFence(V value) {
+    return addInstructionTemplate(
+        LirOpcodes.STORESTOREFENCE, Collections.emptyList(), Collections.singletonList(value));
+  }
+
   public LirBuilder<V, EV> addRecordFieldValues(DexField[] fields, List<V> values) {
     RecordFieldValuesPayload payload = new RecordFieldValuesPayload(fields);
     return addInstructionTemplate(

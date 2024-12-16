@@ -1081,7 +1081,7 @@ public class Enqueuer {
       worklist.enqueueMarkMethodLiveAction(clazz.getProgramDefaultInitializer(), clazz, reason);
       applyMinimumKeepInfoWhenLiveOrTargeted(
           clazz.getProgramDefaultInitializer(),
-          KeepMethodInfo.newEmptyJoiner().disallowOptimization());
+          KeepMethodInfo.newEmptyJoiner().disallowClosedWorldReasoning());
     }
   }
 

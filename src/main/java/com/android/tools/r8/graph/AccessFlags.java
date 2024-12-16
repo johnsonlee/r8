@@ -226,6 +226,10 @@ public abstract class AccessFlags<T extends AccessFlags<T>> implements Structura
     return self();
   }
 
+  public boolean wasFinal() {
+    return wasSet(Constants.ACC_FINAL);
+  }
+
   public boolean isSynthetic() {
     return isSet(Constants.ACC_SYNTHETIC);
   }

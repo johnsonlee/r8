@@ -21,6 +21,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis;
 import com.android.tools.r8.ir.analysis.proto.ProtoInliningReasonStrategy;
@@ -36,14 +37,15 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.Invoke;
+import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeMethod;
-import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Monitor;
 import com.android.tools.r8.ir.code.MonitorType;
 import com.android.tools.r8.ir.code.MoveException;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.code.StoreStoreFence;
 import com.android.tools.r8.ir.code.Throw;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -69,6 +71,7 @@ import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
+import com.android.tools.r8.utils.collections.ProgramFieldSet;
 import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.ImmutableList;
@@ -84,6 +87,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -100,6 +104,10 @@ public class Inliner {
 
   private final MultiCallerInliner multiCallerInliner;
 
+  // The set of final fields that have been assigned by a constructor that has been inlined in the
+  // current wave.
+  private final ProgramFieldSet inlinedFinalFieldsInWave = ProgramFieldSet.createConcurrent();
+
   // The set of methods that have been single caller inlined in the current wave. These need to be
   // pruned when the wave ends.
   private final Map<DexProgramClass, ProgramMethodMap<ProgramMethod>>
@@ -108,6 +116,8 @@ public class Inliner {
       Sets.newIdentityHashSet();
 
   private final AvailableApiExceptions availableApiExceptions;
+
+  private final AtomicBoolean waveDoneScheduled = new AtomicBoolean();
 
   public Inliner(AppView<AppInfoWithLiveness> appView) {
     this(appView, null);
@@ -565,7 +575,7 @@ public class Inliner {
     final Reason reason;
 
     private boolean shouldEnsureStaticInitialization;
-    private boolean shouldEnsureStoreStoreBarrier;
+    private ProgramFieldSet shouldEnsureStoreStoreFenceCauses;
 
     private DexProgramClass downcastClass;
 
@@ -596,8 +606,8 @@ public class Inliner {
       shouldEnsureStaticInitialization = true;
     }
 
-    void setShouldEnsureStoreStoreBarrier() {
-      shouldEnsureStoreStoreBarrier = true;
+    void setShouldEnsureStoreStoreFenceCauses(ProgramFieldSet shouldEnsureStoreStoreFenceCauses) {
+      this.shouldEnsureStoreStoreFenceCauses = shouldEnsureStoreStoreFenceCauses;
     }
 
     boolean mustBeInlined() {
@@ -626,9 +636,14 @@ public class Inliner {
             failingBlock -> synthesizeInitClass(code, failingBlock));
       }
 
-      // Insert a store-store barrier at the end of the method.
-      if (shouldEnsureStoreStoreBarrier) {
-        synthesizeStoreStoreBarrier(appView, code);
+      // Insert a store-store fence at the end of the method.
+      if (invoke.isInvokeConstructor(dexItemFactory)) {
+        InvokeDirect invokeDirect = invoke.asInvokeDirect();
+        Value receiver = invokeDirect.getReceiver();
+        if (shouldEnsureStoreStoreFenceCauses != null
+            && receiver.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+          synthesizeStoreStoreFence(appView, code, invokeDirect);
+        }
       }
 
       // Insert a null check if this is needed to preserve the implicit null check for the receiver.
@@ -825,7 +840,8 @@ public class Inliner {
       }
     }
 
-    private void synthesizeStoreStoreBarrier(AppView<AppInfoWithLiveness> appView, IRCode code) {
+    private void synthesizeStoreStoreFence(
+        AppView<AppInfoWithLiveness> appView, IRCode code, InvokeDirect invoke) {
       assert target.getDefinition().isInstanceInitializer();
       BasicBlockIterator blockIterator = code.listIterator();
       while (blockIterator.hasNext()) {
@@ -833,18 +849,26 @@ public class Inliner {
         if (!block.isReturnBlock()) {
           continue;
         }
-        // It is an invariant that return blocks do not have catch handlers.
-        assert !block.hasCatchHandlers();
-        InstructionListIterator instructionIterator =
-            block.listIterator(block.getInstructions().size() - 1);
-        DexMethod storeStoreFenceMethod =
-            appView.dexItemFactory().javaLangInvokeVarHandleMembers.storeStoreFence;
-        assert appView.definitionFor(storeStoreFenceMethod) != null;
-        instructionIterator.add(
-            InvokeStatic.builder()
-                .setMethod(storeStoreFenceMethod)
-                .setPosition(Position.syntheticNone())
-                .build());
+        InstructionListIterator instructionIterator;
+        if (block.hasCatchHandlers()) {
+          instructionIterator = block.listIterator();
+          Instruction throwingInstruction =
+              instructionIterator.nextUntil(Instruction::instructionTypeCanThrow);
+          if (throwingInstruction != null) {
+            instructionIterator =
+                instructionIterator
+                    .splitCopyCatchHandlers(code, blockIterator, appView.options())
+                    .listIterator();
+          } else {
+            Instruction previousInstruction = instructionIterator.previous();
+            assert previousInstruction.isReturn();
+          }
+        } else {
+          instructionIterator = block.listIterator(block.getInstructions().size() - 1);
+        }
+        StoreStoreFence storeStoreFence = new StoreStoreFence(invoke.getReceiver());
+        storeStoreFence.setPosition(invoke.getPosition());
+        instructionIterator.add(storeStoreFence);
       }
     }
 
@@ -867,7 +891,7 @@ public class Inliner {
       private InvokeMethod invoke;
       private Reason reason;
       private boolean shouldEnsureStaticInitialization;
-      private boolean shouldEnsureStoreStoreBarrier;
+      private ProgramFieldSet shouldEnsureStoreStoreFenceCauses;
       private ProgramMethod target;
 
       Builder setDowncastClass(DexProgramClass downcastClass) {
@@ -890,8 +914,11 @@ public class Inliner {
         return this;
       }
 
-      Builder setShouldEnsureStoreStoreBarrier() {
-        this.shouldEnsureStoreStoreBarrier = true;
+      Builder setShouldEnsureStoreStoreFence(ProgramField finalFieldCause) {
+        if (shouldEnsureStoreStoreFenceCauses == null) {
+          shouldEnsureStoreStoreFenceCauses = ProgramFieldSet.create();
+        }
+        shouldEnsureStoreStoreFenceCauses.add(finalFieldCause);
         return this;
       }
 
@@ -908,8 +935,8 @@ public class Inliner {
         if (shouldEnsureStaticInitialization) {
           action.setShouldEnsureStaticInitialization();
         }
-        if (shouldEnsureStoreStoreBarrier) {
-          action.setShouldEnsureStoreStoreBarrier();
+        if (shouldEnsureStoreStoreFenceCauses != null) {
+          action.setShouldEnsureStoreStoreFenceCauses(shouldEnsureStoreStoreFenceCauses);
         }
         return action;
       }
@@ -1149,6 +1176,13 @@ public class Inliner {
           iterator.inlineInvoke(
               appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
 
+          if (action.shouldEnsureStoreStoreFenceCauses != null) {
+            assert !action.shouldEnsureStoreStoreFenceCauses.isEmpty();
+            assert converter.isInWave();
+            inlinedFinalFieldsInWave.addAll(action.shouldEnsureStoreStoreFenceCauses);
+            scheduleWaveDone();
+          }
+
           if (methodProcessor.getCallSiteInformation().hasSingleCallSite(singleTarget, context)) {
             feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
             appView.withArgumentPropagator(
@@ -1157,9 +1191,7 @@ public class Inliner {
                         singleTarget, context, methodProcessor));
             if (!(methodProcessor instanceof OneTimeMethodProcessor)) {
               assert converter.isInWave();
-              if (singleCallerInlinedMethodsInWave.isEmpty()) {
-                converter.addWaveDoneAction(this::onWaveDone);
-              }
+              scheduleWaveDone();
               singleCallerInlinedMethodsInWave
                   .computeIfAbsent(
                       singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
@@ -1339,6 +1371,7 @@ public class Inliner {
   }
 
   private void onWaveDone() {
+    inlinedFinalFieldsInWave.forEach(field -> field.getAccessFlags().demoteFromFinal());
     singleCallerInlinedMethodsInWave.forEach(
         (clazz, singleCallerInlinedMethodsForClass) -> {
           // Convert and remove virtual single caller inlined methods to abstract or throw null.
@@ -1384,7 +1417,15 @@ public class Inliner {
                 });
           }
         });
+    inlinedFinalFieldsInWave.clear();
     singleCallerInlinedMethodsInWave.clear();
+    waveDoneScheduled.set(false);
+  }
+
+  private void scheduleWaveDone() {
+    if (!waveDoneScheduled.getAndSet(true)) {
+      converter.addWaveDoneAction(this::onWaveDone);
+    }
   }
 
   public void onLastWaveDone(

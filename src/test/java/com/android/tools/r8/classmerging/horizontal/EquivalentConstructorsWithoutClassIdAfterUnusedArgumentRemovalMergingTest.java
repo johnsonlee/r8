@@ -57,7 +57,8 @@ public class EquivalentConstructorsWithoutClassIdAfterUnusedArgumentRemovalMergi
               ClassSubject aClassSubject = inspector.clazz(A.class);
               assertThat(aClassSubject, isPresent());
               assertEquals(
-                  1, aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
+                  parameters.canUseJavaLangInvokeVarHandleStoreStoreFence() ? 0 : 1,
+                  aClassSubject.allMethods(FoundMethodSubject::isInstanceInitializer).size());
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("C", "D");

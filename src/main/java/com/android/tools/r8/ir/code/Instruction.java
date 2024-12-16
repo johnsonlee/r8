@@ -1507,6 +1507,14 @@ public abstract class Instruction
     return null;
   }
 
+  public boolean isStoreStoreFence() {
+    return false;
+  }
+
+  public StoreStoreFence asStoreStoreFence() {
+    return null;
+  }
+
   public boolean isSwap() {
     return false;
   }

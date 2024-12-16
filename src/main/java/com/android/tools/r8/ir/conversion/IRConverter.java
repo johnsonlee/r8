@@ -640,7 +640,6 @@ public class IRConverter {
       previous = printMethod(code, "IR after inserting assume instructions (SSA)", previous);
     }
 
-
     if (inliner != null && !isDebugMode) {
       timing.begin("Inlining");
       inliner.performInlining(code.context(), code, feedback, methodProcessor, timing);

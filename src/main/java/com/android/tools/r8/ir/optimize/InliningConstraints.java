@@ -269,6 +269,10 @@ public class InliningConstraints {
     return ConstraintWithTarget.ALWAYS;
   }
 
+  public ConstraintWithTarget forStoreStoreFence() {
+    return ConstraintWithTarget.ALWAYS;
+  }
+
   public ConstraintWithTarget forSwap() {
     return ConstraintWithTarget.ALWAYS;
   }

@@ -164,6 +164,17 @@ public class AppInfoWithClassHierarchy extends AppInfo {
     return this;
   }
 
+  public boolean hasNonTrivialFinalizeMethod(DexClass clazz) {
+    if (clazz.isInterface()) {
+      return false;
+    }
+    DexClassAndMethod resolvedMethod =
+        resolveMethodOnClass(clazz, dexItemFactory().objectMembers.finalize).getResolutionPair();
+    return resolvedMethod != null
+        && resolvedMethod.getHolderType().isNotIdenticalTo(dexItemFactory().enumType)
+        && resolvedMethod.getHolderType().isNotIdenticalTo(dexItemFactory().objectType);
+  }
+
   /** Primitive traversal over all (non-interface) superclasses of a given type. */
   public <B> TraversalContinuation<B, ?> traverseSuperClasses(
       DexClass clazz, TriFunction<DexType, DexClass, DexClass, TraversalContinuation<B, ?>> fn) {

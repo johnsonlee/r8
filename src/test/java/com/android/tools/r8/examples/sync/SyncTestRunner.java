@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.examples.sync;
 
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
@@ -10,7 +12,6 @@ import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -80,7 +81,7 @@ public class SyncTestRunner extends ExamplesTestBase {
   @Test
   public void testDebug() throws Exception {
     // TODO(b/79671093): DEX has different line number info during stepping.
-    Assume.assumeTrue(parameters.isCfRuntime());
+    assumeTrue(parameters.isCfRuntime());
     runTestDebugComparator();
   }
 }

@@ -49,7 +49,7 @@ public class KeepClassMembersFieldTest extends TestBase {
                 assertThat(
                     inspector.clazz(Foo.class).uniqueFieldWithOriginalName("value"), isPresent()))
         .run(parameters.getRuntime(), Foo.class)
-        .assertSuccessWithEmptyOutput();
+        .assertSuccessWithOutputLines("Foo");
   }
 
   static class Bar {}
@@ -59,7 +59,12 @@ public class KeepClassMembersFieldTest extends TestBase {
     Bar value = new Bar();
 
     public static void main(String[] args) {
-      new Foo();
+      System.out.println(new Foo());
+    }
+
+    @Override
+    public String toString() {
+      return "Foo";
     }
   }
 }
