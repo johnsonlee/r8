@@ -94,9 +94,11 @@ def run(args):
             editor = os.environ.get('EDITOR')
         if not editor:
             editor = 'vi'
-        print("Opening %s for version update with %s" %
+        input("\nCannot automatically determine the new version.\n"
+            + "Press [enter] to edit %s for version update with editor '%s'." %
               (VERSION_FILE, editor))
         subprocess.run([editor, VERSION_FILE])
+        new_version = input('Please enter the new version for the commit message: ')
 
     message = ("Version %s\n\n" % new_version)
     for bug in sorted(bugs):
