@@ -109,7 +109,7 @@ public class LibraryProvidedProguardRulesExtractR8RulesTest
         builder
             .setRulesConsumer((s, h) -> resultBuilder.append(s))
             .setIncludeOriginComments(includeOriginComments)
-            .setFakeCompilerVersion(compilerVersion)
+            .setCompilerVersion(compilerVersion)
             .build();
     ExtractR8Rules.run(command);
     String extractedRules = resultBuilder.toString();
@@ -129,7 +129,7 @@ public class LibraryProvidedProguardRulesExtractR8RulesTest
         builder
             .setRulesOutputPath(rulesOutput)
             .setIncludeOriginComments(includeOriginComments)
-            .setFakeCompilerVersion(compilerVersion)
+            .setCompilerVersion(compilerVersion)
             .build();
     ExtractR8Rules.run(command);
     String extractedRules = FileUtils.readTextFile(rulesOutput, StandardCharsets.UTF_8);

@@ -22,7 +22,7 @@ public class ExtractR8RulesCommand extends BaseCommand {
 
   private final StringConsumer rulesConsumer;
   private final boolean includeOriginComments;
-  private final SemanticVersion fakeCompilerVersion;
+  private final SemanticVersion compilerVersion;
   private final DexItemFactory factory;
   private final Reporter reporter;
 
@@ -32,7 +32,7 @@ public class ExtractR8RulesCommand extends BaseCommand {
     private final DexItemFactory factory = new DexItemFactory();
     private StringConsumer rulesConsumer = null;
     private boolean includeOriginComments = false;
-    private SemanticVersion fakeCompilerVersion = null;
+    private SemanticVersion compilerVersion = null;
 
     private Builder() {}
 
@@ -64,8 +64,8 @@ public class ExtractR8RulesCommand extends BaseCommand {
     }
 
     /** TBD */
-    public Builder setFakeCompilerVersion(SemanticVersion version) {
-      fakeCompilerVersion = version;
+    public Builder setCompilerVersion(SemanticVersion version) {
+      compilerVersion = version;
       return self();
     }
 
@@ -81,7 +81,7 @@ public class ExtractR8RulesCommand extends BaseCommand {
           getAppBuilder().build(),
           rulesConsumer,
           includeOriginComments,
-          fakeCompilerVersion,
+          compilerVersion,
           getReporter());
     }
   }
@@ -90,6 +90,7 @@ public class ExtractR8RulesCommand extends BaseCommand {
       StringUtils.lines(
           "Usage: TBD",
           "  --rules-output <file>      # Output the extracted keep rules.",
+          "  --compiler-version <version>  # Output the proguard rules extracted.",
           "  --include-origin-comments  # Include comments with origin for extracted rules.",
           "  --version                  # Print the version.",
           "  --help                     # Print this message.");
@@ -116,8 +117,8 @@ public class ExtractR8RulesCommand extends BaseCommand {
     return includeOriginComments;
   }
 
-  public SemanticVersion getFakeCompilerVersion() {
-    return fakeCompilerVersion;
+  public SemanticVersion getCompilerVersion() {
+    return compilerVersion;
   }
 
   Reporter getReporter() {
@@ -135,6 +136,8 @@ public class ExtractR8RulesCommand extends BaseCommand {
         builder.setPrintVersion(true);
       } else if (arg.equals("--rules-output")) {
         builder.setRulesOutputPath(Paths.get(args[++i]));
+      } else if (arg.equals("--compiler-version")) {
+        builder.setCompilerVersion(SemanticVersion.parse(args[++i]));
       } else if (arg.equals("--include-origin-comments")) {
         builder.setIncludeOriginComments(true);
       } else {
@@ -154,13 +157,13 @@ public class ExtractR8RulesCommand extends BaseCommand {
       AndroidApp inputApp,
       StringConsumer rulesConsumer,
       boolean includeOriginComments,
-      SemanticVersion fakeCompilerVersion,
+      SemanticVersion compilerVersion,
       Reporter reporter) {
     super(inputApp);
     this.factory = factory;
     this.rulesConsumer = rulesConsumer;
     this.includeOriginComments = includeOriginComments;
-    this.fakeCompilerVersion = fakeCompilerVersion;
+    this.compilerVersion = compilerVersion;
     this.reporter = reporter;
   }
 
@@ -169,7 +172,7 @@ public class ExtractR8RulesCommand extends BaseCommand {
     this.factory = new DexItemFactory();
     this.rulesConsumer = null;
     this.includeOriginComments = false;
-    this.fakeCompilerVersion = null;
+    this.compilerVersion = null;
     this.reporter = new Reporter();
   }
 

@@ -25,11 +25,11 @@ public class ExtractR8Rules {
       AndroidApp app,
       StringConsumer consumer,
       boolean includeOriginComments,
-      SemanticVersion fakeCompilerVersion,
+      SemanticVersion compilerVersion,
       Reporter reporter) {
     Supplier<SemanticVersion> semanticVersionSupplier =
         SemanticVersionUtils.compilerVersionSemanticVersionSupplier(
-            fakeCompilerVersion,
+            compilerVersion,
             "Using an artificial version newer than any known version for selecting"
                 + " Proguard configurations embedded under META-INF/. This means that"
                 + " all rules with a '-upto-' qualifier will be excluded and all"
@@ -72,12 +72,12 @@ public class ExtractR8Rules {
     AndroidApp app = command.getInputApp();
     StringConsumer rulesConsumer = command.getRulesConsumer();
     boolean includeOriginComments = command.getIncludeOriginComments();
-    SemanticVersion fakeCompilerVersion = command.getFakeCompilerVersion();
+    SemanticVersion compilerVersion = command.getCompilerVersion();
     InternalOptions options = command.getInternalOptions();
     ExceptionUtils.withCompilationHandler(
         options.reporter,
         () -> {
-          run(app, rulesConsumer, includeOriginComments, fakeCompilerVersion, options.reporter);
+          run(app, rulesConsumer, includeOriginComments, compilerVersion, options.reporter);
         });
   }
 

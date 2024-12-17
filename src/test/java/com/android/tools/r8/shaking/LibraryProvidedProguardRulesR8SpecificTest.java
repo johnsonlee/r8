@@ -148,7 +148,7 @@ public class LibraryProvidedProguardRulesR8SpecificTest
           builder
               .addProgramFiles(library)
               .setRulesConsumer((s, h) -> resultBuilder.append(s))
-              .setFakeCompilerVersion(compilerVersion)
+              .setCompilerVersion(compilerVersion)
               .build();
       ExtractR8Rules.run(command);
       assertEquals(expected, resultBuilder.toString());
