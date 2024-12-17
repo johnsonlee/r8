@@ -60,6 +60,7 @@ public class CodeRewriterPassCollection {
     passes.add(new ServiceLoaderRewriter(appView));
     if (appView.options().isRelease()) {
       passes.add(new SplitReturnRewriter(appView));
+      passes.add(new ReturnBlockCanonicalizerRewriter(appView));
     }
     return new CodeRewriterPassCollection(passes);
   }

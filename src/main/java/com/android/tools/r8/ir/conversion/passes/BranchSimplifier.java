@@ -695,32 +695,26 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     ListIterator<BasicBlock> blocksIterator = code.listIterator();
     while (blocksIterator.hasNext()) {
       BasicBlock block = blocksIterator.next();
-      InstructionListIterator iterator = block.listIterator();
-      while (iterator.hasNext()) {
-        Instruction instruction = iterator.next();
-        if (instruction.isSwitch()) {
-          Switch theSwitch = instruction.asSwitch();
-          if (options.testing.enableDeadSwitchCaseElimination) {
-            SwitchCaseEliminator eliminator =
-                removeUnnecessarySwitchCases(code, theSwitch, iterator, switchCaseAnalyzer);
-            anySimplifications |= eliminator.canBeOptimized();
-            if (eliminator.mayHaveIntroducedUnreachableBlocks()) {
-              needToRemoveUnreachableBlocks = true;
-            }
-
-            iterator.previous();
-            instruction = iterator.next();
-            if (instruction.isGoto()) {
-              continue;
-            }
-
-            assert instruction.isSwitch();
-            theSwitch = instruction.asSwitch();
+      if (block.exit().isSwitch()) {
+        Switch theSwitch = block.exit().asSwitch();
+        if (options.testing.enableDeadSwitchCaseElimination) {
+          SwitchCaseEliminator eliminator =
+              removeUnnecessarySwitchCases(code, theSwitch, switchCaseAnalyzer);
+          anySimplifications |= eliminator.canBeOptimized();
+          if (eliminator.mayHaveIntroducedUnreachableBlocks()) {
+            needToRemoveUnreachableBlocks = true;
           }
-          if (theSwitch.isIntSwitch()) {
-            anySimplifications |=
-                rewriteIntSwitch(code, blocksIterator, block, iterator, theSwitch.asIntSwitch());
+
+          if (block.exit().isGoto()) {
+            continue;
           }
+
+          assert block.exit().isSwitch();
+          theSwitch = block.exit().asSwitch();
+        }
+        if (theSwitch.isIntSwitch()) {
+          anySimplifications |=
+              rewriteIntSwitch(code, blocksIterator, block, theSwitch.asIntSwitch());
         }
       }
     }
@@ -737,8 +731,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     return create(affectedValues.hasNext(), anySimplifications);
   }
 
-  public void rewriteSingleKeySwitchToIf(
-      IRCode code, BasicBlock block, InstructionListIterator iterator, IntSwitch theSwitch) {
+  public void rewriteSingleKeySwitchToIf(IRCode code, BasicBlock block, IntSwitch theSwitch) {
     // Rewrite the switch to an if.
     int fallthroughBlockIndex = theSwitch.getFallthroughBlockIndex();
     int caseBlockIndex = theSwitch.targetBlockIndices()[0];
@@ -751,23 +744,22 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     } else {
       Instruction labelConst = theSwitch.materializeFirstKey(appView, code);
       labelConst.setPosition(theSwitch.getPosition());
-      iterator.previous();
+      InstructionListIterator iterator = block.listIterator(theSwitch);
       iterator.add(labelConst);
       Instruction dummy = iterator.next();
       assert dummy == theSwitch;
       replacement = new If(IfType.EQ, ImmutableList.of(theSwitch.value(), labelConst.outValue()));
     }
-    iterator.replaceCurrentInstruction(replacement);
+    block.exit().replace(replacement);
   }
 
   private boolean rewriteIntSwitch(
       IRCode code,
       ListIterator<BasicBlock> blockIterator,
       BasicBlock block,
-      InstructionListIterator iterator,
       IntSwitch theSwitch) {
     if (theSwitch.numberOfKeys() == 1) {
-      rewriteSingleKeySwitchToIf(code, block, iterator, theSwitch);
+      rewriteSingleKeySwitchToIf(code, block, theSwitch);
       return true;
     }
 
@@ -856,7 +848,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     long currentSize = IntSwitch.estimatedSize(mode, theSwitch.getKeys());
     if (newSwitchesSize + outliersAsIfSize + codeUnitMargin() < currentSize) {
       convertSwitchToSwitchAndIfs(
-          code, blockIterator, block, iterator, theSwitch, newSwitchSequences, outliers);
+          code, blockIterator, block, theSwitch, newSwitchSequences, outliers);
       return true;
     }
     return false;
@@ -865,10 +857,9 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
   private SwitchCaseEliminator removeUnnecessarySwitchCases(
       IRCode code,
       Switch theSwitch,
-      InstructionListIterator iterator,
       SwitchCaseAnalyzer switchCaseAnalyzer) {
     BasicBlock defaultTarget = theSwitch.fallthroughBlock();
-    SwitchCaseEliminator eliminator = new SwitchCaseEliminator(theSwitch, iterator);
+    SwitchCaseEliminator eliminator = new SwitchCaseEliminator(theSwitch);
     BasicBlockBehavioralSubsumption behavioralSubsumption =
         new BasicBlockBehavioralSubsumption(appView, code);
 
@@ -1110,7 +1101,6 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       IRCode code,
       ListIterator<BasicBlock> blocksIterator,
       BasicBlock originalBlock,
-      InstructionListIterator iterator,
       IntSwitch theSwitch,
       List<IntList> switches,
       IntList keysToRemove) {
@@ -1124,7 +1114,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     BasicBlock fallthroughBlock = theSwitch.fallthroughBlock();
 
     // Split the switch instruction into its own block and remove it.
-    iterator.previous();
+    InstructionListIterator iterator = originalBlock.listIterator(theSwitch);
     BasicBlock originalSwitchBlock = iterator.split(code, blocksIterator);
     assert !originalSwitchBlock.hasCatchHandlers();
     assert originalSwitchBlock.getInstructions().size() == 1;

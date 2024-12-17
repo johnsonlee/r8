@@ -7,7 +7,6 @@ package com.android.tools.r8.ir.conversion.passes;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.Goto;
-import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.IntSwitch;
 import com.android.tools.r8.ir.code.StringSwitch;
 import com.android.tools.r8.ir.code.Switch;
@@ -20,10 +19,9 @@ import java.util.Comparator;
 import java.util.function.IntPredicate;
 
 /** Helper to remove dead switch cases from a switch instruction. */
-class SwitchCaseEliminator {
+public class SwitchCaseEliminator {
 
   private final BasicBlock block;
-  private final InstructionListIterator iterator;
   private final Switch theSwitch;
 
   private int alwaysHitCase = -1;
@@ -32,9 +30,8 @@ class SwitchCaseEliminator {
   private boolean mayHaveIntroducedUnreachableBlocks = false;
   private IntSet switchCasesToBeRemoved;
 
-  SwitchCaseEliminator(Switch theSwitch, InstructionListIterator iterator) {
+  public SwitchCaseEliminator(Switch theSwitch) {
     this.block = theSwitch.getBlock();
-    this.iterator = iterator;
     this.theSwitch = theSwitch;
   }
 
@@ -82,7 +79,7 @@ class SwitchCaseEliminator {
     liveFallthrough = false;
   }
 
-  void markSwitchCaseForRemoval(int i) {
+  public void markSwitchCaseForRemoval(int i) {
     if (switchCasesToBeRemoved == null) {
       switchCasesToBeRemoved = new IntOpenHashSet();
     }
@@ -94,7 +91,7 @@ class SwitchCaseEliminator {
     liveFallthrough = false;
   }
 
-  void optimize() {
+  public void optimize() {
     if (canBeOptimized()) {
       int originalNumberOfSuccessors = block.getSuccessors().size();
       IntList removedSuccessorIndices = unlinkDeadSuccessors();
@@ -145,7 +142,7 @@ class SwitchCaseEliminator {
 
   private void replaceSwitchByGoto() {
     assert !hasAlwaysHitCase() || alwaysHitTarget != null;
-    iterator.replaceCurrentInstruction(new Goto());
+    theSwitch.replace(new Goto());
   }
 
   private void replaceSwitchByOptimizedSwitch(
@@ -223,6 +220,6 @@ class SwitchCaseEliminator {
           new StringSwitch(
               theSwitch.value(), newKeys, newTargetBlockIndices, fallthroughBlockIndex);
     }
-    iterator.replaceCurrentInstruction(replacement);
+    theSwitch.replace(replacement);
   }
 }

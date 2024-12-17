@@ -133,33 +133,28 @@ public class RuntimeWorkaroundCodeRewriter {
     ListIterator<BasicBlock> blocksIterator = code.listIterator();
     while (blocksIterator.hasNext()) {
       BasicBlock block = blocksIterator.next();
-      InstructionListIterator iterator = block.listIterator();
-      while (iterator.hasNext()) {
-        Instruction instruction = iterator.next();
-        assert !instruction.isStringSwitch();
-        if (instruction.isIntSwitch()) {
-          IntSwitch intSwitch = instruction.asIntSwitch();
-          if (intSwitch.getKey(intSwitch.numberOfKeys() - 1) == Integer.MAX_VALUE) {
-            if (intSwitch.numberOfKeys() == 1) {
-              branchSimplifier.rewriteSingleKeySwitchToIf(code, block, iterator, intSwitch);
-            } else {
-              IntList newSwitchSequences = new IntArrayList(intSwitch.numberOfKeys() - 1);
-              for (int i = 0; i < intSwitch.numberOfKeys() - 1; i++) {
-                newSwitchSequences.add(intSwitch.getKey(i));
-              }
-              IntList outliers = new IntArrayList(1);
-              outliers.add(Integer.MAX_VALUE);
-              branchSimplifier.convertSwitchToSwitchAndIfs(
-                  code,
-                  blocksIterator,
-                  block,
-                  iterator,
-                  intSwitch,
-                  ImmutableList.of(newSwitchSequences),
-                  outliers);
+      assert !block.exit().isStringSwitch();
+      if (block.exit().isIntSwitch()) {
+        IntSwitch intSwitch = block.exit().asIntSwitch();
+        if (intSwitch.getKey(intSwitch.numberOfKeys() - 1) == Integer.MAX_VALUE) {
+          if (intSwitch.numberOfKeys() == 1) {
+            branchSimplifier.rewriteSingleKeySwitchToIf(code, block, intSwitch);
+          } else {
+            IntList newSwitchSequences = new IntArrayList(intSwitch.numberOfKeys() - 1);
+            for (int i = 0; i < intSwitch.numberOfKeys() - 1; i++) {
+              newSwitchSequences.add(intSwitch.getKey(i));
             }
-            hasChanged = true;
+            IntList outliers = new IntArrayList(1);
+            outliers.add(Integer.MAX_VALUE);
+            branchSimplifier.convertSwitchToSwitchAndIfs(
+                code,
+                blocksIterator,
+                block,
+                intSwitch,
+                ImmutableList.of(newSwitchSequences),
+                outliers);
           }
+          hasChanged = true;
         }
       }
     }

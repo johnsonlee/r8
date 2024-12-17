@@ -58,8 +58,12 @@ public class Return extends JumpInstruction {
     return !isReturnVoid();
   }
 
+  public Value getReturnValueOrDefault(Value defaultValue) {
+    return hasReturnValue() ? returnValue() : defaultValue;
+  }
+
   public Value getReturnValueOrNull() {
-    return hasReturnValue() ? returnValue() : null;
+    return getReturnValueOrDefault(null);
   }
 
   public Value returnValue() {
