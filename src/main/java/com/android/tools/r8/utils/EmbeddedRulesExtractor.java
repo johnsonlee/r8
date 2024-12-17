@@ -134,7 +134,15 @@ public class EmbeddedRulesExtractor implements DataResourceProvider.Visitor {
     }
   }
 
+  private List<ProguardConfigurationSource> getRelevantRules() {
+    return !r8Sources.isEmpty() ? r8Sources : proguardSources;
+  }
+
   public void parseRelevantRules(ProguardConfigurationParser parser) {
-    parse(!r8Sources.isEmpty() ? r8Sources : proguardSources, parser);
+    parse(getRelevantRules(), parser);
+  }
+
+  public void visitRelevantRules(Consumer<ProguardConfigurationSource> consumer) {
+    getRelevantRules().forEach(consumer);
   }
 }

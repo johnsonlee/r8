@@ -7,6 +7,8 @@ package com.android.tools.r8.shaking;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.android.tools.r8.ExtractR8Rules;
+import com.android.tools.r8.ExtractR8RulesCommand;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -137,6 +139,20 @@ public class LibraryProvidedProguardRulesR8SpecificTest
                 assertEquals(
                     expected,
                     stripCommentsAndInJars(configuration, providerType == ProviderType.INJARS)));
+
+    // Test the standalone rules extractor (test independent of providerType).
+    if (providerType == ProviderType.API) {
+      StringBuilder resultBuilder = new StringBuilder();
+      ExtractR8RulesCommand.Builder builder = ExtractR8RulesCommand.builder();
+      ExtractR8RulesCommand command =
+          builder
+              .addProgramFiles(library)
+              .setRulesConsumer((s, h) -> resultBuilder.append(s))
+              .setFakeCompilerVersion(compilerVersion)
+              .build();
+      ExtractR8Rules.run(command);
+      assertEquals(expected, resultBuilder.toString());
+    }
   }
 
   private static String stripCommentsAndInJars(String configuration, boolean expectOneInJar) {

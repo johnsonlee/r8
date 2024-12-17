@@ -74,6 +74,9 @@ public class SwissArmyKnife {
       case "verify":
         CfVerifierTool.main(shift(args));
         break;
+      case "extractr8rules":
+        ExtractR8Rules.main(shift(args));
+        break;
       default:
         runDefault(args);
         break;
