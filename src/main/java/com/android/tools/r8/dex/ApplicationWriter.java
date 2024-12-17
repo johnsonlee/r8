@@ -277,6 +277,9 @@ public class ApplicationWriter {
               : new InternalGlobalSyntheticsDexIndexedConsumer(
                   options.getGlobalSyntheticsConsumer());
     }
+    while (virtualFiles.size() > 0 && virtualFiles.get(virtualFiles.size() - 1).isEmpty()) {
+      virtualFiles.remove(virtualFiles.size() - 1);
+    }
     return virtualFiles;
   }
 
