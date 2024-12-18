@@ -57,9 +57,15 @@ class GitCommit(object):
         return self.__str__()
 
     def branch(self):
-        result = subprocess.check_output(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode('utf-8')
-        return result.strip()
+        branches = subprocess.check_output(
+            ['git', 'branch', '--contains', 'HEAD',
+             '-r']).decode('utf-8').strip().splitlines()
+        if len(branches) != 1:
+            return 'main'
+        branch = branches[0].strip()
+        if 'main' in branch:
+            return 'main'
+        return branch[branch.find('/') + 1:]
 
     def hash(self):
         return self.git_hash
