@@ -130,17 +130,17 @@ def RecordSingleBenchmarkResult(commit, benchmark, local_bucket, target,
 
 def RecordBenchmarkResults(commit, benchmarks, benchmark_data):
     if benchmarks or benchmark_data:
-        version_data = {}
-        version = commit.version()
-        if version is not None:
-            version_data['version'] = version
-        benchmark_data.append({
+        data = {
             'author': commit.author_name(),
             'hash': commit.hash(),
             'submitted': commit.committer_timestamp(),
             'title': commit.title(),
             'benchmarks': benchmarks
-        } | version_data)
+        }
+        version = commit.version()
+        if version:
+            data['version'] = version
+        benchmark_data.append(data)
 
 
 def TrimBenchmarkResults(benchmark_data):
