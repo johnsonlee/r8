@@ -30,7 +30,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
-import com.android.tools.r8.shaking.KeepReason.ReflectiveUseFrom;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
@@ -142,9 +141,15 @@ public class GraphReporter {
   }
 
   KeepReasonWitness reportKeepMethod(
-      DexDefinition precondition, Collection<ProguardKeepRuleBase> rules, DexEncodedMethod method) {
-    assert !rules.isEmpty() || !options.isShrinking();
+      DexDefinition precondition,
+      Collection<KeepReason> reasons,
+      Collection<ProguardKeepRuleBase> rules,
+      DexEncodedMethod method) {
+    assert !reasons.isEmpty() || !rules.isEmpty() || !options.isShrinking();
     if (keptGraphConsumer != null) {
+      for (KeepReason reason : reasons) {
+        registerMethod(method, reason);
+      }
       for (ProguardKeepRuleBase rule : rules) {
         reportKeepMethod(precondition, rule, method);
       }
@@ -164,7 +169,7 @@ public class GraphReporter {
 
   KeepReasonWitness reportKeepField(
       DexDefinition precondition,
-      Collection<ReflectiveUseFrom> reasons,
+      Collection<KeepReason> reasons,
       Collection<ProguardKeepRuleBase> rules,
       DexEncodedField field) {
     assert !reasons.isEmpty() || !rules.isEmpty() || !options.isShrinking();

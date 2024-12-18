@@ -554,7 +554,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
      * <p>These are only needed for the interpretation of keep rules into keep info, and is
      * therefore not stored in the keep info builder above.
      */
-    final Set<ReflectiveUseFrom> reasons = new HashSet<>();
+    final Set<KeepReason> reasons = new HashSet<>();
 
     final Set<ProguardKeepRuleBase> rules = Sets.newIdentityHashSet();
 
@@ -593,7 +593,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return null;
     }
 
-    public Set<ReflectiveUseFrom> getReasons() {
+    public Set<KeepReason> getReasons() {
       return reasons;
     }
 
@@ -630,7 +630,7 @@ public abstract class KeepInfo<B extends Builder<B, K>, K extends KeepInfo<B, K>
       return self();
     }
 
-    public J addReason(ReflectiveUseFrom reason) {
+    public J addReason(KeepReason reason) {
       reasons.add(reason);
       return self();
     }

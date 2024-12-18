@@ -17,6 +17,7 @@ import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static java.util.Collections.emptySet;
 
+import com.android.build.shrinker.r8integration.R8ResourceShrinkerState;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
@@ -527,7 +528,9 @@ public class Enqueuer {
     this.initialPrunedTypes = initialPrunedTypes;
 
     if (options.isOptimizedResourceShrinking()) {
-      appView.getResourceShrinkerState().setEnqueuerCallback(this::recordReferenceFromResources);
+      R8ResourceShrinkerState resourceShrinkerState = appView.getResourceShrinkerState();
+      resourceShrinkerState.setEnqueuerCallback(this::recordReferenceFromResources);
+      resourceShrinkerState.setEnqueuerMethodCallback(this::recordMethodReferenceFromResources);
     }
 
     EnqueuerAnalysisCollection.Builder analysesBuilder = EnqueuerAnalysisCollection.builder();
@@ -664,6 +667,12 @@ public class Enqueuer {
     recordTypeReference(type, context, this::recordNonProgramClass, this::reportMissingClass);
   }
 
+  private final Map<DexString, Origin> onClickMethodReferences = new HashMap<>();
+
+  private void recordMethodReferenceFromResources(String method, Origin origin) {
+    onClickMethodReferences.put(appView.dexItemFactory().createString(method), origin);
+  }
+
   private boolean recordReferenceFromResources(String possibleClass, Origin origin) {
     if (!DescriptorUtils.isValidJavaType(possibleClass)) {
       return false;
@@ -673,17 +682,7 @@ public class Enqueuer {
     DexProgramClass clazz = appView.definitionForProgramType(dexType);
     if (clazz != null) {
       ReflectiveUseFromXml reason = KeepReason.reflectiveUseFromXml(origin);
-      applyMinimumKeepInfoWhenLive(
-          clazz,
-          KeepClassInfo.newEmptyJoiner()
-              .disallowMinification()
-              .disallowRepackaging()
-              .disallowOptimization());
-      if (clazz.isAnnotation() || clazz.isInterface()) {
-        markTypeAsLive(clazz, reason);
-      } else {
-        markClassAsInstantiatedWithReason(clazz, reason);
-      }
+      ensureClassKeptForResourceLookup(clazz, reason);
       for (ProgramMethod programInstanceInitializer : clazz.programInstanceInitializers()) {
         // TODO(b/325884671): Only keep the actually framework targeted constructors.
         applyMinimumKeepInfoWhenLiveOrTargeted(
@@ -693,6 +692,21 @@ public class Enqueuer {
       }
     }
     return clazz != null;
+  }
+
+  private void ensureClassKeptForResourceLookup(
+      DexProgramClass clazz, ReflectiveUseFromXml reason) {
+    applyMinimumKeepInfoWhenLive(
+        clazz,
+        KeepClassInfo.newEmptyJoiner()
+            .disallowMinification()
+            .disallowRepackaging()
+            .disallowOptimization());
+    if (clazz.isAnnotation() || clazz.isInterface()) {
+      markTypeAsLive(clazz, reason);
+    } else {
+      markClassAsInstantiatedWithReason(clazz, reason);
+    }
   }
 
   private void recordTypeReference(
@@ -1062,7 +1076,10 @@ public class Enqueuer {
     worklist.enqueueMarkMethodKeptAction(
         method,
         graphReporter.reportKeepMethod(
-            precondition, minimumKeepInfo.getRules(), method.getDefinition()));
+            precondition,
+            minimumKeepInfo.getReasons(),
+            minimumKeepInfo.getRules(),
+            method.getDefinition()));
   }
 
   private void enqueueFirstNonSerializableClassInitializer(
@@ -2314,6 +2331,37 @@ public class Enqueuer {
         clazz, rootSet.getDependentKeepClassCompatRule(clazz.getType()));
 
     analyses.processNewlyLiveClass(clazz, worklist);
+  }
+
+  private void processOnClickMethods() {
+    if (onClickMethodReferences.isEmpty()) {
+      return;
+    }
+    for (DexProgramClass item : liveTypes.items) {
+      for (ProgramMethod method :
+          item.virtualProgramMethods(
+              p ->
+                  p.getParameters().size() == 1
+                      && p.getParameter(0)
+                          .isIdenticalTo(appInfo.dexItemFactory().androidViewViewType)
+                      && onClickMethodReferences.containsKey(p.getName()))) {
+        KeepMethodInfo methodInfo = keepInfo.getMethodInfo(method);
+        if (!methodInfo.isOptimizationAllowed(options)
+            && !methodInfo.isShrinkingAllowed(options)
+            && !methodInfo.isMinificationAllowed(options)) {
+          continue;
+        }
+        ReflectiveUseFromXml reason =
+            KeepReason.reflectiveUseFromXml(onClickMethodReferences.get(method.getName()));
+        Joiner minimumKeepInfo =
+            KeepMethodInfo.newEmptyJoiner()
+                .disallowOptimization()
+                .disallowShrinking()
+                .disallowMinification()
+                .addReason(reason);
+        applyMinimumKeepInfo(method, minimumKeepInfo);
+      }
+    }
   }
 
   private void processDeferredAnnotations(
@@ -4020,6 +4068,11 @@ public class Enqueuer {
     }
   }
 
+  private void applyMinimumKeepInfo(ProgramMethod method, KeepMethodInfo.Joiner minimumKeepInfo) {
+    keepInfo.joinMethod(method, info -> info.merge(minimumKeepInfo));
+    enqueueMethodIfShrinkingIsDisallowed(method, UnconditionalKeepInfoEvent.get(), minimumKeepInfo);
+  }
+
   public void applyMinimumKeepInfoWhenLiveOrTargeted(
       ProgramMethod method, KeepMethodInfo.Joiner minimumKeepInfo) {
     applyMinimumKeepInfoWhenLiveOrTargeted(method, minimumKeepInfo, EnqueuerEvent.unconditional());
@@ -4700,6 +4753,14 @@ public class Enqueuer {
         processDeferredAnnotations(
             deferredParameterAnnotations, annotatedItem -> AnnotatedKind.PARAMETER);
         timing.end();
+
+        timing.begin("Process onclick methods");
+        processOnClickMethods();
+        timing.end();
+        if (worklist.hasNext()) {
+          timing.end();
+          continue;
+        }
 
         // Continue fix-point processing while there are additional work items to ensure items that
         // are passed to Java reflections are traced.

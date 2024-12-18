@@ -61,6 +61,7 @@ public class R8ResourceShrinkerState {
   private final Map<FeatureSplit, ResourceTable> resourceTables = new HashMap<>();
   private final ShrinkerDebugReporter shrinkerDebugReporter;
   private ClassReferenceCallback enqueuerCallback;
+  private MethodReferenceCallback methodCallback;
   private Map<Integer, List<String>> resourceIdToXmlFiles;
   private Set<String> packageNames;
   private final Set<String> seenNoneClassValues = new HashSet<>();
@@ -83,6 +84,11 @@ public class R8ResourceShrinkerState {
   @FunctionalInterface
   public interface ClassReferenceCallback {
     boolean tryClass(String possibleClass, Origin xmlFileOrigin);
+  }
+
+  @FunctionalInterface
+  public interface MethodReferenceCallback {
+    void tryMethod(String methodName, Origin xmlFileOrigin);
   }
 
   public R8ResourceShrinkerState(
@@ -140,6 +146,11 @@ public class R8ResourceShrinkerState {
   public void setEnqueuerCallback(ClassReferenceCallback enqueuerCallback) {
     assert this.enqueuerCallback == null;
     this.enqueuerCallback = enqueuerCallback;
+  }
+
+  public void setEnqueuerMethodCallback(MethodReferenceCallback methodCallback) {
+    assert this.methodCallback == null;
+    this.methodCallback = methodCallback;
   }
 
   private synchronized Set<String> getPackageNames() {
@@ -278,10 +289,11 @@ public class R8ResourceShrinkerState {
 
   private void visitNode(XmlNode xmlNode, String xmlName, String manifestPackageName) {
     XmlElement element = xmlNode.getElement();
-    tryEnqueuerOnString(element.getName(), xmlName);
+    String xmlElementName = element.getName();
+    tryEnqueuerOnString(xmlElementName, xmlName);
 
     for (XmlAttribute xmlAttribute : element.getAttributeList()) {
-      if (xmlAttribute.getName().equals("package") && element.getName().equals("manifest")) {
+      if (xmlAttribute.getName().equals("package") && xmlElementName.equals("manifest")) {
         // We are traversing a manifest, record the package name if we see it.
         manifestPackageName = xmlAttribute.getValue();
       }
@@ -294,6 +306,10 @@ public class R8ResourceShrinkerState {
       if (manifestPackageName != null) {
         // Manifest case
         traceManifestSpecificValues(xmlName, manifestPackageName, xmlAttribute, element);
+      }
+      if (xmlAttribute.getName().equals("onClick")
+          && xmlAttribute.getNamespaceUri().equals("http://schemas.android.com/apk/res/android")) {
+        methodCallback.tryMethod(xmlAttribute.getValue(), new PathOrigin(Paths.get(xmlName)));
       }
     }
     for (XmlNode node : element.getChildList()) {
@@ -381,6 +397,7 @@ public class R8ResourceShrinkerState {
 
   public void enqueuerDone(boolean isFinalTreeshaking) {
     enqueuerCallback = null;
+    methodCallback = null;
     seenResourceIds.clear();
     if (!isFinalTreeshaking) {
       // After final tree shaking we will need the reachability bits to decide what to write out
