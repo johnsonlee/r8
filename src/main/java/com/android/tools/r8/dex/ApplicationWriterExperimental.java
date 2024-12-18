@@ -23,6 +23,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +43,9 @@ class ApplicationWriterExperimental extends ApplicationWriter {
       List<VirtualFile> virtualFiles,
       List<LazyDexString> lazyDexStrings)
       throws ExecutionException {
+    if (virtualFiles.size() == 0) {
+      return ImmutableList.of();
+    }
     // Collect strings from all virtual files into the last DEX section.
     VirtualFile lastFile = virtualFiles.get(virtualFiles.size() - 1);
     List<VirtualFile> allExceptLastFile = virtualFiles.subList(0, virtualFiles.size() - 1);
