@@ -44,10 +44,14 @@ def ParseOptions(argv):
 class GitCommit(object):
 
     def __init__(self, git_hash, destination_dir, destination, timestamp):
+        self._branch = None
+        self._branch_is_computed = False
         self.git_hash = git_hash
         self.destination_dir = destination_dir
         self.destination = destination
         self.timestamp = timestamp
+        self._version = None
+        self._version_is_computed = False
 
     def __str__(self):
         return '%s : %s (%s)' % (self.git_hash, self.destination,
@@ -57,15 +61,21 @@ class GitCommit(object):
         return self.__str__()
 
     def branch(self):
+        if self._branch_is_computed:
+            return self._branch
         branches = subprocess.check_output(
-            ['git', 'branch', '--contains', 'HEAD',
-             '-r']).decode('utf-8').strip().splitlines()
+            ['git', 'branch', '--contains',
+             self.hash(), '-r']).decode('utf-8').strip().splitlines()
         if len(branches) != 1:
-            return 'main'
-        branch = branches[0].strip()
-        if 'main' in branch:
-            return 'main'
-        return branch[branch.find('/') + 1:]
+            self._branch = 'main'
+        else:
+            branch = branches[0].strip()
+            if 'main' in branch:
+                self._branch = 'main'
+            else:
+                self._branch = branch[branch.find('/') + 1:]
+        self._branch_is_computed = True
+        return self._branch
 
     def hash(self):
         return self.git_hash
@@ -92,12 +102,18 @@ class GitCommit(object):
         return self.timestamp
 
     def version(self):
+        if self._version_is_computed:
+            return self._version
         title = self.title()
         if title.startswith(
                 'Version '
-        ) and 'src/main/java/com/android/tools/r8/Version.java' in changes_files:
-            return title[len('Version '):]
-        return None
+        ) and 'src/main/java/com/android/tools/r8/Version.java' in self.changed_files(
+        ):
+            self._version = title[len('Version '):]
+        else:
+            self._version = None
+        self._version_is_computed = True
+        return self._version
 
 
 def git_commit_from_hash(hash):
