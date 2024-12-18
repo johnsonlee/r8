@@ -56,6 +56,11 @@ class GitCommit(object):
     def __repr__(self):
         return self.__str__()
 
+    def branch(self):
+        result = subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode('utf-8')
+        return result.strip()
+
     def hash(self):
         return self.git_hash
 

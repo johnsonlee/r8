@@ -17,6 +17,7 @@ import tempfile
 import zipfile
 
 import defines
+import historic_run
 from thread_utils import print_thread
 
 ANDROID_JAR_DIR = 'third_party/android_jar/lib-v{api}'
@@ -383,6 +384,10 @@ def get_HEAD_branch():
     result = subprocess.check_output(
         ['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode('utf-8')
     return result.strip()
+
+
+def get_HEAD_commit():
+    return historic_run.git_commit_from_hash(get_HEAD_sha1())
 
 
 def get_HEAD_sha1():

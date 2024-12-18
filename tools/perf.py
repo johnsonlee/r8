@@ -215,8 +215,14 @@ def ParseBenchmarkResultJsonFile(result_json_file):
 
 
 def GetArtifactLocation(benchmark, target, version, filename):
-    version_or_head = version or utils.get_HEAD_sha1()
-    return f'{benchmark}/{target}/{version_or_head}/{filename}'
+    if version:
+        return f'{benchmark}/{target}/{version}/{filename}'
+    else:
+        commit = utils.get_HEAD_commit()
+        branch = commit.branch()
+        if branch == 'main':
+            return f'{benchmark}/{target}/{commit.hash()}/{filename}'
+        return f'branches/{branch}/{benchmark}/{target}/{commit.hash()}/{filename}'
 
 
 def GetGSLocation(filename, bucket=BUCKET):
