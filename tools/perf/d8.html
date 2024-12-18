@@ -18,6 +18,12 @@
     <input type="radio" id="runtime-max" name="runtime-fn">
     <label for="runtime-max">Max</label>
   </div>
+  <div id="branch-selector">
+    <input type="radio" id="branch-main" name="branch-selector" checked>
+    <label for="branch-main">Main</label>
+    <input type="radio" id="branch-release" name="branch-selector">
+    <label for="branch-release">Release</label>
+  </div>
   <div id="benchmark-selectors"></div>
   <div>
       <canvas id="myChart"></canvas>
@@ -41,6 +47,7 @@
     import dom from "./dom.js";
     import scales from "./scales.js";
     import state from "./state.js";
+    import tooltip from "./tooltip.js";
 
     const commits = await state.importCommits("./d8_benchmark_data.json");
     state.initializeBenchmarks();
@@ -52,8 +59,7 @@
       'Warmup': { default: false }
     });
     state.initializeZoom();
-    dom.initializeBenchmarkSelectors();
-    dom.initializeChartNavigation();
+    dom.initialize();
 
     // Chart data provider.
     function getData(filteredCommits) {
@@ -255,37 +261,7 @@
             chart.update(false, true);
           },
         },
-        tooltip: {
-          callbacks: {
-            title: context => {
-              const elementInfo = context[0];
-              var commit;
-              if (elementInfo.dataset.type == 'line') {
-                commit = commits[state.zoom.left + elementInfo.dataIndex];
-              } else {
-                console.assert(elementInfo.dataset.type == 'scatter');
-                commit = commits[elementInfo.raw.x];
-              }
-              return commit.title;
-            },
-            footer: context => {
-              const elementInfo = context[0];
-              var commit;
-              if (elementInfo.dataset.type == 'line') {
-                commit = commits[state.zoom.left + elementInfo.dataIndex];
-              } else {
-                console.assert(elementInfo.dataset.type == 'scatter');
-                commit = commits[elementInfo.raw.x];
-              }
-              const dataset = chart.get().data.datasets[elementInfo.datasetIndex];
-              return `App: ${dataset.benchmark}\n`
-                  + `Author: ${commit.author}\n`
-                  + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
-                  + `Hash: ${commit.hash}\n`
-                  + `Index: ${commit.index}`;
-            }
-          }
-        }
+        tooltip: tooltip
       },
       responsive: true,
       scales: scales.get()

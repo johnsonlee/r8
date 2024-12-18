@@ -1,6 +1,8 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
+import chart from "./chart.js";
+import dom from "./dom.js";
 import url from "./url.js";
 
 var commits = null;
@@ -27,6 +29,41 @@ function forEachSelectedBenchmark(callback) {
   });
 }
 
+function getCommit(index, zoom) {
+  return getCommits(zoom)[index];
+}
+
+function getCommitFromContext(context) {
+  const elementInfo = context[0];
+  var commit;
+  if (elementInfo.dataset.type == 'line') {
+    commit = getCommit(elementInfo.dataIndex, zoom);
+  } else {
+    console.assert(elementInfo.dataset.type == 'scatter');
+    commit = getCommit(elementInfo.raw.x, null);
+  }
+  return commit;
+}
+
+function getCommitDescriptionFromContext(context) {
+  const commit = getCommitFromContext(context);
+  const elementInfo = context[0];
+  const dataset = chart.get().data.datasets[elementInfo.datasetIndex];
+  return `App: ${dataset.benchmark}\n`
+      + `Author: ${commit.author}\n`
+      + `Submitted: ${new Date(commit.submitted * 1000).toLocaleString()}\n`
+      + `Hash: ${commit.hash}\n`
+      + `Index: ${commit.index}`;
+}
+
+function getCommits(zoom) {
+  const commitsForSelectedBranch = commits.filter(commit => dom.isCommitSelected(commit));
+  if (zoom) {
+    return commitsForSelectedBranch.slice(zoom.left, zoom.right);
+  }
+  return commitsForSelectedBranch;
+}
+
 function hasLegend(legend) {
   return legends.has(legend);
 }
@@ -37,8 +74,15 @@ function importCommits(url) {
         commits = module.default;
         commits.reverseInPlace();
         // Amend the commits with their unique index.
+        var mainIndex = 0;
+        var releaseIndex = 0;
         for (var i = 0; i < commits.length; i++) {
-          commits[i].index = i;
+          const commit = commits[i];
+          if (commit.version) {
+            commit.index = releaseIndex++;
+          } else {
+            commit.index = mainIndex++;
+          }
         }
         return commits;
       });
@@ -79,24 +123,30 @@ function initializeLegends(legendsInfo) {
 }
 
 function initializeZoom() {
-  zoom.left = Math.max(0, commits.length - 75);
-  zoom.right = commits.length;
+  const filteredCommits = resetZoom();
   for (const urlOption of url.values()) {
     if (urlOption.startsWith('L')) {
       var left = parseInt(urlOption.substring(1));
       if (isNaN(left)) {
         continue;
       }
-      left = left >= 0 ? left : commits.length + left;
+      left = left >= 0 ? left : filteredCommits.length + left;
       if (left < 0) {
         zoom.left = 0;
-      } else if (left >= commits.length) {
-        zoom.left = commits.length - 1;
+      } else if (left >= filteredCommits.length) {
+        zoom.left = filteredCommits.length - 1;
       } else {
         zoom.left = left;
       }
     }
   }
+}
+
+function resetZoom() {
+  const filteredCommits = getCommits(null);
+  zoom.left = Math.max(0, filteredCommits.length - 75);
+  zoom.right = filteredCommits.length;
+  return filteredCommits;
 }
 
 function handleKeyDownEvent(e, callback) {
@@ -133,12 +183,15 @@ function isLegendSelected(legend) {
 
 export default {
   benchmarks: benchmarks,
-  commits: zoom => zoom ? commits.slice(zoom.left, zoom.right) : commits,
+  commits: getCommits,
   legends: legends,
   selectedBenchmarks: selectedBenchmarks,
   selectedLegends: selectedLegends,
   forEachBenchmark: forEachBenchmark,
   forEachSelectedBenchmark: forEachSelectedBenchmark,
+  getCommit: getCommit,
+  getCommitFromContext: getCommitFromContext,
+  getCommitDescriptionFromContext: getCommitDescriptionFromContext,
   handleKeyDownEvent: handleKeyDownEvent,
   hasLegend: hasLegend,
   initializeBenchmarks: initializeBenchmarks,
@@ -146,5 +199,6 @@ export default {
   initializeZoom: initializeZoom,
   importCommits: importCommits,
   isLegendSelected: isLegendSelected,
+  resetZoom: resetZoom,
   zoom: zoom
 };

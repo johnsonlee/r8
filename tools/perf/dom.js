@@ -3,9 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 import chart from "./chart.js";
 import state from "./state.js";
+import url from "./url.js";
 
 // DOM references.
 const benchmarkSelectors = document.getElementById('benchmark-selectors');
+const branchMain = document.getElementById('branch-main');
+const branchRelease = document.getElementById('branch-release');
 const canvas = document.getElementById('myChart');
 const runtimeMin = document.getElementById('runtime-min');
 const runtimeP50 = document.getElementById('runtime-p50');
@@ -16,6 +19,17 @@ const showMoreLeft = document.getElementById('show-more-left');
 const showLessLeft = document.getElementById('show-less-left');
 const showLessRight = document.getElementById('show-less-right');
 const showMoreRight = document.getElementById('show-more-right');
+
+function getSelectedBranch() {
+  console.assert(branchMain.checked || branchRelease.checked);
+  return branchMain.checked ? 'main' : 'release';
+}
+
+function initialize() {
+  initializeBenchmarkSelectors();
+  initializeBranchSelectors();
+  initializeChartNavigation();
+}
 
 function initializeBenchmarkSelectors() {
   state.forEachBenchmark(
@@ -45,8 +59,17 @@ function initializeBenchmarkSelectors() {
     });
 }
 
+function initializeBranchSelectors() {
+  if (url.contains('release')) {
+    branchRelease.checked = true;
+  }
+}
+
 function initializeChartNavigation() {
   const zoom = state.zoom;
+
+  branchMain.onclick = event => { state.resetZoom(); chart.update(true, false); };
+  branchRelease.onclick = event => { state.resetZoom(); chart.update(true, false); };
 
   canvas.onclick = event => {
     const points =
@@ -54,7 +77,7 @@ function initializeChartNavigation() {
             event, 'nearest', { intersect: true }, true);
     if (points.length > 0) {
       const point = points[0];
-      const commit = state.commits[point.index];
+      const commit = state.getCommit(point.index, null);
       window.open('https://r8.googlesource.com/r8/+/' + commit.hash, '_blank');
     }
   };
@@ -108,6 +131,14 @@ function initializeChartNavigation() {
   };
 }
 
+function isCommitSelected(commit) {
+  if (branchRelease.checked) {
+    return commit.version;
+  } else {
+    return !commit.version;
+  }
+}
+
 function transformRuntimeData(results) {
   if (runtimeMin.checked) {
     return results.min();
@@ -144,8 +175,9 @@ function updateChartNavigation() {
 
 export default {
   canvas: canvas,
-  initializeBenchmarkSelectors: initializeBenchmarkSelectors,
-  initializeChartNavigation: initializeChartNavigation,
+  getSelectedBranch: getSelectedBranch,
+  initialize: initialize,
+  isCommitSelected: isCommitSelected,
   transformRuntimeData: transformRuntimeData,
   updateBenchmarkColors: updateBenchmarkColors,
   updateChartNavigation: updateChartNavigation

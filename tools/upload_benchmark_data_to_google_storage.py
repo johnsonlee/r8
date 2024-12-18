@@ -19,7 +19,8 @@ NUM_COMMITS = 1000
 
 FILES = [
     'chart.js', 'd8.html', 'dom.js', 'extensions.js', 'r8.html', 'retrace.html',
-    'scales.js', 'state.js', 'stylesheet.css', 'url.js', 'utils.js'
+    'scales.js', 'state.js', 'stylesheet.css', 'tooltip.js', 'url.js',
+    'utils.js'
 ]
 
 
