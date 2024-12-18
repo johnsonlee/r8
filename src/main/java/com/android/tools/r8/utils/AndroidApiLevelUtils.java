@@ -150,10 +150,10 @@ public class AndroidApiLevelUtils {
       AndroidApiLevelCompute androidApiLevelCompute,
       InternalOptions options) {
     if (!androidApiLevelCompute.isEnabled()) {
-      assert !options.apiModelingOptions().enableLibraryApiModeling;
+      assert !options.apiModelingOptions().isApiModelingEnabled();
       return false;
     }
-    assert options.apiModelingOptions().enableLibraryApiModeling;
+    assert options.apiModelingOptions().isApiModelingEnabled();
     ComputedApiLevel apiLevel =
         androidApiLevelCompute.computeApiLevelForLibraryReference(
             method.getReference(), ComputedApiLevel.unknown());
@@ -199,7 +199,7 @@ public class AndroidApiLevelUtils {
       AndroidApiLevelCompute androidApiLevelCompute,
       InternalOptions options,
       DexItemFactory factory) {
-    if (!options.apiModelingOptions().isApiLibraryModelingEnabled()) {
+    if (!options.apiModelingOptions().isApiModelingEnabled()) {
       return factory.libraryTypesAssumedToBePresent.contains(definition.getContextType());
     }
     ComputedApiLevel apiLevel =
@@ -210,7 +210,7 @@ public class AndroidApiLevelUtils {
 
   private static boolean isApiSafeForReference(
       LibraryDefinition newDefinition, LibraryDefinition oldDefinition, AppView<?> appView) {
-    assert appView.options().apiModelingOptions().isApiLibraryModelingEnabled();
+    assert appView.options().apiModelingOptions().isApiModelingEnabled();
     assert !isApiSafeForReference(newDefinition, appView)
         : "Clients should first check if the definition is present on all apis since the min api";
     AndroidApiLevelCompute androidApiLevelCompute = appView.apiLevelCompute();
@@ -249,7 +249,7 @@ public class AndroidApiLevelUtils {
       // Program and classpath classes are not api level dependent.
       return true;
     }
-    if (!appView.options().apiModelingOptions().isApiLibraryModelingEnabled()) {
+    if (!appView.options().apiModelingOptions().isApiModelingEnabled()) {
       // Conservatively bail out if we don't have api modeling.
       return false;
     }

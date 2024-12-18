@@ -147,8 +147,11 @@ public final class GlobalSyntheticsGeneratorCommand {
         classfileDesugaringOnly ? new ThrowingCfConsumer() : new ThrowingDexConsumer();
     internal.setGlobalSyntheticsConsumer(globalsConsumer);
     if (classfileDesugaringOnly) {
-      internal.apiModelingOptions().disableApiCallerIdentification();
-      internal.apiModelingOptions().disableOutliningAndStubbing();
+      internal
+          .apiModelingOptions()
+          .disableApiCallerIdentification()
+          .disableOutlining()
+          .disableStubbingOfClasses();
     }
 
     // Assert and fixup defaults.

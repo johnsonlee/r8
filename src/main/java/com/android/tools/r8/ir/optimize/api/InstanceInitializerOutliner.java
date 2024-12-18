@@ -288,7 +288,7 @@ public class InstanceInitializerOutliner extends CodeRewriterPass<AppInfo> {
   @Override
   protected boolean shouldRewriteCode(IRCode code, MethodProcessor methodProcessor) {
     if (!appView.options().desugarState.isOn()
-        || !appView.options().apiModelingOptions().enableOutliningOfMethods
+        || !appView.options().apiModelingOptions().isOutliningOfMethodsEnabled()
         || !appView.options().getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.L)) {
       return false;
     }

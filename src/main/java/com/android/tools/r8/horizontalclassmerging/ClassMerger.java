@@ -134,7 +134,7 @@ public class ClassMerger {
     lensBuilder.recordNewMethodSignature(syntheticMethodReference, newMethodReference, true);
 
     ComputedApiLevel apiReferenceLevel =
-        appView.options().apiModelingOptions().isApiLibraryModelingEnabled()
+        appView.options().apiModelingOptions().isApiModelingEnabled()
             ? classInitializerMerger.getApiReferenceLevel(appView)
             : ComputedApiLevel.notSet();
     DexEncodedMethod definition =

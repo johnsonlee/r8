@@ -66,7 +66,7 @@ public abstract class AndroidApiLevelCompute {
   }
 
   public static AndroidApiLevelCompute create(AppView<?> appView) {
-    return appView.options().apiModelingOptions().enableLibraryApiModeling
+    return appView.options().apiModelingOptions().isApiModelingEnabled()
         ? new DefaultAndroidApiLevelCompute(appView)
         : noAndroidApiLevelCompute();
   }

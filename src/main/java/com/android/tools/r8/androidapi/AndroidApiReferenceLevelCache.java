@@ -38,12 +38,13 @@ public class AndroidApiReferenceLevelCache {
     androidApiLevelDatabase =
         new AndroidApiLevelHashingDatabaseImpl(
             predefinedApiTypeLookupForHashing, appView.options(), appView.reporter());
-    reportUnknownReferences = appView.options().apiModelingOptions().reportUnknownApiReferences;
+    reportUnknownReferences =
+        appView.options().apiModelingOptions().isReportUnknownApiReferencesEnabled();
   }
 
   public static AndroidApiReferenceLevelCache create(
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
-    assert appView.options().apiModelingOptions().isApiLibraryModelingEnabled();
+    assert appView.options().apiModelingOptions().isApiModelingEnabled();
     ImmutableList.Builder<AndroidApiForHashingReference> builder = ImmutableList.builder();
     BiConsumer<DexReference, AndroidApiLevel> addItemToList =
         ConsumerUtils.andThen(AndroidApiForHashingReference::create, builder::add);

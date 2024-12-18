@@ -24,7 +24,7 @@ public class D8ApiModelingMetadataImpl implements D8ApiModelingMetadata {
   private D8ApiModelingMetadataImpl() {}
 
   public static D8ApiModelingMetadataImpl create(InternalOptions options) {
-    return options.apiModelingOptions().enableLibraryApiModeling
+    return options.apiModelingOptions().isApiModelingEnabled()
         ? new D8ApiModelingMetadataImpl()
         : null;
   }

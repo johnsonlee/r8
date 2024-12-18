@@ -1001,8 +1001,8 @@ public class R8CommandTest extends CommandTestBase<R8Command> {
   public void defaultApiModelingState() throws Exception {
     AndroidApiModelingOptions options = parse("").getInternalOptions().apiModelingOptions();
     assertTrue(options.isApiCallerIdentificationEnabled());
-    assertTrue(options.enableOutliningOfMethods);
-    assertTrue(options.enableStubbingOfClasses);
+    assertTrue(options.isOutliningOfMethodsEnabled());
+    assertTrue(options.isStubbingOfClassesEnabled());
   }
 
   @Test

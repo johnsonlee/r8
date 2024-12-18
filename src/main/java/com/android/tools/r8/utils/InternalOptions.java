@@ -1011,7 +1011,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       new RedundantBridgeRemovalOptions();
   private final KotlinOptimizationOptions kotlinOptimizationOptions =
       new KotlinOptimizationOptions();
-  private final AndroidApiModelingOptions apiModelTestingOptions = new AndroidApiModelingOptions();
+  private final AndroidApiModelingOptions apiModelTestingOptions =
+      new AndroidApiModelingOptions(this);
   private final DesugarSpecificOptions desugarSpecificOptions = new DesugarSpecificOptions();
   private final MappingComposeOptions mappingComposeOptions = new MappingComposeOptions();
   private final ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);

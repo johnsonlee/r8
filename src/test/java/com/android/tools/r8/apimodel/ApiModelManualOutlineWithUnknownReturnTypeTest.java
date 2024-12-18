@@ -76,7 +76,7 @@ public class ApiModelManualOutlineWithUnknownReturnTypeTest extends TestBase {
         .addLibraryClasses(LibraryClass.class, LibrarySub.class)
         .setMinApi(parameters)
         .addOptionsModification(
-            options -> options.apiModelingOptions().disableOutliningAndStubbing())
+            options -> options.apiModelingOptions().disableOutlining().disableStubbingOfClasses())
         .apply(setMockApiLevelForClass(LibraryClass.class, AndroidApiLevel.B))
         .apply(setMockApiLevelForClass(LibrarySub.class, getMockApiLevel()))
         .compile()

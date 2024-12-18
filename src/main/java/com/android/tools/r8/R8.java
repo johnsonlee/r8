@@ -412,7 +412,7 @@ public class R8 {
         assert ArtProfileCompletenessChecker.verify(appView);
         appView.rootSet().checkAllRulesAreUsed(options);
 
-        if (options.apiModelingOptions().reportUnknownApiReferences) {
+        if (options.apiModelingOptions().isReportUnknownApiReferencesEnabled()) {
           appView.apiLevelCompute().reportUnknownApiReferences();
         }
 

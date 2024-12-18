@@ -1368,7 +1368,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     if (from.hasClassFileVersion()) {
       upgradeClassFileVersion(from.getClassFileVersion());
     }
-    if (appView.options().apiModelingOptions().enableApiCallerIdentification
+    if (appView.options().apiModelingOptions().isApiCallerIdentificationEnabled()
         && appView.enableWholeProgramOptimizations()) {
       apiLevelForCode = getApiLevelForCode().max(from.getApiLevelForCode());
     }

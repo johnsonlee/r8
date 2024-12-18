@@ -24,7 +24,7 @@ public class R8ApiModelingMetadataImpl implements R8ApiModelingMetadata {
   private R8ApiModelingMetadataImpl() {}
 
   public static R8ApiModelingMetadataImpl create(InternalOptions options) {
-    return options.apiModelingOptions().enableLibraryApiModeling
+    return options.apiModelingOptions().isApiModelingEnabled()
         ? new R8ApiModelingMetadataImpl()
         : null;
   }

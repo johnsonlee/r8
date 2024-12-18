@@ -46,101 +46,89 @@ public abstract class ApiModelingTestHelper {
 
   public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForMethod(Method method, AndroidApiLevel apiLevel) {
-    return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(
-          options -> {
-            options
-                .apiModelingOptions()
-                .methodApiMapping
-                .put(Reference.methodFromMethod(method), apiLevel);
-          });
-    };
+    return compilerBuilder ->
+        compilerBuilder.addOptionsModification(
+            options ->
+                options
+                    .apiModelingOptions()
+                    .methodApiMapping
+                    .put(Reference.methodFromMethod(method), apiLevel));
   }
 
   public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForMethod(
           MethodReference method, AndroidApiLevel apiLevel) {
-    return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(
-          options -> {
-            options.apiModelingOptions().methodApiMapping.put(method, apiLevel);
-          });
-    };
+    return compilerBuilder ->
+        compilerBuilder.addOptionsModification(
+            options -> options.apiModelingOptions().methodApiMapping.put(method, apiLevel));
   }
 
   public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForMethod(
           Constructor<?> constructor, AndroidApiLevel apiLevel) {
-    return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(
-          options -> {
-            options
-                .apiModelingOptions()
-                .methodApiMapping
-                .put(Reference.methodFromMethod(constructor), apiLevel);
-          });
-    };
+    return compilerBuilder ->
+        compilerBuilder.addOptionsModification(
+            options ->
+                options
+                    .apiModelingOptions()
+                    .methodApiMapping
+                    .put(Reference.methodFromMethod(constructor), apiLevel));
   }
 
   static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForDefaultInstanceInitializer(
           Class<?> clazz, AndroidApiLevel apiLevel) {
-    return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(
-          options -> {
-            options
-                .apiModelingOptions()
-                .methodApiMapping
-                .put(
-                    Reference.method(
-                        Reference.classFromClass(clazz), "<init>", ImmutableList.of(), null),
-                    apiLevel);
-          });
-    };
+    return compilerBuilder ->
+        compilerBuilder.addOptionsModification(
+            options ->
+                options
+                    .apiModelingOptions()
+                    .methodApiMapping
+                    .put(
+                        Reference.method(
+                            Reference.classFromClass(clazz), "<init>", ImmutableList.of(), null),
+                        apiLevel));
   }
 
   static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForField(Field field, AndroidApiLevel apiLevel) {
-    return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(
-          options -> {
-            options
-                .apiModelingOptions()
-                .fieldApiMapping
-                .put(Reference.fieldFromField(field), apiLevel);
-          });
-    };
+    return compilerBuilder ->
+        compilerBuilder.addOptionsModification(
+            options ->
+                options
+                    .apiModelingOptions()
+                    .fieldApiMapping
+                    .put(Reference.fieldFromField(field), apiLevel));
   }
 
   public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForClass(Class<?> clazz, AndroidApiLevel apiLevel) {
     return compilerBuilder -> {
       compilerBuilder.addOptionsModification(
-          options -> {
-            options
-                .apiModelingOptions()
-                .classApiMapping
-                .put(Reference.classFromClass(clazz), apiLevel);
-          });
+          options ->
+              options
+                  .apiModelingOptions()
+                  .classApiMapping
+                  .put(Reference.classFromClass(clazz), apiLevel));
     };
   }
 
   public static void enableApiCallerIdentification(
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> {
-          options.apiModelingOptions().enableLibraryApiModeling = true;
-          options.apiModelingOptions().enableApiCallerIdentification = true;
-        });
+        options ->
+            options
+                .apiModelingOptions()
+                .setEnableApiModeling(true)
+                .setEnableApiCallerIdentification(true));
   }
 
   public static void enableStubbingOfClassesAndDisableGlobalSyntheticCheck(
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
+          options.apiModelingOptions().setEnableApiModeling(true).setEnableStubbingOfClasses(true);
           if (options.isGeneratingDex()) {
-            options.apiModelingOptions().enableLibraryApiModeling = true;
-            options.apiModelingOptions().enableStubbingOfClasses = true;
             // Our tests rely on us amending the library path with additional classes that are not
             // in the library.
             options.testing.globalSyntheticCreatedCallback = null;
@@ -150,31 +138,30 @@ public abstract class ApiModelingTestHelper {
 
   public static void enableStubbingOfClasses(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> {
-          if (options.isGeneratingDex()) {
-            options.apiModelingOptions().enableLibraryApiModeling = true;
-            options.apiModelingOptions().enableStubbingOfClasses = true;
-          }
-        });
+        options ->
+            options
+                .apiModelingOptions()
+                .setEnableApiModeling(true)
+                .setEnableStubbingOfClasses(true));
   }
 
   public static void enableOutliningOfMethods(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> {
-          if (options.isGeneratingDex()) {
-            options.apiModelingOptions().enableLibraryApiModeling = true;
-            options.apiModelingOptions().enableOutliningOfMethods = true;
-          }
-        });
+        options ->
+            options
+                .apiModelingOptions()
+                .setEnableApiModeling(true)
+                .setEnableOutliningOfMethods(true));
   }
 
   static void disableCheckAllApiReferencesAreNotUnknown(
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> {
-          options.apiModelingOptions().enableApiCallerIdentification = true;
-          options.apiModelingOptions().checkAllApiReferencesAreSet = false;
-        });
+        options ->
+            options
+                .apiModelingOptions()
+                .setEnableApiCallerIdentification(true)
+                .setCheckAllApiReferencesAreSet(false));
   }
 
   public static void disableOutliningAndStubbing(
@@ -185,25 +172,25 @@ public abstract class ApiModelingTestHelper {
 
   public static void disableStubbingOfClasses(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> options.apiModelingOptions().enableStubbingOfClasses = false);
+        options -> options.apiModelingOptions().disableStubbingOfClasses());
   }
 
   public static void disableOutlining(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> options.apiModelingOptions().enableOutliningOfMethods = false);
+        options -> options.apiModelingOptions().disableOutlining());
   }
 
   public static void disableApiCallerIdentification(
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
-        options -> options.apiModelingOptions().enableApiCallerIdentification = false);
+        options -> options.apiModelingOptions().disableApiCallerIdentification());
   }
 
   public static void disableApiModeling(TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     disableOutliningAndStubbing(compilerBuilder);
     disableApiCallerIdentification(compilerBuilder);
     compilerBuilder.addOptionsModification(
-        options -> options.apiModelingOptions().enableLibraryApiModeling = false);
+        options -> options.apiModelingOptions().disableApiModeling());
   }
 
   static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
@@ -213,13 +200,12 @@ public abstract class ApiModelingTestHelper {
       compilerBuilder.addOptionsModification(
           options -> {
             options.apiModelingOptions().tracedMethodApiLevelCallback =
-                (methodReference, computedApiLevel) -> {
-                  consumer.accept(
-                      methodReference,
-                      computedApiLevel.isKnownApiLevel()
-                          ? computedApiLevel.asKnownApiLevel().getApiLevel()
-                          : null);
-                };
+                (methodReference, computedApiLevel) ->
+                    consumer.accept(
+                        methodReference,
+                        computedApiLevel.isKnownApiLevel()
+                            ? computedApiLevel.asKnownApiLevel().getApiLevel()
+                            : null);
           });
     };
   }
@@ -241,7 +227,7 @@ public abstract class ApiModelingTestHelper {
   }
 
   static ApiModelingMethodVerificationHelper verifyThat(
-      CodeInspector inspector, TestParameters parameters, Constructor method) {
+      CodeInspector inspector, TestParameters parameters, Constructor<?> method) {
     return new ApiModelingMethodVerificationHelper(
         inspector, parameters, Reference.methodFromMethod(method));
   }

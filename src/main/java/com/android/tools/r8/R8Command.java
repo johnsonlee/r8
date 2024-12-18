@@ -1359,8 +1359,11 @@ public final class R8Command extends BaseCompilerCommand {
     internal.outputInspections = InspectorImpl.wrapInspections(getOutputInspections());
 
     if (!enableMissingLibraryApiModeling) {
-      internal.apiModelingOptions().disableApiCallerIdentification();
-      internal.apiModelingOptions().disableOutliningAndStubbing();
+      internal
+          .apiModelingOptions()
+          .disableApiCallerIdentification()
+          .disableOutlining()
+          .disableStubbingOfClasses();
     }
 
     // Default is to remove all javac generated assertion code when generating DEX.
@@ -1382,7 +1385,7 @@ public final class R8Command extends BaseCompilerCommand {
       internal.desugarState = DesugarState.OFF;
       // TODO(b/333477035): Since D8 dexing now supports outline/stubbing API calls R8/CF should
       //  likely disable API caller identification too so as not to prevent inlining.
-      internal.apiModelingOptions().disableOutliningAndStubbing();
+      internal.apiModelingOptions().disableOutlining().disableStubbingOfClasses();
     }
 
     // EXPERIMENTAL flags.

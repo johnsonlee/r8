@@ -63,8 +63,7 @@ public class ApiReferenceStubber {
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
-    if (appView.options().isGeneratingDex()
-        && appView.options().apiModelingOptions().enableStubbingOfClasses) {
+    if (appView.options().apiModelingOptions().isStubbingOfClassesEnabled()) {
       Collection<DexProgramClass> classes =
           ListUtils.filter(
               appView.appInfo().classes(), DexProgramClass::originatesFromClassResource);

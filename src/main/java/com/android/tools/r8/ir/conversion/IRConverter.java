@@ -211,7 +211,7 @@ public class IRConverter {
             ? CfInstructionDesugaringCollection.empty()
             : CfInstructionDesugaringCollection.create(appView, appView.apiLevelCompute());
     removeVerificationErrorForUnknownReturnedValues =
-        (appView.options().apiModelingOptions().enableLibraryApiModeling
+        (appView.options().apiModelingOptions().isApiModelingEnabled()
                 && appView.options().canHaveVerifyErrorForUnknownUnusedReturnValue())
             ? new RemoveVerificationErrorForUnknownReturnedValues(appView)
             : null;

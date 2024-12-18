@@ -12,6 +12,7 @@ import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import java.nio.file.Paths;
@@ -24,7 +25,7 @@ public class AndroidApiModelingOptions {
 
   // Flag to specify if we should load the database or not. The api database is used for
   // library member rebinding.
-  public boolean enableLibraryApiModeling =
+  private boolean enableLibraryApiModeling =
       System.getProperty("com.android.tools.r8.disableApiModeling") == null;
 
   // Flag to specify Android extension libraries (also known as OEM-implemented shared libraries
@@ -34,7 +35,43 @@ public class AndroidApiModelingOptions {
   public String androidApiExtensionLibraries =
       System.getProperty("com.android.tools.r8.androidApiExtensionLibraries");
 
+  // TODO(b/326252366): Remove support for list of extension packages in favour of only
+  //  supporting passing extension libraries as JAR files.
+  // Flag to specify packages for Android extension APIs (also known as OEM-implemented
+  // shared libraries or sidecars). The packages are specified as java package names
+  // separated by commas. All APIs within these packages are handled as having an API level
+  // higher than any existing API level as these APIs might not exist on any device independent
+  // of API level (the nature of an extension API).
+  // TODO(b/326252366): This mechanism should be extended to also specify the extension for
+  //  each package to prevent merging of API outline methods fron different extensions.
+  public String androidApiExtensionPackages =
+      System.getProperty("com.android.tools.r8.androidApiExtensionPackages");
+
+  // The flag enableApiCallerIdentification controls if we can inline or merge targets with
+  // different api levels. It is also the flag that specifies if we assign api levels to
+  // references.
+  private boolean enableApiCallerIdentification = true;
+  private boolean enableStubbingOfClasses = true;
+  private boolean enableOutliningOfMethods = true;
+  private boolean checkAllApiReferencesAreSet = true;
+
+  // TODO(b/232823652): Enable when we can compute the offset correctly.
+  public boolean useMemoryMappedByteBuffer = false;
+
+  // A mapping from references to the api-level introducing them.
+  public Map<MethodReference, AndroidApiLevel> methodApiMapping = new HashMap<>();
+  public Map<FieldReference, AndroidApiLevel> fieldApiMapping = new HashMap<>();
+  public Map<ClassReference, AndroidApiLevel> classApiMapping = new HashMap<>();
+  public BiConsumer<MethodReference, ComputedApiLevel> tracedMethodApiLevelCallback = null;
+
+  private final InternalOptions options;
+
+  public AndroidApiModelingOptions(InternalOptions options) {
+    this.options = options;
+  }
+
   public void forEachAndroidApiExtensionClassDescriptor(Consumer<String> consumer) {
+    assert isApiModelingEnabled();
     if (androidApiExtensionLibraries != null) {
       StringUtils.split(androidApiExtensionLibraries, ',')
           .forEach(
@@ -54,100 +91,93 @@ public class AndroidApiModelingOptions {
     }
   }
 
-  // TODO(b/326252366): Remove support for list of extension packages in favour of only
-  //  supporting passing extension libraries as JAR files.
-  // Flag to specify packages for Android extension APIs (also known as OEM-implemented
-  // shared libraries or sidecars). The packages are specified as java package names
-  // separated by commas. All APIs within these packages are handled as having an API level
-  // higher than any existing API level as these APIs might not exist on any device independent
-  // of API level (the nature of an extension API).
-  // TODO(b/326252366): This mechanism should be extended to also specify the extension for
-  //  each package to prevent merging of API outline methods fron different extensions.
-  public String androidApiExtensionPackages =
-      System.getProperty("com.android.tools.r8.androidApiExtensionPackages");
-
   public void forEachAndroidApiExtensionPackage(Consumer<String> consumer) {
+    assert isApiModelingEnabled();
     if (androidApiExtensionPackages != null) {
       StringUtils.split(androidApiExtensionPackages, ',').forEach(consumer);
     }
   }
 
-  // The flag enableApiCallerIdentification controls if we can inline or merge targets with
-  // different api levels. It is also the flag that specifies if we assign api levels to
-  // references.
-  public boolean enableApiCallerIdentification =
-      System.getProperty("com.android.tools.r8.disableApiModeling") == null;
-  public boolean checkAllApiReferencesAreSet =
-      System.getProperty("com.android.tools.r8.disableApiModeling") == null;
-  public boolean enableStubbingOfClasses =
-      System.getProperty("com.android.tools.r8.disableApiModeling") == null;
-  public boolean enableOutliningOfMethods =
-      System.getProperty("com.android.tools.r8.disableApiModeling") == null;
-  public boolean reportUnknownApiReferences =
-      System.getProperty("com.android.tools.r8.reportUnknownApiReferences") != null;
-
-  // TODO(b/232823652): Enable when we can compute the offset correctly.
-  public boolean useMemoryMappedByteBuffer = false;
-
-  // A mapping from references to the api-level introducing them.
-  public Map<MethodReference, AndroidApiLevel> methodApiMapping = new HashMap<>();
-  public Map<FieldReference, AndroidApiLevel> fieldApiMapping = new HashMap<>();
-  public Map<ClassReference, AndroidApiLevel> classApiMapping = new HashMap<>();
-  public BiConsumer<MethodReference, ComputedApiLevel> tracedMethodApiLevelCallback = null;
-
-  public void visitMockedApiLevelsForReferences(
-      DexItemFactory factory, BiConsumer<DexReference, AndroidApiLevel> apiLevelConsumer) {
-    if (methodApiMapping.isEmpty() && fieldApiMapping.isEmpty() && classApiMapping.isEmpty()) {
-      return;
-    }
-    classApiMapping.forEach(
-        (classReference, apiLevel) -> {
-          apiLevelConsumer.accept(factory.createType(classReference.getDescriptor()), apiLevel);
-        });
-    fieldApiMapping.forEach(
-        (fieldReference, apiLevel) -> {
-          apiLevelConsumer.accept(factory.createField(fieldReference), apiLevel);
-        });
-    methodApiMapping.forEach(
-        (methodReference, apiLevel) -> {
-          apiLevelConsumer.accept(factory.createMethod(methodReference), apiLevel);
-        });
-  }
-
-  public boolean isApiLibraryModelingEnabled() {
+  public boolean isApiModelingEnabled() {
+    // TODO(b/384426376): Should return false when compiling to CF.
     return enableLibraryApiModeling;
   }
 
-  public boolean isCheckAllApiReferencesAreSet() {
-    return enableLibraryApiModeling && checkAllApiReferencesAreSet;
-  }
-
   public boolean isApiCallerIdentificationEnabled() {
-    return enableLibraryApiModeling && enableApiCallerIdentification;
+    return isApiModelingEnabled() && enableApiCallerIdentification;
   }
 
-  public void disableApiModeling() {
-    enableLibraryApiModeling = false;
-    enableApiCallerIdentification = false;
-    enableOutliningOfMethods = false;
-    enableStubbingOfClasses = false;
-    checkAllApiReferencesAreSet = false;
+  public boolean isStubbingOfClassesEnabled() {
+    // TODO(b/384426376): Should not check backend when isApiModelingEnabled() return false for CF.
+    return isApiModelingEnabled() && options.isGeneratingDex() && enableStubbingOfClasses;
   }
 
-  /**
-   * Disable the workarounds for missing APIs. This does not disable the use of the database, just
-   * the introduction of soft-verification workarounds for potentially missing API references.
-   */
-  public void disableOutliningAndStubbing() {
-    enableOutliningOfMethods = false;
-    enableStubbingOfClasses = false;
+  public boolean isOutliningOfMethodsEnabled() {
+    // TODO(b/384426376): Should not check backend when isApiModelingEnabled() return false for CF.
+    return isApiModelingEnabled() && options.isGeneratingDex() && enableOutliningOfMethods;
   }
 
-  public void disableApiCallerIdentification() {
-    enableApiCallerIdentification = false;
+  public boolean isCheckAllApiReferencesAreSet() {
+    return isApiModelingEnabled() && checkAllApiReferencesAreSet;
   }
 
-  public void disableStubbingOfClasses() {
-    enableStubbingOfClasses = false;
+  public boolean isReportUnknownApiReferencesEnabled() {
+    return isApiModelingEnabled()
+        && System.getProperty("com.android.tools.r8.reportUnknownApiReferences") != null;
+  }
+
+  public AndroidApiModelingOptions disableApiModeling() {
+    return setEnableApiModeling(false);
+  }
+
+  public AndroidApiModelingOptions setEnableApiModeling(boolean value) {
+    enableLibraryApiModeling = value;
+    return this;
+  }
+
+  public AndroidApiModelingOptions disableApiCallerIdentification() {
+    return setEnableApiCallerIdentification(false);
+  }
+
+  public AndroidApiModelingOptions setEnableApiCallerIdentification(boolean value) {
+    enableApiCallerIdentification = value;
+    return this;
+  }
+
+  public AndroidApiModelingOptions disableOutlining() {
+    return setEnableOutliningOfMethods(false);
+  }
+
+  public AndroidApiModelingOptions setEnableOutliningOfMethods(boolean value) {
+    enableOutliningOfMethods = value;
+    return this;
+  }
+
+  public AndroidApiModelingOptions disableStubbingOfClasses() {
+    return setEnableStubbingOfClasses(false);
+  }
+
+  public AndroidApiModelingOptions setEnableStubbingOfClasses(boolean value) {
+    enableStubbingOfClasses = value;
+    return this;
+  }
+
+  public AndroidApiModelingOptions setCheckAllApiReferencesAreSet(boolean value) {
+    checkAllApiReferencesAreSet = value;
+    return this;
+  }
+
+  public void visitMockedApiLevelsForReferences(
+      DexItemFactory factory, BiConsumer<DexReference, AndroidApiLevel> apiLevelConsumer) {
+    assert isApiModelingEnabled();
+    classApiMapping.forEach(
+        (classReference, apiLevel) ->
+            apiLevelConsumer.accept(factory.createType(classReference.getDescriptor()), apiLevel));
+    fieldApiMapping.forEach(
+        (fieldReference, apiLevel) ->
+            apiLevelConsumer.accept(factory.createField(fieldReference), apiLevel));
+    methodApiMapping.forEach(
+        (methodReference, apiLevel) ->
+            apiLevelConsumer.accept(factory.createMethod(methodReference), apiLevel));
   }
 }

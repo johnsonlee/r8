@@ -74,8 +74,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (alwaysThrowingInstructionDesugaring != null) {
       desugarings.add(alwaysThrowingInstructionDesugaring);
     }
-    if (appView.options().apiModelingOptions().enableOutliningOfMethods) {
-      assert appView.options().isGeneratingDex();
+    if (appView.options().apiModelingOptions().isOutliningOfMethodsEnabled()) {
       yieldingDesugarings.add(new ApiInvokeOutlinerDesugaring(appView, apiLevelCompute));
     }
     if (appView.options().desugarState.isOff()) {

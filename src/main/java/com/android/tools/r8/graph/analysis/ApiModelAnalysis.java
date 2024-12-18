@@ -40,7 +40,7 @@ public class ApiModelAnalysis
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       EnqueuerAnalysisCollection.Builder builder) {
-    if (appView.options().apiModelingOptions().enableLibraryApiModeling) {
+    if (appView.options().apiModelingOptions().isApiModelingEnabled()) {
       ApiModelAnalysis analysis = new ApiModelAnalysis(appView);
       builder
           .addNewlyFailedMethodResolutionAnalysis(analysis)

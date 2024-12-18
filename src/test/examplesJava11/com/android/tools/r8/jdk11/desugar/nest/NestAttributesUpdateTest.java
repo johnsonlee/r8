@@ -67,7 +67,7 @@ public class NestAttributesUpdateTest extends TestBase {
                 internalOptions -> {
                   // The test makes an invoke to StringConcatFactory which is not known to DEX and
                   // we therefore fail to merge the classes.
-                  internalOptions.apiModelingOptions().enableApiCallerIdentification = false;
+                  internalOptions.apiModelingOptions().disableApiCallerIdentification();
                 }));
   }
 
