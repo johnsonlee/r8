@@ -10,6 +10,8 @@ import utils
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 
 TARGETS = ['r8-full']
@@ -27,6 +29,63 @@ def DownloadCloudBucket(dest):
                                            dest,
                                            concurrent=True,
                                            flags=['-R'])
+
+
+def GetMainCommits():
+    top = utils.get_sha1_from_revision('origin/main')
+    bottom = utils.get_nth_sha1_from_revision(NUM_COMMITS - 1, 'origin/main')
+    commits = historic_run.enumerate_git_commits(top, bottom)
+    assert len(commits) == NUM_COMMITS
+    return commits
+
+
+def GetReleaseBranches():
+    remote_branches = subprocess.check_output(
+        ['git', 'branch', '-r']).decode('utf-8').strip().splitlines()
+    result = []
+    for remote_branch in remote_branches:
+        remote_branch = remote_branch.strip()
+
+        # Strip 'origin/'.
+        try:
+            remote_name_end_index = remote_branch.index('/')
+            remote_branch = remote_branch[remote_name_end_index + 1:]
+        except ValueError:
+            pass
+
+        # Filter out branches that are not on the form X.Y
+        if not re.search('^(0|[1-9]\d*)\.(0|[1-9]\d*)$', remote_branch):
+            continue
+
+        # Filter out branches prior to 8.9.
+        dot_index = remote_branch.index('.')
+        [major, minor] = remote_branch.split('.')
+        if int(major) < 8 or (major == '8' and int(minor) < 9):
+            continue
+
+        result.append(remote_branch)
+    return result
+
+
+def GetReleaseCommits():
+    release_commits = []
+    for branch in GetReleaseBranches():
+        (major, minor) = branch.split('.')
+        candidate_commits = subprocess.check_output([
+            'git', 'log', '--grep=-dev', '--max-count=100',
+            '--pretty=format:%H %s', 'origin/' + branch, '--',
+            'src/main/java/com/android/tools/r8/Version.java'
+        ]).decode('utf-8').strip().splitlines()
+        for candidate_commit in candidate_commits:
+            separator_index = candidate_commit.index(' ')
+            git_hash = candidate_commit[:separator_index]
+            git_title = candidate_commit[separator_index + 1:]
+            if not re.search(
+                    '^Version %s\.%s\.(0|[1-9]\d*)-dev$' %
+                (major, minor), git_title):
+                continue
+            release_commits.append(historic_run.git_commit_from_hash(git_hash))
+    return release_commits
 
 
 def ParseJsonFromCloudStorage(filename, local_bucket):
@@ -59,8 +118,11 @@ def RecordBenchmarkResult(commit, benchmark, benchmark_info, local_bucket,
 
 def RecordSingleBenchmarkResult(commit, benchmark, local_bucket, target,
                                 benchmarks):
-    filename = perf.GetArtifactLocation(benchmark, target, commit.hash(),
-                                        'result.json')
+    filename = perf.GetArtifactLocation(benchmark,
+                                        target,
+                                        commit.hash(),
+                                        'result.json',
+                                        branch=commit.branch())
     benchmark_data = ParseJsonFromCloudStorage(filename, local_bucket)
     if benchmark_data:
         benchmarks[benchmark] = benchmark_data
@@ -107,16 +169,16 @@ def ArchiveBenchmarkResults(benchmark_data, dest, outdir, temp):
 
 def run_bucket():
     # Get the N most recent commits sorted by newest first.
-    top = utils.get_sha1_from_revision('origin/main')
-    bottom = utils.get_nth_sha1_from_revision(NUM_COMMITS - 1, 'origin/main')
-    commits = historic_run.enumerate_git_commits(top, bottom)
-    assert len(commits) == NUM_COMMITS
+    main_commits = GetMainCommits()
+
+    # Get all release commits from 8.9 and onwards.
+    release_commits = GetReleaseCommits()
 
     # Download all benchmark data from the cloud bucket to a temp folder.
     with utils.TempDir() as temp:
         local_bucket = os.path.join(temp, perf.BUCKET)
         DownloadCloudBucket(local_bucket)
-        run(commits, local_bucket, temp)
+        run(main_commits + release_commits, local_bucket, temp)
 
 
 def run_local(local_bucket):

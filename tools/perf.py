@@ -214,8 +214,10 @@ def ParseBenchmarkResultJsonFile(result_json_file):
         return json.loads(''.join(lines))
 
 
-def GetArtifactLocation(benchmark, target, version, filename):
+def GetArtifactLocation(benchmark, target, version, filename, branch=None):
     if version:
+        if branch and branch != 'main':
+            return f'branches/{branch}/{benchmark}/{target}/{version}/{filename}'
         return f'{benchmark}/{target}/{version}/{filename}'
     else:
         commit = utils.get_HEAD_commit()
