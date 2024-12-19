@@ -599,7 +599,13 @@ public class FileWriter {
       short[] offsets = new short[code.getHandlers().length];
       int i = 0;
       for (TryHandler handler : code.getHandlers()) {
-        offsets[i++] = (short) (dest.position() - beginOfHandlersOffset);
+        int offset = dest.position() - beginOfHandlersOffset;
+        if (offset > Constants.U16BIT_MAX) {
+          throw appView
+              .reporter()
+              .fatalError("Handler offset overflow in " + method.toSourceString());
+        }
+        offsets[i++] = (short) offset;
         boolean hasCatchAll = handler.catchAllAddr != TryHandler.NO_HANDLER;
         dest.putSleb128(hasCatchAll ? -handler.pairs.length : handler.pairs.length);
         for (TypeAddrPair pair : handler.pairs) {
