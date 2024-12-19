@@ -33,8 +33,10 @@ public class MonthTest extends DesugaredLibraryTestBase {
 
   private static final String RU_EXPECTED_RESULT_DOT = StringUtils.lines("апреля", "апр.", "А");
   private static final String RU_EXPECTED_RESULT = StringUtils.lines("апреля", "апр", "А");
-  private static final String RU_EXPECTED_RESULT_DOT_NARROW_LOWERCASE =
+  private static final String RU_EXPECTED_RESULT_DOT_NARROW_LOWERCASE_JDK8 =
       StringUtils.lines("апреля", "апр.", "а");
+  private static final String RU_EXPECTED_RESULT_DOT_NARROW_LOWERCASE =
+      StringUtils.lines("апрель", "апр.", "а");
 
   private static final String RU_STANDALONE_EXPECTED_RESULT_ALL_UPPERCASE =
       StringUtils.lines("Апрель", "Апр.", "А");
@@ -86,6 +88,16 @@ public class MonthTest extends DesugaredLibraryTestBase {
       return RU_EXPECTED_RESULT_DOT;
     }
     if (libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
+      if (libraryDesugaringSpecification == JDK8) {
+        return RU_EXPECTED_RESULT_DOT_NARROW_LOWERCASE_JDK8;
+      }
+      Version version = parameters.getDexRuntimeVersion();
+      if (version.isOlderThan(Version.V4_4_4)) {
+        return RU_STANDALONE_EXPECTED_RESULT_LONG_NARROW_UPPERCASE;
+      }
+      if (version.isOlderThan(Version.V6_0_1)) {
+        return RU_STANDALONE_EXPECTED_RESULT_ALL_UPPERCASE;
+      }
       return RU_EXPECTED_RESULT_DOT_NARROW_LOWERCASE;
     }
     return RU_EXPECTED_RESULT_DOT;
