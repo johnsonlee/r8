@@ -73,7 +73,7 @@ public class D8BuildMetadataTest extends TestBase {
     if (parameters.isDexRuntime()) {
       assertNotNull(libraryDesugaringMetadata);
       assertEquals(
-          "com.tools.android:desugar_jdk_libs_configuration:2.1.3",
+          "com.tools.android:desugar_jdk_libs_configuration:2.1.4",
           libraryDesugaringMetadata.getIdentifier());
     } else {
       assertNull(libraryDesugaringMetadata);

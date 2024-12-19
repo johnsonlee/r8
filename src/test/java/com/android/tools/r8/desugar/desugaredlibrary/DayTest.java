@@ -27,6 +27,8 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DayTest extends DesugaredLibraryTestBase {
   private static final String MISSING_STANDALONE = StringUtils.lines("1", "1", "1234567");
+  private static final String SIMPLIFIED_CHINESE_NARROW_DAY_JDK8 =
+      StringUtils.lines("星期一", "周一", "星星星星星星星");
 
   private static final String UK_EXPECTED_RESULT_JDK8 =
       StringUtils.lines("Monday", "Mon", "1234567");
@@ -85,6 +87,11 @@ public class DayTest extends DesugaredLibraryTestBase {
   private String getSimplifiedChineseExpectedResult() {
     if (parameters.isCfRuntime() && parameters.getRuntime().asCf().isOlderThan(CfVm.JDK9)) {
       return SIMPLIFIED_CHINESE_EXPECTED_RESULT_JDK8;
+    }
+    if (parameters.isDexRuntime()
+        && libraryDesugaringSpecification.hasTimeDesugaring(parameters)
+        && libraryDesugaringSpecification == JDK8) {
+      return SIMPLIFIED_CHINESE_NARROW_DAY_JDK8;
     }
     return SIMPLIFIED_CHINESE_EXPECTED_RESULT;
   }
