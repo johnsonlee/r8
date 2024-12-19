@@ -125,6 +125,9 @@ public class SplitReturnRewriter extends CodeRewriterPass<AppInfo> {
 
   private int colorExceptionHandlers(IRCode code) {
     int color = code.reserveMarkingColor();
+    if (appView.testing().forceSplitReturnRewriter) {
+      return color;
+    }
     WorkList<BasicBlock> worklist = WorkList.newIdentityWorkList();
     for (BasicBlock block : code.getBlocks()) {
       worklist.addIfNotSeen(block.getCatchHandlers().getUniqueTargets());
