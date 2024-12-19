@@ -94,6 +94,8 @@ public interface InstructionSubject {
 
   boolean isConstClass(String type);
 
+  boolean isNumberConversion();
+
   boolean isGoto();
 
   boolean isPop();

@@ -49,9 +49,15 @@ import com.android.tools.r8.dex.code.DexDivIntLit16;
 import com.android.tools.r8.dex.code.DexDivIntLit8;
 import com.android.tools.r8.dex.code.DexDivLong;
 import com.android.tools.r8.dex.code.DexDivLong2Addr;
+import com.android.tools.r8.dex.code.DexDoubleToFloat;
+import com.android.tools.r8.dex.code.DexDoubleToInt;
+import com.android.tools.r8.dex.code.DexDoubleToLong;
 import com.android.tools.r8.dex.code.DexFillArrayData;
 import com.android.tools.r8.dex.code.DexFilledNewArray;
 import com.android.tools.r8.dex.code.DexFilledNewArrayRange;
+import com.android.tools.r8.dex.code.DexFloatToDouble;
+import com.android.tools.r8.dex.code.DexFloatToInt;
+import com.android.tools.r8.dex.code.DexFloatToLong;
 import com.android.tools.r8.dex.code.DexGoto;
 import com.android.tools.r8.dex.code.DexIfEq;
 import com.android.tools.r8.dex.code.DexIfEqz;
@@ -74,6 +80,12 @@ import com.android.tools.r8.dex.code.DexIgetShort;
 import com.android.tools.r8.dex.code.DexIgetWide;
 import com.android.tools.r8.dex.code.DexInstanceOf;
 import com.android.tools.r8.dex.code.DexInstruction;
+import com.android.tools.r8.dex.code.DexIntToByte;
+import com.android.tools.r8.dex.code.DexIntToChar;
+import com.android.tools.r8.dex.code.DexIntToDouble;
+import com.android.tools.r8.dex.code.DexIntToFloat;
+import com.android.tools.r8.dex.code.DexIntToLong;
+import com.android.tools.r8.dex.code.DexIntToShort;
 import com.android.tools.r8.dex.code.DexInvokeCustom;
 import com.android.tools.r8.dex.code.DexInvokeCustomRange;
 import com.android.tools.r8.dex.code.DexInvokeDirect;
@@ -94,6 +106,9 @@ import com.android.tools.r8.dex.code.DexIputChar;
 import com.android.tools.r8.dex.code.DexIputObject;
 import com.android.tools.r8.dex.code.DexIputShort;
 import com.android.tools.r8.dex.code.DexIputWide;
+import com.android.tools.r8.dex.code.DexLongToDouble;
+import com.android.tools.r8.dex.code.DexLongToFloat;
+import com.android.tools.r8.dex.code.DexLongToInt;
 import com.android.tools.r8.dex.code.DexMonitorEnter;
 import com.android.tools.r8.dex.code.DexMonitorExit;
 import com.android.tools.r8.dex.code.DexMove;
@@ -410,6 +425,25 @@ public class DexInstructionSubject implements InstructionSubject {
   @Override
   public boolean isConstClass(String type) {
     return isConstClass() && ((DexConstClass) instruction).getType().toString().equals(type);
+  }
+
+  @Override
+  public boolean isNumberConversion() {
+    return instruction instanceof DexIntToByte
+        || instruction instanceof DexIntToShort
+        || instruction instanceof DexIntToLong
+        || instruction instanceof DexIntToChar
+        || instruction instanceof DexIntToDouble
+        || instruction instanceof DexIntToFloat
+        || instruction instanceof DexLongToInt
+        || instruction instanceof DexLongToFloat
+        || instruction instanceof DexLongToDouble
+        || instruction instanceof DexFloatToInt
+        || instruction instanceof DexFloatToLong
+        || instruction instanceof DexFloatToDouble
+        || instruction instanceof DexDoubleToInt
+        || instruction instanceof DexDoubleToLong
+        || instruction instanceof DexDoubleToFloat;
   }
 
   @Override

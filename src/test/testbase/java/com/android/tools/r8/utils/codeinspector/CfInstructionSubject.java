@@ -29,6 +29,7 @@ import com.android.tools.r8.cf.code.CfMonitor;
 import com.android.tools.r8.cf.code.CfNew;
 import com.android.tools.r8.cf.code.CfNewArray;
 import com.android.tools.r8.cf.code.CfNop;
+import com.android.tools.r8.cf.code.CfNumberConversion;
 import com.android.tools.r8.cf.code.CfPosition;
 import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
@@ -213,6 +214,11 @@ public class CfInstructionSubject implements InstructionSubject {
   @Override
   public boolean isConstClass(String type) {
     return isConstClass() && ((CfConstClass) instruction).getType().toString().equals(type);
+  }
+
+  @Override
+  public boolean isNumberConversion() {
+    return instruction instanceof CfNumberConversion;
   }
 
   @Override
