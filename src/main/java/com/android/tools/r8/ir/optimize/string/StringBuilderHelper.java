@@ -113,7 +113,10 @@ public class StringBuilderHelper {
       } else if (conversionType == factory.shortType) {
         return temp.shortValue();
       } else if (conversionType == factory.charType) {
-        return temp.intValue();
+        // Description of i2c from the JVM specification: "The value on the top of the operand
+        // stack must be of type int. It is popped from the operand stack, truncated to char,
+        // then zero-extended to an int result. The result is pushed onto the operand stack.".
+        return temp.intValue() & 0xFFFF;
       } else if (conversionType == factory.intType) {
         return temp.intValue();
       } else if (conversionType == factory.longType) {

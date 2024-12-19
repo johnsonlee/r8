@@ -2,8 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8;
+package com.android.tools.r8.ir.optimize.string;
 
+import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.StringUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,7 +26,6 @@ public class B384844007Test extends TestBase {
   }
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("i = 65523");
-  private static final String UNEXPECTED_OUTPUT = StringUtils.lines("i = -13");
 
   @Test
   public void testJvm() throws Exception {
@@ -51,7 +53,7 @@ public class B384844007Test extends TestBase {
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(UNEXPECTED_OUTPUT);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
