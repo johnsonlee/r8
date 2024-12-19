@@ -990,11 +990,9 @@ public class R8 {
         LegacyResourceShrinker shrinker = resourceShrinkerBuilder.build();
         shrinkerResult = shrinker.run();
       }
-      Set<String> toKeep = shrinkerResult.getResFolderEntriesToKeep();
       writeResourcesToConsumer(
           reporter,
           shrinkerResult,
-          toKeep,
           options.androidResourceProvider,
           options.androidResourceConsumer,
           FeatureSplit.BASE);
@@ -1004,7 +1002,6 @@ public class R8 {
             writeResourcesToConsumer(
                 reporter,
                 shrinkerResult,
-                toKeep,
                 featureSplit.getAndroidResourceProvider(),
                 featureSplit.getAndroidResourceConsumer(),
                 featureSplit);
@@ -1019,7 +1016,6 @@ public class R8 {
   private static void writeResourcesToConsumer(
       Reporter reporter,
       ShrinkerResult shrinkerResult,
-      Set<String> toKeep,
       AndroidResourceProvider androidResourceProvider,
       AndroidResourceConsumer androidResourceConsumer,
       FeatureSplit featureSplit)
@@ -1044,7 +1040,9 @@ public class R8 {
           break;
         case RES_FOLDER_FILE:
         case XML_FILE:
-          if (toKeep.contains(androidResource.getPath().location())) {
+          if (shrinkerResult
+              .getResFolderEntriesToKeep()
+              .contains(androidResource.getPath().location())) {
             androidResourceConsumer.accept(
                 new R8PassThroughAndroidResource(androidResource, reporter), reporter);
           }

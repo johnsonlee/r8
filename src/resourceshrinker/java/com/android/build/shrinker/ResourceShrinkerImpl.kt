@@ -307,16 +307,12 @@ fun ResourceStore.isJarPathReachable(path: String) : Boolean {
     return isJarPathReachable(folder, name);
 }
 
-private fun ResourceStore.getResourceId(
-    folder: String,
-    name: String
-): Int {
-    val folderType = ResourceFolderType.getFolderType(folder) ?: return -1
+fun ResourceStore.getResourcesFor(path: String): List<Resource> {
+    val (_, folder, name) = path.split('/', limit = 3)
+    val folderType = ResourceFolderType.getFolderType(folder) ?: return emptyList()
     val resourceName = name.substringBefore('.')
     return FolderTypeRelationship.getRelatedResourceTypes(folderType)
         .filterNot { it == ResourceType.ID }
         .flatMap { getResources(it, resourceName) }
-        .map { it.value }
-        .getOrElse(0) { -1 }
-
+        .toList()
 }

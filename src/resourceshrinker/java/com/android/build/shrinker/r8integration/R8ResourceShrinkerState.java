@@ -54,6 +54,7 @@ public class R8ResourceShrinkerState {
   private final Function<Exception, RuntimeException> errorHandler;
   private final R8ResourceShrinkerModel r8ResourceShrinkerModel;
   private final Map<String, Supplier<InputStream>> xmlFileProviders = new HashMap<>();
+  private final Set<String> duplicatedResFolderEntries = new HashSet<>();
   private final List<Supplier<InputStream>> keepRuleFileProviders = new ArrayList<>();
 
   private final List<Supplier<InputStream>> manifestProviders = new ArrayList<>();
@@ -62,7 +63,7 @@ public class R8ResourceShrinkerState {
   private final ShrinkerDebugReporter shrinkerDebugReporter;
   private ClassReferenceCallback enqueuerCallback;
   private MethodReferenceCallback methodCallback;
-  private Map<Integer, List<String>> resourceIdToXmlFiles;
+  private Map<Integer, Set<String>> resourceIdToXmlFiles;
   private Set<String> packageNames;
   private final Set<String> seenNoneClassValues = new HashSet<>();
   private final Set<Integer> seenResourceIds = new HashSet<>();
@@ -172,7 +173,11 @@ public class R8ResourceShrinkerState {
   }
 
   public void addXmlFileProvider(Supplier<InputStream> inputStreamSupplier, String location) {
-    this.xmlFileProviders.put(location, inputStreamSupplier);
+    if (this.xmlFileProviders.containsKey(location)) {
+      duplicatedResFolderEntries.add(location);
+    } else {
+      this.xmlFileProviders.put(location, inputStreamSupplier);
+    }
   }
 
   public void addKeepRuleRileProvider(Supplier<InputStream> inputStreamSupplier) {
@@ -180,6 +185,9 @@ public class R8ResourceShrinkerState {
   }
 
   public void addResFileProvider(Supplier<InputStream> inputStreamSupplier, String location) {
+    if (this.resfileProviders.containsKey(location)) {
+      duplicatedResFolderEntries.add(location);
+    }
     this.resfileProviders.put(location, inputStreamSupplier);
   }
 
@@ -253,11 +261,24 @@ public class R8ResourceShrinkerState {
   }
 
   private void traceXmlForResourceId(int id) {
-    List<String> xmlFiles = getResourceIdToXmlFiles().get(id);
+    Set<String> xmlFiles = getResourceIdToXmlFiles().get(id);
     if (xmlFiles != null) {
       for (String xmlFile : xmlFiles) {
         InputStream inputStream = xmlFileProviders.get(xmlFile).get();
         traceXml(xmlFile, inputStream);
+        if (duplicatedResFolderEntries.contains(xmlFile)) {
+          traceDuplicatedXmlFileIds(id, xmlFile);
+        }
+      }
+    }
+  }
+
+  private void traceDuplicatedXmlFileIds(int currentId, String xmlFile) {
+    for (Map.Entry<Integer, Set<String>> entry : getResourceIdToXmlFiles().entrySet()) {
+      if (entry.getValue().contains(xmlFile)) {
+        if (entry.getKey() != currentId) {
+          trace(entry.getKey(), "Duplicated xmlfile " + xmlFile);
+        }
       }
     }
   }
@@ -339,7 +360,7 @@ public class R8ResourceShrinkerState {
     return packageName + "." + xmlAttribute.getValue();
   }
 
-  public Map<Integer, List<String>> getResourceIdToXmlFiles() {
+  public Map<Integer, Set<String>> getResourceIdToXmlFiles() {
     if (resourceIdToXmlFiles == null) {
       resourceIdToXmlFiles = new HashMap<>();
       for (ResourceTable resourceTable : resourceTables.values()) {
@@ -356,7 +377,7 @@ public class R8ResourceShrinkerState {
                       if (file.getType() == FileReference.Type.PROTO_XML) {
                         int id = ResourceTableUtilKt.toIdentifier(packageEntry, type, entry);
                         resourceIdToXmlFiles
-                            .computeIfAbsent(id, unused -> new ArrayList<>())
+                            .computeIfAbsent(id, unused -> new HashSet<>())
                             .add(file.getPath());
                       }
                     }

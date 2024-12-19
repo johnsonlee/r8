@@ -101,7 +101,7 @@ public class LegacyResourceShrinker {
     public Builder addResFolderInput(String path, byte[] bytes) {
       PathAndBytes existing = resFolderInputs.get(path);
       if (existing != null) {
-        assert Arrays.equals(existing.getBytes(), bytes);
+        existing.setDuplicated(true);
       } else {
         resFolderInputs.put(path, new PathAndBytes(bytes, path));
       }
@@ -111,7 +111,7 @@ public class LegacyResourceShrinker {
     public Builder addXmlInput(String path, byte[] bytes) {
       PathAndBytes existing = xmlInputs.get(path);
       if (existing != null) {
-        assert Arrays.equals(existing.getBytes(), bytes);
+        existing.setDuplicated(true);
       } else {
         xmlInputs.put(path, new PathAndBytes(bytes, path));
       }
@@ -217,14 +217,20 @@ public class LegacyResourceShrinker {
               debugReporter.debug(() -> "The root reachable resources are:");
               roots.forEach(root -> debugReporter.debug(() -> " " + root));
             });
-    debugReporter.debug(() -> "Unused resources are: ");
-    unusedResources.forEach(unused -> debugReporter.debug(() -> " " + unused));
-    ImmutableSet.Builder<String> resEntriesToKeep = new ImmutableSet.Builder<>();
+    ImmutableSet.Builder<String> resEntriesToKeepBuilder = new ImmutableSet.Builder<>();
     for (PathAndBytes xmlInput : Iterables.concat(xmlInputs, resFolderInputs)) {
       if (ResourceShrinkerImplKt.isJarPathReachable(resourceStore, xmlInput.path.toString())) {
-        resEntriesToKeep.add(xmlInput.path.toString());
+        resEntriesToKeepBuilder.add(xmlInput.path.toString());
+        if (xmlInput.duplicated) {
+          // Ensure that we don't remove references to duplicated res folder entries.
+          List<Resource> duplicatedResources =
+              ResourceShrinkerImplKt.getResourcesFor(resourceStore, xmlInput.path.toString());
+          unusedResources.removeAll(duplicatedResources);
+        }
       }
     }
+    debugReporter.debug(() -> "Unused resources are: ");
+    unusedResources.forEach(unused -> debugReporter.debug(() -> " " + unused));
     List<Integer> resourceIdsToRemove = getResourceIdsToRemove(unusedResources);
     Map<FeatureSplit, ResourceTable> shrunkenTables = new HashMap<>();
     for (Entry<PathAndBytes, FeatureSplit> entry : resourceTables.entrySet()) {
@@ -233,7 +239,7 @@ public class LegacyResourceShrinker {
               ResourceTable.parseFrom(entry.getKey().bytes), resourceIdsToRemove);
       shrunkenTables.put(entry.getValue(), shrunkenResourceTable);
     }
-    return new ShrinkerResult(resEntriesToKeep.build(), shrunkenTables);
+    return new ShrinkerResult(resEntriesToKeepBuilder.build(), shrunkenTables);
   }
 
   private static List<Integer> getResourceIdsToRemove(List<Resource> unusedResources) {
@@ -331,10 +337,15 @@ public class LegacyResourceShrinker {
   private static class PathAndBytes {
     private final byte[] bytes;
     private final String path;
+    private boolean duplicated;
 
     private PathAndBytes(byte[] bytes, String path) {
       this.bytes = bytes;
       this.path = path;
+    }
+
+    public void setDuplicated(boolean duplicated) {
+      this.duplicated = duplicated;
     }
 
     public String getPathWithoutRes() {
