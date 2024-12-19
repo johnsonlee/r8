@@ -701,6 +701,17 @@ public class BasicBlock {
     }
   }
 
+  public void removeTrivialPhis(AffectedValues affectedValues) {
+    Iterator<Phi> iterator = phis.iterator();
+    while (iterator.hasNext()) {
+      Phi phi = iterator.next();
+      if (phi.isTrivialPhi()) {
+        iterator.remove();
+        phi.removeTrivialPhi(null, affectedValues);
+      }
+    }
+  }
+
   public boolean hasPhis() {
     return phis != null && !phis.isEmpty();
   }

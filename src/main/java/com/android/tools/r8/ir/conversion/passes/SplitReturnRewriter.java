@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion.passes;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -13,6 +15,7 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.ir.optimize.AffectedValues;
+import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -40,6 +43,8 @@ public class SplitReturnRewriter extends CodeRewriterPass<AppInfo> {
 
   @Override
   protected CodeRewriterResult rewriteCode(IRCode code) {
+    int color = colorExceptionHandlers(code);
+    AffectedValues affectedValues = new AffectedValues();
     boolean changed = false;
     boolean hasUnreachableBlocks = false;
     Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
@@ -56,7 +61,7 @@ public class SplitReturnRewriter extends CodeRewriterPass<AppInfo> {
           predecessorIndex < block.getPredecessors().size();
           predecessorIndex++) {
         BasicBlock predecessor = block.getPredecessor(predecessorIndex);
-        if (!predecessor.exit().isGoto()) {
+        if (!predecessor.exit().isGoto() || predecessor.isMarked(color)) {
           continue;
         }
         if (predecessor.exit().asGoto().getTarget() != block) {
@@ -100,18 +105,35 @@ public class SplitReturnRewriter extends CodeRewriterPass<AppInfo> {
         } else {
           block.removePredecessorsByIndex(predecessorsToRemove);
           block.removePhisByIndex(predecessorsToRemove);
+          block.removeTrivialPhis(affectedValues);
+          affectedValues.addAll(block.getPhis());
         }
         changed = true;
       }
     }
     code.removeBlocks(blocksToRemove);
     if (hasUnreachableBlocks) {
-      AffectedValues affectedValues = code.removeUnreachableBlocks();
-      affectedValues.narrowingWithAssumeRemoval(appView, code);
+      code.removeUnreachableBlocks(affectedValues, emptyConsumer());
     }
+    affectedValues.narrowingWithAssumeRemoval(appView, code);
     if (changed) {
       code.removeRedundantBlocks();
     }
+    code.returnMarkingColor(color);
     return CodeRewriterResult.hasChanged(changed);
+  }
+
+  private int colorExceptionHandlers(IRCode code) {
+    int color = code.reserveMarkingColor();
+    WorkList<BasicBlock> worklist = WorkList.newIdentityWorkList();
+    for (BasicBlock block : code.getBlocks()) {
+      worklist.addIfNotSeen(block.getCatchHandlers().getUniqueTargets());
+    }
+    worklist.process(
+        block -> {
+          block.mark(color);
+          worklist.addIfNotSeen(block.getSuccessors());
+        });
+    return color;
   }
 }
