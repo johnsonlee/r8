@@ -38,6 +38,7 @@ public class NumberConversion extends Unop {
     super(dest, source);
     this.from = from;
     this.to = to;
+    assert isValid();
   }
 
   @Override
@@ -172,5 +173,51 @@ public class NumberConversion extends Unop {
   @Override
   public boolean outTypeKnownToBeBoolean(Set<Phi> seen) {
     return to == NumericType.BYTE && source().knownToBeBoolean(seen);
+  }
+
+  public boolean isValid() {
+    switch (from) {
+      case INT:
+        switch (to) {
+          case BYTE:
+          case CHAR:
+          case SHORT:
+          case LONG:
+          case FLOAT:
+          case DOUBLE:
+            return true;
+          default:
+            return false;
+        }
+      case LONG:
+        switch (to) {
+          case INT:
+          case FLOAT:
+          case DOUBLE:
+            return true;
+          default:
+            return false;
+        }
+      case FLOAT:
+        switch (to) {
+          case INT:
+          case LONG:
+          case DOUBLE:
+            return true;
+          default:
+            return false;
+        }
+      case DOUBLE:
+        switch (to) {
+          case INT:
+          case LONG:
+          case FLOAT:
+            return true;
+          default:
+            return false;
+        }
+      default:
+        return false;
+    }
   }
 }

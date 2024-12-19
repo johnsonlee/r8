@@ -101,6 +101,9 @@ public class StringBuilderHelper {
     } else if (arg.definition.isNumberConversion()) {
       NumberConversion conversion = arg.definition.asNumberConversion();
       assert conversion.inValues().size() == 1;
+      if (!conversion.isValid()) {
+        return null;
+      }
       Number temp = extractConstantNumber(factory, conversion.inValues().get(0));
       if (temp == null) {
         return null;
