@@ -6,6 +6,8 @@ package com.android.tools.r8.deadcode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -31,21 +33,28 @@ public class DeadObjectWithFinalizeTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("Finalize!");
+        .assertSuccessWithOutputLines("passed fence");
   }
 
   static class Main {
 
-    public static void main(String[] args) {
+    static final CountDownLatch fence = new CountDownLatch(1);
+
+    public static void main(String[] args) throws Exception {
       new Object() {
 
         @Override
         protected void finalize() {
-          System.out.println("Finalize!");
+          fence.countDown();
         }
       };
       Runtime.getRuntime().gc();
       Runtime.getRuntime().runFinalization();
+      if (fence.await(10, TimeUnit.SECONDS)) {
+        System.out.println("passed fence");
+      } else {
+        System.out.println("fence await timed out");
+      }
     }
   }
 }
