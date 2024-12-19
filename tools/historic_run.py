@@ -93,9 +93,10 @@ class GitCommit(object):
         return result.strip()
 
     def changed_files(self):
-        result = subprocess.check_output(
-            ['git', 'show', '--name-only', '--no-notes',
-             '--pretty=']).decode('utf-8')
+        result = subprocess.check_output([
+            'git', 'show', '--name-only', '--no-notes', '--pretty=',
+            self.git_hash
+        ]).decode('utf-8')
         return result.strip().splitlines()
 
     def committer_timestamp(self):
