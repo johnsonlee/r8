@@ -104,13 +104,12 @@ def Main():
             # Build release to local Maven repository compiling with JDK-11.
             m2 = os.path.join(temp, 'm2')
             os.mkdir(m2)
-            env = os.environ.copy()
-            env["JAVA_HOME"] = jdk.GetJdk11Home()
             subprocess.check_call([
                 './gradlew',
+                '-Dorg.gradle.java.home=%s' % jdk.GetJdk11Home(),
                 '-Dmaven.repo.local=%s' % m2, 'release', 'test',
                 'publishToMavenLocal',
-            ], env=env)
+            ])
             base = os.path.join('com', 'android', 'tools', 'smali')
 
             # Check that the local maven repository only has the single version directory in
