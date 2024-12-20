@@ -280,7 +280,11 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     private OutputMode outputMode = OutputMode.DexIndexed;
 
     private CompilationMode mode;
-    private int minApiLevel = 0;
+    private int minMajorApiLevel = 0;
+
+    @SuppressWarnings("UnusedVariable")
+    private int minMinorApiLevel = 0;
+
     private int threadCount = ThreadUtils.NOT_SPECIFIED;
     protected DesugarState desugarState = DesugarState.ON;
     private final List<StringResource> desugaredLibrarySpecificationResources = new ArrayList<>();
@@ -579,19 +583,29 @@ public abstract class BaseCompilerCommand extends BaseCommand {
 
     /** Get the minimum API level (aka SDK version). */
     public int getMinApiLevel() {
-      return isMinApiLevelSet() ? minApiLevel : AndroidApiLevel.getDefault().getLevel();
+      return isMinApiLevelSet() ? minMajorApiLevel : AndroidApiLevel.getDefault().getLevel();
     }
 
     boolean isMinApiLevelSet() {
-      return minApiLevel != 0;
+      return minMajorApiLevel != 0;
     }
 
     /** Set the minimum required API level (aka SDK version). */
-    public B setMinApiLevel(int minApiLevel) {
-      if (minApiLevel <= 0) {
-        getReporter().error("Invalid minApiLevel: " + minApiLevel);
+    public B setMinApiLevel(int minMajorApiLevel) {
+      if (minMajorApiLevel <= 0) {
+        getReporter().error("Invalid minApiLevel: " + minMajorApiLevel);
+        return self();
+      }
+      return setMinApiLevel(minMajorApiLevel, 0);
+    }
+
+    /** Set the minimum required API level (aka SDK version). */
+    public B setMinApiLevel(int minMajorApiLevel, int minMinorApiLevel) {
+      if (minMajorApiLevel <= 0 || minMinorApiLevel < 0) {
+        getReporter().error("Invalid minApiLevel: " + minMajorApiLevel + "." + minMinorApiLevel);
       } else {
-        this.minApiLevel = minApiLevel;
+        this.minMajorApiLevel = minMajorApiLevel;
+        this.minMinorApiLevel = minMinorApiLevel;
       }
       return self();
     }

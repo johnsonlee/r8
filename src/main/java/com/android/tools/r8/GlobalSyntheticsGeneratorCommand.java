@@ -35,7 +35,11 @@ public final class GlobalSyntheticsGeneratorCommand {
 
   private final GlobalSyntheticsConsumer globalsConsumer;
   private final Reporter reporter;
-  private final int minApiLevel;
+  private final int minMajorApiLevel;
+
+  @SuppressWarnings("UnusedVariable")
+  private final int minMinorApiLevel;
+
   private final boolean classfileDesugaringOnly;
 
   private final boolean printHelp;
@@ -49,11 +53,13 @@ public final class GlobalSyntheticsGeneratorCommand {
       AndroidApp inputApp,
       GlobalSyntheticsConsumer globalsConsumer,
       Reporter reporter,
-      int minApiLevel,
+      int minMajorApiLevel,
+      int minMinorApiLevel,
       boolean classfileDesugaringOnly) {
     this.inputApp = inputApp;
     this.globalsConsumer = globalsConsumer;
-    this.minApiLevel = minApiLevel;
+    this.minMajorApiLevel = minMajorApiLevel;
+    this.minMinorApiLevel = minMinorApiLevel;
     this.classfileDesugaringOnly = classfileDesugaringOnly;
     this.reporter = reporter;
     this.printHelp = false;
@@ -66,7 +72,8 @@ public final class GlobalSyntheticsGeneratorCommand {
 
     this.inputApp = null;
     this.globalsConsumer = null;
-    this.minApiLevel = AndroidApiLevel.B.getLevel();
+    this.minMajorApiLevel = AndroidApiLevel.B.getLevel();
+    this.minMinorApiLevel = 0;
     this.classfileDesugaringOnly = false;
 
     reporter = new Reporter();
@@ -140,7 +147,7 @@ public final class GlobalSyntheticsGeneratorCommand {
     InternalOptions internal = new InternalOptions(factory, reporter);
     assert !internal.debug;
     assert !internal.minimalMainDex;
-    internal.setMinApiLevel(AndroidApiLevel.getAndroidApiLevel(minApiLevel));
+    internal.setMinApiLevel(AndroidApiLevel.getAndroidApiLevel(minMajorApiLevel));
     assert internal.retainCompileTimeAnnotations;
     internal.intermediate = true;
     internal.programConsumer =
@@ -205,7 +212,8 @@ public final class GlobalSyntheticsGeneratorCommand {
 
     private GlobalSyntheticsConsumer globalsConsumer = null;
     private final Reporter reporter;
-    private int minApiLevel = AndroidApiLevel.B.getLevel();
+    private int minMajorApiLevel = AndroidApiLevel.B.getLevel();
+    private int minMinorApiLevel = 0;
     private boolean classfileDesugaringOnly = false;
     private boolean printHelp = false;
     private boolean printVersion = false;
@@ -220,8 +228,14 @@ public final class GlobalSyntheticsGeneratorCommand {
     }
 
     /** Set the min api level. */
-    public Builder setMinApiLevel(int minApiLevel) {
-      this.minApiLevel = minApiLevel;
+    public Builder setMinApiLevel(int minMajorApiLevel) {
+      return setMinApiLevel(minMajorApiLevel, 0);
+    }
+
+    /** Set the min api level. */
+    public Builder setMinApiLevel(int minMajorApiLevel, int minMinorApiLevel) {
+      this.minMajorApiLevel = minMajorApiLevel;
+      this.minMinorApiLevel = minMinorApiLevel;
       return this;
     }
 
@@ -298,7 +312,12 @@ public final class GlobalSyntheticsGeneratorCommand {
         return new GlobalSyntheticsGeneratorCommand(printHelp, printVersion);
       }
       return new GlobalSyntheticsGeneratorCommand(
-          appBuilder.build(), globalsConsumer, reporter, minApiLevel, classfileDesugaringOnly);
+          appBuilder.build(),
+          globalsConsumer,
+          reporter,
+          minMajorApiLevel,
+          minMinorApiLevel,
+          classfileDesugaringOnly);
     }
 
     private boolean isPrintHelpOrPrintVersion() {

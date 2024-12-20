@@ -33,7 +33,10 @@ public class DesugaredMethodsListCommand {
 
   private final boolean help;
   private final boolean version;
-  private final int minApi;
+  private final int minMajorApi;
+
+  @SuppressWarnings("UnusedVariable")
+  private final int minMinorApi;
 
   private final Reporter reporter;
   private final StringResource desugarLibrarySpecification;
@@ -43,7 +46,8 @@ public class DesugaredMethodsListCommand {
   private final boolean androidPlatformBuild;
 
   DesugaredMethodsListCommand(
-      int minApi,
+      int minMajorApi,
+      int minMinorApi,
       Reporter reporter,
       StringResource desugarLibrarySpecification,
       Collection<ProgramResourceProvider> desugarLibraryImplementation,
@@ -52,7 +56,8 @@ public class DesugaredMethodsListCommand {
       boolean androidPlatformBuild) {
     this.help = false;
     this.version = false;
-    this.minApi = minApi;
+    this.minMajorApi = minMajorApi;
+    this.minMinorApi = minMinorApi;
     this.reporter = reporter;
     this.desugarLibrarySpecification = desugarLibrarySpecification;
     this.desugarLibraryImplementation = desugarLibraryImplementation;
@@ -64,7 +69,8 @@ public class DesugaredMethodsListCommand {
   DesugaredMethodsListCommand(boolean help, boolean version) {
     this.help = help;
     this.version = version;
-    this.minApi = -1;
+    this.minMajorApi = -1;
+    this.minMinorApi = 0;
     this.reporter = null;
     this.desugarLibrarySpecification = null;
     this.desugarLibraryImplementation = null;
@@ -83,7 +89,7 @@ public class DesugaredMethodsListCommand {
   }
 
   public int getMinApi() {
-    return minApi;
+    return minMajorApi;
   }
 
   public boolean isAndroidPlatformBuild() {
@@ -134,7 +140,8 @@ public class DesugaredMethodsListCommand {
   @KeepForApi
   public static class Builder {
 
-    private int minApi = AndroidApiLevel.B.getLevel();
+    private int minMajorApi = AndroidApiLevel.B.getLevel();
+    private int minMinorApi = 0;
     private final Reporter reporter;
     private StringResource desugarLibrarySpecification = null;
     private Collection<ProgramResourceProvider> desugarLibraryImplementation = new ArrayList<>();
@@ -149,8 +156,14 @@ public class DesugaredMethodsListCommand {
       this.reporter = new Reporter(diagnosticsHandler);
     }
 
-    public Builder setMinApi(int minApi) {
-      this.minApi = minApi;
+    public Builder setMinApi(int minMajorApi) {
+      this.minMajorApi = minMajorApi;
+      return this;
+    }
+
+    public Builder setMinApi(int minMajorApi, int minMinorApi) {
+      this.minMajorApi = minMajorApi;
+      this.minMinorApi = minMinorApi;
       return this;
     }
 
@@ -237,7 +250,8 @@ public class DesugaredMethodsListCommand {
             };
       }
       return new DesugaredMethodsListCommand(
-          minApi,
+          minMajorApi,
+          minMinorApi,
           reporter,
           desugarLibrarySpecification,
           desugarLibraryImplementation,
