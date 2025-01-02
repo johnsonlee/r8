@@ -17,6 +17,7 @@ import com.android.tools.r8.kotlin.KotlinMultiFileClassPartInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.Pair;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,7 +46,6 @@ public class KotlinModuleSynthesizer {
     return file.getName().endsWith(".kotlin_module");
   }
 
-  @SuppressWarnings("MixedMutabilityReturnType")
   public List<DataEntryResource> synthesizeKotlinModuleFiles() {
     Map<String, KotlinModuleInfoBuilder> kotlinModuleBuilders = new HashMap<>();
     // We cannot obtain the module name for multi class file facades. But, we can for a multi class
@@ -91,12 +91,9 @@ public class KotlinModuleSynthesizer {
         }
       }
     }
-    if (kotlinModuleBuilders.isEmpty()) {
-      return Collections.emptyList();
-    }
-    List<DataEntryResource> newResources = new ArrayList<>();
+    ImmutableList.Builder<DataEntryResource> newResources = ImmutableList.builder();
     kotlinModuleBuilders.values().forEach(builder -> builder.build().ifPresent(newResources::add));
-    return newResources;
+    return newResources.build();
   }
 
   private static class KotlinModuleInfoBuilder {
