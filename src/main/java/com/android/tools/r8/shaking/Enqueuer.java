@@ -4731,10 +4731,13 @@ public class Enqueuer {
       while (true) {
         timing.begin("Compute fixpoint #" + round++);
         long numberOfLiveItems = getNumberOfLiveItems();
+
+        timing.begin("Process worklist");
         while (worklist.hasNext()) {
           EnqueuerAction action = worklist.poll();
-          action.run(this);
+          action.run(this, timing);
         }
+        timing.end();
 
         // Continue fix-point processing if -if rules are enabled by items that newly became live.
         long numberOfLiveItemsAfterProcessing = getNumberOfLiveItems();

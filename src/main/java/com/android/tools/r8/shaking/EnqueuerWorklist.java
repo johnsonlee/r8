@@ -20,6 +20,7 @@ import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
 import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.Timing;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Queue;
@@ -28,7 +29,18 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public abstract class EnqueuerWorklist {
 
   public abstract static class EnqueuerAction {
+
+    public String getName() {
+      return getClass().getName();
+    }
+
     public abstract void run(Enqueuer enqueuer);
+
+    public final void run(Enqueuer enqueuer, Timing timing) {
+      timing.begin(getName());
+      run(enqueuer);
+      timing.end();
+    }
   }
 
   static class AssertAction extends EnqueuerAction {
