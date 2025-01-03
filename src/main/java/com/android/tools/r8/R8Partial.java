@@ -6,6 +6,8 @@ package com.android.tools.r8;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
+import com.android.tools.r8.DexIndexedConsumer.ForwardingConsumer;
 import com.android.tools.r8.StringConsumer.FileConsumer;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dump.CompilerDump;
@@ -24,7 +26,6 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.ExceptionUtils;
-import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -34,7 +35,9 @@ import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -74,7 +77,12 @@ class R8Partial {
     Timing timing = Timing.create("R8 partial " + Version.LABEL, options);
 
     ProgramConsumer originalProgramConsumer = options.programConsumer;
+    DataResourceConsumer originalDataResourceConsumer = options.dataResourceConsumer;
     MapConsumer originalMapConsumer = options.mapConsumer;
+    if (!(originalProgramConsumer instanceof DexIndexedConsumer)) {
+      throw options.reporter.fatalError(
+          "Partial shrinking does not support generating class files");
+    }
 
     Path tmp = options.partialCompilationConfiguration.getTempDir();
     Path dumpFile = options.partialCompilationConfiguration.getDumpFile();
@@ -111,7 +119,7 @@ class R8Partial {
         || dump.getBuildProperties().hasArtProfileProviders()
         || dump.getBuildProperties().hasStartupProfileProviders()) {
       throw options.reporter.fatalError(
-          "Split compilation does not support legacy multi-dex, baseline or startup profiles");
+          "Partial shrinking does not support legacy multi-dex, baseline or startup profiles");
     }
 
     DexApplication dapp = applicationReader.read().toDirect();
@@ -210,8 +218,38 @@ class R8Partial {
     TraceReferencesCommand tr = TraceReferencesBridge.makeCommand(trBuilder);
     TraceReferencesBridge.runInternal(tr);
 
+    class R8DataResources implements DataResourceConsumer {
+      final List<DataResource> dataResources = new ArrayList<>();
+
+      @Override
+      public void accept(DataDirectoryResource directory, DiagnosticsHandler diagnosticsHandler) {
+        dataResources.add(directory);
+      }
+
+      @Override
+      public void accept(DataEntryResource file, DiagnosticsHandler diagnosticsHandler) {
+        dataResources.add(file);
+      }
+
+      @Override
+      public void finished(DiagnosticsHandler handler) {}
+
+      public void feed(DataResourceConsumer consumer, DiagnosticsHandler handler) {
+        dataResources.forEach(
+            dataResource -> {
+              if (dataResource instanceof DataDirectoryResource) {
+                consumer.accept((DataDirectoryResource) dataResource, handler);
+              } else {
+                assert dataResource instanceof DataEntryResource;
+                consumer.accept((DataEntryResource) dataResource, handler);
+              }
+            });
+      }
+    }
+
     // Compile R8 input with R8 using the keep rules from trace references.
     Path r8Output = tmp.resolve("r8-output.zip");
+    R8DataResources r8DataResources = new R8DataResources();
     R8Command.Builder r8Builder =
         R8Command.builder()
             .setMinApiLevel(dump.getBuildProperties().getMinApi())
@@ -222,7 +260,13 @@ class R8Partial {
             .addProguardConfigurationFiles(dump.getProguardConfigFile(), traceReferencesRules)
             .enableLegacyFullModeForKeepRules(true)
             .setMode(dump.getBuildProperties().getCompilationMode())
-            .setOutput(r8Output, OutputMode.DexIndexed);
+            .setProgramConsumer(
+                new ForwardingConsumer(new ArchiveConsumer(r8Output)) {
+                  @Override
+                  public DataResourceConsumer getDataResourceConsumer() {
+                    return r8DataResources;
+                  }
+                });
     if (dump.hasDesugaredLibrary()) {
       r8Builder.addDesugaredLibraryConfiguration(
           Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
@@ -245,20 +289,6 @@ class R8Partial {
       r8OutputAppConsumer.accept(r8OutputAppSink.build());
     }
 
-    // Emit resources and merged DEX to the output consumer.
-    // TODO(b/309743298): Consider passing the DataResourceConsumer to the R8 invocation above.
-    DataResourceConsumer dataResourceConsumer = originalProgramConsumer.getDataResourceConsumer();
-    if (dataResourceConsumer != null) {
-      ZipUtils.iterWithZipFile(
-          r8Output,
-          (zip, entry) -> {
-            if (entry.getName().endsWith(FileUtils.DEX_EXTENSION)) {
-              return;
-            }
-            dataResourceConsumer.accept(
-                DataEntryResource.fromZip(zip, entry), new DiagnosticsHandler() {});
-          });
-    }
     // TODO(b/309743298): Handle jumbo string rewriting with PCs in mapping file.
     D8Command.Builder mergerBuilder =
         D8Command.builder()
@@ -273,6 +303,12 @@ class R8Partial {
     AndroidApp mergeApp = mergeCommand.getInputApp();
     InternalOptions mergeOptions = mergeCommand.getInternalOptions();
     D8.runInternal(mergeApp, mergeOptions, executor);
+    // Feed the data resource output by R8 to the output consumer. Keeping this at the end after the
+    // merge keeps the order of calls to the output consumer closer to full R8.
+    if (originalDataResourceConsumer != null) {
+      r8DataResources.feed(originalDataResourceConsumer, options.reporter);
+      originalDataResourceConsumer.finished(options.reporter);
+    }
     timing.end();
   }
 }
