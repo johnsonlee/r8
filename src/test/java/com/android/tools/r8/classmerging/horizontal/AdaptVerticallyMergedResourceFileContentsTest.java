@@ -35,7 +35,7 @@ public class AdaptVerticallyMergedResourceFileContentsTest extends HorizontalCla
             .addOptionsModification(options -> options.dataResourceConsumer = dataResourceConsumer)
             .enableInliningAnnotations()
             .enableNeverClassInliningAnnotations()
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromString(
                     "foo.txt",
                     Origin.unknown(),

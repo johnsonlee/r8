@@ -39,7 +39,7 @@ public class MissingServiceImplementationClassWithFeatureTest extends TestBase {
         .addDontWarn("MissingClass")
         .addKeepMainRule(TestClass.class)
         .addKeepClassAndMembersRules(FeatureClass.class)
-        .addDataEntryResources(
+        .addDataResources(
             DataEntryResource.fromBytes(
                 StringUtils.lines("MissingClass").getBytes(),
                 AppServices.SERVICE_DIRECTORY_NAME + Service.class.getTypeName(),

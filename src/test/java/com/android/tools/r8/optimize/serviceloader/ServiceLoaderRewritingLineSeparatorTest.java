@@ -60,7 +60,7 @@ public class ServiceLoaderRewritingLineSeparatorTest extends ServiceLoaderTestBa
     serviceLoaderTest(null)
         .addInnerClasses(ServiceLoaderRewritingTest.class)
         .addKeepMainRule(ServiceLoaderRewritingTest.MainRunner.class)
-        .addDataEntryResources(
+        .addDataResources(
             DataEntryResource.fromBytes(
                 StringUtils.join(
                         lineSeparator.getSeparator(),

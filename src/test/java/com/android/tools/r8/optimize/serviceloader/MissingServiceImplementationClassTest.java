@@ -59,7 +59,7 @@ public class MissingServiceImplementationClassTest extends TestBase {
             .addDontWarn(ServiceImpl.class)
             .addKeepMainRule(TestClass.class)
             .addKeepClassAndMembersRulesWithAllowObfuscation(Service.class)
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(ServiceImpl.class.getTypeName()).getBytes(),
                     AppServices.SERVICE_DIRECTORY_NAME + Service.class.getTypeName(),

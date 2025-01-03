@@ -79,7 +79,7 @@ public class ServiceLoaderTest extends TestBase {
         testForR8(parameters.getBackend())
             .addInnerClasses(ServiceLoaderTest.class)
             .addKeepMainRule(TestClass.class)
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(serviceImplementations).getBytes(),
                     "META-INF/services/" + Greeter.class.getTypeName(),
@@ -180,7 +180,7 @@ public class ServiceLoaderTest extends TestBase {
         testForR8(parameters.getBackend())
             .addInnerClasses(ServiceLoaderTest.class)
             .addKeepMainRule(OtherTestClass.class)
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(serviceImplementations).getBytes(),
                     "META-INF/services/" + Greeter.class.getTypeName(),

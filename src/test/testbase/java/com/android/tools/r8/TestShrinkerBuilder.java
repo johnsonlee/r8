@@ -89,7 +89,11 @@ public abstract class TestShrinkerBuilder<
     return addKeepRules("-classobfuscationdictionary " + path.toString());
   }
 
-  public abstract T addDataEntryResources(DataEntryResource... resources);
+  public abstract T addDataResources(List<? extends DataResource> resources);
+
+  public final T addDataResources(DataResource... resources) {
+    return addDataResources(Arrays.asList(resources));
+  }
 
   public abstract T addKeepRuleFiles(List<Path> files);
 

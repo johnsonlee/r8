@@ -47,7 +47,7 @@ public class MissingServiceClassTest extends TestBase {
     testForR8(parameters.getBackend())
         .addProgramClasses(TestClass.class)
         .addKeepMainRule(TestClass.class)
-        .addDataEntryResources(
+        .addDataResources(
             DataEntryResource.fromBytes(
                 StringUtils.lines(ServiceImpl.class.getTypeName()).getBytes(),
                 AppServices.SERVICE_DIRECTORY_NAME + Service.class.getTypeName(),

@@ -130,7 +130,7 @@ public class ProguardTestBuilder
   }
 
   @Override
-  public ProguardTestBuilder addDataEntryResources(DataEntryResource... resources) {
+  public ProguardTestBuilder addDataResources(List<? extends DataResource> resources) {
     throw new Unimplemented("No support for adding data entry resources");
   }
 

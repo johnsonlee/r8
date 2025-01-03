@@ -54,7 +54,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
         .addKeepMainRule(Base.class)
         .addFeatureSplit(
             builder -> simpleSplitProvider(builder, feature1Path, temp, Feature3Dummy.class))
-        .addDataEntryResources(
+        .addDataResources(
             DataEntryResource.fromBytes(
                 StringUtils.lines(Feature1I.class.getTypeName(), Feature2I.class.getTypeName())
                     .getBytes(),
@@ -81,7 +81,7 @@ public class R8FeatureSplitServiceLoaderTest extends SplitterTestBase {
                 builder -> simpleSplitProvider(builder, feature1Path, temp, Feature1I.class))
             .addFeatureSplit(
                 builder -> simpleSplitProvider(builder, feature2Path, temp, Feature2I.class))
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(Feature1I.class.getTypeName(), Feature2I.class.getTypeName())
                         .getBytes(),

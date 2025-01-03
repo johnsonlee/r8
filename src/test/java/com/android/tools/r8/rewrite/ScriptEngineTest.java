@@ -68,12 +68,12 @@ public class ScriptEngineTest extends ScriptEngineTestBase {
                                 .getOpenClosedInterfacesOptions()
                                 .suppressAllOpenInterfacesDueToMissingClasses()))
             .setMinApi(parameters)
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(MyScriptEngine1FactoryImpl.class.getTypeName()).getBytes(),
                     "META-INF/services/" + ScriptEngineFactory.class.getTypeName(),
                     Origin.unknown()))
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(MyScriptEngine2FactoryImpl.class.getTypeName()).getBytes(),
                     "META-INF/services/" + ScriptEngineFactory.class.getTypeName(),

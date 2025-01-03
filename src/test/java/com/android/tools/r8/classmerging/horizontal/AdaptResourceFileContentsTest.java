@@ -40,7 +40,7 @@ public class AdaptResourceFileContentsTest extends HorizontalClassMergingTestBas
             .addOptionsModification(options -> options.dataResourceConsumer = dataResourceConsumer)
             .enableInliningAnnotations()
             .enableNeverClassInliningAnnotations()
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromString(
                     "foo.txt", Origin.unknown(), A.class.getTypeName(), B.class.getTypeName()))
             .addKeepRules("-adaptresourcefilecontents foo.txt")

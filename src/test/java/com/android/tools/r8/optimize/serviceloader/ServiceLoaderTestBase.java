@@ -145,7 +145,7 @@ public class ServiceLoaderTestBase extends TestBase {
           Arrays.stream(implClasses)
               .map(c -> c.getTypeName() + "\n")
               .collect(Collectors.joining(""));
-      ret.addDataEntryResources(
+      ret.addDataResources(
           DataEntryResource.fromBytes(
               implLines.getBytes(),
               AppServices.SERVICE_DIRECTORY_NAME + serviceClass.getTypeName(),

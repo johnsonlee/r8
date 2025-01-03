@@ -287,14 +287,9 @@ public abstract class R8TestBuilder<
     return self();
   }
 
-  public T addDataResources(List<DataEntryResource> resources) {
+  public T addDataResources(List<? extends DataResource> resources) {
     resources.forEach(builder.getAppBuilder()::addDataResource);
     return self();
-  }
-
-  @Override
-  public T addDataEntryResources(DataEntryResource... resources) {
-    return addDataResources(Arrays.asList(resources));
   }
 
   @Override

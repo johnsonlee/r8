@@ -217,7 +217,7 @@ public class ExternalR8TestBuilder
   }
 
   @Override
-  public ExternalR8TestBuilder addDataEntryResources(DataEntryResource... resources) {
+  public ExternalR8TestBuilder addDataResources(List<? extends DataResource> resources) {
     throw new Unimplemented("No support for adding data entry resources");
   }
 

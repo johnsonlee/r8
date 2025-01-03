@@ -65,7 +65,7 @@ public class VerticalClassMergingServiceLoaderTest extends TestBase {
         .addInnerClasses(VerticalClassMergingServiceLoaderTest.class)
         .addKeepClassRules(B.class)
         .addKeepMainRule(C.class)
-        .addDataEntryResources(
+        .addDataResources(
             DataEntryResource.fromBytes(
                 StringUtils.lines(serviceImplementations).getBytes(),
                 "META-INF/services/" + A.class.getTypeName(),

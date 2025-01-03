@@ -81,7 +81,7 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
   private void configureR8(R8TestBuilder<?, ?, ?> builder) {
     // When testing R8 add the META-INF/services to the input to apply rewriting.
     builder
-        .addDataEntryResources(
+        .addDataResources(
             DataEntryResource.fromBytes(servicesFile.getBytes(), servicesPath, Origin.unknown()))
         .addKeepClassAndMembersRulesWithAllowObfuscation(SimpleChronology.class);
   }

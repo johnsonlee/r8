@@ -40,7 +40,7 @@ public class RepackageWithServiceLoaderTest extends RepackageTestBase {
     R8TestRunResult runResult =
         testForR8(parameters.getBackend())
             .addInnerClasses(getClass())
-            .addDataEntryResources(
+            .addDataResources(
                 DataEntryResource.fromBytes(
                     StringUtils.lines(ServiceImpl.class.getTypeName()).getBytes(),
                     "META-INF/services/" + Service.class.getTypeName(),
