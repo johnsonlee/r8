@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ClassKind;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -62,7 +63,8 @@ public class IfRuleEvaluator {
 
   public void processActiveIfRulesWithMembers(
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
-      Iterable<DexProgramClass> classesWithNewlyLiveMembers,
+      ClassKind<?> classKind,
+      Iterable<? extends DexClass> classesWithNewlyLiveMembers,
       Predicate<DexProgramClass> isEffectivelyLive)
       throws ExecutionException {
     MapUtils.removeIf(
@@ -74,10 +76,10 @@ public class IfRuleEvaluator {
           // Depending on which types that trigger the -if rule, the application of the subsequent
           // -keep rule may vary (due to back references). So, we need to try all pairs of -if
           // rule and live types.
-          for (DexProgramClass clazz :
-              ifRuleKey.relevantCandidatesForRule(
-                  appView, subtypingInfo, classesWithNewlyLiveMembers, isEffectivelyLive)) {
-            assert isEffectivelyLive.test(clazz);
+          for (DexClass clazz :
+              getRelevantCandidatesForRule(
+                  ifRuleKey, classKind, classesWithNewlyLiveMembers, isEffectivelyLive)) {
+            assert !clazz.isProgramClass() || isEffectivelyLive.test(clazz.asProgramClass());
             processActiveIfRulesWithMembersAndSameClassPrecondition(
                 ifRuleKey, ifRulesInEquivalence, clazz, toRemove);
           }
@@ -90,10 +92,27 @@ public class IfRuleEvaluator {
     tasks.await();
   }
 
+  @SuppressWarnings("unchecked")
+  Iterable<? extends DexClass> getRelevantCandidatesForRule(
+      ProguardIfRule ifRule,
+      ClassKind<?> classKind,
+      Iterable<? extends DexClass> classesWithNewlyLiveMembers,
+      Predicate<DexProgramClass> isEffectivelyLive) {
+    if (classKind == ClassKind.PROGRAM) {
+      return ifRule.relevantCandidatesForRule(
+          appView,
+          subtypingInfo,
+          (Iterable<DexProgramClass>) classesWithNewlyLiveMembers,
+          isEffectivelyLive);
+    }
+    assert classKind == ClassKind.LIBRARY;
+    return classesWithNewlyLiveMembers;
+  }
+
   private void processActiveIfRulesWithMembersAndSameClassPrecondition(
       ProguardIfRule ifRuleKey,
       Set<ProguardIfRule> ifRulesInEquivalence,
-      DexProgramClass clazz,
+      DexClass clazz,
       List<ProguardIfRule> toRemove) {
     // Check if the class matches the if-rule.
     if (!evaluateClassForIfRule(ifRuleKey, clazz)) {
@@ -124,10 +143,10 @@ public class IfRuleEvaluator {
 
   public void processActiveIfRulesWithoutMembers(
       Map<Wrapper<ProguardIfRule>, Set<ProguardIfRule>> ifRules,
-      Map<DexType, DexProgramClass> newlyLiveClasses,
+      Map<DexType, ? extends DexClass> newlyLiveClasses,
       Timing timing)
       throws ExecutionException {
-    List<DexProgramClass> classMatches = new ArrayList<>(newlyLiveClasses.size());
+    List<DexClass> classMatches = new ArrayList<>(newlyLiveClasses.size());
     MapUtils.removeIf(
         ifRules,
         (ifRuleWrapper, ifRulesInEquivalence) -> {
@@ -151,12 +170,12 @@ public class IfRuleEvaluator {
    * be safely ignored for the remainder of the current tree shaking.
    */
   private boolean processActiveIfRuleWithWithoutMembers(
-      ProguardIfRule ifRule, List<DexProgramClass> classMatches) {
+      ProguardIfRule ifRule, List<DexClass> classMatches) {
     boolean isSubsequentRuleFullyEvaluated = false;
     boolean noBackReferences = canRemoveSubsequentKeepRule(ifRule);
     List<Pair<ProguardIfRulePreconditionMatch, ProguardKeepRule>> materializedSubsequentRules =
         new ArrayList<>();
-    for (DexProgramClass clazz : classMatches) {
+    for (DexClass clazz : classMatches) {
       registerClassCapture(ifRule, clazz, clazz);
       ProguardIfRulePreconditionMatch ifRulePreconditionMatch =
           new ProguardIfRulePreconditionMatch(ifRule, clazz);
@@ -208,20 +227,20 @@ public class IfRuleEvaluator {
 
   private void evaluateClassesForIfRule(
       ProguardIfRule rule,
-      Map<DexType, DexProgramClass> newlyLiveClasses,
-      List<DexProgramClass> classMatches,
+      Map<DexType, ? extends DexClass> newlyLiveClasses,
+      List<DexClass> classMatches,
       Timing timing) {
     timing.begin("Evaluate precondition");
     if (rule.getClassNames().hasSingleSpecificType()) {
       timing.begin("Evaluate single class");
       DexType singleSpecificType = rule.getClassNames().getSingleSpecificType();
-      DexProgramClass singleSpecificClass = newlyLiveClasses.get(singleSpecificType);
+      DexClass singleSpecificClass = newlyLiveClasses.get(singleSpecificType);
       if (singleSpecificClass != null && evaluateClassForIfRule(rule, singleSpecificClass)) {
         classMatches.add(singleSpecificClass);
       }
       timing.end();
     } else {
-      for (DexProgramClass clazz : newlyLiveClasses.values()) {
+      for (DexClass clazz : newlyLiveClasses.values()) {
         timing.begin("Evaluate class");
         if (evaluateClassForIfRule(rule, clazz)) {
           classMatches.add(clazz);
@@ -233,7 +252,7 @@ public class IfRuleEvaluator {
   }
 
   /** Determines if {@param clazz} satisfies the given if-rule class specification. */
-  private boolean evaluateClassForIfRule(ProguardIfRule rule, DexProgramClass clazz) {
+  private boolean evaluateClassForIfRule(ProguardIfRule rule, DexClass clazz) {
     incrementNumberOfProguardIfRuleClassEvaluations();
     if (!RootSetBuilder.satisfyClassType(rule, clazz)) {
       return false;
@@ -258,7 +277,7 @@ public class IfRuleEvaluator {
 
   private void evaluateIfRuleMembersAndMaterialize(
       ProguardIfRule rule,
-      DexProgramClass clazz,
+      DexClass clazz,
       BiPredicate<ProguardIfRulePreconditionMatch, ProguardKeepRule> materializedIfRuleConsumer) {
     incrementNumberOfProguardIfRuleMemberEvaluations();
     Collection<ProguardMemberRule> memberKeepRules = rule.getMemberRules();
@@ -266,50 +285,55 @@ public class IfRuleEvaluator {
 
     List<DexClassAndField> fieldsInlinedByJavaC = new ArrayList<>();
     Set<DexDefinition> filteredMembers = Sets.newIdentityHashSet();
-    Iterables.addAll(
-        filteredMembers,
-        clazz.fields(
-            f -> {
-              // Fields that are javac inlined are unsound as predicates for conditional rules.
-              // Ignore any such field members and record it for possible reporting later.
-              if (isFieldInlinedByJavaC(f)) {
-                fieldsInlinedByJavaC.add(DexClassAndField.create(clazz, f));
-                return false;
-              }
-              // Fields referenced only by -keep may not be referenced, we therefore have to
-              // filter on both live and referenced.
-              return (enqueuer.isFieldLive(f)
-                      || enqueuer.isFieldReferenced(f)
-                      || f.getOptimizationInfo().valueHasBeenPropagated())
-                  && appView
-                      .graphLens()
-                      .getOriginalFieldSignature(f.getReference())
-                      .getHolderType()
-                      .isIdenticalTo(clazz.getType());
-            }));
-    Iterables.addAll(
-        filteredMembers,
-        clazz.methods(
-            m ->
-                (enqueuer.isMethodLive(m)
-                        || enqueuer.isMethodTargeted(m)
-                        || m.getOptimizationInfo().returnValueHasBeenPropagated())
+    if (!clazz.isProgramClass()) {
+      // All classpath or library members are live.
+      Iterables.addAll(filteredMembers, clazz.members());
+    } else {
+      Iterables.addAll(
+          filteredMembers,
+          clazz.fields(
+              f -> {
+                // Fields that are javac inlined are unsound as predicates for conditional rules.
+                // Ignore any such field members and record it for possible reporting later.
+                if (isFieldInlinedByJavaC(f)) {
+                  fieldsInlinedByJavaC.add(DexClassAndField.create(clazz, f));
+                  return false;
+                }
+                // Fields referenced only by -keep may not be referenced, we therefore have to
+                // filter on both live and referenced.
+                return (enqueuer.isFieldLive(f)
+                        || enqueuer.isFieldReferenced(f)
+                        || f.getOptimizationInfo().valueHasBeenPropagated())
                     && appView
                         .graphLens()
-                        .getOriginalMethodSignature(m.getReference())
+                        .getOriginalFieldSignature(f.getReference())
                         .getHolderType()
-                        .isIdenticalTo(clazz.getType())));
+                        .isIdenticalTo(clazz.getType());
+              }));
+      Iterables.addAll(
+          filteredMembers,
+          clazz.methods(
+              m ->
+                  (enqueuer.isMethodLive(m)
+                          || enqueuer.isMethodTargeted(m)
+                          || m.getOptimizationInfo().returnValueHasBeenPropagated())
+                      && appView
+                          .graphLens()
+                          .getOriginalMethodSignature(m.getReference())
+                          .getHolderType()
+                          .isIdenticalTo(clazz.getType())));
 
-    // Check if the rule could hypothetically have matched a javac inlined field.
-    // If so mark the rule. Reporting happens only if the rule is otherwise unused.
-    if (!fieldsInlinedByJavaC.isEmpty()) {
-      for (ProguardMemberRule memberRule : memberKeepRules) {
-        if (!memberRule.getRuleType().includesFields()) {
-          continue;
-        }
-        for (DexClassAndField field : fieldsInlinedByJavaC) {
-          if (rootSetBuilder.sideEffectFreeIsRuleSatisfiedByField(memberRule, field)) {
-            rule.addInlinableFieldMatchingPrecondition(field.getReference());
+      // Check if the rule could hypothetically have matched a javac inlined field.
+      // If so mark the rule. Reporting happens only if the rule is otherwise unused.
+      if (!fieldsInlinedByJavaC.isEmpty()) {
+        for (ProguardMemberRule memberRule : memberKeepRules) {
+          if (!memberRule.getRuleType().includesFields()) {
+            continue;
+          }
+          for (DexClassAndField field : fieldsInlinedByJavaC) {
+            if (rootSetBuilder.sideEffectFreeIsRuleSatisfiedByField(memberRule, field)) {
+              rule.addInlinableFieldMatchingPrecondition(field.getReference());
+            }
           }
         }
       }

@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
-import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -11,15 +11,15 @@ import com.android.tools.r8.utils.collections.ProgramMethodSet;
 public class ProguardIfRulePreconditionMatch {
 
   private final ProguardIfRule ifRule;
-  private final DexProgramClass classMatch;
+  private final DexClass classMatch;
   private final ProgramMethodSet methodsMatch;
 
-  public ProguardIfRulePreconditionMatch(ProguardIfRule ifRule, DexProgramClass classMatch) {
+  public ProguardIfRulePreconditionMatch(ProguardIfRule ifRule, DexClass classMatch) {
     this(ifRule, classMatch, ProgramMethodSet.empty());
   }
 
   public ProguardIfRulePreconditionMatch(
-      ProguardIfRule ifRule, DexProgramClass classMatch, ProgramMethodSet methodsMatch) {
+      ProguardIfRule ifRule, DexClass classMatch, ProgramMethodSet methodsMatch) {
     this.ifRule = ifRule;
     this.classMatch = classMatch;
     this.methodsMatch = methodsMatch;
@@ -31,7 +31,9 @@ public class ProguardIfRulePreconditionMatch {
 
   public void disallowOptimizationsForReevaluation(
       Enqueuer enqueuer, ConsequentRootSetBuilder rootSetBuilder) {
-    if (enqueuer.getMode().isInitialTreeShaking() && !ifRule.isTrivalAllClassMatch()) {
+    if (enqueuer.getMode().isInitialTreeShaking()
+        && !ifRule.isTrivalAllClassMatch()
+        && classMatch.isProgramClass()) {
       disallowClassOptimizationsForReevaluation(rootSetBuilder);
       disallowMethodOptimizationsForReevaluation(rootSetBuilder);
     }

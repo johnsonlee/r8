@@ -8,6 +8,7 @@ import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.collect.ImmutableMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMaps;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
@@ -66,6 +67,16 @@ public class MapUtils {
       BiForEachable<K, V> forEachable, int capacity) {
     IdentityHashMap<K, V> map = new IdentityHashMap<>(capacity);
     forEachable.forEach(map::put);
+    return map;
+  }
+
+  public static <T, K, V> IdentityHashMap<K, V> newIdentityHashMapFromCollection(
+      Collection<T> collection, Function<T, K> keyFn, Function<T, V> valueFn) {
+    IdentityHashMap<K, V> map = new IdentityHashMap<>(collection.size());
+    for (T element : collection) {
+      V existingValue = map.put(keyFn.apply(element), valueFn.apply(element));
+      assert existingValue == null;
+    }
     return map;
   }
 

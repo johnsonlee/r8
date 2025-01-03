@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.InlineRule.InlineRuleType;
@@ -27,12 +27,12 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
         }
       };
 
-  private final DexProgramClass precondition;
+  private final DexClass precondition;
   final ProguardKeepRule subsequentRule;
 
   private Map<DexField, DexField> inlinableFieldsInPrecondition = new ConcurrentHashMap<>();
 
-  public DexProgramClass getPrecondition() {
+  public DexClass getPrecondition() {
     assert precondition != null;
     return precondition;
   }
@@ -107,7 +107,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
       boolean inheritanceIsExtends,
       List<ProguardMemberRule> memberRules,
       ProguardKeepRule subsequentRule,
-      DexProgramClass precondition) {
+      DexClass precondition) {
     super(
         origin,
         position,
@@ -233,7 +233,7 @@ public class ProguardIfRule extends ProguardKeepRuleBase {
     return subsequentRule.append(builder);
   }
 
-  public ProguardIfRule withPrecondition(DexProgramClass precondition) {
+  public ProguardIfRule withPrecondition(DexClass precondition) {
     return new ProguardIfRule(
         getOrigin(),
         getPosition(),
