@@ -51,8 +51,7 @@ public class CatchHandlerCoalescingAfterSplitReturnRewriterTest extends TestBase
               assertThat(testMethodSubject, isPresent());
 
               DexCode code = testMethodSubject.getMethod().getCode().asDexCode();
-              // TODO(b/384848525): Should be 1.
-              assertEquals(forceSplitReturnRewriter ? 2 : 1, code.getTries().length);
+              assertEquals(1, code.getTries().length);
             });
   }
 
@@ -63,6 +62,7 @@ public class CatchHandlerCoalescingAfterSplitReturnRewriterTest extends TestBase
         doStuff();
         doStuff();
       } catch (Exception e) {
+        System.out.println(e);
         return e;
       }
       return null;

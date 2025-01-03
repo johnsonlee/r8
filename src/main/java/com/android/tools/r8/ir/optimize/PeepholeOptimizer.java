@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize;
 
+import static com.android.tools.r8.ir.regalloc.LiveIntervals.NO_REGISTER;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.ir.code.BasicBlock;
@@ -231,13 +233,45 @@ public class PeepholeOptimizer {
   public static void shareIdenticalBlockSuffix(
       IRCode code, RegisterAllocator allocator, int overhead) {
     Collection<BasicBlock> blocks = code.blocks;
-    BasicBlock normalExit = null;
     List<BasicBlock> normalExits = code.computeNormalExitBlocks();
+    Set<BasicBlock> syntheticNormalExits = Sets.newIdentityHashSet();
     if (normalExits.size() > 1) {
-      normalExit = new BasicBlock(code.metadata());
-      normalExit.getMutablePredecessors().addAll(normalExits);
-      blocks = new ArrayList<>(code.blocks);
-      blocks.add(normalExit);
+      if (code.context().getReturnType().isVoidType()
+          || code.getConversionOptions().isGeneratingClassFiles()) {
+        BasicBlock syntheticNormalExit = new BasicBlock(code.metadata());
+        syntheticNormalExit.getMutablePredecessors().addAll(normalExits);
+        syntheticNormalExits.add(syntheticNormalExit);
+      } else {
+        Int2ReferenceMap<List<BasicBlock>> normalExitPartitioning =
+            new Int2ReferenceOpenHashMap<>();
+        for (BasicBlock block : normalExits) {
+          int returnRegister =
+              block
+                  .exit()
+                  .asReturn()
+                  .returnValue()
+                  .getLiveIntervals()
+                  .getSplitCovering(block.exit().getNumber())
+                  .getRegister();
+          assert returnRegister != NO_REGISTER;
+          List<BasicBlock> blocksWithReturnRegister;
+          if (normalExitPartitioning.containsKey(returnRegister)) {
+            blocksWithReturnRegister = normalExitPartitioning.get(returnRegister);
+          } else {
+            blocksWithReturnRegister = new ArrayList<>();
+            normalExitPartitioning.put(returnRegister, blocksWithReturnRegister);
+          }
+          blocksWithReturnRegister.add(block);
+        }
+        for (List<BasicBlock> blocksWithSameReturnRegister : normalExitPartitioning.values()) {
+          BasicBlock syntheticNormalExit = new BasicBlock(code.metadata());
+          syntheticNormalExit.getMutablePredecessors().addAll(blocksWithSameReturnRegister);
+          syntheticNormalExits.add(syntheticNormalExit);
+        }
+      }
+      blocks = new ArrayList<>(code.getBlocks().size() + syntheticNormalExits.size());
+      blocks.addAll(code.getBlocks());
+      blocks.addAll(syntheticNormalExits);
     }
     do {
       Map<BasicBlock, BasicBlock> newBlocks = new IdentityHashMap<>();
@@ -295,7 +329,7 @@ public class PeepholeOptimizer {
                   code,
                   commonSuffixSize,
                   predsWithSameLastInstruction,
-                  block == normalExit ? null : block,
+                  syntheticNormalExits.contains(block) ? null : block,
                   allocator);
           newBlocks.put(predsWithSameLastInstruction.get(0), newBlock);
         }

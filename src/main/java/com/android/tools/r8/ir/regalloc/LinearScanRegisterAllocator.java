@@ -367,6 +367,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
     constrainArgumentIntervals();
     insertRangeInvokeMoves();
     ImmutableList<BasicBlock> blocks = computeLivenessInformation();
+    dedupCatchHandlerBlocks();
     timing.end();
     timing.begin("Allocate");
     performAllocation();
@@ -3426,6 +3427,77 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   private void clearUserInfo() {
     code.blocks.forEach(BasicBlock::clearUserInfo);
+  }
+
+  private void dedupCatchHandlerBlocks() {
+    List<BasicBlock> candidateBlocks = new ArrayList<>();
+    for (BasicBlock block : code.getBlocks()) {
+      if (block.hasUniquePredecessor()
+          && block.getUniquePredecessor().hasCatchSuccessor(block)
+          && liveAtEntrySets.get(block).isEmpty()
+          && block.size() <= 2) {
+        candidateBlocks.add(block);
+      }
+    }
+    if (candidateBlocks.isEmpty()) {
+      return;
+    }
+    Set<BasicBlock> removedBlocks = Sets.newIdentityHashSet();
+    for (BasicBlock candidateBlock : candidateBlocks) {
+      assert !removedBlocks.contains(candidateBlock);
+      BasicBlock equivalentBlock = null;
+      for (BasicBlock block : candidateBlocks) {
+        if (block == candidateBlock || removedBlocks.contains(block)) {
+          continue;
+        }
+        if (isEquivalentCatchHandlers(candidateBlock, block)) {
+          equivalentBlock = block;
+          break;
+        }
+      }
+      if (equivalentBlock == null) {
+        continue;
+      }
+      assert !candidateBlock.hasCatchHandlers();
+      removedBlocks.add(candidateBlock);
+      for (BasicBlock tryBlock : candidateBlock.getPredecessors()) {
+        tryBlock.replaceSuccessor(candidateBlock, equivalentBlock);
+        if (!equivalentBlock.getPredecessors().contains(tryBlock)) {
+          equivalentBlock.getMutablePredecessors().add(tryBlock);
+        }
+      }
+      for (BasicBlock successor : candidateBlock.getSuccessors()) {
+        int index = successor.getPredecessors().indexOf(candidateBlock);
+        successor.getMutablePredecessors().remove(index);
+        for (Phi phi : successor.getPhis()) {
+          phi.removeOperand(index);
+        }
+      }
+    }
+    code.removeBlocks(removedBlocks);
+  }
+
+  // TODO(b/153139043): Generalize this. Maybe use BasicBlock subsumption.
+  private boolean isEquivalentCatchHandlers(BasicBlock block, BasicBlock other) {
+    assert liveAtEntrySets.get(block).isEmpty();
+    assert liveAtEntrySets.get(other).isEmpty();
+    if (block.size() != other.size() || block.size() > 2) {
+      return false;
+    }
+    if (block.size() == 2) {
+      if (!block.entry().isMoveException() || !other.entry().isMoveException()) {
+        return false;
+      }
+    }
+    if (block.exit().isGoto()
+        && other.exit().isGoto()
+        && block.getUniqueNormalSuccessor() == other.getUniqueNormalSuccessor()) {
+      return true;
+    }
+    if (block.exit().isReturn() && other.exit().isReturn()) {
+      return true;
+    }
+    return false;
   }
 
   // Rewrites casts on the form "lhs = (T) rhs" into "(T) rhs" and replaces the uses of lhs by rhs.
