@@ -759,7 +759,7 @@ public class ProguardConfigurationParser {
     }
 
     private void parseKeepAttributes() throws ProguardRuleParserException {
-      List<String> attributesPatterns = acceptPatternList();
+      List<String> attributesPatterns = acceptKeepAttributesPatternList();
       if (attributesPatterns.isEmpty()) {
         throw parseError("Expected attribute pattern list");
       }
@@ -2015,11 +2015,11 @@ public class ProguardConfigurationParser {
       return contents.substring(start, end);
     }
 
-    private List<String> acceptPatternList() throws ProguardRuleParserException {
+    private List<String> acceptKeepAttributesPatternList() throws ProguardRuleParserException {
       List<String> patterns = new ArrayList<>();
       skipWhitespace();
       char quote = acceptQuoteIfPresent();
-      String pattern = acceptPattern();
+      String pattern = acceptKeepAttributesPattern();
       if (isQuote(quote)) {
         expectClosingQuote(quote);
       }
@@ -2030,7 +2030,7 @@ public class ProguardConfigurationParser {
           skipWhitespace();
           TextPosition start = getPosition();
           quote = acceptQuoteIfPresent();
-          pattern = acceptPattern();
+          pattern = acceptKeepAttributesPattern();
           if (isQuote(quote)) {
             expectClosingQuote(quote);
           }
@@ -2048,7 +2048,7 @@ public class ProguardConfigurationParser {
       return patterns;
     }
 
-    private String acceptPattern() {
+    private String acceptKeepAttributesPattern() {
       return acceptString(
           codePoint ->
               IdentifierUtils.isDexIdentifierPart(codePoint)

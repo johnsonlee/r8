@@ -752,9 +752,10 @@ public final class R8Command extends BaseCompilerCommand {
       DesugaredLibrarySpecification desugaredLibrarySpecification =
           getDesugaredLibraryConfiguration(factory, false);
 
+      ProguardConfigurationParserOptions parserOptions = parserOptionsBuilder.build();
       ProguardConfigurationParser parser =
           new ProguardConfigurationParser(
-              factory, reporter, parserOptionsBuilder.build(), inputDependencyGraphConsumer);
+              factory, reporter, parserOptions, inputDependencyGraphConsumer);
       ProguardConfiguration.Builder configurationBuilder =
           parser
               .getConfigurationBuilder()
@@ -787,6 +788,14 @@ public final class R8Command extends BaseCompilerCommand {
       // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
       extractKeepAnnotationRules(parser);
       ProguardConfiguration configuration = configurationBuilder.build();
+      if (!parserOptions.isKeepRuntimeInvisibleAnnotationsEnabled()) {
+        if (configuration.getKeepAttributes().runtimeInvisibleAnnotations
+            || configuration.getKeepAttributes().runtimeInvisibleParameterAnnotations
+            || configuration.getKeepAttributes().runtimeInvisibleTypeAnnotations) {
+          throw fatalError(
+              new StringDiagnostic("Illegal attempt to keep runtime invisible annotations"));
+        }
+      }
       getAppBuilder().addFilteredLibraryArchives(configuration.getLibraryjars());
 
       assert getProgramConsumer() != null;

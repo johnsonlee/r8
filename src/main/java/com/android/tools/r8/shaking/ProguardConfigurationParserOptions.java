@@ -13,6 +13,7 @@ public class ProguardConfigurationParserOptions {
   private final boolean enableExperimentalCheckEnumUnboxed;
   private final boolean enableExperimentalConvertCheckNotNull;
   private final boolean enableExperimentalWhyAreYouNotInlining;
+  private final boolean enableKeepRuntimeInvisibleAnnotations;
   private final boolean enableTestingOptions;
 
   ProguardConfigurationParserOptions(
@@ -21,10 +22,12 @@ public class ProguardConfigurationParserOptions {
       boolean enableExperimentalCheckEnumUnboxed,
       boolean enableExperimentalConvertCheckNotNull,
       boolean enableExperimentalWhyAreYouNotInlining,
+      boolean enableKeepRuntimeInvisibleAnnotations,
       boolean enableTestingOptions) {
     this.enableExperimentalCheckEnumUnboxed = enableExperimentalCheckEnumUnboxed;
     this.enableExperimentalConvertCheckNotNull = enableExperimentalConvertCheckNotNull;
     this.enableExperimentalWhyAreYouNotInlining = enableExperimentalWhyAreYouNotInlining;
+    this.enableKeepRuntimeInvisibleAnnotations = enableKeepRuntimeInvisibleAnnotations;
     this.enableTestingOptions = enableTestingOptions;
     this.enableLegacyFullModeForKeepRules = enableLegacyFullModeForKeepRules;
     this.enableLegacyFullModeForKeepRulesWarnings = enableLegacyFullModeForKeepRulesWarnings;
@@ -59,6 +62,10 @@ public class ProguardConfigurationParserOptions {
     return enableExperimentalWhyAreYouNotInlining;
   }
 
+  public boolean isKeepRuntimeInvisibleAnnotationsEnabled() {
+    return enableKeepRuntimeInvisibleAnnotations;
+  }
+
   public boolean isTestingOptionsEnabled() {
     return enableTestingOptions;
   }
@@ -70,6 +77,7 @@ public class ProguardConfigurationParserOptions {
     private boolean enableExperimentalCheckEnumUnboxed;
     private boolean enableExperimentalConvertCheckNotNull;
     private boolean enableExperimentalWhyAreYouNotInlining;
+    private boolean enableKeepRuntimeInvisibleAnnotations = true;
     private boolean enableTestingOptions;
 
     public Builder readEnvironment() {
@@ -88,6 +96,9 @@ public class ProguardConfigurationParserOptions {
       enableExperimentalWhyAreYouNotInlining =
           parseSystemPropertyOrDefault(
               "com.android.tools.r8.experimental.enablewhyareyounotinlining", false);
+      enableKeepRuntimeInvisibleAnnotations =
+          parseSystemPropertyOrDefault(
+              "com.android.tools.r8.enableKeepRuntimeInvisibleAnnotations", true);
       enableTestingOptions =
           parseSystemPropertyOrDefault("com.android.tools.r8.allowTestProguardOptions", false);
       return this;
@@ -134,6 +145,7 @@ public class ProguardConfigurationParserOptions {
           enableExperimentalCheckEnumUnboxed,
           enableExperimentalConvertCheckNotNull,
           enableExperimentalWhyAreYouNotInlining,
+          enableKeepRuntimeInvisibleAnnotations,
           enableTestingOptions);
     }
   }
