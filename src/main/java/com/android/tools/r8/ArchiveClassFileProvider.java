@@ -19,6 +19,7 @@ import com.google.common.io.ByteStreams;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -116,7 +117,7 @@ public class ArchiveClassFileProvider implements ClassFileResourceProvider, Clos
       if (!Files.exists(archive)) {
         throw new NoSuchFileException(archive.toString());
       } else {
-        throw e;
+        throw new UncheckedIOException(archive.toString(), e);
       }
     }
     lazyDescriptors = new HashSet<>();
