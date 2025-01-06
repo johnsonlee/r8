@@ -84,7 +84,8 @@ public class ProguardConfigurationParser {
           "allowruntypeandignoreoptimizationpasses",
           "dontshrinkduringoptimization",
           "convert_proto_enum_to_string",
-          "adaptkotlinmetadata");
+          "adaptkotlinmetadata",
+          "verbose");
 
   private static final List<String> IGNORED_CLASS_DESCRIPTOR_OPTIONS =
       ImmutableList.of("isclassnamestring", "whyarenotsimple");
@@ -364,8 +365,6 @@ public class ProguardConfigurationParser {
         }
       } else if (acceptString("shrinkunusedprotofields")) {
         configurationBuilder.enableProtoShrinking();
-      } else if (acceptString("verbose")) {
-        configurationBuilder.setVerbose(true);
       } else if (acceptString("ignorewarnings")) {
         configurationBuilder.setIgnoreWarnings(true);
       } else if (acceptString("dontwarn")) {

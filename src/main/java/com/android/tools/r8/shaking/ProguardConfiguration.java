@@ -43,7 +43,6 @@ public class ProguardConfiguration {
     private boolean printMapping;
     private Path printMappingFile;
     private Path applyMappingFile;
-    private boolean verbose;
     private String renameSourceFileAttribute;
     private final List<String> keepAttributePatterns = new ArrayList<>();
     private final ProguardClassFilter.Builder keepPackageNamesPatterns =
@@ -181,10 +180,6 @@ public class ProguardConfiguration {
 
     public boolean hasApplyMappingFile() {
       return applyMappingFile != null;
-    }
-
-    public void setVerbose(boolean verbose) {
-      this.verbose = verbose;
     }
 
     public void setRenameSourceFileAttribute(String renameSourceFileAttribute) {
@@ -335,7 +330,6 @@ public class ProguardConfiguration {
               printMapping,
               printMappingFile,
               applyMappingFile,
-              verbose,
               renameSourceFileAttribute,
               ProguardKeepAttributes.fromPatterns(keepAttributePatterns),
               keepPackageNamesPatterns.build(),
@@ -394,7 +388,6 @@ public class ProguardConfiguration {
   private final boolean printMapping;
   private final Path printMappingFile;
   private final Path applyMappingFile;
-  private final boolean verbose;
   private final String renameSourceFileAttribute;
   private final ProguardKeepAttributes keepAttributes;
   private final ProguardClassFilter keepPackageNamesPatterns;
@@ -435,7 +428,6 @@ public class ProguardConfiguration {
       boolean printMapping,
       Path printMappingFile,
       Path applyMappingFile,
-      boolean verbose,
       String renameSourceFileAttribute,
       ProguardKeepAttributes keepAttributes,
       ProguardClassFilter keepPackageNamesPatterns,
@@ -474,7 +466,6 @@ public class ProguardConfiguration {
     this.printMapping = printMapping;
     this.printMappingFile = printMappingFile;
     this.applyMappingFile = applyMappingFile;
-    this.verbose = verbose;
     this.renameSourceFileAttribute = renameSourceFileAttribute;
     this.keepAttributes = keepAttributes;
     this.keepPackageNamesPatterns = keepPackageNamesPatterns;
@@ -579,10 +570,6 @@ public class ProguardConfiguration {
 
   public Path getPrintUsageFile() {
     return printUsageFile;
-  }
-
-  public boolean isVerbose() {
-    return verbose;
   }
 
   public String getRenameSourceFileAttribute() {

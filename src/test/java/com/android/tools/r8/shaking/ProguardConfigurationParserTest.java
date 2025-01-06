@@ -1058,8 +1058,6 @@ public class ProguardConfigurationParserTest extends TestBase {
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(Paths.get(VERBOSE));
     verifyParserEndsCleanly();
-    ProguardConfiguration config = parser.getConfig();
-    assertTrue(config.isVerbose());
   }
 
   @Test
