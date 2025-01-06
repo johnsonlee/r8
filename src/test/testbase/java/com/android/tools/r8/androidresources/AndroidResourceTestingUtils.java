@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +43,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -175,7 +177,7 @@ public class AndroidResourceTestingUtils {
 
   public static class AndroidTestResource {
     private final AndroidTestRClass rClass;
-    private final Path resourceZip;
+    private Path resourceZip;
     private final List<String> additionalKeepRuleFiles;
 
     AndroidTestResource(
@@ -183,6 +185,28 @@ public class AndroidResourceTestingUtils {
       this.rClass = rClass;
       this.resourceZip = resourceZip;
       this.additionalKeepRuleFiles = additionalRawXmlFiles;
+    }
+
+    public AndroidTestResource mangleResourceTable(Function<ResourceTable, ResourceTable> mapper)
+        throws IOException {
+      Path newName = Paths.get(resourceZip.toString() + ".mangled.ap_");
+      ZipUtils.map(
+          resourceZip,
+          newName,
+          (zipEntry, bytes) -> {
+            if (zipEntry.getName().equals("resources.pb")) {
+              try {
+                ResourceTable resourceTable = ResourceTable.parseFrom(bytes);
+                ResourceTable converted = mapper.apply(resourceTable);
+                return converted.toByteArray();
+              } catch (InvalidProtocolBufferException e) {
+                throw new RuntimeException(e);
+              }
+            }
+            return bytes;
+          });
+      resourceZip = newName;
+      return this;
     }
 
     public AndroidTestRClass getRClass() {

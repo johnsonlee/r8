@@ -465,7 +465,8 @@ public class R8ResourceShrinkerState {
                 Entry entry = entryWrapper.getEntry();
                 int entryId = entryWrapper.getId();
                 recordSingleValueResources(resourceType, entry, entryId);
-                if (resourceType != ResourceType.STYLEABLE || includeStyleables) {
+                if (resourceType != null
+                    && (resourceType != ResourceType.STYLEABLE || includeStyleables)) {
                   this.addResource(
                       resourceType,
                       entryWrapper.getPackageName(),
