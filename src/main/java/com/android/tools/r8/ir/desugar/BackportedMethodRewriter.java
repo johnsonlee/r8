@@ -1936,6 +1936,41 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       addProvider(
           new MethodGenerator(
               method, BackportedMethods::CharacterMethods_toStringCodepoint, "toStringCodepoint"));
+
+      // int {Math.StrictMath}.clamp(long, int, int)
+      // long {Math.StrictMath}.clamp(long, long, long)
+      // double {Math.StrictMath}.clamp(double, double, double)
+      // float {Math.StrictMath}.clamp(float, float, float)
+      name = factory.createString("clamp");
+      for (DexType mathType : new DexType[] {factory.mathType, factory.strictMathType}) {
+        proto =
+            factory.createProto(
+                factory.intType, factory.longType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(method, BackportedMethods::MathMethods_clampInt, "clampInt"));
+
+        proto =
+            factory.createProto(
+                factory.longType, factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(method, BackportedMethods::MathMethods_clampLong, "clampLong"));
+
+        proto =
+            factory.createProto(
+                factory.doubleType, factory.doubleType, factory.doubleType, factory.doubleType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(method, BackportedMethods::MathMethods_clampDouble, "clampDouble"));
+
+        proto =
+            factory.createProto(
+                factory.floatType, factory.floatType, factory.floatType, factory.floatType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(method, BackportedMethods::MathMethods_clampFloat, "clampFloat"));
+      }
     }
 
     private void initializeAndroidUStreamMethodProviders(DexItemFactory factory) {

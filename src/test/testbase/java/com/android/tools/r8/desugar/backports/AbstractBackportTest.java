@@ -318,58 +318,58 @@ public abstract class AbstractBackportTest extends TestBase {
 
   /** JUnit {@link Assert} isn't available in the VM runtime. This is a mini mirror of its API. */
   public abstract static class MiniAssert {
-    static void assertTrue(boolean value) {
+    protected static void assertTrue(boolean value) {
       assertEquals(true, value);
     }
 
-    static void assertFalse(boolean value) {
+    protected static void assertFalse(boolean value) {
       assertEquals(false, value);
     }
 
-    static void assertEquals(boolean expected, boolean actual) {
+    protected static void assertEquals(boolean expected, boolean actual) {
       if (expected != actual) {
         throw new AssertionError("Expected <" + expected + "> but was <" + actual + '>');
       }
     }
 
-    static void assertEquals(int expected, int actual) {
+    protected static void assertEquals(int expected, int actual) {
       if (expected != actual) {
         throw new AssertionError("Expected <" + expected + "> but was <" + actual + '>');
       }
     }
 
-    static void assertEquals(long expected, long actual) {
+    protected static void assertEquals(long expected, long actual) {
       if (expected != actual) {
         throw new AssertionError("Expected <" + expected + "> but was <" + actual + '>');
       }
     }
 
-    static void assertEquals(float expected, float actual) {
+    protected static void assertEquals(float expected, float actual) {
       if (Float.compare(expected, actual) != 0) {
         throw new AssertionError("Expected <" + expected + "> but was <" + actual + '>');
       }
     }
 
-    static void assertEquals(double expected, double actual) {
+    protected static void assertEquals(double expected, double actual) {
       if (Double.compare(expected, actual) != 0) {
         throw new AssertionError("Expected <" + expected + "> but was <" + actual + '>');
       }
     }
 
-    static void assertEquals(Object expected, Object actual) {
+    protected static void assertEquals(Object expected, Object actual) {
       if (expected != actual && (expected == null || !expected.equals(actual))) {
         throw new AssertionError("Expected <" + expected + "> but was <" + actual + '>');
       }
     }
 
-    static void assertSame(Object expected, Object actual) {
+    protected static void assertSame(Object expected, Object actual) {
       if (expected != actual) {
         throw new AssertionError(
             "Expected <" + expected + "> to be same instance as <" + actual + '>');
       }
     }
 
-    static void fail(String message) {
+    protected static void fail(String message) {
       throw new AssertionError("Failed: " + message);
     }
   }

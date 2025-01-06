@@ -4799,6 +4799,547 @@ public final class BackportedMethods {
         ImmutableList.of());
   }
 
+  public static CfCode MathMethods_clampDouble(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        6,
+        6,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.DOUBLE, 2),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Double;"),
+                    factory.createProto(factory.booleanType, factory.doubleType),
+                    factory.createString("isNaN")),
+                false),
+            new CfIf(IfType.EQ, ValueType.INT, label2),
+            label1,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("min is NaN")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType(),
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType(),
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType()
+                    })),
+            new CfLoad(ValueType.DOUBLE, 4),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Double;"),
+                    factory.createProto(factory.booleanType, factory.doubleType),
+                    factory.createString("isNaN")),
+                false),
+            new CfIf(IfType.EQ, ValueType.INT, label4),
+            label3,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("max is NaN")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType(),
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType(),
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType()
+                    })),
+            new CfLoad(ValueType.DOUBLE, 2),
+            new CfLoad(ValueType.DOUBLE, 4),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Double;"),
+                    factory.createProto(factory.intType, factory.doubleType, factory.doubleType),
+                    factory.createString("compare")),
+                false),
+            new CfIf(IfType.LE, ValueType.INT, label6),
+            label5,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.DOUBLE, 2),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.doubleType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString(" > ")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.DOUBLE, 4),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.doubleType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label6,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType(),
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType(),
+                      FrameType.doubleType(),
+                      FrameType.doubleHighType()
+                    })),
+            new CfLoad(ValueType.DOUBLE, 4),
+            new CfLoad(ValueType.DOUBLE, 0),
+            new CfLoad(ValueType.DOUBLE, 2),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.doubleType, factory.doubleType, factory.doubleType),
+                    factory.createString("max")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.doubleType, factory.doubleType, factory.doubleType),
+                    factory.createString("min")),
+                false),
+            new CfReturn(ValueType.DOUBLE),
+            label7),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode MathMethods_clampFloat(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        4,
+        3,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.FLOAT, 1),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.booleanType, factory.floatType),
+                    factory.createString("isNaN")),
+                false),
+            new CfIf(IfType.EQ, ValueType.INT, label2),
+            label1,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("min is NaN")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.floatType(), FrameType.floatType(), FrameType.floatType()
+                    })),
+            new CfLoad(ValueType.FLOAT, 2),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.booleanType, factory.floatType),
+                    factory.createString("isNaN")),
+                false),
+            new CfIf(IfType.EQ, ValueType.INT, label4),
+            label3,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfConstString(factory.createString("max is NaN")),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.floatType(), FrameType.floatType(), FrameType.floatType()
+                    })),
+            new CfLoad(ValueType.FLOAT, 1),
+            new CfLoad(ValueType.FLOAT, 2),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Float;"),
+                    factory.createProto(factory.intType, factory.floatType, factory.floatType),
+                    factory.createString("compare")),
+                false),
+            new CfIf(IfType.LE, ValueType.INT, label6),
+            label5,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.FLOAT, 1),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.floatType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString(" > ")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.FLOAT, 2),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.floatType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label6,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2},
+                    new FrameType[] {
+                      FrameType.floatType(), FrameType.floatType(), FrameType.floatType()
+                    })),
+            new CfLoad(ValueType.FLOAT, 2),
+            new CfLoad(ValueType.FLOAT, 0),
+            new CfLoad(ValueType.FLOAT, 1),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.floatType, factory.floatType, factory.floatType),
+                    factory.createString("max")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.floatType, factory.floatType, factory.floatType),
+                    factory.createString("min")),
+                false),
+            new CfReturn(ValueType.FLOAT),
+            label7),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode MathMethods_clampInt(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        6,
+        4,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.INT, 2),
+            new CfLoad(ValueType.INT, 3),
+            new CfIfCmp(IfType.LE, ValueType.INT, label2),
+            label1,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.INT, 2),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.intType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString(" > ")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.INT, 3),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.intType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.intType(),
+                      FrameType.intType()
+                    })),
+            new CfLoad(ValueType.INT, 3),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.INT, 2),
+            new CfNumberConversion(NumericType.INT, NumericType.LONG),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.longType, factory.longType, factory.longType),
+                    factory.createString("max")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.longType, factory.longType, factory.longType),
+                    factory.createString("min")),
+                false),
+            new CfNumberConversion(NumericType.LONG, NumericType.INT),
+            new CfReturn(ValueType.INT),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode MathMethods_clampLong(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        6,
+        6,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.LONG, 2),
+            new CfLoad(ValueType.LONG, 4),
+            new CfCmp(Cmp.Bias.NONE, NumericType.LONG),
+            new CfIf(IfType.LE, ValueType.INT, label2),
+            label1,
+            new CfNew(factory.createType("Ljava/lang/IllegalArgumentException;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfNew(factory.stringBuilderType),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfLoad(ValueType.LONG, 2),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.longType),
+                    factory.createString("append")),
+                false),
+            new CfConstString(factory.createString(" > ")),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.stringType),
+                    factory.createString("append")),
+                false),
+            new CfLoad(ValueType.LONG, 4),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringBuilderType, factory.longType),
+                    factory.createString("append")),
+                false),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.stringBuilderType,
+                    factory.createProto(factory.stringType),
+                    factory.createString("toString")),
+                false),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/IllegalArgumentException;"),
+                    factory.createProto(factory.voidType, factory.stringType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow(),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4, 5},
+                    new FrameType[] {
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType(),
+                      FrameType.longType(),
+                      FrameType.longHighType()
+                    })),
+            new CfLoad(ValueType.LONG, 4),
+            new CfLoad(ValueType.LONG, 0),
+            new CfLoad(ValueType.LONG, 2),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.longType, factory.longType, factory.longType),
+                    factory.createString("max")),
+                false),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/Math;"),
+                    factory.createProto(factory.longType, factory.longType, factory.longType),
+                    factory.createString("min")),
+                false),
+            new CfReturn(ValueType.LONG),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
   public static CfCode MathMethods_decrementExactInt(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();
