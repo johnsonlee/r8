@@ -2828,7 +2828,8 @@ public class Enqueuer {
                   + (clazz.isInterface() ? " implements " : " extends ")
                   + "program class "
                   + type.toSourceString());
-      if (forceProguardCompatibility) {
+      if (forceProguardCompatibility
+          || options.getTestingOptions().allowLibraryExtendsProgramInFullMode) {
         options.reporter.warning(message);
       } else {
         options.reporter.error(message);
