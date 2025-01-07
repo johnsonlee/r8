@@ -2943,30 +2943,41 @@ public class Enqueuer {
       DexProgramClass clazz,
       ProgramMethod context,
       InstantiationReason instantiationReason,
-      KeepReason keepReason) {
-    assert !clazz.isAnnotation();
-    assert !clazz.isInterface();
+      KeepReason keepReason,
+      Timing timing) {
+    try (Timing t = timing.begin("processNewlyInstantiatedClass")) {
+      assert !clazz.isAnnotation();
+      assert !clazz.isInterface();
 
-    // Notify analyses. This is done even if `clazz` has already been marked as instantiated,
-    // because each analysis may depend on seeing all the (clazz, reason) pairs. Thus, not doing so
-    // could lead to nondeterminism.
-    analyses.processNewlyInstantiatedClass(clazz.asProgramClass(), context, worklist);
+      // Notify analyses. This is done even if `clazz` has already been marked as instantiated,
+      // because each analysis may depend on seeing all the (clazz, reason) pairs. Thus, not doing
+      // so could lead to nondeterminism.
+      analyses.processNewlyInstantiatedClass(clazz.asProgramClass(), context, timing, worklist);
 
-    if (!markInstantiatedClass(clazz, context, instantiationReason, keepReason)) {
-      return;
+      if (!markInstantiatedClass(clazz, context, instantiationReason, keepReason, timing)) {
+        return;
+      }
+
+      // This class becomes live, so it and all its supertypes become live types.
+      timing.time(
+          "Mark live", () -> markTypeAsLive(clazz, graphReporter.registerClass(clazz, keepReason)));
+      // Instantiation triggers class initialization.
+      timing.time(
+          "Class initialization", () -> markDirectAndIndirectClassInitializersAsLive(clazz));
+      timing.time(
+          "Transition items", () -> transitionItemsDueToNewlyInstantiatedClass(clazz, timing));
     }
+  }
 
-    // This class becomes live, so it and all its supertypes become live types.
-    markTypeAsLive(clazz, graphReporter.registerClass(clazz, keepReason));
-    // Instantiation triggers class initialization.
-    markDirectAndIndirectClassInitializersAsLive(clazz);
+  private void transitionItemsDueToNewlyInstantiatedClass(DexProgramClass clazz, Timing timing) {
     // For all methods of the class, if we have seen a call, mark the method live.
     // We only do this for virtual calls, as the other ones will be done directly.
-    transitionMethodsForInstantiatedClass(clazz);
+    timing.time("Transition methods", () -> transitionMethodsForInstantiatedClass(clazz));
     // For all instance fields visible from the class, mark them live if we have seen a read.
-    transitionFieldsForInstantiatedClass(clazz);
+    timing.time("Transition fields", () -> transitionFieldsForInstantiatedClass(clazz));
     // Add all dependent instance members to the workqueue.
-    transitionDependentItemsForInstantiatedClass(clazz);
+    timing.time(
+        "Transition dependent items", () -> transitionDependentItemsForInstantiatedClass(clazz));
   }
 
   // TODO(b/146016987): Make this the single instantiation entry rather than the worklist action.
@@ -2974,10 +2985,13 @@ public class Enqueuer {
       DexProgramClass clazz,
       ProgramMethod context,
       InstantiationReason instantiationReason,
-      KeepReason keepReason) {
+      KeepReason keepReason,
+      Timing timing) {
     assert !clazz.isInterface();
-    return objectAllocationInfoCollection.recordDirectAllocationSite(
-        clazz, context, instantiationReason, keepReason, appInfo);
+    try (Timing t = timing.begin("Mark instantiated class")) {
+      return objectAllocationInfoCollection.recordDirectAllocationSite(
+          clazz, context, instantiationReason, keepReason, appInfo);
+    }
   }
 
   void markAnnotationAsInstantiated(DexProgramClass clazz, KeepReasonWitness witness) {
@@ -3604,7 +3618,8 @@ public class Enqueuer {
             return;
           }
 
-          if (resolution.getResolvedHolder().isNotProgramClass()) {
+          ProgramMethod resolvedMethod = resolution.getResolvedProgramMethod();
+          if (resolvedMethod == null) {
             // TODO(b/70160030): If the resolution is on a library method, then the keep edge
             //  needs to go directly to the target method in the program. Thus this method will
             //  need to ensure that 'reason' is not already reported (eg, must be delayed /
@@ -3612,7 +3627,6 @@ public class Enqueuer {
             return;
           }
 
-          DexProgramClass contextHolder = context.getContextClass();
           // If the method has already been marked, just report the new reason for the resolved
           // target and save the context to ensure correct lookup of virtual dispatch targets.
           ResolutionSearchKey resolutionSearchKey =
@@ -3627,10 +3641,8 @@ public class Enqueuer {
 
           // We have to mark the resolution targeted, even if it does not become live, we
           // need at least an abstract version of it so that it can be targeted.
-          DexProgramClass resolvedHolder = resolution.getResolvedHolder().asProgramClass();
-          DexEncodedMethod resolvedMethod = resolution.getResolvedMethod();
-          markMethodAsTargeted(new ProgramMethod(resolvedHolder, resolvedMethod), reason);
-          if (resolution.isAccessibleForVirtualDispatchFrom(contextHolder, appView).isFalse()) {
+          markMethodAsTargeted(resolvedMethod, reason);
+          if (resolution.isAccessibleForVirtualDispatchFrom(context, appView).isFalse()) {
             // Not accessible from this context, so this call will cause a runtime exception.
             return;
           }
@@ -3643,7 +3655,7 @@ public class Enqueuer {
 
           resolution
               .lookupVirtualDispatchTargets(
-                  contextHolder,
+                  context,
                   appView,
                   (type, subTypeConsumer, lambdaConsumer) ->
                       objectAllocationInfoCollection.forEachInstantiatedSubType(

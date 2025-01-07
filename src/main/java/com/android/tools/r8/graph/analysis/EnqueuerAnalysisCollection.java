@@ -280,10 +280,12 @@ public final class EnqueuerAnalysisCollection {
   }
 
   public void processNewlyInstantiatedClass(
-      DexProgramClass clazz, ProgramMethod context, EnqueuerWorklist worklist) {
+      DexProgramClass clazz, ProgramMethod context, Timing timing, EnqueuerWorklist worklist) {
+    timing.begin("Notify processNewlyInstantiatedClass");
     for (NewlyInstantiatedClassEnqueuerAnalysis analysis : newlyInstantiatedClassAnalyses) {
       analysis.processNewlyInstantiatedClass(clazz, context, worklist);
     }
+    timing.end();
   }
 
   public void processNewlyLiveNonProgramType(ClasspathOrLibraryClass clazz) {

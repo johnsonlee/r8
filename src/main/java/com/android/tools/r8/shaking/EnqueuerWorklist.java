@@ -36,7 +36,7 @@ public abstract class EnqueuerWorklist {
 
     public abstract void run(Enqueuer enqueuer);
 
-    public final void run(Enqueuer enqueuer, Timing timing) {
+    public void run(Enqueuer enqueuer, Timing timing) {
       timing.begin(getName());
       run(enqueuer);
       timing.end();
@@ -128,8 +128,14 @@ public abstract class EnqueuerWorklist {
     }
 
     @Override
+    public void run(Enqueuer enqueuer, Timing timing) {
+      enqueuer.processNewlyInstantiatedClass(
+          target, context, instantiationReason, keepReason, timing);
+    }
+
+    @Override
     public void run(Enqueuer enqueuer) {
-      enqueuer.processNewlyInstantiatedClass(target, context, instantiationReason, keepReason);
+      throw new Unreachable();
     }
   }
 

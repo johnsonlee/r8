@@ -215,7 +215,7 @@ public abstract class MethodResolutionResult
       DexProgramClass context, AppView<?> appView, AppInfoWithClassHierarchy appInfo);
 
   public abstract LookupResult lookupVirtualDispatchTargets(
-      DexProgramClass context,
+      ProgramDefinition context,
       AppView<? extends AppInfoWithClassHierarchy> appView,
       InstantiatedSubTypeInfo instantiatedInfo,
       PinnedPredicate pinnedPredicate);
@@ -704,7 +704,7 @@ public abstract class MethodResolutionResult
     @Override
     @SuppressWarnings("ReferenceEquality")
     public LookupResult lookupVirtualDispatchTargets(
-        DexProgramClass context,
+        ProgramDefinition context,
         AppView<? extends AppInfoWithClassHierarchy> appView,
         InstantiatedSubTypeInfo instantiatedInfo,
         PinnedPredicate pinnedPredicate) {
@@ -1205,7 +1205,7 @@ public abstract class MethodResolutionResult
 
     @Override
     public LookupResult lookupVirtualDispatchTargets(
-        DexProgramClass context,
+        ProgramDefinition context,
         AppView<? extends AppInfoWithClassHierarchy> appView,
         InstantiatedSubTypeInfo instantiatedInfo,
         PinnedPredicate pinnedPredicate) {
@@ -1588,7 +1588,7 @@ public abstract class MethodResolutionResult
 
     @Override
     public LookupResult lookupVirtualDispatchTargets(
-        DexProgramClass context,
+        ProgramDefinition context,
         AppView<? extends AppInfoWithClassHierarchy> appView,
         InstantiatedSubTypeInfo instantiatedInfo,
         PinnedPredicate pinnedPredicate) {
@@ -1888,7 +1888,7 @@ public abstract class MethodResolutionResult
 
     @Override
     public LookupResult lookupVirtualDispatchTargets(
-        DexProgramClass context,
+        ProgramDefinition context,
         AppView<? extends AppInfoWithClassHierarchy> appView,
         InstantiatedSubTypeInfo instantiatedInfo,
         PinnedPredicate pinnedPredicate) {

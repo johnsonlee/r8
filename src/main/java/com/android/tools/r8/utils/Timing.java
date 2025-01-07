@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 
-public class Timing {
+public class Timing implements AutoCloseable {
 
   private static final int MINIMUM_REPORT_PERCENTAGE =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
@@ -50,8 +50,9 @@ public class Timing {
         }
 
         @Override
-        public void begin(String title) {
+        public Timing begin(String title) {
           // Ignore.
+          return this;
         }
 
         @Override
@@ -83,8 +84,9 @@ public class Timing {
     }
 
     @Override
-    public void begin(String title) {
+    public Timing begin(String title) {
       timing.begin(title);
+      return this;
     }
 
     @Override
@@ -117,11 +119,11 @@ public class Timing {
     }
 
     @Override
-    public void begin(String title) {
+    public Timing begin(String title) {
       if (options.checkIfCancelled()) {
         throw new CancelCompilationException();
       }
-      super.begin(title);
+      return super.begin(title);
     }
   }
 
@@ -443,7 +445,7 @@ public class Timing {
     return builder.toString();
   }
 
-  public void begin(String title) {
+  public Timing begin(String title) {
     Node parent = stack.peek();
     Node child;
     if (parent.children.containsKey(title)) {
@@ -454,6 +456,7 @@ public class Timing {
       parent.children.put(title, child);
     }
     stack.push(child);
+    return this;
   }
 
   public <E extends Exception> void time(String title, ThrowingAction<E> action) throws E {
@@ -472,6 +475,11 @@ public class Timing {
     } finally {
       end();
     }
+  }
+
+  @Override
+  public final void close() {
+    end();
   }
 
   public void end() {
