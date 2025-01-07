@@ -49,11 +49,11 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
     }
 
     private static void testClampLong() {
-      assertEquals(1, Math.clamp(1L, 0L, 5L));
-      assertEquals(0, Math.clamp(-1L, 0L, 5L));
-      assertEquals(5, Math.clamp(10L, 0L, 5L));
+      assertEquals(1, StrictMath.clamp(1L, 0L, 5L));
+      assertEquals(0, StrictMath.clamp(-1L, 0L, 5L));
+      assertEquals(5, StrictMath.clamp(10L, 0L, 5L));
       try {
-        Math.clamp(1L, 10L, 5L);
+        StrictMath.clamp(1L, 10L, 5L);
         fail("Should have thrown");
       } catch (IllegalArgumentException ignored) {
       }
