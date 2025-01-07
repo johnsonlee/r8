@@ -43,6 +43,8 @@ public abstract class LookupResult {
   public abstract void forEachFailureDependency(
       Consumer<? super DexEncodedMethod> methodCausingFailureConsumer);
 
+  public abstract boolean hasFailureDependencies();
+
   public static LookupResultSuccess createResult(
       Map<DexMethod, LookupMethodTarget> methodTargets,
       List<LookupLambdaTarget> lambdaTargets,
@@ -112,6 +114,11 @@ public abstract class LookupResult {
     public void forEachFailureDependency(
         Consumer<? super DexEncodedMethod> methodCausingFailureConsumer) {
       methodsCausingFailure.forEach(methodCausingFailureConsumer);
+    }
+
+    @Override
+    public boolean hasFailureDependencies() {
+      return !methodsCausingFailure.isEmpty();
     }
 
     public boolean contains(DexEncodedMethod method) {
@@ -229,6 +236,11 @@ public abstract class LookupResult {
     public void forEachFailureDependency(
         Consumer<? super DexEncodedMethod> methodCausingFailureConsumer) {
       // TODO: record and emit failure dependencies.
+    }
+
+    @Override
+    public boolean hasFailureDependencies() {
+      return false;
     }
   }
 }

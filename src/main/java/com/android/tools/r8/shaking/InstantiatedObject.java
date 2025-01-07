@@ -4,10 +4,12 @@
 package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.InstantiatedSubTypeInfo;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import java.util.function.Consumer;
 
-public abstract class InstantiatedObject {
+public abstract class InstantiatedObject implements InstantiatedSubTypeInfo {
 
   public static InstantiatedObject of(DexProgramClass clazz) {
     return new InstantiatedClass(clazz);
@@ -52,6 +54,14 @@ public abstract class InstantiatedObject {
     }
 
     @Override
+    public void forEachInstantiatedSubType(
+        DexType type,
+        Consumer<DexProgramClass> subTypeConsumer,
+        Consumer<LambdaDescriptor> lambdaConsumer) {
+      subTypeConsumer.accept(clazz);
+    }
+
+    @Override
     public boolean isClass() {
       return true;
     }
@@ -67,6 +77,14 @@ public abstract class InstantiatedObject {
 
     public InstantiatedLambda(LambdaDescriptor lambdaDescriptor) {
       this.lambdaDescriptor = lambdaDescriptor;
+    }
+
+    @Override
+    public void forEachInstantiatedSubType(
+        DexType type,
+        Consumer<DexProgramClass> subTypeConsumer,
+        Consumer<LambdaDescriptor> lambdaConsumer) {
+      lambdaConsumer.accept(lambdaDescriptor);
     }
 
     @Override
