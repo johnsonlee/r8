@@ -1936,40 +1936,92 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       addProvider(
           new MethodGenerator(
               method, BackportedMethods::CharacterMethods_toStringCodepoint, "toStringCodepoint"));
-
-      // int {Math.StrictMath}.clamp(long, int, int)
-      // long {Math.StrictMath}.clamp(long, long, long)
-      // double {Math.StrictMath}.clamp(double, double, double)
-      // float {Math.StrictMath}.clamp(float, float, float)
-      name = factory.createString("clamp");
       for (DexType mathType : new DexType[] {factory.mathType, factory.strictMathType}) {
+        // int {Math.StrictMath}.clamp(long, int, int)
+        // long {Math.StrictMath}.clamp(long, long, long)
+        // double {Math.StrictMath}.clamp(double, double, double)
+        // float {Math.StrictMath}.clamp(float, float, float)
+        name = factory.createString("clamp");
         proto =
             factory.createProto(
                 factory.intType, factory.longType, factory.intType, factory.intType);
         method = factory.createMethod(mathType, proto, name);
         addProvider(
             new MethodGenerator(method, BackportedMethods::MathMethods_clampInt, "clampInt"));
-
         proto =
             factory.createProto(
                 factory.longType, factory.longType, factory.longType, factory.longType);
         method = factory.createMethod(mathType, proto, name);
         addProvider(
             new MethodGenerator(method, BackportedMethods::MathMethods_clampLong, "clampLong"));
-
         proto =
             factory.createProto(
                 factory.doubleType, factory.doubleType, factory.doubleType, factory.doubleType);
         method = factory.createMethod(mathType, proto, name);
         addProvider(
             new MethodGenerator(method, BackportedMethods::MathMethods_clampDouble, "clampDouble"));
-
         proto =
             factory.createProto(
                 factory.floatType, factory.floatType, factory.floatType, factory.floatType);
         method = factory.createMethod(mathType, proto, name);
         addProvider(
             new MethodGenerator(method, BackportedMethods::MathMethods_clampFloat, "clampFloat"));
+
+        // int {Math.StrictMath}.ceilDiv(int, int)
+        // long {Math.StrictMath}.ceilDiv(long, int)
+        // long {Math.StrictMath}.ceilDiv(long, long)
+        name = factory.createString("ceilDiv");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilDivIntInt, "ceilDivIntInt"));
+        proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilDivLongLong, "ceilDivLongLong"));
+        proto = factory.createProto(factory.longType, factory.longType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilDivLongInt, "ceilDivLongInt"));
+
+        // int {Math.StrictMath}.ceilDivExact(int, int)
+        // long {Math.StrictMath}.ceilDivExact(long, long)
+        name = factory.createString("ceilDivExact");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilDivExactIntInt, "ceilDivExactIntInt"));
+        proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method,
+                BackportedMethods::MathMethods_ceilDivExactLongLong,
+                "ceilDivExactLongLong"));
+
+        // int {Math.StrictMath}.ceilMod(int, int)
+        // int {Math.StrictMath}.ceilMod(long, int)
+        // long {Math.StrictMath}.ceilMod(long, long)
+        name = factory.createString("ceilMod");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilModIntInt, "ceilModIntInt"));
+        proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilModLongLong, "ceilModLongLong"));
+        proto = factory.createProto(factory.intType, factory.longType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_ceilModLongInt, "ceilModLongInt"));
       }
     }
 

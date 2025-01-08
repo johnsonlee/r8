@@ -281,4 +281,88 @@ public final class MathMethods {
     }
     return Math.min(max, Math.max(value, min));
   }
+
+  public static int ceilDivExactIntInt(int x, int y) {
+    if (x == Integer.MIN_VALUE && y == -1) {
+      throw new ArithmeticException("integer overflow");
+    }
+    // Inlined: return Math.ceilDiv(x, y);
+    int div = x / y;
+    int rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    if (sameSign && (rem != 0)) {
+      return div + 1;
+    }
+    return div;
+  }
+
+  public static long ceilDivExactLongLong(long x, long y) {
+    if (x == Long.MIN_VALUE && y == -1) {
+      throw new ArithmeticException("long overflow");
+    }
+    // Inlined: return Math.ceilDiv(x, y);
+    long div = x / y;
+    long rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    if (sameSign && (rem != 0)) {
+      return div + 1;
+    }
+    return div;
+  }
+
+  public static int ceilDivIntInt(int x, int y) {
+    int div = x / y;
+    int rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    if (sameSign && (rem != 0)) {
+      return div + 1;
+    }
+    return div;
+  }
+
+  public static long ceilDivLongInt(long x, int y) {
+    // Inlined: return Math.ceilDiv(x, (long) y);
+    long div = x / (long) y;
+    long rem = x % (long) y;
+    boolean sameSign = (x ^ (long) y) >= 0;
+    if (sameSign && (rem != 0)) {
+      return div + 1;
+    }
+    return div;
+  }
+
+  public static long ceilDivLongLong(long x, long y) {
+    long div = x / y;
+    long rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    if (sameSign && (rem != 0)) {
+      return div + 1;
+    }
+    return div;
+  }
+
+  public static int ceilModIntInt(int x, int y) {
+    int rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    if (sameSign && rem != 0) {
+      return rem - y;
+    }
+    return rem;
+  }
+
+  public static int ceilModLongInt(long x, int y) {
+    // Inlined: return (int) Math.ceilMod(x, (long) y);
+    long rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    return (int) ((sameSign && rem != 0) ? rem - y : rem);
+  }
+
+  public static long ceilModLongLong(long x, long y) {
+    long rem = x % y;
+    boolean sameSign = (x ^ y) >= 0;
+    if (sameSign && rem != 0) {
+      return rem - y;
+    }
+    return rem;
+  }
 }

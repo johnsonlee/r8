@@ -25,7 +25,7 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
 
   public StrictMathJava21Test(TestParameters parameters) {
     super(parameters, StrictMath.class, Main.class);
-    registerTarget(AndroidApiLevel.V, 30);
+    registerTarget(AndroidApiLevel.V, 70);
   }
 
   static final class Main extends MiniAssert {
@@ -35,6 +35,16 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
       testClampLong();
       testClampDouble();
       testClampFloat();
+
+      testCeilDivIntInt();
+      testCeilDivIntIntExact();
+      testCeilDivLongLong();
+      testCeilDivLongLongExact();
+      testCeilDivLongInt();
+
+      testCeilModIntInt();
+      testCeilModLongLong();
+      testCeilModLongInt();
     }
 
     private static void testClampInt() {
@@ -115,6 +125,80 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
         fail("Should have thrown");
       } catch (IllegalArgumentException ignored) {
       }
+    }
+
+    private static void testCeilDivIntInt() {
+      assertEquals(1, StrictMath.ceilDiv(7, 7));
+      assertEquals(-1, StrictMath.ceilDiv(-7, 7));
+      assertEquals(1, StrictMath.ceilDiv(3, 7));
+      assertEquals(0, StrictMath.ceilDiv(-3, 7));
+      assertEquals(-2147483648, StrictMath.ceilDiv(Integer.MIN_VALUE, -1));
+    }
+
+    private static void testCeilDivIntIntExact() {
+      assertEquals(1, StrictMath.ceilDivExact(7, 7));
+      assertEquals(-1, StrictMath.ceilDivExact(-7, 7));
+      assertEquals(1, StrictMath.ceilDivExact(3, 7));
+      assertEquals(0, StrictMath.ceilDivExact(-3, 7));
+      try {
+        StrictMath.ceilDivExact(Integer.MIN_VALUE, -1);
+        fail("Should have thrown");
+      } catch (ArithmeticException ae) {
+
+      }
+    }
+
+    private static void testCeilDivLongLong() {
+      assertEquals(1L, StrictMath.ceilDiv(7L, 7L));
+      assertEquals(-1L, StrictMath.ceilDiv(-7L, 7L));
+      assertEquals(1L, StrictMath.ceilDiv(3L, 7L));
+      assertEquals(0, StrictMath.ceilDiv(-3L, 7L));
+      assertEquals(-9223372036854775808L, StrictMath.ceilDiv(Long.MIN_VALUE, -1L));
+    }
+
+    private static void testCeilDivLongLongExact() {
+      assertEquals(1L, StrictMath.ceilDivExact(7L, 7L));
+      assertEquals(-1L, StrictMath.ceilDivExact(-7L, 7L));
+      assertEquals(1L, StrictMath.ceilDivExact(3L, 7L));
+      assertEquals(0, StrictMath.ceilDivExact(-3L, 7L));
+      try {
+        StrictMath.ceilDivExact(Long.MIN_VALUE, -1L);
+        fail("Should have thrown");
+      } catch (ArithmeticException ae) {
+
+      }
+    }
+
+    private static void testCeilDivLongInt() {
+      assertEquals(1L, StrictMath.ceilDiv(7L, 7));
+      assertEquals(-1L, StrictMath.ceilDiv(-7L, 7));
+      assertEquals(1L, StrictMath.ceilDiv(3L, 7));
+      assertEquals(0, StrictMath.ceilDiv(-3L, 7));
+      assertEquals(-9223372036854775808L, StrictMath.ceilDiv(Long.MIN_VALUE, -1));
+    }
+
+    private static void testCeilModIntInt() {
+      assertEquals(0, StrictMath.ceilMod(7, 7));
+      assertEquals(0, StrictMath.ceilMod(-7, 7));
+      assertEquals(-4, StrictMath.ceilMod(3, 7));
+      assertEquals(-3, StrictMath.ceilMod(-3, 7));
+      assertEquals(0, StrictMath.ceilMod(Integer.MIN_VALUE, -1));
+    }
+
+    private static void testCeilModLongLong() {
+      assertEquals(0L, StrictMath.ceilMod(7L, 7L));
+      assertEquals(0L, StrictMath.ceilMod(-7L, 7L));
+      assertEquals(-4L, StrictMath.ceilMod(3L, 7L));
+      assertEquals(-3L, StrictMath.ceilMod(-3L, 7L));
+      assertEquals(0L, StrictMath.ceilMod(Long.MIN_VALUE, -1L));
+    }
+
+    private static void testCeilModLongInt() {
+      assertEquals(0L, StrictMath.ceilMod(7L, 7));
+      assertEquals(0L, StrictMath.ceilMod(-7L, 7));
+      assertEquals(-4L, StrictMath.ceilMod(3L, 7));
+      assertEquals(-3L, StrictMath.ceilMod(-3L, 7));
+      assertEquals(0L, StrictMath.ceilMod(Long.MIN_VALUE, -1));
     }
   }
 }
