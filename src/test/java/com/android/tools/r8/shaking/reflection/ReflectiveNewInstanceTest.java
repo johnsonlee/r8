@@ -39,7 +39,8 @@ public class ReflectiveNewInstanceTest extends TestBase {
   @Test
   public void test() throws Exception {
     String expectedOutput =
-        StringUtils.lines("Success", "Success", "Success", "Success", "Success");
+        StringUtils.lines(
+            "Success", "Success", "Success", "Success", "Success", "Success", "Success");
 
     if (parameters.isCfRuntime()) {
       testForJvm(parameters)
@@ -132,6 +133,25 @@ public class ReflectiveNewInstanceTest extends TestBase {
       } catch (Exception e) {
         System.out.println("Fail");
       }
+
+      try {
+        UninitializedMemberUsed o = UninitializedMemberUsed.class.newInstance();
+        if (!o.b) {
+          o.a();
+        }
+      } catch (Exception e) {
+        System.out.println("Fail");
+      }
+
+      try {
+        UninitializedMemberUsed o =
+            UninitializedMemberUsed.class.getDeclaredConstructor().newInstance();
+        if (!o.b) {
+          o.a();
+        }
+      } catch (Exception e) {
+        System.out.println("Fail");
+      }
     }
   }
 
@@ -152,5 +172,14 @@ public class ReflectiveNewInstanceTest extends TestBase {
 
     @KeepUnusedArguments
     public D(Object arg1, String arg2) {}
+  }
+
+  public static class UninitializedMemberUsed {
+    boolean b;
+
+    public void a() {
+      this.b = true;
+      System.out.println("Success");
+    }
   }
 }
