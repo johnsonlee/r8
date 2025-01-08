@@ -50,7 +50,7 @@ public class ReflectiveNewInstanceTest extends TestBase {
     }
 
     String expectedOutputAfterR8 =
-        StringUtils.lines("Success", "Success", "Success", "Fail", "Fail");
+        StringUtils.lines("Success", "Success", "Success", "Fail", "Fail", "Success", "Success");
 
     GraphInspector inspector =
         testForR8(parameters.getBackend())
