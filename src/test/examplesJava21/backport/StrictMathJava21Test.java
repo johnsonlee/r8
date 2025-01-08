@@ -25,7 +25,7 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
 
   public StrictMathJava21Test(TestParameters parameters) {
     super(parameters, StrictMath.class, Main.class);
-    registerTarget(AndroidApiLevel.V, 70);
+    registerTarget(AndroidApiLevel.V, 92);
   }
 
   static final class Main extends MiniAssert {
@@ -45,6 +45,14 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
       testCeilModIntInt();
       testCeilModLongLong();
       testCeilModLongInt();
+
+      testDivideExactInt();
+      testDivideExactLong();
+
+      testFloorDivExactInt();
+      testFloorDivExactLong();
+
+      testUnsignedMultiplyHigh();
     }
 
     private static void testClampInt() {
@@ -199,6 +207,66 @@ public final class StrictMathJava21Test extends AbstractBackportTest {
       assertEquals(-4L, StrictMath.ceilMod(3L, 7));
       assertEquals(-3L, StrictMath.ceilMod(-3L, 7));
       assertEquals(0L, StrictMath.ceilMod(Long.MIN_VALUE, -1));
+    }
+
+    private static void testDivideExactInt() {
+      assertEquals(1, StrictMath.divideExact(7, 7));
+      assertEquals(-1, StrictMath.divideExact(-7, 7));
+      assertEquals(0, StrictMath.divideExact(3, 7));
+      assertEquals(0, StrictMath.divideExact(-3, 7));
+      try {
+        StrictMath.divideExact(Integer.MIN_VALUE, -1);
+        fail("Should have thrown");
+      } catch (ArithmeticException ae) {
+
+      }
+    }
+
+    private static void testDivideExactLong() {
+      assertEquals(1L, StrictMath.divideExact(7L, 7L));
+      assertEquals(-1L, StrictMath.divideExact(-7L, 7L));
+      assertEquals(0, StrictMath.divideExact(3L, 7L));
+      assertEquals(0, StrictMath.divideExact(-3L, 7L));
+      try {
+        StrictMath.divideExact(Long.MIN_VALUE, -1L);
+        fail("Should have thrown");
+      } catch (ArithmeticException ae) {
+
+      }
+    }
+
+    private static void testFloorDivExactInt() {
+      assertEquals(1, StrictMath.floorDivExact(7, 7));
+      assertEquals(-1, StrictMath.floorDivExact(-7, 7));
+      assertEquals(0, StrictMath.floorDivExact(3, 7));
+      assertEquals(-1, StrictMath.floorDivExact(-3, 7));
+      try {
+        StrictMath.floorDivExact(Integer.MIN_VALUE, -1);
+        fail("Should have thrown");
+      } catch (ArithmeticException ae) {
+
+      }
+    }
+
+    private static void testFloorDivExactLong() {
+      assertEquals(1L, StrictMath.floorDivExact(7L, 7L));
+      assertEquals(-1L, StrictMath.floorDivExact(-7L, 7L));
+      assertEquals(0L, StrictMath.floorDivExact(3L, 7L));
+      assertEquals(-1L, StrictMath.floorDivExact(-3L, 7L));
+      try {
+        StrictMath.floorDivExact(Long.MIN_VALUE, -1L);
+        fail("Should have thrown");
+      } catch (ArithmeticException ae) {
+
+      }
+    }
+
+    private static void testUnsignedMultiplyHigh() {
+      assertEquals(
+          31696182030193L, StrictMath.unsignedMultiplyHigh(8222222222222222L, 71111111111111111L));
+      assertEquals(
+          71079414929080917L,
+          StrictMath.unsignedMultiplyHigh(-8222222222222222L, 71111111111111111L));
     }
   }
 }

@@ -2022,6 +2022,44 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         addProvider(
             new MethodGenerator(
                 method, BackportedMethods::MathMethods_ceilModLongInt, "ceilModLongInt"));
+
+        // int divideExact(int, int)
+        // long divideExact(long, long)
+        name = factory.createString("divideExact");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_divideExactInt, "divideExactInt"));
+        proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_divideExactLong, "divideExactLong"));
+
+        // int floorDivExact(int, int)
+        // long floorDivExact(long, long)
+        name = factory.createString("floorDivExact");
+        proto = factory.createProto(factory.intType, factory.intType, factory.intType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_floorDivExactInt, "floorDivExactInt"));
+        proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method, BackportedMethods::MathMethods_floorDivExactLong, "floorDivExactLong"));
+
+        // long unsignedMultiplyHigh(long, long)
+        name = factory.createString("unsignedMultiplyHigh");
+        proto = factory.createProto(factory.longType, factory.longType, factory.longType);
+        method = factory.createMethod(mathType, proto, name);
+        addProvider(
+            new MethodGenerator(
+                method,
+                BackportedMethods::MathMethods_unsignedMultiplyHigh,
+                "unsignedMultiplyHigh"));
       }
     }
 

@@ -365,4 +365,68 @@ public final class MathMethods {
     }
     return rem;
   }
+
+  public static int divideExactInt(int x, int y) {
+    if (x == Integer.MIN_VALUE && y == -1) {
+      throw new ArithmeticException("integer overflow");
+    }
+    return x / y;
+  }
+
+  public static long divideExactLong(long x, long y) {
+    if (x == Long.MIN_VALUE && y == -1) {
+      throw new ArithmeticException("long overflow");
+    }
+    return x / y;
+  }
+
+  public static int floorDivExactInt(int x, int y) {
+    if (x == Integer.MIN_VALUE && y == -1) {
+      throw new ArithmeticException("integer overflow");
+    }
+    // Inlined: return Math.floorDiv(x,y);
+    int div = x / y;
+    int rem = x - y * div;
+    if (rem == 0) {
+      return div;
+    }
+    int signum = 1 | ((x ^ y) >> (Integer.SIZE - 1));
+    return signum < 0 ? div - 1 : div;
+  }
+
+  public static long floorDivExactLong(long x, long y) {
+    if (x == Long.MIN_VALUE && y == -1) {
+      throw new ArithmeticException("long overflow");
+    }
+    // Inlined: return Math.floorDiv(x,y);
+    long div = x / y;
+    long rem = x - y * div;
+    if (rem == 0L) {
+      return div;
+    }
+    long signum = 1L | ((x ^ y) >> (Long.SIZE - 1));
+    return signum < 0L ? div - 1L : div;
+  }
+
+  public static long unsignedMultiplyHigh(long x, long y) {
+    long x1 = x >> 32;
+    long x2 = x & 0xFFFFFFFFL;
+    long y1 = y >> 32;
+    long y2 = y & 0xFFFFFFFFL;
+
+    long z2 = x2 * y2;
+    long t = x1 * y2 + (z2 >>> 32);
+    long z1 = t & 0xFFFFFFFFL;
+    long z0 = t >> 32;
+    z1 += x2 * y1;
+
+    long result = x1 * y1 + z0 + (z1 >> 32);
+    if (x < 0) {
+      result += y;
+    }
+    if (y < 0) {
+      result += x;
+    }
+    return result;
+  }
 }
