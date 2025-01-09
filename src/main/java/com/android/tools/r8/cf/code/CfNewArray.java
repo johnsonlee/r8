@@ -59,7 +59,7 @@ public class CfNewArray extends CfInstruction implements CfTypeInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return type.isPrimitiveArrayType() ? Opcodes.NEWARRAY : Opcodes.ANEWARRAY;
   }
 

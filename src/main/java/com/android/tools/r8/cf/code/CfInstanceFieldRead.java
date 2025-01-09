@@ -29,7 +29,7 @@ public class CfInstanceFieldRead extends CfFieldInstruction implements CfOrDexIn
   }
 
   @Override
-  public int getOpcode() {
+  public int getAsmOpcode() {
     return Opcodes.GETFIELD;
   }
 

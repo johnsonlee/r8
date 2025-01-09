@@ -31,11 +31,7 @@ public class CfArrayLoad extends CfArrayLoadOrStore {
   }
 
   @Override
-  public int getCompareToId() {
-    return getLoadType();
-  }
-
-  private int getLoadType() {
+  public int getAsmOpcode() {
     switch (getType()) {
       case OBJECT:
         return Opcodes.AALOAD;
@@ -69,7 +65,7 @@ public class CfArrayLoad extends CfArrayLoadOrStore {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitInsn(getLoadType());
+    visitor.visitInsn(getAsmOpcode());
   }
 
   @Override

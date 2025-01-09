@@ -588,7 +588,7 @@ public class CfCodePrinter extends CfPrinter {
 
   @Override
   public void print(CfFieldInstruction insn) {
-    switch (insn.getOpcode()) {
+    switch (insn.getAsmOpcode()) {
       case Opcodes.GETFIELD:
         printNewInstruction("CfInstanceFieldRead", dexField(insn.getField()));
         break;

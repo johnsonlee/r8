@@ -57,7 +57,7 @@ public class CfInvoke extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return getOpcode();
   }
 

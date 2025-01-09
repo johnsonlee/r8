@@ -60,6 +60,16 @@ public class CfFrame extends CfInstruction implements Cloneable {
   }
 
   @Override
+  public int getAsmOpcode() {
+    return -1;
+  }
+
+  @Override
+  public boolean hasAsmOpcode() {
+    return false;
+  }
+
+  @Override
   public int getCompareToId() {
     return CfCompareHelper.FRAME_COMPARE_ID;
   }

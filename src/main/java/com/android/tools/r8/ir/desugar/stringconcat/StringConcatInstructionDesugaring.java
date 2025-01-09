@@ -41,6 +41,7 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 /** String concatenation desugaring rewriter. */
@@ -65,6 +66,11 @@ public class StringConcatInstructionDesugaring implements CfInstructionDesugarin
     paramTypeToAppendMethod.put(factory.floatType, stringBuilderMethods.appendFloat);
     paramTypeToAppendMethod.put(factory.doubleType, stringBuilderMethods.appendDouble);
     paramTypeToAppendMethod.put(factory.stringType, stringBuilderMethods.appendString);
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    consumer.accept(Opcodes.INVOKEDYNAMIC);
   }
 
   @Override

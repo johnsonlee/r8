@@ -27,7 +27,7 @@ public abstract class CfFieldInstruction extends CfInstruction {
   private final DexField declaringField;
 
   private static void specify(StructuralSpecification<CfFieldInstruction, ?> spec) {
-    spec.withInt(CfFieldInstruction::getOpcode)
+    spec.withInt(CfFieldInstruction::getAsmOpcode)
         .withItem(CfFieldInstruction::getField)
         .withItem(CfFieldInstruction::getDeclaringField);
   }
@@ -64,13 +64,6 @@ public abstract class CfFieldInstruction extends CfInstruction {
 
   public DexField getDeclaringField() {
     return declaringField;
-  }
-
-  public abstract int getOpcode();
-
-  @Override
-  public int getCompareToId() {
-    return getOpcode();
   }
 
   @Override
@@ -112,7 +105,7 @@ public abstract class CfFieldInstruction extends CfInstruction {
     String owner = namingLens.lookupInternalName(rewrittenField.holder);
     String name = namingLens.lookupName(rewrittenDeclaringField).toString();
     String desc = namingLens.lookupDescriptor(rewrittenField.type).toString();
-    visitor.visitFieldInsn(getOpcode(), owner, name, desc);
+    visitor.visitFieldInsn(getAsmOpcode(), owner, name, desc);
   }
 
   @Override

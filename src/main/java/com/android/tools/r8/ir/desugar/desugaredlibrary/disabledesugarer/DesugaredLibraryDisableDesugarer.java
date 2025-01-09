@@ -4,9 +4,12 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer;
 
+import static com.android.tools.r8.utils.IntConsumerUtils.emptyIntConsumer;
+
 import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.cf.code.CfTypeInstruction;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
@@ -16,6 +19,8 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.google.common.collect.ImmutableList;
+import java.util.function.IntConsumer;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Disables the rewriting of types in specific classes declared in the desugared library
@@ -35,6 +40,25 @@ public class DesugaredLibraryDisableDesugarer implements CfInstructionDesugaring
     return DesugaredLibraryDisableDesugarerHelper.shouldCreate(appView)
         ? new DesugaredLibraryDisableDesugarer(appView)
         : null;
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfFieldInstructionOpcodes(consumer);
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+    CfOpcodeUtils.acceptCfTypeInstructionOpcodes(
+        opcode -> {
+          // Skip primitive array allocations.
+          if (opcode != Opcodes.NEWARRAY) {
+            consumer.accept(opcode);
+          }
+        },
+        emptyIntConsumer());
+  }
+
+  @Override
+  public void acceptRelevantCompareToIds(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfTypeInstructionOpcodes(emptyIntConsumer(), consumer);
   }
 
   @Override

@@ -11,6 +11,7 @@ import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 // NestBasedAccessDesugaring contains common code between the two subclasses
@@ -133,6 +135,12 @@ public class NestBasedAccessDesugaring implements CfInstructionDesugaring {
     public boolean shouldAddBridge() {
       return target.isProgramMember() && target.getHolder().lookupDirectMethod(bridge) == null;
     }
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfFieldInstructionOpcodes(consumer);
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
   }
 
   @Override

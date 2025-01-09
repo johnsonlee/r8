@@ -37,11 +37,6 @@ public class CfMonitor extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    return getAsmOpcode();
-  }
-
-  @Override
   public int internalAcceptCompareTo(
       CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
     return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
@@ -71,7 +66,8 @@ public class CfMonitor extends CfInstruction {
     return 1;
   }
 
-  private int getAsmOpcode() {
+  @Override
+  public int getAsmOpcode() {
     return type == MonitorType.ENTER ? Opcodes.MONITORENTER : Opcodes.MONITOREXIT;
   }
 

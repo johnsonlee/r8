@@ -40,22 +40,7 @@ public class CfReturn extends CfJumpInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    return getOpcode();
-  }
-
-  @Override
-  public int internalAcceptCompareTo(
-      CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
-    return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
-  }
-
-  @Override
-  public void internalAcceptHashing(HashingVisitor visitor) {
-    // Nothing to add.
-  }
-
-  private int getOpcode() {
+  public int getAsmOpcode() {
     switch (type) {
       case INT:
         return Opcodes.IRETURN;
@@ -70,6 +55,17 @@ public class CfReturn extends CfJumpInstruction {
       default:
         throw new Unreachable("Unexpected return type: " + type);
     }
+  }
+
+  @Override
+  public int internalAcceptCompareTo(
+      CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
+    return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
+  }
+
+  @Override
+  public void internalAcceptHashing(HashingVisitor visitor) {
+    // Nothing to add.
   }
 
   @Override
@@ -96,7 +92,7 @@ public class CfReturn extends CfJumpInstruction {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitInsn(getOpcode());
+    visitor.visitInsn(getAsmOpcode());
   }
 
   @Override

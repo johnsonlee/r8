@@ -7,6 +7,7 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 public class DesugaredLibraryRetargeter implements CfInstructionDesugaring {
@@ -55,6 +57,12 @@ public class DesugaredLibraryRetargeter implements CfInstructionDesugaring {
     staticRetarget.keySet().forEach(consumer);
     nonEmulatedVirtualRetarget.keySet().forEach(consumer);
     emulatedVirtualRetarget.keySet().forEach(consumer);
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+    consumer.accept(Opcodes.GETSTATIC);
   }
 
   @Override

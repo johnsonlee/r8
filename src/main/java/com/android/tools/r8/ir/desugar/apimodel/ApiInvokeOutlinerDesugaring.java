@@ -16,8 +16,10 @@ import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstanceOf;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -47,6 +49,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
+import org.objectweb.asm.Opcodes;
 
 /**
  * This desugaring will outline calls to library methods that are introduced after the min-api
@@ -63,6 +67,24 @@ public class ApiInvokeOutlinerDesugaring implements CfInstructionDesugaring {
     this.appView = appView;
     this.apiLevelCompute = apiLevelCompute;
     this.objectParams = DexTypeList.create(new DexType[] {appView.dexItemFactory().objectType});
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfFieldInstructionOpcodes(consumer);
+    CfOpcodeUtils.acceptCfInvokeOpcodes(
+        opcode -> {
+          if (opcode != Opcodes.INVOKESPECIAL) {
+            consumer.accept(opcode);
+          }
+        });
+    consumer.accept(Opcodes.CHECKCAST);
+    consumer.accept(Opcodes.INSTANCEOF);
+  }
+
+  @Override
+  public void acceptRelevantCompareToIds(IntConsumer consumer) {
+    consumer.accept(CfCompareHelper.CONST_CLASS_COMPARE_ID);
   }
 
   @Override

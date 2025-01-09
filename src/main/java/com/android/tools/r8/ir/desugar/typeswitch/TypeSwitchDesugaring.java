@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 public class TypeSwitchDesugaring implements CfInstructionDesugaring {
@@ -68,6 +69,13 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
     matchExceptionInit =
         factory.createInstanceInitializer(
             matchException, factory.stringType, factory.throwableType);
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    consumer.accept(Opcodes.INVOKEDYNAMIC);
+    consumer.accept(Opcodes.INVOKESPECIAL);
+    consumer.accept(Opcodes.NEW);
   }
 
   @Override

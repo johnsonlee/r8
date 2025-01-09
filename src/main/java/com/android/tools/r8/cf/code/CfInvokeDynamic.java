@@ -57,7 +57,7 @@ public class CfInvokeDynamic extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.INVOKEDYNAMIC;
   }
 

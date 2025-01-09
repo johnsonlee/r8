@@ -12,6 +12,7 @@ import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfNew;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.cf.code.CfPosition;
 import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
@@ -85,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 public final class BackportedMethodRewriter implements CfInstructionDesugaring {
@@ -100,6 +102,12 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
   public boolean hasBackports() {
     return !rewritableMethods.isEmpty();
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+    consumer.accept(Opcodes.GETSTATIC);
   }
 
   @Override

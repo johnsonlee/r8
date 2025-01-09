@@ -40,11 +40,6 @@ public class CfNumberConversion extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    return getAsmOpcode();
-  }
-
-  @Override
   public int internalAcceptCompareTo(
       CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
     return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
@@ -87,6 +82,7 @@ public class CfNumberConversion extends CfInstruction {
     printer.print(this);
   }
 
+  @Override
   public int getAsmOpcode() {
     switch (from) {
       case INT:

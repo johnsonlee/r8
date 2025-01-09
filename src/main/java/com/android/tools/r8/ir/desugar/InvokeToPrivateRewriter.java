@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.google.common.collect.ImmutableList;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 /**
@@ -23,6 +24,12 @@ import org.objectweb.asm.Opcodes;
  * not allow invoke-virtual of a private method.
  */
 public class InvokeToPrivateRewriter implements CfInstructionDesugaring {
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    consumer.accept(Opcodes.INVOKEINTERFACE);
+    consumer.accept(Opcodes.INVOKEVIRTUAL);
+  }
 
   @Override
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {

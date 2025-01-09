@@ -13,6 +13,7 @@ import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppInfo;
@@ -54,6 +55,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 
 //
@@ -212,6 +214,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return Iterables.any(
         precedingDesugaringsForInvokeDynamic,
         desugaring -> desugaring.compute(invoke, context).needsDesugaring());
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
   }
 
   @Override

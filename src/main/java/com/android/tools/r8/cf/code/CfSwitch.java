@@ -59,7 +59,7 @@ public class CfSwitch extends CfJumpInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return kind == Kind.LOOKUP ? Opcodes.LOOKUPSWITCH : Opcodes.TABLESWITCH;
   }
 

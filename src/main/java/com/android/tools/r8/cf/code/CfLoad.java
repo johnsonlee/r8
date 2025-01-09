@@ -38,7 +38,7 @@ public class CfLoad extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return getLoadType();
   }
 

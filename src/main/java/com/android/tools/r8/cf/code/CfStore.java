@@ -36,22 +36,7 @@ public class CfStore extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    return getStoreType();
-  }
-
-  @Override
-  public int internalAcceptCompareTo(
-      CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
-    return visitor.visitInt(var, other.asStore().var);
-  }
-
-  @Override
-  public void internalAcceptHashing(HashingVisitor visitor) {
-    visitor.visitInt(var);
-  }
-
-  private int getStoreType() {
+  public int getAsmOpcode() {
     switch (type) {
       case OBJECT:
         return Opcodes.ASTORE;
@@ -66,6 +51,17 @@ public class CfStore extends CfInstruction {
       default:
         throw new Unreachable("Unexpected type " + type);
     }
+  }
+
+  @Override
+  public int internalAcceptCompareTo(
+      CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
+    return visitor.visitInt(var, other.asStore().var);
+  }
+
+  @Override
+  public void internalAcceptHashing(HashingVisitor visitor) {
+    visitor.visitInt(var);
   }
 
   @Override
@@ -89,7 +85,7 @@ public class CfStore extends CfInstruction {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitVarInsn(getStoreType(), var);
+    visitor.visitVarInsn(getAsmOpcode(), var);
   }
 
   @Override

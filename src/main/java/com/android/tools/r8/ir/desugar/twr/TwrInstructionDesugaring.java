@@ -5,6 +5,7 @@ package com.android.tools.r8.ir.desugar.twr;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppView;
@@ -23,6 +24,7 @@ import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
 import com.google.common.collect.ImmutableList;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 public class TwrInstructionDesugaring implements CfInstructionDesugaring {
@@ -44,10 +46,12 @@ public class TwrInstructionDesugaring implements CfInstructionDesugaring {
   }
 
   @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+  }
+
+  @Override
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    if (!instruction.isInvoke()) {
-      return DesugarDescription.nothing();
-    }
     if (isTwrCloseResourceInvoke(instruction)) {
       return rewriteTwrCloseResourceInvoke();
     }

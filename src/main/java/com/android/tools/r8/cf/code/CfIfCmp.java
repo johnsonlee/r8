@@ -34,7 +34,7 @@ public class CfIfCmp extends CfConditionalJumpInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return getOpcode();
   }
 

@@ -25,7 +25,7 @@ import org.objectweb.asm.Opcodes;
 public class CfNop extends CfInstruction {
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.NOP;
   }
 

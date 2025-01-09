@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.google.common.collect.ImmutableList;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 /** This class defines the desugaring of a single invoke-special instruction. */
@@ -28,6 +29,11 @@ public class InvokeSpecialToSelfDesugaring implements CfInstructionDesugaring {
 
   public InvokeSpecialToSelfDesugaring(AppView<?> appView) {
     this.dexItemFactory = appView.dexItemFactory();
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    consumer.accept(Opcodes.INVOKESPECIAL);
   }
 
   @Override

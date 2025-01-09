@@ -33,7 +33,7 @@ public class CfStaticFieldRead extends CfFieldInstruction implements CfOrDexStat
   }
 
   @Override
-  public int getOpcode() {
+  public int getAsmOpcode() {
     return Opcodes.GETSTATIC;
   }
 

@@ -47,6 +47,17 @@ public abstract class CfInstruction implements CfOrDexInstruction {
   public abstract void print(CfPrinter printer);
 
   /**
+   * Returns the corresponding ASM opcode, or -1 if the given CF instruction is a synthetic kind
+   * that does not have an ASM opcode.
+   */
+  public abstract int getAsmOpcode();
+
+  /** Returns false for synthetic CF instructions that do not have an ASM opcode. */
+  public boolean hasAsmOpcode() {
+    return true;
+  }
+
+  /**
    * Base compare id for each instruction.
    *
    * <p>The id is required to be unique for each instruction class and define a order on
@@ -55,7 +66,10 @@ public abstract class CfInstruction implements CfOrDexInstruction {
    * instruction is not represented externally, some non-overlapping ID defined in {@code
    * CfCompareHelper}.
    */
-  public abstract int getCompareToId();
+  public int getCompareToId() {
+    assert hasAsmOpcode();
+    return getAsmOpcode();
+  }
 
   /**
    * Compare two instructions with the same compare id.

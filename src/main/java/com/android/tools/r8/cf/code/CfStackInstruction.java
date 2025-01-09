@@ -83,7 +83,7 @@ public class CfStackInstruction extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return opcode.opcode;
   }
 

@@ -8,6 +8,7 @@ import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -29,6 +30,7 @@ import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.Metho
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.UtilityMethodForCodeOptimizations;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.function.IntConsumer;
 
 public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugaring {
 
@@ -36,6 +38,11 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
 
   public AlwaysThrowingInstructionDesugaring(AppView<? extends AppInfoWithClassHierarchy> appView) {
     this.appView = appView;
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
   }
 
   @Override

@@ -9,6 +9,7 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.ConstantDynamicDesugarDiagnostic;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -25,6 +26,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntConsumer;
 
 public class ConstantDynamicInstructionDesugaring implements CfInstructionDesugaring {
 
@@ -46,6 +48,16 @@ public class ConstantDynamicInstructionDesugaring implements CfInstructionDesuga
                         new ConstantDynamicDesugarDiagnostic(
                             context.getOrigin(), MethodPosition.create(context), message)))
         .build();
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    // Intentionally empty.
+  }
+
+  @Override
+  public void acceptRelevantCompareToIds(IntConsumer consumer) {
+    consumer.accept(CfCompareHelper.CONST_DYNAMIC_COMPARE_ID);
   }
 
   @Override

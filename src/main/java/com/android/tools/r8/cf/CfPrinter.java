@@ -505,7 +505,7 @@ public class CfPrinter {
 
   public void print(CfFieldInstruction insn) {
     indent();
-    switch (insn.getOpcode()) {
+    switch (insn.getAsmOpcode()) {
       case Opcodes.GETFIELD:
         builder.append("getfield ");
         break;
@@ -519,7 +519,7 @@ public class CfPrinter {
         builder.append("putstatic ");
         break;
       default:
-        throw new Unreachable("Unexpected field-instruction opcode " + insn.getOpcode());
+        throw new Unreachable("Unexpected field-instruction opcode " + insn.getAsmOpcode());
     }
     appendField(insn.getField());
     builder.append(' ');

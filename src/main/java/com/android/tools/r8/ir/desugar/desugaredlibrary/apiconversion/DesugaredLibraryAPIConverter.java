@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -29,6 +30,7 @@ import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 @SuppressWarnings("UnusedVariable")
@@ -83,6 +85,11 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
       return false;
     }
     return shouldRewriteInvoke(invoke.asInvoke(), context);
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
   }
 
   @Override

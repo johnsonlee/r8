@@ -16,6 +16,7 @@ import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
 import com.android.tools.r8.cf.code.CfLoad;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.cf.code.CfStore;
@@ -57,6 +58,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 public class RecordInstructionDesugaring implements CfInstructionDesugaring {
@@ -105,6 +107,12 @@ public class RecordInstructionDesugaring implements CfInstructionDesugaring {
     RecordGetFieldsAsObjectsCfCodeProvider.registerSynthesizedCodeReferences(factory);
     RecordEqCfCodeProvider.registerSynthesizedCodeReferences(factory);
     RecordHashCfCodeProvider.registerSynthesizedCodeReferences(factory);
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+    consumer.accept(Opcodes.INVOKEDYNAMIC);
   }
 
   @Override

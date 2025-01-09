@@ -4322,29 +4322,36 @@ public class Enqueuer {
         && !method.getDefinition().isInitializer();
   }
 
-  private boolean addToPendingDesugaring(ProgramMethod method) {
-    if (options.isInterfaceMethodDesugaringEnabled()) {
-      if (mustMoveToInterfaceCompanionMethod(method)) {
-        // TODO(b/199043500): Once "live moved methods" are tracked this can avoid the code check.
-        if (!InvalidCode.isInvalidCode(method.getDefinition().getCode())) {
-          pendingMethodMove.add(method);
+  private boolean addToPendingDesugaring(ProgramMethod method, Timing timing) {
+    try (Timing t0 = timing.begin("Analyze needs desugaring")) {
+      try (Timing t1 = timing.begin("Analyze interface method desugaring")) {
+        if (options.isInterfaceMethodDesugaringEnabled()) {
+          if (mustMoveToInterfaceCompanionMethod(method)) {
+            // TODO(b/199043500): Once "live moved methods" are tracked this can avoid the code
+            // check.
+            if (!InvalidCode.isInvalidCode(method.getDefinition().getCode())) {
+              pendingMethodMove.add(method);
+            }
+            return true;
+          }
+          ProgramMethod nonMovedMethod = pendingMethodMoveInverse.get(method);
+          if (nonMovedMethod != null) {
+            // Any non-moved code must be a proper pending item.
+            assert InvalidCode.isInvalidCode(method.getDefinition().getCode());
+            assert !InvalidCode.isInvalidCode(nonMovedMethod.getDefinition().getCode());
+            pendingMethodMove.add(nonMovedMethod);
+            return true;
         }
-        return true;
       }
-      ProgramMethod nonMovedMethod = pendingMethodMoveInverse.get(method);
-      if (nonMovedMethod != null) {
-        // Any non-moved code must be a proper pending item.
-        assert InvalidCode.isInvalidCode(method.getDefinition().getCode());
-        assert !InvalidCode.isInvalidCode(nonMovedMethod.getDefinition().getCode());
-        pendingMethodMove.add(nonMovedMethod);
-        return true;
       }
+      try (Timing t2 = timing.begin("Analyze instruction desugaring")) {
+        if (desugaring.needsDesugaring(method)) {
+          pendingCodeDesugaring.add(method);
+          return true;
+        }
+      }
+      return false;
     }
-    if (desugaring.needsDesugaring(method)) {
-      pendingCodeDesugaring.add(method);
-      return true;
-    }
-    return false;
   }
 
   private void desugar(SyntheticAdditions additions) throws ExecutionException {
@@ -4924,7 +4931,7 @@ public class Enqueuer {
 
     while (worklist.hasNext()) {
       EnqueuerAction action = worklist.poll();
-      action.run(this);
+      action.run(this, Timing.empty());
     }
   }
 
@@ -5117,18 +5124,23 @@ public class Enqueuer {
   }
 
   // Package protected due to entry point from worklist.
-  void markMethodAsLive(ProgramMethod method, ProgramDefinition context) {
+  void markMethodAsLive(ProgramMethod method, ProgramDefinition context, Timing timing) {
     assert liveMethods.contains(method);
 
     DexEncodedMethod definition = method.getDefinition();
     assert !definition.getOptimizationInfo().forceInline();
 
+    timing.begin("Clinit");
     if (definition.isStatic()) {
       markDirectAndIndirectClassInitializersAsLive(method.getHolder());
     }
+    timing.end();
 
-    traceNonDesugaredCode(method);
+    timing.begin("Trace code (non-desugared)");
+    traceNonDesugaredCode(method, timing);
+    timing.end();
 
+    timing.begin("Super");
     ProgramMethodSet superCallTargets = superInvokeDependencies.get(method.getDefinition());
     if (superCallTargets != null) {
       for (ProgramMethod superCallTarget : superCallTargets) {
@@ -5136,8 +5148,11 @@ public class Enqueuer {
         markVirtualMethodAsLive(superCallTarget, KeepReason.invokedViaSuperFrom(method));
       }
     }
+    timing.end();
 
+    timing.begin("Notify");
     analyses.processNewlyLiveMethod(method, context, this, worklist);
+    timing.end();
   }
 
   private void markMethodAsTargeted(ProgramMethod method, KeepReason reason) {
@@ -5177,21 +5192,27 @@ public class Enqueuer {
     }
   }
 
-  private void traceNonDesugaredCode(ProgramMethod method) {
+  private void traceNonDesugaredCode(ProgramMethod method, Timing timing) {
     if (getMode().isInitialTreeShaking()) {
-      if (addToPendingDesugaring(method)) {
+      if (addToPendingDesugaring(method, timing)) {
         return;
       }
     }
 
-    traceCode(method);
+    traceCode(method, timing);
   }
 
-  void traceCode(ProgramMethod method) {
+  void traceCode(ProgramMethod method, Timing timing) {
+    timing.begin("Trace code");
     DefaultEnqueuerUseRegistry registry =
         useRegistryFactory.create(appView, method, this, appView.apiLevelCompute());
+    timing.begin("Register code references");
     method.registerCodeReferences(registry);
+    timing.end();
+    timing.begin("Notify processNewlyLiveCode");
     analyses.processNewlyLiveCode(method, registry, worklist);
+    timing.end();
+    timing.end();
   }
 
   private void markReferencedTypesAsLive(ProgramMethod method) {

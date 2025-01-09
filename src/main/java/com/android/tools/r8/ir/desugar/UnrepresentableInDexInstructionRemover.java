@@ -15,6 +15,7 @@ import com.android.tools.r8.cf.code.CfConstString;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfInvokeDynamic;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
@@ -25,6 +26,7 @@ import com.android.tools.r8.errors.UnsupportedFeatureDiagnostic;
 import com.android.tools.r8.errors.UnsupportedInvokeCustomDiagnostic;
 import com.android.tools.r8.errors.UnsupportedInvokePolymorphicMethodHandleDiagnostic;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
@@ -42,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import java.util.List;
 import java.util.Set;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 /**
@@ -391,6 +394,19 @@ public class UnrepresentableInDexInstructionRemover implements CfInstructionDesu
     ConstMethodTypeMatcher.addIfNeeded(appView, builder);
     ConstDynamicMatcher.addIfNeeded(appView, builder);
     matchers = builder.build();
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+    consumer.accept(Opcodes.INVOKEDYNAMIC);
+  }
+
+  @Override
+  public void acceptRelevantCompareToIds(IntConsumer consumer) {
+    consumer.accept(CfCompareHelper.CONST_DYNAMIC_COMPARE_ID);
+    consumer.accept(CfCompareHelper.CONST_METHOD_HANDLE_COMPARE_ID);
+    consumer.accept(CfCompareHelper.CONST_METHOD_TYPE_COMPARE_ID);
   }
 
   @Override

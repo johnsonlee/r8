@@ -43,11 +43,6 @@ public class CfCmp extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    return getAsmOpcode();
-  }
-
-  @Override
   public int internalAcceptCompareTo(
       CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
     return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
@@ -83,6 +78,7 @@ public class CfCmp extends CfInstruction {
     }
   }
 
+  @Override
   public int getAsmOpcode() {
     switch (type) {
       case LONG:

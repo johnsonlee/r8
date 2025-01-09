@@ -37,7 +37,7 @@ public class CfInstanceFieldWrite extends CfFieldInstruction {
   }
 
   @Override
-  public int getOpcode() {
+  public int getAsmOpcode() {
     return Opcodes.PUTFIELD;
   }
 

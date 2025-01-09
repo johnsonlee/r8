@@ -48,11 +48,6 @@ public class CfLogicalBinop extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    return getAsmOpcode();
-  }
-
-  @Override
   public int internalAcceptCompareTo(
       CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
     return CfCompareHelper.compareIdUniquelyDeterminesEquality(this, other);
@@ -102,6 +97,7 @@ public class CfLogicalBinop extends CfInstruction {
     }
   }
 
+  @Override
   public int getAsmOpcode() {
     return getAsmOpcode(opcode, type);
   }

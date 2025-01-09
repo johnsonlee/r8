@@ -7,12 +7,14 @@ package com.android.tools.r8.ir.desugar;
 import com.android.tools.r8.cf.code.CfCheckCast;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.google.common.collect.ImmutableList;
+import java.util.function.IntConsumer;
 
 /**
  * BufferCovariantReturnTypeRewriter rewrites the return type of invoked methods matching
@@ -27,8 +29,13 @@ public class BufferCovariantReturnTypeRewriter implements CfInstructionDesugarin
   }
 
   @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+  }
+
+  @Override
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    if (!isInvokeCandidate(instruction)) {
+    if (!instruction.isInvoke()) {
       return DesugarDescription.nothing();
     }
     CfInvoke cfInvoke = instruction.asInvoke();
@@ -82,11 +89,5 @@ public class BufferCovariantReturnTypeRewriter implements CfInstructionDesugarin
       }
     }
     return null;
-  }
-
-  private boolean isInvokeCandidate(CfInstruction instruction) {
-    return instruction.isInvoke()
-        || instruction.isInvokeStatic()
-        || instruction.isInvokeInterface();
   }
 }

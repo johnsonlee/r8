@@ -36,7 +36,7 @@ public class CfThrow extends CfJumpInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.ATHROW;
   }
 

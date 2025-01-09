@@ -84,6 +84,16 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
   }
 
   @Override
+  public int getAsmOpcode() {
+    return -1;
+  }
+
+  @Override
+  public boolean hasAsmOpcode() {
+    return false;
+  }
+
+  @Override
   public int getCompareToId() {
     return CfCompareHelper.CONST_DYNAMIC_COMPARE_ID;
   }

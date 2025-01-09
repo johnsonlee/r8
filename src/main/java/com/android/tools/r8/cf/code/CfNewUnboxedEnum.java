@@ -59,7 +59,7 @@ public class CfNewUnboxedEnum extends CfInstruction implements CfTypeInstruction
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.NEW;
   }
 

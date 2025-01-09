@@ -29,21 +29,7 @@ public class CfArrayStore extends CfArrayLoadOrStore {
   }
 
   @Override
-  public int getCompareToId() {
-    return getStoreType();
-  }
-
-  @Override
-  public boolean isArrayStore() {
-    return true;
-  }
-
-  @Override
-  public CfArrayStore asArrayStore() {
-    return this;
-  }
-
-  private int getStoreType() {
+  public int getAsmOpcode() {
     switch (getType()) {
       case OBJECT:
         return Opcodes.AASTORE;
@@ -67,6 +53,16 @@ public class CfArrayStore extends CfArrayLoadOrStore {
   }
 
   @Override
+  public boolean isArrayStore() {
+    return true;
+  }
+
+  @Override
+  public CfArrayStore asArrayStore() {
+    return this;
+  }
+
+  @Override
   public void write(
       AppView<?> appView,
       ProgramMethod context,
@@ -77,7 +73,7 @@ public class CfArrayStore extends CfArrayLoadOrStore {
       NamingLens namingLens,
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
-    visitor.visitInsn(getStoreType());
+    visitor.visitInsn(getAsmOpcode());
   }
 
   @Override

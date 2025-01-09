@@ -12,6 +12,7 @@ import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
@@ -44,6 +45,9 @@ import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceMap.Entry;
+import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -64,6 +68,8 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   private final DesugaredLibraryAPIConverter desugaredLibraryAPIConverter;
   private final DesugaredLibraryDisableDesugarer disableDesugarer;
 
+  private final CfInstructionDesugaring[][] asmOpcodeOrCompareToIdToDesugaringsMap;
+
   NonEmptyCfInstructionDesugaringCollection(
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
     this.appView = appView;
@@ -83,6 +89,14 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       this.interfaceMethodRewriter = null;
       this.desugaredLibraryAPIConverter = null;
       this.disableDesugarer = null;
+      desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
+      if (appView.options().isGeneratingDex()) {
+        if (appView.options().canHaveArtArrayCloneFromInterfaceMethodBug()) {
+          desugarings.add(new OutlineArrayCloneFromInterfaceMethodDesugaring(appView));
+        }
+        yieldingDesugarings.add(new UnrepresentableInDexInstructionRemover(appView));
+      }
+      this.asmOpcodeOrCompareToIdToDesugaringsMap = createAsmOpcodeOrCompareToIdToDesugaringsMap();
       return;
     }
     this.nestBasedAccessDesugaring = NestBasedAccessDesugaring.create(appView);
@@ -165,33 +179,55 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       desugarings.add(varHandleDesugaring);
     }
     yieldingDesugarings.add(new UnrepresentableInDexInstructionRemover(appView));
+    asmOpcodeOrCompareToIdToDesugaringsMap = createAsmOpcodeOrCompareToIdToDesugaringsMap();
+  }
+
+  private CfInstructionDesugaring[][] createAsmOpcodeOrCompareToIdToDesugaringsMap() {
+    Int2ReferenceMap<List<CfInstructionDesugaring>> map = new Int2ReferenceOpenHashMap<>();
+    for (CfInstructionDesugaring desugaring : Iterables.concat(desugarings, yieldingDesugarings)) {
+      desugaring.acceptRelevantAsmOpcodes(
+          opcode -> registerRelevantAsmOpcodeOrCompareToId(map, desugaring, opcode));
+      desugaring.acceptRelevantCompareToIds(
+          id -> registerRelevantAsmOpcodeOrCompareToId(map, desugaring, id));
+    }
+    // Convert map to a dense array.
+    int maxAsmOpcodeOrCompareToId = CfCompareHelper.MAX_COMPARE_ID;
+    CfInstructionDesugaring[][] arrayMap =
+        new CfInstructionDesugaring[maxAsmOpcodeOrCompareToId + 1][];
+    for (Entry<List<CfInstructionDesugaring>> entry : map.int2ReferenceEntrySet()) {
+      arrayMap[entry.getIntKey()] = entry.getValue().toArray(CfInstructionDesugaring.EMPTY_ARRAY);
+    }
+    for (int i = 0; i < arrayMap.length; i++) {
+      if (arrayMap[i] == null) {
+        arrayMap[i] = CfInstructionDesugaring.EMPTY_ARRAY;
+      }
+    }
+    return arrayMap;
+  }
+
+  private void registerRelevantAsmOpcodeOrCompareToId(
+      Int2ReferenceMap<List<CfInstructionDesugaring>> asmOpcodeOrCompareToIdToDesugaringsMap,
+      CfInstructionDesugaring desugaring,
+      int opcodeOrCompareToId) {
+    if (asmOpcodeOrCompareToIdToDesugaringsMap.containsKey(opcodeOrCompareToId)) {
+      asmOpcodeOrCompareToIdToDesugaringsMap.get(opcodeOrCompareToId).add(desugaring);
+    } else {
+      asmOpcodeOrCompareToIdToDesugaringsMap.put(
+          opcodeOrCompareToId, ListUtils.newArrayList(desugaring));
+    }
   }
 
   static NonEmptyCfInstructionDesugaringCollection createForCfToCfNonDesugar(AppView<?> appView) {
     assert appView.options().desugarState.isOff();
     assert appView.options().isGeneratingClassFiles();
-    NonEmptyCfInstructionDesugaringCollection desugaringCollection =
-        new NonEmptyCfInstructionDesugaringCollection(appView, noAndroidApiLevelCompute());
-    // TODO(b/145775365): special constructor for cf-to-cf compilations with desugaring disabled.
-    //  This should be removed once we can represent invoke-special instructions in the IR.
-    desugaringCollection.desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
-    return desugaringCollection;
+    return new NonEmptyCfInstructionDesugaringCollection(appView, noAndroidApiLevelCompute());
   }
 
   static NonEmptyCfInstructionDesugaringCollection createForCfToDexNonDesugar(
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
     assert appView.options().desugarState.isOff();
     assert appView.options().isGeneratingDex();
-    NonEmptyCfInstructionDesugaringCollection desugaringCollection =
-        new NonEmptyCfInstructionDesugaringCollection(appView, apiLevelCompute);
-    desugaringCollection.desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
-    if (appView.options().canHaveArtArrayCloneFromInterfaceMethodBug()) {
-      desugaringCollection.desugarings.add(
-          new OutlineArrayCloneFromInterfaceMethodDesugaring(appView));
-    }
-    desugaringCollection.yieldingDesugarings.add(
-        new UnrepresentableInDexInstructionRemover(appView));
-    return desugaringCollection;
+    return new NonEmptyCfInstructionDesugaringCollection(appView, apiLevelCompute);
   }
 
   private void ensureCfCode(ProgramMethod method) {
@@ -430,16 +466,29 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       throw new Unreachable("Unexpected attempt to determine if non-CF code needs desugaring");
     }
 
-    return Iterables.any(
-        code.asCfCode().getInstructions(), instruction -> needsDesugaring(instruction, method));
+    CfCode cfCode = code.asCfCode();
+    for (CfInstruction instruction : cfCode.getInstructions()) {
+      int asmOpcodeOrCompareToId =
+          instruction.hasAsmOpcode() ? instruction.getAsmOpcode() : instruction.getCompareToId();
+      CfInstructionDesugaring[] desugaringsForInstruction =
+          asmOpcodeOrCompareToIdToDesugaringsMap[asmOpcodeOrCompareToId];
+      for (CfInstructionDesugaring desugaring : desugaringsForInstruction) {
+        if (desugaring.compute(instruction, method).needsDesugaring()) {
+          return true;
+        }
+      }
+      assert verifyNoDesugaringNeeded(instruction, method);
+    }
+    return false;
   }
 
-  private boolean needsDesugaring(CfInstruction instruction, ProgramMethod context) {
-    return Iterables.any(
-            desugarings, desugaring -> desugaring.compute(instruction, context).needsDesugaring())
-        || Iterables.any(
-            yieldingDesugarings,
-            desugaring -> desugaring.compute(instruction, context).needsDesugaring());
+  private boolean verifyNoDesugaringNeeded(CfInstruction instruction, ProgramMethod context) {
+    for (CfInstructionDesugaring desugaring : Iterables.concat(desugarings, yieldingDesugarings)) {
+      assert !desugaring.compute(instruction, context).needsDesugaring()
+          : "Expected instruction to be desugared, but matched by: "
+              + desugaring.getClass().getName();
+    }
+    return true;
   }
 
   private boolean verifyNoOtherDesugaringNeeded(

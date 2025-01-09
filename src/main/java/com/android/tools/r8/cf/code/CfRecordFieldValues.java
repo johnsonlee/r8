@@ -78,6 +78,16 @@ public class CfRecordFieldValues extends CfInstruction {
   }
 
   @Override
+  public int getAsmOpcode() {
+    return -1;
+  }
+
+  @Override
+  public boolean hasAsmOpcode() {
+    return false;
+  }
+
+  @Override
   public int getCompareToId() {
     return CfCompareHelper.RECORD_FIELD_VALUES_COMPARE_ID;
   }

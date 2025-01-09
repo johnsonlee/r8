@@ -180,8 +180,15 @@ public abstract class EnqueuerWorklist {
     }
 
     @Override
+    public void run(Enqueuer enqueuer, Timing timing) {
+      timing.begin(getName());
+      enqueuer.markMethodAsLive(method, context, timing);
+      timing.end();
+    }
+
+    @Override
     public void run(Enqueuer enqueuer) {
-      enqueuer.markMethodAsLive(method, context);
+      throw new Unreachable();
     }
   }
 
@@ -241,8 +248,15 @@ public abstract class EnqueuerWorklist {
     }
 
     @Override
+    public void run(Enqueuer enqueuer, Timing timing) {
+      timing.begin(getName());
+      enqueuer.traceCode(method, timing);
+      timing.end();
+    }
+
+    @Override
     public void run(Enqueuer enqueuer) {
-      enqueuer.traceCode(method);
+      throw new Unreachable();
     }
   }
 

@@ -85,25 +85,25 @@ public class CfInstructionSubject implements InstructionSubject {
   @Override
   public boolean isInstancePut() {
     return instruction instanceof CfFieldInstruction
-        && ((CfFieldInstruction) instruction).getOpcode() == Opcodes.PUTFIELD;
+        && ((CfFieldInstruction) instruction).getAsmOpcode() == Opcodes.PUTFIELD;
   }
 
   @Override
   public boolean isStaticPut() {
     return instruction instanceof CfFieldInstruction
-        && ((CfFieldInstruction) instruction).getOpcode() == Opcodes.PUTSTATIC;
+        && ((CfFieldInstruction) instruction).getAsmOpcode() == Opcodes.PUTSTATIC;
   }
 
   @Override
   public boolean isInstanceGet() {
     return instruction instanceof CfFieldInstruction
-        && ((CfFieldInstruction) instruction).getOpcode() == Opcodes.GETFIELD;
+        && ((CfFieldInstruction) instruction).getAsmOpcode() == Opcodes.GETFIELD;
   }
 
   @Override
   public boolean isStaticGet() {
     return instruction instanceof CfFieldInstruction
-        && ((CfFieldInstruction) instruction).getOpcode() == Opcodes.GETSTATIC;
+        && ((CfFieldInstruction) instruction).getAsmOpcode() == Opcodes.GETSTATIC;
   }
 
   @Override

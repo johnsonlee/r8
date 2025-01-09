@@ -17,6 +17,8 @@ import org.objectweb.asm.Opcodes;
 
 public class CfCompareHelper {
 
+  public static final int MAX_COMPARE_ID;
+
   // Integer constants to ensure that there is a well order for all CF instructions including
   // virtual instructions represented in our internal encoding.
   public static final int CONST_CLASS_COMPARE_ID;
@@ -46,6 +48,7 @@ public class CfCompareHelper {
     LABEL_COMPARE_ID = ++lastId;
     POSITION_COMPARE_ID = ++lastId;
     RECORD_FIELD_VALUES_COMPARE_ID = ++lastId;
+    MAX_COMPARE_ID = lastId;
   }
 
   // Helper to signal that the concrete instruction is uniquely determined by its ID/opcode.

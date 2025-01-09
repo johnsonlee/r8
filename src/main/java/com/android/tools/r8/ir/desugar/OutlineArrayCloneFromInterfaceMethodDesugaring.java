@@ -19,6 +19,7 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 /** This outlines calls to array clone from within interface methods. See b/342802978 */
@@ -27,8 +28,12 @@ public class OutlineArrayCloneFromInterfaceMethodDesugaring implements CfInstruc
   private final AppView<?> appView;
 
   public OutlineArrayCloneFromInterfaceMethodDesugaring(AppView<?> appView) {
-
     this.appView = appView;
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    consumer.accept(Opcodes.INVOKEVIRTUAL);
   }
 
   @Override

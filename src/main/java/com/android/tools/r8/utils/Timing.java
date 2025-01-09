@@ -23,6 +23,9 @@ import java.util.concurrent.ExecutorService;
 
 public class Timing implements AutoCloseable {
 
+  private static final int MINIMUM_REPORT_MS =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.printtimes.minvalue_ms", 10);
   private static final int MINIMUM_REPORT_PERCENTAGE =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
           "com.android.tools.r8.printtimes.minvalue", 2);
@@ -227,6 +230,9 @@ public class Timing implements AutoCloseable {
 
     public void report(int depth, Node top) {
       assert duration() >= 0;
+      if (durationInMs(duration()) < MINIMUM_REPORT_MS) {
+        return;
+      }
       if (percentage(duration(), top.duration()) < MINIMUM_REPORT_PERCENTAGE) {
         return;
       }
@@ -245,7 +251,8 @@ public class Timing implements AutoCloseable {
       }
       if (childTime < duration()) {
         long unaccounted = duration() - childTime;
-        if (percentage(unaccounted, top.duration()) >= MINIMUM_REPORT_PERCENTAGE) {
+        if (durationInMs(unaccounted) >= MINIMUM_REPORT_MS
+            && percentage(unaccounted, top.duration()) >= MINIMUM_REPORT_PERCENTAGE) {
           printPrefix(depth + 1);
           System.out.println(
               "("
@@ -409,6 +416,10 @@ public class Timing implements AutoCloseable {
     return new TimingMerger(title, numberOfThreads, this);
   }
 
+  private static long durationInMs(long value) {
+    return value / 1000000;
+  }
+
   private static long percentage(long part, long total) {
     return part * 100 / total;
   }
@@ -418,7 +429,7 @@ public class Timing implements AutoCloseable {
   }
 
   private static String prettyTime(long value) {
-    return (value / 1000000) + "ms";
+    return durationInMs(value) + "ms";
   }
 
   private static String prettySize(long value) {

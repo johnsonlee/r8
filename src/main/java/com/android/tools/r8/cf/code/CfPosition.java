@@ -33,6 +33,16 @@ public class CfPosition extends CfInstruction {
   }
 
   @Override
+  public int getAsmOpcode() {
+    return -1;
+  }
+
+  @Override
+  public boolean hasAsmOpcode() {
+    return false;
+  }
+
+  @Override
   public int getCompareToId() {
     return CfCompareHelper.POSITION_COMPARE_ID;
   }

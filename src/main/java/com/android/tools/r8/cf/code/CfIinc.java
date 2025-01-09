@@ -41,7 +41,7 @@ public class CfIinc extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.IINC;
   }
 

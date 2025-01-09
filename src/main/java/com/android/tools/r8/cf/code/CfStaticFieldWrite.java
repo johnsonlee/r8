@@ -33,7 +33,7 @@ public class CfStaticFieldWrite extends CfFieldInstruction {
   }
 
   @Override
-  public int getOpcode() {
+  public int getAsmOpcode() {
     return Opcodes.PUTSTATIC;
   }
 

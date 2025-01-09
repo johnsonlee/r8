@@ -59,6 +59,16 @@ public class CfConstClass extends CfInstruction implements CfTypeInstruction {
   }
 
   @Override
+  public int getAsmOpcode() {
+    return -1;
+  }
+
+  @Override
+  public boolean hasAsmOpcode() {
+    return false;
+  }
+
+  @Override
   public int getCompareToId() {
     return CfCompareHelper.CONST_CLASS_COMPARE_ID;
   }

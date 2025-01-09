@@ -38,6 +38,16 @@ public class CfDexItemBasedConstString extends CfInstruction {
   }
 
   @Override
+  public int getAsmOpcode() {
+    return -1;
+  }
+
+  @Override
+  public boolean hasAsmOpcode() {
+    return false;
+  }
+
+  @Override
   public int getCompareToId() {
     return CfCompareHelper.CONST_STRING_DEX_ITEM_COMPARE_ID;
   }

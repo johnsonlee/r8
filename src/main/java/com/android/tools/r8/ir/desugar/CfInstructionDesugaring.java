@@ -7,9 +7,16 @@ package com.android.tools.r8.ir.desugar;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.ProgramMethod;
+import java.util.function.IntConsumer;
 
 /** Interface for desugaring a single class-file instruction. */
 public interface CfInstructionDesugaring {
+
+  CfInstructionDesugaring[] EMPTY_ARRAY = new CfInstructionDesugaring[0];
+
+  void acceptRelevantAsmOpcodes(IntConsumer consumer);
+
+  default void acceptRelevantCompareToIds(IntConsumer consumer) {}
 
   // TODO(193004879): Merge the scan and prepare methods.
   default void scan(ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer) {
@@ -42,5 +49,9 @@ public interface CfInstructionDesugaring {
 
   default DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
     throw new Unreachable();
+  }
+
+  default String getName() {
+    return getClass().getTypeName();
   }
 }

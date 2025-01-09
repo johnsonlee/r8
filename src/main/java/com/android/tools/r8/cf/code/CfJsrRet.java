@@ -21,6 +21,7 @@ import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 public class CfJsrRet extends CfInstruction {
 
@@ -36,8 +37,8 @@ public class CfJsrRet extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
-    throw error();
+  public int getAsmOpcode() {
+    return Opcodes.RET;
   }
 
   @Override

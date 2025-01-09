@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
@@ -52,6 +53,11 @@ public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
 
   public LambdaInstructionDesugaring(AppView<?> appView) {
     this.appView = appView;
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    consumer.accept(Opcodes.INVOKEDYNAMIC);
   }
 
   @Override

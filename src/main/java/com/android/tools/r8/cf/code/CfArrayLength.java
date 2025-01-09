@@ -45,7 +45,7 @@ public class CfArrayLength extends CfInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.ARRAYLENGTH;
   }
 

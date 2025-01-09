@@ -191,7 +191,7 @@ public class ClassInitializerAssertionEnablingAnalysis
             fieldInstruction = isR8InstructionSequence(code, i + 1);
           }
           if (fieldInstruction != null) {
-            return fieldInstruction.getOpcode() == Opcodes.PUTSTATIC
+            return fieldInstruction.getAsmOpcode() == Opcodes.PUTSTATIC
                 && fieldInstruction.getField().name == dexItemFactory.assertionsDisabled;
           }
         }
@@ -220,7 +220,7 @@ public class ClassInitializerAssertionEnablingAnalysis
               && invoke.getMethod() == dexItemFactory.classMethods.desiredAssertionStatus) {
             if (instructions.get(i).isFieldInstruction()) {
               CfFieldInstruction fieldInstruction = instructions.get(i).asFieldInstruction();
-              if (fieldInstruction.getOpcode() == Opcodes.PUTSTATIC
+              if (fieldInstruction.getAsmOpcode() == Opcodes.PUTSTATIC
                   && fieldInstruction.getField().name == kotlinAssertionsEnabled) {
                 return true;
               }

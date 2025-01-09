@@ -35,7 +35,7 @@ public class CfReturnVoid extends CfJumpInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.RETURN;
   }
 

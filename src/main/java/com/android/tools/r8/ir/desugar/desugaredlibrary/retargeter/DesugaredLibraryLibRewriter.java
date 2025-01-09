@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
 /**
@@ -86,6 +88,11 @@ public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
         DesugaredLibraryCfMethods::DesugaredLibraryBridge_fromArgType;
     builder.put(from, cfCodeProvider);
     return builder.build();
+  }
+
+  @Override
+  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
   }
 
   @Override

@@ -55,7 +55,7 @@ public class CfInstanceOf extends CfInstruction implements CfTypeInstruction {
   }
 
   @Override
-  public int getCompareToId() {
+  public int getAsmOpcode() {
     return Opcodes.INSTANCEOF;
   }
 
