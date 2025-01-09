@@ -191,12 +191,15 @@ def prepare_maven(args):
     assert args.version
 
     def release_maven(options):
-        gfile = '/bigstore/r8-releases/raw/%s/r8lib.zip' % args.version
-        release_id = gmaven_publisher_stage(options, [gfile])
+        gfiles = []
+        for version in args.version:
+            gfiles.append('/bigstore/r8-releases/raw/%s/r8lib.zip' % version)
+
+        release_id = gmaven_publisher_stage(options, gfiles)
 
         print("Staged Release ID " + release_id + ".\n")
         gmaven_publisher_stage_redir_test_info(
-            release_id, "com.android.tools:r8:%s" % args.version, "r8lib.jar")
+            release_id, "com.android.tools:r8:%s" % args.version[0], "r8lib.jar")
 
         print
         answer = input("Continue with publishing [y/N]:")
@@ -313,15 +316,18 @@ def branch_from_version(version):
 
 
 def prepare_google3(args):
-    assert args.version
+    assert len(args.version == 1)
+
     # Check if an existing client exists.
     if not args.use_existing_work_branch:
         check_no_google3_client(args, args.p4_client)
 
     def release_google3(options):
+        assert len(options.version == 1)
+        version = options.version[0]
         print("Releasing for Google 3")
         if options.dry_run:
-            return 'DryRun: omitting g3 release for %s' % options.version
+            return 'DryRun: omitting g3 release for %s' % version
 
         google3_base = subprocess.check_output(
             ['p4', 'g4d', '-f', args.p4_client]).decode('utf-8').rstrip()
@@ -337,28 +343,28 @@ def prepare_google3(args):
             g4_open('desugar_jdk_libs_configuration.jar')
             g4_open('threading-module-blocking.jar')
             g4_open('threading-module-single-threaded.jar')
-            download_file(options.version,
+            download_file(version,
                           'r8-full-exclude-deps.jar',
                           'full.jar')
-            download_file(options.version,
+            download_file(version,
                           'r8-src.jar',
                           'src.jar')
-            download_file(options.version,
+            download_file(version,
                           'r8lib-exclude-deps.jar',
                           'lib.jar')
-            download_file(options.version,
+            download_file(version,
                           'r8lib-exclude-deps.jar.map',
                           'lib.jar.map')
-            download_file(options.version,
+            download_file(version,
                           'desugar_jdk_libs_configuration.jar',
                           'desugar_jdk_libs_configuration.jar')
-            download_file(options.version,
+            download_file(version,
                           'threading-module-blocking.jar',
                           'threading-module-blocking.jar')
-            download_file(options.version,
+            download_file(version,
                           'threading-module-single-threaded.jar',
                           'threading-module-single-threaded.jar')
-            if options.version != 'main':
+            if version != 'main':
                 g4_open('METADATA')
                 metadata_path = os.path.join(third_party_r8, 'METADATA')
                 match_count = 0
@@ -388,14 +394,14 @@ def prepare_google3(args):
                     run again with options --google3 --use-existing-work-branch.
                     """)
                     sys.exit(1)
-                sed(version_match_regexp, options.version, metadata_path)
+                sed(version_match_regexp, version, metadata_path)
                 sed(r'\{ year.*\}',
                     f'{{ year: {today.year} month: {today.month} day: {today.day} }}',
                     metadata_path)
             subprocess.check_output('chmod u+w *', shell=True)
             previous_version = match_value
-            if not options.version.endswith('-dev') or not previous_version.endswith('-dev'):
-                print(f'ERROR: At least one of {options.version} (new version) '
+            if not version.endswith('-dev') or not previous_version.endswith('-dev'):
+                print(f'ERROR: At least one of {version} (new version) '
                     + f'and {previous_version} (previous version) is not a -dev version. '
                     + 'Expected both to be.')
                 sys.exit(1)
@@ -406,7 +412,7 @@ def prepare_google3(args):
                     current_version_hash = find_r8_version_hash(
                         'origin/' + branch_from_version(previous_version), previous_version)
                     new_version_hash = find_r8_version_hash(
-                        'origin/' + branch_from_version(options.version), options.version)
+                        'origin/' + branch_from_version(version), version)
                     if not current_version_hash or not new_version_hash:
                         print('ERROR: Failed to generate merged commits log, missing version')
                         sys.exit(1)
@@ -426,10 +432,10 @@ def prepare_google3(args):
         with utils.ChangedWorkingDirectory(google3_base):
             blaze_result = blaze_run('//third_party/java/r8:d8 -- --version')
 
-            assert options.version in blaze_result
+            assert version in blaze_result
 
             if not options.no_upload:
-                change_result = g4_change(options.version, commit_info)
+                change_result = g4_change(version, commit_info)
                 change_result += 'Run \'(g4d ' + args.p4_client \
                                  + ' && tap_presubmit -p all --train -c ' \
                                  + get_cl_id(change_result) + ')\' for running TAP global' \
@@ -914,9 +920,11 @@ def parse_options():
                        help='The hash to use for the new dev version of R8')
     group.add_argument(
         '--version',
-        metavar=('<version>'),
+        metavar=('<version(s)>'),
+        default=[],
+        action='append',
         help=
-        'The new version of R8 (e.g., 1.4.51) to release to selected channels')
+        'The new version(s) of R8 (e.g., 1.4.51) to release to selected channels')
     group.add_argument(
         '--desugar-library',
         nargs=2,
@@ -990,8 +998,12 @@ def parse_options():
                         help='Location for dry run output.')
     args = result.parse_args()
 
-    if args.version and not 'dev' in args.version and args.google3:
-        print("WARNING: You should not roll a release version into google 3")
+    if args.google3:
+        if len(args.version) != 1:
+            print("ERROR: only one version supported for google 3")
+            sys.exit(1)
+        if not 'dev' in args.version[0]:
+            print("WARNING: You should not roll a release version into google 3")
 
     return args
 
