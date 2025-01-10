@@ -286,8 +286,9 @@ public class VirtualFile {
   }
 
   public boolean isFull(int maxEntries) {
-    return (transaction.getNumberOfMethods() > maxEntries)
-        || (transaction.getNumberOfFields() > maxEntries);
+    return transaction.getNumberOfMethods() > maxEntries
+        || transaction.getNumberOfFields() > maxEntries
+        || transaction.getNumberOfTypes() > maxEntries;
   }
 
   public boolean isFull() {
@@ -304,6 +305,10 @@ public class VirtualFile {
 
   public int getNumberOfClasses() {
     return transaction.getNumberOfClasses();
+  }
+
+  public int getNumberOfTypes() {
+    return transaction.getNumberOfTypes();
   }
 
   void throwIfFull(boolean hasMainDexList, Reporter reporter) {
@@ -1117,6 +1122,10 @@ public class VirtualFile {
 
     int getNumberOfClasses() {
       return classes.size() + base.classes.size();
+    }
+
+    int getNumberOfTypes() {
+      return types.size() + base.types.size();
     }
 
     int getNumberOfFields() {
