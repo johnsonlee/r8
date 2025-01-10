@@ -331,6 +331,11 @@ public class Tracer {
                 });
         return;
       }
+      if (type.isIdenticalTo(factory.annotationSourceDebugExtension)) {
+        assert annotation.getAnnotation().getNumberOfElements() == 1;
+        assert annotation.getAnnotation().getElement(0).getValue().isDexValueString();
+        return;
+      }
       if (type.isIdenticalTo(factory.annotationThrows)) {
         assert referencedFrom.isMethodContext();
         registerDexValue(
