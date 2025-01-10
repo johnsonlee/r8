@@ -74,6 +74,9 @@ EXTERNAL_BENCHMARKS = {
     'NowInAndroidAppNoJ$Release': {
         'targets': ['d8']
     },
+    'NowInAndroidAppPartial': {
+        'targets': ['r8-full']
+    },
     'OwlApp': {
         'targets': ['r8-full']
     },

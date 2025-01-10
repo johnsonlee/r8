@@ -119,7 +119,15 @@ public abstract class BaseCommand {
     }
 
     Builder(DiagnosticsHandler handler) {
-      this(AndroidApp.builder(new Reporter(handler)));
+      this(AndroidApp.builder(createReporter(handler)));
+    }
+
+    static Reporter createReporter(DiagnosticsHandler handler) {
+      if (handler instanceof Reporter) {
+        return (Reporter) handler;
+      } else {
+        return new Reporter(handler);
+      }
     }
 
     Builder(AndroidApp.Builder builder) {

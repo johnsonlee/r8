@@ -62,18 +62,25 @@ public abstract class TestCompilerBuilder<
   public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
       options -> {
         options.testing.enableTestAssertions = true;
-        options.testing.allowUnusedDontWarnRules = false;
-        options.testing.allowUnnecessaryDontWarnWildcards = false;
-        options.testing.listIterationRewritingEnabled = true;
-        options.horizontalClassMergerOptions().enable();
-        options.horizontalClassMergerOptions().setEnableInterfaceMerging();
-        options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
-        options
-            .getCfCodeAnalysisOptions()
-            .setAllowUnreachableCfBlocks(false)
-            .setEnableUnverifiableCodeReporting(true);
-        options.getOpenClosedInterfacesOptions().disallowOpenInterfaces();
       };
+
+  public static final Consumer<InternalOptions> DEFAULT_D8_OPTIONS = DEFAULT_OPTIONS;
+
+  public static final Consumer<InternalOptions> DEFAULT_R8_OPTIONS =
+      DEFAULT_OPTIONS.andThen(
+          options -> {
+            options.testing.allowUnusedDontWarnRules = false;
+            options.testing.allowUnnecessaryDontWarnWildcards = false;
+            options.testing.listIterationRewritingEnabled = true;
+            options.horizontalClassMergerOptions().enable();
+            options.horizontalClassMergerOptions().setEnableInterfaceMerging();
+            options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
+            options
+                .getCfCodeAnalysisOptions()
+                .setAllowUnreachableCfBlocks(false)
+                .setEnableUnverifiableCodeReporting(true);
+            options.getOpenClosedInterfacesOptions().disallowOpenInterfaces();
+          });
 
   final Backend backend;
 
@@ -89,7 +96,7 @@ public abstract class TestCompilerBuilder<
   private boolean noMinApiLevel = false;
   private int minApiLevel = -1;
   private boolean optimizeMultidexForLinearAlloc = false;
-  private Consumer<InternalOptions> optionsConsumer = DEFAULT_OPTIONS;
+  private Consumer<InternalOptions> optionsConsumer;
   private ByteArrayOutputStream stdout = null;
   private boolean stdOutForwarding = true;
   private PrintStream oldStdout = null;
@@ -124,6 +131,14 @@ public abstract class TestCompilerBuilder<
     return null;
   }
 
+  public boolean isR8PartialTestBuilder() {
+    return false;
+  }
+
+  public R8PartialTestBuilder asR8PartialTestBuilder() {
+    return null;
+  }
+
   public boolean isTestShrinkerBuilder() {
     return false;
   }
@@ -151,6 +166,21 @@ public abstract class TestCompilerBuilder<
     } else {
       assert backend == Backend.CF;
       setOutputMode(OutputMode.ClassFile);
+    }
+    if (isD8TestBuilder()) {
+      optionsConsumer = DEFAULT_D8_OPTIONS;
+    } else if (isR8TestBuilder()) {
+      optionsConsumer = DEFAULT_R8_OPTIONS;
+    } else if (isR8PartialTestBuilder()) {
+      optionsConsumer =
+          DEFAULT_OPTIONS.andThen(
+              options -> {
+                options.partialCompilationConfiguration.d8DexOptionsConsumer = DEFAULT_D8_OPTIONS;
+                options.partialCompilationConfiguration.d8MergeOptionsConsumer = DEFAULT_D8_OPTIONS;
+                options.partialCompilationConfiguration.r8OptionsConsumer = DEFAULT_R8_OPTIONS;
+              });
+    } else {
+      optionsConsumer = DEFAULT_OPTIONS;
     }
   }
 
@@ -298,7 +328,7 @@ public abstract class TestCompilerBuilder<
     }
     if (!noMinApiLevel
         && backend.isDex()
-        && (isD8TestBuilder() || isR8TestBuilder())
+        && (isD8TestBuilder() || isR8TestBuilder() || isR8PartialTestBuilder())
         && !isBenchmarkRunner) {
       int minApiLevel = builder.getMinApiLevel();
       Consumer<InternalOptions> previousConsumer = optionsConsumer;
@@ -327,6 +357,12 @@ public abstract class TestCompilerBuilder<
     if (isD8TestBuilder() || isR8TestBuilder()) {
       addOptionsModification(
           o -> o.getArtProfileOptions().setEnableCompletenessCheckForTesting(!isBenchmarkRunner));
+    } else if (isR8PartialTestBuilder()) {
+      asR8PartialTestBuilder()
+          .addGlobalOptionsModification(
+              o ->
+                  o.getArtProfileOptions()
+                      .setEnableCompletenessCheckForTesting(!isBenchmarkRunner));
     }
 
     builder.setOptimizeMultidexForLinearAlloc(optimizeMultidexForLinearAlloc);

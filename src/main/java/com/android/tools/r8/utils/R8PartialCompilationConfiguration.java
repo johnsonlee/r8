@@ -28,6 +28,10 @@ public class R8PartialCompilationConfiguration implements Predicate<DexString> {
   public Consumer<AndroidApp> r8OutputAppConsumer;
   public Consumer<AndroidApp> d8OutputAppConsumer;
 
+  public Consumer<InternalOptions> d8DexOptionsConsumer = ConsumerUtils.emptyConsumer();
+  public Consumer<InternalOptions> d8MergeOptionsConsumer = ConsumerUtils.emptyConsumer();
+  public Consumer<InternalOptions> r8OptionsConsumer = ConsumerUtils.emptyConsumer();
+
   private static final R8PartialCompilationConfiguration disabledConfiguration =
       new R8PartialCompilationConfiguration(false, null, null);
 

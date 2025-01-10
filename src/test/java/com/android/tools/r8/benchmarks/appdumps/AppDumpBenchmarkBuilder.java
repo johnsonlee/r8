@@ -3,9 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8PartialTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestCompilerBuilder;
@@ -22,10 +27,12 @@ import com.android.tools.r8.benchmarks.BenchmarkSuite;
 import com.android.tools.r8.benchmarks.BenchmarkTarget;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.dump.DumpOptions;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.lang.annotation.RetentionPolicy;
@@ -127,6 +134,25 @@ public class AppDumpBenchmarkBuilder {
         .setTarget(BenchmarkTarget.R8)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
         .setMethod(runR8(this, configuration))
+        .setFromRevision(fromRevision)
+        .addDependency(dumpDependency)
+        .measureRunTime()
+        .measureCodeSize()
+        .measureInstructionCodeSize()
+        .measureComposableInstructionCodeSize()
+        .measureDexSegmentsCodeSize()
+        .measureDex2OatCodeSize()
+        .setTimeout(10, TimeUnit.MINUTES)
+        .build();
+  }
+
+  public BenchmarkConfig buildR8WithPartialShrinking() {
+    verify();
+    return BenchmarkConfig.builder()
+        .setName(name)
+        .setTarget(BenchmarkTarget.R8)
+        .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
+        .setMethod(runR8WithPartialShrinking(this))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
         .measureRunTime()
@@ -253,7 +279,20 @@ public class AppDumpBenchmarkBuilder {
                 options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces());
   }
 
-  private static ThrowableConsumer<? super R8FullTestBuilder>
+  private static ThrowableConsumer<? super R8PartialTestBuilder>
+      getDefaultR8PartialConfiguration() {
+    return testBuilder ->
+        testBuilder
+            .allowUnnecessaryDontWarnWildcards()
+            .allowUnusedDontWarnPatterns()
+            .allowUnusedProguardConfigurationRules()
+            // TODO(b/222228826): Disallow unrecognized diagnostics and open interfaces.
+            .allowDiagnosticMessages()
+            .addR8PartialOptionsModification(
+                options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces());
+  }
+
+  private static ThrowableConsumer<? super R8TestBuilder<?, ?, ?>>
       getKeepComposableAnnotationsConfiguration() {
     return testBuilder ->
         testBuilder
@@ -266,6 +305,10 @@ public class AppDumpBenchmarkBuilder {
   private static BenchmarkMethod runR8(
       AppDumpBenchmarkBuilder builder, ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     return internalRunR8(builder, false, configuration);
+  }
+
+  private static BenchmarkMethod runR8WithPartialShrinking(AppDumpBenchmarkBuilder builder) {
+    return internalRunR8Partial(builder, getDefaultR8PartialConfiguration());
   }
 
   private static BenchmarkMethod runR8WithResourceShrinking(
@@ -328,6 +371,52 @@ public class AppDumpBenchmarkBuilder {
                               // Ignore.
                             }
                           });
+                });
+  }
+
+  private static BenchmarkMethod internalRunR8Partial(
+      AppDumpBenchmarkBuilder builder,
+      ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
+    return environment ->
+        BenchmarkBase.runner(environment)
+            .setWarmupIterations(0)
+            .run(
+                results -> {
+                  CompilerDump dump = builder.getExtractedDump(environment);
+                  DumpOptions dumpProperties = dump.getBuildProperties();
+
+                  // Verify that the dump does not use features that are not implemented below.
+                  dump.forEachFeatureArchive(
+                      feature -> {
+                        throw new Unimplemented();
+                      });
+                  assertFalse(dumpProperties.getEnableSameFilePolicy());
+                  assertFalse(dumpProperties.getIsolatedSplits());
+                  assertNull(dumpProperties.getAndroidApiExtensionPackages());
+
+                  // Run R8.
+                  TestBase.testForR8Partial(environment.getTemp(), Backend.DEX)
+                      .addProgramFiles(dump.getProgramArchive())
+                      .addLibraryFiles(dump.getLibraryArchive())
+                      .addKeepRuleFiles(dump.getProguardConfigFile())
+                      // TODO(b/388452773): Fix support for default interface methods.
+                      .setMinApi(Math.max(dumpProperties.getMinApi(), AndroidApiLevel.N.getLevel()))
+                      .setR8PartialConfiguration(
+                          b -> builder.programPackages.forEach(b::addJavaTypeIncludePattern))
+                      .apply(b -> addDesugaredLibrary(b, dump))
+                      .apply(configuration)
+                      .applyIf(
+                          environment.getConfig().containsComposableCodeSizeMetric(),
+                          getKeepComposableAnnotationsConfiguration())
+                      .apply(
+                          r ->
+                              r.benchmarkCompile(results)
+                                  .benchmarkCodeSize(results)
+                                  .benchmarkInstructionCodeSize(results)
+                                  .benchmarkDexSegmentsCodeSize(results)
+                                  .benchmarkDex2OatCodeSize(
+                                      results,
+                                      environment.getConfig().isDex2OatVerificationEnabled()));
                 });
   }
 

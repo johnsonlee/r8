@@ -172,7 +172,7 @@ class R8Partial {
     // Compile D8 input with D8.
     Path d8Output = tmp.resolve("d8-output.zip");
     D8Command.Builder d8Builder =
-        D8Command.builder()
+        D8Command.builder(options.reporter)
             .setMinApiLevel(dump.getBuildProperties().getMinApi())
             .addLibraryFiles(dump.getLibraryArchive())
             .addClasspathFiles(dump.getClasspathArchive())
@@ -195,6 +195,7 @@ class R8Partial {
       d8InputAppConsumer.accept(d8App);
     }
     InternalOptions d8Options = d8command.getInternalOptions();
+    options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
     assert d8Options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
         : "Default interface methods not yet supported";
     D8.runInternal(d8App, d8Options, executor);
@@ -251,7 +252,7 @@ class R8Partial {
     Path r8Output = tmp.resolve("r8-output.zip");
     R8DataResources r8DataResources = new R8DataResources();
     R8Command.Builder r8Builder =
-        R8Command.builder()
+        R8Command.builder(options.reporter)
             .setMinApiLevel(dump.getBuildProperties().getMinApi())
             .addLibraryFiles(dump.getLibraryArchive())
             .addClasspathFiles(dump.getClasspathArchive())
@@ -282,6 +283,7 @@ class R8Partial {
       r8InputAppConsumer.accept(r8App);
     }
     InternalOptions r8Options = r8Command.getInternalOptions();
+    options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.mapConsumer = originalMapConsumer;
     r8Options.quiet = true; // Don't write the R8 version.
     R8.runInternal(r8App, r8Options, executor);
@@ -291,7 +293,7 @@ class R8Partial {
 
     // TODO(b/309743298): Handle jumbo string rewriting with PCs in mapping file.
     D8Command.Builder mergerBuilder =
-        D8Command.builder()
+        D8Command.builder(options.reporter)
             .setMinApiLevel(dump.getBuildProperties().getMinApi())
             .addLibraryFiles(dump.getLibraryArchive())
             .addClasspathFiles(dump.getClasspathArchive())
@@ -302,6 +304,7 @@ class R8Partial {
     D8Command mergeCommand = mergerBuilder.makeCommand();
     AndroidApp mergeApp = mergeCommand.getInputApp();
     InternalOptions mergeOptions = mergeCommand.getInternalOptions();
+    options.partialCompilationConfiguration.d8MergeOptionsConsumer.accept(mergeOptions);
     D8.runInternal(mergeApp, mergeOptions, executor);
     // Feed the data resource output by R8 to the output consumer. Keeping this at the end after the
     // merge keeps the order of calls to the output consumer closer to full R8.

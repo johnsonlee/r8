@@ -445,7 +445,7 @@ public abstract class R8TestBuilder<
     return addOptionsModification(options -> options.testing.allowUnusedDontWarnRules = true);
   }
 
-  public T allowUnusedProguardConfigurationRules() {
+  public final T allowUnusedProguardConfigurationRules() {
     return allowUnusedProguardConfigurationRules(true);
   }
 
@@ -811,7 +811,11 @@ public abstract class R8TestBuilder<
   }
 
   public T enableExperimentalKeepAnnotations() {
-    addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = true);
+    return addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = true)
+        .addKeepAnnoLibToClasspath();
+  }
+
+  public T addKeepAnnoLibToClasspath() {
     try {
       builder.addClasspathFiles(KeepAnnoTestUtils.getKeepAnnoLib(getState().getTempFolder()));
       return self();
