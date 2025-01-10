@@ -16,6 +16,10 @@ public class CompilerDump {
 
   private final Path directory;
 
+  public static CompilerDump fromArchive(Path dumpArchive) throws IOException {
+    return fromArchive(dumpArchive, dumpArchive.getParent());
+  }
+
   public static CompilerDump fromArchive(Path dumpArchive, Path dumpExtractionDirectory)
       throws IOException {
     ZipUtils.unzip(dumpArchive, dumpExtractionDirectory);

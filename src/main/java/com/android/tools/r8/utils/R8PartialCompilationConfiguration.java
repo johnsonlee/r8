@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
@@ -16,7 +17,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class R8PartialCompilationConfiguration implements Predicate<DexString> {
+public class R8PartialCompilationConfiguration {
 
   private final boolean enabled;
   private Path tempDir = null;
@@ -46,8 +47,8 @@ public class R8PartialCompilationConfiguration implements Predicate<DexString> {
     this.excludePredicates = excludePredicates;
   }
 
-  @Override
-  public boolean test(DexString name) {
+  public boolean test(DexProgramClass clazz) {
+    DexString name = clazz.getType().getDescriptor();
     for (Predicate<DexString> isR8ClassPredicate : includePredicates) {
       if (isR8ClassPredicate.test(name)) {
         for (Predicate<DexString> isD8ClassPredicate : excludePredicates) {
@@ -98,10 +99,6 @@ public class R8PartialCompilationConfiguration implements Predicate<DexString> {
 
   public void setTempDir(Path tempDir) {
     this.tempDir = tempDir;
-  }
-
-  public Path getDumpFile() throws IOException {
-    return getTempDir().resolve("dump.zip");
   }
 
   public static class Builder {
