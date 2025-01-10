@@ -147,12 +147,17 @@ public class AppDumpBenchmarkBuilder {
   }
 
   public BenchmarkConfig buildR8WithPartialShrinking() {
+    return buildR8WithPartialShrinking(getDefaultR8PartialConfiguration());
+  }
+
+  public BenchmarkConfig buildR8WithPartialShrinking(
+      ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
     verify();
     return BenchmarkConfig.builder()
         .setName(name)
         .setTarget(BenchmarkTarget.R8)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8WithPartialShrinking(this))
+        .setMethod(runR8WithPartialShrinking(this, configuration))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
         .measureRunTime()
@@ -307,8 +312,10 @@ public class AppDumpBenchmarkBuilder {
     return internalRunR8(builder, false, configuration);
   }
 
-  private static BenchmarkMethod runR8WithPartialShrinking(AppDumpBenchmarkBuilder builder) {
-    return internalRunR8Partial(builder, getDefaultR8PartialConfiguration());
+  private static BenchmarkMethod runR8WithPartialShrinking(
+      AppDumpBenchmarkBuilder builder,
+      ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
+    return internalRunR8Partial(builder, configuration);
   }
 
   private static BenchmarkMethod runR8WithResourceShrinking(
@@ -402,7 +409,15 @@ public class AppDumpBenchmarkBuilder {
                       // TODO(b/388452773): Fix support for default interface methods.
                       .setMinApi(Math.max(dumpProperties.getMinApi(), AndroidApiLevel.N.getLevel()))
                       .setR8PartialConfiguration(
-                          b -> builder.programPackages.forEach(b::addJavaTypeIncludePattern))
+                          b -> {
+                            if (builder.programPackages.isEmpty()) {
+                              b.addJavaTypeIncludePattern("androidx.**");
+                              b.addJavaTypeIncludePattern("kotlin.**");
+                              b.addJavaTypeIncludePattern("kotlinx.**");
+                            } else {
+                              builder.programPackages.forEach(b::addJavaTypeIncludePattern);
+                            }
+                          })
                       .apply(b -> addDesugaredLibrary(b, dump))
                       .apply(configuration)
                       .applyIf(

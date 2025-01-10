@@ -4,6 +4,7 @@
 package com.android.tools.r8.benchmarks.appdumps;
 
 import com.android.tools.r8.CompilationMode;
+import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -49,6 +50,20 @@ public class TiviBenchmarks extends BenchmarkBase {
             .setCompilationMode(CompilationMode.DEBUG)
             .setFromRevision(12370)
             .addProgramPackages("app/tivi")
-            .buildIncrementalD8());
+            .buildIncrementalD8(),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("TiviAppPartial")
+            .setDumpDependencyPath(dump)
+            .setFromRevision(12215)
+            .buildR8WithPartialShrinking(TiviBenchmarks::configureR8Partial));
+  }
+
+  private static void configureR8Partial(R8PartialTestBuilder testBuilder) {
+    testBuilder
+        .allowUnnecessaryDontWarnWildcards()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules()
+        // TODO(b/222228826): Disallow unrecognized diagnostics and open interfaces.
+        .allowDiagnosticMessages();
   }
 }

@@ -4,6 +4,7 @@
 package com.android.tools.r8.benchmarks.appdumps;
 
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -41,40 +42,80 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
             .setFromRevision(16457)
             .buildR8(),
         AppDumpBenchmarkBuilder.builder()
+            .setName("CraneAppPartial")
+            .setDumpDependencyPath(dir.resolve("crane"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(),
+        AppDumpBenchmarkBuilder.builder()
             .setName("JetLaggedApp")
             .setDumpDependencyPath(dir.resolve("jetlagged"))
             .setFromRevision(16457)
             .buildR8(),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("JetLaggedAppPartial")
+            .setDumpDependencyPath(dir.resolve("jetlagged"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(),
         AppDumpBenchmarkBuilder.builder()
             .setName("JetNewsApp")
             .setDumpDependencyPath(dir.resolve("jetnews"))
             .setFromRevision(16457)
             .buildR8(),
         AppDumpBenchmarkBuilder.builder()
+            .setName("JetNewsAppPartial")
+            .setDumpDependencyPath(dir.resolve("jetnews"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(),
+        AppDumpBenchmarkBuilder.builder()
             .setName("JetCasterApp")
             .setDumpDependencyPath(dir.resolve("jetcaster"))
             .setFromRevision(16457)
             .buildR8(ComposeSamplesBenchmarks::configureJetCasterApp),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("JetCasterAppPartial")
+            .setDumpDependencyPath(dir.resolve("jetcaster"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(ComposeSamplesBenchmarks::configureJetCasterAppPartial),
         AppDumpBenchmarkBuilder.builder()
             .setName("JetChatApp")
             .setDumpDependencyPath(dir.resolve("jetchat"))
             .setFromRevision(16457)
             .buildR8(ComposeSamplesBenchmarks::configureJetChatApp),
         AppDumpBenchmarkBuilder.builder()
+            .setName("JetChatAppPartial")
+            .setDumpDependencyPath(dir.resolve("jetchat"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(ComposeSamplesBenchmarks::configureJetChatAppPartial),
+        AppDumpBenchmarkBuilder.builder()
             .setName("JetSnackApp")
             .setDumpDependencyPath(dir.resolve("jetsnack"))
             .setFromRevision(16457)
             .buildR8(),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("JetSnackAppPartial")
+            .setDumpDependencyPath(dir.resolve("jetsnack"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(),
         AppDumpBenchmarkBuilder.builder()
             .setName("OwlApp")
             .setDumpDependencyPath(dir.resolve("owl"))
             .setFromRevision(16457)
             .buildR8(),
         AppDumpBenchmarkBuilder.builder()
+            .setName("OwlAppPartial")
+            .setDumpDependencyPath(dir.resolve("owl"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(),
+        AppDumpBenchmarkBuilder.builder()
             .setName("ReplyApp")
             .setDumpDependencyPath(dir.resolve("reply"))
             .setFromRevision(16457)
-            .buildR8());
+            .buildR8(),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("ReplyAppPartial")
+            .setDumpDependencyPath(dir.resolve("reply"))
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking());
   }
 
   private static void configureJetCasterApp(R8FullTestBuilder testBuilder) {
@@ -100,7 +141,23 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
             });
   }
 
+  private static void configureJetCasterAppPartial(R8PartialTestBuilder testBuilder) {
+    testBuilder
+        .allowDiagnosticInfoMessages()
+        .allowUnnecessaryDontWarnWildcards()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules();
+  }
+
   private static void configureJetChatApp(R8FullTestBuilder testBuilder) {
+    testBuilder
+        .allowDiagnosticInfoMessages()
+        .allowUnnecessaryDontWarnWildcards()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules();
+  }
+
+  private static void configureJetChatAppPartial(R8PartialTestBuilder testBuilder) {
     testBuilder
         .allowDiagnosticInfoMessages()
         .allowUnnecessaryDontWarnWildcards()
@@ -121,8 +178,18 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
   }
 
   @Test
+  public void testCraneAppPartial() throws Exception {
+    testBenchmarkWithName("CraneAppPartial");
+  }
+
+  @Test
   public void testJetLaggedApp() throws Exception {
     testBenchmarkWithName("JetLaggedApp");
+  }
+
+  @Test
+  public void testJetLaggedAppPartial() throws Exception {
+    testBenchmarkWithName("JetLaggedAppPartial");
   }
 
   @Test
@@ -131,8 +198,18 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
   }
 
   @Test
+  public void testJetNewsAppPartial() throws Exception {
+    testBenchmarkWithName("JetNewsAppPartial");
+  }
+
+  @Test
   public void testJetCasterApp() throws Exception {
     testBenchmarkWithName("JetCasterApp");
+  }
+
+  @Test
+  public void testJetCasterAppPartial() throws Exception {
+    testBenchmarkWithName("JetCasterAppPartial");
   }
 
   @Test
@@ -141,8 +218,18 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
   }
 
   @Test
+  public void testJetChatAppPartial() throws Exception {
+    testBenchmarkWithName("JetChatAppPartial");
+  }
+
+  @Test
   public void testJetSnackApp() throws Exception {
     testBenchmarkWithName("JetSnackApp");
+  }
+
+  @Test
+  public void testJetSnackAppPartial() throws Exception {
+    testBenchmarkWithName("JetSnackAppPartial");
   }
 
   @Test
@@ -151,7 +238,17 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
   }
 
   @Test
+  public void testOwlAppPartial() throws Exception {
+    testBenchmarkWithName("OwlAppPartial");
+  }
+
+  @Test
   public void testReplyApp() throws Exception {
     testBenchmarkWithName("ReplyApp");
+  }
+
+  @Test
+  public void testReplyAppPartial() throws Exception {
+    testBenchmarkWithName("ReplyAppPartial");
   }
 }

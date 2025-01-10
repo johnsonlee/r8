@@ -82,7 +82,6 @@ public class NowInAndroidBenchmarks extends BenchmarkBase {
         AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidAppPartial")
             .setDumpDependencyPath(dump)
-            .addProgramPackages("androidx.**", "kotlin.**", "kotlinx.**")
             .setFromRevision(16017)
             .buildR8WithPartialShrinking(),
         AppDumpBenchmarkBuilder.builder()
