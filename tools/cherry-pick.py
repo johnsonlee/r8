@@ -39,6 +39,16 @@ def parse_options():
                         default=False,
                         action='store_true',
                         help='Answer "yes" to all questions')
+    parser.add_argument('--reviewer',
+                        metavar=('<reviewer(s)>'),
+                        default=[],
+                        action='append',
+                        help='Rewiever(s) for the cherry-pick(s)')
+    parser.add_argument('--send-mail',
+                        '--send_mail',
+                        default=False,
+                        action='store_true',
+                        help='Send Gerrit review request right away')
     return parser.parse_args()
 
 
@@ -118,6 +128,12 @@ def run(args):
                 pass
 
 
+def reviewer_arg(reviewer):
+    if reviewer.find('@') == -1:
+        reviewer = reviewer + "@google.com"
+    return '--reviewer=' + reviewer
+
+
 def confirm_and_upload(branch, args, bugs):
     if not args.yes:
       question = ('Ready to continue (cwd %s, will not upload to Gerrit)' %
@@ -155,11 +171,17 @@ def confirm_and_upload(branch, args, bugs):
             if bug:
                 bugs.add(bug.replace('b/', '').strip())
 
+    cmd = ['git', 'cl', 'upload', '--bypass-hooks']
+    if args.yes:
+        cmd.append('-f')
+    if args.reviewer:
+        cmd.extend(map(reviewer_arg, args.reviewer))
+        if args.send_mail:
+            cmd.append('--send-mail')
     if not args.no_upload:
-        cmd = ['git', 'cl', 'upload', '--bypass-hooks']
-        if (args.yes):
-            cmd.append('-f')
         subprocess.run(cmd)
+    else:
+        print('Not uploading, upload command was "%s"' % cmd)
 
 
 def main():
