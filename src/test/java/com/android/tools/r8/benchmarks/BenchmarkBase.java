@@ -44,6 +44,13 @@ public abstract class BenchmarkBase extends TestBase {
     testBenchmark();
   }
 
+  protected void testBenchmarkWithNameAndTarget(String name, BenchmarkTarget target)
+      throws Exception {
+    assumeTrue(config.getName().equals(name));
+    assumeTrue(config.getTarget().equals(target));
+    testBenchmark();
+  }
+
   private void testBenchmark() throws Exception {
     // Slows down the windows bot considerably and does not add much extra value.
     assumeFalse(ToolHelper.isWindows());

@@ -8,10 +8,13 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
+import com.android.tools.r8.benchmarks.BenchmarkTarget;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -89,5 +92,57 @@ public class NowInAndroidBenchmarks extends BenchmarkBase {
             .setDumpDependencyPath(dump)
             .setFromRevision(16017)
             .buildR8WithResourceShrinking());
+  }
+
+  @Ignore
+  @Test
+  @Override
+  public void testBenchmarks() throws Exception {
+    super.testBenchmarks();
+  }
+
+  @Test
+  public void testNowInAndroidAppD8() throws Exception {
+    testBenchmarkWithNameAndTarget("NowInAndroidApp", BenchmarkTarget.D8);
+  }
+
+  @Test
+  public void testNowInAndroidAppRelease() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppRelease");
+  }
+
+  @Test
+  public void testNowInAndroidAppNoJ$() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppNoJ$");
+  }
+
+  @Test
+  public void testNowInAndroidAppNoJ$Release() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppNoJ$Release");
+  }
+
+  @Test
+  public void testNowInAndroidAppIncremental() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppIncremental");
+  }
+
+  @Test
+  public void testNowInAndroidAppNoJ$Incremental() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppNoJ$Incremental");
+  }
+
+  @Test
+  public void testNowInAndroidAppR8() throws Exception {
+    testBenchmarkWithNameAndTarget("NowInAndroidApp", BenchmarkTarget.R8);
+  }
+
+  @Test
+  public void testNowInAndroidAppPartial() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppPartial");
+  }
+
+  @Test
+  public void testNowInAndroidAppWithResourceShrinking() throws Exception {
+    testBenchmarkWithName("NowInAndroidAppWithResourceShrinking");
   }
 }
