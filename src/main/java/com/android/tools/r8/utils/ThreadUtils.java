@@ -215,8 +215,24 @@ public class ThreadUtils {
 
   static ExecutorService getExecutorServiceForProcessors(
       int processors, ThreadingModule threadingModule) {
-    // This heuristic is based on measurements on a 32 core (hyper-threaded) machine.
-    int threads = processors <= 2 ? processors : (int) Math.ceil(Integer.min(processors, 16) / 2.0);
+    int threads;
+    if (processors <= 16) {
+      threads = processors;
+    } else {
+      // For larger machines it appears to be suboptimal to utilize all cpus, possibly due to
+      // increased contention. We therefore use a thread pool whose size is only half the
+      // cpus.
+      threads = (int) Math.round(processors / 2.0);
+      if (threads <= 16) {
+        // When half the cpus is below 16, make sure that we don't all of a sudden a smaller
+        // thread pool than we use for machines with fewer cpus.
+        threads = 16 + (int) Math.round((processors - threads) / 2.0);
+      } else {
+        // For large machines, do not use more than 48 threads since this appears to lead to
+        // higher contention.
+        threads = Math.min(threads, 48);
+      }
+    }
     return getExecutorServiceForThreads(threads, threadingModule);
   }
 
