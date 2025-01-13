@@ -316,14 +316,14 @@ def branch_from_version(version):
 
 
 def prepare_google3(args):
-    assert len(args.version == 1)
+    assert len(args.version) == 1
 
     # Check if an existing client exists.
     if not args.use_existing_work_branch:
         check_no_google3_client(args, args.p4_client)
 
     def release_google3(options):
-        assert len(options.version == 1)
+        assert len(options.version) == 1
         version = options.version[0]
         print("Releasing for Google 3")
         if options.dry_run:
