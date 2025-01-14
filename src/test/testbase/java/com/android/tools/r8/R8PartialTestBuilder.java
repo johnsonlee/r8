@@ -12,6 +12,8 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.R8PartialCompilationConfiguration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -20,6 +22,9 @@ import java.util.function.Supplier;
 public class R8PartialTestBuilder
     extends R8TestBuilder<R8PartialTestCompileResult, R8TestRunResult, R8PartialTestBuilder> {
 
+  private final ArrayList<Class<?>> includedClasses = new ArrayList<>();
+  private final ArrayList<Class<?>> excludedClasses = new ArrayList<>();
+  private boolean defaultIncludeAll = false;
   private R8PartialCompilationConfiguration r8PartialConfiguration =
       R8PartialCompilationConfiguration.disabledConfiguration();
 
@@ -72,14 +77,6 @@ public class R8PartialTestBuilder
   }
 
   public R8PartialTestBuilder setR8PartialConfiguration(
-      R8PartialCompilationConfiguration configuration) {
-    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
-        : "Overwriting configuration...?";
-    r8PartialConfiguration = configuration;
-    return self();
-  }
-
-  public R8PartialTestBuilder setR8PartialConfiguration(
       Consumer<R8PartialCompilationConfiguration.Builder> consumer) {
     assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
         : "Overwriting configuration...?";
@@ -87,6 +84,42 @@ public class R8PartialTestBuilder
     consumer.accept(builder);
     r8PartialConfiguration = builder.build();
     return self();
+  }
+
+  public R8PartialTestBuilder setDefaultIncludeAll() {
+    this.defaultIncludeAll = true;
+    return self();
+  }
+
+  public R8PartialTestBuilder addR8IncludedClasses(Class<?>... classes) {
+    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
+        : "Overwriting configuration...?";
+    Collections.addAll(includedClasses, classes);
+    return self();
+  }
+
+  public R8PartialTestBuilder addR8ExcludedClasses(Class<?>... classes) {
+    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
+        : "Overwriting configuration...?";
+    Collections.addAll(excludedClasses, classes);
+    return self();
+  }
+
+  private R8PartialCompilationConfiguration getPartialConfiguration() {
+    if (r8PartialConfiguration != R8PartialCompilationConfiguration.disabledConfiguration()) {
+      assert excludedClasses.isEmpty() && includedClasses.isEmpty();
+      return r8PartialConfiguration;
+    }
+    R8PartialCompilationConfiguration.Builder partialBuilder =
+        R8PartialCompilationConfiguration.builder();
+    if (defaultIncludeAll) {
+      assert includedClasses.isEmpty();
+      partialBuilder.includeAll();
+    } else {
+      partialBuilder.includeClasses(includedClasses);
+    }
+    partialBuilder.excludeClasses(excludedClasses);
+    return partialBuilder.build();
   }
 
   @Override
@@ -105,7 +138,7 @@ public class R8PartialTestBuilder
     Box<AndroidApp> d8OutputAppBox = new Box<>();
     Consumer<InternalOptions> configureR8PartialCompilation =
         options -> {
-          options.partialCompilationConfiguration = r8PartialConfiguration;
+          options.partialCompilationConfiguration = getPartialConfiguration();
           options.partialCompilationConfiguration.r8InputAppConsumer = r8InputAppBox::set;
           options.partialCompilationConfiguration.d8InputAppConsumer = d8InputAppBox::set;
           options.partialCompilationConfiguration.r8OutputAppConsumer = r8OutputAppBox::set;

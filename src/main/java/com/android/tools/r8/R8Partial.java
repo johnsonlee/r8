@@ -230,6 +230,11 @@ class R8Partial {
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.mapConsumer = options.mapConsumer;
     r8Options.quiet = true; // Don't write the R8 version.
+    if (options.androidResourceProvider != null) {
+      r8Options.androidResourceProvider = options.androidResourceProvider;
+      r8Options.androidResourceConsumer = options.androidResourceConsumer;
+      r8Options.resourceShrinkerConfiguration = options.resourceShrinkerConfiguration;
+    }
     R8.runInternal(r8App, r8Options, executor);
     if (r8OutputAppConsumer != null) {
       r8OutputAppConsumer.accept(r8OutputAppSink.build());
