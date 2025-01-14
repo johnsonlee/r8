@@ -182,4 +182,10 @@ public class PreventClassMethodAndDefaultMethodCollisions extends MultiClassPoli
     }
     return removeTrivialGroups(newGroups.values());
   }
+
+  @Override
+  public boolean shouldSkipPolicy() {
+    return appView.options().isGeneratingDex()
+        && !appView.options().canUseDefaultAndStaticInterfaceMethods();
+  }
 }
