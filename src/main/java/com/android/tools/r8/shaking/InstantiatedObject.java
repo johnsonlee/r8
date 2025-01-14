@@ -49,7 +49,6 @@ public abstract class InstantiatedObject implements InstantiatedSubTypeInfo {
     final DexProgramClass clazz;
 
     InstantiatedClass(DexProgramClass clazz) {
-      assert !clazz.isInterface() || clazz.isAnnotation();
       this.clazz = clazz;
     }
 

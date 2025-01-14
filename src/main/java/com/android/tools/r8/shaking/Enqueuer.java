@@ -3025,6 +3025,7 @@ public class Enqueuer {
     }
     markTypeAsLive(clazz, witness);
     transitionDependentItemsForInstantiatedInterface(clazz);
+    transitionMethodsForInstantiatedClass(clazz, Timing.empty());
   }
 
   private void markLambdaAsInstantiated(LambdaDescriptor descriptor, ProgramMethod context) {
@@ -3069,7 +3070,6 @@ public class Enqueuer {
 
   private void transitionMethodsForInstantiatedClass(DexProgramClass clazz, Timing timing) {
     assert !clazz.isAnnotation();
-    assert !clazz.isInterface();
     transitionMethodsForInstantiatedObject(
         InstantiatedObject.of(clazz), clazz.type, Collections.emptyList(), timing);
   }

@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -25,6 +27,7 @@ public class DefaultInterfaceMethodWithOpenHierarchyTest extends TestBase {
 
   @Test
   public void test() throws Exception {
+    assumeTrue(parameters.canUseDefaultAndStaticInterfaceMethods());
     testForR8(parameters.getBackend())
         .addProgramClasses(I.class, J.class)
         .addKeepClassAndMembersRules(I.class)
@@ -33,7 +36,7 @@ public class DefaultInterfaceMethodWithOpenHierarchyTest extends TestBase {
         .compile()
         .addRunClasspathClasses(Main.class, A.class)
         .run(parameters.getRuntime(), Main.class)
-        .assertFailureWithErrorThatThrows(AbstractMethodError.class);
+        .assertSuccessWithOutputLines("Hello, world!");
   }
 
   // D8

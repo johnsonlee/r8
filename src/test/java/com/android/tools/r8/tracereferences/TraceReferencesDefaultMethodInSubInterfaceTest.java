@@ -164,10 +164,10 @@ public class TraceReferencesDefaultMethodInSubInterfaceTest extends TestBase {
         .addRunClasspathFiles(r8CompiledTarget)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/319190998): This should not fail.
         .applyIf(
             hasDefaultInterfaceMethodsSupport(parameters),
-            r -> r.assertFailureWithErrorThatThrows(AbstractMethodError.class),
+            r -> r.assertSuccessWithOutputLines("Hello, world!"),
+            // TODO(b/319190998): This should not fail.
             r -> r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class));
   }
 
