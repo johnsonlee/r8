@@ -39,5 +39,6 @@ public class R8PartialR8Result {
         consumer.accept((DataEntryResource) dataResource, reporter);
       }
     }
+    consumer.finished(reporter);
   }
 }
