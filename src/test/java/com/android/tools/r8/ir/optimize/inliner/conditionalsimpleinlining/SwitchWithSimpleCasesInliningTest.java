@@ -5,12 +5,15 @@ package com.android.tools.r8.ir.optimize.inliner.conditionalsimpleinlining;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.transformers.MethodTransformer;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -19,9 +22,15 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import org.objectweb.asm.Opcodes;
 
 @RunWith(Parameterized.class)
 public class SwitchWithSimpleCasesInliningTest extends TestBase {
+
+  private static String EXPECTED_OUTPUT =
+      StringUtils.lines(
+          "true", "false", "true", "true", "false", "true", "false", "false", "false", "false",
+          "true", "true", "false", "true", "false");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -53,9 +62,56 @@ public class SwitchWithSimpleCasesInliningTest extends TestBase {
                       .allMatch(i -> i.isConstString("O")));
             })
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines(
-            "true", "false", "true", "true", "false", "true", "false", "false", "false", "false",
-            "true", "true", "false", "true", "false");
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  @Test
+  // In some situations javac can generate string switch using java.lang.Object symbolic references
+  // instead of java.lang.String for the calls to hashCode and equals. See b/328298719 for context.
+  public void testWithJavaLangObject() throws Exception {
+    testForR8(parameters.getBackend())
+        .addProgramClassFileData(
+            transformer(Main.class)
+                .addMethodTransformer(
+                    new MethodTransformer() {
+                      @Override
+                      public void visitMethodInsn(
+                          int opcode,
+                          String owner,
+                          String name,
+                          String descriptor,
+                          boolean isInterface) {
+                        if (opcode == Opcodes.INVOKEVIRTUAL
+                            && owner.equals("java/lang/String")
+                            && (name.equals("hashCode") || name.equals("equals"))) {
+                          super.visitMethodInsn(
+                              opcode, "java/lang/Object", name, descriptor, isInterface);
+                          return;
+                        }
+                        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                      }
+                    })
+                .transform())
+        .addKeepMainRule(Main.class)
+        .enableInliningAnnotations()
+        .setMinApi(parameters)
+        .compile()
+        .inspect(
+            inspector -> {
+              ClassSubject mainClassSubject = inspector.clazz(Main.class);
+              assertThat(mainClassSubject, isPresent());
+
+              MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
+              assertThat(mainMethodSubject, isPresent());
+              // TODO(b/328298719): This should be true.
+              assertFalse(
+                  mainMethodSubject
+                      .streamInstructions()
+                      .filter(InstructionSubject::isConstString)
+                      .allMatch(i -> i.isConstString("O")));
+            })
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class Main {
