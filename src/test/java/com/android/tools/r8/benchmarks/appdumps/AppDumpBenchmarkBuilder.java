@@ -386,7 +386,7 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(0)
+            .setWarmupIterations(1)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
