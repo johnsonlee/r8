@@ -9,6 +9,7 @@ import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.DexIndexedConsumer.ForwardingConsumer;
 import com.android.tools.r8.StringConsumer.FileConsumer;
 import com.android.tools.r8.dex.ApplicationReader;
+import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -28,6 +29,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.ExceptionUtils;
+import com.android.tools.r8.utils.ForwardingDiagnosticsHandler;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -204,8 +206,20 @@ class R8Partial {
     // Compile R8 input with R8 using the keep rules from trace references.
     Path r8Output = resolveTmp("r8-output.zip");
     R8PartialDataResourceConsumer r8DataResourcesConsumer = new R8PartialDataResourceConsumer();
+    DiagnosticsHandler r8DiagnosticsHandler =
+        new ForwardingDiagnosticsHandler(options.reporter) {
+
+          @Override
+          public DiagnosticsLevel modifyDiagnosticsLevel(
+              DiagnosticsLevel level, Diagnostic diagnostic) {
+            if (diagnostic instanceof R8VersionDiagnostic) {
+              return DiagnosticsLevel.NONE;
+            }
+            return super.modifyDiagnosticsLevel(level, diagnostic);
+          }
+        };
     R8Command.Builder r8Builder =
-        R8Command.builder(options.reporter)
+        R8Command.builder(r8DiagnosticsHandler)
             .addProguardConfigurationFiles(traceReferencesResult.getOutputPath())
             .enableLegacyFullModeForKeepRules(true)
             .setProgramConsumer(
@@ -229,7 +243,6 @@ class R8Partial {
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.mapConsumer = options.mapConsumer;
-    r8Options.quiet = true; // Don't write the R8 version.
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
       r8Options.androidResourceConsumer = options.androidResourceConsumer;

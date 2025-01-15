@@ -15,6 +15,7 @@ import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryKeepRuleGen
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.ApplicationWriter;
 import com.android.tools.r8.dex.Marker;
+import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
 import com.android.tools.r8.errors.CheckDiscardDiagnostic;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -115,7 +116,6 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
 import com.android.tools.r8.utils.ResourceShrinkerUtils;
 import com.android.tools.r8.utils.SelfRetraceTest;
-import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
@@ -268,13 +268,8 @@ public class R8 {
   void runInternal(AndroidApp inputApp, ExecutorService executorService) throws IOException {
     timing.begin("Run prelude");
     assert options.programConsumer != null;
-    if (options.quiet) {
-      System.setOut(new PrintStream(ByteStreams.nullOutputStream()));
-    }
-    if (this.getClass().desiredAssertionStatus() && !options.quiet) {
-      options.reporter.info(
-          new StringDiagnostic(
-              "Running R8 version " + Version.LABEL + " with assertions enabled."));
+    if (getClass().desiredAssertionStatus()) {
+      options.reporter.info(new R8VersionDiagnostic());
     }
     // Synthetic assertion to check that testing assertions works and can be enabled.
     assert forTesting(options, () -> !options.testing.testEnableTestAssertions);
