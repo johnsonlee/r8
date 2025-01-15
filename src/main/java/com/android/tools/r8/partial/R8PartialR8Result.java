@@ -27,7 +27,9 @@ public class R8PartialR8Result {
   }
 
   public void supplyConsumers(InternalOptions options) {
-    supplyDataResourceConsumer(options.dataResourceConsumer, options.reporter);
+    if (options.dataResourceConsumer != null) {
+      supplyDataResourceConsumer(options.dataResourceConsumer, options.reporter);
+    }
   }
 
   private void supplyDataResourceConsumer(DataResourceConsumer consumer, Reporter reporter) {
