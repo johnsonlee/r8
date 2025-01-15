@@ -445,7 +445,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean enableTreeShakingOfLibraryMethodOverrides = false;
   public boolean encodeChecksums = false;
   public BiPredicate<String, Long> dexClassChecksumFilter = (name, checksum) -> true;
-  public boolean forceAnnotateSynthetics = false;
   public boolean readDebugSetFileEvent = false;
   public boolean disableL8AnnotationRemoval =
       System.getProperty("com.android.tools.r8.disableL8AnnotationRemoval") != null;
