@@ -342,7 +342,7 @@ def perf():
             release_trigger = ["branch-gitiles-8.9-forward"],
             priority = 25,
             properties = properties,
-            execution_timeout = time.hour * 3,
+            execution_timeout = time.hour * 6,
             expiration_timeout = time.hour * 35,
         )
 
