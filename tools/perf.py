@@ -41,6 +41,9 @@ EXTERNAL_BENCHMARKS = {
     'JetNewsApp': {
         'targets': ['r8-full']
     },
+    'JetNewsAppPartial': {
+        'targets': ['r8-full']
+    },
     'JetCasterApp': {
         'targets': ['r8-full']
     },
@@ -87,6 +90,9 @@ EXTERNAL_BENCHMARKS = {
         'targets': ['r8-full']
     },
     'TiviApp': {
+        'targets': ['r8-full']
+    },
+    'TiviAppPartial': {
         'targets': ['r8-full']
     },
 }
