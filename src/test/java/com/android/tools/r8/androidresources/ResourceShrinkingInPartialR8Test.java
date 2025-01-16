@@ -82,7 +82,6 @@ public class ResourceShrinkingInPartialR8Test extends TestBase {
         .addR8ExcludedClasses(InD8.class)
         .addAndroidResources(getTestResources(temp))
         .enableOptimizedShrinking()
-        .addR8ExcludedClasses(InD8.class)
         .applyIf(
             rClassInD8,
             // These classes are already added as program classes by the resource setup.
