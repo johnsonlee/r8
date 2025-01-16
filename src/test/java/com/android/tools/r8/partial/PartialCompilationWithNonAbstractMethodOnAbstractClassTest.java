@@ -30,7 +30,6 @@ public class PartialCompilationWithNonAbstractMethodOnAbstractClassTest extends 
     // TODO(b/388763735): Enable for all API levels.
     assumeTrue(parameters.canUseDefaultAndStaticInterfaceMethods());
     testForR8Partial(parameters.getBackend())
-        .addInnerClasses(getClass())
         .addR8IncludedClasses(A.class, B.class)
         .addR8ExcludedClasses(Main.class, C.class)
         .setMinApi(parameters)
