@@ -116,6 +116,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -197,6 +199,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public AndroidResourceProvider androidResourceProvider = null;
   public AndroidResourceConsumer androidResourceConsumer = null;
   public List<String> androidResourceProguardMapStrings = null;
+  public IntSet d8TracedResourceIDs = new IntOpenHashSet();
 
   public ResourceShrinkerConfiguration resourceShrinkerConfiguration =
       ResourceShrinkerConfiguration.DEFAULT_CONFIGURATION;

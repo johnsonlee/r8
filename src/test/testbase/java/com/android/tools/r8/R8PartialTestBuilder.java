@@ -24,7 +24,6 @@ public class R8PartialTestBuilder
 
   private final ArrayList<Class<?>> includedClasses = new ArrayList<>();
   private final ArrayList<Class<?>> excludedClasses = new ArrayList<>();
-  private boolean defaultIncludeAll = false;
   private R8PartialCompilationConfiguration r8PartialConfiguration =
       R8PartialCompilationConfiguration.disabledConfiguration();
 
@@ -86,22 +85,33 @@ public class R8PartialTestBuilder
     return self();
   }
 
-  public R8PartialTestBuilder setDefaultIncludeAll() {
-    this.defaultIncludeAll = true;
-    return self();
+  public R8PartialTestBuilder addR8IncludedClasses(Class<?>... classes) {
+    return addR8IncludedClasses(true, classes);
   }
 
-  public R8PartialTestBuilder addR8IncludedClasses(Class<?>... classes) {
+  public R8PartialTestBuilder addR8IncludedClasses(
+      boolean addAsProgramClasses, Class<?>... classes) {
     assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
         : "Overwriting configuration...?";
     Collections.addAll(includedClasses, classes);
+    if (addAsProgramClasses) {
+      addProgramClasses(classes);
+    }
     return self();
   }
 
   public R8PartialTestBuilder addR8ExcludedClasses(Class<?>... classes) {
+    return addR8ExcludedClasses(true, classes);
+  }
+
+  public R8PartialTestBuilder addR8ExcludedClasses(
+      boolean addAsProgramClasses, Class<?>... classes) {
     assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
         : "Overwriting configuration...?";
     Collections.addAll(excludedClasses, classes);
+    if (addAsProgramClasses) {
+      addProgramClasses(classes);
+    }
     return self();
   }
 
@@ -112,12 +122,7 @@ public class R8PartialTestBuilder
     }
     R8PartialCompilationConfiguration.Builder partialBuilder =
         R8PartialCompilationConfiguration.builder();
-    if (defaultIncludeAll) {
-      assert includedClasses.isEmpty();
-      partialBuilder.includeAll();
-    } else {
-      partialBuilder.includeClasses(includedClasses);
-    }
+    partialBuilder.includeClasses(includedClasses);
     partialBuilder.excludeClasses(excludedClasses);
     return partialBuilder.build();
   }

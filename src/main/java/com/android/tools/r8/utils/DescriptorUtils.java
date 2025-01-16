@@ -224,6 +224,21 @@ public class DescriptorUtils {
   }
 
   /**
+   * Convert an ASM internal name to a class type descriptor
+   *
+   * @param internalName The internal name string
+   * @return type descriptor
+   */
+  public static String internalNameToDescriptor(String internalName) {
+    switch (internalName.charAt(0)) {
+      case '[':
+        return internalName;
+      default:
+        return new StringBuilder("L").append(internalName).append(";").toString();
+    }
+  }
+
+  /**
    * Convert a descriptor to a classifier in Kotlin metadata
    * @param descriptor like "Lorg/foo/bar/Baz$Nested;"
    * @return className "org/foo/bar/Baz.Nested"

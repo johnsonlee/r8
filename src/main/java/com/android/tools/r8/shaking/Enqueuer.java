@@ -3936,7 +3936,7 @@ public class Enqueuer {
     enqueueAllIfNotShrinking();
     timing.end();
     timing.begin("Trace");
-    traceManifests(timing);
+    traceManifestsAndRoots(timing);
     trace(executorService, timing);
     timing.end();
     options.reporter.failIfPendingErrors();
@@ -3969,10 +3969,13 @@ public class Enqueuer {
     return result;
   }
 
-  private void traceManifests(Timing timing) {
+  private void traceManifestsAndRoots(Timing timing) {
     if (options.isOptimizedResourceShrinking()) {
       timing.begin("Trace AndroidManifest.xml files");
       appView.getResourceShrinkerState().traceKeepXmlAndManifest();
+      for (int d8TracedResourceID : options.d8TracedResourceIDs) {
+        appView.getResourceShrinkerState().trace(d8TracedResourceID, "Non shrunken dex code");
+      }
       timing.end();
     }
   }

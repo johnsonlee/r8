@@ -5,6 +5,7 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
+import com.android.build.shrinker.usages.R8ResourceShrinker;
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.DexIndexedConsumer.ForwardingConsumer;
 import com.android.tools.r8.StringConsumer.FileConsumer;
@@ -21,6 +22,8 @@ import com.android.tools.r8.partial.R8PartialInput;
 import com.android.tools.r8.partial.R8PartialInputToDumpFlags;
 import com.android.tools.r8.partial.R8PartialR8Result;
 import com.android.tools.r8.partial.R8PartialTraceReferencesResult;
+import com.android.tools.r8.partial.R8PartialTraceResourcesResult;
+import com.android.tools.r8.partial.ResourceTracingCallback;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.tracereferences.TraceReferencesBridge;
 import com.android.tools.r8.tracereferences.TraceReferencesCommand;
@@ -29,6 +32,7 @@ import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.ExceptionUtils;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ForwardingDiagnosticsHandler;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -38,6 +42,7 @@ import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -83,14 +88,31 @@ class R8Partial {
 
     R8PartialInput input = runProcessInputStep(app, timing);
     R8PartialD8DexResult d8DexResult = runD8DexStep(input, executor);
+    R8PartialTraceResourcesResult resourcesTraceResult = runTraceResourcesStep(d8DexResult);
     R8PartialTraceReferencesResult traceReferencesResult = runTraceReferencesStep(input);
-    R8PartialR8Result r8Result = runR8PartialStep(input, traceReferencesResult, executor);
+    R8PartialR8Result r8Result =
+        runR8PartialStep(input, traceReferencesResult, resourcesTraceResult, executor);
     runD8MergeStep(input, d8DexResult, r8Result, executor);
 
     // Feed the data resource output by R8 to the output consumer. Keeping this at the end after the
     // merge keeps the order of calls to the output consumer closer to full R8.
     r8Result.supplyConsumers(options);
     timing.end();
+  }
+
+  private R8PartialTraceResourcesResult runTraceResourcesStep(R8PartialD8DexResult d8DexResult)
+      throws IOException {
+    // TODO(b/390135529): Consider tracing these in the enqueuer of R8.
+    ResourceTracingCallback resourceTracingCallback = new ResourceTracingCallback();
+    ZipUtils.iter(
+        d8DexResult.getOutputPath(),
+        (entry, input) -> {
+          if (FileUtils.isDexFile(Paths.get(entry.getName()))) {
+            R8ResourceShrinker.runResourceShrinkerAnalysis(
+                input.readAllBytes(), d8DexResult.getOutputPath(), resourceTracingCallback);
+          }
+        });
+    return new R8PartialTraceResourcesResult(resourceTracingCallback.getPotentialIds());
   }
 
   private R8PartialInput runProcessInputStep(AndroidApp androidApp, Timing timing)
@@ -201,6 +223,7 @@ class R8Partial {
   private R8PartialR8Result runR8PartialStep(
       R8PartialInput input,
       R8PartialTraceReferencesResult traceReferencesResult,
+      R8PartialTraceResourcesResult resourcesTraceResult,
       ExecutorService executor)
       throws IOException {
     // Compile R8 input with R8 using the keep rules from trace references.
@@ -247,6 +270,7 @@ class R8Partial {
       r8Options.androidResourceProvider = options.androidResourceProvider;
       r8Options.androidResourceConsumer = options.androidResourceConsumer;
       r8Options.resourceShrinkerConfiguration = options.resourceShrinkerConfiguration;
+      r8Options.d8TracedResourceIDs = resourcesTraceResult.getResourceIdsToTrace();
     }
     R8.runInternal(r8App, r8Options, executor);
     if (r8OutputAppConsumer != null) {

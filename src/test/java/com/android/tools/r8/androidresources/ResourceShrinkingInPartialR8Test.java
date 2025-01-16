@@ -63,14 +63,13 @@ public class ResourceShrinkingInPartialR8Test extends TestBase {
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
-              // TODO(b/388746233): We should still trace the resources when we have the R class
-              // in D8 code.
-              resourceTableInspector.assertDoesNotContainResourceWithName(
+              resourceTableInspector.assertContainsResourceWithName(
                   "string", "referencedFromD8Code");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
+              resourceTableInspector.assertContainsResourceWithName(
                   "string", "referencedFromR8Code");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "unused_string");
+              // The R class is in the D8 part of the code, so we keep all entries, even
+              // unreferenced fields (since the field is still there)
+              resourceTableInspector.assertContainsResourceWithName("string", "unused_string");
             })
         .run(parameters.getRuntime(), InR8.class)
         .assertSuccess();
@@ -79,11 +78,16 @@ public class ResourceShrinkingInPartialR8Test extends TestBase {
   private R8PartialTestBuilder getR8PartialTestBuilder(boolean rClassInD8) throws Exception {
     return testForR8Partial(parameters.getBackend())
         .setMinApi(parameters)
-        .addProgramClasses(InR8.class, InD8.class)
-        .addAndroidResources(getTestResources(temp))
-        .setDefaultIncludeAll()
+        .addR8IncludedClasses(InR8.class)
         .addR8ExcludedClasses(InD8.class)
-        .applyIf(rClassInD8, b -> b.addR8ExcludedClasses(R.string.class))
+        .addAndroidResources(getTestResources(temp))
+        .enableOptimizedShrinking()
+        .addR8ExcludedClasses(InD8.class)
+        .applyIf(
+            rClassInD8,
+            // These classes are already added as program classes by the resource setup.
+            b -> b.addR8ExcludedClasses(false, R.string.class),
+            b -> b.addR8IncludedClasses(false, R.string.class))
         .addKeepMainRule(InR8.class);
   }
 

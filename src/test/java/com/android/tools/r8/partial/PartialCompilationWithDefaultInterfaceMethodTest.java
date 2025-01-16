@@ -30,7 +30,6 @@ public class PartialCompilationWithDefaultInterfaceMethodTest extends TestBase {
     // TODO(b/388763735): Enable for all API levels.
     assumeTrue(parameters.canUseDefaultAndStaticInterfaceMethods());
     testForR8Partial(parameters.getBackend())
-        .addInnerClasses(getClass())
         .addR8IncludedClasses(I.class, J.class)
         .addR8ExcludedClasses(Main.class, A.class)
         .setMinApi(parameters)
