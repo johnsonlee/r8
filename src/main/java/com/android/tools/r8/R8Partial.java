@@ -5,7 +5,6 @@ package com.android.tools.r8;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
-import com.android.build.shrinker.usages.R8ResourceShrinker;
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.DexIndexedConsumer.ForwardingConsumer;
 import com.android.tools.r8.StringConsumer.FileConsumer;
@@ -31,8 +30,8 @@ import com.android.tools.r8.tracereferences.TraceReferencesKeepRules;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
+import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.ExceptionUtils;
-import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ForwardingDiagnosticsHandler;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -42,9 +41,9 @@ import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.io.ByteStreams;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -104,14 +103,12 @@ class R8Partial {
       throws IOException {
     // TODO(b/390135529): Consider tracing these in the enqueuer of R8.
     ResourceTracingCallback resourceTracingCallback = new ResourceTracingCallback();
-    ZipUtils.iter(
-        d8DexResult.getOutputPath(),
-        (entry, input) -> {
-          if (FileUtils.isDexFile(Paths.get(entry.getName()))) {
-            R8ResourceShrinker.runResourceShrinkerAnalysis(
-                input.readAllBytes(), d8DexResult.getOutputPath(), resourceTracingCallback);
-          }
-        });
+    AndroidApp app = AndroidApp.builder().addProgramFile(d8DexResult.getOutputPath()).build();
+    try {
+      ResourceShrinker.runForTesting(app, options, resourceTracingCallback);
+    } catch (ExecutionException e) {
+      throw options.reporter.fatalError(new ExceptionDiagnostic(e));
+    }
     return new R8PartialTraceResourcesResult(resourceTracingCallback.getPotentialIds());
   }
 

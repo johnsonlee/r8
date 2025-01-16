@@ -3,13 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import com.android.build.shrinker.usages.AnalysisCallback;
-import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.ResourceShrinker.ReferenceChecker;
 import com.android.tools.r8.utils.DescriptorUtils;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
-public class ResourceTracingCallback implements AnalysisCallback {
+public class ResourceTracingCallback implements ReferenceChecker {
 
   private final IntSet potentialIds = new IntOpenHashSet();
 
@@ -37,10 +36,4 @@ public class ResourceTracingCallback implements AnalysisCallback {
 
   @Override
   public void referencedMethod(String internalName, String methodName, String methodDescriptor) {}
-
-  @Override
-  public void startMethodVisit(MethodReference methodReference) {}
-
-  @Override
-  public void endMethodVisit(MethodReference methodReference) {}
 }

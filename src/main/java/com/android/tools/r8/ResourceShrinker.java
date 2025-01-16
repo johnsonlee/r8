@@ -57,6 +57,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -486,7 +487,12 @@ final public class ResourceShrinker {
       throws IOException, ExecutionException {
     Timing timing = new Timing("resource shrinker analyzer");
     DexApplication dexApplication = new ApplicationReader(inputApp, options, timing).read();
-    for (DexProgramClass programClass : dexApplication.classes()) {
+    runForTesting(dexApplication.classes(), callback);
+  }
+
+  public static void runForTesting(
+      Collection<DexProgramClass> programClasses, ReferenceChecker callback) {
+    for (DexProgramClass programClass : programClasses) {
       new DexClassUsageVisitor(programClass, callback).visit();
     }
   }
