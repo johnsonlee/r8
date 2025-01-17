@@ -11,6 +11,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
@@ -216,6 +217,14 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
     return false;
   }
 
+  public static boolean isInvokeStringMethod(InvokeVirtual invoke, DexMethod stringMethod) {
+    if (invoke.getInvokedMethod().isIdenticalTo(stringMethod)) {
+      return true;
+    }
+    return invoke.getReceiver().getType().isClassType(stringMethod.getHolderType())
+        && invoke.getInvokedMethod().match(stringMethod);
+  }
+
   @SuppressWarnings("ReferenceEquality")
   private static boolean isDefinedByStringHashCode(Value value, DexItemFactory dexItemFactory) {
     Value root = value.getAliasedValue();
@@ -224,7 +233,8 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
     }
     Instruction definition = root.definition;
     return definition.isInvokeVirtual()
-        && definition.asInvokeVirtual().getInvokedMethod() == dexItemFactory.stringMembers.hashCode;
+        && isInvokeStringMethod(
+            definition.asInvokeVirtual(), dexItemFactory.stringMembers.hashCode);
   }
 
   static class StringSwitchBuilderInfo {
@@ -583,7 +593,7 @@ public class StringSwitchConverter extends CodeRewriterPass<AppInfo> {
                 ? instructionIterator.next().asInvokeVirtual()
                 : first.asInvokeVirtual();
         if (theInvoke == null
-            || theInvoke.getInvokedMethod() != dexItemFactory.stringMembers.equals
+            || !isInvokeStringMethod(theInvoke, dexItemFactory.stringMembers.equals)
             || theInvoke.getReceiver() != stringValue) {
           return false;
         }

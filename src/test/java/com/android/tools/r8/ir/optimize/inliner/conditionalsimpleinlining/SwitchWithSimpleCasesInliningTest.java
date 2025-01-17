@@ -100,10 +100,57 @@ public class SwitchWithSimpleCasesInliningTest extends TestBase {
             inspector -> {
               ClassSubject mainClassSubject = inspector.clazz(Main.class);
               assertThat(mainClassSubject, isPresent());
-
               MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
               assertThat(mainMethodSubject, isPresent());
-              // TODO(b/328298719): This should be true.
+              assertTrue(
+                  mainMethodSubject
+                      .streamInstructions()
+                      .filter(InstructionSubject::isConstString)
+                      .allMatch(i -> i.isConstString("O")));
+            })
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  @Test
+  public void testWithJavaLangCharSequence() throws Exception {
+    testForR8(parameters.getBackend())
+        .addProgramClassFileData(
+            transformer(Main.class)
+                .addMethodTransformer(
+                    new MethodTransformer() {
+                      @Override
+                      public void visitMethodInsn(
+                          int opcode,
+                          String owner,
+                          String name,
+                          String descriptor,
+                          boolean isInterface) {
+                        if (opcode == Opcodes.INVOKEVIRTUAL
+                            && owner.equals("java/lang/String")
+                            && (name.equals("hashCode") || name.equals("equals"))) {
+                          super.visitMethodInsn(
+                              Opcodes.INVOKEINTERFACE,
+                              "java/lang/CharSequence",
+                              name,
+                              descriptor,
+                              true);
+                          return;
+                        }
+                        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                      }
+                    })
+                .transform())
+        .addKeepMainRule(Main.class)
+        .enableInliningAnnotations()
+        .setMinApi(parameters)
+        .compile()
+        .inspect(
+            inspector -> {
+              ClassSubject mainClassSubject = inspector.clazz(Main.class);
+              assertThat(mainClassSubject, isPresent());
+              MethodSubject mainMethodSubject = mainClassSubject.mainMethod();
+              assertThat(mainMethodSubject, isPresent());
               assertFalse(
                   mainMethodSubject
                       .streamInstructions()
