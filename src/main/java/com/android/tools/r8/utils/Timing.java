@@ -59,8 +59,9 @@ public class Timing implements AutoCloseable {
         }
 
         @Override
-        public void end() {
+        public Timing end() {
           // Ignore.
+          return this;
         }
 
         @Override
@@ -103,8 +104,9 @@ public class Timing implements AutoCloseable {
     }
 
     @Override
-    public void end() {
+    public Timing end() {
       timing.end();
+      return this;
     }
 
     @Override
@@ -128,6 +130,13 @@ public class Timing implements AutoCloseable {
       }
       return super.begin(title);
     }
+  }
+
+  public static Timing createRoot(String title, InternalOptions options) {
+    if (options.partialSubCompilationConfiguration != null) {
+      return options.partialSubCompilationConfiguration.timing;
+    }
+    return create(title, options);
   }
 
   public static Timing create(String title, InternalOptions options) {
@@ -493,9 +502,10 @@ public class Timing implements AutoCloseable {
     end();
   }
 
-  public void end() {
+  public Timing end() {
     stack.peek().end();  // record time.
     stack.pop();
+    return this;
   }
 
   public void report() {

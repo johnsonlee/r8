@@ -177,7 +177,7 @@ public class R8 {
     if (options.printMemory) {
       System.gc();
     }
-    timing = Timing.create("R8 " + Version.LABEL, options);
+    timing = Timing.createRoot("R8 " + Version.LABEL, options);
   }
 
   /**
@@ -892,7 +892,7 @@ public class R8 {
 
       options.printWarnings();
 
-      if (options.printTimes) {
+      if (options.isPrintTimesReportingEnabled()) {
         timing.report();
       }
     } catch (ExecutionException e) {

@@ -201,7 +201,7 @@ public final class D8 {
       System.out.println("D8 is running with free memory:" + runtime.freeMemory());
       System.out.println("D8 is running with max memory:" + runtime.maxMemory());
     }
-    Timing timing = Timing.create("D8 " + Version.LABEL, options);
+    Timing timing = Timing.createRoot("D8 " + Version.LABEL, options);
     try {
       timing.begin("Pre conversion");
       // Synthetic assertion to check that testing assertions works and can be enabled.
@@ -340,7 +340,7 @@ public final class D8 {
       inputApp.signalFinishedToProviders(options.reporter);
       options.signalFinishedToConsumers();
       // Dump timings.
-      if (options.printTimes) {
+      if (options.isPrintTimesReportingEnabled()) {
         timing.report();
       }
     }

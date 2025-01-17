@@ -58,6 +58,7 @@ class R8Partial {
   private final Consumer<AndroidApp> d8InputAppConsumer;
   private final Consumer<AndroidApp> r8OutputAppConsumer;
   private final Consumer<AndroidApp> d8OutputAppConsumer;
+  private final Timing timing;
 
   R8Partial(InternalOptions options) {
     this.options = options;
@@ -65,6 +66,7 @@ class R8Partial {
     this.d8InputAppConsumer = options.partialCompilationConfiguration.d8InputAppConsumer;
     this.r8OutputAppConsumer = options.partialCompilationConfiguration.r8OutputAppConsumer;
     this.d8OutputAppConsumer = options.partialCompilationConfiguration.d8OutputAppConsumer;
+    this.timing = Timing.create("R8 partial " + Version.LABEL, options);
   }
 
   static void runForTesting(AndroidApp app, InternalOptions options)
@@ -82,27 +84,44 @@ class R8Partial {
   }
 
   void runInternal(AndroidApp app, ExecutorService executor) throws IOException, ResourceException {
-    Timing timing = Timing.create("R8 partial " + Version.LABEL, options);
     if (!(options.programConsumer instanceof DexIndexedConsumer)) {
       throw options.reporter.fatalError(
           "Partial shrinking does not support generating class files");
     }
 
-    R8PartialInput input = runProcessInputStep(app, timing);
+    timing.begin("Process input");
+    R8PartialInput input = runProcessInputStep(app);
+
+    timing.end().begin("Run D8 dexing");
     R8PartialD8DexResult d8DexResult = runD8DexStep(input, executor);
+
+    timing.end().begin("Run trace resources");
     R8PartialTraceResourcesResult traceResourcesResult = runTraceResourcesStep(d8DexResult);
+
+    timing.end().begin("Run D8 desugaring");
     R8PartialDesugarResult desugarResult = runDesugarStep(input, executor);
+
+    timing.end().begin("Run trace references");
     R8PartialTraceReferencesResult traceReferencesResult =
         runTraceReferencesStep(input, desugarResult);
+
+    timing.end().begin("Run R8");
     R8PartialR8Result r8Result =
         runR8PartialStep(
             input, desugarResult, traceReferencesResult, traceResourcesResult, executor);
+
+    timing.end().begin("Run D8 merging");
     runD8MergeStep(input, d8DexResult, r8Result, executor);
 
     // Feed the data resource output by R8 to the output consumer. Keeping this at the end after the
     // merge keeps the order of calls to the output consumer closer to full R8.
+    timing.end().begin("Supply consumers");
     r8Result.supplyConsumers(options);
     timing.end();
+
+    if (options.isPrintTimesReportingEnabled()) {
+      timing.report();
+    }
   }
 
   private R8PartialTraceResourcesResult runTraceResourcesStep(R8PartialD8DexResult d8DexResult)
@@ -121,8 +140,7 @@ class R8Partial {
     return new R8PartialTraceResourcesResult(resourceTracingCallback.getPotentialIds());
   }
 
-  private R8PartialInput runProcessInputStep(AndroidApp androidApp, Timing timing)
-      throws IOException {
+  private R8PartialInput runProcessInputStep(AndroidApp androidApp) throws IOException {
     // Create a dump of the compiler input.
     // TODO(b/309743298): Do not use compiler dump to handle splitting the compilation. This should
     //  be all in memory.
@@ -201,7 +219,8 @@ class R8Partial {
     }
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
-    d8Options.partialSubCompilationConfiguration = new R8PartialD8SubCompilationConfiguration();
+    d8Options.partialSubCompilationConfiguration =
+        new R8PartialD8SubCompilationConfiguration(timing);
     D8.runInternal(d8App, d8Options, executor);
     if (d8OutputAppConsumer != null) {
       d8OutputAppConsumer.accept(d8OutputAppSink.build());
@@ -227,7 +246,8 @@ class R8Partial {
     AndroidApp d8App = d8Command.getInputApp();
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DesugarOptionsConsumer.accept(d8Options);
-    d8Options.partialSubCompilationConfiguration = new R8PartialD8SubCompilationConfiguration();
+    d8Options.partialSubCompilationConfiguration =
+        new R8PartialD8SubCompilationConfiguration(timing);
     D8.runInternal(d8App, d8Options, executor);
     return new R8PartialDesugarResult(desugarOutput);
   }
@@ -302,7 +322,8 @@ class R8Partial {
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.partialSubCompilationConfiguration =
-        new R8PartialR8SubCompilationConfiguration(traceResourcesResult.getResourceIdsToTrace());
+        new R8PartialR8SubCompilationConfiguration(
+            traceResourcesResult.getResourceIdsToTrace(), timing);
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
@@ -333,7 +354,8 @@ class R8Partial {
     AndroidApp mergeApp = mergeCommand.getInputApp();
     InternalOptions mergeOptions = mergeCommand.getInternalOptions();
     options.partialCompilationConfiguration.d8MergeOptionsConsumer.accept(mergeOptions);
-    mergeOptions.partialSubCompilationConfiguration = new R8PartialD8SubCompilationConfiguration();
+    mergeOptions.partialSubCompilationConfiguration =
+        new R8PartialD8SubCompilationConfiguration(timing);
     D8.runInternal(mergeApp, mergeOptions, executor);
   }
 

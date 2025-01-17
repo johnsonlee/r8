@@ -144,7 +144,7 @@ public class GlobalSyntheticsGenerator {
             } finally {
               options.signalFinishedToConsumers();
               // Dump timings.
-              if (options.printTimes) {
+              if (options.isPrintTimesReportingEnabled()) {
                 timing.report();
               }
             }

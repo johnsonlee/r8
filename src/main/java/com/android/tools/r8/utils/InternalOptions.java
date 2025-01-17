@@ -382,6 +382,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   // To print memory one also have to enable printtimes.
   public boolean printMemory = System.getProperty("com.android.tools.r8.printmemory") != null;
 
+  public boolean isPrintTimesReportingEnabled() {
+    return printTimes && partialSubCompilationConfiguration == null;
+  }
+
   // TODO(b/340669208): Figure out if this should be default behavior.
   public boolean ensureJvmCompatibleStepOutBehavior =
       System.getProperty("com.android.tools.r8.enableJvmCompatibleStepOutBehavior") != null
