@@ -17,9 +17,12 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.partial.R8PartialD8DexResult;
 import com.android.tools.r8.partial.R8PartialDataResourceConsumer;
+import com.android.tools.r8.partial.R8PartialDesugarResult;
 import com.android.tools.r8.partial.R8PartialInput;
 import com.android.tools.r8.partial.R8PartialInputToDumpFlags;
 import com.android.tools.r8.partial.R8PartialR8Result;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialTraceReferencesResult;
 import com.android.tools.r8.partial.R8PartialTraceResourcesResult;
 import com.android.tools.r8.partial.ResourceTracingCallback;
@@ -27,7 +30,6 @@ import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.tracereferences.TraceReferencesBridge;
 import com.android.tools.r8.tracereferences.TraceReferencesCommand;
 import com.android.tools.r8.tracereferences.TraceReferencesKeepRules;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.AndroidAppConsumers;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
@@ -39,6 +41,7 @@ import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import com.google.common.io.ByteStreams;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -87,10 +90,13 @@ class R8Partial {
 
     R8PartialInput input = runProcessInputStep(app, timing);
     R8PartialD8DexResult d8DexResult = runD8DexStep(input, executor);
-    R8PartialTraceResourcesResult resourcesTraceResult = runTraceResourcesStep(d8DexResult);
-    R8PartialTraceReferencesResult traceReferencesResult = runTraceReferencesStep(input);
+    R8PartialTraceResourcesResult traceResourcesResult = runTraceResourcesStep(d8DexResult);
+    R8PartialDesugarResult desugarResult = runDesugarStep(input, executor);
+    R8PartialTraceReferencesResult traceReferencesResult =
+        runTraceReferencesStep(input, desugarResult);
     R8PartialR8Result r8Result =
-        runR8PartialStep(input, traceReferencesResult, resourcesTraceResult, executor);
+        runR8PartialStep(
+            input, desugarResult, traceReferencesResult, traceResourcesResult, executor);
     runD8MergeStep(input, d8DexResult, r8Result, executor);
 
     // Feed the data resource output by R8 to the output consumer. Keeping this at the end after the
@@ -101,6 +107,9 @@ class R8Partial {
 
   private R8PartialTraceResourcesResult runTraceResourcesStep(R8PartialD8DexResult d8DexResult)
       throws IOException {
+    if (options.androidResourceProvider == null) {
+      return new R8PartialTraceResourcesResult(IntSets.EMPTY_SET);
+    }
     // TODO(b/390135529): Consider tracing these in the enqueuer of R8.
     ResourceTracingCallback resourceTracingCallback = new ResourceTracingCallback();
     AndroidApp app = AndroidApp.builder().addProgramFile(d8DexResult.getOutputPath()).build();
@@ -174,6 +183,7 @@ class R8Partial {
   private R8PartialD8DexResult runD8DexStep(R8PartialInput input, ExecutorService executor)
       throws IOException {
     // Compile D8 input with D8.
+    // TODO(b/389575762): Consume the DexProgramClasses directly instead of writing to a zip.
     Path d8Output = resolveTmp("d8-output.zip");
     D8Command.Builder d8Builder =
         D8Command.builder(options.reporter)
@@ -191,8 +201,7 @@ class R8Partial {
     }
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
-    assert d8Options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
-        : "Default interface methods not yet supported";
+    d8Options.partialSubCompilationConfiguration = new R8PartialD8SubCompilationConfiguration();
     D8.runInternal(d8App, d8Options, executor);
     if (d8OutputAppConsumer != null) {
       d8OutputAppConsumer.accept(d8OutputAppSink.build());
@@ -200,7 +209,32 @@ class R8Partial {
     return new R8PartialD8DexResult(d8Output);
   }
 
-  private R8PartialTraceReferencesResult runTraceReferencesStep(R8PartialInput input)
+  private R8PartialDesugarResult runDesugarStep(R8PartialInput input, ExecutorService executor)
+      throws IOException {
+    // TODO(b/389575762): Consume the DexProgramClasses instead of writing to a zip.
+    // TODO(b/389039057): This will desugar the entire R8 part. For build speed, look into if some
+    //  desugarings can be postponed to the R8 compilation, since we do not desugar dead code in R8.
+    //  As a simple example, it should be safe to postpone backporting to the R8 compilation.
+    // TODO(b/389039057): This runs a full D8 compilation. For build speed, consider if the various
+    //  passes in D8 can be disabled when the `partialSubCompilationConfiguration` is set.
+    Path desugarOutput = resolveTmp("desugar-output.zip");
+    D8Command.Builder d8Builder =
+        D8Command.builder(options.reporter).setOutput(desugarOutput, OutputMode.ClassFile);
+    // TODO(b/390327883): This should enable intermediate mode.
+    input.configureDesugar(d8Builder);
+    d8Builder.validate();
+    D8Command d8Command = d8Builder.makeCommand();
+    AndroidApp d8App = d8Command.getInputApp();
+    InternalOptions d8Options = d8Command.getInternalOptions();
+    options.partialCompilationConfiguration.d8DesugarOptionsConsumer.accept(d8Options);
+    d8Options.partialSubCompilationConfiguration = new R8PartialD8SubCompilationConfiguration();
+    D8.runInternal(d8App, d8Options, executor);
+    return new R8PartialDesugarResult(desugarOutput);
+  }
+
+  // TODO(b/389031823): Parallelize trace references.
+  private R8PartialTraceReferencesResult runTraceReferencesStep(
+      R8PartialInput input, R8PartialDesugarResult desugarResult)
       throws IOException, ResourceException {
     // Run trace references to produce keep rules for the D8 compiled part.
     // TODO(b/309743298): Do not emit keep rules into a file.
@@ -210,7 +244,9 @@ class R8Partial {
             .setOutputConsumer(new FileConsumer(traceReferencesRules))
             .build();
     TraceReferencesCommand.Builder trBuilder =
-        TraceReferencesCommand.builder().setConsumer(keepRulesConsumer);
+        TraceReferencesCommand.builder()
+            .addTargetFiles(desugarResult.getOutputPath())
+            .setConsumer(keepRulesConsumer);
     input.configure(trBuilder);
     TraceReferencesCommand tr = TraceReferencesBridge.makeCommand(trBuilder);
     TraceReferencesBridge.runInternal(tr);
@@ -219,8 +255,9 @@ class R8Partial {
 
   private R8PartialR8Result runR8PartialStep(
       R8PartialInput input,
+      R8PartialDesugarResult desugarResult,
       R8PartialTraceReferencesResult traceReferencesResult,
-      R8PartialTraceResourcesResult resourcesTraceResult,
+      R8PartialTraceResourcesResult traceResourcesResult,
       ExecutorService executor)
       throws IOException {
     // Compile R8 input with R8 using the keep rules from trace references.
@@ -238,8 +275,10 @@ class R8Partial {
             return super.modifyDiagnosticsLevel(level, diagnostic);
           }
         };
+    // TODO(b/390389764): Disable desugaring.
     R8Command.Builder r8Builder =
         R8Command.builder(r8DiagnosticsHandler)
+            .addProgramFiles(desugarResult.getOutputPath())
             .addProguardConfigurationFiles(traceReferencesResult.getOutputPath())
             .enableLegacyFullModeForKeepRules(true)
             .setProgramConsumer(
@@ -262,12 +301,13 @@ class R8Partial {
     }
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
+    r8Options.partialSubCompilationConfiguration =
+        new R8PartialR8SubCompilationConfiguration(traceResourcesResult.getResourceIdsToTrace());
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
       r8Options.androidResourceConsumer = options.androidResourceConsumer;
       r8Options.resourceShrinkerConfiguration = options.resourceShrinkerConfiguration;
-      r8Options.d8TracedResourceIDs = resourcesTraceResult.getResourceIdsToTrace();
     }
     R8.runInternal(r8App, r8Options, executor);
     if (r8OutputAppConsumer != null) {
@@ -293,6 +333,7 @@ class R8Partial {
     AndroidApp mergeApp = mergeCommand.getInputApp();
     InternalOptions mergeOptions = mergeCommand.getInternalOptions();
     options.partialCompilationConfiguration.d8MergeOptionsConsumer.accept(mergeOptions);
+    mergeOptions.partialSubCompilationConfiguration = new R8PartialD8SubCompilationConfiguration();
     D8.runInternal(mergeApp, mergeOptions, executor);
   }
 

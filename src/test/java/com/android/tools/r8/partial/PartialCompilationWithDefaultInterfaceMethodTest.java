@@ -3,11 +3,19 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static org.junit.Assume.assumeTrue;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.DEFAULT_METHOD_PREFIX;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbstract;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -27,13 +35,41 @@ public class PartialCompilationWithDefaultInterfaceMethodTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    // TODO(b/388763735): Enable for all API levels.
-    assumeTrue(parameters.canUseDefaultAndStaticInterfaceMethods());
     testForR8Partial(parameters.getBackend())
         .addR8IncludedClasses(I.class, J.class)
         .addR8ExcludedClasses(Main.class, A.class)
         .setMinApi(parameters)
         .compile()
+        .inspect(
+            inspector -> {
+              if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+                // Verify that the default interface method was kept.
+                ClassSubject jClassSubject = inspector.clazz(J.class);
+                assertThat(jClassSubject, isPresent());
+
+                MethodSubject jMethodSubject = jClassSubject.uniqueMethodWithOriginalName("m");
+                assertThat(jMethodSubject, isPresent());
+                assertThat(jMethodSubject, not(isAbstract()));
+              } else {
+                // Verify that a bridge was inserted in the D8 part that calls the companion class
+                // method in the R8 part.
+                ClassSubject jCompanionClassSubject =
+                    inspector.clazz(SyntheticItemsTestUtils.syntheticCompanionClass(J.class));
+                assertThat(jCompanionClassSubject, isPresent());
+
+                MethodSubject jCompanionMethodSubject =
+                    jCompanionClassSubject.uniqueMethodWithOriginalName(
+                        DEFAULT_METHOD_PREFIX + "m");
+                assertThat(jCompanionMethodSubject, isPresent());
+
+                ClassSubject aClassSubject = inspector.clazz(A.class);
+                assertThat(aClassSubject, isPresent());
+
+                MethodSubject aMethodSubject = aClassSubject.uniqueMethodWithOriginalName("m");
+                assertThat(aMethodSubject, isPresent());
+                assertThat(aMethodSubject, invokesMethod(jCompanionMethodSubject));
+              }
+            })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("Hello, world!");
   }

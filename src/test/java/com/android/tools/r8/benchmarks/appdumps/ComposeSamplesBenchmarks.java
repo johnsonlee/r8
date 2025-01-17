@@ -3,12 +3,19 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.containsString;
+
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8PartialTestBuilder;
+import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
+import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -75,7 +82,9 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
             .setName("JetCasterAppPartial")
             .setDumpDependencyPath(dir.resolve("jetcaster"))
             .setFromRevision(16457)
-            .buildR8WithPartialShrinking(ComposeSamplesBenchmarks::configureJetCasterAppPartial),
+            .buildR8WithPartialShrinking(
+                ComposeSamplesBenchmarks::configureJetCasterAppPartial,
+                ComposeSamplesBenchmarks::inspectJetCasterAppPartial),
         AppDumpBenchmarkBuilder.builder()
             .setName("JetChatApp")
             .setDumpDependencyPath(dir.resolve("jetchat"))
@@ -85,7 +94,9 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
             .setName("JetChatAppPartial")
             .setDumpDependencyPath(dir.resolve("jetchat"))
             .setFromRevision(16457)
-            .buildR8WithPartialShrinking(ComposeSamplesBenchmarks::configureJetChatAppPartial),
+            .buildR8WithPartialShrinking(
+                ComposeSamplesBenchmarks::configureJetChatAppPartial,
+                ComposeSamplesBenchmarks::inspectJetChatAppPartial),
         AppDumpBenchmarkBuilder.builder()
             .setName("JetSnackApp")
             .setDumpDependencyPath(dir.resolve("jetsnack"))
@@ -143,10 +154,47 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
 
   private static void configureJetCasterAppPartial(R8PartialTestBuilder testBuilder) {
     testBuilder
-        .allowDiagnosticInfoMessages()
+        .allowDiagnosticMessages()
         .allowUnnecessaryDontWarnWildcards()
         .allowUnusedDontWarnPatterns()
-        .allowUnusedProguardConfigurationRules();
+        .allowUnusedProguardConfigurationRules()
+        .addR8PartialOptionsModification(
+            options -> options.getOpenClosedInterfacesOptions().disallowOpenInterfaces());
+  }
+
+  private static void inspectJetCasterAppPartial(R8PartialTestCompileResult compileResult) {
+    compileResult.inspectDiagnosticMessages(
+        diagnostics ->
+            diagnostics
+                .assertWarningsMatch(
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(
+                            containsString("androidx.compose.animation.tooling.ComposeAnimation"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(containsString("androidx.paging.PositionalDataSource"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(
+                            containsString("java.lang.instrument.ClassFileTransformer"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(
+                            containsString("org.conscrypt.ConscryptHostnameVerifier"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(containsString("org.jaxen.DefaultNavigator"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(containsString("org.jaxen.NamespaceContext"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(containsString("org.jaxen.VariableContext"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(containsString("sun.misc.SignalHandler"))))
+                .assertNoErrors());
   }
 
   private static void configureJetChatApp(R8FullTestBuilder testBuilder) {
@@ -159,10 +207,29 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
 
   private static void configureJetChatAppPartial(R8PartialTestBuilder testBuilder) {
     testBuilder
-        .allowDiagnosticInfoMessages()
+        .allowDiagnosticMessages()
         .allowUnnecessaryDontWarnWildcards()
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules();
+  }
+
+  private static void inspectJetChatAppPartial(R8PartialTestCompileResult compileResult) {
+    compileResult.inspectDiagnosticMessages(
+        diagnostics ->
+            diagnostics
+                .assertWarningsMatch(
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(
+                            containsString("androidx.compose.animation.tooling.ComposeAnimation"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(
+                            containsString("java.lang.instrument.ClassFileTransformer"))),
+                    allOf(
+                        diagnosticType(InterfaceDesugarMissingTypeDiagnostic.class),
+                        diagnosticMessage(containsString("sun.misc.SignalHandler"))))
+                .assertNoErrors());
   }
 
   @Ignore

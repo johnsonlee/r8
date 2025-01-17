@@ -8,13 +8,11 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.partial.pkg1.A1;
 import com.android.tools.r8.partial.pkg1.A2;
 import com.android.tools.r8.partial.pkg1.subpkg.B;
 import com.android.tools.r8.partial.pkg2.C1;
 import com.android.tools.r8.partial.pkg2.C2;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.junit.Test;
@@ -38,12 +36,8 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
   public TestParameters parameters;
 
   @Parameters(name = "{0}")
-  // Test with min API level 24.
   public static TestParametersCollection data() {
-    return getTestParameters()
-        .withDexRuntime(DexVm.Version.V7_0_0)
-        .withApiLevel(AndroidApiLevel.N)
-        .build();
+    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
   }
 
   private static final List<Class<?>> ALL_CLASSES =

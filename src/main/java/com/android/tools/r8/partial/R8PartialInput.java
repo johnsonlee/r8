@@ -10,6 +10,7 @@ import com.android.tools.r8.D8Command;
 import com.android.tools.r8.R8Command;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.tracereferences.TraceReferencesCommand;
+import com.android.tools.r8.utils.ArchiveDataResourceProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,6 +33,11 @@ public class R8PartialInput {
     commandBuilder.addProgramFiles(d8Program).addClasspathFiles(r8Program);
   }
 
+  public void configureDesugar(D8Command.Builder commandBuilder) throws IOException {
+    configureBase(commandBuilder);
+    commandBuilder.addProgramFiles(r8Program).addClasspathFiles(d8Program);
+  }
+
   public void configureMerge(D8Command.Builder commandBuilder) throws IOException {
     configureBase(commandBuilder);
   }
@@ -40,16 +46,13 @@ public class R8PartialInput {
     configureBase(commandBuilder);
     configureDesugaredLibrary(commandBuilder);
     commandBuilder
-        .addProgramFiles(r8Program)
+        .addProgramResourceProvider(new ArchiveDataResourceProvider(r8Program))
         .addClasspathFiles(d8Program)
         .addProguardConfigurationFiles(dump.getProguardConfigFile());
   }
 
   public void configure(TraceReferencesCommand.Builder commandBuilder) throws IOException {
-    commandBuilder
-        .addLibraryFiles(dump.getLibraryArchive())
-        .addSourceFiles(d8Program)
-        .addTargetFiles(r8Program);
+    commandBuilder.addLibraryFiles(dump.getLibraryArchive()).addSourceFiles(d8Program);
   }
 
   private void configureBase(BaseCompilerCommand.Builder<?, ?> commandBuilder) throws IOException {

@@ -34,6 +34,7 @@ public class Marker {
     GlobalSyntheticsGenerator,
     L8,
     R8,
+    R8Partial,
     Relocator,
     TraceReferences;
 
@@ -51,6 +52,7 @@ public class Marker {
   private static final String PREFIX = "~~";
   private static final String D8_PREFIX = PREFIX + Tool.D8 + "{";
   private static final String R8_PREFIX = PREFIX + Tool.R8 + "{";
+  private static final String R8_PARTIAL_PREFIX = PREFIX + Tool.R8Partial + "{";
   private static final String L8_PREFIX = PREFIX + Tool.L8 + "{";
   private static final String RELOCATOR_PREFIX = PREFIX + Tool.Relocator + "{";
 
@@ -286,6 +288,9 @@ public class Marker {
       }
       if (str.startsWith(R8_PREFIX)) {
         return internalParse(Tool.R8, str.substring(R8_PREFIX.length() - 1));
+      }
+      if (str.startsWith(R8_PARTIAL_PREFIX)) {
+        return internalParse(Tool.R8Partial, str.substring(R8_PARTIAL_PREFIX.length() - 1));
       }
       if (str.startsWith(L8_PREFIX)) {
         return internalParse(Tool.L8, str.substring(L8_PREFIX.length() - 1));

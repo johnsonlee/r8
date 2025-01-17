@@ -88,6 +88,7 @@ import com.android.tools.r8.optimize.compose.JetpackComposeOptions;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemovalOptions;
 import com.android.tools.r8.optimize.singlecaller.SingleCallerInlinerOptions;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.art.ArtProfileOptions;
 import com.android.tools.r8.profile.startup.StartupOptions;
@@ -116,8 +117,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -199,7 +198,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public AndroidResourceProvider androidResourceProvider = null;
   public AndroidResourceConsumer androidResourceConsumer = null;
   public List<String> androidResourceProguardMapStrings = null;
-  public IntSet d8TracedResourceIDs = new IntOpenHashSet();
 
   public ResourceShrinkerConfiguration resourceShrinkerConfiguration =
       ResourceShrinkerConfiguration.DEFAULT_CONFIGURATION;
@@ -555,11 +553,18 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   }
 
   public Marker getMarker() {
-    assert tool != null;
     if (hasMarker) {
       return marker;
     }
-    return createMarker(tool);
+    return createMarker(getMarkerTool());
+  }
+
+  public Tool getMarkerTool() {
+    assert tool != null;
+    if (partialSubCompilationConfiguration != null && tool == Tool.R8) {
+      return Tool.R8Partial;
+    }
+    return tool;
   }
 
   // Compute the marker to be placed in the main dex file.
@@ -1024,6 +1029,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       R8PartialCompilationConfiguration.fromIncludeExcludePatterns(
           System.getProperty("com.android.tools.r8.experimentalPartialShrinkingIncludePatterns"),
           System.getProperty("com.android.tools.r8.experimentalPartialShrinkingExcludePatterns"));
+  public R8PartialSubCompilationConfiguration partialSubCompilationConfiguration = null;
   public final TestingOptions testing = new TestingOptions();
 
   public List<ProguardConfigurationRule> mainDexKeepRules = ImmutableList.of();

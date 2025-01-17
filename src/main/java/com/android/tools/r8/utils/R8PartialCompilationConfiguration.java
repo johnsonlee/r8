@@ -30,6 +30,7 @@ public class R8PartialCompilationConfiguration {
   public Consumer<AndroidApp> d8OutputAppConsumer;
 
   public Consumer<InternalOptions> d8DexOptionsConsumer = ConsumerUtils.emptyConsumer();
+  public Consumer<InternalOptions> d8DesugarOptionsConsumer = ConsumerUtils.emptyConsumer();
   public Consumer<InternalOptions> d8MergeOptionsConsumer = ConsumerUtils.emptyConsumer();
   public Consumer<InternalOptions> r8OptionsConsumer = ConsumerUtils.emptyConsumer();
 

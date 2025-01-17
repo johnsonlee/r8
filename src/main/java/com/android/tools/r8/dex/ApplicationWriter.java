@@ -468,24 +468,33 @@ public class ApplicationWriter {
       allMarkers.addAll(previousMarkers);
     }
     DexItemFactory factory = appView.dexItemFactory();
-    currentMarker.ifPresent(
-        marker -> {
-          if (willComputeProguardMap()) {
-            lazyDexStrings.add(
-                new LazyDexString() {
+    currentMarker
+        .filter(this::includeMarker)
+        .ifPresent(
+            marker -> {
+              if (willComputeProguardMap()) {
+                lazyDexStrings.add(
+                    new LazyDexString() {
 
-                  @Override
-                  public DexString internalCompute() {
-                    marker.setPgMapId(delayedProguardMapId.get().getId());
-                    return marker.toDexString(factory);
-                  }
-                });
-          } else {
-            allMarkers.add(marker);
-          }
-        });
+                      @Override
+                      public DexString internalCompute() {
+                        marker.setPgMapId(delayedProguardMapId.get().getId());
+                        return marker.toDexString(factory);
+                      }
+                    });
+              } else {
+                allMarkers.add(marker);
+              }
+            });
     allMarkers.sort(Comparator.comparing(Marker::toString));
     markerStrings = ListUtils.map(allMarkers, marker -> marker.toDexString(factory));
+  }
+
+  private boolean includeMarker(Marker marker) {
+    if (options.partialSubCompilationConfiguration != null) {
+      return options.partialSubCompilationConfiguration.includeMarker();
+    }
+    return true;
   }
 
   private OriginalSourceFiles computeSourceFileString(

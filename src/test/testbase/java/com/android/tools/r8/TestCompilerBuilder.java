@@ -176,6 +176,8 @@ public abstract class TestCompilerBuilder<
           DEFAULT_OPTIONS.andThen(
               options -> {
                 options.partialCompilationConfiguration.d8DexOptionsConsumer = DEFAULT_D8_OPTIONS;
+                options.partialCompilationConfiguration.d8DesugarOptionsConsumer =
+                    DEFAULT_D8_OPTIONS;
                 options.partialCompilationConfiguration.d8MergeOptionsConsumer = DEFAULT_D8_OPTIONS;
                 options.partialCompilationConfiguration.r8OptionsConsumer = DEFAULT_R8_OPTIONS;
               });

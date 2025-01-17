@@ -19,7 +19,7 @@ public abstract class TestBaseResult<
     return fn.applyWithRuntimeException(self());
   }
 
-  public <T extends Throwable> CR apply(ThrowableConsumer<CR> fn) {
+  public <T extends Throwable> CR apply(ThrowableConsumer<? super CR> fn) {
     fn.acceptWithRuntimeException(self());
     return self();
   }

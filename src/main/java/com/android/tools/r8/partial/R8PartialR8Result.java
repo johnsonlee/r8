@@ -33,6 +33,7 @@ public class R8PartialR8Result {
   }
 
   private void supplyDataResourceConsumer(DataResourceConsumer consumer, Reporter reporter) {
+    if (consumer == null) return;
     for (DataResource dataResource : outputDataResources) {
       if (dataResource instanceof DataDirectoryResource) {
         consumer.accept((DataDirectoryResource) dataResource, reporter);

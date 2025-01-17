@@ -10,6 +10,7 @@ import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8PartialTestBuilder;
+import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBase.Backend;
@@ -32,7 +33,6 @@ import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.lang.annotation.RetentionPolicy;
@@ -152,12 +152,18 @@ public class AppDumpBenchmarkBuilder {
 
   public BenchmarkConfig buildR8WithPartialShrinking(
       ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
+    return buildR8WithPartialShrinking(configuration, ThrowableConsumer.empty());
+  }
+
+  public BenchmarkConfig buildR8WithPartialShrinking(
+      ThrowableConsumer<? super R8PartialTestBuilder> configuration,
+      ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
     verify();
     return BenchmarkConfig.builder()
         .setName(name)
         .setTarget(BenchmarkTarget.R8)
         .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8WithPartialShrinking(this, configuration))
+        .setMethod(runR8WithPartialShrinking(this, configuration, compileResultConsumer))
         .setFromRevision(fromRevision)
         .addDependency(dumpDependency)
         .measureRunTime()
@@ -314,8 +320,9 @@ public class AppDumpBenchmarkBuilder {
 
   private static BenchmarkMethod runR8WithPartialShrinking(
       AppDumpBenchmarkBuilder builder,
-      ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
-    return internalRunR8Partial(builder, configuration);
+      ThrowableConsumer<? super R8PartialTestBuilder> configuration,
+      ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
+    return internalRunR8Partial(builder, configuration, compileResultConsumer);
   }
 
   private static BenchmarkMethod runR8WithResourceShrinking(
@@ -383,7 +390,8 @@ public class AppDumpBenchmarkBuilder {
 
   private static BenchmarkMethod internalRunR8Partial(
       AppDumpBenchmarkBuilder builder,
-      ThrowableConsumer<? super R8PartialTestBuilder> configuration) {
+      ThrowableConsumer<? super R8PartialTestBuilder> configuration,
+      ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
     return environment ->
         BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
@@ -406,8 +414,7 @@ public class AppDumpBenchmarkBuilder {
                       .addProgramFiles(dump.getProgramArchive())
                       .addLibraryFiles(dump.getLibraryArchive())
                       .addKeepRuleFiles(dump.getProguardConfigFile())
-                      // TODO(b/388452773): Fix support for default interface methods.
-                      .setMinApi(Math.max(dumpProperties.getMinApi(), AndroidApiLevel.N.getLevel()))
+                      .setMinApi(dumpProperties.getMinApi())
                       .setR8PartialConfiguration(
                           b -> {
                             if (builder.programPackages.isEmpty()) {
@@ -431,7 +438,8 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkDexSegmentsCodeSize(results)
                                   .benchmarkDex2OatCodeSize(
                                       results,
-                                      environment.getConfig().isDex2OatVerificationEnabled()));
+                                      environment.getConfig().isDex2OatVerificationEnabled())
+                                  .apply(compileResultConsumer));
                 });
   }
 

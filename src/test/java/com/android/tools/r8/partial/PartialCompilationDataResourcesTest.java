@@ -15,7 +15,6 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import java.io.InputStream;
@@ -34,11 +33,11 @@ public class PartialCompilationDataResourcesTest extends TestBase {
   public TestParameters parameters;
 
   @Parameters(name = "{0}")
-  // Test with min API level 24.
   public static TestParametersCollection data() {
+    // This test uses StandardCharsets which was first introduced in API level 19.
     return getTestParameters()
-        .withDexRuntime(DexVm.Version.V7_0_0)
-        .withApiLevel(AndroidApiLevel.N)
+        .withDexRuntimes()
+        .withApiLevelsStartingAtIncluding(AndroidApiLevel.K)
         .build();
   }
 

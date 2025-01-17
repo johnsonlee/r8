@@ -19,7 +19,6 @@ import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.desugar.desugaredlibrary.jdk11.DesugaredLibraryJDK11Undesugarer;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.tracereferences.TraceReferences;
@@ -66,14 +65,8 @@ public class PartialCompilationDemoTest extends TestBase {
   public TestParameters parameters;
 
   @Parameters(name = "{0}")
-  // Test with min API level 24 where default interface methods are supported instead fo using
-  // dump.getBuildProperties().getMinApi(). Tivi has min API 23 and there are currently trace
-  // references issues with CC classes for default interface methods.
   public static TestParametersCollection data() {
-    return getTestParameters()
-        .withDexRuntime(DexVm.Version.V7_0_0)
-        .withApiLevel(AndroidApiLevel.N)
-        .build();
+    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
   }
 
   private void configureDesugaredLibrary(

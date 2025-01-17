@@ -133,6 +133,9 @@ public class CfApplicationWriter {
     if (marker.isRelocator()) {
       return false;
     }
+    if (options.partialSubCompilationConfiguration != null) {
+      return options.partialSubCompilationConfiguration.includeMarker();
+    }
     assert marker.isCfBackend() || marker.isDexBackend();
     if (options.desugarSpecificOptions().noCfMarkerForDesugaredCode) {
       return !marker.isCfBackend() || !marker.isDesugared();

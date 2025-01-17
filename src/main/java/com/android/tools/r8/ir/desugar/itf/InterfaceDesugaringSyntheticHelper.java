@@ -62,7 +62,7 @@ public class InterfaceDesugaringSyntheticHelper {
 
   // Use InterfaceDesugaringForTesting for public accesses in tests.
   static final String COMPANION_CLASS_NAME_SUFFIX = "$-CC";
-  static final String DEFAULT_METHOD_PREFIX = "$default$";
+  public static final String DEFAULT_METHOD_PREFIX = "$default$";
   public static final String PRIVATE_METHOD_PREFIX = "$private$";
 
   private final AppView<?> appView;
