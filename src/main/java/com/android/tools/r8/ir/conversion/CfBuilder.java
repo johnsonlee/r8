@@ -27,8 +27,6 @@ import com.android.tools.r8.graph.CfCode;
 import com.android.tools.r8.graph.CfCode.LocalVariableInfo;
 import com.android.tools.r8.graph.DebugLocalInfo;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
-import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadata;
@@ -259,12 +257,6 @@ public class CfBuilder {
       }
     }
     return true;
-  }
-
-  public DexField resolveField(DexField field) {
-    DexEncodedField resolvedField =
-        appView.appInfoForDesugaring().resolveField(field).getResolvedField();
-    return resolvedField == null ? field : resolvedField.getReference();
   }
 
   private void computeInitializers() {

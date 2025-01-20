@@ -897,9 +897,7 @@ public class LazyCfCode extends Code {
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
       DexField field =
           factory.createField(createTypeFromInternalType(owner), factory.createType(desc), name);
-      // TODO(mathiasr): Don't require CfFieldInstruction::declaringField. It is needed for proper
-      // renaming in the backend, but it is not available here in the frontend.
-      addInstruction(CfFieldInstruction.create(opcode, field, field));
+      addInstruction(CfFieldInstruction.create(opcode, field));
     }
 
     @Override

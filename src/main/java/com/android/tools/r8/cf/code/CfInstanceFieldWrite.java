@@ -24,11 +24,7 @@ import org.objectweb.asm.Opcodes;
 public class CfInstanceFieldWrite extends CfFieldInstruction {
 
   public CfInstanceFieldWrite(DexField field) {
-    this(field, field);
-  }
-
-  public CfInstanceFieldWrite(DexField field, DexField declaringField) {
-    super(field, declaringField);
+    super(field);
   }
 
   @Override

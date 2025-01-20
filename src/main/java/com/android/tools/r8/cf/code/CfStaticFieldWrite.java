@@ -23,10 +23,6 @@ public class CfStaticFieldWrite extends CfFieldInstruction {
     super(field);
   }
 
-  public CfStaticFieldWrite(DexField field, DexField declaringField) {
-    super(field, declaringField);
-  }
-
   @Override
   public CfFieldInstruction createWithField(DexField otherField) {
     return new CfStaticFieldWrite(otherField);

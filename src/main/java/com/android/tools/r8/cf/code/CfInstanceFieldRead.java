@@ -21,11 +21,7 @@ import org.objectweb.asm.Opcodes;
 public class CfInstanceFieldRead extends CfFieldInstruction implements CfOrDexInstanceFieldRead {
 
   public CfInstanceFieldRead(DexField field) {
-    this(field, field);
-  }
-
-  public CfInstanceFieldRead(DexField field, DexField declaringField) {
-    super(field, declaringField);
+    super(field);
   }
 
   @Override

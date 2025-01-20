@@ -104,7 +104,7 @@ public class FieldAccessorBuilder {
     // Get or set the field.
     int opcode =
         Opcodes.GETSTATIC + BooleanUtils.intValue(isSetter()) + (isInstanceField.ordinal() << 1);
-    instructions.add(CfFieldInstruction.create(opcode, field, field));
+    instructions.add(CfFieldInstruction.create(opcode, field));
 
     // Return.
     if (isSetter()) {

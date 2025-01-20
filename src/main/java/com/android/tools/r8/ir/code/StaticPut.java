@@ -236,7 +236,7 @@ public class StaticPut extends FieldInstruction implements FieldPut, StaticField
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfStaticFieldWrite(getField(), builder.resolveField(getField())), this);
+    builder.add(new CfStaticFieldWrite(getField()), this);
   }
 
   @Override

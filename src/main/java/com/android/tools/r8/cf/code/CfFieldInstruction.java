@@ -24,35 +24,25 @@ import org.objectweb.asm.Opcodes;
 public abstract class CfFieldInstruction extends CfInstruction {
 
   private final DexField field;
-  private final DexField declaringField;
 
   private static void specify(StructuralSpecification<CfFieldInstruction, ?> spec) {
-    spec.withInt(CfFieldInstruction::getAsmOpcode)
-        .withItem(CfFieldInstruction::getField)
-        .withItem(CfFieldInstruction::getDeclaringField);
+    spec.withInt(CfFieldInstruction::getAsmOpcode).withItem(CfFieldInstruction::getField);
   }
 
   public CfFieldInstruction(DexField field) {
-    this(field, field);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  public CfFieldInstruction(DexField field, DexField declaringField) {
     this.field = field;
-    this.declaringField = declaringField;
-    assert field.type == declaringField.type;
   }
 
-  public static CfFieldInstruction create(int opcode, DexField field, DexField declaringField) {
+  public static CfFieldInstruction create(int opcode, DexField field) {
     switch (opcode) {
       case Opcodes.GETSTATIC:
-        return new CfStaticFieldRead(field, declaringField);
+        return new CfStaticFieldRead(field);
       case Opcodes.PUTSTATIC:
-        return new CfStaticFieldWrite(field, declaringField);
+        return new CfStaticFieldWrite(field);
       case Opcodes.GETFIELD:
-        return new CfInstanceFieldRead(field, declaringField);
+        return new CfInstanceFieldRead(field);
       case Opcodes.PUTFIELD:
-        return new CfInstanceFieldWrite(field, declaringField);
+        return new CfInstanceFieldWrite(field);
       default:
         throw new Unreachable("Unexpected opcode " + opcode);
     }
@@ -60,10 +50,6 @@ public abstract class CfFieldInstruction extends CfInstruction {
 
   public DexField getField() {
     return field;
-  }
-
-  public DexField getDeclaringField() {
-    return declaringField;
   }
 
   @Override
@@ -101,9 +87,8 @@ public abstract class CfFieldInstruction extends CfInstruction {
       LensCodeRewriterUtils rewriter,
       MethodVisitor visitor) {
     DexField rewrittenField = graphLens.lookupField(field, codeLens);
-    DexField rewrittenDeclaringField = graphLens.lookupField(declaringField, codeLens);
     String owner = namingLens.lookupInternalName(rewrittenField.holder);
-    String name = namingLens.lookupName(rewrittenDeclaringField).toString();
+    String name = namingLens.lookupName(field).toString();
     String desc = namingLens.lookupDescriptor(rewrittenField.type).toString();
     visitor.visitFieldInsn(getAsmOpcode(), owner, name, desc);
   }

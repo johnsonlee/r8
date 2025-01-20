@@ -23,10 +23,6 @@ public class CfStaticFieldRead extends CfFieldInstruction implements CfOrDexStat
     super(field);
   }
 
-  public CfStaticFieldRead(DexField field, DexField declaringField) {
-    super(field, declaringField);
-  }
-
   @Override
   public CfFieldInstruction createWithField(DexField otherField) {
     return new CfStaticFieldRead(otherField);

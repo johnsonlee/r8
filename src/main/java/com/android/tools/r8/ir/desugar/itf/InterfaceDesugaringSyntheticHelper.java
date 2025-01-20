@@ -646,7 +646,7 @@ public class InterfaceDesugaringSyntheticHelper {
                   isWide ? 2 : 1,
                   0,
                   ImmutableList.of(
-                      new CfStaticFieldRead(clinitField.getReference(), clinitField.getReference()),
+                      new CfStaticFieldRead(clinitField.getReference()),
                       isWide
                           ? new CfStackInstruction(Opcode.Pop2)
                           : new CfStackInstruction(Opcode.Pop),

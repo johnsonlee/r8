@@ -219,7 +219,7 @@ public class StaticGet extends FieldInstruction implements FieldGet, StaticField
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfStaticFieldRead(getField(), builder.resolveField(getField())), this);
+    builder.add(new CfStaticFieldRead(getField()), this);
   }
 
   @Override

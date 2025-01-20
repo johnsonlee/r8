@@ -217,7 +217,7 @@ public class InstanceGet extends FieldInstruction implements FieldGet, InstanceF
 
   @Override
   public void buildCf(CfBuilder builder) {
-    builder.add(new CfInstanceFieldRead(getField(), builder.resolveField(getField())), this);
+    builder.add(new CfInstanceFieldRead(getField()), this);
   }
 
   @Override
