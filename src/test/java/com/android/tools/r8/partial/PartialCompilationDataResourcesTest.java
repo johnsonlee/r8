@@ -34,10 +34,9 @@ public class PartialCompilationDataResourcesTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    // This test uses StandardCharsets which was first introduced in API level 19.
     return getTestParameters()
         .withDexRuntimes()
-        .withApiLevelsStartingAtIncluding(AndroidApiLevel.K)
+        .withApiLevelsStartingAtIncluding(AndroidApiLevel.L)
         .build();
   }
 

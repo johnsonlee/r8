@@ -12,7 +12,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.R8PartialCompilationConfiguration;
 import com.android.tools.r8.utils.ThrowingConsumer;
@@ -31,13 +30,10 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
   public TestParameters parameters;
 
   @Parameters(name = "{0}")
-  // Test with min API level 24 where default interface methods are supported instead of using
-  // dump.getBuildProperties().getMinApi(). Tivi has min API 23 and there are currently trace
-  // references issues with CC classes.
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withDexRuntime(DexVm.Version.V7_0_0)
-        .withApiLevel(AndroidApiLevel.N)
+        .withDexRuntimes()
+        .withApiLevelsStartingAtIncluding(AndroidApiLevel.L)
         .build();
   }
 
@@ -46,7 +42,6 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
       ThrowingConsumer<CodeInspector, RuntimeException> d8Inspector,
       ThrowingConsumer<CodeInspector, RuntimeException> inspector)
       throws Exception {
-    // Path tempDir = temp.newFolder().toPath();
     testForR8Partial(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(A.class, B.class, C.class, Main.class)

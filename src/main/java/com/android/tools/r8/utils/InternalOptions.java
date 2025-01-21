@@ -1030,9 +1030,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final StartupOptions startupOptions = new StartupOptions();
   private final InstrumentationOptions instrumentationOptions;
   public R8PartialCompilationConfiguration partialCompilationConfiguration =
-      R8PartialCompilationConfiguration.fromIncludeExcludePatterns(
-          System.getProperty("com.android.tools.r8.experimentalPartialShrinkingIncludePatterns"),
-          System.getProperty("com.android.tools.r8.experimentalPartialShrinkingExcludePatterns"));
+      R8PartialCompilationConfiguration.disabledConfiguration();
   public R8PartialSubCompilationConfiguration partialSubCompilationConfiguration = null;
   public final TestingOptions testing = new TestingOptions();
 

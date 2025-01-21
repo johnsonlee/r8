@@ -149,7 +149,10 @@ public final class R8Command extends BaseCompilerCommand {
     private AndroidResourceConsumer androidResourceConsumer = null;
     private ResourceShrinkerConfiguration resourceShrinkerConfiguration =
         ResourceShrinkerConfiguration.DEFAULT_CONFIGURATION;
-    private R8PartialCompilationConfiguration partialCompilationConfiguration = null;
+    private R8PartialCompilationConfiguration partialCompilationConfiguration =
+        R8PartialCompilationConfiguration.fromIncludeExcludePatterns(
+            System.getProperty("com.android.tools.r8.experimentalPartialShrinkingIncludePatterns"),
+            System.getProperty("com.android.tools.r8.experimentalPartialShrinkingExcludePatterns"));
 
     private final ProguardConfigurationParserOptions.Builder parserOptionsBuilder =
         ProguardConfigurationParserOptions.builder().readEnvironment();
@@ -597,6 +600,12 @@ public final class R8Command extends BaseCompilerCommand {
       return self();
     }
 
+    Builder setPartialCompilationConfiguration(
+        R8PartialCompilationConfiguration partialCompilationConfiguration) {
+      this.partialCompilationConfiguration = partialCompilationConfiguration;
+      return this;
+    }
+
     @Override
     protected InternalProgramOutputPathConsumer createProgramOutputConsumer(
         Path path,
@@ -689,17 +698,12 @@ public final class R8Command extends BaseCompilerCommand {
       if (getProgramConsumer() instanceof DexFilePerClassFileConsumer) {
         reporter.error("R8 does not support compiling to a single DEX file per Java class file");
       }
-      if (getMainDexListConsumer() != null
-          && mainDexRules.isEmpty()
-          && !getAppBuilder().hasMainDexList()) {
+      if (getMainDexListConsumer() != null && !hasMainDexList() && !hasMainDexRules()) {
         reporter.error(
             "Option --main-dex-list-output requires --main-dex-rules and/or --main-dex-list");
       }
-      if (!(getProgramConsumer() instanceof ClassFileConsumer)
-          && getMinApiLevel() >= AndroidApiLevel.L.getLevel()) {
-        if (getMainDexListConsumer() != null
-            || !mainDexRules.isEmpty()
-            || getAppBuilder().hasMainDexList()) {
+      if (!(getProgramConsumer() instanceof ClassFileConsumer) && hasNativeMultidex()) {
+        if (getMainDexListConsumer() != null || hasMainDexRules() || hasMainDexList()) {
           reporter.error(
               "R8 does not support main-dex inputs and outputs when compiling to API level "
                   + AndroidApiLevel.L.getLevel()
@@ -725,7 +729,35 @@ public final class R8Command extends BaseCompilerCommand {
       if (hasDesugaredLibraryConfiguration() && getDisableDesugaring()) {
         reporter.error("Using desugared library configuration requires desugaring to be enabled");
       }
+      if (partialCompilationConfiguration.isEnabled()) {
+        validateR8Partial();
+      }
       super.validate();
+    }
+
+    private void validateR8Partial() {
+      Reporter reporter = getReporter();
+      if (!(getProgramConsumer() instanceof DexIndexedConsumer)) {
+        reporter.error("Partial shrinking does not support generating class files");
+      }
+      if (!hasNativeMultidex()) {
+        reporter.error("Partial shrinking requires min API level >= 21");
+      }
+      if (forceProguardCompatibility) {
+        reporter.error("Partial shrinking does not support Proguard compatibility mode");
+      }
+    }
+
+    private boolean hasMainDexList() {
+      return getAppBuilder().hasMainDexList();
+    }
+
+    private boolean hasMainDexRules() {
+      return !mainDexRules.isEmpty();
+    }
+
+    private boolean hasNativeMultidex() {
+      return isMinApiLevelSet() && getMinApiLevel() >= AndroidApiLevel.L.getLevel();
     }
 
     private static void verifyResourceSplitOrProgramSplit(FeatureSplit featureSplit) {
@@ -1397,9 +1429,8 @@ public final class R8Command extends BaseCompilerCommand {
     }
 
     // EXPERIMENTAL flags.
-    if (partialCompilationConfiguration != null) {
-      internal.partialCompilationConfiguration = partialCompilationConfiguration;
-    }
+    assert partialCompilationConfiguration != null;
+    internal.partialCompilationConfiguration = partialCompilationConfiguration;
 
     assert !internal.forceProguardCompatibility;
     internal.forceProguardCompatibility = forceProguardCompatibility;

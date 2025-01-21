@@ -138,11 +138,9 @@ public class R8PartialTestBuilder
       StringBuilder proguardMapBuilder)
       throws CompilationFailedException {
     Box<AndroidApp> d8InputAppBox = new Box<>();
+    builder.setPartialCompilationConfiguration(getPartialConfiguration());
     Consumer<InternalOptions> configureR8PartialCompilation =
-        options -> {
-          options.partialCompilationConfiguration = getPartialConfiguration();
-          options.partialCompilationConfiguration.d8InputAppConsumer = d8InputAppBox::set;
-        };
+        options -> options.partialCompilationConfiguration.d8InputAppConsumer = d8InputAppBox::set;
     ToolHelper.runAndBenchmarkR8PartialWithoutResult(
         builder, configureR8PartialCompilation.andThen(optionsConsumer), benchmarkResults);
     return new R8PartialTestCompileResult(

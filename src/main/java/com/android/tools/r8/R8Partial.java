@@ -66,11 +66,6 @@ class R8Partial {
   }
 
   void runInternal(AndroidApp app, ExecutorService executor) throws IOException, ResourceException {
-    if (!(options.programConsumer instanceof DexIndexedConsumer)) {
-      throw options.reporter.fatalError(
-          "Partial shrinking does not support generating class files");
-    }
-
     timing.begin("Process input");
     R8PartialInput input = runProcessInputStep(app);
 

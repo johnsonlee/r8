@@ -13,6 +13,7 @@ import com.android.tools.r8.partial.pkg1.A2;
 import com.android.tools.r8.partial.pkg1.subpkg.B;
 import com.android.tools.r8.partial.pkg2.C1;
 import com.android.tools.r8.partial.pkg2.C2;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.junit.Test;
@@ -37,7 +38,10 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
+    return getTestParameters()
+        .withDexRuntimes()
+        .withApiLevelsStartingAtIncluding(AndroidApiLevel.L)
+        .build();
   }
 
   private static final List<Class<?>> ALL_CLASSES =
