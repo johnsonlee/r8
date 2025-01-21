@@ -20,16 +20,8 @@ public abstract class R8PartialSubCompilationConfiguration {
     this.timing = timing;
   }
 
-  public R8PartialD8DexSubCompilationConfiguration asD8DexSubCompilationConfiguration() {
-    return null;
-  }
-
   public R8PartialR8SubCompilationConfiguration asR8SubCompilationConfiguration() {
     return null;
-  }
-
-  public boolean includeMarker() {
-    return false;
   }
 
   /** Returns true if normal writing should be aborted. */
@@ -49,11 +41,6 @@ public abstract class R8PartialSubCompilationConfiguration {
     public Collection<DexProgramClass> getOutputClasses() {
       assert outputClasses != null;
       return outputClasses;
-    }
-
-    @Override
-    public R8PartialD8DexSubCompilationConfiguration asD8DexSubCompilationConfiguration() {
-      return this;
     }
 
     @Override
@@ -131,11 +118,6 @@ public abstract class R8PartialSubCompilationConfiguration {
     @Override
     public R8PartialR8SubCompilationConfiguration asR8SubCompilationConfiguration() {
       return this;
-    }
-
-    @Override
-    public boolean includeMarker() {
-      return true;
     }
   }
 }

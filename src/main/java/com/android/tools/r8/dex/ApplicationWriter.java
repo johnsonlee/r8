@@ -469,7 +469,6 @@ public class ApplicationWriter {
     }
     DexItemFactory factory = appView.dexItemFactory();
     currentMarker
-        .filter(this::includeMarker)
         .ifPresent(
             marker -> {
               if (willComputeProguardMap()) {
@@ -488,13 +487,6 @@ public class ApplicationWriter {
             });
     allMarkers.sort(Comparator.comparing(Marker::toString));
     markerStrings = ListUtils.map(allMarkers, marker -> marker.toDexString(factory));
-  }
-
-  private boolean includeMarker(Marker marker) {
-    if (options.partialSubCompilationConfiguration != null) {
-      return options.partialSubCompilationConfiguration.includeMarker();
-    }
-    return true;
   }
 
   private OriginalSourceFiles computeSourceFileString(
