@@ -48,7 +48,9 @@ public class DexIgetWide extends DexIgetOrIput implements CfOrDexInstanceFieldRe
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexIgetWide withField(DexField field) {
+    DexIgetWide instruction = new DexIgetWide(A, B, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

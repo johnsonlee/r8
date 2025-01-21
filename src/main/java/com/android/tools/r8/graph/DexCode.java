@@ -800,6 +800,10 @@ public class DexCode extends Code
     return highestSortingString;
   }
 
+  public DexInstruction[] getInstructions() {
+    return instructions;
+  }
+
   @Override
   public Try[] getTries() {
     return tries;

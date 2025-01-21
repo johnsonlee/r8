@@ -12,7 +12,8 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import java.nio.ShortBuffer;
 
-public abstract class DexIgetOrIput extends DexFormat22c<DexField> {
+public abstract class DexIgetOrIput extends DexFormat22c<DexField>
+    implements DexIgetOrIputOrSgetOrSput {
 
   DexIgetOrIput(int high, BytecodeStream stream, DexField[] map) {
     super(high, stream, map);
@@ -20,6 +21,11 @@ public abstract class DexIgetOrIput extends DexFormat22c<DexField> {
 
   DexIgetOrIput(int A, int B, DexField CCCC) {
     super(A, B, CCCC);
+  }
+
+  @Override
+  public final boolean canThrow() {
+    return true;
   }
 
   @Override
@@ -36,6 +42,26 @@ public abstract class DexIgetOrIput extends DexFormat22c<DexField> {
   @Override
   public final DexField getField() {
     return CCCC;
+  }
+
+  @Override
+  public boolean isIgetOrIput() {
+    return true;
+  }
+
+  @Override
+  public DexIgetOrIput asIgetOrIput() {
+    return this;
+  }
+
+  @Override
+  public boolean isIgetOrIputOrSgetOrSput() {
+    return true;
+  }
+
+  @Override
+  public DexIgetOrIputOrSgetOrSput asIgetOrIputOrSgetOrSput() {
+    return this;
   }
 
   @Override

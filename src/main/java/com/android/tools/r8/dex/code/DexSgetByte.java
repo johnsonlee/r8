@@ -48,7 +48,9 @@ public class DexSgetByte extends DexSgetOrSput implements CfOrDexStaticFieldRead
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexSgetByte withField(DexField field) {
+    DexSgetByte instruction = new DexSgetByte(AA, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

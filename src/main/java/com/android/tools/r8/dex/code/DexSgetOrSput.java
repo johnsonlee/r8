@@ -13,7 +13,8 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.utils.structural.StructuralSpecification;
 import java.nio.ShortBuffer;
 
-abstract class DexSgetOrSput extends DexFormat21c<DexField> {
+public abstract class DexSgetOrSput extends DexFormat21c<DexField>
+    implements DexIgetOrIputOrSgetOrSput {
 
   DexSgetOrSput(int high, BytecodeStream stream, DexField[] map) {
     super(high, stream, map);
@@ -21,6 +22,11 @@ abstract class DexSgetOrSput extends DexFormat21c<DexField> {
 
   protected DexSgetOrSput(int AA, DexField BBBB) {
     super(AA, BBBB);
+  }
+
+  @Override
+  public final boolean canThrow() {
+    return true;
   }
 
   @Override
@@ -32,6 +38,26 @@ abstract class DexSgetOrSput extends DexFormat21c<DexField> {
       LensCodeRewriterUtils rewriter) {
     DexField rewritten = appView.graphLens().lookupField(getField(), codeLens);
     rewritten.collectIndexedItems(appView, indexedItems);
+  }
+
+  @Override
+  public boolean isSgetOrSput() {
+    return true;
+  }
+
+  @Override
+  public DexSgetOrSput asSgetOrSput() {
+    return this;
+  }
+
+  @Override
+  public boolean isIgetOrIputOrSgetOrSput() {
+    return true;
+  }
+
+  @Override
+  public DexIgetOrIputOrSgetOrSput asIgetOrIputOrSgetOrSput() {
+    return this;
   }
 
   @Override

@@ -44,6 +44,11 @@ public class DexInvokeSuper extends DexInvokeMethod {
   }
 
   @Override
+  public InvokeType getType() {
+    return InvokeType.SUPER;
+  }
+
+  @Override
   public void registerUse(UseRegistry<?> registry) {
     registry.registerInvokeSuper(getMethod());
   }
@@ -55,7 +60,9 @@ public class DexInvokeSuper extends DexInvokeMethod {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexInvokeSuper withMethod(DexMethod method) {
+    DexInvokeSuper instruction = new DexInvokeSuper(A, method, C, D, E, F, G);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

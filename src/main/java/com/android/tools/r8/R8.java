@@ -838,8 +838,8 @@ public class R8 {
         options.syntheticProguardRulesConsumer.accept(synthesizedProguardRules);
       }
 
-      appView.setNamingLens(PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView));
-      appView.setNamingLens(RecordRewritingNamingLens.createRecordRewritingNamingLens(appView));
+      PrefixRewritingNamingLens.commitPrefixRewritingNamingLens(appView);
+      RecordRewritingNamingLens.commitRecordRewritingNamingLens(appView);
 
       new ApiReferenceStubber(appView).run(executorService);
 

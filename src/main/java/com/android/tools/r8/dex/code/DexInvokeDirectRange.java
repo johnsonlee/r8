@@ -44,6 +44,11 @@ public class DexInvokeDirectRange extends DexInvokeMethodRange {
   }
 
   @Override
+  public InvokeType getType() {
+    return InvokeType.DIRECT;
+  }
+
+  @Override
   public void registerUse(UseRegistry<?> registry) {
     registry.registerInvokeDirect(getMethod());
   }
@@ -54,7 +59,9 @@ public class DexInvokeDirectRange extends DexInvokeMethodRange {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexInvokeDirectRange withMethod(DexMethod method) {
+    DexInvokeDirectRange instruction = new DexInvokeDirectRange(CCCC, AA, method);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

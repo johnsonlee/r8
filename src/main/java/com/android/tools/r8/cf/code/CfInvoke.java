@@ -61,6 +61,11 @@ public class CfInvoke extends CfInstruction {
     return getOpcode();
   }
 
+  public InvokeType getInvokeType(
+      AppView<?> appView, GraphLens codeLens, DexClassAndMethod context) {
+    return InvokeType.fromCfOpcode(getOpcode(), method, context, appView, codeLens);
+  }
+
   @Override
   public int internalAcceptCompareTo(
       CfInstruction other, CompareToVisitor visitor, CfCompareHelper helper) {
@@ -302,5 +307,9 @@ public class CfInvoke extends CfInstruction {
       return frame;
     }
     return frame.push(config, method.getReturnType());
+  }
+
+  public CfInvoke withMethod(DexMethod method, boolean itf) {
+    return new CfInvoke(opcode, method, itf);
   }
 }

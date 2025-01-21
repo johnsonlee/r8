@@ -212,7 +212,7 @@ public class GlobalSyntheticsGenerator {
         "Finalize synthetics",
         () -> SyntheticFinalization.finalize(appView, timing, executorService));
 
-    appView.setNamingLens(RecordRewritingNamingLens.createRecordRewritingNamingLens(appView));
+    RecordRewritingNamingLens.commitRecordRewritingNamingLens(appView);
     appView.setNamingLens(
         VarHandleDesugaringRewritingNamingLens.createVarHandleDesugaringRewritingNamingLens(
             appView));

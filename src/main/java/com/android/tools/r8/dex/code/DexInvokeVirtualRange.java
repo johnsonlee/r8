@@ -44,6 +44,11 @@ public class DexInvokeVirtualRange extends DexInvokeMethodRange {
   }
 
   @Override
+  public InvokeType getType() {
+    return InvokeType.VIRTUAL;
+  }
+
+  @Override
   public boolean isInvokeVirtualRange() {
     return true;
   }
@@ -64,7 +69,9 @@ public class DexInvokeVirtualRange extends DexInvokeMethodRange {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexInvokeVirtualRange withMethod(DexMethod method) {
+    DexInvokeVirtualRange instruction = new DexInvokeVirtualRange(CCCC, AA, method);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

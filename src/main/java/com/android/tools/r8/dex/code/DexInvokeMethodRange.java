@@ -14,7 +14,8 @@ import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import java.nio.ShortBuffer;
 
-public abstract class DexInvokeMethodRange extends DexFormat3rc<DexMethod> {
+public abstract class DexInvokeMethodRange extends DexFormat3rc<DexMethod>
+    implements DexInvokeMethodOrInvokeMethodRange {
 
   DexInvokeMethodRange(int high, BytecodeStream stream, DexMethod[] map) {
     super(high, stream, map);
@@ -22,6 +23,11 @@ public abstract class DexInvokeMethodRange extends DexFormat3rc<DexMethod> {
 
   DexInvokeMethodRange(int firstArgumentRegister, int argumentCount, DexMethod dexItem) {
     super(firstArgumentRegister, argumentCount, dexItem);
+  }
+
+  @Override
+  public final boolean canThrow() {
+    return true;
   }
 
   @Override
@@ -45,6 +51,16 @@ public abstract class DexInvokeMethodRange extends DexFormat3rc<DexMethod> {
   }
 
   public abstract InvokeType getInvokeType();
+
+  @Override
+  public boolean isInvokeMethodOrInvokeMethodRange() {
+    return true;
+  }
+
+  @Override
+  public DexInvokeMethodOrInvokeMethodRange asInvokeMethodOrInvokeMethodRange() {
+    return this;
+  }
 
   @Override
   public void write(

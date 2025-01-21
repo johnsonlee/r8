@@ -48,7 +48,9 @@ public class DexIgetByte extends DexIgetOrIput implements CfOrDexInstanceFieldRe
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexIgetByte withField(DexField field) {
+    DexIgetByte instruction = new DexIgetByte(A, B, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

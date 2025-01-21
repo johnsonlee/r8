@@ -20,6 +20,10 @@ public abstract class R8PartialSubCompilationConfiguration {
     this.timing = timing;
   }
 
+  public boolean isR8() {
+    return false;
+  }
+
   public R8PartialR8SubCompilationConfiguration asR8SubCompilationConfiguration() {
     return null;
   }
@@ -113,6 +117,11 @@ public abstract class R8PartialSubCompilationConfiguration {
               .build();
       appView.setAppInfo(appView.appInfo().rebuildWithClassHierarchy(newApp));
       dexingOutputClasses = null;
+    }
+
+    @Override
+    public boolean isR8() {
+      return true;
     }
 
     @Override

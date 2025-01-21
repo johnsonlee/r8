@@ -48,7 +48,9 @@ public class DexSput extends DexSgetOrSput {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexSput withField(DexField field) {
+    DexSput instruction = new DexSput(AA, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

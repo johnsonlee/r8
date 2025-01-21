@@ -17,6 +17,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
@@ -182,6 +183,13 @@ public class ListUtils {
    */
   public static <T> List<T> mapOrElse(List<T> list, Function<T, T> fn) {
     return mapOrElse(list, fn, list);
+  }
+
+  public static <T> void map(List<T> list, Function<T, T> fn, Consumer<List<T>> onChangedConsumer) {
+    List<T> result = mapOrElse(list, fn);
+    if (result != list) {
+      onChangedConsumer.accept(result);
+    }
   }
 
   /**

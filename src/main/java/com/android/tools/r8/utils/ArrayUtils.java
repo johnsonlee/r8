@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
@@ -143,6 +144,14 @@ public class ArrayUtils {
       }
     }
     return results != null ? results.toArray(emptyArray) : (T[]) original;
+  }
+
+  public static <S, T> void map(
+      S[] array, Function<S, T> fn, T[] emptyArray, Consumer<T[]> onChangedConsumer) {
+    T[] newArray = map(array, fn, emptyArray);
+    if (newArray != array) {
+      onChangedConsumer.accept(newArray);
+    }
   }
 
   /** Rewrites the input array to the output array unconditionally. */

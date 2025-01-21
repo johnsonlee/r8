@@ -44,6 +44,11 @@ public class DexInvokeStatic extends DexInvokeMethod {
   }
 
   @Override
+  public InvokeType getType() {
+    return InvokeType.STATIC;
+  }
+
+  @Override
   public void registerUse(UseRegistry<?> registry) {
     registry.registerInvokeStatic(getMethod());
   }
@@ -55,7 +60,9 @@ public class DexInvokeStatic extends DexInvokeMethod {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexInvokeStatic withMethod(DexMethod method) {
+    DexInvokeStatic instruction = new DexInvokeStatic(A, method, C, D, E, F, G);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

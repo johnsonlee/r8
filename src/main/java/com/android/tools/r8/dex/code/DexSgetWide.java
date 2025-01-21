@@ -48,7 +48,9 @@ public class DexSgetWide extends DexSgetOrSput implements CfOrDexStaticFieldRead
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexSgetWide withField(DexField field) {
+    DexSgetWide instruction = new DexSgetWide(AA, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

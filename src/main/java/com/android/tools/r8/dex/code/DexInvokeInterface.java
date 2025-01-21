@@ -44,6 +44,11 @@ public class DexInvokeInterface extends DexInvokeMethod {
   }
 
   @Override
+  public InvokeType getType() {
+    return InvokeType.INTERFACE;
+  }
+
+  @Override
   public void registerUse(UseRegistry<?> registry) {
     registry.registerInvokeInterface(getMethod());
   }
@@ -55,7 +60,9 @@ public class DexInvokeInterface extends DexInvokeMethod {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexInvokeInterface withMethod(DexMethod method) {
+    DexInvokeInterface instruction = new DexInvokeInterface(A, method, C, D, E, F, G);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

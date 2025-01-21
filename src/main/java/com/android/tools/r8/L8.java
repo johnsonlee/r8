@@ -140,7 +140,7 @@ public class L8 {
 
       SyntheticFinalization.finalize(appView, timing, executor);
 
-      appView.setNamingLens(PrefixRewritingNamingLens.createPrefixRewritingNamingLens(appView));
+      PrefixRewritingNamingLens.commitPrefixRewritingNamingLens(appView);
       appView.setNamingLens(
           VarHandleDesugaringRewritingNamingLens.createVarHandleDesugaringRewritingNamingLens(
               appView));

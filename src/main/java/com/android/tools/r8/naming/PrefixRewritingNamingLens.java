@@ -19,11 +19,16 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
   private final AppView<?> appView;
   private final NamingLens namingLens;
 
-  public static NamingLens createPrefixRewritingNamingLens(AppView<?> appView) {
+  public static void commitPrefixRewritingNamingLens(AppView<?> appView) {
     if (!appView.typeRewriter.isRewriting()) {
-      return appView.getNamingLens();
+      return;
     }
-    return new PrefixRewritingNamingLens(appView);
+    InternalOptions options = appView.options();
+    if (options.partialSubCompilationConfiguration != null
+        && !options.partialSubCompilationConfiguration.isR8()) {
+      return;
+    }
+    appView.setNamingLens(new PrefixRewritingNamingLens(appView));
   }
 
   public PrefixRewritingNamingLens(AppView<?> appView) {

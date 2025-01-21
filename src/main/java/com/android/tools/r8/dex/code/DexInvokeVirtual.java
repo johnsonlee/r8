@@ -44,6 +44,11 @@ public class DexInvokeVirtual extends DexInvokeMethod {
   }
 
   @Override
+  public InvokeType getType() {
+    return InvokeType.VIRTUAL;
+  }
+
+  @Override
   public boolean isInvokeVirtual() {
     return true;
   }
@@ -65,7 +70,9 @@ public class DexInvokeVirtual extends DexInvokeMethod {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexInvokeVirtual withMethod(DexMethod method) {
+    DexInvokeVirtual instruction = new DexInvokeVirtual(A, method, C, D, E, F, G);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

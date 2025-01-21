@@ -48,7 +48,9 @@ public class DexSgetShort extends DexSgetOrSput implements CfOrDexStaticFieldRea
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexSgetShort withField(DexField field) {
+    DexSgetShort instruction = new DexSgetShort(AA, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

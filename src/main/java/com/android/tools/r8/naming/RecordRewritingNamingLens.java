@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.naming;
 
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -20,15 +21,18 @@ public class RecordRewritingNamingLens extends NonIdentityNamingLens {
   private final DexItemFactory factory;
   private final NamingLens namingLens;
 
-  public static NamingLens createRecordRewritingNamingLens(AppView<?> appView) {
-    if (appView.options().desugarRecordState().isFull()
-        && appView
-                .appInfo()
-                .definitionForWithoutExistenceAssert(appView.dexItemFactory().recordType)
-            != null) {
-      return new RecordRewritingNamingLens(appView);
+  public static void commitRecordRewritingNamingLens(AppView<?> appView) {
+    AppInfo appInfo = appView.appInfo();
+    InternalOptions options = appView.options();
+    if (!options.desugarRecordState().isFull()
+        || !appInfo.hasDefinitionForWithoutExistenceAssert(appView.dexItemFactory().recordType)) {
+      return;
     }
-    return appView.getNamingLens();
+    if (options.partialSubCompilationConfiguration != null
+        && !options.partialSubCompilationConfiguration.isR8()) {
+      return;
+    }
+    appView.setNamingLens(new RecordRewritingNamingLens(appView));
   }
 
   public RecordRewritingNamingLens(AppView<?> appView) {

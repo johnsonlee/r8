@@ -221,6 +221,14 @@ public abstract class DexInstruction implements CfOrDexInstruction, StructuralIt
     return false;
   }
 
+  public boolean isInvokeMethodOrInvokeMethodRange() {
+    return false;
+  }
+
+  public DexInvokeMethodOrInvokeMethodRange asInvokeMethodOrInvokeMethodRange() {
+    return null;
+  }
+
   public boolean isInvokeVirtual() {
     return false;
   }
@@ -234,6 +242,38 @@ public abstract class DexInstruction implements CfOrDexInstruction, StructuralIt
   }
 
   public DexInvokeVirtualRange asInvokeVirtualRange() {
+    return null;
+  }
+
+  public boolean isIgetOrIput() {
+    return false;
+  }
+
+  public DexIgetOrIput asIgetOrIput() {
+    return null;
+  }
+
+  public boolean isIgetOrIputOrSgetOrSput() {
+    return false;
+  }
+
+  public DexIgetOrIputOrSgetOrSput asIgetOrIputOrSgetOrSput() {
+    return null;
+  }
+
+  public boolean isNewInstance() {
+    return false;
+  }
+
+  public DexNewInstance asNewInstance() {
+    return null;
+  }
+
+  public boolean isSgetOrSput() {
+    return false;
+  }
+
+  public DexSgetOrSput asSgetOrSput() {
     return null;
   }
 

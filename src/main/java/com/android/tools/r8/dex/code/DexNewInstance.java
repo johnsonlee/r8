@@ -51,6 +51,16 @@ public class DexNewInstance extends DexFormat21c<DexType> {
   }
 
   @Override
+  public boolean isNewInstance() {
+    return true;
+  }
+
+  @Override
+  public DexNewInstance asNewInstance() {
+    return this;
+  }
+
+  @Override
   public void collectIndexedItems(
       AppView<?> appView,
       GraphLens codeLens,
@@ -80,7 +90,7 @@ public class DexNewInstance extends DexFormat21c<DexType> {
   }
 
   public DexType getType() {
-    return (DexType) BBBB;
+    return BBBB;
   }
 
   @Override
@@ -91,5 +101,11 @@ public class DexNewInstance extends DexFormat21c<DexType> {
   @Override
   public boolean canThrow() {
     return true;
+  }
+
+  public DexNewInstance withType(DexType type) {
+    DexNewInstance instruction = new DexNewInstance(AA, type);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

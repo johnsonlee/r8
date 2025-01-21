@@ -48,7 +48,9 @@ public class DexIgetBoolean extends DexIgetOrIput implements CfOrDexInstanceFiel
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexIgetBoolean withField(DexField field) {
+    DexIgetBoolean instruction = new DexIgetBoolean(A, B, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

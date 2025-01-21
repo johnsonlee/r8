@@ -48,7 +48,9 @@ public class DexSgetObject extends DexSgetOrSput implements CfOrDexStaticFieldRe
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexSgetObject withField(DexField field) {
+    DexSgetObject instruction = new DexSgetObject(AA, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }

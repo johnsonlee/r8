@@ -48,7 +48,9 @@ public class DexIput extends DexIgetOrIput {
   }
 
   @Override
-  public boolean canThrow() {
-    return true;
+  public DexIput withField(DexField field) {
+    DexIput instruction = new DexIput(A, B, field);
+    instruction.setOffset(getOffset());
+    return instruction;
   }
 }
