@@ -10,6 +10,7 @@ import static com.android.tools.r8.androidapi.AndroidApiLevelDatabaseHelper.notM
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
@@ -28,16 +29,21 @@ import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -123,6 +129,143 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
     assertEquals(6031, parsedApiClasses.size());
     assertEquals(30501, numberOfFields.get());
     assertEquals(46885, numberOfMethods.get());
+  }
+
+  private static String sampleVersion4ApiVersionsXml =
+      "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+          + "<api version=\"4\">\n"
+          + "        <sdk id=\"36\" shortname=\"B-ext\" name=\"Baklava Extensions\"\n"
+          + "             reference=\"android/os/Build$VERSION_CODES$BAKLAVA\"/>\n"
+          + "\n"
+          + "        <!-- This class was introduced in Android R -->\n"
+          + "        <class name=\"android/os/ext/SdkExtensions\" since=\"30.0\">\n"
+          + "                <extends name=\"java/lang/Object\"/>\n"
+          + "                <!-- This method was introduced in Android S. It was \"backported\""
+          + " to Android R via the R extension,\n"
+          + "                     version 2. It also exists in later extensions, including the"
+          + " Baklava extension (id 36). -->\n"
+          + "                <method name=\"getAllExtensionVersions()Ljava/util/Map;\""
+          + " since=\"31.0\"\n"
+          + "                        sdks=\"30:2,31:2,33:4,34:7,35:12,36:16,0:31.0\"/>\n"
+          + "                <method name=\"getExtensionVersion(I)I\"/>\n"
+          + "                <!-- This field was introduced in Android U. It was \"backported\""
+          + " to Android R via the R extension,\n"
+          + "                     version 4. It also exists in later extensions, including the"
+          + " Baklava extension (id 36). -->\n"
+          + "                <field name=\"AD_SERVICES\" since=\"34.0\""
+          + " sdks=\"30:4,31:4,33:4,34:7,35:12,36:16,0:34.0\"/>\n"
+          + "        </class>\n"
+          + "\n"
+          + "        <!-- This class was introduced in Baklava. It does not exist in any SDK"
+          + " extension. -->\n"
+          + "        <class name=\"android/os/PlatformOnly\" since=\"36.0\">\n"
+          + "                <extends name=\"java/lang/Object\"/>\n"
+          + "                <method name=\"foo(I)V\" />\n"
+          + "        </class>\n"
+          + "</api>\n";
+
+  static class SdkExtensions {
+    int AD_SERVICES;
+  }
+
+  static class PlatformOnly {}
+
+  private static void mockAndroidJarForSampleVersion4ApiVersionsXml(Path outputPath)
+      throws Exception {
+    try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(outputPath))) {
+      ZipUtils.writeToZipStream(
+          out,
+          "android/os/ext/SdkExtensions.class",
+          transformer(SdkExtensions.class)
+              .setClassDescriptor("Landroid/os/ext/SdkExtensions;")
+              .transform(),
+          ZipEntry.STORED);
+      ZipUtils.writeToZipStream(
+          out,
+          "android/os/PlatformOnly.class",
+          transformer(PlatformOnly.class)
+              .setClassDescriptor("Landroid/os/PlatformOnly;")
+              .transform(),
+          ZipEntry.STORED);
+    }
+  }
+
+  @Test
+  public void testApiVersionsXmlVersion4() throws Exception {
+    Path apiVersionsXml = temp.newFile("api-versions.xml").toPath();
+    FileUtils.writeTextFile(apiVersionsXml, sampleVersion4ApiVersionsXml);
+    Path apiLibrary = temp.newFile("android.jar").toPath();
+    mockAndroidJarForSampleVersion4ApiVersionsXml(apiLibrary);
+    List<ParsedApiClass> parsedApiClasses =
+        AndroidApiVersionsXmlParser.builder()
+            .setApiVersionsXml(apiVersionsXml)
+            .setAndroidJar(apiLibrary)
+            .setApiLevel(API_LEVEL)
+            .setIgnoreExemptionList(true)
+            .build()
+            .run();
+    assertEquals(2, parsedApiClasses.size());
+    assertEquals(
+        parsedApiClasses.get(0).getClassReference(),
+        Reference.classFromDescriptor("Landroid/os/ext/SdkExtensions;"));
+    assertEquals(parsedApiClasses.get(0).getApiLevel(), AndroidApiLevel.R);
+    parsedApiClasses
+        .get(0)
+        .visitMethodReferences(
+            (apiLevel, methods) -> {
+              if (apiLevel.equals(AndroidApiLevel.R)) {
+                assertEquals(
+                    methods,
+                    ImmutableList.of(
+                        Reference.methodFromDescriptor(
+                            "Landroid/os/ext/SdkExtensions;", "getExtensionVersion", "(I)I")));
+              } else if (apiLevel.equals(AndroidApiLevel.S)) {
+                assertEquals(
+                    methods,
+                    ImmutableList.of(
+                        Reference.methodFromDescriptor(
+                            "Landroid/os/ext/SdkExtensions;",
+                            "getAllExtensionVersions",
+                            "()Ljava/util/Map;")));
+              } else {
+                fail();
+              }
+            });
+    parsedApiClasses
+        .get(0)
+        .visitFieldReferences(
+            (apiLevel, fields) -> {
+              if (apiLevel.equals(AndroidApiLevel.U)) {
+                assertEquals(
+                    fields,
+                    ImmutableList.of(
+                        Reference.field(
+                            Reference.classFromDescriptor("Landroid/os/ext/SdkExtensions;"),
+                            "AD_SERVICES",
+                            Reference.typeFromDescriptor("I"))));
+              } else {
+                fail();
+              }
+            });
+    assertEquals(
+        parsedApiClasses.get(1).getClassReference(),
+        Reference.classFromDescriptor("Landroid/os/PlatformOnly;"));
+    assertEquals(parsedApiClasses.get(1).getApiLevel(), AndroidApiLevel.BAKLAVA);
+    parsedApiClasses
+        .get(1)
+        .visitMethodReferences(
+            (apiLevel, methods) -> {
+              if (apiLevel.equals(AndroidApiLevel.BAKLAVA)) {
+                assertEquals(
+                    methods,
+                    ImmutableList.of(
+                        Reference.methodFromDescriptor(
+                            "Landroid/os/PlatformOnly;", "foo", "(I)V")));
+              } else {
+                fail();
+              }
+            });
+    assertEquals(1, parsedApiClasses.get(1).getTotalMemberCount());
   }
 
   @Test

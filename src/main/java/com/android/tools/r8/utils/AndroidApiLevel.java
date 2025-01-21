@@ -196,4 +196,16 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
         return MAIN;
     }
   }
+
+  public static AndroidApiLevel parseAndroidApiLevel(String apiLevel) {
+    int dotPosition = apiLevel.indexOf('.');
+    if (dotPosition == -1) {
+      return AndroidApiLevel.getAndroidApiLevel(Integer.parseInt(apiLevel));
+    } else {
+      String majorApiLevel = apiLevel.substring(0, dotPosition);
+      String minorApiLevel = apiLevel.substring(dotPosition + 1);
+      assert Integer.parseInt(minorApiLevel) >= 0;
+      return AndroidApiLevel.getAndroidApiLevel(Integer.parseInt(majorApiLevel));
+    }
+  }
 }

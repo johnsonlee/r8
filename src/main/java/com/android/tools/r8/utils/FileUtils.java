@@ -109,6 +109,11 @@ public class FileUtils {
     return Files.readAllLines(file);
   }
 
+  public static Path writeTextFile(Path file, String text) throws IOException {
+    Files.writeString(file, text, StandardCharsets.UTF_8);
+    return file;
+  }
+
   public static Path writeTextFile(Path file, List<String> lines) throws IOException {
     Files.write(file, lines);
     return file;

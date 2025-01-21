@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
+import com.google.common.collect.ImmutableSet;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -37,11 +38,13 @@ public class AndroidApiVersionsXmlParser {
   private final Path apiVersionsXml;
   private final Path androidJar;
   private final AndroidApiLevel maxApiLevel;
+  private final boolean ignoreExemptionList;
 
   static class Builder {
     private Path apiVersionsXml;
     private Path androidJar;
     private AndroidApiLevel apiLevel;
+    boolean ignoreExemptionList = false;
 
     Builder setApiVersionsXml(Path apiVersionsXml) {
       this.apiVersionsXml = apiVersionsXml;
@@ -58,8 +61,14 @@ public class AndroidApiVersionsXmlParser {
       return this;
     }
 
+    Builder setIgnoreExemptionList(boolean ignoreExemptionList) {
+      this.ignoreExemptionList = ignoreExemptionList;
+      return this;
+    }
+
     AndroidApiVersionsXmlParser build() {
-      return new AndroidApiVersionsXmlParser(apiVersionsXml, androidJar, apiLevel);
+      return new AndroidApiVersionsXmlParser(
+          apiVersionsXml, androidJar, apiLevel, ignoreExemptionList);
     }
   }
 
@@ -73,10 +82,14 @@ public class AndroidApiVersionsXmlParser {
   }
 
   private AndroidApiVersionsXmlParser(
-      Path apiVersionsXml, Path androidJar, AndroidApiLevel maxApiLevel) {
+      Path apiVersionsXml,
+      Path androidJar,
+      AndroidApiLevel maxApiLevel,
+      boolean ignoreExemptionList) {
     this.apiVersionsXml = apiVersionsXml;
     this.androidJar = androidJar;
     this.maxApiLevel = maxApiLevel;
+    this.ignoreExemptionList = ignoreExemptionList;
   }
 
   private ParsedApiClass register(
@@ -87,6 +100,9 @@ public class AndroidApiVersionsXmlParser {
   }
 
   private Set<String> getDeletedTypesMissingRemovedAttribute() {
+    if (ignoreExemptionList) {
+      return ImmutableSet.of();
+    }
     Set<String> removedTypeNames = new HashSet<>();
     if (maxApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.U)) {
       if (maxApiLevel.isLessThan(AndroidApiLevel.V)
@@ -99,15 +115,30 @@ public class AndroidApiVersionsXmlParser {
   }
 
   private void readApiVersionsXmlFile() throws Exception {
+    boolean assertionsEnabled = false;
+    assert assertionsEnabled = true;
+    if (!assertionsEnabled) {
+      throw new Exception(
+          "Always run the api-versions.xml parser with assertions enabled. Format checks are based"
+              + " on assertions.");
+    }
     CodeInspector inspector = new CodeInspector(androidJar);
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     Document document = factory.newDocumentBuilder().parse(apiVersionsXml.toFile());
+    NodeList api = document.getElementsByTagName("api");
+    assert api.getLength() == 1;
+    assert api.item(0).getNodeType() == Node.ELEMENT_NODE;
+    assert api.item(0).getAttributes().getNamedItem("version") != null;
+    String versionString = api.item(0).getAttributes().getNamedItem("version").getNodeValue();
+    int version = Integer.parseInt(versionString);
+    // Only versions 3 and 4 of api-versions.xml are supported.
+    assert version == 3 || version == 4;
     NodeList classes = document.getElementsByTagName("class");
     Set<String> exemptionList = getDeletedTypesMissingRemovedAttribute();
     for (int i = 0; i < classes.getLength(); i++) {
       Node node = classes.item(i);
       assert node.getNodeType() == Node.ELEMENT_NODE;
-      AndroidApiLevel apiLevel = getMaxAndroidApiLevelFromNode(node, AndroidApiLevel.B);
+      AndroidApiLevel apiLevel = getMaxAndroidApiLevelFromNode(node, version, AndroidApiLevel.B);
       String type = DescriptorUtils.getJavaTypeFromBinaryName(getName(node));
       ClassSubject clazz = inspector.clazz(type);
       if (!clazz.isPresent()) {
@@ -130,26 +161,31 @@ public class AndroidApiVersionsXmlParser {
         if (isExtends(memberNode)) {
           parsedApiClass.registerSuperType(
               Reference.classFromBinaryName(getName(memberNode)),
-              hasSince(memberNode) ? getSince(memberNode) : apiLevel);
+              hasSince(memberNode) ? getSince(memberNode, version) : apiLevel);
         } else if (isImplements(memberNode)) {
           parsedApiClass.registerInterface(
               Reference.classFromBinaryName(getName(memberNode)),
-              hasSince(memberNode) ? getSince(memberNode) : apiLevel);
+              hasSince(memberNode) ? getSince(memberNode, version) : apiLevel);
         } else if (isMethod(memberNode)) {
           parsedApiClass.register(
               getMethodReference(originalReference, memberNode),
-              getMaxAndroidApiLevelFromNode(memberNode, apiLevel));
+              getMaxAndroidApiLevelFromNode(memberNode, version, apiLevel));
         } else if (isField(memberNode)) {
           // The field do not have descriptors and are supposed to be unique.
           FieldSubject fieldSubject = clazz.uniqueFieldWithOriginalName(getName(memberNode));
           if (!fieldSubject.isPresent()) {
-            assert hasRemoved(memberNode);
+            assert hasRemoved(memberNode)
+                : "Expected field "
+                    + getName(memberNode)
+                    + " in class "
+                    + type
+                    + " to be marked as removed";
             assert getRemoved(memberNode).isLessThanOrEqualTo(maxApiLevel);
             continue;
           }
           parsedApiClass.register(
               fieldSubject.getOriginalReference(),
-              getMaxAndroidApiLevelFromNode(memberNode, apiLevel));
+              getMaxAndroidApiLevelFromNode(memberNode, version, apiLevel));
         }
       }
     }
@@ -195,10 +231,11 @@ public class AndroidApiVersionsXmlParser {
     return node.getAttributes().getNamedItem("removed") != null;
   }
 
-  private AndroidApiLevel getSince(Node node) {
+  private AndroidApiLevel getSince(Node node, int version) {
     assert hasSince(node);
     Node since = node.getAttributes().getNamedItem("since");
-    return AndroidApiLevel.getAndroidApiLevel(Integer.parseInt(since.getNodeValue()));
+    assert (version == 4) == since.getNodeValue().contains(".");
+    return AndroidApiLevel.parseAndroidApiLevel(since.getNodeValue());
   }
 
   private AndroidApiLevel getRemoved(Node node) {
@@ -207,11 +244,12 @@ public class AndroidApiVersionsXmlParser {
     return AndroidApiLevel.getAndroidApiLevel(Integer.parseInt(removed.getNodeValue()));
   }
 
-  private AndroidApiLevel getMaxAndroidApiLevelFromNode(Node node, AndroidApiLevel defaultValue) {
+  private AndroidApiLevel getMaxAndroidApiLevelFromNode(
+      Node node, int version, AndroidApiLevel defaultValue) {
     if (node == null || !hasSince(node)) {
       return defaultValue;
     }
-    return defaultValue.max(getSince(node));
+    return defaultValue.max(getSince(node, version));
   }
 
   public static class ParsedApiClass {
