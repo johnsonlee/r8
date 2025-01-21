@@ -47,18 +47,6 @@ public class PartialCompilationBasicTest extends TestBase {
               assertThat(inspector.programClass(B.class), isAbsent());
               assertThat(inspector.programClass(Main.class), isAbsent());
             })
-        .inspectR8Output(
-            inspector -> {
-              assertThat(inspector.clazz(A.class), isAbsent());
-              assertThat(inspector.clazz(B.class), isAbsent());
-              assertThat(inspector.clazz(Main.class), isPresent());
-            })
-        .inspectD8Output(
-            inspector -> {
-              assertThat(inspector.clazz(A.class), isPresent());
-              assertThat(inspector.clazz(B.class), isAbsent());
-              assertThat(inspector.clazz(Main.class), isAbsent());
-            })
         .inspect(
             inspector -> {
               assertThat(inspector.clazz(A.class), isPresent());
@@ -92,18 +80,6 @@ public class PartialCompilationBasicTest extends TestBase {
               assertThat(inspector.programClass(A.class), isAbsent());
               assertThat(inspector.programClass(B.class), isPresent());
               assertThat(inspector.programClass(Main.class), isAbsent());
-            })
-        .inspectR8Output(
-            inspector -> {
-              assertThat(inspector.clazz(A.class), isAbsent());
-              assertThat(inspector.clazz(B.class), isAbsent());
-              assertThat(inspector.clazz(Main.class), isPresent());
-            })
-        .inspectD8Output(
-            inspector -> {
-              assertThat(inspector.clazz(A.class), isAbsent());
-              assertThat(inspector.clazz(B.class), isPresent());
-              assertThat(inspector.clazz(Main.class), isAbsent());
             })
         .inspect(
             inspector -> {

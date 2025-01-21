@@ -38,10 +38,6 @@ public class R8PartialInput {
     commandBuilder.addProgramFiles(r8Program).addClasspathFiles(d8Program);
   }
 
-  public void configureMerge(D8Command.Builder commandBuilder) throws IOException {
-    configureBase(commandBuilder);
-  }
-
   public void configure(R8Command.Builder commandBuilder) throws IOException {
     configureBase(commandBuilder);
     configureDesugaredLibrary(commandBuilder);

@@ -99,34 +99,4 @@ public class R8PartialTestCompileResult
     consumer.accept(inspectorD8Input());
     return self();
   }
-
-  public CodeInspector inspectorR8Output() throws IOException {
-    return new CodeInspector(r8OutputApp);
-  }
-
-  public CodeInspector inspectorR8Output(Consumer<InternalOptions> debugOptionsConsumer)
-      throws IOException {
-    return new CodeInspector(r8OutputApp, debugOptionsConsumer);
-  }
-
-  public <E extends Throwable> R8PartialTestCompileResult inspectR8Output(
-      ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
-    consumer.accept(inspectorR8Output());
-    return self();
-  }
-
-  public CodeInspector inspectorD8Output() throws IOException {
-    return new CodeInspector(d8OutputApp);
-  }
-
-  public CodeInspector inspectorD8Output(Consumer<InternalOptions> debugOptionsConsumer)
-      throws IOException {
-    return new CodeInspector(d8OutputApp, debugOptionsConsumer);
-  }
-
-  public <E extends Throwable> R8PartialTestCompileResult inspectD8Output(
-      ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
-    consumer.accept(inspectorD8Output());
-    return self();
-  }
 }

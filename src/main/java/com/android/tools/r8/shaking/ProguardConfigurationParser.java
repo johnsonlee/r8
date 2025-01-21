@@ -2275,7 +2275,7 @@ public class ProguardConfigurationParser {
     }
   }
 
-  static class IdentifierPatternWithWildcards {
+  public static class IdentifierPatternWithWildcards {
     final String pattern;
     final List<ProguardWildcard> wildcards;
 
@@ -2288,7 +2288,7 @@ public class ProguardConfigurationParser {
       return withoutWildcards("<init>");
     }
 
-    static IdentifierPatternWithWildcards withoutWildcards(String pattern) {
+    public static IdentifierPatternWithWildcards withoutWildcards(String pattern) {
       return new IdentifierPatternWithWildcards(pattern, ImmutableList.of());
     }
 

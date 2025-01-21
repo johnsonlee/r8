@@ -551,11 +551,13 @@ public final class D8Command extends BaseCompilerCommand {
       if (isPrintHelp() || isPrintVersion()) {
         return new D8Command(isPrintHelp(), isPrintVersion());
       }
+      return makeD8Command(new DexItemFactory());
+    }
 
+    D8Command makeD8Command(DexItemFactory factory) {
       final ProgramConsumer programConsumer = getProgramConsumer();
       intermediate |= programConsumer instanceof DexFilePerClassFileConsumer;
 
-      DexItemFactory factory = new DexItemFactory();
       DesugaredLibrarySpecification desugaredLibrarySpecification =
           getDesugaredLibraryConfiguration(factory, false);
 

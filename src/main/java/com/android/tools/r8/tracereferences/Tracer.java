@@ -6,7 +6,6 @@ package com.android.tools.r8.tracereferences;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import java.util.function.Predicate;
 
@@ -27,9 +26,7 @@ public class Tracer {
 
   public void run(TraceReferencesConsumer consumer) {
     UseCollector useCollector = new UseCollector(appView, consumer, diagnostics, targetPredicate);
-    for (DexProgramClass clazz : appView.appInfo().classes()) {
-      useCollector.traceClass(clazz);
-    }
+    useCollector.traceClasses(appView.appInfo().classes());
     consumer.finished(diagnostics);
   }
 }

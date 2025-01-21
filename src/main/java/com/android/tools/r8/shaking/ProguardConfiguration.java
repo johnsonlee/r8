@@ -390,7 +390,7 @@ public class ProguardConfiguration {
   private final Path applyMappingFile;
   private final String renameSourceFileAttribute;
   private final ProguardKeepAttributes keepAttributes;
-  private final ProguardClassFilter keepPackageNamesPatterns;
+  private ProguardClassFilter keepPackageNamesPatterns;
   private final ProguardClassFilter dontWarnPatterns;
   private final ProguardClassFilter dontNotePatterns;
   protected final ImmutableList<ProguardConfigurationRule> rules;
@@ -582,6 +582,10 @@ public class ProguardConfiguration {
 
   public ProguardClassFilter getKeepPackageNamesPatterns() {
     return keepPackageNamesPatterns;
+  }
+
+  public void setKeepPackageNamesPatterns(ProguardClassFilter keepPackageNamesPatterns) {
+    this.keepPackageNamesPatterns = keepPackageNamesPatterns;
   }
 
   public boolean hasDontWarnPatterns() {

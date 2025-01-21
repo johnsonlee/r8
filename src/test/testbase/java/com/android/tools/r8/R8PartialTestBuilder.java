@@ -186,13 +186,6 @@ public class R8PartialTestBuilder
                 options.partialCompilationConfiguration.d8DexOptionsConsumer.andThen(consumer));
   }
 
-  public R8PartialTestBuilder addD8MergeOptionsModification(Consumer<InternalOptions> consumer) {
-    return super.addOptionsModification(
-        options ->
-            options.partialCompilationConfiguration.d8MergeOptionsConsumer =
-                options.partialCompilationConfiguration.d8MergeOptionsConsumer.andThen(consumer));
-  }
-
   public R8PartialTestBuilder addR8PartialOptionsModification(Consumer<InternalOptions> consumer) {
     return super.addOptionsModification(
         options ->
@@ -202,7 +195,6 @@ public class R8PartialTestBuilder
 
   public R8PartialTestBuilder addGlobalOptionsModification(Consumer<InternalOptions> consumer) {
     return addD8PartialOptionsModification(consumer)
-        .addD8MergeOptionsModification(consumer)
         .addR8PartialOptionsModification(consumer);
   }
 

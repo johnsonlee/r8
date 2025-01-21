@@ -6,6 +6,7 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.DexType;
 import com.google.common.collect.ImmutableList;
+import java.util.Collection;
 import java.util.List;
 
 public class ProguardClassFilter {
@@ -28,7 +29,12 @@ public class ProguardClassFilter {
       return this;
     }
 
-    ProguardClassFilter build() {
+    public Builder addPatterns(Collection<ProguardClassNameList> patterns) {
+      patterns.forEach(this::addPattern);
+      return this;
+    }
+
+    public ProguardClassFilter build() {
       return new ProguardClassFilter(patterns.build());
     }
   }

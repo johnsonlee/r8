@@ -55,7 +55,7 @@ public abstract class ProguardClassNameList {
       return this;
     }
 
-    ProguardClassNameList build() {
+    public ProguardClassNameList build() {
       if (matchers.containsValue(true)) {
         // At least one pattern is negated.
         return new MixedClassNameList(matchers);

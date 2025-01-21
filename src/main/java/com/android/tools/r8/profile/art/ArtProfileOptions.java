@@ -57,7 +57,9 @@ public class ArtProfileOptions {
     return enableCompletenessCheckForTesting
         && !options.isDesugaredLibraryCompilation()
         && !options.getStartupOptions().isStartupCompletenessCheckForTestingEnabled()
-        && !options.getInstrumentationOptions().isInstrumentationEnabled();
+        && !options.getInstrumentationOptions().isInstrumentationEnabled()
+        // TODO(b/390355818): Enable completeness testing for R8 partial.
+        && options.partialSubCompilationConfiguration == null;
   }
 
   public boolean isNopCheckForTestingEnabled() {

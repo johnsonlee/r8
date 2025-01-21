@@ -3,18 +3,28 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
+import com.android.tools.r8.ResourceShrinker;
 import com.android.tools.r8.ResourceShrinker.ReferenceChecker;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.utils.DescriptorUtils;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 
-public class ResourceTracingCallback implements ReferenceChecker {
+public abstract class R8PartialResourceUseCollector implements ReferenceChecker {
 
-  private final IntSet potentialIds = new IntOpenHashSet();
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
 
-  public IntSet getPotentialIds() {
-    return potentialIds;
+  public R8PartialResourceUseCollector(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    this.appView = appView;
   }
+
+  public void run() {
+    R8PartialR8SubCompilationConfiguration r8SubCompilationConfiguration =
+        appView.options().partialSubCompilationConfiguration.asR8SubCompilationConfiguration();
+    ResourceShrinker.runForTesting(r8SubCompilationConfiguration.getDexingOutputClasses(), this);
+  }
+
+  protected abstract void keep(int resourceId);
 
   @Override
   public boolean shouldProcess(String internalName) {
@@ -25,7 +35,7 @@ public class ResourceTracingCallback implements ReferenceChecker {
 
   @Override
   public void referencedInt(int value) {
-    potentialIds.add(value);
+    keep(value);
   }
 
   @Override

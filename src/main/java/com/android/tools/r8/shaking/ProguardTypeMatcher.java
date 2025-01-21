@@ -37,7 +37,7 @@ public abstract class ProguardTypeMatcher {
   private ProguardTypeMatcher() {
   }
 
-  enum ClassOrType {
+  public enum ClassOrType {
     CLASS,
     TYPE
   }

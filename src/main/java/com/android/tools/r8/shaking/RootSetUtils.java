@@ -51,6 +51,8 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
+import com.android.tools.r8.partial.R8PartialResourceUseCollector;
+import com.android.tools.r8.partial.R8PartialUseCollector;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.AnnotationMatchResult.AnnotationsIgnoredMatchResult;
@@ -62,7 +64,9 @@ import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.UnconditionalKeepInfoEvent;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
+import com.android.tools.r8.shaking.rules.ReferencedFromD8InR8PartialFakeProguardRule;
 import com.android.tools.r8.threading.TaskCollection;
+import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.LazyBox;
@@ -81,6 +85,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.io.PrintStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -131,6 +138,7 @@ public class RootSetUtils {
     private final Queue<DelayedRootSetActionItem> delayedRootSetActionItems =
         new ConcurrentLinkedQueue<>();
     private final InternalOptions options;
+    private final IntSet resourceRootIds = new IntOpenHashSet();
 
     private final DexStringCache dexStringCache = new DexStringCache();
     private final Set<ProguardIfRule> ifRules = Sets.newIdentityHashSet();
@@ -210,6 +218,49 @@ public class RootSetUtils {
     public RootSetBuilder setAssumeInfoCollectionBuilder(
         AssumeInfoCollection.Builder assumeInfoCollectionBuilder) {
       this.assumeInfoCollectionBuilder = assumeInfoCollectionBuilder;
+      return this;
+    }
+
+    public RootSetBuilder tracePartialCompilationDexingOutputClasses(
+        ExecutorService executorService) throws ExecutionException {
+      if (options.partialSubCompilationConfiguration == null) {
+        return this;
+      }
+
+      // Trace references.
+      R8PartialUseCollector useCollector =
+          new R8PartialUseCollector(appView) {
+
+            private final ProguardKeepRuleModifiers modifiers =
+                ProguardKeepRuleModifiers.builder().build();
+            // TODO(b/390576160): Add a test that this works when using -whyareyoukeeping.
+            private final ReferencedFromD8InR8PartialFakeProguardRule keepRule =
+                new ReferencedFromD8InR8PartialFakeProguardRule();
+
+            @Override
+            protected synchronized void keep(Definition definition) {
+              assert definition.isProgramDefinition();
+              evaluateKeepRule(
+                  definition.asProgramDefinition(),
+                  null,
+                  null,
+                  modifiers,
+                  Action.empty(),
+                  keepRule);
+            }
+          };
+      useCollector.run(executorService);
+
+      // Trace resources.
+      R8PartialResourceUseCollector resourceUseCollector =
+          new R8PartialResourceUseCollector(appView) {
+
+            @Override
+            protected void keep(int resourceId) {
+              resourceRootIds.add(resourceId);
+            }
+          };
+      resourceUseCollector.run();
       return this;
     }
 
@@ -442,7 +493,8 @@ public class RootSetUtils {
           identifierNameStrings,
           ifRules,
           Lists.newArrayList(delayedRootSetActionItems),
-          pendingMethodMoveInverse);
+          pendingMethodMoveInverse,
+          resourceRootIds);
     }
 
     private void propagateAssumeRules(DexClass clazz) {
@@ -1587,12 +1639,32 @@ public class RootSetUtils {
       }
     }
 
-    @SuppressWarnings("UnusedVariable")
     private void evaluateKeepRule(
         ProgramDefinition item,
         ProguardKeepRule context,
         DexProgramClass precondition,
         ProguardIfRulePreconditionMatch ifRulePreconditionMatch) {
+      // The reason for keeping should link to the conditional rule as a whole, if present.
+      ProguardKeepRuleBase whyAreYouKeepingKeepRule =
+          ifRulePreconditionMatch != null
+              ? ifRulePreconditionMatch.getIfRuleWithPreconditionSet()
+              : context;
+      evaluateKeepRule(
+          item,
+          precondition,
+          ifRulePreconditionMatch,
+          context.getModifiers(),
+          context::markAsUsed,
+          whyAreYouKeepingKeepRule);
+    }
+
+    private void evaluateKeepRule(
+        ProgramDefinition item,
+        DexProgramClass precondition,
+        ProguardIfRulePreconditionMatch ifRulePreconditionMatch,
+        ProguardKeepRuleModifiers modifiers,
+        Action markAsUsed,
+        ProguardKeepRuleBase whyAreYouKeepingKeepRule) {
       if (item.isField()) {
         ProgramField field = item.asProgramField();
         if (field.getOptimizationInfo().cannotBeKept()) {
@@ -1618,14 +1690,7 @@ public class RootSetUtils {
         }
       }
 
-      // The reason for keeping should link to the conditional rule as a whole, if present.
-      ProguardKeepRuleBase keepRule =
-          ifRulePreconditionMatch != null
-              ? ifRulePreconditionMatch.getIfRuleWithPreconditionSet()
-              : context;
-
       // The modifiers are specified on the actual keep rule (ie, the consequent/context).
-      ProguardKeepRuleModifiers modifiers = context.getModifiers();
       if (modifiers.isBottom()) {
         // This rule is a no-op.
         return;
@@ -1635,13 +1700,13 @@ public class RootSetUtils {
       if (options.forceProguardCompatibility
           && !modifiers.allowsShrinking
           && precondition != null
-          && precondition.isDexClass()) {
-        if (!item.isClass() && !item.getAccessFlags().isStatic()) {
-          dependentKeepClassCompatRule
-              .computeIfAbsent(precondition.asDexClass().getType(), i -> new HashSet<>())
-              .add(keepRule);
-          context.markAsUsed();
-        }
+          && precondition.isDexClass()
+          && !item.isClass()
+          && !item.getAccessFlags().isStatic()) {
+        dependentKeepClassCompatRule
+            .computeIfAbsent(precondition.asDexClass().getType(), i -> new HashSet<>())
+            .add(whyAreYouKeepingKeepRule);
+        markAsUsed.execute();
       }
 
       EnqueuerEvent preconditionEvent;
@@ -1672,11 +1737,11 @@ public class RootSetUtils {
         // Only shrinking and optimization are transferred for interface companion methods.
         if (appView.options().isOptimizationEnabled() && !modifiers.allowsOptimization) {
           companionJoiner.computeIfAbsent().disallowOptimization();
-          context.markAsUsed();
+          markAsUsed.execute();
         }
         if (appView.options().isShrinking() && !modifiers.allowsShrinking) {
-          companionJoiner.computeIfAbsent().addRule(keepRule).disallowShrinking();
-          context.markAsUsed();
+          companionJoiner.computeIfAbsent().addRule(whyAreYouKeepingKeepRule).disallowShrinking();
+          markAsUsed.execute();
         }
         if (!item.asMethod().isDefaultMethod()) {
           // Static and private methods do not apply to the original item.
@@ -1693,7 +1758,7 @@ public class RootSetUtils {
 
       if (appView.options().isAccessModificationEnabled() && !modifiers.allowsAccessModification) {
         itemJoiner.computeIfAbsent().disallowAccessModification();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       // In compatibility mode the keep-info predicates will disable removal for keep attributes.
@@ -1713,64 +1778,64 @@ public class RootSetUtils {
               .disallowParameterAnnotationsRemoval(methodAnnotationRetention);
         }
         // Mark used regardless of which retention attributes are kept.
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (attributesConfig.signature) {
         itemJoiner.computeIfAbsent().disallowSignatureRemoval();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (attributesConfig.exceptions && item.isMethod()) {
         itemJoiner.computeIfAbsent().asMethodJoiner().disallowThrowsRemoval();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (attributesConfig.methodParameters && item.isMethod()) {
         itemJoiner.computeIfAbsent().asMethodJoiner().disallowParameterNamesRemoval();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (appView.options().isMinificationEnabled() && !modifiers.allowsObfuscation) {
         itemJoiner.computeIfAbsent().disallowMinification();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (appView.options().isRepackagingEnabled()
           && item.isProgramClass()
           && isRepackagingDisallowed(item, modifiers)) {
         itemJoiner.computeIfAbsent().asClassJoiner().disallowRepackaging();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (appView.options().isOptimizationEnabled() && !modifiers.allowsOptimization) {
         itemJoiner.computeIfAbsent().disallowOptimization();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if ((appView.options().isShrinking() || isMainDexRootSetBuilder())
           && !modifiers.allowsShrinking) {
-        itemJoiner.computeIfAbsent().addRule(keepRule).disallowShrinking();
-        context.markAsUsed();
+        itemJoiner.computeIfAbsent().addRule(whyAreYouKeepingKeepRule).disallowShrinking();
+        markAsUsed.execute();
       }
 
       if (modifiers.includeDescriptorClasses) {
-        includeDescriptorClasses(item, keepRule, preconditionEvent);
-        context.markAsUsed();
+        includeDescriptorClasses(item, whyAreYouKeepingKeepRule, preconditionEvent);
+        markAsUsed.execute();
       }
 
       if (item.isProgramMethod()
           && !appView.options().isCodeReplacementForceEnabled()
           && modifiers.allowsCodeReplacement) {
         itemJoiner.computeIfAbsent().asMethodJoiner().allowCodeReplacement();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       if (item.isProgramClass()
           && appView.options().isKeepPermittedSubclassesEnabled()
           && !modifiers.allowsPermittedSubclassesRemoval) {
         itemJoiner.computeIfAbsent().asClassJoiner().disallowPermittedSubclassesRemoval();
-        context.markAsUsed();
+        markAsUsed.execute();
       }
 
       assert !itemJoiner.isSet() || !itemJoiner.computeIfAbsent().isBottom();
@@ -1943,6 +2008,7 @@ public class RootSetUtils {
     public final Map<DexReference, ProguardMemberRule> mayHaveSideEffects;
     public final Set<DexMember<?, ?>> identifierNameStrings;
     public final Set<ProguardIfRule> ifRules;
+    public final IntSet resourceIds;
 
     private RootSet(
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
@@ -1956,7 +2022,8 @@ public class RootSetUtils {
         Set<DexMember<?, ?>> identifierNameStrings,
         Set<ProguardIfRule> ifRules,
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
-        ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse) {
+        ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse,
+        IntSet resourceIds) {
       super(
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
@@ -1970,6 +2037,7 @@ public class RootSetUtils {
       this.mayHaveSideEffects = mayHaveSideEffects;
       this.identifierNameStrings = Collections.unmodifiableSet(identifierNameStrings);
       this.ifRules = Collections.unmodifiableSet(ifRules);
+      this.resourceIds = resourceIds;
     }
 
     public void checkAllRulesAreUsed(InternalOptions options) {
@@ -2083,7 +2151,8 @@ public class RootSetUtils {
                 identifierNameStrings,
                 ifRules,
                 delayedRootSetActionItems,
-                pendingMethodMoveInverse);
+                pendingMethodMoveInverse,
+                resourceIds);
       }
       timing.end();
       return rewrittenRootSet;
@@ -2382,7 +2451,8 @@ public class RootSetUtils {
           Collections.emptySet(),
           ifRules,
           delayedRootSetActionItems,
-          ProgramMethodMap.empty());
+          ProgramMethodMap.empty(),
+          IntSets.EMPTY_SET);
     }
 
     public static MainDexRootSetBuilder builder(

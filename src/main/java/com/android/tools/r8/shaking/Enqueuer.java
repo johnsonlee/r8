@@ -3973,11 +3973,8 @@ public class Enqueuer {
     if (options.isOptimizedResourceShrinking()) {
       timing.begin("Trace AndroidManifest.xml files");
       appView.getResourceShrinkerState().traceKeepXmlAndManifest();
-      if (options.partialSubCompilationConfiguration != null) {
-        for (int d8TracedResourceId :
-            options.partialSubCompilationConfiguration.getD8TracedResourceIds()) {
-          appView.getResourceShrinkerState().trace(d8TracedResourceId, "Non shrunken dex code");
-        }
+      for (int rootResourceId : appView.rootSet().resourceIds) {
+        appView.getResourceShrinkerState().trace(rootResourceId, "Non shrunken dex code");
       }
       timing.end();
     }

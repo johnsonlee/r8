@@ -739,13 +739,12 @@ public final class R8Command extends BaseCompilerCommand {
       if (isPrintHelp() || isPrintVersion()) {
         return new R8Command(isPrintHelp(), isPrintVersion());
       }
-      return makeR8Command();
+      return makeR8Command(new DexItemFactory());
     }
 
-    private R8Command makeR8Command() {
+    R8Command makeR8Command(DexItemFactory factory) {
       long created = System.nanoTime();
       Reporter reporter = getReporter();
-      DexItemFactory factory = new DexItemFactory();
       List<ProguardConfigurationRule> mainDexKeepRules =
           ProguardConfigurationParser.parse(mainDexRules, factory, reporter);
 

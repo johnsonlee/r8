@@ -7,10 +7,8 @@ import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -26,11 +24,7 @@ public class ResourceShrinkingInPartialR8Test extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    // TODO(b/388763735): Don't pin to version 7
-    return getTestParameters()
-        .withDexRuntime(Version.V7_0_0)
-        .withApiLevel(AndroidApiLevel.N)
-        .build();
+    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {

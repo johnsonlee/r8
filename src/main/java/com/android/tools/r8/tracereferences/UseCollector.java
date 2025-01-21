@@ -9,6 +9,7 @@ import com.android.tools.r8.diagnostic.internal.DefinitionContextUtils;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassResolutionResult;
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
@@ -46,17 +47,21 @@ import com.android.tools.r8.tracereferences.internal.TracedClassImpl;
 import com.android.tools.r8.tracereferences.internal.TracedFieldImpl;
 import com.android.tools.r8.tracereferences.internal.TracedMethodImpl;
 import com.android.tools.r8.utils.BooleanBox;
+import com.android.tools.r8.utils.ThreadUtils;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 // The graph lens is intentionally only made accessible to the MethodUseCollector, since the
 // graph lens should only be applied to the code.
-class UseCollector {
+public class UseCollector {
 
-  private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  protected final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory factory;
   private final TraceReferencesConsumer consumer;
   private final DiagnosticsHandler diagnostics;
@@ -68,7 +73,7 @@ class UseCollector {
 
   public final DexString dalvikAnnotationCodegenPrefix;
 
-  UseCollector(
+  public UseCollector(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       TraceReferencesConsumer consumer,
       DiagnosticsHandler diagnostics,
@@ -81,6 +86,18 @@ class UseCollector {
     this.dalvikAnnotationCodegenPrefix = factory.createString("Ldalvik/annotation/codegen/");
   }
 
+  public void traceClasses(Collection<DexProgramClass> classes) {
+    for (DexProgramClass clazz : classes) {
+      traceClass(clazz);
+    }
+  }
+
+  public void traceClasses(Collection<DexProgramClass> classes, ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        classes, this::traceClass, appView.options().getThreadingModule(), executorService);
+  }
+
   public void traceClass(DexProgramClass clazz) {
     DefinitionContext classContext = DefinitionContextUtils.create(clazz);
     clazz.forEachImmediateSupertype(supertype -> registerSuperType(clazz, supertype, classContext));
@@ -89,6 +106,26 @@ class UseCollector {
     for (DexAnnotation annotation : clazz.annotations().getAnnotations()) {
       registerAnnotation(annotation, clazz, classContext);
     }
+  }
+
+  protected void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
+    TracedClassImpl tracedClass = new TracedClassImpl(clazz, referencedFrom);
+    consumer.acceptType(tracedClass, diagnostics);
+  }
+
+  protected void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
+    TracedFieldImpl tracedField = new TracedFieldImpl(field, referencedFrom);
+    consumer.acceptField(tracedField, diagnostics);
+  }
+
+  protected void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
+    TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom);
+    consumer.acceptMethod(tracedMethod, diagnostics);
+  }
+
+  protected void notifyPackageOf(Definition definition) {
+    consumer.acceptPackage(
+        Reference.packageFromString(definition.getContextType().getPackageName()), diagnostics);
   }
 
   AppView<? extends AppInfoWithClassHierarchy> appView() {
@@ -133,9 +170,9 @@ class UseCollector {
     if (result.hasClassResolutionResult()) {
       result.forEachClassResolutionResult(resolvedClassesConsumer);
     } else {
-      TracedClassImpl tracedClass = new TracedClassImpl(type, referencedFrom);
-      collectMissingClass(tracedClass);
-      consumer.acceptType(tracedClass, diagnostics);
+      TracedClassImpl missingClass = new TracedClassImpl(type, referencedFrom);
+      collectMissingClass(missingClass);
+      consumer.acceptType(missingClass, diagnostics);
     }
   }
 
@@ -145,11 +182,9 @@ class UseCollector {
 
   private void addClass(DexClass clazz, DefinitionContext referencedFrom) {
     if (isTargetType(clazz.getType())) {
-      TracedClassImpl tracedClass = new TracedClassImpl(clazz, referencedFrom);
-      consumer.acceptType(tracedClass, diagnostics);
+      notifyPresentClass(clazz, referencedFrom);
       if (clazz.getAccessFlags().isPackagePrivateOrProtected()) {
-        consumer.acceptPackage(
-            Reference.packageFromString(clazz.getType().getPackageName()), diagnostics);
+        notifyPackageOf(clazz);
       }
     }
   }
@@ -162,8 +197,7 @@ class UseCollector {
     DexClass holder = member.getHolder();
     assert isTargetType(holder.getType());
     if (member.getHolderType().isNotIdenticalTo(reference.getHolderType())) {
-      TracedClassImpl tracedClass = new TracedClassImpl(holder, referencedFrom);
-      consumer.acceptType(tracedClass, diagnostics);
+      notifyPresentClass(holder, referencedFrom);
     }
     ensurePackageAccessToMember(member, context);
   }
@@ -173,8 +207,7 @@ class UseCollector {
     if (member.getAccessFlags().isPackagePrivateOrProtected()) {
       if (member.getAccessFlags().isPackagePrivate()
           || !appInfo().isSubtype(context, member.getHolder())) {
-        consumer.acceptPackage(
-            Reference.packageFromString(member.getHolderType().getPackageName()), diagnostics);
+        notifyPackageOf(member);
       }
     }
   }
@@ -188,8 +221,7 @@ class UseCollector {
     //   that overrides this target method,
     // - The holder type is registered from visiting the extends/implements clause of the sub
     //   class.
-    TracedMethodImpl tracedMethod = new TracedMethodImpl(method.getDefinition(), referencedFrom);
-    consumer.acceptMethod(tracedMethod, diagnostics);
+    notifyPresentMethod(method, referencedFrom);
     ensurePackageAccessToMember(method, context.getHolder());
   }
 
@@ -329,12 +361,9 @@ class UseCollector {
           annotation.forEachElement(
               element -> {
                 if (isTargetType(resolvedClass.getType())) {
-                  for (DexEncodedMethod method : resolvedClass.methods()) {
-                    if (method.getName().isIdenticalTo(element.name)) {
-                      TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom);
-                      consumer.acceptMethod(tracedMethod, diagnostics);
-                    }
-                  }
+                  resolvedClass.forEachClassMethodMatching(
+                      method -> method.getName().isIdenticalTo(element.name),
+                      method -> notifyPresentMethod(method, referencedFrom));
                 }
                 // Handle the argument values passed to the annotation "method".
                 registerDexValue(element.getValue(), context, referencedFrom);
@@ -367,14 +396,13 @@ class UseCollector {
             DexClassAndField resolvedField = singleResolutionResult.getResolutionPair();
             if (isTargetType(resolvedField.getHolderType())) {
               handleMemberResolution(field, resolvedField, context, referencedFrom);
-              TracedFieldImpl tracedField = new TracedFieldImpl(resolvedField, referencedFrom);
-              consumer.acceptField(tracedField, diagnostics);
+              notifyPresentField(resolvedField, referencedFrom);
             }
           });
     } else {
-      TracedFieldImpl tracedField = new TracedFieldImpl(field, referencedFrom);
-      collectMissingField(tracedField);
-      consumer.acceptField(tracedField, diagnostics);
+      TracedFieldImpl missingField = new TracedFieldImpl(field, referencedFrom);
+      collectMissingField(missingField);
+      consumer.acceptField(missingField, diagnostics);
     }
   }
 
@@ -511,13 +539,12 @@ class UseCollector {
             || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
         if (isTargetType(resolvedMethod.getHolderType())) {
           handleMemberResolution(method, resolvedMethod, getContext().getHolder(), referencedFrom);
-          TracedMethodImpl tracedMethod = new TracedMethodImpl(definition, referencedFrom);
-          consumer.acceptMethod(tracedMethod, diagnostics);
+          notifyPresentMethod(resolvedMethod, referencedFrom);
         }
       } else {
-        TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom);
-        collectMissingMethod(tracedMethod);
-        consumer.acceptMethod(tracedMethod, diagnostics);
+        TracedMethodImpl missingMethod = new TracedMethodImpl(method, referencedFrom);
+        collectMissingMethod(missingMethod);
+        consumer.acceptMethod(missingMethod, diagnostics);
       }
     }
 
@@ -594,9 +621,9 @@ class UseCollector {
                   }
                 });
           } else {
-            TracedClassImpl tracedClass = new TracedClassImpl(interfaceType, referencedFrom);
-            collectMissingClass(tracedClass);
-            consumer.acceptType(tracedClass, diagnostics);
+            TracedClassImpl missingClass = new TracedClassImpl(interfaceType, referencedFrom);
+            collectMissingClass(missingClass);
+            consumer.acceptType(missingClass, diagnostics);
           }
         }
       }

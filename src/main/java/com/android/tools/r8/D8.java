@@ -37,6 +37,7 @@ import com.android.tools.r8.naming.VarHandleDesugaringRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.profile.startup.instrumentation.StartupInstrumentation;
 import com.android.tools.r8.shaking.AssumeInfoCollection;
 import com.android.tools.r8.shaking.MainDexInfo;
@@ -326,13 +327,8 @@ public final class D8 {
       timing.end(); // post-converter
 
       reportSyntheticInformation(appView);
+      writeApplication(appView, inputApp, marker, executor);
 
-      if (options.isGeneratingClassFiles()) {
-        new CfApplicationWriter(appView, marker)
-            .write(options.getClassFileConsumer(), executor, inputApp);
-      } else {
-        ApplicationWriter.create(appView, marker).write(executor, inputApp);
-      }
       options.printWarnings();
     } catch (ExecutionException e) {
       throw unwrapExecutionException(e);
@@ -353,6 +349,24 @@ public final class D8 {
     }
     appView.getSyntheticItems().reportSyntheticsInformation(consumer);
     consumer.finished();
+  }
+
+  private static void writeApplication(
+      AppView<?> appView, AndroidApp inputApp, Marker marker, ExecutorService executor)
+      throws ExecutionException, IOException {
+    InternalOptions options = appView.options();
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        options.partialSubCompilationConfiguration;
+    if (subCompilationConfiguration != null
+        && subCompilationConfiguration.writeApplication(appView.appInfo().classes(), options)) {
+      return;
+    }
+    if (options.isGeneratingClassFiles()) {
+      new CfApplicationWriter(appView, marker)
+          .write(options.getClassFileConsumer(), executor, inputApp);
+    } else {
+      ApplicationWriter.create(appView, marker).write(executor, inputApp);
+    }
   }
 
   private static void initializeAssumeInfoCollection(AppView<AppInfo> appView) {
