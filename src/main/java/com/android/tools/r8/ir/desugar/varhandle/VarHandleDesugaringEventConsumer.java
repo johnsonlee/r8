@@ -8,7 +8,21 @@ import com.android.tools.r8.graph.ProgramDefinition;
 
 public interface VarHandleDesugaringEventConsumer {
 
+  VarHandleDesugaringEventConsumer EMPTY =
+      new VarHandleDesugaringEventConsumer() {
+        @Override
+        public void acceptVarHandleDesugaringClass(DexProgramClass clazz) {}
+
+        @Override
+        public void acceptVarHandleDesugaringClassContext(
+            DexProgramClass clazz, ProgramDefinition context) {}
+      };
+
   void acceptVarHandleDesugaringClass(DexProgramClass clazz);
 
   void acceptVarHandleDesugaringClassContext(DexProgramClass clazz, ProgramDefinition context);
+
+  static VarHandleDesugaringEventConsumer empty() {
+    return EMPTY;
+  }
 }

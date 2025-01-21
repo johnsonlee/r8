@@ -8,7 +8,17 @@ import com.android.tools.r8.graph.ProgramMethod;
 
 public interface RecordDesugaringEventConsumer {
 
+  RecordDesugaringEventConsumer EMPTY =
+      new RecordDesugaringEventConsumer() {
+        @Override
+        public void acceptRecordClass(DexProgramClass recordTagClass) {}
+      };
+
   void acceptRecordClass(DexProgramClass recordTagClass);
+
+  static RecordDesugaringEventConsumer empty() {
+    return EMPTY;
+  }
 
   interface RecordClassSynthesizerDesugaringEventConsumer extends RecordDesugaringEventConsumer {
 

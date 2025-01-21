@@ -31,11 +31,10 @@ import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.NestHostClassAttribute;
-import com.android.tools.r8.graph.ProgramDefinition;
-import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.desugar.TypeRewriter;
+import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaringEventConsumer;
@@ -60,9 +59,7 @@ import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -180,26 +177,12 @@ public class GlobalSyntheticsGenerator {
     Set<DexProgramClass> synthesizingContext =
         ImmutableSet.of(createSynthesizingContext(appView.dexItemFactory()));
 
-    List<ProgramMethod> methodsToProcess = new ArrayList<>();
     // Add global synthetic class for records.
     RecordTagSynthesizer.ensureRecordClassHelper(
-        appView,
-        synthesizingContext,
-        recordTagClass -> recordTagClass.programMethods().forEach(methodsToProcess::add),
-        null,
-        null);
+        appView, synthesizingContext, RecordDesugaringEventConsumer.empty(), null, null);
 
     VarHandleDesugaringEventConsumer varHandleEventConsumer =
-        new VarHandleDesugaringEventConsumer() {
-          @Override
-          public void acceptVarHandleDesugaringClass(DexProgramClass clazz) {
-            clazz.programMethods().forEach(methodsToProcess::add);
-          }
-
-          @Override
-          public void acceptVarHandleDesugaringClassContext(
-              DexProgramClass clazz, ProgramDefinition context) {}
-        };
+        VarHandleDesugaringEventConsumer.empty();
 
     // Add global synthetic class for var handles.
     VarHandleDesugaring.ensureVarHandleClass(appView, varHandleEventConsumer, synthesizingContext);
