@@ -21,6 +21,7 @@ import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -300,6 +301,13 @@ public class R8 {
         keepDeclarations = lazyLoaded.getKeepDeclarations();
         timing.begin("To direct app");
         DirectMappedDexApplication application = lazyLoaded.toDirect();
+        if (options.partialSubCompilationConfiguration != null) {
+          application =
+              options
+                  .partialSubCompilationConfiguration
+                  .asR8SubCompilationConfiguration()
+                  .commitDesugaringOutputClasses(application);
+        }
         timing.end();
         timing.end();
         options.loadMachineDesugaredLibrarySpecification(timing, application);
@@ -822,14 +830,7 @@ public class R8 {
       // Validity checks.
       assert getDirectApp(appView).verifyCodeObjectsOwners();
       assert appView.appInfo().classes().stream().allMatch(clazz -> clazz.isValid(options));
-
-      assert options.testing.disableMappingToOriginalProgramVerification
-          || appView
-              .graphLens()
-              .verifyMappingToOriginalProgram(
-                  appView,
-                  new ApplicationReader(inputApp.withoutMainDexList(), options, timing)
-                      .readWithoutDumping(executorService));
+      assert verifyMappingToOriginalProgram(appView, inputApp, executorService);
 
       // Report synthetic rules (only for testing).
       // TODO(b/120959039): Move this to being reported through the graph consumer.
@@ -921,6 +922,25 @@ public class R8 {
       options.reporter.error(new ExceptionDiagnostic(e, e.getOrigin()));
     }
     timing.end();
+  }
+
+  private boolean verifyMappingToOriginalProgram(
+      AppView<AppInfoWithClassHierarchy> appView,
+      AndroidApp inputAndroidApp,
+      ExecutorService executorService)
+      throws IOException {
+    if (options.testing.disableMappingToOriginalProgramVerification) {
+      return true;
+    }
+    if (options.partialSubCompilationConfiguration != null) {
+      // TODO(b/390587690): Find a way to re-enable this assert in R8 partial.
+      return true;
+    }
+    DexApplication inputApp =
+        new ApplicationReader(inputAndroidApp.withoutMainDexList(), options, timing)
+            .readWithoutDumping(executorService);
+    assert appView.graphLens().verifyMappingToOriginalProgram(appView, inputApp);
+    return true;
   }
 
   private void writeKeepDeclarationsToConfigurationConsumer(

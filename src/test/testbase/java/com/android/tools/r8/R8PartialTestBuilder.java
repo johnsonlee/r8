@@ -137,17 +137,11 @@ public class R8PartialTestBuilder
       Box<List<ProguardConfigurationRule>> syntheticProguardRulesConsumer,
       StringBuilder proguardMapBuilder)
       throws CompilationFailedException {
-    Box<AndroidApp> r8InputAppBox = new Box<>();
     Box<AndroidApp> d8InputAppBox = new Box<>();
-    Box<AndroidApp> r8OutputAppBox = new Box<>();
-    Box<AndroidApp> d8OutputAppBox = new Box<>();
     Consumer<InternalOptions> configureR8PartialCompilation =
         options -> {
           options.partialCompilationConfiguration = getPartialConfiguration();
-          options.partialCompilationConfiguration.r8InputAppConsumer = r8InputAppBox::set;
           options.partialCompilationConfiguration.d8InputAppConsumer = d8InputAppBox::set;
-          options.partialCompilationConfiguration.r8OutputAppConsumer = r8OutputAppBox::set;
-          options.partialCompilationConfiguration.d8OutputAppConsumer = d8OutputAppBox::set;
         };
     ToolHelper.runAndBenchmarkR8PartialWithoutResult(
         builder, configureR8PartialCompilation.andThen(optionsConsumer), benchmarkResults);
@@ -166,10 +160,7 @@ public class R8PartialTestBuilder
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
         buildMetadata != null ? buildMetadata.get() : null,
-        r8InputAppBox.get(),
-        d8InputAppBox.get(),
-        r8OutputAppBox.get(),
-        d8OutputAppBox.get());
+        d8InputAppBox.get());
   }
 
   @Override

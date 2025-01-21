@@ -357,8 +357,8 @@ public final class D8 {
     InternalOptions options = appView.options();
     R8PartialSubCompilationConfiguration subCompilationConfiguration =
         options.partialSubCompilationConfiguration;
-    if (subCompilationConfiguration != null
-        && subCompilationConfiguration.writeApplication(appView.appInfo().classes(), options)) {
+    if (subCompilationConfiguration != null) {
+      subCompilationConfiguration.writeApplication(appView.appInfo().classes(), options);
       return;
     }
     if (options.isGeneratingClassFiles()) {

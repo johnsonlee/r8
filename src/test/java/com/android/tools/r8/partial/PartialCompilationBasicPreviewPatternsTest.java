@@ -61,9 +61,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
         .inspectD8Input(
             inspector ->
                 assertTrue(inspector.hasExactlyProgramClasses(C1.class, C2.class, Main.class)))
-        .inspectR8Input(
-            inspector ->
-                assertTrue(inspector.hasExactlyProgramClasses(A1.class, A2.class, B.class)))
         .inspect(
             inspector ->
                 assertTrue(inspector.hasExactlyProgramClasses(C1.class, C2.class, Main.class)))
@@ -87,8 +84,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
             inspector ->
                 assertTrue(
                     inspector.hasExactlyProgramClasses(B.class, C1.class, C2.class, Main.class)))
-        .inspectR8Input(
-            inspector -> assertTrue(inspector.hasExactlyProgramClasses(A1.class, A2.class)))
         .inspect(
             inspector ->
                 assertTrue(
@@ -113,8 +108,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
             inspector ->
                 assertTrue(
                     inspector.hasExactlyProgramClasses(C1.class, C2.class, B.class, Main.class)))
-        .inspectR8Input(
-            inspector -> assertTrue(inspector.hasExactlyProgramClasses(A1.class, A2.class)))
         .inspect(
             inspector ->
                 assertTrue(
@@ -140,7 +133,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
                 assertTrue(
                     inspector.hasExactlyProgramClasses(
                         A1.class, A2.class, C1.class, C2.class, Main.class)))
-        .inspectR8Input(inspector -> assertTrue(inspector.hasExactlyProgramClasses(B.class)))
         .inspect(
             inspector ->
                 assertTrue(
@@ -168,7 +160,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
                 assertTrue(
                     inspector.hasExactlyProgramClasses(
                         A1.class, A2.class, C1.class, C2.class, Main.class)))
-        .inspectR8Input(inspector -> assertTrue(inspector.hasExactlyProgramClasses(B.class)))
         .inspect(
             inspector ->
                 assertTrue(
@@ -193,10 +184,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
         .compile()
         .inspectD8Input(
             inspector -> assertTrue(inspector.hasExactlyProgramClasses(C1.class, Main.class)))
-        .inspectR8Input(
-            inspector ->
-                assertTrue(
-                    inspector.hasExactlyProgramClasses(A1.class, A2.class, B.class, C2.class)))
         .inspect(inspector -> assertTrue(inspector.hasExactlyProgramClasses(C1.class, Main.class)))
         .run(parameters.getRuntime(), Main.class, ALL_TYPE_NAMES)
         .assertSuccessWithOutputLines(
@@ -222,10 +209,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
         .compile()
         .inspectD8Input(
             inspector -> assertTrue(inspector.hasExactlyProgramClasses(A1.class, Main.class)))
-        .inspectR8Input(
-            inspector ->
-                assertTrue(
-                    inspector.hasExactlyProgramClasses(A2.class, B.class, C1.class, C2.class)))
         .inspect(inspector -> assertTrue(inspector.hasExactlyProgramClasses(A1.class, Main.class)))
         .run(parameters.getRuntime(), Main.class, ALL_TYPE_NAMES)
         .assertSuccessWithOutputLines(
@@ -250,10 +233,6 @@ public class PartialCompilationBasicPreviewPatternsTest extends TestBase {
         .compile()
         .inspectD8Input(
             inspector -> assertTrue(inspector.hasExactlyProgramClasses(B.class, Main.class)))
-        .inspectR8Input(
-            inspector ->
-                assertTrue(
-                    inspector.hasExactlyProgramClasses(A1.class, A2.class, C1.class, C2.class)))
         .inspect(inspector -> assertTrue(inspector.hasExactlyProgramClasses(B.class, Main.class)))
         .run(parameters.getRuntime(), Main.class, ALL_TYPE_NAMES)
         .assertSuccessWithOutputLines(

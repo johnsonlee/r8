@@ -161,11 +161,11 @@ class R8Partial {
     }
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
-    R8PartialD8DexSubCompilationConfiguration partialSubCompilationConfiguration =
+    R8PartialD8DexSubCompilationConfiguration subCompilationConfiguration =
         new R8PartialD8DexSubCompilationConfiguration(timing);
-    d8Options.partialSubCompilationConfiguration = partialSubCompilationConfiguration;
+    d8Options.partialSubCompilationConfiguration = subCompilationConfiguration;
     D8.runInternal(d8App, d8Options, executor);
-    return new R8PartialD8DexResult(partialSubCompilationConfiguration.getOutputClasses());
+    return new R8PartialD8DexResult(subCompilationConfiguration.getOutputClasses());
   }
 
   private R8PartialDesugarResult runDesugarStep(R8PartialInput input, ExecutorService executor)
@@ -176,9 +176,8 @@ class R8Partial {
     //  As a simple example, it should be safe to postpone backporting to the R8 compilation.
     // TODO(b/389039057): This runs a full D8 compilation. For build speed, consider if the various
     //  passes in D8 can be disabled when the `partialSubCompilationConfiguration` is set.
-    Path desugarOutput = resolveTmp("desugar-output.zip");
     D8Command.Builder d8Builder =
-        D8Command.builder(options.reporter).setOutput(desugarOutput, OutputMode.ClassFile);
+        D8Command.builder(options.reporter).setProgramConsumer(ClassFileConsumer.emptyConsumer());
     // TODO(b/390327883): This should enable intermediate mode.
     input.configureDesugar(d8Builder);
     d8Builder.validate();
@@ -186,10 +185,11 @@ class R8Partial {
     AndroidApp d8App = d8Command.getInputApp();
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DesugarOptionsConsumer.accept(d8Options);
-    d8Options.partialSubCompilationConfiguration =
+    R8PartialD8DesugarSubCompilationConfiguration subCompilationConfiguration =
         new R8PartialD8DesugarSubCompilationConfiguration(timing);
+    d8Options.partialSubCompilationConfiguration = subCompilationConfiguration;
     D8.runInternal(d8App, d8Options, executor);
-    return new R8PartialDesugarResult(desugarOutput);
+    return new R8PartialDesugarResult(subCompilationConfiguration.getOutputClasses());
   }
 
   private void runR8PartialStep(
@@ -214,7 +214,6 @@ class R8Partial {
     // TODO(b/390389764): Disable desugaring.
     R8Command.Builder r8Builder =
         R8Command.builder(r8DiagnosticsHandler)
-            .addProgramFiles(desugarResult.getOutputPath())
             .enableLegacyFullModeForKeepRules(true)
             .setProgramConsumer(options.programConsumer);
     input.configure(r8Builder);
@@ -227,7 +226,8 @@ class R8Partial {
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.partialSubCompilationConfiguration =
-        new R8PartialR8SubCompilationConfiguration(dexingResult.getOutputClasses(), timing);
+        new R8PartialR8SubCompilationConfiguration(
+            desugarResult.getOutputClasses(), dexingResult.getOutputClasses(), timing);
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;

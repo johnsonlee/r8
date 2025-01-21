@@ -3,17 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import java.nio.file.Path;
+import com.android.tools.r8.graph.DexProgramClass;
+import java.util.Collection;
 
 public class R8PartialDesugarResult {
 
-  private final Path outputPath;
+  private final Collection<DexProgramClass> outputClasses;
 
-  public R8PartialDesugarResult(Path outputPath) {
-    this.outputPath = outputPath;
+  public R8PartialDesugarResult(Collection<DexProgramClass> outputClasses) {
+    this.outputClasses = outputClasses;
   }
 
-  public Path getOutputPath() {
-    return outputPath;
+  public Collection<DexProgramClass> getOutputClasses() {
+    return outputClasses;
   }
 }

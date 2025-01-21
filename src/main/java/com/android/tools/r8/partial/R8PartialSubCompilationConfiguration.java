@@ -33,9 +33,8 @@ public abstract class R8PartialSubCompilationConfiguration {
   }
 
   /** Returns true if normal writing should be aborted. */
-  public boolean writeApplication(
-      Collection<DexProgramClass> outputClasses, InternalOptions options) {
-    return false;
+  public void writeApplication(Collection<DexProgramClass> outputClasses, InternalOptions options) {
+    assert false;
   }
 
   public static class R8PartialD8DexSubCompilationConfiguration
@@ -58,35 +57,60 @@ public abstract class R8PartialSubCompilationConfiguration {
     }
 
     @Override
-    public boolean writeApplication(
+    public void writeApplication(
         Collection<DexProgramClass> outputClasses, InternalOptions options) {
       this.outputClasses = outputClasses;
-      return true;
     }
   }
 
   public static class R8PartialD8DesugarSubCompilationConfiguration
       extends R8PartialSubCompilationConfiguration {
 
+    private Collection<DexProgramClass> outputClasses;
+
     public R8PartialD8DesugarSubCompilationConfiguration(Timing timing) {
       super(timing);
+    }
+
+    public Collection<DexProgramClass> getOutputClasses() {
+      assert outputClasses != null;
+      return outputClasses;
+    }
+
+    @Override
+    public void writeApplication(
+        Collection<DexProgramClass> outputClasses, InternalOptions options) {
+      this.outputClasses = outputClasses;
     }
   }
 
   public static class R8PartialR8SubCompilationConfiguration
       extends R8PartialSubCompilationConfiguration {
 
+    private Collection<DexProgramClass> desugaringOutputClasses;
     private Collection<DexProgramClass> dexingOutputClasses;
 
     public R8PartialR8SubCompilationConfiguration(
-        Collection<DexProgramClass> dexingOutputClasses, Timing timing) {
+        Collection<DexProgramClass> desugaringOutputClasses,
+        Collection<DexProgramClass> dexingOutputClasses,
+        Timing timing) {
       super(timing);
+      this.desugaringOutputClasses = desugaringOutputClasses;
       this.dexingOutputClasses = dexingOutputClasses;
     }
 
     public Collection<DexProgramClass> getDexingOutputClasses() {
       assert dexingOutputClasses != null;
       return dexingOutputClasses;
+    }
+
+    public DirectMappedDexApplication commitDesugaringOutputClasses(
+        DirectMappedDexApplication app) {
+      assert app.classes().isEmpty();
+      DirectMappedDexApplication newApp =
+          app.builder().addProgramClasses(desugaringOutputClasses).build();
+      desugaringOutputClasses = null;
+      return newApp;
     }
 
     public void commitDexingOutputClasses(AppView<AppInfoWithClassHierarchy> appView) {

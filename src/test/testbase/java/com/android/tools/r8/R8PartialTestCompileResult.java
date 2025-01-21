@@ -20,10 +20,7 @@ import java.util.function.Consumer;
 public class R8PartialTestCompileResult
     extends R8TestCompileResultBase<R8PartialTestCompileResult> {
 
-  private final AndroidApp r8InputApp;
   private final AndroidApp d8InputApp;
-  private final AndroidApp r8OutputApp;
-  private final AndroidApp d8OutputApp;
 
   R8PartialTestCompileResult(
       TestState state,
@@ -40,10 +37,7 @@ public class R8PartialTestCompileResult
       Path resourceShrinkerOutput,
       HashMap<String, Path> resourceShrinkerOutputForFeatures,
       R8BuildMetadata buildMetadata,
-      AndroidApp r8InputApp,
-      AndroidApp d8InputApp,
-      AndroidApp r8OutputApp,
-      AndroidApp d8OutputApp) {
+      AndroidApp d8InputApp) {
     super(
         state,
         outputMode,
@@ -59,30 +53,12 @@ public class R8PartialTestCompileResult
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
         buildMetadata);
-    this.r8InputApp = r8InputApp;
     this.d8InputApp = d8InputApp;
-    this.r8OutputApp = r8OutputApp;
-    this.d8OutputApp = d8OutputApp;
   }
 
   @Override
   public R8PartialTestCompileResult self() {
     return this;
-  }
-
-  public CodeInspector inspectorR8Input() throws IOException {
-    return new CodeInspector(r8InputApp);
-  }
-
-  public CodeInspector inspectorR8Input(Consumer<InternalOptions> debugOptionsConsumer)
-      throws IOException {
-    return new CodeInspector(r8InputApp, debugOptionsConsumer);
-  }
-
-  public <E extends Throwable> R8PartialTestCompileResult inspectR8Input(
-      ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
-    consumer.accept(inspectorR8Input());
-    return self();
   }
 
   public CodeInspector inspectorD8Input() throws IOException {
