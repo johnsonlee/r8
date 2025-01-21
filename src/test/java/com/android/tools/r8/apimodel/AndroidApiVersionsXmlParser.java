@@ -5,6 +5,8 @@
 package com.android.tools.r8.apimodel;
 
 import static com.android.tools.r8.utils.FunctionUtils.ignoreArgument;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
@@ -115,29 +117,25 @@ public class AndroidApiVersionsXmlParser {
   }
 
   private void readApiVersionsXmlFile() throws Exception {
-    boolean assertionsEnabled = false;
-    assert assertionsEnabled = true;
-    if (!assertionsEnabled) {
-      throw new Exception(
-          "Always run the api-versions.xml parser with assertions enabled. Format checks are based"
-              + " on assertions.");
-    }
     CodeInspector inspector = new CodeInspector(androidJar);
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     Document document = factory.newDocumentBuilder().parse(apiVersionsXml.toFile());
     NodeList api = document.getElementsByTagName("api");
-    assert api.getLength() == 1;
-    assert api.item(0).getNodeType() == Node.ELEMENT_NODE;
-    assert api.item(0).getAttributes().getNamedItem("version") != null;
+    assertTrue(
+        "Expected exactly one <api> element",
+        api.getLength() == 1 && api.item(0).getNodeType() == Node.ELEMENT_NODE);
+    assertTrue(
+        "Expected 'version' attribute",
+        api.item(0).getAttributes().getNamedItem("version") != null);
     String versionString = api.item(0).getAttributes().getNamedItem("version").getNodeValue();
     int version = Integer.parseInt(versionString);
     // Only versions 3 and 4 of api-versions.xml are supported.
-    assert version == 3 || version == 4;
+    assertTrue("Only version 3 and 4 are supported", version == 3 || version == 4);
     NodeList classes = document.getElementsByTagName("class");
     Set<String> exemptionList = getDeletedTypesMissingRemovedAttribute();
     for (int i = 0; i < classes.getLength(); i++) {
       Node node = classes.item(i);
-      assert node.getNodeType() == Node.ELEMENT_NODE;
+      assertSame("Expected <class> to be an element", node.getNodeType(), Node.ELEMENT_NODE);
       AndroidApiLevel apiLevel = getMaxAndroidApiLevelFromNode(node, version, AndroidApiLevel.B);
       String type = DescriptorUtils.getJavaTypeFromBinaryName(getName(node));
       ClassSubject clazz = inspector.clazz(type);
