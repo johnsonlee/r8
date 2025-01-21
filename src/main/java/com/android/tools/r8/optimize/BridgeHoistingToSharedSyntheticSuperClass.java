@@ -220,8 +220,7 @@ public class BridgeHoistingToSharedSyntheticSuperClass {
 
   private void commitPendingSyntheticClasses() {
     assert appView.getSyntheticItems().hasPendingSyntheticClasses();
-    appView.setAppInfo(
-        appView.appInfo().rebuildWithLiveness(appView.getSyntheticItems().commit(appView.app())));
+    appView.rebuildAppInfo();
   }
 
   private void updateArtProfiles(Collection<Group> groups) {

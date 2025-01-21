@@ -8,7 +8,6 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexCode;
@@ -25,8 +24,6 @@ import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirCode.TryCatchTable;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.synthesis.CommittedItems;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ListUtils;
@@ -86,25 +83,7 @@ public class ApiReferenceStubber {
                   ThrowExceptionCode.create(appView.dexItemFactory().noClassDefFoundErrorType),
                   eventConsumer));
       // Commit the synthetic items.
-      if (appView.hasLiveness()) {
-        CommittedItems committedItems = appView.getSyntheticItems().commit(appView.appInfo().app());
-        AppView<AppInfoWithLiveness> appInfoWithLivenessAppView = appView.withLiveness();
-        appInfoWithLivenessAppView.setAppInfo(
-            appInfoWithLivenessAppView.appInfo().rebuildWithLiveness(committedItems));
-      } else if (appView.hasClassHierarchy()) {
-        CommittedItems committedItems = appView.getSyntheticItems().commit(appView.appInfo().app());
-        appView
-            .withClassHierarchy()
-            .setAppInfo(
-                appView.appInfo().withClassHierarchy().rebuildWithClassHierarchy(committedItems));
-      } else {
-        appView
-            .withoutClassHierarchy()
-            .setAppInfo(
-                new AppInfo(
-                    appView.appInfo().getSyntheticItems().commit(appView.app()),
-                    appView.appInfo().getMainDexInfo()));
-      }
+      appView.rebuildAppInfo();
     }
     eventConsumer.finished(appView);
   }

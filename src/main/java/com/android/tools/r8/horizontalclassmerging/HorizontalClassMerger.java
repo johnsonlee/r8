@@ -8,7 +8,6 @@ import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull
 
 import com.android.tools.r8.classmerging.ClassMergerSharedData;
 import com.android.tools.r8.classmerging.Policy;
-import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
@@ -23,7 +22,6 @@ import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.naming.IdentifierMinifier;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
-import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.shaking.RuntimeTypeCheckInfo;
@@ -188,14 +186,7 @@ public class HorizontalClassMerger {
       LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
       new IdentifierMinifier(appViewWithClassHierarchy)
           .rewriteDexItemBasedConstStringInStaticFields(executorService);
-      if (appView.hasLiveness()) {
-        AppView<AppInfoWithLiveness> appViewWithLiveness = appView.withLiveness();
-        appViewWithLiveness.setAppInfo(
-            appViewWithLiveness.appInfo().rebuildWithLiveness(newApplication));
-      } else {
-        appViewWithClassHierarchy.setAppInfo(
-            appViewWithClassHierarchy.appInfo().rebuildWithClassHierarchy(newApplication));
-      }
+      appView.rebuildAppInfo(newApplication);
       appView.clearCodeRewritings(executorService, timing);
     } else {
       SyntheticItems syntheticItems = appView.appInfo().getSyntheticItems();
@@ -203,13 +194,11 @@ public class HorizontalClassMerger {
       appView
           .withoutClassHierarchy()
           .setAppInfo(
-              new AppInfo(
-                  syntheticItems.commitRewrittenWithLens(
-                      newApplication, horizontalClassMergerGraphLens, timing),
-                  appView
-                      .appInfo()
-                      .getMainDexInfo()
-                      .rewrittenWithLens(syntheticItems, horizontalClassMergerGraphLens, timing)));
+              appView
+                  .appInfo()
+                  .rebuildWithCommittedItems(
+                      syntheticItems.commitRewrittenWithLens(
+                          newApplication, horizontalClassMergerGraphLens, timing)));
       appView.rewriteWithD8Lens(horizontalClassMergerGraphLens, timing);
     }
 

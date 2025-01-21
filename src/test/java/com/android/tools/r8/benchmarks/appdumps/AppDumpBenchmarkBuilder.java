@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
@@ -28,7 +26,6 @@ import com.android.tools.r8.benchmarks.BenchmarkSuite;
 import com.android.tools.r8.benchmarks.BenchmarkTarget;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.dump.DumpOptions;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
@@ -400,20 +397,20 @@ public class AppDumpBenchmarkBuilder {
                   CompilerDump dump = builder.getExtractedDump(environment);
                   DumpOptions dumpProperties = dump.getBuildProperties();
 
-                  // Verify that the dump does not use features that are not implemented below.
-                  dump.forEachFeatureArchive(
-                      feature -> {
-                        throw new Unimplemented();
-                      });
-                  assertFalse(dumpProperties.getEnableSameFilePolicy());
-                  assertFalse(dumpProperties.getIsolatedSplits());
-                  assertNull(dumpProperties.getAndroidApiExtensionPackages());
-
                   // Run R8.
                   TestBase.testForR8Partial(environment.getTemp(), Backend.DEX)
                       .addProgramFiles(dump.getProgramArchive())
                       .addLibraryFiles(dump.getLibraryArchive())
                       .addKeepRuleFiles(dump.getProguardConfigFile())
+                      .addR8PartialOptionsModification(
+                          options -> {
+                            options.apiModelingOptions().androidApiExtensionPackages =
+                                dumpProperties.getAndroidApiExtensionPackages();
+                            options
+                                .horizontalClassMergerOptions()
+                                .setEnableSameFilePolicy(dumpProperties.getEnableSameFilePolicy());
+                          })
+                      .enableIsolatedSplits(dumpProperties.getIsolatedSplits())
                       .setMinApi(dumpProperties.getMinApi())
                       .setR8PartialConfiguration(
                           b -> {
@@ -425,7 +422,11 @@ public class AppDumpBenchmarkBuilder {
                               builder.programPackages.forEach(b::addJavaTypeIncludePattern);
                             }
                           })
-                      .apply(b -> addDesugaredLibrary(b, dump))
+                      .apply(
+                          b -> {
+                            dump.forEachFeatureArchive(b::addFeatureSplit);
+                            addDesugaredLibrary(b, dump);
+                          })
                       .apply(configuration)
                       .applyIf(
                           environment.getConfig().containsComposableCodeSizeMetric(),

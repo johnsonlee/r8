@@ -4,6 +4,7 @@
 package com.android.tools.r8.graph;
 
 import com.android.tools.r8.DesugarGraphConsumer;
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.origin.GlobalSyntheticOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -22,6 +23,7 @@ import java.util.function.Consumer;
 public class AppInfo implements DexDefinitionSupplier {
 
   private final DexApplication app;
+  private final ClassToFeatureSplitMap classToFeatureSplitMap;
   private final DexItemFactory dexItemFactory;
   private final MainDexInfo mainDexInfo;
   private final SyntheticItems syntheticItems;
@@ -32,21 +34,31 @@ public class AppInfo implements DexDefinitionSupplier {
 
   public static AppInfo createInitialAppInfo(
       DexApplication application, GlobalSyntheticsStrategy globalSyntheticsStrategy) {
-    return createInitialAppInfo(application, globalSyntheticsStrategy, MainDexInfo.none());
+    return createInitialAppInfo(
+        application,
+        globalSyntheticsStrategy,
+        ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
+        MainDexInfo.none());
   }
 
   public static AppInfo createInitialAppInfo(
       DexApplication application,
       GlobalSyntheticsStrategy globalSyntheticsStrategy,
+      ClassToFeatureSplitMap classToFeatureSplitMap,
       MainDexInfo mainDexInfo) {
     return new AppInfo(
+        classToFeatureSplitMap,
         SyntheticItems.createInitialSyntheticItems(application, globalSyntheticsStrategy),
         mainDexInfo);
   }
 
-  public AppInfo(CommittedItems committedItems, MainDexInfo mainDexInfo) {
+  AppInfo(
+      ClassToFeatureSplitMap classToFeatureSplitMap,
+      CommittedItems committedItems,
+      MainDexInfo mainDexInfo) {
     this(
         committedItems.getApplication(),
+        classToFeatureSplitMap,
         committedItems.toSyntheticItems(),
         mainDexInfo,
         new BooleanBox());
@@ -54,17 +66,29 @@ public class AppInfo implements DexDefinitionSupplier {
 
   // For desugaring.
   // This is a view onto the app info and is the only place the pending synthetics are shared.
-  AppInfo(AppInfoWithClassHierarchy.CreateDesugaringViewOnAppInfo witness, AppInfo appInfo) {
-    this(appInfo.app, appInfo.syntheticItems, appInfo.mainDexInfo, appInfo.obsolete);
+  @SuppressWarnings("InconsistentOverloads")
+  AppInfo(
+      AppInfoWithClassHierarchy.CreateDesugaringViewOnAppInfo witness,
+      AppInfo appInfo,
+      ClassToFeatureSplitMap classToFeatureSplitMap) {
+    this(
+        appInfo.app,
+        classToFeatureSplitMap,
+        appInfo.syntheticItems,
+        appInfo.mainDexInfo,
+        appInfo.obsolete);
     assert witness != null;
   }
 
+  @SuppressWarnings("InconsistentOverloads")
   private AppInfo(
       DexApplication application,
+      ClassToFeatureSplitMap classToFeatureSplitMap,
       SyntheticItems syntheticItems,
       MainDexInfo mainDexInfo,
       BooleanBox obsolete) {
     this.app = application;
+    this.classToFeatureSplitMap = classToFeatureSplitMap;
     this.dexItemFactory = application.dexItemFactory;
     this.mainDexInfo = mainDexInfo;
     this.syntheticItems = syntheticItems;
@@ -83,15 +107,24 @@ public class AppInfo implements DexDefinitionSupplier {
     timing.begin("Pruning AppInfo");
     AppInfo result =
         new AppInfo(
+            classToFeatureSplitMap.withoutPrunedItems(prunedItems),
             getSyntheticItems().commitPrunedItems(prunedItems),
             getMainDexInfo().withoutPrunedItems(prunedItems));
     timing.end();
     return result;
   }
 
+  protected AppInfo rebuild(DexApplication app) {
+    return rebuildWithCommittedItems(getSyntheticItems().commit(app));
+  }
+
+  public AppInfo rebuildWithCommittedItems(CommittedItems committedItems) {
+    return new AppInfo(classToFeatureSplitMap, committedItems, mainDexInfo);
+  }
+
   public AppInfo rebuildWithMainDexInfo(MainDexInfo mainDexInfo) {
     assert checkIfObsolete();
-    return new AppInfo(app, syntheticItems, mainDexInfo, new BooleanBox());
+    return new AppInfo(app, classToFeatureSplitMap, syntheticItems, mainDexInfo, new BooleanBox());
   }
 
   public InternalOptions options() {
@@ -118,6 +151,10 @@ public class AppInfo implements DexDefinitionSupplier {
   public DexApplication app() {
     assert checkIfObsolete();
     return app;
+  }
+
+  public ClassToFeatureSplitMap getClassToFeatureSplitMap() {
+    return classToFeatureSplitMap;
   }
 
   @Override

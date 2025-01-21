@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static com.android.tools.r8.features.ClassToFeatureSplitMap.createInitialD8ClassToFeatureSplitMap;
 import static com.android.tools.r8.utils.AssertionUtils.forTesting;
 import static com.android.tools.r8.utils.ExceptionUtils.unwrapExecutionException;
 
@@ -187,6 +188,7 @@ public final class D8 {
                     options.isGeneratingDexIndexed()
                         ? GlobalSyntheticsStrategy.forSingleOutputMode()
                         : GlobalSyntheticsStrategy.forPerFileMode(),
+                    createInitialD8ClassToFeatureSplitMap(options),
                     applicationReader.readMainDexClasses(app)));
     return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
   }
@@ -286,10 +288,7 @@ public final class D8 {
         timing.begin("Rewrite non-dex inputs");
         DexApplication app = rewriteNonDexInputs(appView, inputApp, executor, marker, timing);
         timing.end();
-        appView.setAppInfo(
-            new AppInfo(
-                appView.appInfo().getSyntheticItems().commit(app),
-                appView.appInfo().getMainDexInfo()));
+        appView.rebuildAppInfo(app);
         appView.setNamingLens(NamingLens.getIdentityLens());
       } else if (options.isGeneratingDex() && hasDexResources) {
         appView.setNamingLens(NamingLens.getIdentityLens());
@@ -434,10 +433,7 @@ public final class D8 {
     }
     DexApplication cfApp =
         appView.app().builder().replaceProgramClasses(nonDexProgramClasses).build();
-    appView.setAppInfo(
-        new AppInfo(
-            appView.appInfo().getSyntheticItems().commit(cfApp),
-            appView.appInfo().getMainDexInfo()));
+    appView.rebuildAppInfo(cfApp);
     ConvertedCfFiles convertedCfFiles = new ConvertedCfFiles();
     new GenericSignatureRewriter(appView).run(appView.appInfo().classes(), executor);
     new KotlinMetadataRewriter(appView).runForD8(executor);

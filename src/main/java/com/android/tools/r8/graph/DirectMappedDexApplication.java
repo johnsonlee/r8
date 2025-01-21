@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class DirectMappedDexApplication extends DexApplication {
 
@@ -276,10 +277,29 @@ public class DirectMappedDexApplication extends DexApplication {
     }
 
     public Builder replaceClasspathClasses(Collection<DexClasspathClass> newClasspathClasses) {
+      return replaceClasspathClasses(ImmutableList.copyOf(newClasspathClasses));
+    }
+
+    public Builder replaceClasspathClasses(ImmutableList<DexClasspathClass> newClasspathClasses) {
       assert newClasspathClasses != null;
-      classpathClasses = ImmutableList.copyOf(newClasspathClasses);
+      classpathClasses = newClasspathClasses;
       pendingClasspathClasses.clear();
       return self();
+    }
+
+    public Builder removeClasspathClasses(Predicate<DexClasspathClass> predicate) {
+      ImmutableList.Builder<DexClasspathClass> newClasspathClasses = ImmutableList.builder();
+      for (DexClasspathClass clazz : classpathClasses) {
+        if (!predicate.test(clazz)) {
+          newClasspathClasses.add(clazz);
+        }
+      }
+      for (DexClasspathClass clazz : pendingClasspathClasses) {
+        if (!predicate.test(clazz)) {
+          newClasspathClasses.add(clazz);
+        }
+      }
+      return replaceClasspathClasses(newClasspathClasses.build());
     }
 
     public Builder replaceLibraryClasses(Collection<DexLibraryClass> libraryClasses) {

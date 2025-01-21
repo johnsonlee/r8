@@ -244,10 +244,7 @@ public class PrimaryR8IRConverter extends IRConverter {
 
   private static void commitPendingSyntheticItems(AppView<AppInfoWithLiveness> appView) {
     if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
-      appView.setAppInfo(
-          appView
-              .appInfo()
-              .rebuildWithLiveness(appView.getSyntheticItems().commit(appView.appInfo().app())));
+      appView.rebuildAppInfo();
     }
   }
 

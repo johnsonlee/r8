@@ -131,6 +131,10 @@ public class MissingClasses {
       return build();
     }
 
+    public MissingClasses ignoreMissingClasses() {
+      return build();
+    }
+
     public MissingClasses reportMissingClasses(
         AppView<?> appView, SynthesizingContextOracle synthesizingContextOracle) {
       Map<DexType, Set<ProgramDerivedContext>> missingClassesToBeReported =

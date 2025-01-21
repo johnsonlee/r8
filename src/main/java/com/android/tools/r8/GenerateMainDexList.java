@@ -60,7 +60,7 @@ public class GenerateMainDexList {
   public MainDexInfo traceMainDexForD8(AppView<AppInfo> appView, ExecutorService executor)
       throws ExecutionException {
     return traceMainDex(
-        AppView.createForSimulatingR8InD8(
+        AppView.createForD8MainDexTracing(
             appView.app().toDirect(), appView.appInfo().getMainDexInfo()),
         executor);
   }

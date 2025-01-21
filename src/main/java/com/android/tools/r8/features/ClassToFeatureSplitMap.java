@@ -42,7 +42,17 @@ public class ClassToFeatureSplitMap {
     return new ClassToFeatureSplitMap(new IdentityHashMap<>(), null);
   }
 
-  public static ClassToFeatureSplitMap createInitialClassToFeatureSplitMap(
+  public static ClassToFeatureSplitMap createInitialD8ClassToFeatureSplitMap(
+      InternalOptions options) {
+    // We only support feature splits in D8 when run through R8 partial.
+    if (options.partialSubCompilationConfiguration != null) {
+      return createInitialClassToFeatureSplitMap(
+          options.dexItemFactory(), options.featureSplitConfiguration, options.reporter);
+    }
+    return createEmptyClassToFeatureSplitMap();
+  }
+
+  public static ClassToFeatureSplitMap createInitialR8ClassToFeatureSplitMap(
       InternalOptions options) {
     return createInitialClassToFeatureSplitMap(
         options.dexItemFactory(),
@@ -121,8 +131,7 @@ public class ClassToFeatureSplitMap {
     return result;
   }
 
-  public FeatureSplit getFeatureSplit(
-      ProgramDefinition definition, AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public FeatureSplit getFeatureSplit(ProgramDefinition definition, AppView<?> appView) {
     return getFeatureSplit(definition, appView.getSyntheticItems());
   }
 

@@ -12,7 +12,6 @@ import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
-import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassResolutionResult;
@@ -329,11 +328,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     if (appView.appInfo().hasClassHierarchy()) {
       appView
           .withClassHierarchy()
-          .setAppInfo(appView.appInfo().withClassHierarchy().rebuildWithClassHierarchy(commit));
+          .setAppInfo(appView.appInfo().withClassHierarchy().rebuildWithCommittedItems(commit));
     } else {
       appView
           .withoutClassHierarchy()
-          .setAppInfo(new AppInfo(commit, appView.appInfo().getMainDexInfo()));
+          .setAppInfo(appView.appInfo().rebuildWithCommittedItems(commit));
     }
   }
 

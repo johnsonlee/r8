@@ -5,12 +5,16 @@ package com.android.tools.r8.partial;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.shaking.MissingClasses;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Set;
 
 public abstract class R8PartialSubCompilationConfiguration {
 
@@ -104,19 +108,38 @@ public abstract class R8PartialSubCompilationConfiguration {
       return newApp;
     }
 
-    public void commitDexingOutputClasses(AppView<AppInfoWithClassHierarchy> appView) {
+    public void commitDexingOutputClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
+      Set<DexType> dexingOutputTypes =
+          SetUtils.mapIdentityHashSet(dexingOutputClasses, DexClass::getType);
       DirectMappedDexApplication newApp =
           appView
               .app()
               .asDirect()
               .builder()
-              // TODO(b/390570711): This should not clear all classpath classes, only the ones we
-              //  inject into program.
-              .replaceClasspathClasses(Collections.emptyList())
+              .removeClasspathClasses(clazz -> dexingOutputTypes.contains(clazz.getType()))
               .addProgramClasses(dexingOutputClasses)
               .build();
-      appView.setAppInfo(appView.appInfo().rebuildWithClassHierarchy(newApp));
+      appView.rebuildAppInfo(newApp);
+      assert amendMissingClasses(appView);
       dexingOutputClasses = null;
+    }
+
+    private boolean amendMissingClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
+      if (appView.hasLiveness()) {
+        MissingClasses.Builder missingClassesBuilder =
+            appView.appInfo().getMissingClasses().builder();
+        for (DexProgramClass clazz : dexingOutputClasses) {
+          clazz.forEachImmediateSuperClassMatching(
+              appView.app(),
+              (supertype, superclass) -> superclass == null,
+              (supertype, superclass) ->
+                  missingClassesBuilder.addNewMissingClass(supertype, clazz));
+        }
+        appView
+            .appInfoWithLiveness()
+            .setMissingClasses(missingClassesBuilder.ignoreMissingClasses());
+      }
+      return true;
     }
 
     @Override

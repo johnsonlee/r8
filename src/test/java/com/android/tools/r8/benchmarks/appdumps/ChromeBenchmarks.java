@@ -4,6 +4,7 @@
 package com.android.tools.r8.benchmarks.appdumps;
 
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -12,6 +13,8 @@ import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -36,7 +39,12 @@ public class ChromeBenchmarks extends BenchmarkBase {
             .setName("ChromeApp")
             .setDumpDependencyPath(dir)
             .setFromRevision(16457)
-            .buildR8(ChromeBenchmarks::configure));
+            .buildR8(ChromeBenchmarks::configure),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("ChromeAppPartial")
+            .setDumpDependencyPath(dir)
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(ChromeBenchmarks::configurePartial));
   }
 
   private static void configure(R8FullTestBuilder testBuilder) {
@@ -48,5 +56,32 @@ public class ChromeBenchmarks extends BenchmarkBase {
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
         .allowUnnecessaryDontWarnWildcards();
+  }
+
+  private static void configurePartial(R8PartialTestBuilder testBuilder) {
+    testBuilder
+        .allowDiagnosticInfoMessages()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules()
+        .allowUnnecessaryDontWarnWildcards();
+  }
+
+  @Ignore
+  @Test
+  @Override
+  public void testBenchmarks() throws Exception {
+    super.testBenchmarks();
+  }
+
+  @Test
+  public void testChromeApp() throws Exception {
+    testBenchmarkWithName("ChromeApp");
+  }
+
+  // TODO(b/388421578): Add support for feature splits in R8 partial.
+  @Ignore
+  @Test
+  public void testChromeAppPartial() throws Exception {
+    testBenchmarkWithName("ChromeAppPartial");
   }
 }

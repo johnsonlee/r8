@@ -17,7 +17,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 public class FeatureSplitBoundaryOptimizationUtils {
 
   public static FeatureSplit getMergeKeyForHorizontalClassMerging(
-      DexProgramClass clazz, AppView<? extends AppInfoWithClassHierarchy> appView) {
+      DexProgramClass clazz, AppView<?> appView) {
     return appView.appInfo().getClassToFeatureSplitMap().getFeatureSplit(clazz, appView);
   }
 

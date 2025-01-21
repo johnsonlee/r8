@@ -359,11 +359,7 @@ public class R8 {
           .synthesizeClasses(executorService, classSynthesizerEventConsumer);
       classSynthesizerEventConsumer.finished(appView);
       if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
-        appView.setAppInfo(
-            appView
-                .appInfo()
-                .rebuildWithClassHierarchy(
-                    appView.getSyntheticItems().commit(appView.appInfo().app())));
+        appView.rebuildAppInfo();
       }
       timing.end();
       timing.begin("Strip unused code");

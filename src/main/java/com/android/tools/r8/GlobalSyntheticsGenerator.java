@@ -44,7 +44,6 @@ import com.android.tools.r8.naming.RecordRewritingNamingLens;
 import com.android.tools.r8.naming.VarHandleDesugaringRewritingNamingLens;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.synthesis.SyntheticFinalization;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.synthesis.SyntheticNaming;
@@ -163,8 +162,7 @@ public class GlobalSyntheticsGenerator {
         timing.time(
             "Create app-info",
             () ->
-                AppInfo.createInitialAppInfo(
-                    app, GlobalSyntheticsStrategy.forSingleOutputMode(), MainDexInfo.none()));
+                AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forSingleOutputMode()));
     // Now that the dex-application is fully loaded, close any internal archive providers.
     inputApp.closeInternalArchiveProviders();
     return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
@@ -195,18 +193,11 @@ public class GlobalSyntheticsGenerator {
     // We must run proper D8 conversion as the global synthetics may give rise to additional
     // synthetics as part of their implementation.
     assert appView.getSyntheticItems().hasPendingSyntheticClasses();
-    appView.setAppInfo(
-        new AppInfo(
-            appView.appInfo().getSyntheticItems().commit(appView.app()),
-            appView.appInfo().getMainDexInfo()));
+    appView.rebuildAppInfo();
 
     new PrimaryD8L8IRConverter(appView, Timing.empty()).convert(appView, executorService);
 
-    appView
-        .setAppInfo(
-            new AppInfo(
-                appView.appInfo().getSyntheticItems().commit(appView.app()),
-                appView.appInfo().getMainDexInfo()));
+    appView.rebuildAppInfo();
 
     timing.time(
         "Finalize synthetics",
@@ -222,11 +213,7 @@ public class GlobalSyntheticsGenerator {
       createAllApiStubs(appView, synthesizingContext, executorService);
     }
 
-    appView
-        .setAppInfo(
-            new AppInfo(
-                appView.appInfo().getSyntheticItems().commit(appView.app()),
-                appView.appInfo().getMainDexInfo()));
+    appView.rebuildAppInfo();
   }
 
   private static DexProgramClass createSynthesizingContext(DexItemFactory factory) {

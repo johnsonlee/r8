@@ -26,8 +26,6 @@ import com.android.tools.r8.optimize.singlecaller.SingleCallerInliner;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
-import com.android.tools.r8.synthesis.CommittedItems;
-import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -361,19 +359,8 @@ public class NonStartupInStartupOutliner {
   }
 
   private void commitPendingSyntheticClasses() {
-    SyntheticItems syntheticItems = appView.getSyntheticItems();
-    if (!syntheticItems.hasPendingSyntheticClasses()) {
-      return;
-    }
-    CommittedItems committedItems = syntheticItems.commit(appView.app());
-    if (appView.hasLiveness()) {
-      appView
-          .withLiveness()
-          .setAppInfo(appView.appInfoWithLiveness().rebuildWithLiveness(committedItems));
-    } else {
-      appView
-          .withClassHierarchy()
-          .setAppInfo(appView.appInfo().rebuildWithClassHierarchy(committedItems));
+    if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
+      appView.rebuildAppInfo();
     }
   }
 

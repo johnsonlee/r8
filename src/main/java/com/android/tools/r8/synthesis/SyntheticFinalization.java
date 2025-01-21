@@ -173,16 +173,12 @@ public class SyntheticFinalization {
     assert !appView.appInfo().hasLiveness();
     appView.options().testing.checkDeterminism(appView);
     Result result = appView.getSyntheticItems().computeFinalSynthetics(appView, timing);
-    appView.setAppInfo(new AppInfo(result.commit, result.mainDexInfo));
+    appView.setAppInfo(
+        appView
+            .appInfo()
+            .rebuildWithCommittedItems(result.commit)
+            .rebuildWithMainDexInfo(result.mainDexInfo));
     if (result.lens != null) {
-      appView.setAppInfo(
-          appView
-              .appInfo()
-              .rebuildWithMainDexInfo(
-                  appView
-                      .appInfo()
-                      .getMainDexInfo()
-                      .rewrittenWithLens(appView.getSyntheticItems(), result.lens, timing)));
       appView.rewriteWithD8Lens(result.lens, timing);
     }
     appView.pruneItems(result.prunedItems, executorService, timing);
@@ -194,8 +190,11 @@ public class SyntheticFinalization {
     assert !appView.appInfo().hasLiveness();
     appView.options().testing.checkDeterminism(appView);
     Result result = appView.getSyntheticItems().computeFinalSynthetics(appView, timing);
-    appView.setAppInfo(appView.appInfo().rebuildWithClassHierarchy(result.commit));
-    appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(result.mainDexInfo));
+    appView.setAppInfo(
+        appView
+            .appInfo()
+            .rebuildWithCommittedItems(result.commit)
+            .rebuildWithMainDexInfo(result.mainDexInfo));
     if (result.lens != null) {
       appView.rewriteWithLens(result.lens, executorService, timing);
     }
@@ -215,7 +214,7 @@ public class SyntheticFinalization {
     } else {
       assert result.commit.getApplication() == appView.appInfo().app();
     }
-    appView.setAppInfo(appView.appInfo().rebuildWithLiveness(result.commit));
+    appView.setAppInfo(appView.appInfo().rebuildWithCommittedItems(result.commit));
     appView.pruneItems(result.prunedItems, executorService, timing);
     appView.notifyOptimizationFinishedForTesting();
   }

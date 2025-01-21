@@ -219,6 +219,7 @@ public class PolicyScheduler {
     ImmutableList.Builder<MultiClassPolicy> builder = ImmutableList.builder();
     builder.add(
         new CheckAbstractClasses(appView),
+        new SameFeatureSplit(appView),
         new SameMainDexGroup(appView),
         new SameNestHost(appView),
         new SameParentClass(),

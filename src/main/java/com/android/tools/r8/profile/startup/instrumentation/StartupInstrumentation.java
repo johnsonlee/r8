@@ -117,10 +117,7 @@ public class StartupInstrumentation {
 
     DexApplication newApplication =
         appView.app().builder().addProgramClasses(extraProgramClasses).build();
-    appView.setAppInfo(
-        new AppInfo(
-            appView.appInfo().getSyntheticItems().commit(newApplication),
-            appView.appInfo().getMainDexInfo()));
+    appView.rebuildAppInfo(newApplication);
   }
 
   private List<DexProgramClass> createStartupRuntimeLibraryClasses() {

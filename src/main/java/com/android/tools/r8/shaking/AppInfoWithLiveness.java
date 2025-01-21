@@ -939,11 +939,13 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     return appInfoWithLiveness;
   }
 
-  public AppInfoWithLiveness rebuildWithLiveness(DexApplication application) {
-    return rebuildWithLiveness(getSyntheticItems().commit(application));
+  @Override
+  public AppInfoWithLiveness rebuild(DexApplication application) {
+    return rebuildWithCommittedItems(getSyntheticItems().commit(application));
   }
 
-  public AppInfoWithLiveness rebuildWithLiveness(CommittedItems committedItems) {
+  @Override
+  public AppInfoWithLiveness rebuildWithCommittedItems(CommittedItems committedItems) {
     return new AppInfoWithLiveness(this, committedItems);
   }
 
