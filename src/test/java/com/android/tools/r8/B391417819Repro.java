@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
-
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,26 +33,22 @@ public class B391417819Repro extends TestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    assertFailsCompilation(
-        () ->
-            testForD8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .release()
-                .setMinApi(parameters)
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutputLines("[0, 1]"));
+    testForD8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .release()
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("[0, 1]");
   }
 
   @Test
   public void testR8() throws Exception {
-    assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(TestClass.class)
-                .setMinApi(parameters)
-                .run(parameters.getRuntime(), TestClass.class)
-                .assertSuccessWithOutputLines("[0, 1]"));
+    testForR8(parameters.getBackend())
+        .addInnerClasses(getClass())
+        .addKeepMainRule(TestClass.class)
+        .setMinApi(parameters)
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines("[0, 1]");
   }
 
   static class TestClass {
