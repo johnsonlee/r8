@@ -400,6 +400,8 @@ public class DexItemFactory {
   // Method names used on MethodHandles.
   public final DexString lookupString = createString("lookup");
   public final DexString privateLookupInString = createString("privateLookupIn");
+  public final DexString mockString = createString("mock");
+  public final DexString spyString = createString("spy");
 
   public final DexType booleanType = createStaticallyKnownType(booleanDescriptor);
   public final DexType byteType = createStaticallyKnownType(byteDescriptor);
@@ -890,6 +892,7 @@ public class DexItemFactory {
       createStaticallyKnownType(desugarVarHandleDescriptorString);
   public final DexType desugarMethodHandlesLookupType =
       createStaticallyKnownType(desugarMethodHandlesLookupDescriptorString);
+  public final DexType mockitoType = createStaticallyKnownType("Lorg/mockito/Mockito;");
 
   public final ObjectMethodsMembers objectMethodsMembers = new ObjectMethodsMembers();
   public final ServiceLoaderMethods serviceLoaderMethods = new ServiceLoaderMethods();

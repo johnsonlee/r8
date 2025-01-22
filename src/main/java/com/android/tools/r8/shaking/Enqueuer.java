@@ -1607,6 +1607,8 @@ public class Enqueuer {
     } else if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
       // Handling of application services.
       pendingReflectiveUses.add(context);
+    } else if (EnqueuerMockitoSupport.isReflectiveMockInvoke(dexItemFactory, invokedMethod)) {
+      pendingReflectiveUses.add(context);
     }
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
@@ -5342,6 +5344,10 @@ public class Enqueuer {
     }
     if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
       handleServiceLoaderInvocation(method, invoke);
+      return;
+    }
+    if (EnqueuerMockitoSupport.isReflectiveMockInvoke(appView.dexItemFactory(), invokedMethod)) {
+      EnqueuerMockitoSupport.handleReflectiveMockInvoke(appView, keepInfo, method, invoke);
       return;
     }
     if (!isReflectionMethod(dexItemFactory, invokedMethod)) {
