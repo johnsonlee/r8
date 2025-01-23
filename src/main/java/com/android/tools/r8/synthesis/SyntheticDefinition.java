@@ -70,11 +70,7 @@ abstract class SyntheticDefinition<
 
   public abstract C getHolder();
 
-  final HashCode computeHash(
-      RepresentativeMap map,
-      boolean intermediate,
-      ClassToFeatureSplitMap classToFeatureSplitMap,
-      SyntheticItems syntheticItems) {
+  final HashCode computeHash(RepresentativeMap map, boolean intermediate) {
     HasherWrapper hasher = HasherWrapper.murmur3128Hasher();
     hasher.putInt(kind.getId());
     if (!getKind().isShareable()) {

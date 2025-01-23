@@ -308,29 +308,14 @@ public class SyntheticFinalization {
           Map<String, NumberGenerator> generators,
           Builder lensBuilder,
           Timing timing) {
-    boolean intermediate = appView.options().intermediate;
     Map<DexType, D> definitions = lookupDefinitions(appView, references);
-    ClassToFeatureSplitMap classToFeatureSplitMap =
-        appView.appInfo().hasClassHierarchy()
-            ? appView.appInfo().withClassHierarchy().getClassToFeatureSplitMap()
-            : ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap();
     timing.begin("Potential equivalences");
-    Collection<List<D>> potentialEquivalences =
-        computePotentialEquivalences(
-            appView,
-            definitions,
-            intermediate,
-            appView.options(),
-            appView.graphLens(),
-            classToFeatureSplitMap,
-            synthetics);
+    Collection<List<D>> potentialEquivalences = computePotentialEquivalences(appView, definitions);
     timing.end();
     return computeActualEquivalences(
         potentialEquivalences,
         generators,
         appView,
-        intermediate,
-        classToFeatureSplitMap,
         lensBuilder,
         timing);
   }
@@ -590,17 +575,15 @@ public class SyntheticFinalization {
           Collection<List<T>> potentialEquivalences,
           Map<String, NumberGenerator> generators,
           AppView<?> appView,
-          boolean intermediate,
-          ClassToFeatureSplitMap classToFeatureSplitMap,
           Builder lensBuilder,
           Timing timing) {
     Map<String, List<EquivalenceGroup<T>>> groupsPerPrefix = new HashMap<>();
     Map<DexType, EquivalenceGroup<T>> equivalences = new IdentityHashMap<>();
+    boolean intermediate = appView.options().intermediate;
     timing.begin("Groups");
     potentialEquivalences.forEach(
         members -> {
-          List<EquivalenceGroup<T>> groups =
-              groupEquivalent(appView, members, intermediate, classToFeatureSplitMap);
+          List<EquivalenceGroup<T>> groups = groupEquivalent(appView, members);
           for (EquivalenceGroup<T> group : groups) {
             // If the group has a pinned representative don't construct an external type.
             if (group.isPinned(appView)) {
@@ -674,10 +657,7 @@ public class SyntheticFinalization {
 
   @SuppressWarnings("MixedMutabilityReturnType")
   private static <T extends SyntheticDefinition<?, T, ?>> List<EquivalenceGroup<T>> groupEquivalent(
-      AppView<?> appView,
-      List<T> potentialEquivalence,
-      boolean intermediate,
-      ClassToFeatureSplitMap classToFeatureSplitMap) {
+      AppView<?> appView, List<T> potentialEquivalence) {
     // Fast path the singleton groups.
     if (potentialEquivalence.size() == 1) {
       return ImmutableList.of(EquivalenceGroup.singleton(potentialEquivalence.get(0)));
@@ -686,9 +666,11 @@ public class SyntheticFinalization {
 
     // Sort the potential members and split them up into potential groups of members that are
     // actually equal.
+    ClassToFeatureSplitMap classToFeatureSplitMap = appView.appInfo().getClassToFeatureSplitMap();
     GraphLens graphLens = appView.graphLens();
     boolean includeContext =
-        intermediate || appView.options().getInstrumentationOptions().isInstrumentationEnabled();
+        appView.options().intermediate
+            || appView.options().getInstrumentationOptions().isInstrumentationEnabled();
     List<T> sortedPotentialMembers =
         ListUtils.sort(
             potentialEquivalence,
@@ -842,17 +824,11 @@ public class SyntheticFinalization {
   @SuppressWarnings("MixedMutabilityReturnType")
   private static <T extends SyntheticDefinition<?, T, DexProgramClass>>
       Collection<List<T>> computePotentialEquivalences(
-          AppView<?> appView,
-          Map<DexType, T> definitions,
-          boolean intermediate,
-          InternalOptions options,
-          GraphLens graphLens,
-          ClassToFeatureSplitMap classToFeatureSplitMap,
-          SyntheticItems syntheticItems) {
+          AppView<?> appView, Map<DexType, T> definitions) {
     if (definitions.isEmpty()) {
       return Collections.emptyList();
     }
-    if (!options.testing.enableSyntheticSharing) {
+    if (!appView.testing().enableSyntheticSharing) {
       Collection<List<T>> result = new ArrayList<>(definitions.size());
       definitions.values().forEach(definition -> result.add(ImmutableList.of(definition)));
       return result;
@@ -860,29 +836,26 @@ public class SyntheticFinalization {
     // Map all synthetic types to the java 'void' type. This is not an actual valid type, so it
     // cannot collide with any valid java type providing a good hashing key for the synthetics.
     Set<DexType> syntheticTypes;
-    if (graphLens.isIdentityLens()) {
+    if (appView.graphLens().isIdentityLens()) {
       syntheticTypes = definitions.keySet();
     } else {
       // If the synthetics are renamed include their original names in the equivalence too.
       syntheticTypes = SetUtils.newIdentityHashSet(definitions.size() * 2);
-      definitions
-          .keySet()
-          .forEach(
-              t -> {
-                syntheticTypes.add(t);
-                syntheticTypes.add(graphLens.getOriginalType(t));
-              });
+      for (DexType t : definitions.keySet()) {
+        syntheticTypes.add(t);
+        syntheticTypes.add(appView.graphLens().getOriginalType(t));
+      }
     }
-    RepresentativeMap map = t -> syntheticTypes.contains(t) ? options.dexItemFactory().voidType : t;
+    RepresentativeMap map = t -> syntheticTypes.contains(t) ? appView.dexItemFactory().voidType : t;
     Map<HashCode, List<T>> equivalences = new HashMap<>(definitions.size());
     List<List<T>> result = new ArrayList<>();
+    boolean intermediate = appView.options().intermediate;
     for (T definition : definitions.values()) {
       DexProgramClass holder = definition.getHolder();
       KeepClassInfo keepInfo =
           appView.getKeepInfoOrDefault(holder, SyntheticKeepClassInfo.bottom());
       if (keepInfo.isSyntheticSharingAllowed()) {
-        HashCode hash =
-            definition.computeHash(map, intermediate, classToFeatureSplitMap, syntheticItems);
+        HashCode hash = definition.computeHash(map, intermediate);
         equivalences.computeIfAbsent(hash, k -> new ArrayList<>()).add(definition);
       } else {
         result.add(ImmutableList.of(definition));
