@@ -333,7 +333,7 @@ def Run(options):
                           GetMavenUrl(is_main))
 
             # Upload R8LIB to latest on dev channel, this is used by godbolt.
-            if file == utils.R8LIB_JAR and 'dev' in version:
+            if file == utils.R8LIB_JAR and version.endswith('-dev'):
                 latest_dst = GetUploadDestination('latest-dev', file_name,
                                                   is_main)
                 print('Uploading %s to %s' % (tagged_jar, latest_dst))
