@@ -103,7 +103,7 @@ public class AndroidOsBuildVersionCodesFullBackportTest extends AbstractBackport
               .clazz("android.os.Build$VERSION_CODES_FULL");
       Assert.assertTrue(versionCodesFullClass.isPresent());
       // Update test when more version codes full are added.
-      Assert.assertEquals(35, versionCodesFullClass.allFields().size());
+      Assert.assertEquals(36, versionCodesFullClass.allFields().size());
       // Copied from BackportedMethodRewriter.
       Object[][] versionCodesFull = {
         {"BASE", 100_000},
@@ -141,6 +141,7 @@ public class AndroidOsBuildVersionCodesFullBackportTest extends AbstractBackport
         {"TIRAMISU", 3300_000},
         {"UPSIDE_DOWN_CAKE", 3400_000},
         {"VANILLA_ICE_CREAM", 3500_000},
+        {"BAKLAVA", 1_000_000_000},
       };
       for (Object[] versionCodeFull : versionCodesFull) {
         Assert.assertEquals(
@@ -196,6 +197,7 @@ public class AndroidOsBuildVersionCodesFullBackportTest extends AbstractBackport
     public static /* final */ int TIRAMISU = -1;
     public static /* final */ int UPSIDE_DOWN_CAKE = -1;
     public static /* final */ int VANILLA_ICE_CREAM = -1;
+    public static /* final */ int BAKLAVA = -1;
   }
 
   public static class TestRunner extends MiniAssert {
@@ -236,6 +238,7 @@ public class AndroidOsBuildVersionCodesFullBackportTest extends AbstractBackport
       assertEquals(3300_000, VERSION_CODES_FULL.TIRAMISU);
       assertEquals(3400_000, VERSION_CODES_FULL.UPSIDE_DOWN_CAKE);
       assertEquals(3500_000, VERSION_CODES_FULL.VANILLA_ICE_CREAM);
+      assertEquals(1_000_000_000, VERSION_CODES_FULL.BAKLAVA);
     }
   }
 }
