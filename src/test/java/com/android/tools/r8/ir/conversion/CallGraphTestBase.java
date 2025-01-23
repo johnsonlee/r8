@@ -6,12 +6,12 @@ package com.android.tools.r8.ir.conversion;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.graph.ClassAccessFlags;
 import com.android.tools.r8.graph.DexAnnotationSet;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexTypeList;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
@@ -41,8 +41,7 @@ class CallGraphTestBase extends TestBase {
           Collections.emptyList(),
           ClassSignature.noSignature(),
           DexAnnotationSet.empty(),
-          DexEncodedField.EMPTY_ARRAY,
-          DexEncodedField.EMPTY_ARRAY,
+          FieldCollectionFactory.empty(),
           MethodCollectionFactory.empty(),
           false,
           DexProgramClass::invalidChecksumRequest,

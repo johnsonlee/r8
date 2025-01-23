@@ -12,6 +12,7 @@ import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.dex.IndexedItemCollection;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
@@ -76,8 +77,7 @@ public class DexProgramClass extends DexClass
       List<InnerClassAttribute> innerClasses,
       ClassSignature classSignature,
       DexAnnotationSet classAnnotations,
-      DexEncodedField[] staticFields,
-      DexEncodedField[] instanceFields,
+      FieldCollectionFactory fieldCollectionFactory,
       MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting,
       ChecksumSupplier checksumSupplier,
@@ -89,8 +89,7 @@ public class DexProgramClass extends DexClass
         accessFlags,
         superType,
         type,
-        staticFields,
-        instanceFields,
+        fieldCollectionFactory,
         methodCollectionFactory,
         nestHost,
         nestMembers,
@@ -126,8 +125,7 @@ public class DexProgramClass extends DexClass
       List<InnerClassAttribute> innerClasses,
       ClassSignature classSignature,
       DexAnnotationSet classAnnotations,
-      DexEncodedField[] staticFields,
-      DexEncodedField[] instanceFields,
+      FieldCollectionFactory fieldCollectionFactory,
       MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting,
       ChecksumSupplier checksumSupplier,
@@ -148,8 +146,7 @@ public class DexProgramClass extends DexClass
         innerClasses,
         classSignature,
         classAnnotations,
-        staticFields,
-        instanceFields,
+        fieldCollectionFactory,
         methodCollectionFactory,
         skipNameValidationForTesting,
         checksumSupplier,
@@ -174,8 +171,7 @@ public class DexProgramClass extends DexClass
         Collections.emptyList(),
         ClassSignature.noSignature(),
         DexAnnotationSet.empty(),
-        DexEncodedField.EMPTY_ARRAY,
-        DexEncodedField.EMPTY_ARRAY,
+        FieldCollectionFactory.empty(),
         MethodCollectionFactory.empty(),
         false,
         DexProgramClass::invalidChecksumRequest,

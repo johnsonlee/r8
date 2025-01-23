@@ -7,12 +7,12 @@ import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
 import com.android.tools.r8.origin.Origin;
 import com.google.common.collect.Streams;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -39,8 +39,7 @@ public class DexLibraryClass extends DexClass implements LibraryClass, Supplier<
       List<InnerClassAttribute> innerClasses,
       ClassSignature classSignature,
       DexAnnotationSet annotations,
-      DexEncodedField[] staticFields,
-      DexEncodedField[] instanceFields,
+      FieldCollectionFactory fieldCollectionFactory,
       MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting) {
     super(
@@ -49,8 +48,7 @@ public class DexLibraryClass extends DexClass implements LibraryClass, Supplier<
         accessFlags,
         superType,
         type,
-        staticFields,
-        instanceFields,
+        fieldCollectionFactory,
         methodCollectionFactory,
         nestHost,
         nestMembers,
@@ -62,12 +60,11 @@ public class DexLibraryClass extends DexClass implements LibraryClass, Supplier<
         annotations,
         origin,
         skipNameValidationForTesting);
+    assert Streams.stream(fields()).allMatch(DexLibraryClass::verifyLibraryField);
     assert Streams.stream(methods()).allMatch(DexLibraryClass::verifyLibraryMethod);
-    assert Arrays.stream(staticFields).allMatch(DexLibraryClass::verifyLibraryField);
-    assert Arrays.stream(instanceFields).allMatch(DexLibraryClass::verifyLibraryField);
     // Set all static field values to unknown. We don't want to use the value from the library
     // at compile time, as it can be different at runtime.
-    for (DexEncodedField staticField : staticFields) {
+    for (DexEncodedField staticField : staticFields()) {
       staticField.clearStaticValue();
     }
     assert kind == Kind.CF : "Invalid kind " + kind + " for library-path class " + type;
@@ -230,8 +227,7 @@ public class DexLibraryClass extends DexClass implements LibraryClass, Supplier<
           innerClasses,
           classSignature,
           annotations,
-          staticFields,
-          instanceFields,
+          FieldCollectionFactory.fromFields(instanceFields, staticFields),
           MethodCollectionFactory.fromMethods(directMethods, virtualMethods),
           skipNameValidationForTesting);
     }

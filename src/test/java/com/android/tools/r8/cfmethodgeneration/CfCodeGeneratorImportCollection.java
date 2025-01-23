@@ -67,6 +67,10 @@ public class CfCodeGeneratorImportCollection {
     return getR8ClassName("graph", "FieldAccessFlags");
   }
 
+  String getFieldCollectionFactory() {
+    return getR8ClassName("graph.FieldCollection", "FieldCollectionFactory");
+  }
+
   String getFieldTypeSignature() {
     return getR8ClassName("graph.GenericSignature", "FieldTypeSignature");
   }
@@ -94,6 +98,10 @@ public class CfCodeGeneratorImportCollection {
 
   String getProgramResourceKind() {
     return getR8ClassName("ProgramResource", "Kind");
+  }
+
+  String getReachabilitySensitiveValue() {
+    return getR8ClassName("utils", "ReachabilitySensitiveValue");
   }
 
   private String getR8ClassName(String context, String name) {

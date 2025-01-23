@@ -6,6 +6,7 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.graph.DexProgramClass.ChecksumSupplier;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.origin.Origin;
@@ -57,8 +58,7 @@ public class ClassKind<C extends DexClass> {
                   innerClasses,
                   classSignature,
                   classAnnotations,
-                  staticFields,
-                  instanceFields,
+                  FieldCollectionFactory.fromFields(instanceFields, staticFields),
                   MethodCollectionFactory.fromMethods(directMethods, virtualMethods),
                   skipNameValidationForTesting,
                   checksumSupplier,
@@ -106,8 +106,7 @@ public class ClassKind<C extends DexClass> {
                   innerClasses,
                   classSignature,
                   annotations,
-                  staticFields,
-                  instanceFields,
+                  FieldCollectionFactory.fromFields(instanceFields, staticFields),
                   MethodCollectionFactory.fromMethods(directMethods, virtualMethods),
                   skipNameValidationForTesting),
           DexClass::isClasspathClass);
@@ -152,8 +151,7 @@ public class ClassKind<C extends DexClass> {
                   innerClasses,
                   classSignature,
                   annotations,
-                  staticFields,
-                  instanceFields,
+                  FieldCollectionFactory.fromFields(instanceFields, staticFields),
                   MethodCollectionFactory.fromMethods(directMethods, virtualMethods),
                   skipNameValidationForTesting),
           DexClass::isLibraryClass);

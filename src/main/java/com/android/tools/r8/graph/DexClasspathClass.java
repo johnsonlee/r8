@@ -9,6 +9,7 @@ import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
@@ -41,8 +42,7 @@ public class DexClasspathClass extends DexClass
       List<InnerClassAttribute> innerClasses,
       ClassSignature classSignature,
       DexAnnotationSet annotations,
-      DexEncodedField[] staticFields,
-      DexEncodedField[] instanceFields,
+      FieldCollectionFactory fieldCollectionFactory,
       MethodCollectionFactory methodCollectionFactory,
       boolean skipNameValidationForTesting) {
     super(
@@ -51,8 +51,7 @@ public class DexClasspathClass extends DexClass
         accessFlags,
         superType,
         type,
-        staticFields,
-        instanceFields,
+        fieldCollectionFactory,
         methodCollectionFactory,
         nestHost,
         nestMembers,

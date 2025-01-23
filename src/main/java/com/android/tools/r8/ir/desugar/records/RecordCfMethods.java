@@ -45,6 +45,7 @@ public final class RecordCfMethods {
     factory.createSynthesizedType("[Ljava/lang/Object;");
     factory.createSynthesizedType("[Ljava/lang/String;");
   }
+
   public static CfCode RecordMethods_toString(DexItemFactory factory, DexMethod method) {
     CfLabel label0 = new CfLabel();
     CfLabel label1 = new CfLabel();

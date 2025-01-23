@@ -9,6 +9,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import com.android.tools.r8.dex.MixedSectionCollection;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
@@ -87,15 +88,13 @@ public abstract class DexClass extends DexDefinition
   /** Generic signature information if the attribute is present in the input */
   protected ClassSignature classSignature;
 
-  @SuppressWarnings("ReferenceEquality")
   public DexClass(
       DexString sourceFile,
       DexTypeList interfaces,
       ClassAccessFlags accessFlags,
       DexType superType,
       DexType type,
-      DexEncodedField[] staticFields,
-      DexEncodedField[] instanceFields,
+      FieldCollectionFactory fieldCollectionFactory,
       MethodCollectionFactory methodCollectionFactory,
       NestHostClassAttribute nestHost,
       List<NestMemberClassAttribute> nestMembers,
@@ -115,7 +114,7 @@ public abstract class DexClass extends DexDefinition
     this.accessFlags = accessFlags;
     this.superType = superType;
     this.type = type;
-    this.fieldCollection = FieldCollection.create(this, staticFields, instanceFields);
+    this.fieldCollection = fieldCollectionFactory.create(this);
     this.methodCollection = methodCollectionFactory.create(this);
     this.nestHost = nestHost;
     this.nestMembers = nestMembers;
@@ -128,19 +127,17 @@ public abstract class DexClass extends DexDefinition
     assert classSignature != null;
     this.classSignature = classSignature;
     assert GenericSignatureUtils.verifyNoDuplicateGenericDefinitions(classSignature, annotations);
-    if (type == superType) {
-      throw new CompilationError("Class " + type.toString() + " cannot extend itself");
+    if (type.isIdenticalTo(superType)) {
+      throw new CompilationError("Class " + type + " cannot extend itself");
     }
-    for (DexType interfaceType : interfaces.values) {
-      if (type == interfaceType) {
-        throw new CompilationError("Interface " + type.toString() + " cannot implement itself");
+    for (DexType interfaceType : interfaces) {
+      if (type.isIdenticalTo(interfaceType)) {
+        throw new CompilationError("Interface " + type + " cannot implement itself");
       }
     }
     if (!skipNameValidationForTesting && !type.descriptor.isValidClassDescriptor()) {
       throw new CompilationError(
-          "Class descriptor '"
-              + type.descriptor.toString()
-              + "' cannot be represented in dex format.");
+          "Class descriptor '" + type.descriptor + "' cannot be represented in dex format.");
     }
   }
 

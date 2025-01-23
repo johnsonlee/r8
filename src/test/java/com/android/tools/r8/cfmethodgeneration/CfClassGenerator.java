@@ -131,17 +131,19 @@ public abstract class CfClassGenerator extends CodeGenerationBase {
 
     builder.startLine().append(imports.getDexAnnotationSet()).appendLine(".empty(),");
 
-    if (clazz.hasStaticFields()) {
-      builder.startLine().appendLine("createStaticFields(dexItemFactory),");
-    } else {
-      builder.startLine().appendLine("createStaticFields(),");
-    }
-
+    builder.startLine().append(imports.getFieldCollectionFactory()).appendLine(".fromFields(");
     if (clazz.hasInstanceFields()) {
-      builder.startLine().appendLine("createInstanceFields(dexItemFactory),");
+      builder.append("createInstanceFields(dexItemFactory)");
     } else {
-      builder.startLine().appendLine("createInstanceFields(),");
+      builder.append("createInstanceFields()");
     }
+    builder.append(", ");
+    if (clazz.hasStaticFields()) {
+      builder.append("createStaticFields(dexItemFactory)");
+    } else {
+      builder.append("createStaticFields()");
+    }
+    builder.append("),");
 
     builder
         .startLine()
@@ -152,7 +154,9 @@ public abstract class CfClassGenerator extends CodeGenerationBase {
 
     builder.startLine().appendLine("dexItemFactory.getSkipNameValidationForTesting(),");
 
-    builder.startLine().append(imports.getDexProgramClass()).append("::invalidChecksumRequest");
+    builder.startLine().append(imports.getDexProgramClass()).append("::invalidChecksumRequest,");
+
+    builder.startLine().append(imports.getReachabilitySensitiveValue()).append(".DISABLED");
 
     builder.appendClosingMultiLineParenthesis().appendLine(';');
     builder.appendClosingBrace();

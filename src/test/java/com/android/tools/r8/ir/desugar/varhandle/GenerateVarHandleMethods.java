@@ -8,7 +8,6 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.TestDataSourceSet;
 import com.android.tools.r8.cfmethodgeneration.InstructionTypeMapper;
 import com.android.tools.r8.cfmethodgeneration.MethodGenerationBase;
@@ -45,7 +44,7 @@ public class GenerateVarHandleMethods extends MethodGenerationBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withCfRuntime(CfVm.JDK9).build();
+    return getTestParameters().withNoneRuntime().build();
   }
 
   public GenerateVarHandleMethods(TestParameters parameters) {

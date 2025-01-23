@@ -15,6 +15,25 @@ import java.util.function.Predicate;
 
 public class FieldCollection {
 
+  @FunctionalInterface
+  public interface FieldCollectionFactory {
+
+    FieldCollection create(DexClass holder);
+
+    static FieldCollectionFactory empty() {
+      return fromFields(DexEncodedField.EMPTY_ARRAY, DexEncodedField.EMPTY_ARRAY);
+    }
+
+    static FieldCollectionFactory fromFields(
+        DexEncodedField[] instanceFields, DexEncodedField[] staticFields) {
+      return holder -> FieldCollection.create(holder, staticFields, instanceFields);
+    }
+
+    static FieldCollectionFactory fromFieldCollection(FieldCollection collection) {
+      return holder -> new FieldCollection(holder, collection.backing);
+    }
+  }
+
   // Threshold between using an array and a map for the backing store.
   // The choice of 30 is just a copy from the method backing threshold.
   private static final int ARRAY_BACKING_THRESHOLD = 30;

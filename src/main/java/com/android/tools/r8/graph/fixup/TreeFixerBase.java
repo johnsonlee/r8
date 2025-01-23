@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.NestHostClassAttribute;
 import com.android.tools.r8.graph.NestMemberClassAttribute;
@@ -132,8 +133,7 @@ public abstract class TreeFixerBase {
             fixupInnerClassAttributes(clazz.getInnerClasses()),
             clazz.getClassSignature(),
             clazz.annotations(),
-            DexEncodedField.EMPTY_ARRAY,
-            DexEncodedField.EMPTY_ARRAY,
+            FieldCollectionFactory.empty(),
             newHolder -> clazz.getMethodCollection().fixup(newHolder, this::fixupMethod),
             dexItemFactory.getSkipNameValidationForTesting(),
             clazz.getChecksumSupplier(),

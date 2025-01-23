@@ -43,6 +43,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.EnclosingMethodAttribute;
 import com.android.tools.r8.graph.FieldAccessFlags;
+import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
@@ -76,8 +77,8 @@ public final class InstrumentationServerImplFactory {
         Collections.emptyList(),
         ClassSignature.noSignature(),
         DexAnnotationSet.empty(),
-        createStaticFields(dexItemFactory),
-        createInstanceFields(dexItemFactory),
+        FieldCollectionFactory.fromFields(
+            createInstanceFields(dexItemFactory), createStaticFields(dexItemFactory)),
         MethodCollectionFactory.fromMethods(
             createDirectMethods(dexItemFactory), createVirtualMethods(dexItemFactory)),
         dexItemFactory.getSkipNameValidationForTesting(),
