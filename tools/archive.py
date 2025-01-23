@@ -332,6 +332,16 @@ def Run(options):
                     print('Maven repo root available at: %s' %
                           GetMavenUrl(is_main))
 
+            # Upload R8LIB to latest on dev channel, this is used by godbolt.
+            if file == utils.R8LIB_JAR and 'dev' in version:
+                latest_dst = GetUploadDestination('latest-dev', file_name,
+                                                  is_main)
+                print('Uploading %s to %s' % (tagged_jar, latest_dst))
+                if options.dry_run:
+                    print('Dry run, not actually uploading')
+                else:
+                    utils.upload_file_to_cloud_storage(tagged_jar, latest_dst)
+
             # Upload desugar_jdk_libs configuration to a maven compatible location.
             if file == utils.DESUGAR_CONFIGURATION:
                 jar_basename = 'desugar_jdk_libs_configuration.jar'
