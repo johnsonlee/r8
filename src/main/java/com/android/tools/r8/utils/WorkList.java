@@ -51,7 +51,7 @@ public class WorkList<T> {
     return workList;
   }
 
-  public static <T> WorkList<T> newIdentityWorkList(Iterable<T> items) {
+  public static <T> WorkList<T> newIdentityWorkList(Iterable<? extends T> items) {
     WorkList<T> workList = new WorkList<>(EqualityTest.IDENTITY);
     workList.addIfNotSeen(items);
     return workList;

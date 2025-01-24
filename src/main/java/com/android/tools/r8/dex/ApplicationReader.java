@@ -449,7 +449,9 @@ public class ApplicationReader {
     }
 
     void readSources() throws IOException, ResourceException, ExecutionException {
-      Collection<ProgramResource> resources = inputApp.computeAllProgramResources();
+      Collection<ProgramResource> resources =
+          inputApp.computeAllProgramResources(
+              internalProvider -> programClasses.addAll(internalProvider.getClasses()));
       List<ProgramResource> dexResources = new ArrayList<>(resources.size());
       List<ProgramResource> cfResources = new ArrayList<>(resources.size());
       for (ProgramResource resource : resources) {

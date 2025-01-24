@@ -993,6 +993,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean debug = false;
 
+  public CompilationMode getCompilationMode() {
+    return debug ? CompilationMode.DEBUG : CompilationMode.RELEASE;
+  }
+
   public boolean shouldCompileMethodInDebugMode(ProgramMethod method) {
     return debug || method.isReachabilitySensitive();
   }

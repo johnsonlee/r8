@@ -3,39 +3,28 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
-import com.android.tools.r8.dump.CompilerDump;
-import com.android.tools.r8.graph.AppInfo;
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
-import com.android.tools.r8.graph.DexApplication;
-import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.partial.R8PartialD8DexResult;
 import com.android.tools.r8.partial.R8PartialDesugarResult;
 import com.android.tools.r8.partial.R8PartialInput;
-import com.android.tools.r8.partial.R8PartialInputToDumpFlags;
+import com.android.tools.r8.partial.R8PartialProgramPartioning;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8DesugarSubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8DexSubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
-import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.ForwardingDiagnosticsHandler;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
-import com.android.tools.r8.utils.ZipUtils;
-import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
-import com.google.common.io.ByteStreams;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 class R8Partial {
 
@@ -66,8 +55,16 @@ class R8Partial {
   }
 
   void runInternal(AndroidApp app, ExecutorService executor) throws IOException, ResourceException {
+    if (!options.getArtProfileOptions().getArtProfileProviders().isEmpty()) {
+      throw options.reporter.fatalError(
+          "Partial shrinking does not support baseline profile rewriting");
+    }
+    if (!options.getStartupOptions().getStartupProfileProviders().isEmpty()) {
+      throw options.reporter.fatalError("Partial shrinking does not support startup profiles");
+    }
+
     timing.begin("Process input");
-    R8PartialInput input = runProcessInputStep(app);
+    R8PartialInput input = runProcessInputStep(app, executor);
 
     timing.end().begin("Run dexing");
     R8PartialD8DexResult dexingResult = runDexingStep(input, executor);
@@ -76,7 +73,7 @@ class R8Partial {
     R8PartialDesugarResult desugarResult = runDesugarStep(input, executor);
 
     timing.end().begin("Run R8");
-    runR8PartialStep(input, dexingResult, desugarResult, executor);
+    runR8PartialStep(app, input, dexingResult, desugarResult, executor);
     timing.end();
 
     if (options.isPrintTimesReportingEnabled()) {
@@ -84,69 +81,27 @@ class R8Partial {
     }
   }
 
-  private R8PartialInput runProcessInputStep(AndroidApp androidApp) throws IOException {
-    // Create a dump of the compiler input.
-    // TODO(b/309743298): Do not use compiler dump to handle splitting the compilation. This should
-    //  be all in memory.
-    ApplicationReader applicationReader = new ApplicationReader(androidApp, options, timing);
-    Path dumpFile = resolveTmp("dump.zip");
-    applicationReader.dump(new R8PartialInputToDumpFlags(dumpFile));
-    CompilerDump dump = CompilerDump.fromArchive(dumpFile);
-    if (dump.getBuildProperties().hasMainDexKeepRules()
-        || dump.getBuildProperties().hasArtProfileProviders()
-        || dump.getBuildProperties().hasStartupProfileProviders()) {
-      throw options.reporter.fatalError(
-          "Partial shrinking does not support legacy multi-dex, baseline or startup profiles");
-    }
-
-    DexApplication app = applicationReader.read().toDirect();
-    AppInfoWithClassHierarchy appInfo =
-        AppInfoWithClassHierarchy.createForDesugaring(
-            AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing()));
-
-    Set<DexProgramClass> d8classes = new HashSet<>();
-    for (DexProgramClass clazz : appInfo.classes()) {
-      if (!d8classes.contains(clazz) && !options.partialCompilationConfiguration.test(clazz)) {
-        d8classes.add(clazz);
-        // TODO(b/309743298): Improve this to only visit each class once and stop at
-        //  library boundary.
-        appInfo.forEachSuperType(
-            clazz,
-            (superType, subclass, ignored) -> {
-              DexProgramClass superClass = asProgramClassOrNull(appInfo.definitionFor(superType));
-              if (superClass != null) {
-                d8classes.add(superClass);
-              }
-            });
-      }
-    }
-
-    // Filter the program input into the D8 and R8 parts.
-    Set<String> d8ZipEntries =
-        d8classes.stream()
-            .map(clazz -> ZipUtils.zipEntryNameForClass(clazz.getClassReference()))
-            .collect(Collectors.toSet());
-    ZipBuilder d8ProgramBuilder = ZipBuilder.builder(resolveTmp("d8-program.jar"));
-    ZipBuilder r8ProgramBuilder = ZipBuilder.builder(resolveTmp("r8-program.jar"));
-    ZipUtils.iter(
-        dump.getProgramArchive(),
-        (entry, input) -> {
-          if (d8ZipEntries.contains(entry.getName())) {
-            d8ProgramBuilder.addBytes(entry.getName(), ByteStreams.toByteArray(input));
-          } else {
-            r8ProgramBuilder.addBytes(entry.getName(), ByteStreams.toByteArray(input));
-          }
-        });
-    Path d8Program = d8ProgramBuilder.build();
-    Path r8Program = r8ProgramBuilder.build();
-    return new R8PartialInput(d8Program, r8Program, dump);
+  private R8PartialInput runProcessInputStep(AndroidApp androidApp, ExecutorService executor)
+      throws IOException {
+    // TODO(b/388421578): Add support for generating R8 partial compile dumps.
+    DirectMappedDexApplication app =
+        new ApplicationReader(androidApp, options, timing).readWithoutDumping(executor).toDirect();
+    R8PartialProgramPartioning partioning = R8PartialProgramPartioning.create(app);
+    return new R8PartialInput(
+        partioning.getD8Classes(),
+        partioning.getR8Classes(),
+        app.classpathClasses(),
+        app.libraryClasses());
   }
 
   private R8PartialD8DexResult runDexingStep(R8PartialInput input, ExecutorService executor)
       throws IOException {
-    // Compile D8 input with D8.
     D8Command.Builder d8Builder =
-        D8Command.builder(options.reporter).setProgramConsumer(DexIndexedConsumer.emptyConsumer());
+        D8Command.builder(options.reporter)
+            .setMinApiLevel(options.getMinApiLevel().getLevel())
+            .setMode(options.getCompilationMode())
+            .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
+    // TODO(b/391572031): Configure library desugaring.
     input.configure(d8Builder);
     d8Builder.validate();
     D8Command d8Command = d8Builder.makeD8Command(options.dexItemFactory());
@@ -172,7 +127,10 @@ class R8Partial {
     // TODO(b/389039057): This runs a full D8 compilation. For build speed, consider if the various
     //  passes in D8 can be disabled when the `partialSubCompilationConfiguration` is set.
     D8Command.Builder d8Builder =
-        D8Command.builder(options.reporter).setProgramConsumer(ClassFileConsumer.emptyConsumer());
+        D8Command.builder(options.reporter)
+            .setMinApiLevel(options.getMinApiLevel().getLevel())
+            .setMode(options.getCompilationMode())
+            .setProgramConsumer(ClassFileConsumer.emptyConsumer());
     // TODO(b/390327883): This should enable intermediate mode.
     input.configureDesugar(d8Builder);
     d8Builder.validate();
@@ -188,6 +146,7 @@ class R8Partial {
   }
 
   private void runR8PartialStep(
+      AndroidApp app,
       R8PartialInput input,
       R8PartialD8DexResult dexingResult,
       R8PartialDesugarResult desugarResult,
@@ -209,11 +168,44 @@ class R8Partial {
     // TODO(b/390389764): Disable desugaring.
     R8Command.Builder r8Builder =
         R8Command.builder(r8DiagnosticsHandler)
+            .addProgramResourceProvider(
+                new InternalProgramClassProvider(desugarResult.getOutputClasses()))
             .enableLegacyFullModeForKeepRules(true)
+            .setMinApiLevel(options.getMinApiLevel().getLevel())
+            .setMode(options.getCompilationMode())
             .setProgramConsumer(options.programConsumer);
+    // The program input that R8 must compile is provided above using an
+    // InternalProgramClassProvider. This passes in the data resources that we must either rewrite
+    // or pass through.
+    for (ProgramResourceProvider programResourceProvider : app.getProgramResourceProviders()) {
+      if (programResourceProvider.getDataResourceProvider() == null) {
+        programResourceProvider.finished(options.reporter);
+      } else {
+        r8Builder.addProgramResourceProvider(
+            new ProgramResourceProvider() {
+
+              @Override
+              public Collection<ProgramResource> getProgramResources() {
+                return Collections.emptyList();
+              }
+
+              @Override
+              public DataResourceProvider getDataResourceProvider() {
+                return programResourceProvider.getDataResourceProvider();
+              }
+
+              @Override
+              public void finished(DiagnosticsHandler handler) throws IOException {
+                programResourceProvider.finished(handler);
+              }
+            });
+      }
+    }
     input.configure(r8Builder);
     r8Builder.validate();
-    R8Command r8Command = r8Builder.makeR8Command(options.dexItemFactory());
+    // TODO(b/391572031): Configure library desugaring.
+    R8Command r8Command =
+        r8Builder.makeR8Command(options.dexItemFactory(), options.getProguardConfiguration());
     AndroidApp r8App = r8Command.getInputApp();
     if (r8InputAppConsumer != null) {
       r8InputAppConsumer.accept(r8App);
@@ -221,8 +213,7 @@ class R8Partial {
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.partialSubCompilationConfiguration =
-        new R8PartialR8SubCompilationConfiguration(
-            desugarResult.getOutputClasses(), dexingResult.getOutputClasses(), timing);
+        new R8PartialR8SubCompilationConfiguration(dexingResult.getOutputClasses(), timing);
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
@@ -230,9 +221,5 @@ class R8Partial {
       r8Options.resourceShrinkerConfiguration = options.resourceShrinkerConfiguration;
     }
     R8.runInternal(r8App, r8Options, executor);
-  }
-
-  private Path resolveTmp(String string) throws IOException {
-    return options.partialCompilationConfiguration.getTempDir().resolve(string);
   }
 }

@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.utils;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.collect.ImmutableMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
@@ -115,6 +116,50 @@ public class MapUtils {
   public static String toString(Map<?, ?> map) {
     return StringUtils.join(
         ",", map.entrySet(), entry -> entry.getKey() + ":" + entry.getValue(), BraceType.TUBORG);
+  }
+
+  public static <K, V> Map<K, V> transform(
+      Collection<V> collection, IntFunction<Map<K, V>> factory, Function<V, K> keyMapping) {
+    return transform(collection, factory, keyMapping, Function.identity());
+  }
+
+  public static <T, K, V> Map<K, V> transform(
+      Collection<T> collection,
+      IntFunction<Map<K, V>> factory,
+      Function<T, K> keyMapping,
+      Function<T, V> valueMapping) {
+    return transform(
+        collection,
+        factory,
+        keyMapping,
+        valueMapping,
+        (key, existingValue, value) -> {
+          throw new Unreachable();
+        });
+  }
+
+  public static <T, K, V> Map<K, V> transform(
+      Collection<T> collection,
+      IntFunction<Map<K, V>> factory,
+      Function<T, K> keyMapping,
+      Function<T, V> valueMapping,
+      TriFunction<K, V, V, V> valueMerger) {
+    Map<K, V> result = factory.apply(collection.size());
+    for (T element : collection) {
+      K key = keyMapping.apply(element);
+      if (key == null) {
+        continue;
+      }
+      V value = valueMapping.apply(element);
+      if (value == null) {
+        continue;
+      }
+      V existingValue = result.put(key, value);
+      if (existingValue != null) {
+        result.put(key, valueMerger.apply(key, existingValue, value));
+      }
+    }
+    return result;
   }
 
   public static <K1, V1, K2, V2> Map<K2, V2> transform(

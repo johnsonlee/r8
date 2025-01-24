@@ -39,6 +39,10 @@ public class CfLineToMethodMapper {
   private void readLineNumbersFromClassFiles() throws ResourceException {
     ClassVisitor classVisitor = new ClassVisitor();
     for (ProgramResourceProvider resourceProvider : inputApp.getProgramResourceProviders()) {
+      // TODO(b/391785584): Do not use the input providers here.
+      if (resourceProvider instanceof InternalProgramClassProvider) {
+        continue;
+      }
       if (resourceProvider instanceof ArchiveResourceProvider) {
         ArchiveResourceProvider provider = (ArchiveResourceProvider) resourceProvider;
         provider.accept(

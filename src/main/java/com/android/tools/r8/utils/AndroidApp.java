@@ -267,11 +267,21 @@ public class AndroidApp {
     return bytes;
   }
 
-  /** Get full collection of all program resources from all program providers. */
   public Collection<ProgramResource> computeAllProgramResources() throws ResourceException {
+    return computeAllProgramResources(null);
+  }
+
+  /** Get full collection of all program resources from all program providers. */
+  public Collection<ProgramResource> computeAllProgramResources(
+      Consumer<InternalProgramClassProvider> internalProviderConsumer) throws ResourceException {
     List<ProgramResource> resources = new ArrayList<>();
     for (ProgramResourceProvider provider : programResourceProviders) {
-      resources.addAll(provider.getProgramResources());
+      if (provider instanceof InternalProgramClassProvider) {
+        InternalProgramClassProvider internalProvider = (InternalProgramClassProvider) provider;
+        internalProviderConsumer.accept(internalProvider);
+      } else {
+        resources.addAll(provider.getProgramResources());
+      }
     }
     return resources;
   }

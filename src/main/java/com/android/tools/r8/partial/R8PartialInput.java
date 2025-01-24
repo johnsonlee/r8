@@ -3,67 +3,72 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.tools.r8.BaseCompilerCommand;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.R8Command;
-import com.android.tools.r8.dump.CompilerDump;
-import com.android.tools.r8.tracereferences.TraceReferencesCommand;
-import com.android.tools.r8.utils.ArchiveDataResourceProvider;
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClasspathClass;
+import com.android.tools.r8.graph.DexLibraryClass;
+import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.InternalClasspathOrLibraryClassProvider;
+import com.android.tools.r8.utils.InternalProgramClassProvider;
+import com.android.tools.r8.utils.MapUtils;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Collection;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 public class R8PartialInput {
 
-  private final Path d8Program;
-  private final Path r8Program;
-  private final CompilerDump dump;
+  private final Collection<DexProgramClass> d8Classes;
+  private final Collection<DexProgramClass> r8Classes;
+  private final Map<DexType, DexClasspathClass> classpathClasses;
+  private final Map<DexType, DexLibraryClass> libraryClasses;
 
-  public R8PartialInput(Path d8Program, Path r8Program, CompilerDump dump) {
-    this.d8Program = d8Program;
-    this.r8Program = r8Program;
-    this.dump = dump;
+  public R8PartialInput(
+      Collection<DexProgramClass> d8Classes,
+      Collection<DexProgramClass> r8Classes,
+      Collection<DexClasspathClass> classpathClasses,
+      Collection<DexLibraryClass> libraryClasses) {
+    this.d8Classes = d8Classes;
+    this.r8Classes = r8Classes;
+    this.classpathClasses =
+        MapUtils.transform(classpathClasses, IdentityHashMap::new, DexClass::getType);
+    this.libraryClasses =
+        MapUtils.transform(libraryClasses, IdentityHashMap::new, DexClass::getType);
   }
 
   public void configure(D8Command.Builder commandBuilder) throws IOException {
     configureBase(commandBuilder);
-    configureDesugaredLibrary(commandBuilder);
-    commandBuilder.addProgramFiles(d8Program).addClasspathFiles(r8Program);
+    commandBuilder
+        .addProgramResourceProvider(new InternalProgramClassProvider(d8Classes))
+        .addClasspathResourceProvider(
+            new InternalClasspathOrLibraryClassProvider<>(
+                DexClasspathClass.toClasspathClasses(r8Classes)));
   }
 
-  public void configureDesugar(D8Command.Builder commandBuilder) throws IOException {
+  public void configureDesugar(D8Command.Builder commandBuilder) {
     configureBase(commandBuilder);
-    commandBuilder.addProgramFiles(r8Program).addClasspathFiles(d8Program);
+    commandBuilder
+        .addProgramResourceProvider(new InternalProgramClassProvider(r8Classes))
+        .addClasspathResourceProvider(
+            new InternalClasspathOrLibraryClassProvider<>(
+                DexClasspathClass.toClasspathClasses(d8Classes)));
   }
 
   public void configure(R8Command.Builder commandBuilder) throws IOException {
     configureBase(commandBuilder);
-    configureDesugaredLibrary(commandBuilder);
+    commandBuilder.addClasspathResourceProvider(
+        new InternalClasspathOrLibraryClassProvider<>(
+            DexClasspathClass.toClasspathClasses(d8Classes)));
+  }
+
+  private void configureBase(BaseCompilerCommand.Builder<?, ?> commandBuilder) {
     commandBuilder
-        .addProgramResourceProvider(new ArchiveDataResourceProvider(r8Program))
-        .addClasspathFiles(d8Program)
-        .addProguardConfigurationFiles(dump.getProguardConfigFile());
-  }
-
-  public void configure(TraceReferencesCommand.Builder commandBuilder) throws IOException {
-    commandBuilder.addLibraryFiles(dump.getLibraryArchive()).addSourceFiles(d8Program);
-  }
-
-  private void configureBase(BaseCompilerCommand.Builder<?, ?> commandBuilder) throws IOException {
-    commandBuilder
-        .addClasspathFiles(dump.getClasspathArchive())
-        .addLibraryFiles(dump.getLibraryArchive())
-        .setMinApiLevel(dump.getBuildProperties().getMinApi())
-        .setMode(dump.getBuildProperties().getCompilationMode());
-  }
-
-  private void configureDesugaredLibrary(BaseCompilerCommand.Builder<?, ?> commandBuilder)
-      throws IOException {
-    if (dump.hasDesugaredLibrary()) {
-      commandBuilder.addDesugaredLibraryConfiguration(
-          Files.readString(dump.getDesugaredLibraryFile(), UTF_8));
-    }
+        .addClasspathResourceProvider(
+            new InternalClasspathOrLibraryClassProvider<>(classpathClasses))
+        .addLibraryResourceProvider(new InternalClasspathOrLibraryClassProvider<>(libraryClasses));
   }
 }

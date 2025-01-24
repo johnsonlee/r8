@@ -94,8 +94,18 @@ public abstract class ClassProvider<T extends DexClass> {
       this.reader = reader;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void collectClass(DexType type, Consumer<T> classConsumer) {
+      if (provider instanceof InternalClasspathOrLibraryClassProvider) {
+        InternalClasspathOrLibraryClassProvider<T> internalProvider =
+            (InternalClasspathOrLibraryClassProvider<T>) provider;
+        T clazz = internalProvider.getClass(type);
+        if (clazz != null) {
+          classConsumer.accept(clazz);
+        }
+        return;
+      }
       String descriptor = type.descriptor.toString();
       ProgramResource resource = provider.getProgramResource(descriptor);
       if (resource != null) {
@@ -111,6 +121,11 @@ public abstract class ClassProvider<T extends DexClass> {
 
     @Override
     public Collection<DexType> collectTypes() {
+      if (provider instanceof InternalClasspathOrLibraryClassProvider) {
+        InternalClasspathOrLibraryClassProvider<?> internalProvider =
+            (InternalClasspathOrLibraryClassProvider<?>) provider;
+        return internalProvider.getTypes();
+      }
       List<DexType> types = new ArrayList<>();
       for (String descriptor : provider.getClassDescriptors()) {
         types.add(reader.options.itemFactory.createType(descriptor));

@@ -32,6 +32,10 @@ public class MethodCollection {
         DexEncodedMethod[] directs, DexEncodedMethod[] virtuals) {
       return holder -> MethodCollection.create(holder, directs, virtuals);
     }
+
+    static MethodCollectionFactory fromMethodCollection(MethodCollection collection) {
+      return holder -> new MethodCollection(holder, collection.backing);
+    }
   }
 
   // Threshold between using an array and a map for the backing store.

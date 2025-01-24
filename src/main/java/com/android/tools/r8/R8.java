@@ -301,13 +301,6 @@ public class R8 {
         keepDeclarations = lazyLoaded.getKeepDeclarations();
         timing.begin("To direct app");
         DirectMappedDexApplication application = lazyLoaded.toDirect();
-        if (options.partialSubCompilationConfiguration != null) {
-          application =
-              options
-                  .partialSubCompilationConfiguration
-                  .asR8SubCompilationConfiguration()
-                  .commitDesugaringOutputClasses(application);
-        }
         timing.end();
         timing.end();
         options.loadMachineDesugaredLibrarySpecification(timing, application);

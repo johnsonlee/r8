@@ -82,30 +82,18 @@ public abstract class R8PartialSubCompilationConfiguration {
   public static class R8PartialR8SubCompilationConfiguration
       extends R8PartialSubCompilationConfiguration {
 
-    private Collection<DexProgramClass> desugaringOutputClasses;
     private Collection<DexProgramClass> dexingOutputClasses;
 
     public R8PartialR8SubCompilationConfiguration(
-        Collection<DexProgramClass> desugaringOutputClasses,
         Collection<DexProgramClass> dexingOutputClasses,
         Timing timing) {
       super(timing);
-      this.desugaringOutputClasses = desugaringOutputClasses;
       this.dexingOutputClasses = dexingOutputClasses;
     }
 
     public Collection<DexProgramClass> getDexingOutputClasses() {
       assert dexingOutputClasses != null;
       return dexingOutputClasses;
-    }
-
-    public DirectMappedDexApplication commitDesugaringOutputClasses(
-        DirectMappedDexApplication app) {
-      assert app.classes().isEmpty();
-      DirectMappedDexApplication newApp =
-          app.builder().addProgramClasses(desugaringOutputClasses).build();
-      desugaringOutputClasses = null;
-      return newApp;
     }
 
     public void commitDexingOutputClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {

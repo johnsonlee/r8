@@ -12,7 +12,9 @@ import com.android.tools.r8.dump.DumpOptions;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
+import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.inspector.Inspector;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
@@ -50,6 +52,7 @@ import com.android.tools.r8.utils.InternalOptions.DesugarState;
 import com.android.tools.r8.utils.InternalOptions.HorizontalClassMergerOptions;
 import com.android.tools.r8.utils.InternalOptions.LineNumberOptimization;
 import com.android.tools.r8.utils.InternalOptions.MappingComposeOptions;
+import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ProgramClassCollection;
 import com.android.tools.r8.utils.R8PartialCompilationConfiguration;
 import com.android.tools.r8.utils.Reporter;
@@ -468,8 +471,30 @@ public final class R8Command extends BaseCompilerCommand {
 
     @Override
     public Builder addProgramResourceProvider(ProgramResourceProvider programProvider) {
-      return super.addProgramResourceProvider(
-          new EnsureNonDexProgramResourceProvider(programProvider));
+      if (programProvider instanceof InternalProgramClassProvider) {
+        InternalProgramClassProvider internalProgramProvider =
+            (InternalProgramClassProvider) programProvider;
+        assert verifyNonDexProgramResourceProvider(internalProgramProvider);
+        assert internalProgramProvider.getDataResourceProvider() == null;
+        return super.addProgramResourceProvider(internalProgramProvider);
+      } else {
+        return super.addProgramResourceProvider(
+            new EnsureNonDexProgramResourceProvider(programProvider));
+      }
+    }
+
+    private boolean verifyNonDexProgramResourceProvider(
+        InternalProgramClassProvider internalProgramProvider) {
+      for (DexProgramClass clazz : internalProgramProvider.getClasses()) {
+        for (DexEncodedMethod method : clazz.methods()) {
+          if (!method.hasCode()) {
+            continue;
+          }
+          assert !method.getCode().isDexCode()
+              : "Unexpected method with DEX code: " + method.toSourceString();
+        }
+      }
+      return true;
     }
 
     /**
@@ -771,10 +796,11 @@ public final class R8Command extends BaseCompilerCommand {
       if (isPrintHelp() || isPrintVersion()) {
         return new R8Command(isPrintHelp(), isPrintVersion());
       }
-      return makeR8Command(new DexItemFactory());
+      DexItemFactory factory = new DexItemFactory();
+      return makeR8Command(factory, makeConfiguration(factory));
     }
 
-    R8Command makeR8Command(DexItemFactory factory) {
+    R8Command makeR8Command(DexItemFactory factory, ProguardConfiguration configuration) {
       long created = System.nanoTime();
       Reporter reporter = getReporter();
       List<ProguardConfigurationRule> mainDexKeepRules =
@@ -782,51 +808,6 @@ public final class R8Command extends BaseCompilerCommand {
 
       DesugaredLibrarySpecification desugaredLibrarySpecification =
           getDesugaredLibraryConfiguration(factory, false);
-
-      ProguardConfigurationParserOptions parserOptions = parserOptionsBuilder.build();
-      ProguardConfigurationParser parser =
-          new ProguardConfigurationParser(
-              factory, reporter, parserOptions, inputDependencyGraphConsumer);
-      ProguardConfiguration.Builder configurationBuilder =
-          parser
-              .getConfigurationBuilder()
-              .setForceProguardCompatibility(forceProguardCompatibility);
-      if (!proguardConfigs.isEmpty()) {
-        parser.parse(proguardConfigs);
-      }
-
-      if (getMode() == CompilationMode.DEBUG) {
-        disableMinification = true;
-        configurationBuilder.disableOptimization();
-      }
-
-      if (disableTreeShaking) {
-        configurationBuilder.disableShrinking();
-      }
-
-      if (disableMinification) {
-        configurationBuilder.disableObfuscation();
-      }
-
-      if (proguardConfigurationConsumerForTesting != null) {
-        proguardConfigurationConsumerForTesting.accept(configurationBuilder);
-      }
-
-      // Add embedded keep rules.
-      amendWithRulesAndProvidersForInjarsAndMetaInf(reporter, parser);
-
-      // Extract out rules for keep annotations and amend the configuration.
-      // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
-      extractKeepAnnotationRules(parser);
-      ProguardConfiguration configuration = configurationBuilder.build();
-      if (!parserOptions.isKeepRuntimeInvisibleAnnotationsEnabled()) {
-        if (configuration.getKeepAttributes().runtimeInvisibleAnnotations
-            || configuration.getKeepAttributes().runtimeInvisibleParameterAnnotations
-            || configuration.getKeepAttributes().runtimeInvisibleTypeAnnotations) {
-          throw fatalError(
-              new StringDiagnostic("Illegal attempt to keep runtime invisible annotations"));
-        }
-      }
       getAppBuilder().addFilteredLibraryArchives(configuration.getLibraryjars());
 
       assert getProgramConsumer() != null;
@@ -891,6 +872,54 @@ public final class R8Command extends BaseCompilerCommand {
         inputDependencyGraphConsumer.finished();
       }
       return command;
+    }
+
+    private ProguardConfiguration makeConfiguration(DexItemFactory factory) {
+      ProguardConfigurationParserOptions parserOptions = parserOptionsBuilder.build();
+      ProguardConfigurationParser parser =
+          new ProguardConfigurationParser(
+              factory, getReporter(), parserOptions, inputDependencyGraphConsumer);
+      ProguardConfiguration.Builder configurationBuilder =
+          parser
+              .getConfigurationBuilder()
+              .setForceProguardCompatibility(forceProguardCompatibility);
+      if (!proguardConfigs.isEmpty()) {
+        parser.parse(proguardConfigs);
+      }
+
+      if (getMode() == CompilationMode.DEBUG) {
+        disableMinification = true;
+        configurationBuilder.disableOptimization();
+      }
+
+      if (disableTreeShaking) {
+        configurationBuilder.disableShrinking();
+      }
+
+      if (disableMinification) {
+        configurationBuilder.disableObfuscation();
+      }
+
+      if (proguardConfigurationConsumerForTesting != null) {
+        proguardConfigurationConsumerForTesting.accept(configurationBuilder);
+      }
+
+      // Add embedded keep rules.
+      amendWithRulesAndProvidersForInjarsAndMetaInf(getReporter(), parser);
+
+      // Extract out rules for keep annotations and amend the configuration.
+      // TODO(b/248408342): Remove this and parse annotations as part of R8 root-set & enqueuer.
+      extractKeepAnnotationRules(parser);
+      ProguardConfiguration configuration = configurationBuilder.build();
+      if (!parserOptions.isKeepRuntimeInvisibleAnnotationsEnabled()) {
+        if (configuration.getKeepAttributes().runtimeInvisibleAnnotations
+            || configuration.getKeepAttributes().runtimeInvisibleParameterAnnotations
+            || configuration.getKeepAttributes().runtimeInvisibleTypeAnnotations) {
+          throw fatalError(
+              new StringDiagnostic("Illegal attempt to keep runtime invisible annotations"));
+        }
+      }
+      return configuration;
     }
 
     private void amendWithRulesAndProvidersForInjarsAndMetaInf(
