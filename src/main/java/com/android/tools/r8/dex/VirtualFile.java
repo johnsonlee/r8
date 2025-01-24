@@ -611,7 +611,7 @@ public class VirtualFile {
       }
       mainDexFile.commitTransaction();
       mainDexFile.throwIfFull(false, options.reporter);
-      if (options.featureSplitConfiguration != null) {
+      if (options.hasFeatureSplitConfiguration()) {
         if (!featureSplitClasses.isEmpty()) {
           // TODO(141334414): Figure out if we allow multidex in features even when mono-dexing
           addFeatureSplitFiles(featureSplitClasses, StartupProfile.empty());

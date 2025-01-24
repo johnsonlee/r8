@@ -697,9 +697,9 @@ public class ApplicationWriter {
           .forEach(file -> dataResourceConsumer.accept(file, reporter));
     }
 
-    if (options.featureSplitConfiguration != null) {
+    if (options.hasFeatureSplitConfiguration()) {
       for (DataResourceProvidersAndConsumer entry :
-          options.featureSplitConfiguration.getDataResourceProvidersAndConsumers()) {
+          options.getFeatureSplitConfiguration().getDataResourceProvidersAndConsumers()) {
         adaptAndPassDataResources(
             options, entry.consumer, entry.providers, resourceAdapter, kotlinModuleSynthesizer);
         addServiceResources(entry.featureSplit, appView, reporter, entry.consumer);

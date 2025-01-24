@@ -228,6 +228,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return featureSplitConfiguration;
   }
 
+  public void setFeatureSplitConfiguration(FeatureSplitConfiguration featureSplitConfiguration) {
+    this.featureSplitConfiguration = featureSplitConfiguration;
+  }
+
   public boolean hasProguardConfiguration() {
     return proguardConfiguration != null;
   }
@@ -257,7 +261,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public Consumer<? super D8BuildMetadata> d8BuildMetadataConsumer = null;
   public Consumer<? super R8BuildMetadata> r8BuildMetadataConsumer = null;
   public DataResourceConsumer dataResourceConsumer;
-  public FeatureSplitConfiguration featureSplitConfiguration;
+  private FeatureSplitConfiguration featureSplitConfiguration;
 
   public List<Consumer<InspectorImpl>> outputInspections = Collections.emptyList();
 
@@ -700,8 +704,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         dataResourceConsumer.finished(reporter);
       }
     }
-    if (featureSplitConfiguration != null) {
-      for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
+    if (hasFeatureSplitConfiguration()) {
+      for (FeatureSplit featureSplit : getFeatureSplitConfiguration().getFeatureSplits()) {
         ProgramConsumer programConsumer = featureSplit.getProgramConsumer();
         if (programConsumer != null) {
           programConsumer.finished(reporter);

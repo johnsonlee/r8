@@ -194,8 +194,9 @@ public class AppServices {
         // TODO(b/208677025): This should use BASE_STARTUP for startup classes.
         readServices(provider, FeatureSplit.BASE);
       }
-      if (options.featureSplitConfiguration != null) {
-        List<FeatureSplit> featureSplits = options.featureSplitConfiguration.getFeatureSplits();
+      if (options.hasFeatureSplitConfiguration()) {
+        List<FeatureSplit> featureSplits =
+            options.getFeatureSplitConfiguration().getFeatureSplits();
         for (FeatureSplit featureSplit : featureSplits) {
           for (ProgramResourceProvider provider : featureSplit.getProgramResourceProviders()) {
             DataResourceProvider dataResourceProvider = provider.getDataResourceProvider();

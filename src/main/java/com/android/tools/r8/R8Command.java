@@ -1421,7 +1421,7 @@ public final class R8Command extends BaseCompilerCommand {
     internal.r8BuildMetadataConsumer = buildMetadataConsumer;
     internal.dataResourceConsumer = internal.programConsumer.getDataResourceConsumer();
 
-    internal.featureSplitConfiguration = featureSplitConfiguration;
+    internal.setFeatureSplitConfiguration(featureSplitConfiguration);
 
     internal.syntheticProguardRulesConsumer = syntheticProguardRulesConsumer;
 

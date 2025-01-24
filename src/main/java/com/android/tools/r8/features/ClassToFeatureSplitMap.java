@@ -47,7 +47,7 @@ public class ClassToFeatureSplitMap {
     // We only support feature splits in D8 when run through R8 partial.
     if (options.partialSubCompilationConfiguration != null) {
       return createInitialClassToFeatureSplitMap(
-          options.dexItemFactory(), options.featureSplitConfiguration, options.reporter);
+          options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
     }
     return createEmptyClassToFeatureSplitMap();
   }
@@ -55,9 +55,7 @@ public class ClassToFeatureSplitMap {
   public static ClassToFeatureSplitMap createInitialR8ClassToFeatureSplitMap(
       InternalOptions options) {
     return createInitialClassToFeatureSplitMap(
-        options.dexItemFactory(),
-        options.featureSplitConfiguration,
-        options.reporter);
+        options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
   }
 
   public static ClassToFeatureSplitMap createInitialClassToFeatureSplitMap(

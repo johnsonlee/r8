@@ -860,9 +860,10 @@ public class R8 {
         options.programConsumer =
             wrapConsumerStoreBytesInList(
                 dexFileContent, (DexIndexedConsumer) options.programConsumer, "base");
-        if (options.featureSplitConfiguration != null) {
+        if (options.hasFeatureSplitConfiguration()) {
           int featureIndex = 0;
-          for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
+          for (FeatureSplit featureSplit :
+              options.getFeatureSplitConfiguration().getFeatureSplits()) {
             featureSplit.internalSetProgramConsumer(
                 wrapConsumerStoreBytesInList(
                     dexFileContent,
@@ -981,8 +982,9 @@ public class R8 {
         dexFileContent.forEach(resourceShrinkerBuilder::addDexInput);
         addResourcesToBuilder(
             resourceShrinkerBuilder, reporter, options.androidResourceProvider, FeatureSplit.BASE);
-        if (options.featureSplitConfiguration != null) {
-          for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
+        if (options.hasFeatureSplitConfiguration()) {
+          for (FeatureSplit featureSplit :
+              options.getFeatureSplitConfiguration().getFeatureSplits()) {
             if (featureSplit.getAndroidResourceProvider() != null) {
               addResourcesToBuilder(
                   resourceShrinkerBuilder,
@@ -1007,8 +1009,9 @@ public class R8 {
           options.androidResourceProvider,
           options.androidResourceConsumer,
           FeatureSplit.BASE);
-      if (options.featureSplitConfiguration != null) {
-        for (FeatureSplit featureSplit : options.featureSplitConfiguration.getFeatureSplits()) {
+      if (options.hasFeatureSplitConfiguration()) {
+        for (FeatureSplit featureSplit :
+            options.getFeatureSplitConfiguration().getFeatureSplits()) {
           if (featureSplit.getAndroidResourceProvider() != null) {
             writeResourcesToConsumer(
                 reporter,
