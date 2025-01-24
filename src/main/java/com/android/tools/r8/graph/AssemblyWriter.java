@@ -195,7 +195,7 @@ public class AssemblyWriter extends DexByteCodeWriter {
                 OptimizationFeedbackIgnore.getInstance(),
                 methodProcessor,
                 methodProcessingContext,
-                MethodConversionOptions.forD8(converter.appView)));
+                MethodConversionOptions.forD8(converter.appView, method)));
   }
 
   @SuppressWarnings("ReferenceEquality")

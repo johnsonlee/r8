@@ -24,13 +24,7 @@ public class R8PartialCompilationConfiguration {
   private final List<Predicate<DexString>> includePredicates;
   private final List<Predicate<DexString>> excludePredicates;
 
-  public Consumer<AndroidApp> r8InputAppConsumer;
-  public Consumer<AndroidApp> d8InputAppConsumer;
-  public Consumer<AndroidApp> r8OutputAppConsumer;
-  public Consumer<AndroidApp> d8OutputAppConsumer;
-
   public Consumer<InternalOptions> d8DexOptionsConsumer = ConsumerUtils.emptyConsumer();
-  public Consumer<InternalOptions> d8DesugarOptionsConsumer = ConsumerUtils.emptyConsumer();
   public Consumer<InternalOptions> r8OptionsConsumer = ConsumerUtils.emptyConsumer();
 
   private static final R8PartialCompilationConfiguration disabledConfiguration =

@@ -4,7 +4,6 @@
 package com.android.tools.r8.partial;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
-import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,7 +38,6 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
 
   private void runTest(
       Consumer<R8PartialCompilationConfiguration.Builder> partialConfigurationBuilderConsumer,
-      ThrowingConsumer<CodeInspector, RuntimeException> d8Inspector,
       ThrowingConsumer<CodeInspector, RuntimeException> inspector)
       throws Exception {
     testForR8Partial(parameters.getBackend())
@@ -48,7 +46,6 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
         .addKeepMainRule(Main.class)
         .setR8PartialConfiguration(partialConfigurationBuilderConsumer)
         .compile()
-        .inspectD8Input(d8Inspector)
         .inspect(inspector)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithEmptyOutput();
@@ -59,11 +56,6 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
     runTest(
         partialConfigurationBuilder ->
             partialConfigurationBuilder.includeAll().excludeClasses(A.class),
-        inspector -> {
-          assertThat(inspector.programClass(A.class), isPresent());
-          assertThat(inspector.programClass(B.class), isAbsent());
-          assertThat(inspector.programClass(C.class), isAbsent());
-        },
         inspector -> {
           assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(B.class), isAbsent()); // Merged into C.
@@ -77,11 +69,6 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
         partialConfigurationBuilder ->
             partialConfigurationBuilder.includeAll().excludeClasses(B.class),
         inspector -> {
-          assertThat(inspector.programClass(A.class), isPresent());
-          assertThat(inspector.programClass(B.class), isPresent());
-          assertThat(inspector.programClass(C.class), isAbsent());
-        },
-        inspector -> {
           assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(C.class), isPresentAndRenamed());
@@ -93,11 +80,6 @@ public class ClassHierarchyInterleavedD8AndR8Test extends TestBase {
     runTest(
         partialConfigurationBuilder ->
             partialConfigurationBuilder.includeAll().excludeClasses(C.class),
-        inspector -> {
-          assertThat(inspector.programClass(A.class), isPresent());
-          assertThat(inspector.programClass(B.class), isPresent());
-          assertThat(inspector.programClass(C.class), isPresent());
-        },
         inspector -> {
           assertThat(inspector.clazz(A.class), isPresentAndNotRenamed());
           assertThat(inspector.clazz(B.class), isPresentAndNotRenamed());

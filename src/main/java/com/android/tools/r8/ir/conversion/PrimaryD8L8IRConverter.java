@@ -360,20 +360,19 @@ public class PrimaryD8L8IRConverter extends IRConverter {
                 methodProcessingContext));
   }
 
-  @SuppressWarnings("UnusedVariable")
   private Timing rewriteNonDesugaredCodeInternal(
       ProgramMethod method,
       CfInstructionDesugaringEventConsumer desugaringEventConsumer,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext) {
-    boolean didDesugar = desugar(method, desugaringEventConsumer, methodProcessingContext);
+    desugar(method, desugaringEventConsumer, methodProcessingContext);
     return rewriteDesugaredCodeInternal(
         method,
         feedback,
         methodProcessor,
         methodProcessingContext,
-        MethodConversionOptions.forD8(appView));
+        MethodConversionOptions.forD8(appView, method));
   }
 
   private boolean desugar(

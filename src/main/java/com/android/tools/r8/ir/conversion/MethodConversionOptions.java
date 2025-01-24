@@ -6,7 +6,9 @@ package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 
 public abstract class MethodConversionOptions {
 
@@ -32,12 +34,16 @@ public abstract class MethodConversionOptions {
       return forD8(appView);
     }
     assert appView.testing().isSupportedLirPhase();
-    return new MutableMethodConversionOptions(determineTarget(appView));
+    return new MutableMethodConversionOptions(determineTarget(appView, null));
   }
 
   public static MutableMethodConversionOptions forD8(AppView<?> appView) {
+    return forD8(appView, null);
+  }
+
+  public static MutableMethodConversionOptions forD8(AppView<?> appView, ProgramMethod method) {
     assert !appView.enableWholeProgramOptimizations();
-    return new MutableMethodConversionOptions(determineTarget(appView));
+    return new MutableMethodConversionOptions(determineTarget(appView, method));
   }
 
   public static MutableMethodConversionOptions nonConverting() {
@@ -55,13 +61,13 @@ public abstract class MethodConversionOptions {
     return new IRToDexFinalizer(appView, deadCodeRemover);
   }
 
-  private enum Target {
+  public enum Target {
     CF,
     DEX,
     LIR
   }
 
-  private static Target determineTarget(AppView<?> appView) {
+  private static Target determineTarget(AppView<?> appView, ProgramMethod method) {
     if (appView.testing().canUseLir(appView)) {
       return Target.LIR;
     }
@@ -69,6 +75,11 @@ public abstract class MethodConversionOptions {
       return Target.CF;
     }
     assert appView.options().isGeneratingDex();
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        appView.options().partialSubCompilationConfiguration;
+    if (subCompilationConfiguration != null && subCompilationConfiguration.isD8()) {
+      return subCompilationConfiguration.asD8().getTargetFor(method, appView);
+    }
     return Target.DEX;
   }
 

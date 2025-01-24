@@ -9,10 +9,14 @@ import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.ProgramDefinition;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions;
+import com.android.tools.r8.ir.conversion.MethodConversionOptions.Target;
 import com.android.tools.r8.shaking.MissingClasses;
-import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 
@@ -24,6 +28,14 @@ public abstract class R8PartialSubCompilationConfiguration {
     this.timing = timing;
   }
 
+  public boolean isD8() {
+    return false;
+  }
+
+  public R8PartialD8SubCompilationConfiguration asD8() {
+    return null;
+  }
+
   public boolean isR8() {
     return false;
   }
@@ -32,50 +44,75 @@ public abstract class R8PartialSubCompilationConfiguration {
     return null;
   }
 
-  /** Returns true if normal writing should be aborted. */
-  public void writeApplication(Collection<DexProgramClass> outputClasses, InternalOptions options) {
-    assert false;
-  }
-
-  public static class R8PartialD8DexSubCompilationConfiguration
+  public static class R8PartialD8SubCompilationConfiguration
       extends R8PartialSubCompilationConfiguration {
 
-    private Collection<DexProgramClass> outputClasses;
+    private final Set<DexType> d8Types;
+    private final Set<DexType> r8Types;
 
-    public R8PartialD8DexSubCompilationConfiguration(Timing timing) {
+    private Collection<DexProgramClass> dexedOutputClasses;
+    private Collection<DexProgramClass> desugaredOutputClasses;
+
+    public R8PartialD8SubCompilationConfiguration(
+        Set<DexType> d8Types, Set<DexType> r8Types, Timing timing) {
       super(timing);
+      this.d8Types = d8Types;
+      this.r8Types = r8Types;
     }
 
-    public Collection<DexProgramClass> getOutputClasses() {
-      assert outputClasses != null;
-      return outputClasses;
+    public Collection<DexProgramClass> getDexedOutputClasses() {
+      assert dexedOutputClasses != null;
+      return dexedOutputClasses;
+    }
+
+    public Collection<DexProgramClass> getDesugaredOutputClasses() {
+      assert desugaredOutputClasses != null;
+      return desugaredOutputClasses;
+    }
+
+    public MethodConversionOptions.Target getTargetFor(
+        ProgramDefinition definition, AppView<?> appView) {
+      DexType type = definition.getContextType();
+      if (d8Types.contains(type)) {
+        return Target.DEX;
+      } else if (r8Types.contains(type)) {
+        return Target.CF;
+      } else {
+        SyntheticItems syntheticItems = appView.getSyntheticItems();
+        assert syntheticItems.isSynthetic(definition.getContextClass());
+        Collection<DexType> syntheticContexts =
+            syntheticItems.getSynthesizingContextTypes(definition.getContextType());
+        assert syntheticContexts.size() == 1;
+        DexType syntheticContext = syntheticContexts.iterator().next();
+        if (d8Types.contains(syntheticContext)) {
+          return Target.DEX;
+        } else {
+          assert r8Types.contains(syntheticContext);
+          return Target.CF;
+        }
+      }
     }
 
     @Override
-    public void writeApplication(
-        Collection<DexProgramClass> outputClasses, InternalOptions options) {
-      this.outputClasses = outputClasses;
-    }
-  }
-
-  public static class R8PartialD8DesugarSubCompilationConfiguration
-      extends R8PartialSubCompilationConfiguration {
-
-    private Collection<DexProgramClass> outputClasses;
-
-    public R8PartialD8DesugarSubCompilationConfiguration(Timing timing) {
-      super(timing);
-    }
-
-    public Collection<DexProgramClass> getOutputClasses() {
-      assert outputClasses != null;
-      return outputClasses;
+    public boolean isD8() {
+      return true;
     }
 
     @Override
-    public void writeApplication(
-        Collection<DexProgramClass> outputClasses, InternalOptions options) {
-      this.outputClasses = outputClasses;
+    public R8PartialD8SubCompilationConfiguration asD8() {
+      return this;
+    }
+
+    public void writeApplication(AppView<?> appView) {
+      dexedOutputClasses = new ArrayList<>();
+      desugaredOutputClasses = new ArrayList<>();
+      for (DexProgramClass clazz : appView.appInfo().classes()) {
+        if (getTargetFor(clazz, appView) == Target.DEX) {
+          dexedOutputClasses.add(clazz);
+        } else {
+          desugaredOutputClasses.add(clazz);
+        }
+      }
     }
   }
 

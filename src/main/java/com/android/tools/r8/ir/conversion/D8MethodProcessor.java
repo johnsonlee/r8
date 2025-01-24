@@ -120,7 +120,7 @@ public class D8MethodProcessor extends MethodProcessor {
                 OptimizationFeedbackIgnore.getInstance(),
                 this,
                 processorContext.createMethodProcessingContext(method),
-                MethodConversionOptions.forD8(converter.appView)));
+                MethodConversionOptions.forD8(converter.appView, method)));
   }
 
   public void scheduleDesugaredMethodsForProcessing(Iterable<ProgramMethod> methods) {

@@ -39,12 +39,6 @@ public class PartialCompilationBasicTest extends TestBase {
         .addKeepMainRule(Main.class)
         .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(A.class))
         .compile()
-        .inspectD8Input(
-            inspector -> {
-              assertThat(inspector.programClass(A.class), isPresent());
-              assertThat(inspector.programClass(B.class), isAbsent());
-              assertThat(inspector.programClass(Main.class), isAbsent());
-            })
         .inspect(
             inspector -> {
               assertThat(inspector.clazz(A.class), isPresent());
@@ -63,14 +57,6 @@ public class PartialCompilationBasicTest extends TestBase {
         .addKeepMainRule(Main.class)
         .setR8PartialConfiguration(builder -> builder.includeAll().excludeClasses(B.class))
         .compile()
-        .inspectD8Input(
-            inspector -> {
-              // TODO(b/309743298): These are all present as inspection currently also look at
-              //  classpath.
-              assertThat(inspector.programClass(A.class), isAbsent());
-              assertThat(inspector.programClass(B.class), isPresent());
-              assertThat(inspector.programClass(Main.class), isAbsent());
-            })
         .inspect(
             inspector -> {
               assertThat(inspector.clazz(A.class), isAbsent());

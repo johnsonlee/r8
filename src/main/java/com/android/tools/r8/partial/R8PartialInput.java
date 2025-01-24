@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-
 import com.android.tools.r8.BaseCompilerCommand;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.R8Command;
@@ -15,10 +14,12 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.InternalClasspathOrLibraryClassProvider;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.MapUtils;
+import com.android.tools.r8.utils.SetUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class R8PartialInput {
 
@@ -44,18 +45,7 @@ public class R8PartialInput {
     configureBase(commandBuilder);
     commandBuilder
         .addProgramResourceProvider(new InternalProgramClassProvider(d8Classes))
-        .addClasspathResourceProvider(
-            new InternalClasspathOrLibraryClassProvider<>(
-                DexClasspathClass.toClasspathClasses(r8Classes)));
-  }
-
-  public void configureDesugar(D8Command.Builder commandBuilder) {
-    configureBase(commandBuilder);
-    commandBuilder
-        .addProgramResourceProvider(new InternalProgramClassProvider(r8Classes))
-        .addClasspathResourceProvider(
-            new InternalClasspathOrLibraryClassProvider<>(
-                DexClasspathClass.toClasspathClasses(d8Classes)));
+        .addProgramResourceProvider(new InternalProgramClassProvider(r8Classes));
   }
 
   public void configure(R8Command.Builder commandBuilder) throws IOException {
@@ -70,5 +60,17 @@ public class R8PartialInput {
         .addClasspathResourceProvider(
             new InternalClasspathOrLibraryClassProvider<>(classpathClasses))
         .addLibraryResourceProvider(new InternalClasspathOrLibraryClassProvider<>(libraryClasses));
+  }
+
+  public Set<DexType> getD8Types() {
+    // Intentionally not returning d8Classes.keySet(). This allows clearing the map after providing
+    // the classes to the D8 compilation.
+    return SetUtils.mapIdentityHashSet(d8Classes, DexClass::getType);
+  }
+
+  public Set<DexType> getR8Types() {
+    // Intentionally not returning r8Classes.keySet(). This allows clearing the map after providing
+    // the classes to the D8 compilation.
+    return SetUtils.mapIdentityHashSet(r8Classes, DexClass::getType);
   }
 }

@@ -53,6 +53,7 @@ import com.android.tools.r8.horizontalclassmerging.policies.SameMainDexGroup;
 import com.android.tools.r8.horizontalclassmerging.policies.SameNestHost;
 import com.android.tools.r8.horizontalclassmerging.policies.SamePackageForNonGlobalMergeSynthetic;
 import com.android.tools.r8.horizontalclassmerging.policies.SameParentClass;
+import com.android.tools.r8.horizontalclassmerging.policies.SamePartialSubCompilation;
 import com.android.tools.r8.horizontalclassmerging.policies.SameStartupPartition;
 import com.android.tools.r8.horizontalclassmerging.policies.SyntheticItemsPolicy;
 import com.android.tools.r8.horizontalclassmerging.policies.VerifyMultiClassPolicyAlwaysSatisfied;
@@ -217,6 +218,9 @@ public class PolicyScheduler {
 
   private static List<? extends Policy> getMultiClassPoliciesForD8(AppView<AppInfo> appView) {
     ImmutableList.Builder<MultiClassPolicy> builder = ImmutableList.builder();
+    if (appView.options().partialSubCompilationConfiguration != null) {
+      builder.add(new SamePartialSubCompilation(appView));
+    }
     builder.add(
         new CheckAbstractClasses(appView),
         new SameFeatureSplit(appView),

@@ -29,7 +29,7 @@ public class RecordRewritingNamingLens extends NonIdentityNamingLens {
       return;
     }
     if (options.partialSubCompilationConfiguration != null
-        && !options.partialSubCompilationConfiguration.isR8()) {
+        && options.partialSubCompilationConfiguration.isD8()) {
       return;
     }
     appView.setNamingLens(new RecordRewritingNamingLens(appView));

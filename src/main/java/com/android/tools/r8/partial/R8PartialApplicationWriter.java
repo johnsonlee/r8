@@ -22,6 +22,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
@@ -33,18 +34,18 @@ public class R8PartialApplicationWriter {
 
   private final AppView<AppInfo> appView;
   private final InternalOptions options;
-  private final R8PartialSubCompilationConfiguration subCompilationConfiguration;
+  private final R8PartialD8SubCompilationConfiguration subCompilationConfiguration;
 
   public R8PartialApplicationWriter(AppView<AppInfo> appView) {
     this.appView = appView;
     this.options = appView.options();
-    this.subCompilationConfiguration = appView.options().partialSubCompilationConfiguration;
+    this.subCompilationConfiguration = appView.options().partialSubCompilationConfiguration.asD8();
   }
 
   public void write(ExecutorService executorService) throws ExecutionException {
     assert appView.getNamingLens().isIdentityLens();
     rewriteCodeWithLens(executorService);
-    subCompilationConfiguration.writeApplication(appView.appInfo().classes(), options);
+    subCompilationConfiguration.writeApplication(appView);
   }
 
   private void rewriteCodeWithLens(ExecutorService executorService) throws ExecutionException {

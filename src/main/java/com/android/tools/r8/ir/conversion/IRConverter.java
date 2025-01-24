@@ -289,7 +289,8 @@ public class IRConverter {
     fieldAccessAnalysis = null;
   }
 
-  private boolean needsIRConversion(ProgramMethod method) {
+  private boolean needsIRConversion(
+      ProgramMethod method, MethodConversionOptions conversionOptions) {
     if (method.getDefinition().getCode().isThrowNullCode()) {
       return false;
     }
@@ -300,6 +301,10 @@ public class IRConverter {
       return true;
     }
     assert method.getDefinition().getCode().isCfCode();
+    if (options.partialSubCompilationConfiguration != null) {
+      assert conversionOptions.isGeneratingClassFiles() || conversionOptions.isGeneratingDex();
+      return conversionOptions.isGeneratingDex();
+    }
     return !options.isGeneratingClassFiles();
   }
 
@@ -475,7 +480,7 @@ public class IRConverter {
       options.testing.hookInIrConversion.run();
     }
 
-    if (!needsIRConversion(method) || options.skipIR) {
+    if (!needsIRConversion(method, conversionOptions) || options.skipIR) {
       feedback.markProcessed(method.getDefinition(), ConstraintWithTarget.NEVER);
       return Timing.empty();
     }

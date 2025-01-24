@@ -6,12 +6,10 @@ package com.android.tools.r8;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.partial.R8PartialD8DexResult;
-import com.android.tools.r8.partial.R8PartialDesugarResult;
+import com.android.tools.r8.partial.R8PartialD8Result;
 import com.android.tools.r8.partial.R8PartialInput;
 import com.android.tools.r8.partial.R8PartialProgramPartioning;
-import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8DesugarSubCompilationConfiguration;
-import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8DexSubCompilationConfiguration;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
@@ -24,19 +22,14 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Consumer;
 
 class R8Partial {
 
   private final InternalOptions options;
-  private final Consumer<AndroidApp> r8InputAppConsumer;
-  private final Consumer<AndroidApp> d8InputAppConsumer;
   private final Timing timing;
 
   R8Partial(InternalOptions options) {
     this.options = options;
-    this.r8InputAppConsumer = options.partialCompilationConfiguration.r8InputAppConsumer;
-    this.d8InputAppConsumer = options.partialCompilationConfiguration.d8InputAppConsumer;
     this.timing = Timing.create("R8 partial " + Version.LABEL, options);
   }
 
@@ -66,14 +59,11 @@ class R8Partial {
     timing.begin("Process input");
     R8PartialInput input = runProcessInputStep(app, executor);
 
-    timing.end().begin("Run dexing");
-    R8PartialD8DexResult dexingResult = runDexingStep(input, executor);
-
-    timing.end().begin("Run desugaring");
-    R8PartialDesugarResult desugarResult = runDesugarStep(input, executor);
+    timing.end().begin("Run D8");
+    R8PartialD8Result d8Result = runD8Step(input, executor);
 
     timing.end().begin("Run R8");
-    runR8PartialStep(app, input, dexingResult, desugarResult, executor);
+    runR8Step(app, input, d8Result, executor);
     timing.end();
 
     if (options.isPrintTimesReportingEnabled()) {
@@ -94,8 +84,11 @@ class R8Partial {
         app.libraryClasses());
   }
 
-  private R8PartialD8DexResult runDexingStep(R8PartialInput input, ExecutorService executor)
+  private R8PartialD8Result runD8Step(R8PartialInput input, ExecutorService executor)
       throws IOException {
+    // TODO(b/389039057): This will desugar the entire R8 part. For build speed, look into if some
+    //  desugarings can be postponed to the R8 compilation, since we do not desugar dead code in R8.
+    //  As a simple example, it should be safe to postpone backporting to the R8 compilation.
     D8Command.Builder d8Builder =
         D8Command.builder(options.reporter)
             .setMinApiLevel(options.getMinApiLevel().getLevel())
@@ -106,51 +99,19 @@ class R8Partial {
     d8Builder.validate();
     D8Command d8Command = d8Builder.makeD8Command(options.dexItemFactory());
     AndroidApp d8App = d8Command.getInputApp();
-    if (d8InputAppConsumer != null) {
-      d8InputAppConsumer.accept(d8App);
-    }
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
-    R8PartialD8DexSubCompilationConfiguration subCompilationConfiguration =
-        new R8PartialD8DexSubCompilationConfiguration(timing);
+    R8PartialD8SubCompilationConfiguration subCompilationConfiguration =
+        new R8PartialD8SubCompilationConfiguration(input.getD8Types(), input.getR8Types(), timing);
     d8Options.partialSubCompilationConfiguration = subCompilationConfiguration;
     D8.runInternal(d8App, d8Options, executor);
-    return new R8PartialD8DexResult(subCompilationConfiguration.getOutputClasses());
+    return new R8PartialD8Result(
+        subCompilationConfiguration.getDexedOutputClasses(),
+        subCompilationConfiguration.getDesugaredOutputClasses());
   }
 
-  private R8PartialDesugarResult runDesugarStep(R8PartialInput input, ExecutorService executor)
-      throws IOException {
-    // TODO(b/389575762): Consume the DexProgramClasses instead of writing to a zip.
-    // TODO(b/389039057): This will desugar the entire R8 part. For build speed, look into if some
-    //  desugarings can be postponed to the R8 compilation, since we do not desugar dead code in R8.
-    //  As a simple example, it should be safe to postpone backporting to the R8 compilation.
-    // TODO(b/389039057): This runs a full D8 compilation. For build speed, consider if the various
-    //  passes in D8 can be disabled when the `partialSubCompilationConfiguration` is set.
-    D8Command.Builder d8Builder =
-        D8Command.builder(options.reporter)
-            .setMinApiLevel(options.getMinApiLevel().getLevel())
-            .setMode(options.getCompilationMode())
-            .setProgramConsumer(ClassFileConsumer.emptyConsumer());
-    // TODO(b/390327883): This should enable intermediate mode.
-    input.configureDesugar(d8Builder);
-    d8Builder.validate();
-    D8Command d8Command = d8Builder.makeD8Command(options.dexItemFactory());
-    AndroidApp d8App = d8Command.getInputApp();
-    InternalOptions d8Options = d8Command.getInternalOptions();
-    options.partialCompilationConfiguration.d8DesugarOptionsConsumer.accept(d8Options);
-    R8PartialD8DesugarSubCompilationConfiguration subCompilationConfiguration =
-        new R8PartialD8DesugarSubCompilationConfiguration(timing);
-    d8Options.partialSubCompilationConfiguration = subCompilationConfiguration;
-    D8.runInternal(d8App, d8Options, executor);
-    return new R8PartialDesugarResult(subCompilationConfiguration.getOutputClasses());
-  }
-
-  private void runR8PartialStep(
-      AndroidApp app,
-      R8PartialInput input,
-      R8PartialD8DexResult dexingResult,
-      R8PartialDesugarResult desugarResult,
-      ExecutorService executor)
+  private void runR8Step(
+      AndroidApp app, R8PartialInput input, R8PartialD8Result d8Result, ExecutorService executor)
       throws IOException {
     // Compile R8 input with R8 using the keep rules from trace references.
     DiagnosticsHandler r8DiagnosticsHandler =
@@ -169,7 +130,7 @@ class R8Partial {
     R8Command.Builder r8Builder =
         R8Command.builder(r8DiagnosticsHandler)
             .addProgramResourceProvider(
-                new InternalProgramClassProvider(desugarResult.getOutputClasses()))
+                new InternalProgramClassProvider(d8Result.getDesugaredClasses()))
             .enableLegacyFullModeForKeepRules(true)
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
@@ -207,13 +168,10 @@ class R8Partial {
     R8Command r8Command =
         r8Builder.makeR8Command(options.dexItemFactory(), options.getProguardConfiguration());
     AndroidApp r8App = r8Command.getInputApp();
-    if (r8InputAppConsumer != null) {
-      r8InputAppConsumer.accept(r8App);
-    }
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.partialSubCompilationConfiguration =
-        new R8PartialR8SubCompilationConfiguration(dexingResult.getOutputClasses(), timing);
+        new R8PartialR8SubCompilationConfiguration(d8Result.getDexedClasses(), timing);
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;

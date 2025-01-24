@@ -25,7 +25,7 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
     }
     InternalOptions options = appView.options();
     if (options.partialSubCompilationConfiguration != null
-        && !options.partialSubCompilationConfiguration.isR8()) {
+        && options.partialSubCompilationConfiguration.isD8()) {
       return;
     }
     appView.setNamingLens(new PrefixRewritingNamingLens(appView));
