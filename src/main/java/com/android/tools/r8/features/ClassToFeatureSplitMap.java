@@ -8,6 +8,7 @@ import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.ProgramResource;
 import com.android.tools.r8.ProgramResourceProvider;
 import com.android.tools.r8.ResourceException;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -17,6 +18,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
@@ -44,16 +46,17 @@ public class ClassToFeatureSplitMap {
 
   public static ClassToFeatureSplitMap createInitialD8ClassToFeatureSplitMap(
       InternalOptions options) {
-    // We only support feature splits in D8 when run through R8 partial.
-    if (options.partialSubCompilationConfiguration != null) {
-      return createInitialClassToFeatureSplitMap(
-          options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
-    }
-    return createEmptyClassToFeatureSplitMap();
+    return createInitialClassToFeatureSplitMap(
+        options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
   }
 
   public static ClassToFeatureSplitMap createInitialR8ClassToFeatureSplitMap(
       InternalOptions options) {
+    if (options.partialSubCompilationConfiguration != null) {
+      R8PartialR8SubCompilationConfiguration subCompilationConfiguration =
+          options.partialSubCompilationConfiguration.asR8();
+      return subCompilationConfiguration.getClassToFeatureSplitMap();
+    }
     return createInitialClassToFeatureSplitMap(
         options.dexItemFactory(), options.getFeatureSplitConfiguration(), options.reporter);
   }
@@ -91,6 +94,23 @@ public class ClassToFeatureSplitMap {
       }
     }
     return new ClassToFeatureSplitMap(classToFeatureSplitMap, representativeStringsForFeatureSplit);
+  }
+
+  public ClassToFeatureSplitMap commitSyntheticsForR8Partial(AppView<AppInfo> appView) {
+    Map<DexType, FeatureSplit> newClassToFeatureSplitMap =
+        new IdentityHashMap<>(classToFeatureSplitMap);
+    SyntheticItems syntheticItems = appView.getSyntheticItems();
+    assert !syntheticItems.hasPendingSyntheticClasses();
+    for (DexProgramClass clazz : appView.appInfo().classes()) {
+      if (syntheticItems.isSynthetic(clazz)) {
+        FeatureSplit featureSplit = getFeatureSplit(clazz, syntheticItems);
+        if (!featureSplit.isBase()) {
+          newClassToFeatureSplitMap.put(clazz.getType(), featureSplit);
+        }
+      }
+    }
+    return new ClassToFeatureSplitMap(
+        newClassToFeatureSplitMap, representativeStringsForFeatureSplit);
   }
 
   public int compareFeatureSplits(FeatureSplit featureSplitA, FeatureSplit featureSplitB) {

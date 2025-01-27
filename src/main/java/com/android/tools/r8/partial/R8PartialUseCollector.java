@@ -51,7 +51,7 @@ public abstract class R8PartialUseCollector extends UseCollector {
 
   public void run(ExecutorService executorService) throws ExecutionException {
     R8PartialR8SubCompilationConfiguration r8SubCompilationConfiguration =
-        appView.options().partialSubCompilationConfiguration.asR8SubCompilationConfiguration();
+        appView.options().partialSubCompilationConfiguration.asR8();
     traceClasses(r8SubCompilationConfiguration.getDexingOutputClasses(), executorService);
     commitPackagesToKeep();
   }

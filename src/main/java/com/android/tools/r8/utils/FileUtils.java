@@ -93,6 +93,10 @@ public class FileUtils {
         || name.endsWith(AAR_EXTENSION);
   }
 
+  public static String readTextFile(Path file) throws IOException {
+    return readTextFile(file, StandardCharsets.UTF_8);
+  }
+
   public static String readTextFile(Path file, Charset charset) throws IOException {
     return new String(Files.readAllBytes(file), charset);
   }

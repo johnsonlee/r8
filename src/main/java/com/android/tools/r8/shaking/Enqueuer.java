@@ -1873,7 +1873,17 @@ public class Enqueuer {
           analyses.traceInstanceFieldRead(
               fieldReference, singleResolutionResult, currentMethod, worklist);
 
-          ProgramField field = singleResolutionResult.getProgramField();
+          DexClassAndField classField = singleResolutionResult.getResolutionPair();
+          assert classField != null;
+
+          DexClass initialResolutionHolder = singleResolutionResult.getInitialResolutionHolder();
+          if (initialResolutionHolder != classField.getHolder()) {
+            // Mark the initial resolution holder as live. Note that this should only be done if
+            // the field is not a dead proto field (in which case we bail-out above).
+            markTypeAsLive(initialResolutionHolder, currentMethod);
+          }
+
+          ProgramField field = classField.asProgramField();
           if (field == null) {
             // No need to trace into the non-program code.
             return;
@@ -1889,11 +1899,6 @@ public class Enqueuer {
             fieldAccessInfoCollection.get(field.getReference()).setReadFromMethodHandle();
           } else if (metadata.isFromRecordMethodHandle()) {
             fieldAccessInfoCollection.get(field.getReference()).setReadFromRecordInvokeDynamic();
-          }
-
-          if (field.getReference() != fieldReference) {
-            // Mark the initial resolution holder as live.
-            markTypeAsLive(singleResolutionResult.getInitialResolutionHolder(), currentMethod);
           }
 
           worklist.enqueueMarkFieldAsReachableAction(
@@ -1937,7 +1942,17 @@ public class Enqueuer {
           analyses.traceInstanceFieldWrite(
               fieldReference, singleResolutionResult, currentMethod, worklist);
 
-          ProgramField field = singleResolutionResult.getProgramField();
+          DexClassAndField classField = singleResolutionResult.getResolutionPair();
+          assert classField != null;
+
+          DexClass initialResolutionHolder = singleResolutionResult.getInitialResolutionHolder();
+          if (initialResolutionHolder != classField.getHolder()) {
+            // Mark the initial resolution holder as live. Note that this should only be done if
+            // the field is not a dead proto field (in which case we bail-out above).
+            markTypeAsLive(initialResolutionHolder, currentMethod);
+          }
+
+          ProgramField field = classField.asProgramField();
           if (field == null) {
             // No need to trace into the non-program code.
             return;
@@ -1951,11 +1966,6 @@ public class Enqueuer {
 
           if (metadata.isFromMethodHandle()) {
             fieldAccessInfoCollection.get(field.getReference()).setWrittenFromMethodHandle();
-          }
-
-          if (field.getReference() != fieldReference) {
-            // Mark the initial resolution holder as live.
-            markTypeAsLive(singleResolutionResult.getInitialResolutionHolder(), currentMethod);
           }
 
           KeepReason reason = KeepReason.fieldReferencedIn(currentMethod);
@@ -2014,7 +2024,17 @@ public class Enqueuer {
           analyses.traceStaticFieldRead(
               fieldReference, singleResolutionResult, currentMethod, worklist);
 
-          ProgramField field = singleResolutionResult.getProgramField();
+          DexClassAndField classField = singleResolutionResult.getResolutionPair();
+          assert classField != null;
+
+          DexClass initialResolutionHolder = singleResolutionResult.getInitialResolutionHolder();
+          if (initialResolutionHolder != classField.getHolder()) {
+            // Mark the initial resolution holder as live. Note that this should only be done if
+            // the field is not a dead proto field (in which case we bail-out above).
+            markTypeAsLive(initialResolutionHolder, currentMethod);
+          }
+
+          ProgramField field = classField.asProgramField();
           if (field == null) {
             // No need to trace into the non-program code.
             return;
@@ -2037,13 +2057,6 @@ public class Enqueuer {
             keepInfo.joinField(
                 field,
                 joiner -> joiner.disallowMinification().disallowOptimization().disallowShrinking());
-          }
-
-          if (field.getReference() != fieldReference) {
-            // Mark the initial resolution holder as live. Note that this should only be done if
-            // the field
-            // is not a dead proto field (in which case we bail-out above).
-            markTypeAsLive(singleResolutionResult.getInitialResolutionHolder(), currentMethod);
           }
 
           markFieldAsLive(field, currentMethod);
@@ -2102,7 +2115,17 @@ public class Enqueuer {
           analyses.traceStaticFieldWrite(
               fieldReference, singleResolutionResult, currentMethod, worklist);
 
-          ProgramField field = singleResolutionResult.getProgramField();
+          DexClassAndField classField = singleResolutionResult.getResolutionPair();
+          assert classField != null;
+
+          DexClass initialResolutionHolder = singleResolutionResult.getInitialResolutionHolder();
+          if (initialResolutionHolder != classField.getHolder()) {
+            // Mark the initial resolution holder as live. Note that this should only be done if
+            // the field is not a dead proto field (in which case we bail-out above).
+            markTypeAsLive(initialResolutionHolder, currentMethod);
+          }
+
+          ProgramField field = classField.asProgramField();
           if (field == null) {
             // No need to trace into the non-program code.
             return;
@@ -2116,13 +2139,6 @@ public class Enqueuer {
 
           if (metadata.isFromMethodHandle()) {
             fieldAccessInfoCollection.get(field.getReference()).setWrittenFromMethodHandle();
-          }
-
-          if (field.getReference() != fieldReference) {
-            // Mark the initial resolution holder as live. Note that this should only be done if
-            // the field
-            // is not a dead proto field (in which case we bail-out above).
-            markTypeAsLive(singleResolutionResult.getInitialResolutionHolder(), currentMethod);
           }
 
           markFieldAsLive(field, currentMethod);

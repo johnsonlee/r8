@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
+import com.android.tools.r8.features.ClassToFeatureSplitMap;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
@@ -40,7 +42,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     return false;
   }
 
-  public R8PartialR8SubCompilationConfiguration asR8SubCompilationConfiguration() {
+  public R8PartialR8SubCompilationConfiguration asR8() {
     return null;
   }
 
@@ -50,6 +52,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     private final Set<DexType> d8Types;
     private final Set<DexType> r8Types;
 
+    private ClassToFeatureSplitMap classToFeatureSplitMap;
     private Collection<DexProgramClass> dexedOutputClasses;
     private Collection<DexProgramClass> desugaredOutputClasses;
 
@@ -58,6 +61,10 @@ public abstract class R8PartialSubCompilationConfiguration {
       super(timing);
       this.d8Types = d8Types;
       this.r8Types = r8Types;
+    }
+
+    public ClassToFeatureSplitMap getClassToFeatureSplitMap() {
+      return classToFeatureSplitMap;
     }
 
     public Collection<DexProgramClass> getDexedOutputClasses() {
@@ -103,7 +110,9 @@ public abstract class R8PartialSubCompilationConfiguration {
       return this;
     }
 
-    public void writeApplication(AppView<?> appView) {
+    public void writeApplication(AppView<AppInfo> appView) {
+      classToFeatureSplitMap =
+          appView.appInfo().getClassToFeatureSplitMap().commitSyntheticsForR8Partial(appView);
       dexedOutputClasses = new ArrayList<>();
       desugaredOutputClasses = new ArrayList<>();
       for (DexProgramClass clazz : appView.appInfo().classes()) {
@@ -119,13 +128,20 @@ public abstract class R8PartialSubCompilationConfiguration {
   public static class R8PartialR8SubCompilationConfiguration
       extends R8PartialSubCompilationConfiguration {
 
+    private ClassToFeatureSplitMap classToFeatureSplitMap;
     private Collection<DexProgramClass> dexingOutputClasses;
 
     public R8PartialR8SubCompilationConfiguration(
+        ClassToFeatureSplitMap classToFeatureSplitMap,
         Collection<DexProgramClass> dexingOutputClasses,
         Timing timing) {
       super(timing);
+      this.classToFeatureSplitMap = classToFeatureSplitMap;
       this.dexingOutputClasses = dexingOutputClasses;
+    }
+
+    public ClassToFeatureSplitMap getClassToFeatureSplitMap() {
+      return classToFeatureSplitMap;
     }
 
     public Collection<DexProgramClass> getDexingOutputClasses() {
@@ -173,7 +189,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     }
 
     @Override
-    public R8PartialR8SubCompilationConfiguration asR8SubCompilationConfiguration() {
+    public R8PartialR8SubCompilationConfiguration asR8() {
       return this;
     }
   }

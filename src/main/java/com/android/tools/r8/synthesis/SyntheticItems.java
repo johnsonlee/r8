@@ -12,7 +12,6 @@ import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.ClasspathMethod;
@@ -666,12 +665,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   private SynthesizingContext getSynthesizingContext(
       ProgramDefinition context, AppView<?> appView) {
-    if (appView.hasClassHierarchy()) {
-      AppInfoWithClassHierarchy appInfo = appView.appInfoWithClassHierarchy();
-      return getSynthesizingContext(context, appInfo.getClassToFeatureSplitMap());
-    }
-    return getSynthesizingContext(
-        context, ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap());
+    return getSynthesizingContext(context, appView.appInfo().getClassToFeatureSplitMap());
   }
 
   /** Used to find the synthesizing context for a new synthetic that is about to be created. */

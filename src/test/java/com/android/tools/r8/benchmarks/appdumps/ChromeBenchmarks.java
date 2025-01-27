@@ -5,10 +5,12 @@ package com.android.tools.r8.benchmarks.appdumps;
 
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8PartialTestBuilder;
+import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
+import com.android.tools.r8.utils.LibraryProvidedProguardRulesTestUtils;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -44,7 +46,8 @@ public class ChromeBenchmarks extends BenchmarkBase {
             .setName("ChromeAppPartial")
             .setDumpDependencyPath(dir)
             .setFromRevision(16457)
-            .buildR8WithPartialShrinking(ChromeBenchmarks::configurePartial));
+            .buildR8WithPartialShrinking(
+                ChromeBenchmarks::configurePartial, ChromeBenchmarks::inspectPartial));
   }
 
   private static void configure(R8FullTestBuilder testBuilder) {
@@ -60,10 +63,19 @@ public class ChromeBenchmarks extends BenchmarkBase {
 
   private static void configurePartial(R8PartialTestBuilder testBuilder) {
     testBuilder
-        .allowDiagnosticInfoMessages()
+        .addDontWarn("android.adservices.common.AdServicesOutcomeReceiver")
+        .allowDiagnosticMessages()
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
         .allowUnnecessaryDontWarnWildcards();
+  }
+
+  private static void inspectPartial(R8PartialTestCompileResult compileResult) {
+    compileResult.inspectDiagnosticMessages(
+        diagnostics ->
+            diagnostics
+                .assertWarningsMatch(LibraryProvidedProguardRulesTestUtils.getDiagnosticMatcher())
+                .assertNoErrors());
   }
 
   @Ignore
@@ -78,8 +90,6 @@ public class ChromeBenchmarks extends BenchmarkBase {
     testBenchmarkWithName("ChromeApp");
   }
 
-  // TODO(b/388421578): Add support for feature splits in R8 partial.
-  @Ignore
   @Test
   public void testChromeAppPartial() throws Exception {
     testBenchmarkWithName("ChromeAppPartial");

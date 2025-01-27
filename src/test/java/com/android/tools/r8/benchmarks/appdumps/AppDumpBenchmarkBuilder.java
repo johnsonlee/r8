@@ -30,6 +30,8 @@ import com.android.tools.r8.keepanno.annotations.AnnotationPattern;
 import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
+import com.android.tools.r8.utils.FileUtils;
+import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.lang.annotation.RetentionPolicy;
@@ -401,7 +403,12 @@ public class AppDumpBenchmarkBuilder {
                   TestBase.testForR8Partial(environment.getTemp(), Backend.DEX)
                       .addProgramFiles(dump.getProgramArchive())
                       .addLibraryFiles(dump.getLibraryArchive())
-                      .addKeepRuleFiles(dump.getProguardConfigFile())
+                      .addKeepRules(
+                          // TODO(b/392529669): Add support for proto shrinking.
+                          StringUtils.replaceAll(
+                              FileUtils.readTextFile(dump.getProguardConfigFile()),
+                              "-shrinkunusedprotofields",
+                              ""))
                       .addR8PartialOptionsModification(
                           options -> {
                             options.apiModelingOptions().androidApiExtensionPackages =

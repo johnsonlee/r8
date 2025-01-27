@@ -636,7 +636,9 @@ public final class LambdaClass {
         // Since we've copied the code object from an existing method from the same class, the
         // code is already processed, and thus we don't need to schedule it for processing in D8.
         assert !appView.options().isGeneratingClassFiles() || replacement.getCode().isCfCode();
-        assert !appView.options().isGeneratingDex() || replacement.getCode().isDexCode();
+        assert !appView.options().isGeneratingDex()
+            || replacement.getCode().isDexCode()
+            || appView.options().partialSubCompilationConfiguration != null;
         return new ProgramMethod(implMethodHolder, replacement);
       }
       // The method might already have been moved by another invoke-dynamic targeting it.

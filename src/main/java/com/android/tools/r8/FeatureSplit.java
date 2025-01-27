@@ -4,6 +4,7 @@
 package com.android.tools.r8;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.utils.FeatureSplitConsumers;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,9 +41,9 @@ public class FeatureSplit {
       };
 
   private ProgramConsumer programConsumer;
-  private final List<ProgramResourceProvider> programResourceProviders;
+  private List<ProgramResourceProvider> programResourceProviders;
   private final AndroidResourceProvider androidResourceProvider;
-  private final AndroidResourceConsumer androidResourceConsumer;
+  private AndroidResourceConsumer androidResourceConsumer;
 
   private FeatureSplit(
       ProgramConsumer programConsumer,
@@ -55,12 +56,29 @@ public class FeatureSplit {
     this.androidResourceConsumer = androidResourceConsumer;
   }
 
-  public boolean isBase() {
-    return false;
-  }
-
   void internalSetProgramConsumer(ProgramConsumer consumer) {
     this.programConsumer = consumer;
+  }
+
+  void internalSetProgramResourceProviders(List<ProgramResourceProvider> programResourceProviders) {
+    this.programResourceProviders = programResourceProviders;
+  }
+
+  FeatureSplitConsumers internalClearConsumers() {
+    FeatureSplitConsumers consumers =
+        new FeatureSplitConsumers(programConsumer, androidResourceConsumer);
+    programConsumer = null;
+    androidResourceConsumer = null;
+    return consumers;
+  }
+
+  void internalSetConsumers(FeatureSplitConsumers consumers) {
+    programConsumer = consumers.getProgramConsumer();
+    androidResourceConsumer = consumers.getAndroidResourceConsumer();
+  }
+
+  public boolean isBase() {
+    return false;
   }
 
   public List<ProgramResourceProvider> getProgramResourceProviders() {

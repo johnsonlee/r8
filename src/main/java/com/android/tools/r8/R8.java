@@ -230,7 +230,7 @@ public class R8 {
       } else {
         if (options.partialSubCompilationConfiguration != null) {
           R8PartialR8SubCompilationConfiguration r8SubCompilationConfiguration =
-              options.partialSubCompilationConfiguration.asR8SubCompilationConfiguration();
+              options.partialSubCompilationConfiguration.asR8();
           r8SubCompilationConfiguration.commitDexingOutputClasses(appView.withClassHierarchy());
         }
         ApplicationWriter.create(appView, marker).write(executorService, inputApp);

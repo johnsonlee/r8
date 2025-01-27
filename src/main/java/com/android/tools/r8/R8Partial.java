@@ -5,6 +5,8 @@ package com.android.tools.r8;
 
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.partial.R8PartialD8Result;
 import com.android.tools.r8.partial.R8PartialInput;
@@ -13,14 +15,19 @@ import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8Parti
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
+import com.android.tools.r8.utils.FeatureSplitConsumers;
 import com.android.tools.r8.utils.ForwardingDiagnosticsHandler;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 class R8Partial {
@@ -55,14 +62,24 @@ class R8Partial {
     if (!options.getStartupOptions().getStartupProfileProviders().isEmpty()) {
       throw options.reporter.fatalError("Partial shrinking does not support startup profiles");
     }
+    if (options.getProguardConfiguration().isProtoShrinkingEnabled()) {
+      throw options.reporter.fatalError("Partial shrinking does not support proto shrinking");
+    }
+
+    Map<FeatureSplit, FeatureSplitConsumers> featureSplitConsumers =
+        getAndClearFeatureSplitConsumers();
 
     timing.begin("Process input");
     R8PartialInput input = runProcessInputStep(app, executor);
 
     timing.end().begin("Run D8");
     R8PartialD8Result d8Result = runD8Step(input, executor);
+    timing.end();
 
-    timing.end().begin("Run R8");
+    setFeatureSplitConsumers(featureSplitConsumers);
+    lockFeatureSplitProgramResourceProviders();
+
+    timing.begin("Run R8");
     runR8Step(app, input, d8Result, executor);
     timing.end();
 
@@ -103,9 +120,11 @@ class R8Partial {
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
     R8PartialD8SubCompilationConfiguration subCompilationConfiguration =
         new R8PartialD8SubCompilationConfiguration(input.getD8Types(), input.getR8Types(), timing);
+    d8Options.setFeatureSplitConfiguration(options.getFeatureSplitConfiguration());
     d8Options.partialSubCompilationConfiguration = subCompilationConfiguration;
     D8.runInternal(d8App, d8Options, executor);
     return new R8PartialD8Result(
+        subCompilationConfiguration.getClassToFeatureSplitMap(),
         subCompilationConfiguration.getDexedOutputClasses(),
         subCompilationConfiguration.getDesugaredOutputClasses());
   }
@@ -171,7 +190,9 @@ class R8Partial {
     InternalOptions r8Options = r8Command.getInternalOptions();
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.partialSubCompilationConfiguration =
-        new R8PartialR8SubCompilationConfiguration(d8Result.getDexedClasses(), timing);
+        new R8PartialR8SubCompilationConfiguration(
+            d8Result.getClassToFeatureSplitMap(), d8Result.getDexedClasses(), timing);
+    r8Options.setFeatureSplitConfiguration(options.getFeatureSplitConfiguration());
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
@@ -179,5 +200,62 @@ class R8Partial {
       r8Options.resourceShrinkerConfiguration = options.resourceShrinkerConfiguration;
     }
     R8.runInternal(r8App, r8Options, executor);
+  }
+
+  private Map<FeatureSplit, FeatureSplitConsumers> getAndClearFeatureSplitConsumers() {
+    FeatureSplitConfiguration featureSplitConfiguration = options.getFeatureSplitConfiguration();
+    if (featureSplitConfiguration == null) {
+      return null;
+    }
+    Map<FeatureSplit, FeatureSplitConsumers> featureSplitConsumers = new IdentityHashMap<>();
+    for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
+      featureSplitConsumers.put(featureSplit, featureSplit.internalClearConsumers());
+    }
+    return featureSplitConsumers;
+  }
+
+  private void setFeatureSplitConsumers(
+      Map<FeatureSplit, FeatureSplitConsumers> featureSplitConsumers) {
+    if (featureSplitConsumers == null) {
+      return;
+    }
+    FeatureSplitConfiguration featureSplitConfiguration = options.getFeatureSplitConfiguration();
+    for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
+      featureSplit.internalSetConsumers(featureSplitConsumers.get(featureSplit));
+    }
+    featureSplitConsumers.clear();
+  }
+
+  private void lockFeatureSplitProgramResourceProviders() {
+    FeatureSplitConfiguration featureSplitConfiguration = options.getFeatureSplitConfiguration();
+    if (featureSplitConfiguration == null) {
+      return;
+    }
+    for (FeatureSplit featureSplit : featureSplitConfiguration.getFeatureSplits()) {
+      List<ProgramResourceProvider> programResourceProviders =
+          featureSplit.getProgramResourceProviders();
+      List<ProgramResourceProvider> replacementProgramResourceProviders =
+          ListUtils.map(
+              programResourceProviders,
+              programResourceProvider ->
+                  new ProgramResourceProvider() {
+
+                    @Override
+                    public Collection<ProgramResource> getProgramResources() {
+                      throw new Unreachable();
+                    }
+
+                    @Override
+                    public DataResourceProvider getDataResourceProvider() {
+                      return programResourceProvider.getDataResourceProvider();
+                    }
+
+                    @Override
+                    public void finished(DiagnosticsHandler handler) throws IOException {
+                      programResourceProvider.finished(handler);
+                    }
+                  });
+      featureSplit.internalSetProgramResourceProviders(replacementProgramResourceProviders);
+    }
   }
 }

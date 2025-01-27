@@ -20,7 +20,7 @@ public abstract class R8PartialResourceUseCollector implements ReferenceChecker 
 
   public void run() {
     R8PartialR8SubCompilationConfiguration r8SubCompilationConfiguration =
-        appView.options().partialSubCompilationConfiguration.asR8SubCompilationConfiguration();
+        appView.options().partialSubCompilationConfiguration.asR8();
     ResourceShrinker.runForTesting(r8SubCompilationConfiguration.getDexingOutputClasses(), this);
   }
 

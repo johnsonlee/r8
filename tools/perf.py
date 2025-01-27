@@ -20,6 +20,9 @@ EXTERNAL_BENCHMARKS = {
     'ChromeApp': {
         'targets': ['r8-full']
     },
+    'ChromeAppPartial': {
+        'targets': ['r8-full']
+    },
     'CraneApp': {
         'targets': ['r8-full']
     },
