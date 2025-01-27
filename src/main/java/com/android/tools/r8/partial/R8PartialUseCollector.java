@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.references.PackageReference;
@@ -34,6 +35,7 @@ import java.util.function.Predicate;
 
 public abstract class R8PartialUseCollector extends UseCollector {
 
+  private final Set<DexReference> seen = ConcurrentHashMap.newKeySet();
   private final Set<String> packagesToKeep = ConcurrentHashMap.newKeySet();
 
   public R8PartialUseCollector(AppView<? extends AppInfoWithClassHierarchy> appView) {
@@ -81,17 +83,23 @@ public abstract class R8PartialUseCollector extends UseCollector {
 
   @Override
   protected void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
-    keep(clazz);
+    notifyPresentItem(clazz);
   }
 
   @Override
   protected void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
-    keep(field);
+    notifyPresentItem(field);
   }
 
   @Override
   protected void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
-    keep(method);
+    notifyPresentItem(method);
+  }
+
+  private void notifyPresentItem(Definition definition) {
+    if (seen.add(definition.getReference())) {
+      keep(definition);
+    }
   }
 
   @Override
