@@ -485,8 +485,10 @@ public abstract class CommandTestBase<C extends BaseCompilerCommand> extends Tes
       C command, boolean libraryCompilation) throws IOException {
     InternalOptions options = command.getInternalOptions();
     LibraryDesugaringSpecification spec = LibraryDesugaringSpecification.JDK11;
-    options.loadMachineDesugaredLibrarySpecification(
-        Timing.empty(), spec.getAppForTesting(options, libraryCompilation));
+    options
+        .getLibraryDesugaringOptions()
+        .loadMachineDesugaredLibrarySpecification(
+            Timing.empty(), spec.getAppForTesting(options, libraryCompilation));
     return options;
   }
 

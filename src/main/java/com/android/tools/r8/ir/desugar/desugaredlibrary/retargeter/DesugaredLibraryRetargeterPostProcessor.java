@@ -40,7 +40,11 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
     this.appView = appView;
     this.syntheticHelper = new DesugaredLibraryRetargeterSyntheticHelper(appView);
     emulatedDispatchMethods =
-        appView.options().machineDesugaredLibrarySpecification.getEmulatedVirtualRetarget();
+        appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getEmulatedVirtualRetarget();
   }
 
   @Override
@@ -48,7 +52,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
       ExecutorService executorService) {
-    assert !appView.options().isDesugaredLibraryCompilation();
+    assert !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     ensureInterfacesAndForwardingMethodsSynthesized(programClasses, eventConsumer);
   }
 
@@ -56,7 +60,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
   private void ensureInterfacesAndForwardingMethodsSynthesized(
       Collection<DexProgramClass> programClasses,
       DesugaredLibraryRetargeterPostProcessingEventConsumer eventConsumer) {
-    assert !appView.options().isDesugaredLibraryCompilation();
+    assert !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     Map<DexType, List<DexMethod>> map = Maps.newIdentityHashMap();
     emulatedDispatchMethods.forEach(
         (method, descriptor) -> {

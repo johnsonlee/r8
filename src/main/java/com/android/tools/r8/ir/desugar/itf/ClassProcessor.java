@@ -461,7 +461,12 @@ final class ClassProcessor {
     this.dexItemFactory = appView.dexItemFactory();
     this.helper = new InterfaceDesugaringSyntheticHelper(appView);
     assert desugaringMode != NONE;
-    needsLibraryInfo = !appView.options().machineDesugaredLibrarySpecification.isEmpty();
+    needsLibraryInfo =
+        !appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .isEmpty();
     this.isLiveMethod = isLiveMethod;
     this.desugaringMode = desugaringMode;
   }
@@ -566,7 +571,8 @@ final class ClassProcessor {
             m ->
                 appView
                         .options()
-                        .machineDesugaredLibrarySpecification
+                        .getLibraryDesugaringOptions()
+                        .getMachineDesugaredLibrarySpecification()
                         .getEmulatedInterfaceEmulatedDispatchMethodDescriptor(m)
                     != null);
     EmulatedInterfaceInfo emulatedInterfaceInfo =
@@ -637,7 +643,11 @@ final class ClassProcessor {
       DexClass iface = appView.definitionFor(emulatedInterface);
       if (iface != null) {
         assert iface.isLibraryClass()
-            || appView.options().machineDesugaredLibrarySpecification.isLibraryCompilation();
+            || appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+                .isLibraryCompilation();
         workList.addIfNotSeen(iface.getInterfaces());
       }
     }

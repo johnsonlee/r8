@@ -370,7 +370,8 @@ public class CfApplicationWriter {
     if (!method.hasClassFileVersion()) {
       // In this case bridges have been introduced for the Cf back-end,
       // which do not have class file version.
-      assert options.isDesugaredLibraryCompilation() || options.isDesugaring()
+      assert options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
+              || options.isDesugaring()
           : "Expected class file version for " + method.getReference().toSourceString();
       assert MIN_VERSION_FOR_COMPILER_GENERATED_CODE.isLessThan(
           options.classFileVersionAfterDesugaring(InternalOptions.SUPPORTED_CF_VERSION));

@@ -89,9 +89,11 @@ public class B135627418 extends TestBase {
                           .createType(
                               DescriptorUtils.javaTypeToDescriptor(
                                   packageName + ".library.InsetDrawable"));
-                  options.machineDesugaredLibrarySpecification =
-                      MachineDesugaredLibrarySpecification.withOnlyRewriteTypeForTesting(
-                          ImmutableMap.of(type, rewrittenType));
+                  options
+                      .getLibraryDesugaringOptions()
+                      .setMachineDesugaredLibrarySpecificationForTesting(
+                          MachineDesugaredLibrarySpecification.withOnlyRewriteTypeForTesting(
+                              ImmutableMap.of(type, rewrittenType)));
                 })
             .compile();
 

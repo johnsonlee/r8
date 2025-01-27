@@ -169,7 +169,7 @@ public class IRConverter {
             prefix ->
                 options.itemFactory.createString(
                     "L" + DescriptorUtils.getPackageBinaryNameFromJavaType(prefix)));
-    if (options.isDesugaredLibraryCompilation()) {
+    if (options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       // Specific L8 Settings, performs all desugaring including L8 specific desugaring.
       //
       // The following desugarings are required for L8 specific desugaring:

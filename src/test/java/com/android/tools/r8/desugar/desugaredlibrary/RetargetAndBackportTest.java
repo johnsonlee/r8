@@ -61,9 +61,11 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
             .putRewritePrefix("java.time.", "j$.time.")
             .putBackportCoreLibraryMember("java.lang.DesugarMath", "java.lang.Math")
             .build();
-    options.setDesugaredLibrarySpecification(
-        new LegacyDesugaredLibrarySpecification(
-            LegacyTopLevelFlags.testing(), rewritingFlags, true));
+    options
+        .getLibraryDesugaringOptions()
+        .setDesugaredLibrarySpecification(
+            new LegacyDesugaredLibrarySpecification(
+                LegacyTopLevelFlags.testing(), rewritingFlags, true));
   }
 
   @Test

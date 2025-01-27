@@ -533,15 +533,16 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private Consumer<InternalOptions> supportLibraryCallbackConsumer(
       boolean supportAllCallbacksFromLibrary, boolean libraryCompilation) {
     return opt ->
-        opt.setDesugaredLibrarySpecification(
-            DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecificationforTesting(
-                StringResource.fromFile(libraryDesugaringSpecification.getSpecification()),
-                opt.dexItemFactory(),
-                opt.reporter,
-                libraryCompilation,
-                parameters.getApiLevel().getLevel(),
-                builder ->
-                    builder.setSupportAllCallbacksFromLibrary(supportAllCallbacksFromLibrary)));
+        opt.getLibraryDesugaringOptions()
+            .setDesugaredLibrarySpecification(
+                DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecificationforTesting(
+                    StringResource.fromFile(libraryDesugaringSpecification.getSpecification()),
+                    opt.dexItemFactory(),
+                    opt.reporter,
+                    libraryCompilation,
+                    parameters.getApiLevel().getLevel(),
+                    builder ->
+                        builder.setSupportAllCallbacksFromLibrary(supportAllCallbacksFromLibrary)));
   }
 
   public DesugaredLibraryTestBuilder<T> addAndroidBuildVersion() {

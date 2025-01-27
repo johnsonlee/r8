@@ -157,7 +157,7 @@ public class GlobalSyntheticsGenerator {
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
     DirectMappedDexApplication app = applicationReader.read(executor).toDirect();
     timing.end();
-    TypeRewriter typeRewriter = options.getTypeRewriter();
+    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         timing.time(
             "Create app-info",

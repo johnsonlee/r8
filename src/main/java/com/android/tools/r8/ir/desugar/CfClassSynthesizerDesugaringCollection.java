@@ -22,7 +22,7 @@ public abstract class CfClassSynthesizerDesugaringCollection {
 
   public static CfClassSynthesizerDesugaringCollection create(AppView<?> appView) {
     Collection<CfClassSynthesizerDesugaring> synthesizers = new ArrayList<>();
-    if (appView.options().isDesugaredLibraryCompilation()) {
+    if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       ProgramEmulatedInterfaceSynthesizer emulatedInterfaceSynthesizer =
           ProgramEmulatedInterfaceSynthesizer.create(appView);
       if (emulatedInterfaceSynthesizer != null) {

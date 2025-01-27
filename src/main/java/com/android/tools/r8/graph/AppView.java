@@ -247,9 +247,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return libraryMemberOptimizer.isModeled(type);
   }
 
-  private static <T extends AppInfo> TypeRewriter defaultTypeRewriter(T appInfo) {
-    InternalOptions options = appInfo.options();
-    return options.getTypeRewriter();
+  private static TypeRewriter defaultTypeRewriter(AppInfo appInfo) {
+    return appInfo.options().getLibraryDesugaringOptions().getTypeRewriter();
   }
 
   public static <T extends AppInfo> AppView<T> createForD8(T appInfo) {

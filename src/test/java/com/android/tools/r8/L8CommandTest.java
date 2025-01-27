@@ -377,7 +377,12 @@ public class L8CommandTest extends CommandTestBase<L8Command> {
     }
     L8Command l8Command = parse(command.toArray(new String[0]));
     InternalOptions options = getOptionsWithLoadedDesugaredLibraryConfiguration(l8Command, true);
-    assertFalse(options.machineDesugaredLibrarySpecification.getRewriteType().isEmpty());
+    assertFalse(
+        options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getRewriteType()
+            .isEmpty());
   }
 
   private void checkSingleForceAllAssertion(

@@ -837,7 +837,9 @@ public final class D8Command extends BaseCompilerCommand {
     internal.dexClassChecksumFilter = getDexClassChecksumFilter();
     internal.enableInheritanceClassInDexDistributor = isOptimizeMultidexForLinearAlloc();
 
-    internal.configureDesugaredLibrary(desugaredLibrarySpecification, synthesizedClassPrefix);
+    internal
+        .getLibraryDesugaringOptions()
+        .configureDesugaredLibrary(desugaredLibrarySpecification, synthesizedClassPrefix);
     internal.desugaredLibraryKeepRuleConsumer = desugaredLibraryKeepRuleConsumer;
 
     if (internal.isGeneratingClassFiles()

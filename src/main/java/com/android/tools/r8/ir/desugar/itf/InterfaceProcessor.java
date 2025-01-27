@@ -104,7 +104,7 @@ public final class InterfaceProcessor {
 
   private void processEmulatedInterfaceOnly(
       ProgramMethod method, InterfaceMethodDesugaringBaseEventConsumer eventConsumer) {
-    if (!appView.options().isDesugaredLibraryCompilation()) {
+    if (!appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       return;
     }
     if (method.getDefinition().belongsToDirectPool()) {

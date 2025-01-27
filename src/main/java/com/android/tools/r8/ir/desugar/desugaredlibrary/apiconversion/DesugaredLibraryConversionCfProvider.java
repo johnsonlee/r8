@@ -79,7 +79,8 @@ public class DesugaredLibraryConversionCfProvider {
       DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer eventConsumer,
       Supplier<UniqueContext> contextSupplier) {
     DexClass holderClass = appView.definitionFor(method.getHolderType());
-    assert holderClass != null || appView.options().isDesugaredLibraryCompilation();
+    assert holderClass != null
+        || appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     boolean isInterface = holderClass == null || holderClass.isInterface();
     ProgramMethod context = resolveContext(method, isInterface);
     DexMethod returnConversion =
@@ -148,7 +149,8 @@ public class DesugaredLibraryConversionCfProvider {
     if (holderClass == null) {
       assert appView
           .options()
-          .machineDesugaredLibrarySpecification
+          .getLibraryDesugaringOptions()
+          .getMachineDesugaredLibrarySpecification()
           .isEmulatedInterfaceRewrittenType(method.getHolderType());
       isInterface = true;
     } else {
@@ -577,7 +579,8 @@ public class DesugaredLibraryConversionCfProvider {
     DexMethod[] conversions =
         appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getApiGenericConversion()
             .get(method);
     return conversions == null ? null : conversions[parameterIndex];
@@ -628,7 +631,8 @@ public class DesugaredLibraryConversionCfProvider {
     assert convertedAPI == methodWithVivifiedTypeInSignature(method, newHolder, appView)
         || appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getApiGenericConversion()
             .containsKey(method)
         || invalidType(method, returnConversion, parameterConversions, appView) != null;

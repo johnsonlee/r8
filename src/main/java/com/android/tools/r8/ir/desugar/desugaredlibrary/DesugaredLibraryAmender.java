@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.utils.Reporter;
 import java.util.Map;
 
@@ -32,9 +33,11 @@ public class DesugaredLibraryAmender {
   private final ComputedApiLevel minAPILevel;
 
   public static void run(AppView<?> appView) {
+    MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification =
+        appView.options().getLibraryDesugaringOptions().getMachineDesugaredLibrarySpecification();
     run(
-        appView.options().machineDesugaredLibrarySpecification.getAmendLibraryMethods(),
-        appView.options().machineDesugaredLibrarySpecification.getAmendLibraryFields(),
+        machineDesugaredLibrarySpecification.getAmendLibraryMethods(),
+        machineDesugaredLibrarySpecification.getAmendLibraryFields(),
         appView,
         appView.options().reporter,
         appView.computedMinApiLevel());

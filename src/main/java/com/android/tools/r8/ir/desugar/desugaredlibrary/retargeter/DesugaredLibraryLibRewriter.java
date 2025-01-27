@@ -45,7 +45,12 @@ public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
   }
 
   public static DesugaredLibraryLibRewriter create(AppView<?> appView) {
-    if (appView.options().machineDesugaredLibrarySpecification.getRewriteType().isEmpty()) {
+    if (appView
+        .options()
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
+        .getRewriteType()
+        .isEmpty()) {
       return null;
     }
     Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings = computeMap(appView);

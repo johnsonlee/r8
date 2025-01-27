@@ -65,9 +65,9 @@ public class Minifier {
     ClassNameMinifier classNameMinifier =
         new ClassNameMinifier(
             appView,
-            appView.options().synthesizedClassPrefix.isEmpty()
-                ? new MinificationClassNamingStrategy(appView)
-                : new L8MinificationClassNamingStrategy(appView),
+            appView.options().getLibraryDesugaringOptions().isL8()
+                ? new L8MinificationClassNamingStrategy(appView)
+                : new MinificationClassNamingStrategy(appView),
             // Use deterministic class order to make sure renaming is deterministic.
             appView.appInfo().classesWithDeterministicOrder());
     ClassRenaming classRenaming = classNameMinifier.computeRenaming(timing);
@@ -221,7 +221,8 @@ public class Minifier {
 
     L8MinificationClassNamingStrategy(AppView<AppInfoWithLiveness> appView) {
       super(appView);
-      String synthesizedClassPrefix = appView.options().synthesizedClassPrefix;
+      String synthesizedClassPrefix =
+          appView.options().getLibraryDesugaringOptions().getSynthesizedClassPrefix();
       prefix = synthesizedClassPrefix.substring(0, synthesizedClassPrefix.length() - 1);
     }
 

@@ -145,7 +145,7 @@ class SynthesizingContext implements Comparable<SynthesizingContext> {
   }
 
   void registerPrefixRewriting(DexType hygienicType, AppView<?> appView) {
-    if (!appView.options().isDesugaredLibraryCompilation()) {
+    if (!appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       return;
     }
     assert hygienicType.toSourceString().startsWith(synthesizingContextType.toSourceString());

@@ -709,7 +709,12 @@ public class D8CommandTest extends CommandTestBase<D8Command> {
             "--lib",
             ToolHelper.getAndroidJar(AndroidApiLevel.R).toString());
     InternalOptions options = getOptionsWithLoadedDesugaredLibraryConfiguration(d8Command, false);
-    assertFalse(options.machineDesugaredLibrarySpecification.getRewriteType().isEmpty());
+    assertFalse(
+        options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getRewriteType()
+            .isEmpty());
   }
 
   @Test
@@ -724,7 +729,12 @@ public class D8CommandTest extends CommandTestBase<D8Command> {
             "--desugared-lib-pg-conf-output",
             pgout.toString());
     InternalOptions options = getOptionsWithLoadedDesugaredLibraryConfiguration(d8Command, false);
-    assertFalse(options.machineDesugaredLibrarySpecification.getRewriteType().isEmpty());
+    assertFalse(
+        options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getRewriteType()
+            .isEmpty());
   }
 
   @Test

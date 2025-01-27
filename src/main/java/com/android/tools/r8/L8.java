@@ -166,8 +166,8 @@ public class L8 {
       throws IOException {
     LazyLoadedDexApplication lazyApp =
         new ApplicationReader(inputApp, options, timing).read(executor);
-    options.loadMachineDesugaredLibrarySpecification(timing, lazyApp);
-    TypeRewriter typeRewriter = options.getTypeRewriter();
+    options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, lazyApp);
+    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
 
     DexApplication app = new L8TreePruner(options).prune(lazyApp, typeRewriter);
     return AppView.createForL8(

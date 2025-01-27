@@ -32,16 +32,14 @@ public final class EmulatedInterfaceApplicationRewriter {
     emulatedInterfaces = new IdentityHashMap<>();
     appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getEmulatedInterfaces()
-        .forEach(
-            (ei, descriptor) -> {
-              emulatedInterfaces.put(ei, descriptor.getRewrittenType());
-            });
+        .forEach((ei, descriptor) -> emulatedInterfaces.put(ei, descriptor.getRewrittenType()));
   }
 
   public void rewriteApplication(DexApplication.Builder<?> builder) {
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     ArrayList<DexProgramClass> newProgramClasses = new ArrayList<>();
     for (DexProgramClass clazz : builder.getProgramClasses()) {
       if (emulatedInterfaces.containsKey(clazz.type)) {
@@ -127,7 +125,8 @@ public final class EmulatedInterfaceApplicationRewriter {
             m ->
                 appView
                         .options()
-                        .machineDesugaredLibrarySpecification
+                        .getLibraryDesugaringOptions()
+                        .getMachineDesugaredLibrarySpecification()
                         .getEmulatedInterfaceEmulatedDispatchMethodDescriptor(m.getReference())
                     != null);
     List<ProgramMethod> methodArray = IterableUtils.toNewArrayList(emulatedMethods);

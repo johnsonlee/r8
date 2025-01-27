@@ -188,7 +188,8 @@ public class ApiReferenceStubber {
     // Check if desugared library will bridge the type.
     if (appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .isSupported(libraryClass.getType())) {
       return;
     }

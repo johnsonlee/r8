@@ -25,7 +25,7 @@ public class L8InnerOuterAttributeEraser {
   }
 
   public void run() {
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       eraseInvalidAttributes(clazz);
     }
@@ -59,7 +59,8 @@ public class L8InnerOuterAttributeEraser {
   private boolean hasRewrittenType(DexType type) {
     return appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getRewriteType()
         .containsKey(type);
   }

@@ -58,8 +58,11 @@ public class MaintainAndRewritePrefixTest extends DesugaredLibraryTestBase imple
             .putRewritePrefix("java.time.", "j$.time.")
             .putMaintainPrefix("java.time.")
             .build();
-    options.setDesugaredLibrarySpecification(
-        new HumanDesugaredLibrarySpecification(HumanTopLevelFlags.testing(), rewritingFlags, true));
+    options
+        .getLibraryDesugaringOptions()
+        .setDesugaredLibrarySpecification(
+            new HumanDesugaredLibrarySpecification(
+                HumanTopLevelFlags.testing(), rewritingFlags, true));
   }
 
   @Test

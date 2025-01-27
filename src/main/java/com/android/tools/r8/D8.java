@@ -176,9 +176,9 @@ public final class D8 {
     LazyLoadedDexApplication app = applicationReader.read(executor);
     timing.end();
     timing.begin("Load desugared lib");
-    options.loadMachineDesugaredLibrarySpecification(timing, app);
+    options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
     timing.end();
-    TypeRewriter typeRewriter = options.getTypeRewriter();
+    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         timing.time(
             "Create app-info",

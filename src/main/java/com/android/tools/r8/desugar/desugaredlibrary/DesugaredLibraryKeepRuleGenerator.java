@@ -60,13 +60,16 @@ public class DesugaredLibraryKeepRuleGenerator {
   }
 
   private boolean shouldRun() {
-    if (options.isDesugaredLibraryCompilation()
+    if (options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
         || options.desugaredLibraryKeepRuleConsumer == null
         || !options.testing.enableExperimentalDesugaredLibraryKeepRuleGenerator) {
       return false;
     }
     return appView.getNamingLens().hasPrefixRewritingLogic()
-        || options.machineDesugaredLibrarySpecification.hasEmulatedInterfaces();
+        || options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .hasEmulatedInterfaces();
   }
 
   private void run() {
@@ -76,7 +79,7 @@ public class DesugaredLibraryKeepRuleGenerator {
 
   private Predicate<DexType> createTargetPredicate() {
     MachineDesugaredLibrarySpecification desugaredLibrarySpecification =
-        options.machineDesugaredLibrarySpecification;
+        options.getLibraryDesugaringOptions().getMachineDesugaredLibrarySpecification();
     byte[] synthesizedLibraryClassesPackageDescriptorPrefix =
         DexString.encodeToMutf8(
             "L" + desugaredLibrarySpecification.getSynthesizedLibraryClassesPackagePrefix());

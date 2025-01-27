@@ -28,9 +28,17 @@ public class L8TreePruner {
   }
 
   public DexApplication prune(DexApplication app, TypeRewriter typeRewriter) {
-    Set<DexType> maintainType = options.machineDesugaredLibrarySpecification.getMaintainType();
+    Set<DexType> maintainType =
+        options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getMaintainType();
     Set<DexType> emulatedInterfaces =
-        options.machineDesugaredLibrarySpecification.getEmulatedInterfaces().keySet();
+        options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getEmulatedInterfaces()
+            .keySet();
     Map<DexType, DexProgramClass> typeMap = new IdentityHashMap<>();
     List<DexProgramClass> toKeep = new ArrayList<>();
     boolean pruneNestMember = false;

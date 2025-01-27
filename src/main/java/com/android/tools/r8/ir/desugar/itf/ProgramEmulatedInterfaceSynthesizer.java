@@ -28,8 +28,12 @@ public final class ProgramEmulatedInterfaceSynthesizer implements CfClassSynthes
   private final InterfaceDesugaringSyntheticHelper helper;
 
   public static ProgramEmulatedInterfaceSynthesizer create(AppView<?> appView) {
-    if (!appView.options().isDesugaredLibraryCompilation()
-        || !appView.options().machineDesugaredLibrarySpecification.hasEmulatedInterfaces()) {
+    if (!appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
+        || !appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .hasEmulatedInterfaces()) {
       return null;
     }
     return new ProgramEmulatedInterfaceSynthesizer(appView);
@@ -128,10 +132,11 @@ public final class ProgramEmulatedInterfaceSynthesizer implements CfClassSynthes
   public void synthesizeClasses(
       ClassSynthesisDesugaringContext processingContext,
       CfClassSynthesizerDesugaringEventConsumer eventConsumer) {
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getEmulatedInterfaces()
         .forEach(
             (emulatedInterfaceType, emulatedInterfaceDescriptor) -> {

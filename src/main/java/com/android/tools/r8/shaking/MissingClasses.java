@@ -298,7 +298,8 @@ public class MissingClasses {
                   dexItemFactory.unsafeType);
       appView
           .options()
-          .machineDesugaredLibrarySpecification
+          .getLibraryDesugaringOptions()
+          .getMachineDesugaredLibrarySpecification()
           .getCustomConversions()
           .forEach(
               (type, conversions) -> {

@@ -31,10 +31,17 @@ public abstract class CodeToKeep {
     InternalOptions options = appView.options();
     NamingLens namingLens = appView.getNamingLens();
     if ((!namingLens.hasPrefixRewritingLogic()
-            && options.machineDesugaredLibrarySpecification.getMaintainType().isEmpty()
-            && !options.machineDesugaredLibrarySpecification.hasEmulatedInterfaces())
-        || options.isDesugaredLibraryCompilation()
-        || options.testing.enableExperimentalDesugaredLibraryKeepRuleGenerator) {
+            && options
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+                .getMaintainType()
+                .isEmpty()
+            && !options
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+                .hasEmulatedInterfaces())
+        || options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
+        || options.getTestingOptions().enableExperimentalDesugaredLibraryKeepRuleGenerator) {
       return new NopCodeToKeep();
     }
     return new DesugaredLibraryCodeToKeep(appView);
@@ -73,15 +80,22 @@ public abstract class CodeToKeep {
     private boolean shouldKeep(DexType givenType) {
       InternalOptions options = appView.options();
       if (appView.getNamingLens().prefixRewrittenType(givenType) != null
-          || options.machineDesugaredLibrarySpecification.isCustomConversionRewrittenType(givenType)
-          || options.machineDesugaredLibrarySpecification.isEmulatedInterfaceRewrittenType(
-              givenType)
+          || options
+              .getLibraryDesugaringOptions()
+              .getMachineDesugaredLibrarySpecification()
+              .isCustomConversionRewrittenType(givenType)
+          || options
+              .getLibraryDesugaringOptions()
+              .getMachineDesugaredLibrarySpecification()
+              .isEmulatedInterfaceRewrittenType(givenType)
           // TODO(b/158632510): This should prefix match on DexString.
           || givenType
               .toDescriptorString()
               .startsWith(
                   "L"
-                      + options.machineDesugaredLibrarySpecification
+                      + options
+                          .getLibraryDesugaringOptions()
+                          .getMachineDesugaredLibrarySpecification()
                           .getSynthesizedLibraryClassesPackagePrefix())) {
         return true;
       }
@@ -90,7 +104,11 @@ public abstract class CodeToKeep {
               ? InterfaceDesugaringSyntheticHelper.getInterfaceClassType(
                   givenType, appView.dexItemFactory())
               : givenType;
-      return options.machineDesugaredLibrarySpecification.getMaintainType().contains(type);
+      return options
+          .getLibraryDesugaringOptions()
+          .getMachineDesugaredLibrarySpecification()
+          .getMaintainType()
+          .contains(type);
     }
 
     @Override

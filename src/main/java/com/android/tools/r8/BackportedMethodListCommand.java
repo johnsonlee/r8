@@ -115,7 +115,9 @@ public class BackportedMethodListCommand {
   InternalOptions getInternalOptions() {
     InternalOptions options = new InternalOptions(factory, getReporter());
     options.setMinApiLevel(AndroidApiLevel.getAndroidApiLevel(minApiLevel));
-    options.setDesugaredLibrarySpecification(desugaredLibrarySpecification);
+    options
+        .getLibraryDesugaringOptions()
+        .setDesugaredLibrarySpecification(desugaredLibrarySpecification);
     return options;
   }
 

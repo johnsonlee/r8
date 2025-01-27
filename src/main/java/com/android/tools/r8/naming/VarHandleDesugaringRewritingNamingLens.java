@@ -69,14 +69,14 @@ public class VarHandleDesugaringRewritingNamingLens extends NonIdentityNamingLen
             globalSyntheticString.substring(0, globalSyntheticString.length() - 1));
     String desugaredGlobalSyntheticString = desugaredGlobalSynthetic.descriptor.toString();
     DexString newPrefix =
-        appView.options().synthesizedClassPrefix.isEmpty()
+        appView.options().getLibraryDesugaringOptions().getSynthesizedClassPrefix().isEmpty()
             ? factory.createString(
                 "L"
                     + desugaredGlobalSyntheticString.substring(
                         1, desugaredGlobalSyntheticString.length() - 1))
             : factory.createString(
                 "L"
-                    + appView.options().synthesizedClassPrefix
+                    + appView.options().getLibraryDesugaringOptions().getSynthesizedClassPrefix()
                     + desugaredGlobalSyntheticString.substring(
                         1, desugaredGlobalSyntheticString.length() - 1));
     // Rewrite the global synthetic in question and all the synthetics derived from it.

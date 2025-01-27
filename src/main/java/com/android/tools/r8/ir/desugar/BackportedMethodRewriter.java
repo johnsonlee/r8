@@ -209,8 +209,10 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       Consumer<DexMethod> methods,
       Consumer<DexField> fields)
       throws IOException {
-    options.loadMachineDesugaredLibrarySpecification(Timing.empty(), app);
-    TypeRewriter typeRewriter = options.getTypeRewriter();
+    options
+        .getLibraryDesugaringOptions()
+        .loadMachineDesugaredLibrarySpecification(Timing.empty(), app);
+    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing());
     AppView<?> appView = AppView.createForD8(appInfo, typeRewriter, Timing.empty());
@@ -240,9 +242,13 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     // maintained for legacy only, recent desugared library should not be shipped with
     // pre-desugared code.
     Map<DexType, DexType> legacyBackport =
-        appView.options().machineDesugaredLibrarySpecification.getLegacyBackport();
+        appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getLegacyBackport();
     if (provider == null
-        && appView.options().isDesugaredLibraryCompilation()
+        && appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
         && legacyBackport.containsKey(method.holder)) {
       DexType newHolder = legacyBackport.get(method.holder);
       DexMethod backportedMethod =
@@ -414,12 +420,14 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       return appView.typeRewriter.hasRewrittenType(type, appView)
           || appView
               .options()
-              .machineDesugaredLibrarySpecification
+              .getLibraryDesugaringOptions()
+              .getMachineDesugaredLibrarySpecification()
               .getEmulatedInterfaces()
               .containsKey(type)
           || appView
               .options()
-              .machineDesugaredLibrarySpecification
+              .getLibraryDesugaringOptions()
+              .getMachineDesugaredLibrarySpecification()
               .getMaintainType()
               .contains(type);
     }
@@ -437,7 +445,11 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       if (typeIsInDesugaredLibrary(type)) {
         // Desugared library is enabled, the methods are present if desugared library specifies it.
         return methodsMinAPI.isGreaterThan(AndroidApiLevel.N)
-            && !appView.options().machineDesugaredLibrarySpecification.includesJDK11Methods();
+            && !appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+                .includesJDK11Methods();
       }
       // TODO(b/224954240): Always use the apiDatabase when always available.
       if (!appView.options().getMinApiLevel().isGreaterThanOrEqualTo(typeMinApi.get(type))) {

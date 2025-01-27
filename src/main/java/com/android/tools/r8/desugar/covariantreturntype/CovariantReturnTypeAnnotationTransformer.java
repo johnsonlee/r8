@@ -94,7 +94,7 @@ public final class CovariantReturnTypeAnnotationTransformer {
 
   public static boolean shouldRun(AppView<?> appView) {
     if (!appView.options().processCovariantReturnTypeAnnotations
-        || appView.options().isDesugaredLibraryCompilation()) {
+        || appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       return false;
     }
     DexItemFactory factory = appView.dexItemFactory();

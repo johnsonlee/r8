@@ -303,7 +303,9 @@ public class R8 {
         DirectMappedDexApplication application = lazyLoaded.toDirect();
         timing.end();
         timing.end();
-        options.loadMachineDesugaredLibrarySpecification(timing, application);
+        options
+            .getLibraryDesugaringOptions()
+            .loadMachineDesugaredLibrarySpecification(timing, application);
         timing.begin("Read main dex classes");
         MainDexInfo mainDexInfo = applicationReader.readMainDexClassesForR8(application);
         timing.end();

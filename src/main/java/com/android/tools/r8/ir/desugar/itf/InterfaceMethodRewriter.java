@@ -150,7 +150,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   public static void checkForAssumedLibraryTypes(AppInfo appInfo, InternalOptions options) {
     MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification =
-        options.machineDesugaredLibrarySpecification;
+        options.getLibraryDesugaringOptions().getMachineDesugaredLibrarySpecification();
     machineDesugaredLibrarySpecification
         .getEmulatedInterfaces()
         .forEach(
@@ -192,7 +192,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   private void initializeEmulatedInterfaceVariables() {
     Set<DexType> emulateLibraryInterface =
-        options.machineDesugaredLibrarySpecification.getEmulatedInterfaces().keySet();
+        options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getEmulatedInterfaces()
+            .keySet();
     for (DexType interfaceType : emulateLibraryInterface) {
       DexClass emulatedInterfaceClass = appView.definitionFor(interfaceType);
       if (emulatedInterfaceClass != null) {

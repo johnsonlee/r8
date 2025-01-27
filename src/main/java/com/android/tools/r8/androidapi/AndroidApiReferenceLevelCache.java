@@ -102,7 +102,8 @@ public class AndroidApiReferenceLevelCache {
     if (!ignoringDesugaredLibrary
         && appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .isContextTypeMaintainedOrRewritten(reference)) {
       // If we end up desugaring the reference, the library classes is bridged by j$ which is part
       // of the program.

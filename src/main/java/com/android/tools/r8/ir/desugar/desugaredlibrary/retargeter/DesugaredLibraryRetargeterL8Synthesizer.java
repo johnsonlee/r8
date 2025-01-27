@@ -17,10 +17,11 @@ public class DesugaredLibraryRetargeterL8Synthesizer implements CfClassSynthesiz
   private final DesugaredLibraryRetargeterSyntheticHelper syntheticHelper;
 
   public static DesugaredLibraryRetargeterL8Synthesizer create(AppView<?> appView) {
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     if (appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getEmulatedVirtualRetarget()
         .isEmpty()) {
       return null;
@@ -43,7 +44,11 @@ public class DesugaredLibraryRetargeterL8Synthesizer implements CfClassSynthesiz
       ClassSynthesisDesugaringContext processingContext,
       CfClassSynthesizerDesugaringEventConsumer eventConsumer) {
     Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedVirtualRetarget =
-        appView.options().machineDesugaredLibrarySpecification.getEmulatedVirtualRetarget();
+        appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getEmulatedVirtualRetarget();
     for (EmulatedDispatchMethodDescriptor emulatedDispatchMethod :
         emulatedVirtualRetarget.values()) {
       syntheticHelper.ensureProgramEmulatedHolderDispatchMethod(

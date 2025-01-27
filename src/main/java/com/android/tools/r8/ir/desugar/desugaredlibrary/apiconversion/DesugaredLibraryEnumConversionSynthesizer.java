@@ -129,7 +129,7 @@ public class DesugaredLibraryEnumConversionSynthesizer {
     assert context.isProgramClass();
     DexType type = context.type;
     DexType vivifiedType = vivifiedTypeFor(context.type, appView);
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     DexProgramClass programContext = context.asProgramClass();
     Iterable<DexEncodedField> enumFields =
         Iterables.filter(programContext.staticFields(), DexEncodedField::isEnum);

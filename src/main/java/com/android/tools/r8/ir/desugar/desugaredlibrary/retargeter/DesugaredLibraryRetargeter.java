@@ -44,7 +44,7 @@ public class DesugaredLibraryRetargeter implements CfInstructionDesugaring {
     this.appView = appView;
     this.syntheticHelper = new DesugaredLibraryRetargeterSyntheticHelper(appView);
     MachineDesugaredLibrarySpecification specification =
-        appView.options().machineDesugaredLibrarySpecification;
+        appView.options().getLibraryDesugaringOptions().getMachineDesugaredLibrarySpecification();
     staticFieldRetarget = specification.getStaticFieldRetarget();
     covariantRetarget = specification.getCovariantRetarget();
     staticRetarget = specification.getStaticRetarget();

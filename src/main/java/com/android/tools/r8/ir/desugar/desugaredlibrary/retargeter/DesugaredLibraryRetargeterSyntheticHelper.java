@@ -135,7 +135,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
     DexClass holderContext =
         appView.contextIndependentDefinitionFor(emulatedDispatchMethod.getHolderContext());
     DexClass syntheticClass;
-    if (appView.options().isDesugaredLibraryCompilation()) {
+    if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       syntheticClass =
           appView
               .getSyntheticItems()
@@ -170,7 +170,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
       EmulatedDispatchMethodDescriptor descriptor,
       DesugaredLibraryRetargeterL8SynthesizerEventConsumer eventConsumer) {
     assert eventConsumer != null;
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     DerivedMethod emulatedDispatchMethod = descriptor.getEmulatedDispatchMethod();
     DexClass holderContext =
         appView.contextIndependentDefinitionFor(emulatedDispatchMethod.getHolderContext());
@@ -191,7 +191,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
     assert eventConsumer != null;
     DerivedMethod itfMethod = descriptor.getInterfaceMethod();
     DexClass itfContext = appView.contextIndependentDefinitionFor(itfMethod.getHolderContext());
-    if (appView.options().isDesugaredLibraryCompilation()) {
+    if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       return appView
           .getSyntheticItems()
           .getExistingFixedClass(ignored -> itfMethod.getHolderKind(appView), itfContext, appView);
@@ -211,7 +211,7 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
   public DexClass ensureEmulatedInterfaceDispatchMethod(
       EmulatedDispatchMethodDescriptor descriptor,
       DesugaredLibraryRetargeterL8SynthesizerEventConsumer eventConsumer) {
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     assert eventConsumer != null;
     DerivedMethod itfMethod = descriptor.getInterfaceMethod();
     DexClass itfContext = appView.contextIndependentDefinitionFor(itfMethod.getHolderContext());
@@ -265,7 +265,10 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
               .disableAndroidApiLevelCheck()
               .setCode(
                   methodSig ->
-                      appView.options().isDesugaredLibraryCompilation()
+                      appView
+                              .options()
+                              .getLibraryDesugaringOptions()
+                              .isDesugaredLibraryCompilation()
                           ? generateEmulatedDispatchCfCode(
                               descriptor, itfClass, methodSig, eventConsumer)
                           : null);

@@ -171,13 +171,16 @@ public class SupportedClassesGenerator {
       MachineDesugaredLibrarySpecification machineSpecification =
           getMachineSpecification(androidApiLevel, specification);
       options.setMinApiLevel(androidApiLevel);
-      options.resetDesugaredLibrarySpecificationForTesting();
-      options.setDesugaredLibrarySpecification(machineSpecification);
+      options.getLibraryDesugaringOptions().resetDesugaredLibrarySpecificationForTesting();
+      options.getLibraryDesugaringOptions().setDesugaredLibrarySpecification(machineSpecification);
 
       AppInfo initialAppInfo =
           AppInfo.createInitialAppInfo(appForMax, GlobalSyntheticsStrategy.forNonSynthesizing());
       AppView<?> appView =
-          AppView.createForD8(initialAppInfo, options.getTypeRewriter(), Timing.empty());
+          AppView.createForD8(
+              initialAppInfo,
+              options.getLibraryDesugaringOptions().getTypeRewriter(),
+              Timing.empty());
       AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
 
       // This should depend only on machine specification and min api.
@@ -296,8 +299,8 @@ public class SupportedClassesGenerator {
         getMachineSpecification(minApi, specification);
 
     options.setMinApiLevel(minApi);
-    options.resetDesugaredLibrarySpecificationForTesting();
-    options.setDesugaredLibrarySpecification(machineSpecification);
+    options.getLibraryDesugaringOptions().resetDesugaredLibrarySpecificationForTesting();
+    options.getLibraryDesugaringOptions().setDesugaredLibrarySpecification(machineSpecification);
 
     AndroidApp.Builder appBuilder = AndroidApp.builder();
     for (ProgramResourceProvider programResource : desugaredLibraryImplementation) {

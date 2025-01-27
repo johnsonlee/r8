@@ -83,7 +83,7 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     // Build a new application with jumbo string info,
     Builder<?> builder = application.builder();
 
-    if (appView.options().isDesugaredLibraryCompilation()) {
+    if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       new EmulatedInterfaceApplicationRewriter(appView).rewriteApplication(builder);
       new L8InnerOuterAttributeEraser(appView).run();
     }

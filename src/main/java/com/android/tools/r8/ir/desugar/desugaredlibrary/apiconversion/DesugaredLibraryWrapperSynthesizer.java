@@ -341,7 +341,12 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
     // ConversionType holds the methods "rewrittenType convert(type)" and the other way around.
     // But everything is going to be rewritten, so we need to use vivifiedType and type".
     CustomConversionDescriptor descriptor =
-        appView.options().machineDesugaredLibrarySpecification.getCustomConversions().get(type);
+        appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getCustomConversions()
+            .get(type);
     if (descriptor == null) {
       return null;
     }
@@ -358,7 +363,8 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
   private boolean canConvert(DexType type) {
     return appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getCustomConversions()
             .containsKey(type)
         || canGenerateWrapper(type);
@@ -380,7 +386,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
                 + ").",
             origin,
             position);
-    if (appView.options().isDesugaredLibraryCompilation()) {
+    if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       throw appView.options().reporter.fatalError(diagnostic);
     } else {
       appView.options().reporter.info(diagnostic);
@@ -388,7 +394,12 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
   }
 
   private boolean canGenerateWrapper(DexType type) {
-    return appView.options().machineDesugaredLibrarySpecification.getWrappers().containsKey(type);
+    return appView
+        .options()
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
+        .getWrappers()
+        .containsKey(type);
   }
 
   private DexClass getValidClassToWrap(DexType type) {
@@ -396,7 +407,8 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
     DexClass dexClass = appView.definitionFor(type);
     // The dexClass should be a library class, so it cannot be null.
     assert dexClass != null;
-    assert dexClass.isLibraryClass() || appView.options().isDesugaredLibraryCompilation();
+    assert dexClass.isLibraryClass()
+        || appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     assert !dexClass.accessFlags.isFinal() || dexClass.isEnum();
     return dexClass;
   }
@@ -434,7 +446,8 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
     Iterable<DexMethod> methods =
         appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getWrappers()
             .get(context.type)
             .getMethods();
@@ -468,7 +481,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
   private WrapperConversions getExistingProgramWrapperConversions(DexClass context) {
     DexClass vivifiedWrapper;
     DexClass wrapper;
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     wrapper = getExistingProgramWrapper(context, WrapperKind.WRAPPER);
     vivifiedWrapper = getExistingProgramWrapper(context, WrapperKind.VIVIFIED_WRAPPER);
     DexField wrapperField = getWrapperUniqueField(wrapper);
@@ -510,7 +523,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
       DexProgramClass context,
       WrapperKind kind,
       DesugaredLibraryL8ProgramWrapperSynthesizerEventConsumer eventConsumer) {
-    assert appView.options().isDesugaredLibraryCompilation();
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     assert eventConsumer != null;
     DexType vivifiedType = vivifiedTypeFor(type);
     return appView
@@ -739,7 +752,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
       ClassSynthesisDesugaringContext processingContext,
       CfClassSynthesizerDesugaringEventConsumer eventConsumer) {
     MachineDesugaredLibrarySpecification librarySpecification =
-        appView.options().machineDesugaredLibrarySpecification;
+        appView.options().getLibraryDesugaringOptions().getMachineDesugaredLibrarySpecification();
     Map<DexProgramClass, Iterable<DexMethod>> validClassesToWrap = new LinkedHashMap<>();
     librarySpecification
         .getWrappers()

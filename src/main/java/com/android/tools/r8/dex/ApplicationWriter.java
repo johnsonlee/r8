@@ -447,7 +447,7 @@ public class ApplicationWriter {
 
       // A consumer can manage the generated keep rules.
       if (options.desugaredLibraryKeepRuleConsumer != null && !desugaredLibraryCodeToKeep.isNop()) {
-        assert !options.isDesugaredLibraryCompilation();
+        assert !options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
         desugaredLibraryCodeToKeep.generateKeepRules(options);
       }
       // Fail if there are pending errors, e.g., the program consumers may have reported errors.

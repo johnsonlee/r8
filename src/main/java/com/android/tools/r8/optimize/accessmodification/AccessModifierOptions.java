@@ -26,7 +26,7 @@ public class AccessModifierOptions {
       return true;
     }
     // TODO(b/288062771): Enable access modification by default for L8.
-    return options.synthesizedClassPrefix.isEmpty()
+    return !options.getLibraryDesugaringOptions().isL8()
         && !options.forceProguardCompatibility
         && options.isOptimizing();
   }

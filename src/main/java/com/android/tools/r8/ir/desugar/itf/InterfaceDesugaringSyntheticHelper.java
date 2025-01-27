@@ -84,7 +84,11 @@ public class InterfaceDesugaringSyntheticHelper {
     if (options.isInterfaceMethodDesugaringEnabled()) {
       return InterfaceMethodDesugaringMode.ALL;
     }
-    if (options.machineDesugaredLibrarySpecification.getEmulatedInterfaces().isEmpty()) {
+    if (options
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
+        .getEmulatedInterfaces()
+        .isEmpty()) {
       return InterfaceMethodDesugaringMode.NONE;
     }
     return InterfaceMethodDesugaringMode.EMULATED_INTERFACE_ONLY;
@@ -93,7 +97,8 @@ public class InterfaceDesugaringSyntheticHelper {
   boolean isEmulatedInterface(DexType itf) {
     return appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getEmulatedInterfaces()
         .containsKey(itf);
   }
@@ -101,24 +106,32 @@ public class InterfaceDesugaringSyntheticHelper {
   boolean isRewrittenEmulatedInterface(DexType itf) {
     return appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .isEmulatedInterfaceRewrittenType(itf);
   }
 
   DexType getEmulatedInterface(DexType type) {
     EmulatedInterfaceDescriptor interfaceDescriptor =
-        appView.options().machineDesugaredLibrarySpecification.getEmulatedInterfaces().get(type);
+        appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .getEmulatedInterfaces()
+            .get(type);
     return interfaceDescriptor == null ? null : interfaceDescriptor.getRewrittenType();
   }
 
   boolean isInDesugaredLibrary(DexClass clazz) {
-    assert clazz.isLibraryClass() || appView.options().isDesugaredLibraryCompilation();
+    assert clazz.isLibraryClass()
+        || appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
     if (isEmulatedInterface(clazz.type)) {
       return true;
     }
     if (appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getMaintainType()
         .contains(clazz.type)) {
       return true;
@@ -234,7 +247,8 @@ public class InterfaceDesugaringSyntheticHelper {
     }
     return appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getEmulatedInterfaceEmulatedDispatchMethodDescriptor(
             maximallySpecificMethod.getReference());
   }
@@ -244,7 +258,8 @@ public class InterfaceDesugaringSyntheticHelper {
         || isEmulatedInterface(method.getHolderType())
         || appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getEmulatedVirtualRetargetThroughEmulatedInterface()
             .containsKey(method.getReference());
   }
@@ -264,7 +279,8 @@ public class InterfaceDesugaringSyntheticHelper {
     DexMethod retarget =
         appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getEmulatedVirtualRetargetThroughEmulatedInterface()
             .get(method.getReference());
     if (retarget != null) {
@@ -327,7 +343,7 @@ public class InterfaceDesugaringSyntheticHelper {
             .getResolutionPair();
     assert verifyKind(emulatedDispatchMethod, kinds -> kinds.EMULATED_INTERFACE_CLASS);
     if (method.isProgramMethod()) {
-      assert appView.options().isDesugaredLibraryCompilation();
+      assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
       DexProgramClass emulatedInterface =
           appView
               .getSyntheticItems()
@@ -666,7 +682,10 @@ public class InterfaceDesugaringSyntheticHelper {
       return appView.typeRewriter.hasRewrittenType(type, appView)
           || descriptor.endsWith(companionClassNameDescriptorSuffix)
           || isRewrittenEmulatedInterface(type)
-          || options.machineDesugaredLibrarySpecification.isCustomConversionRewrittenType(type)
+          || options
+              .getLibraryDesugaringOptions()
+              .getMachineDesugaredLibrarySpecification()
+              .isCustomConversionRewrittenType(type)
           || appView.getDontWarnConfiguration().matches(type);
     };
   }

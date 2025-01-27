@@ -106,7 +106,11 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       desugarings.add(desugaredLibRewriter);
     }
     desugaredLibraryRetargeter =
-        appView.options().machineDesugaredLibrarySpecification.hasRetargeting()
+        appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+                .hasRetargeting()
             ? new DesugaredLibraryRetargeter(appView)
             : null;
     if (desugaredLibraryRetargeter != null) {

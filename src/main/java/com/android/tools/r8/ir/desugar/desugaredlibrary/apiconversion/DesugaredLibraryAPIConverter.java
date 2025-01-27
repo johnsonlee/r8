@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
@@ -33,7 +32,6 @@ import java.util.Set;
 import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
-@SuppressWarnings("UnusedVariable")
 // I convert library calls with desugared parameters/return values so they can work normally.
 // In the JSON of the desugared library, one can specify conversions between desugared and
 // non-desugared types. If no conversion is specified, D8/R8 simply generate wrapper classes around
@@ -54,7 +52,6 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
   public static final String DESCRIPTOR_VIVIFIED_PREFIX = "L$-vivified-$/";
 
   private final AppView<?> appView;
-  private final DexItemFactory factory;
   private final Set<CfInstructionDesugaring> precedingDesugarings;
   private final Set<DexString> emulatedMethods;
 
@@ -66,7 +63,6 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
       Set<CfInstructionDesugaring> precedingDesugarings,
       Set<DexString> emulatedMethods) {
     this.appView = appView;
-    this.factory = appView.dexItemFactory();
     this.precedingDesugarings = precedingDesugarings;
     this.emulatedMethods = emulatedMethods;
     this.wrapperSynthesizor = new DesugaredLibraryWrapperSynthesizer(appView);
@@ -167,7 +163,8 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
     }
     if (appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getApiGenericConversion()
             .get(invokedMethod.getReference())
         != null) {
@@ -189,7 +186,8 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
     return interfaceResult != null
         && appView
             .options()
-            .machineDesugaredLibrarySpecification
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
             .getEmulatedInterfaces()
             .containsKey(interfaceResult.getHolderType());
   }
@@ -300,7 +298,8 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
     // confuses developers in debug mode.
     if (appView
         .options()
-        .machineDesugaredLibrarySpecification
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
         .getNeverOutlineApi()
         .contains(methodForDesugaring.getReference())) {
       return false;

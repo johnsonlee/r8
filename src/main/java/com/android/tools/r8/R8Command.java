@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.inspector.Inspector;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
@@ -1466,8 +1467,10 @@ public final class R8Command extends BaseCompilerCommand {
 
     internal.enableInheritanceClassInDexDistributor = isOptimizeMultidexForLinearAlloc();
 
-    internal.configureDesugaredLibrary(desugaredLibrarySpecification, synthesizedClassPrefix);
-    boolean l8Shrinking = !internal.synthesizedClassPrefix.isEmpty();
+    LibraryDesugaringOptions libraryDesugaringOptions = internal.getLibraryDesugaringOptions();
+    libraryDesugaringOptions.configureDesugaredLibrary(
+        desugaredLibrarySpecification, synthesizedClassPrefix);
+    boolean l8Shrinking = libraryDesugaringOptions.isL8();
     // TODO(b/214382176): Enable all the time.
     internal.loadAllClassDefinitions = l8Shrinking;
     if (l8Shrinking) {

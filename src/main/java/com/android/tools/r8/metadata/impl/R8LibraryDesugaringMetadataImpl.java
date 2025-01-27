@@ -27,7 +27,10 @@ public class R8LibraryDesugaringMetadataImpl extends D8R8LibraryDesugaringMetada
   }
 
   public static R8LibraryDesugaringMetadataImpl create(InternalOptions options) {
-    return !options.machineDesugaredLibrarySpecification.isEmpty()
+    return !options
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .isEmpty()
         ? new R8LibraryDesugaringMetadataImpl(options)
         : null;
   }
