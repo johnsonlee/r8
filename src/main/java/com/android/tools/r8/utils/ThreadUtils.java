@@ -215,25 +215,30 @@ public class ThreadUtils {
 
   static ExecutorService getExecutorServiceForProcessors(
       int processors, ThreadingModule threadingModule) {
-    int threads;
+    return getExecutorServiceForThreads(getThreadPoolSize(processors), threadingModule);
+  }
+
+  /**
+   * Returns the thread pool size to use. A bit simplified, we use #cpus as thread pool size for
+   * machines with <=16 cpus, and #cpus/2 as thread pool size for machines with more cpus. We at
+   * most use a thread pool size of 48.
+   *
+   * <p>Using #cpus as thread pool size for machines with >16 cpus showed improved performance on
+   * small sample apps, but worse performance on non-trivial apps.
+   *
+   * <p>Using a thread pool size >48 generally seemed to regress build speed, most likely due to
+   * increased synchronization/lock contention in R8.
+   */
+  private static int getThreadPoolSize(int processors) {
     if (processors <= 16) {
-      threads = processors;
+      return processors;
     } else {
-      // For larger machines it appears to be suboptimal to utilize all cpus, possibly due to
-      // increased contention. We therefore use a thread pool whose size is only half the
-      // cpus.
-      threads = (int) Math.round(processors / 2.0);
-      if (threads <= 16) {
-        // When half the cpus is below 16, make sure that we don't all of a sudden a smaller
-        // thread pool than we use for machines with fewer cpus.
-        threads = 16 + (int) Math.round((processors - threads) / 2.0);
-      } else {
-        // For large machines, do not use more than 48 threads since this appears to lead to
-        // higher contention.
-        threads = Math.min(threads, 48);
-      }
+      // Half of the cpus may be <= 16.
+      // Don't allocate a smaller thread pool than we would have for a machine with fewer cpus.
+      int threadPoolSize = 16 + (int) Math.round((processors - 16) / 2.0);
+      // We do not use more than 48 threads since this appears to lead to higher contention.
+      return Math.min(threadPoolSize, 48);
     }
-    return getExecutorServiceForThreads(threads, threadingModule);
   }
 
   static ExecutorService getExecutorServiceForThreads(
