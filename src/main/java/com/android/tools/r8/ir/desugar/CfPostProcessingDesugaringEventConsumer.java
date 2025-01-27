@@ -41,7 +41,7 @@ public abstract class CfPostProcessingDesugaringEventConsumer
       AppView<?> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
       D8MethodProcessor methodProcessor,
-      CfInstructionDesugaringCollection instructionDesugaring) {
+      CfInstructionDesugaringCollectionSupplier instructionDesugaring) {
     CfPostProcessingDesugaringEventConsumer eventConsumer =
         new D8CfPostProcessingDesugaringEventConsumer(methodProcessor, instructionDesugaring);
     return ProfileRewritingCfPostProcessingDesugaringEventConsumer.attach(
@@ -71,17 +71,17 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     // Methods cannot be processed directly because we cannot add method to classes while
     // concurrently processing other methods.
     private final ProgramMethodSet methodsToReprocess = ProgramMethodSet.createConcurrent();
-    private final CfInstructionDesugaringCollection instructionDesugaring;
+    private final CfInstructionDesugaringCollectionSupplier instructionDesugaring;
 
     private D8CfPostProcessingDesugaringEventConsumer(
         D8MethodProcessor methodProcessor,
-        CfInstructionDesugaringCollection instructionDesugaring) {
+        CfInstructionDesugaringCollectionSupplier instructionDesugaring) {
       this.methodProcessor = methodProcessor;
       this.instructionDesugaring = instructionDesugaring;
     }
 
     private void addMethodToReprocess(ProgramMethod method) {
-      assert !instructionDesugaring.needsDesugaring(method);
+      assert !instructionDesugaring.get(method).needsDesugaring(method);
       assert method.getDefinition().getCode().isCfCode();
       methodsToReprocess.add(method);
     }

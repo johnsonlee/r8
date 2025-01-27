@@ -10,12 +10,13 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
+import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class EmptyCfInstructionDesugaringCollection extends CfInstructionDesugaringCollection {
@@ -82,19 +83,18 @@ public class EmptyCfInstructionDesugaringCollection extends CfInstructionDesugar
   }
 
   @Override
-  public InterfaceMethodProcessorFacade getInterfaceMethodPostProcessingDesugaringD8(
-      Flavor flavor, InterfaceProcessor interfaceProcessor) {
-    return null;
-  }
-
-  @Override
   public InterfaceMethodProcessorFacade getInterfaceMethodPostProcessingDesugaringR8(
-      Flavor flavor, Predicate<ProgramMethod> isLiveMethod, InterfaceProcessor processor) {
+      Predicate<ProgramMethod> isLiveMethod, InterfaceProcessor processor) {
     return null;
   }
 
   @Override
   public void withDesugaredLibraryAPIConverter(Consumer<DesugaredLibraryAPIConverter> consumer) {
     // Intentionally empty.
+  }
+
+  @Override
+  public <T> T withInterfaceMethodRewriter(Function<InterfaceMethodRewriter, T> fn) {
+    return null;
   }
 }

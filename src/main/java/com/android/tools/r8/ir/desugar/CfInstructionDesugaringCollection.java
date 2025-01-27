@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.desugar;
 
-import com.android.tools.r8.androidapi.AndroidApiLevelCompute;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.CompilationError;
@@ -13,12 +12,13 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.Position;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
+import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -29,22 +29,20 @@ import java.util.function.Predicate;
  */
 public abstract class CfInstructionDesugaringCollection {
 
-  public static CfInstructionDesugaringCollection create(
-      AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
+  public static CfInstructionDesugaringCollection create(AppView<?> appView) {
     if (appView.options().desugarState.isOff() && appView.options().forceNestDesugaring) {
       throw new CompilationError(
           "Cannot combine -Dcom.android.tools.r8.forceNestDesugaring with desugaring turned off");
     }
     if (appView.options().desugarState.isOn()) {
-      return new NonEmptyCfInstructionDesugaringCollection(appView, apiLevelCompute);
+      return new NonEmptyCfInstructionDesugaringCollection(appView);
     }
     // TODO(b/145775365): invoke-special desugaring is mandatory, since we currently can't map
     //  invoke-special instructions that require desugaring into IR.
     if (appView.options().isGeneratingClassFiles()) {
       return NonEmptyCfInstructionDesugaringCollection.createForCfToCfNonDesugar(appView);
     }
-    return NonEmptyCfInstructionDesugaringCollection.createForCfToDexNonDesugar(
-        appView, apiLevelCompute);
+    return NonEmptyCfInstructionDesugaringCollection.createForCfToDexNonDesugar(appView);
   }
 
   public static CfInstructionDesugaringCollection empty() {
@@ -86,12 +84,11 @@ public abstract class CfInstructionDesugaringCollection {
   public abstract <T extends Throwable> void withD8NestBasedAccessDesugaring(
       ThrowingConsumer<D8NestBasedAccessDesugaring, T> consumer) throws T;
 
-  public abstract InterfaceMethodProcessorFacade getInterfaceMethodPostProcessingDesugaringD8(
-      Flavor flavor, InterfaceProcessor interfaceProcessor);
-
   public abstract InterfaceMethodProcessorFacade getInterfaceMethodPostProcessingDesugaringR8(
-      Flavor flavor, Predicate<ProgramMethod> isLiveMethod, InterfaceProcessor processor);
+      Predicate<ProgramMethod> isLiveMethod, InterfaceProcessor processor);
 
   public abstract void withDesugaredLibraryAPIConverter(
       Consumer<DesugaredLibraryAPIConverter> consumer);
+
+  public abstract <T> T withInterfaceMethodRewriter(Function<InterfaceMethodRewriter, T> fn);
 }

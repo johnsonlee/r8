@@ -927,17 +927,15 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   }
 
   public InterfaceMethodProcessorFacade getPostProcessingDesugaringD8(
-      Flavor flavour, InterfaceProcessor interfaceProcessor) {
-    return new InterfaceMethodProcessorFacade(
-        appView, flavour, m -> true, interfaceProcessor, desugaringMode);
+      InterfaceProcessor interfaceProcessor) {
+    return new InterfaceMethodProcessorFacade(appView, interfaceProcessor, desugaringMode);
   }
 
   public InterfaceMethodProcessorFacade getPostProcessingDesugaringR8(
-      Flavor flavour,
       Predicate<ProgramMethod> isLiveMethod,
       InterfaceProcessor interfaceProcessor) {
     return new InterfaceMethodProcessorFacade(
-        appView, flavour, isLiveMethod, interfaceProcessor, desugaringMode);
+        appView, interfaceProcessor, desugaringMode, isLiveMethod);
   }
 
   private Origin getMethodOrigin(DexMethod method) {

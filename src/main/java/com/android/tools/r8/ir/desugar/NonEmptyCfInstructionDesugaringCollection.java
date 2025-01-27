@@ -26,7 +26,6 @@ import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaring;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
 import com.android.tools.r8.ir.desugar.lambda.LambdaInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
@@ -53,6 +52,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesugaringCollection {
@@ -69,6 +69,10 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   private final DesugaredLibraryDisableDesugarer disableDesugarer;
 
   private final CfInstructionDesugaring[][] asmOpcodeOrCompareToIdToDesugaringsMap;
+
+  NonEmptyCfInstructionDesugaringCollection(AppView<?> appView) {
+    this(appView, appView.apiLevelCompute());
+  }
 
   NonEmptyCfInstructionDesugaringCollection(
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
@@ -227,11 +231,10 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     return new NonEmptyCfInstructionDesugaringCollection(appView, noAndroidApiLevelCompute());
   }
 
-  static NonEmptyCfInstructionDesugaringCollection createForCfToDexNonDesugar(
-      AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
+  static NonEmptyCfInstructionDesugaringCollection createForCfToDexNonDesugar(AppView<?> appView) {
     assert appView.options().desugarState.isOff();
     assert appView.options().isGeneratingDex();
-    return new NonEmptyCfInstructionDesugaringCollection(appView, apiLevelCompute);
+    return new NonEmptyCfInstructionDesugaringCollection(appView);
   }
 
   private void ensureCfCode(ProgramMethod method) {
@@ -533,19 +536,11 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   }
 
   @Override
-  public InterfaceMethodProcessorFacade getInterfaceMethodPostProcessingDesugaringD8(
-      Flavor flavor, InterfaceProcessor interfaceProcessor) {
-    return interfaceMethodRewriter != null
-        ? interfaceMethodRewriter.getPostProcessingDesugaringD8(flavor, interfaceProcessor)
-        : null;
-  }
-
-  @Override
   public InterfaceMethodProcessorFacade getInterfaceMethodPostProcessingDesugaringR8(
-      Flavor flavor, Predicate<ProgramMethod> isLiveMethod, InterfaceProcessor processor) {
-    return interfaceMethodRewriter != null
-        ? interfaceMethodRewriter.getPostProcessingDesugaringR8(flavor, isLiveMethod, processor)
-        : null;
+      Predicate<ProgramMethod> isLiveMethod, InterfaceProcessor processor) {
+    return withInterfaceMethodRewriter(
+        interfaceMethodRewriter ->
+            interfaceMethodRewriter.getPostProcessingDesugaringR8(isLiveMethod, processor));
   }
 
   @Override
@@ -553,5 +548,13 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (desugaredLibraryAPIConverter != null) {
       consumer.accept(desugaredLibraryAPIConverter);
     }
+  }
+
+  @Override
+  public <T> T withInterfaceMethodRewriter(Function<InterfaceMethodRewriter, T> fn) {
+    if (interfaceMethodRewriter != null) {
+      return fn.apply(interfaceMethodRewriter);
+    }
+    return null;
   }
 }

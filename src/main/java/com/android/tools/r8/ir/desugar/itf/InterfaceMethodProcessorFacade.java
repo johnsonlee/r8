@@ -4,13 +4,14 @@
 
 package com.android.tools.r8.ir.desugar.itf;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.Collection;
@@ -21,28 +22,29 @@ import java.util.function.Predicate;
 public class InterfaceMethodProcessorFacade implements CfPostProcessingDesugaring {
 
   private final AppView<?> appView;
-  private final Flavor flavour;
   private final InterfaceProcessor interfaceProcessor;
   private final ClassProcessor classProcessor;
 
   InterfaceMethodProcessorFacade(
       AppView<?> appView,
-      Flavor flavour,
-      Predicate<ProgramMethod> isLiveMethod,
       InterfaceProcessor interfaceProcessor,
       InterfaceMethodDesugaringMode desugaringMode) {
+    this(appView, interfaceProcessor, desugaringMode, alwaysTrue());
+  }
+
+  InterfaceMethodProcessorFacade(
+      AppView<?> appView,
+      InterfaceProcessor interfaceProcessor,
+      InterfaceMethodDesugaringMode desugaringMode,
+      Predicate<ProgramMethod> isLiveMethod) {
     this.appView = appView;
-    this.flavour = flavour;
     assert interfaceProcessor != null;
     this.interfaceProcessor = interfaceProcessor;
     this.classProcessor = new ClassProcessor(appView, isLiveMethod, desugaringMode);
   }
 
-  private boolean shouldProcess(DexProgramClass clazz, Flavor flavour) {
-    if (appView.isAlreadyLibraryDesugared(clazz)) {
-      return false;
-    }
-    return (!clazz.originatesFromDexResource() || flavour == Flavor.IncludeAllResources);
+  private boolean shouldProcess(DexProgramClass clazz) {
+    return !appView.isAlreadyLibraryDesugared(clazz) && !clazz.originatesFromDexResource();
   }
 
   private void processClassesConcurrently(
@@ -51,7 +53,7 @@ public class InterfaceMethodProcessorFacade implements CfPostProcessingDesugarin
       ExecutorService executorService)
       throws ExecutionException {
     ThreadUtils.processItems(
-        ListUtils.filter(programClasses, clazz -> shouldProcess(clazz, flavour)),
+        ListUtils.filter(programClasses, this::shouldProcess),
         clazz -> classProcessor.process(clazz, eventConsumer),
         appView.options().getThreadingModule(),
         executorService);

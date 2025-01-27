@@ -7,7 +7,6 @@ import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCESS_INFO;
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter.Flavor.ExcludeDexResources;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 import static com.android.tools.r8.shaking.KeepInfo.Joiner.asClassJoinerOrNull;
@@ -567,7 +566,7 @@ public class Enqueuer {
     liveMethods = new LiveMethodsSet(graphReporter::registerMethod);
     liveFields = new LiveFieldsSet(graphReporter::registerField);
     if (mode.isInitialTreeShaking()) {
-      desugaring = CfInstructionDesugaringCollection.create(appView, appView.apiLevelCompute());
+      desugaring = CfInstructionDesugaringCollection.create(appView);
       interfaceProcessor = InterfaceProcessor.create(appView);
     } else {
       desugaring = CfInstructionDesugaringCollection.empty();
@@ -4931,7 +4930,7 @@ public class Enqueuer {
                         null)));
     InterfaceMethodProcessorFacade interfaceDesugaring =
         desugaring.getInterfaceMethodPostProcessingDesugaringR8(
-            ExcludeDexResources, liveMethods::contains, interfaceProcessor);
+            liveMethods::contains, interfaceProcessor);
     CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, liveMethods::contains)
         .postProcessingDesugaring(liveTypes.items, eventConsumer, executorService);
 
