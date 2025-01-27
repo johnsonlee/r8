@@ -6,7 +6,6 @@ package com.android.tools.r8.partial;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.utils.R8PartialCompilationConfiguration;
 import com.android.tools.r8.utils.WorkList;
 import java.util.LinkedHashSet;
 import java.util.Set;
