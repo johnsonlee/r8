@@ -33,7 +33,7 @@ import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.NestHostClassAttribute;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
-import com.android.tools.r8.ir.desugar.TypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
@@ -157,7 +157,8 @@ public class GlobalSyntheticsGenerator {
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
     DirectMappedDexApplication app = applicationReader.read(executor).toDirect();
     timing.end();
-    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
+    DesugaredLibraryTypeRewriter typeRewriter =
+        options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         timing.time(
             "Create app-info",

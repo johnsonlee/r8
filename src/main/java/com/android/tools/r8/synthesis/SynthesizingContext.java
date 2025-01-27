@@ -149,7 +149,8 @@ class SynthesizingContext implements Comparable<SynthesizingContext> {
       return;
     }
     assert hygienicType.toSourceString().startsWith(synthesizingContextType.toSourceString());
-    DexType rewrittenContext = appView.typeRewriter.rewrittenContextType(synthesizingContextType);
+    DexType rewrittenContext =
+        appView.desugaredLibraryTypeRewriter.rewrittenContextType(synthesizingContextType);
     if (rewrittenContext == null) {
       return;
     }
@@ -163,7 +164,7 @@ class SynthesizingContext implements Comparable<SynthesizingContext> {
         appView
             .dexItemFactory()
             .createType(getDescriptorFromClassBinaryName(rewrittenPrefix + suffix));
-    appView.typeRewriter.rewriteType(hygienicType, rewrittenType);
+    appView.desugaredLibraryTypeRewriter.rewriteType(hygienicType, rewrittenType);
   }
 
   @Override

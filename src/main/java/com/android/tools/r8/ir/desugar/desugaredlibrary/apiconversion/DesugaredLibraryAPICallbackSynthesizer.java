@@ -121,7 +121,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
         || definition.isLibraryMethodOverride().isFalse()) {
       return false;
     }
-    if (!appView.typeRewriter.hasRewrittenTypeInSignature(definition.getProto(), appView)
+    if (!appView.desugaredLibraryTypeRewriter.hasRewrittenTypeInSignature(
+            definition.getProto(), appView)
         || appView
             .options()
             .getLibraryDesugaringOptions()
@@ -185,7 +186,7 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
       DexEncodedMethod dexEncodedMethod = dexClass.lookupVirtualMethod(method.getReference());
       if (dexEncodedMethod != null) {
         // In this case, the object will be wrapped.
-        if (appView.typeRewriter.hasRewrittenType(dexClass.type, appView)) {
+        if (appView.desugaredLibraryTypeRewriter.hasRewrittenType(dexClass.type, appView)) {
           return false;
         }
         if (dexEncodedMethod.isFinal()) {

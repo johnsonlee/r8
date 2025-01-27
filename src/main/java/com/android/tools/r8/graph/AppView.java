@@ -32,7 +32,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueConstantPropagationJoiner;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueFieldJoiner;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueParameterJoiner;
-import com.android.tools.r8.ir.desugar.TypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
 import com.android.tools.r8.ir.optimize.info.MethodResolutionOptimizationInfoCollection;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoFactory;
@@ -131,7 +131,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       new SimpleInliningConstraintFactory();
 
   // Desugaring.
-  public final TypeRewriter typeRewriter;
+  public final DesugaredLibraryTypeRewriter desugaredLibraryTypeRewriter;
 
   // Modeling.
   private final LibraryMethodSideEffectModelCollection libraryMethodSideEffectModelCollection;
@@ -175,7 +175,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       ArtProfileCollection artProfileCollection,
       StartupProfile startupProfile,
       WholeProgramOptimizations wholeProgramOptimizations,
-      TypeRewriter mapper) {
+      DesugaredLibraryTypeRewriter mapper) {
     this(
         appInfo,
         artProfileCollection,
@@ -190,7 +190,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       ArtProfileCollection artProfileCollection,
       StartupProfile startupProfile,
       WholeProgramOptimizations wholeProgramOptimizations,
-      TypeRewriter mapper,
+      DesugaredLibraryTypeRewriter mapper,
       Timing timing) {
     assert appInfo != null;
     this.appInfo = appInfo;
@@ -214,7 +214,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
             "Dont warn config",
             () -> DontWarnConfiguration.create(options().getProguardConfiguration()));
     this.initClassLens = timing.time("Init class lens", InitClassLens::getThrowingInstance);
-    this.typeRewriter = mapper;
+    this.desugaredLibraryTypeRewriter = mapper;
     timing.begin("Create argument propagator");
     if (enableWholeProgramOptimizations() && options().callSiteOptimizationOptions().isEnabled()) {
       this.argumentPropagator = new ArgumentPropagator(withLiveness());
@@ -247,7 +247,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return libraryMemberOptimizer.isModeled(type);
   }
 
-  private static TypeRewriter defaultTypeRewriter(AppInfo appInfo) {
+  private static DesugaredLibraryTypeRewriter defaultTypeRewriter(AppInfo appInfo) {
     return appInfo.options().getLibraryDesugaringOptions().getTypeRewriter();
   }
 
@@ -277,7 +277,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   }
 
   public static <T extends AppInfo> AppView<T> createForD8(
-      T appInfo, TypeRewriter mapper, Timing timing) {
+      T appInfo, DesugaredLibraryTypeRewriter mapper, Timing timing) {
     return new AppView<>(
         appInfo,
         ArtProfileCollection.createInitialArtProfileCollection(appInfo, appInfo.options()),
@@ -309,7 +309,8 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         defaultTypeRewriter(appInfo));
   }
 
-  public static <T extends AppInfo> AppView<T> createForL8(T appInfo, TypeRewriter mapper) {
+  public static <T extends AppInfo> AppView<T> createForL8(
+      T appInfo, DesugaredLibraryTypeRewriter mapper) {
     return new AppView<>(
         appInfo,
         ArtProfileCollection.createInitialArtProfileCollection(appInfo, appInfo.options()),

@@ -115,6 +115,6 @@ public class DesugaredLibraryDisableDesugarerHelper {
   }
 
   boolean isRewrittenType(DexType type) {
-    return appView.typeRewriter.hasRewrittenType(type, appView);
+    return appView.desugaredLibraryTypeRewriter.hasRewrittenType(type, appView);
   }
 }

@@ -1,8 +1,8 @@
-// Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.naming;
+package com.android.tools.r8.ir.desugar.desugaredlibrary;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.InnerClassAttribute;
+import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.naming.NamingLens.NonIdentityNamingLens;
 import com.android.tools.r8.utils.InternalOptions;
 
@@ -20,7 +21,7 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
   private final NamingLens namingLens;
 
   public static void commitPrefixRewritingNamingLens(AppView<?> appView) {
-    if (!appView.typeRewriter.isRewriting()) {
+    if (!appView.desugaredLibraryTypeRewriter.isRewriting()) {
       return;
     }
     InternalOptions options = appView.options();
@@ -43,8 +44,8 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
 
   private DexString getRenaming(DexType type) {
     DexString descriptor = null;
-    if (appView.typeRewriter.hasRewrittenType(type, appView)) {
-      descriptor = appView.typeRewriter.rewrittenType(type, appView).descriptor;
+    if (appView.desugaredLibraryTypeRewriter.hasRewrittenType(type, appView)) {
+      descriptor = appView.desugaredLibraryTypeRewriter.rewrittenType(type, appView).descriptor;
     }
     return descriptor;
   }
@@ -104,7 +105,7 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
   }
 
   private boolean verifyNotPrefixRewrittenPackage(String packageName) {
-    appView.typeRewriter.forAllRewrittenTypes(
+    appView.desugaredLibraryTypeRewriter.forAllRewrittenTypes(
         dexType -> {
           assert !dexType.getPackageDescriptor().equals(packageName);
         });

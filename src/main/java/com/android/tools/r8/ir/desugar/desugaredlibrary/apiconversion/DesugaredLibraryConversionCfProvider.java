@@ -162,7 +162,7 @@ public class DesugaredLibraryConversionCfProvider {
     DexMethod[] parameterConversions =
         computeParameterConversions(method, true, eventConsumer, context, contextSupplier);
     DexType newHolder =
-        appView.typeRewriter.hasRewrittenType(method.getHolderType(), appView)
+        appView.desugaredLibraryTypeRewriter.hasRewrittenType(method.getHolderType(), appView)
             ? vivifiedTypeFor(method.getHolderType(), appView)
             : method.getHolderType();
     DexMethod forwardMethod =

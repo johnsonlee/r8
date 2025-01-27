@@ -4,8 +4,7 @@
 package com.android.tools.r8.ir.desugar.desugaredlibrary;
 
 import com.android.tools.r8.graph.DexApplication;
-import com.android.tools.r8.ir.desugar.TypeRewriter;
-import com.android.tools.r8.ir.desugar.TypeRewriter.MachineTypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter.MachineTypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -108,9 +107,9 @@ public class LibraryDesugaringOptions {
     timing.end();
   }
 
-  public TypeRewriter getTypeRewriter() {
+  public DesugaredLibraryTypeRewriter getTypeRewriter() {
     return machineDesugaredLibrarySpecification.requiresTypeRewriting()
         ? new MachineTypeRewriter(machineDesugaredLibrarySpecification)
-        : TypeRewriter.empty();
+        : DesugaredLibraryTypeRewriter.empty();
   }
 }

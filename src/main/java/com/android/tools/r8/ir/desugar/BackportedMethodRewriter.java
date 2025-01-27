@@ -65,6 +65,7 @@ import com.android.tools.r8.ir.desugar.backports.ObjectsMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.OptionalMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.SparseArrayMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.TypedArrayMethodRewrites;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
@@ -212,7 +213,8 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     options
         .getLibraryDesugaringOptions()
         .loadMachineDesugaredLibrarySpecification(Timing.empty(), app);
-    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
+    DesugaredLibraryTypeRewriter typeRewriter =
+        options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing());
     AppView<?> appView = AppView.createForD8(appInfo, typeRewriter, Timing.empty());
@@ -417,7 +419,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     private boolean typeIsInDesugaredLibrary(DexType type) {
-      return appView.typeRewriter.hasRewrittenType(type, appView)
+      return appView.desugaredLibraryTypeRewriter.hasRewrittenType(type, appView)
           || appView
               .options()
               .getLibraryDesugaringOptions()

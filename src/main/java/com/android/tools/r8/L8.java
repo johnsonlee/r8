@@ -12,11 +12,11 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
-import com.android.tools.r8.ir.desugar.TypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAmender;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.PrefixRewritingNamingLens;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
-import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.VarHandleDesugaringRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
 import com.android.tools.r8.origin.CommandLineOrigin;
@@ -167,7 +167,8 @@ public class L8 {
     LazyLoadedDexApplication lazyApp =
         new ApplicationReader(inputApp, options, timing).read(executor);
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, lazyApp);
-    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
+    DesugaredLibraryTypeRewriter typeRewriter =
+        options.getLibraryDesugaringOptions().getTypeRewriter();
 
     DexApplication app = new L8TreePruner(options).prune(lazyApp, typeRewriter);
     return AppView.createForL8(

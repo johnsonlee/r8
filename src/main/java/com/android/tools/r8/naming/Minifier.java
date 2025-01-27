@@ -354,7 +354,7 @@ public class Minifier {
       super(appView.options().getProguardConfiguration().getObfuscationDictionary(), false);
       this.appView = appView;
       this.factory = appView.dexItemFactory();
-      this.desugaredLibraryRenaming = appView.typeRewriter.isRewriting();
+      this.desugaredLibraryRenaming = appView.desugaredLibraryTypeRewriter.isRewriting();
     }
 
     @Override
@@ -404,7 +404,8 @@ public class Minifier {
       }
       if (desugaredLibraryRenaming
           && method.getDefinition().isLibraryMethodOverride().isTrue()
-          && appView.typeRewriter.hasRewrittenTypeInSignature(method.getProto(), appView)) {
+          && appView.desugaredLibraryTypeRewriter.hasRewrittenTypeInSignature(
+              method.getProto(), appView)) {
         // With desugared library, call-backs names are reserved here.
         return method.getName();
       }

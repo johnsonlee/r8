@@ -24,15 +24,15 @@ import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
-import com.android.tools.r8.ir.desugar.TypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAmender;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.PrefixRewritingNamingLens;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.kotlin.KotlinMetadataRewriter;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.naming.PrefixRewritingNamingLens;
 import com.android.tools.r8.naming.RecordRewritingNamingLens;
 import com.android.tools.r8.naming.VarHandleDesugaringRewritingNamingLens;
 import com.android.tools.r8.naming.signature.GenericSignatureRewriter;
@@ -178,7 +178,8 @@ public final class D8 {
     timing.begin("Load desugared lib");
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
     timing.end();
-    TypeRewriter typeRewriter = options.getLibraryDesugaringOptions().getTypeRewriter();
+    DesugaredLibraryTypeRewriter typeRewriter =
+        options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         timing.time(
             "Create app-info",
@@ -280,7 +281,7 @@ public final class D8 {
       if (options.isGeneratingDex()
           && hasDexResources
           && hasClassResources
-          && appView.typeRewriter.isRewriting()) {
+          && appView.desugaredLibraryTypeRewriter.isRewriting()) {
         // There are both cf and dex inputs in the program, and rewriting is required for
         // desugared library only on cf inputs. We cannot easily rewrite part of the program
         // without iterating again the IR. We fall-back to writing one app with rewriting and

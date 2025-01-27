@@ -68,7 +68,7 @@ public abstract class CfPostProcessingDesugaringCollection {
         desugarings.add(interfaceMethodProcessorFacade);
       }
       DesugaredLibraryAPICallbackSynthesizer apiCallbackSynthesizor =
-          appView.typeRewriter.isRewriting()
+          appView.desugaredLibraryTypeRewriter.isRewriting()
               ? new DesugaredLibraryAPICallbackSynthesizer(appView, isLiveMethod)
               : null;
       // At this point the desugaredLibraryAPIConverter is required to be last to generate

@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.ir.desugar;
+package com.android.tools.r8.ir.desugar.desugaredlibrary;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProto;
@@ -12,9 +12,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-public abstract class TypeRewriter {
+public abstract class DesugaredLibraryTypeRewriter {
 
-  public static TypeRewriter empty() {
+  public static DesugaredLibraryTypeRewriter empty() {
     return new EmptyTypeRewriter();
   }
 
@@ -44,7 +44,7 @@ public abstract class TypeRewriter {
 
   public abstract void forAllRewrittenTypes(Consumer<DexType> consumer);
 
-  public static class MachineTypeRewriter extends TypeRewriter {
+  public static class MachineTypeRewriter extends DesugaredLibraryTypeRewriter {
 
     private final Map<DexType, DexType> rewriteType;
     private final Map<DexType, DexType> rewriteDerivedTypeOnly;
@@ -100,7 +100,7 @@ public abstract class TypeRewriter {
     }
   }
 
-  public static class EmptyTypeRewriter extends TypeRewriter {
+  public static class EmptyTypeRewriter extends DesugaredLibraryTypeRewriter {
 
     @Override
     public DexType rewrittenType(DexType type, AppView<?> appView) {
