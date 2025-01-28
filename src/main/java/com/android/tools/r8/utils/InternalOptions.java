@@ -84,6 +84,7 @@ import com.android.tools.r8.optimize.compose.JetpackComposeOptions;
 import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemovalOptions;
 import com.android.tools.r8.optimize.singlecaller.SingleCallerInlinerOptions;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.art.ArtProfileOptions;
