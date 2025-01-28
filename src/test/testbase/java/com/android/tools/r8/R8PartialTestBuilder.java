@@ -6,17 +6,18 @@ package com.android.tools.r8;
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
+import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public class R8PartialTestBuilder
@@ -154,14 +155,20 @@ public class R8PartialTestBuilder
             + "Did you mean addD8PartialOptionsModification or addR8PartialOptionsModification?");
   }
 
-  public R8PartialTestBuilder addD8PartialOptionsModification(Consumer<InternalOptions> consumer) {
+  public R8PartialTestBuilder addR8PartialOptionsModification(Consumer<InternalOptions> consumer) {
+    return super.addOptionsModification(consumer);
+  }
+
+  public R8PartialTestBuilder addR8PartialD8OptionsModification(
+      Consumer<InternalOptions> consumer) {
     return super.addOptionsModification(
         options ->
             options.partialCompilationConfiguration.d8DexOptionsConsumer =
                 options.partialCompilationConfiguration.d8DexOptionsConsumer.andThen(consumer));
   }
 
-  public R8PartialTestBuilder addR8PartialOptionsModification(Consumer<InternalOptions> consumer) {
+  public R8PartialTestBuilder addR8PartialR8OptionsModification(
+      Consumer<InternalOptions> consumer) {
     return super.addOptionsModification(
         options ->
             options.partialCompilationConfiguration.r8OptionsConsumer =
@@ -169,25 +176,39 @@ public class R8PartialTestBuilder
   }
 
   public R8PartialTestBuilder addGlobalOptionsModification(Consumer<InternalOptions> consumer) {
-    return addD8PartialOptionsModification(consumer)
-        .addR8PartialOptionsModification(consumer);
+    return addR8PartialD8OptionsModification(consumer).addR8PartialR8OptionsModification(consumer);
   }
 
   @Override
   public R8PartialTestBuilder allowUnnecessaryDontWarnWildcards() {
-    return addR8PartialOptionsModification(
+    return addR8PartialR8OptionsModification(
         options -> options.getTestingOptions().allowUnnecessaryDontWarnWildcards = true);
   }
 
   @Override
   public R8PartialTestBuilder allowUnusedDontWarnPatterns() {
-    return addR8PartialOptionsModification(
+    return addR8PartialR8OptionsModification(
         options -> options.getTestingOptions().allowUnusedDontWarnRules = true);
   }
 
   @Override
+  public R8PartialTestBuilder applyCompilerDump(CompilerDump dump) throws IOException {
+    List<String> includePatterns = dump.getR8PartialIncludePatterns();
+    if (includePatterns != null) {
+      List<String> excludePatterns =
+          dump.getR8PartialExcludePatternsOrDefault(Collections.emptyList());
+      setR8PartialConfiguration(
+          configuration -> {
+            includePatterns.forEach(configuration::addJavaTypeIncludePattern);
+            excludePatterns.forEach(configuration::addJavaTypeExcludePattern);
+          });
+    }
+    return super.applyCompilerDump(dump);
+  }
+
+  @Override
   public R8PartialTestBuilder enableExperimentalKeepAnnotations() {
-    return addR8PartialOptionsModification(
+    return addR8PartialR8OptionsModification(
             o -> o.getTestingOptions().enableEmbeddedKeepAnnotations = true)
         .addKeepAnnoLibToClasspath();
   }

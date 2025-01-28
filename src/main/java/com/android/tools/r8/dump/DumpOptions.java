@@ -10,6 +10,7 @@ import com.android.tools.r8.dex.Marker.Backend;
 import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
 import com.android.tools.r8.shaking.ProguardConfiguration;
 import com.android.tools.r8.shaking.ProguardConfigurationRule;
@@ -82,6 +83,7 @@ public class DumpOptions {
   private final boolean enableMissingLibraryApiModeling;
   private final boolean isAndroidPlatformBuild;
   private final AndroidResourceProvider androidResourceProvider;
+  private final R8PartialCompilationConfiguration partialCompilationConfiguration;
   private final Map<String, String> systemProperties;
 
   // TraceReferences only.
@@ -116,6 +118,7 @@ public class DumpOptions {
       boolean dumpInputToFile,
       String traceReferencesConsumer,
       AndroidResourceProvider androidResourceProvider,
+      R8PartialCompilationConfiguration partialCompilationConfiguration,
       Optional<Boolean> optimizedResourceShrinking) {
     this.backend = backend;
     this.tool = tool;
@@ -143,6 +146,7 @@ public class DumpOptions {
     this.dumpInputToFile = dumpInputToFile;
     this.traceReferencesConsumer = traceReferencesConsumer;
     this.androidResourceProvider = androidResourceProvider;
+    this.partialCompilationConfiguration = partialCompilationConfiguration;
   }
 
   public String getBuildPropertiesFileContent() {
@@ -378,6 +382,14 @@ public class DumpOptions {
     return androidResourceProvider;
   }
 
+  public boolean hasPartialCompilationConfiguration() {
+    return partialCompilationConfiguration != null && partialCompilationConfiguration.isEnabled();
+  }
+
+  public R8PartialCompilationConfiguration getPartialCompilationConfiguration() {
+    return partialCompilationConfiguration;
+  }
+
   public static class Builder {
     // Initialize backend to DEX for backwards compatibility.
     private Backend backend = Backend.DEX;
@@ -401,6 +413,7 @@ public class DumpOptions {
     private Collection<ArtProfileProvider> artProfileProviders;
     private Collection<StartupProfileProvider> startupProfileProviders;
     private AndroidResourceProvider androidResourceProvider;
+    private R8PartialCompilationConfiguration partialCompilationConfiguration;
     private Optional<Boolean> optimizedResourceShrinking = Optional.empty();
 
     private boolean enableMissingLibraryApiModeling = false;
@@ -597,15 +610,18 @@ public class DumpOptions {
           dumpInputToFile,
           traceReferencesConsumer,
           androidResourceProvider,
+          partialCompilationConfiguration,
           optimizedResourceShrinking);
-    }
-
-    public AndroidResourceProvider getAndroidResourceProvider() {
-      return androidResourceProvider;
     }
 
     public Builder setAndroidResourceProvider(AndroidResourceProvider androidResourceProvider) {
       this.androidResourceProvider = androidResourceProvider;
+      return this;
+    }
+
+    public Builder setPartialCompilationConfiguration(
+        R8PartialCompilationConfiguration partialCompilationConfiguration) {
+      this.partialCompilationConfiguration = partialCompilationConfiguration;
       return this;
     }
   }

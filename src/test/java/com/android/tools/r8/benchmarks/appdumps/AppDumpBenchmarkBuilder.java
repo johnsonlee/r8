@@ -298,7 +298,7 @@ public class AppDumpBenchmarkBuilder {
             .allowUnusedProguardConfigurationRules()
             // TODO(b/222228826): Disallow unrecognized diagnostics and open interfaces.
             .allowDiagnosticMessages()
-            .addR8PartialOptionsModification(
+            .addR8PartialR8OptionsModification(
                 options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces());
   }
 
@@ -409,7 +409,7 @@ public class AppDumpBenchmarkBuilder {
                               FileUtils.readTextFile(dump.getProguardConfigFile()),
                               "-shrinkunusedprotofields",
                               ""))
-                      .addR8PartialOptionsModification(
+                      .addR8PartialR8OptionsModification(
                           options -> {
                             options.apiModelingOptions().androidApiExtensionPackages =
                                 dumpProperties.getAndroidApiExtensionPackages();

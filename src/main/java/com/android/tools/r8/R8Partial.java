@@ -90,9 +90,8 @@ class R8Partial {
 
   private R8PartialInput runProcessInputStep(AndroidApp androidApp, ExecutorService executor)
       throws IOException {
-    // TODO(b/388421578): Add support for generating R8 partial compile dumps.
     DirectMappedDexApplication app =
-        new ApplicationReader(androidApp, options, timing).readWithoutDumping(executor).toDirect();
+        new ApplicationReader(androidApp, options, timing).read(executor).toDirect();
     R8PartialProgramPartioning partioning = R8PartialProgramPartioning.create(app);
     return new R8PartialInput(
         partioning.getD8Classes(),

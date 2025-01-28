@@ -4,29 +4,27 @@
 package com.android.tools.r8.partial;
 
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.partial.predicate.AllClassesMatcher;
 import com.android.tools.r8.partial.predicate.ClassNameMatcher;
 import com.android.tools.r8.partial.predicate.ClassPrefixMatcher;
 import com.android.tools.r8.partial.predicate.PackageAndSubpackagePrefixMatcher;
 import com.android.tools.r8.partial.predicate.PackagePrefixMatcher;
 import com.android.tools.r8.partial.predicate.R8PartialPredicate;
+import com.android.tools.r8.partial.predicate.R8PartialPredicateCollection;
 import com.android.tools.r8.partial.predicate.UnnamedPackageMatcher;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.base.Splitter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.function.Consumer;
 
 public class R8PartialCompilationConfiguration {
 
   private final boolean enabled;
-  private final List<R8PartialPredicate> includePredicates;
-  private final List<R8PartialPredicate> excludePredicates;
+  private final R8PartialPredicateCollection includePredicates;
+  private final R8PartialPredicateCollection excludePredicates;
 
   public Consumer<InternalOptions> d8DexOptionsConsumer = ConsumerUtils.emptyConsumer();
   public Consumer<InternalOptions> r8OptionsConsumer = ConsumerUtils.emptyConsumer();
@@ -36,8 +34,8 @@ public class R8PartialCompilationConfiguration {
 
   private R8PartialCompilationConfiguration(
       boolean enabled,
-      List<R8PartialPredicate> includePredicates,
-      List<R8PartialPredicate> excludePredicates) {
+      R8PartialPredicateCollection includePredicates,
+      R8PartialPredicateCollection excludePredicates) {
     assert !enabled || !includePredicates.isEmpty();
     assert !enabled || excludePredicates != null;
     this.enabled = enabled;
@@ -45,19 +43,16 @@ public class R8PartialCompilationConfiguration {
     this.excludePredicates = excludePredicates;
   }
 
+  public R8PartialPredicateCollection getIncludePredicates() {
+    return includePredicates;
+  }
+
+  public R8PartialPredicateCollection getExcludePredicates() {
+    return excludePredicates;
+  }
+
   public boolean test(DexProgramClass clazz) {
-    DexString name = clazz.getType().getDescriptor();
-    for (R8PartialPredicate isR8ClassPredicate : includePredicates) {
-      if (isR8ClassPredicate.test(name)) {
-        for (R8PartialPredicate isD8ClassPredicate : excludePredicates) {
-          if (isD8ClassPredicate.test(name)) {
-            return false;
-          }
-        }
-        return true;
-      }
-    }
-    return false;
+    return includePredicates.test(clazz) && !excludePredicates.test(clazz);
   }
 
   public static R8PartialCompilationConfiguration disabledConfiguration() {
@@ -89,8 +84,10 @@ public class R8PartialCompilationConfiguration {
   }
 
   public static class Builder {
-    private final List<R8PartialPredicate> includePredicates = new ArrayList<>();
-    private final List<R8PartialPredicate> excludePredicates = new ArrayList<>();
+    private final R8PartialPredicateCollection includePredicates =
+        new R8PartialPredicateCollection();
+    private final R8PartialPredicateCollection excludePredicates =
+        new R8PartialPredicateCollection();
 
     private Builder() {}
 

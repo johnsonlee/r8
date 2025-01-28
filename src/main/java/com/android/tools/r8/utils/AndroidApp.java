@@ -43,6 +43,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
 import com.android.tools.r8.profile.art.ArtProfileProviderUtils;
 import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
@@ -106,6 +107,8 @@ public class AndroidApp {
   private static final String dumpLibraryFileName = "library.jar";
   private static final String dumpConfigFileName = "proguard.config";
   private static final String dumpInputConfigFileName = "proguard_input.config";
+  public static final String dumpR8IncludeFileName = "r8-include.txt";
+  public static final String dumpR8ExcludeFileName = "r8-exclude.txt";
 
   private static Map<FeatureSplit, String> dumpFeatureSplitFileNames(
       FeatureSplitConfiguration featureSplitConfiguration, String postfix) {
@@ -497,7 +500,6 @@ public class AndroidApp {
   }
 
   public void dump(Path output, DumpOptions dumpOptions, InternalOptions options) {
-    int nextDexIndex = 0;
     OpenOption[] openOptions =
         new OpenOption[] {StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING};
     try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(output, openOptions))) {
@@ -580,6 +582,10 @@ public class AndroidApp {
           }
         }
       }
+      if (dumpOptions.hasPartialCompilationConfiguration()) {
+        dumpPartialCompilationConfiguration(dumpOptions.getPartialCompilationConfiguration(), out);
+      }
+      int nextDexIndex = 0;
       nextDexIndex =
           dumpProgramResources(
               dumpProgramFileName,
@@ -674,6 +680,23 @@ public class AndroidApp {
         }
       }
       writeToZipStream(out, name, archiveByteStream.toByteArray(), ZipEntry.DEFLATED);
+    }
+  }
+
+  private void dumpPartialCompilationConfiguration(
+      R8PartialCompilationConfiguration partialCompilationConfiguration, ZipOutputStream out)
+      throws IOException {
+    writeToZipStream(
+        out,
+        dumpR8IncludeFileName,
+        partialCompilationConfiguration.getIncludePredicates().getDumpFileContent(),
+        ZipEntry.DEFLATED);
+    if (!partialCompilationConfiguration.getExcludePredicates().isEmpty()) {
+      writeToZipStream(
+          out,
+          dumpR8ExcludeFileName,
+          partialCompilationConfiguration.getExcludePredicates().getDumpFileContent(),
+          ZipEntry.DEFLATED);
     }
   }
 

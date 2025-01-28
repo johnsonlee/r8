@@ -164,7 +164,9 @@ public class ApplicationReader {
 
   private void dumpApplication(DumpInputFlags dumpInputFlags) {
     DumpOptions dumpOptions = options.dumpOptions;
-    if (dumpOptions == null || !dumpInputFlags.shouldDump(dumpOptions)) {
+    if (dumpOptions == null
+        || options.partialSubCompilationConfiguration != null
+        || !dumpInputFlags.shouldDump(dumpOptions)) {
       return;
     }
     Path dumpOutput = dumpInputFlags.getDumpPath();

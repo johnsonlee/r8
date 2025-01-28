@@ -3,15 +3,23 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dump;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static org.hamcrest.CoreMatchers.startsWith;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.TestBase;
+import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.internal.CompilationTestBase;
 import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.StringUtils;
+import com.google.common.collect.Lists;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -19,7 +27,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class CompilerDumpTest extends TestBase {
+public class CompilerDumpTest extends CompilationTestBase {
 
   @Parameter() public TestParameters parameters;
 
@@ -78,7 +86,70 @@ public class CompilerDumpTest extends TestBase {
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
+  @Test
+  public void testR8Partial() throws Exception {
+    parameters.assumeR8PartialTestParameters();
+    // Create an R8 partial dump.
+    Path dumpDirectory = temp.newFolder().toPath();
+    DumpInputFlags dumpInputFlags = DumpInputFlags.dumpToDirectory(dumpDirectory);
+    R8PartialTestCompileResult compileResult =
+        testForR8Partial(parameters.getBackend())
+            .addR8IncludedClasses(IncludedMain.class)
+            .addR8ExcludedClasses(ExcludedMain.class)
+            .addKeepMainRule(IncludedMain.class)
+            .allowDiagnosticInfoMessages()
+            .setMinApi(parameters)
+            .addR8PartialOptionsModification(options -> options.setDumpInputFlags(dumpInputFlags))
+            .addR8PartialD8OptionsModification(options -> options.setDumpInputFlags(dumpInputFlags))
+            .addR8PartialR8OptionsModification(options -> options.setDumpInputFlags(dumpInputFlags))
+            .compileWithExpectedDiagnostics(
+                diagnostics ->
+                    diagnostics
+                        .assertInfosMatch(
+                            diagnosticMessage(startsWith("Dumped compilation inputs to:")))
+                        .assertNoWarnings()
+                        .assertNoErrors());
+
+    // Verify that only one archive was dumped.
+    List<Path> dumpArchives = Files.list(dumpDirectory).collect(Collectors.toList());
+    assertEquals(1, dumpArchives.size());
+
+    Path dumpArchive = dumpArchives.iterator().next();
+
+    // Inspect the dump.
+    CompilerDump dump = CompilerDump.fromArchive(dumpArchive, temp.newFolder().toPath());
+    assertEquals(
+        Lists.newArrayList(IncludedMain.class.getTypeName()), dump.getR8PartialIncludePatterns());
+    assertEquals(
+        Lists.newArrayList(ExcludedMain.class.getTypeName()),
+        dump.getR8PartialExcludePatternsOrDefault(null));
+
+    // Compile the dump.
+    testForR8Partial(parameters.getBackend())
+        .applyCompilerDump(dump)
+        .compile()
+        .apply(
+            recompileResult ->
+                assertIdenticalApplications(compileResult.getApp(), recompileResult.getApp()))
+        .run(parameters.getRuntime(), IncludedMain.class)
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
   static class TestClass {
+
+    public static void main(String[] args) {
+      System.out.println("Hello, world!");
+    }
+  }
+
+  static class IncludedMain {
+
+    public static void main(String[] args) {
+      System.out.println("Hello, world!");
+    }
+  }
+
+  static class ExcludedMain {
 
     public static void main(String[] args) {
       System.out.println("Hello, world!");

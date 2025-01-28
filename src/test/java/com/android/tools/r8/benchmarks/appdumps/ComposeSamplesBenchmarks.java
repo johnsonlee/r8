@@ -158,7 +158,7 @@ public class ComposeSamplesBenchmarks extends BenchmarkBase {
         .allowUnnecessaryDontWarnWildcards()
         .allowUnusedDontWarnPatterns()
         .allowUnusedProguardConfigurationRules()
-        .addR8PartialOptionsModification(
+        .addR8PartialR8OptionsModification(
             options -> options.getOpenClosedInterfacesOptions().disallowOpenInterfaces());
   }
 

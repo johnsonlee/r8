@@ -287,6 +287,15 @@ public class TestParameters {
     return (isDexRuntime() || representativeApiLevelForRuntime) && !isNoneRuntime();
   }
 
+  public TestParameters assumeR8PartialTestParameters() {
+    assumeTrue(isR8PartialTestParameters());
+    return this;
+  }
+
+  public boolean isR8PartialTestParameters() {
+    return isDexRuntime() && apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L);
+  }
+
   public TestParameters assumeRuntimeTestParameters() {
     assertFalse(
         "No need to use assumeRuntimeTestParameters() when not using api levels for CF",

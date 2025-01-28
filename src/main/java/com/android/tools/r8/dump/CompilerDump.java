@@ -3,13 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dump;
 
+import static com.android.tools.r8.utils.AndroidApp.dumpR8ExcludeFileName;
+import static com.android.tools.r8.utils.AndroidApp.dumpR8IncludeFileName;
+
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class CompilerDump {
@@ -82,6 +85,14 @@ public class CompilerDump {
     return directory.resolve("desugared-library.json");
   }
 
+  public Path getR8PartialIncludeFile() {
+    return directory.resolve(dumpR8IncludeFileName);
+  }
+
+  public Path getR8PartialExcludeFile() {
+    return directory.resolve(dumpR8ExcludeFileName);
+  }
+
   public void sanitizeProguardConfig(ProguardConfigSanitizer sanitizer) throws IOException {
     try (BufferedReader reader = Files.newBufferedReader(getProguardConfigFile())) {
       String next = reader.readLine();
@@ -95,10 +106,28 @@ public class CompilerDump {
   public DumpOptions getBuildProperties() throws IOException {
     if (Files.exists(getBuildPropertiesFile())) {
       DumpOptions.Builder builder = new DumpOptions.Builder();
-      DumpOptions.parse(
-          FileUtils.readTextFile(getBuildPropertiesFile(), StandardCharsets.UTF_8), builder);
+      DumpOptions.parse(FileUtils.readTextFile(getBuildPropertiesFile()), builder);
       return builder.build();
     }
     return null;
+  }
+
+  public List<String> getR8PartialIncludePatterns() throws IOException {
+    if (Files.exists(getR8PartialIncludeFile())) {
+      List<String> includePatterns = FileUtils.readAllLines(getR8PartialIncludeFile());
+      assert includePatterns.stream().noneMatch(String::isEmpty);
+      return includePatterns;
+    }
+    return null;
+  }
+
+  public List<String> getR8PartialExcludePatternsOrDefault(List<String> defaultValue)
+      throws IOException {
+    if (Files.exists(getR8PartialExcludeFile())) {
+      List<String> excludePatterns = FileUtils.readAllLines(getR8PartialExcludeFile());
+      assert excludePatterns.stream().noneMatch(String::isEmpty);
+      return excludePatterns;
+    }
+    return defaultValue;
   }
 }
