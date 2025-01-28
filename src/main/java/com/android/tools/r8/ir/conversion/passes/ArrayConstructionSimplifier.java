@@ -229,19 +229,6 @@ public class ArrayConstructionSimplifier extends CodeRewriterPass<AppInfo> {
     ArrayPut lastArrayPut = ArrayUtils.last(arrayValues.getArrayPutsByIndex());
     BasicBlock lastArrayPutBlock = lastArrayPut.getBlock();
     BasicBlock subgraphEntryBlock = arrayValue.definition.getBlock();
-    for (ArrayPut arrayPut : arrayValues.getArrayPutsByIndex()) {
-      if (arrayPut.getBlock() != lastArrayPut.getBlock()
-          && !DominatorChecker.check(subgraphEntryBlock, lastArrayPutBlock, arrayPut.getBlock())) {
-        return false;
-      }
-    }
-    for (Instruction instruction = lastArrayPut.getBlock().getLastInstruction();
-        instruction != lastArrayPut;
-        instruction = instruction.getPrev()) {
-      if (instruction.isArrayPut() && instruction.asArrayPut().array() == arrayValue) {
-        return false;
-      }
-    }
 
     // Ensure all blocks for users of the array are dominated by the last array-put's block.
     for (BasicBlock usageBlock : usageBlocks) {

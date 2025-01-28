@@ -167,6 +167,7 @@ public class ValueUtils {
    *  * An array-put is found after the last-index array-put.
    *  * An array-put is found where the array and value are the same: arr[index] = arr;
    *  * There are multiple array-put instructions for the same index.
+   *  * An array-put exists that does not dominate the array-put of the highest index.
    * </pre>
    */
   public static ArrayValues computeInitialArrayValues(NewArrayEmpty newArrayEmpty) {

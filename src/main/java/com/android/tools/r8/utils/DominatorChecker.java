@@ -56,12 +56,12 @@ public interface DominatorChecker {
       }
       // See if a block on the same linear path has already been checked.
       BasicBlock firstSplittingBlock = targetBlock;
-      if (firstSplittingBlock.hasUniqueSuccessor()) {
+      if (firstSplittingBlock.hasUniqueSuccessorWithUniquePredecessor()) {
         do {
           // knownDominators prevents firstSplittingBlock from being destBlock.
           assert firstSplittingBlock != subgraphExitBlock;
           firstSplittingBlock = firstSplittingBlock.getUniqueSuccessor();
-        } while (firstSplittingBlock.hasUniqueSuccessor());
+        } while (firstSplittingBlock.hasUniqueSuccessorWithUniquePredecessor());
 
         if (knownDominators.contains(firstSplittingBlock)) {
           knownDominators.add(targetBlock);
@@ -130,7 +130,7 @@ public interface DominatorChecker {
     // successors.
     Set<BasicBlock> headAndTailDominators = Sets.newIdentityHashSet();
     headAndTailDominators.add(subgraphEntryBlock);
-    while (subgraphEntryBlock.hasUniqueSuccessor()) {
+    while (subgraphEntryBlock.hasUniqueSuccessorWithUniquePredecessor()) {
       subgraphEntryBlock = subgraphEntryBlock.getUniqueSuccessor();
       if (!headAndTailDominators.add(subgraphEntryBlock)) {
         // Hit an infinite loop. Code would not verify in this case.
@@ -150,7 +150,7 @@ public interface DominatorChecker {
     // Shrink the subgraph by moving subgraphExitBlock back to the first block with multiple
     // predecessors.
     headAndTailDominators.add(subgraphExitBlock);
-    while (subgraphExitBlock.hasUniquePredecessor()) {
+    while (subgraphExitBlock.hasUniquePredecessorWithUniqueSuccessor()) {
       subgraphExitBlock = subgraphExitBlock.getUniquePredecessor();
       if (!headAndTailDominators.add(subgraphExitBlock)) {
         if (subgraphEntryBlock == subgraphExitBlock) {
