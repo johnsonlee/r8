@@ -53,9 +53,7 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
   private static final Set<String> ALLOWED_MISSING_HOLDER = ImmutableSet.of("sun.misc.Unsafe");
   private static final Set<String> ALLOWED_MISSING_METHOD =
       ImmutableSet.of(
-          // The takeWhile/dropWhile methods are present in the wrappers but not yet present on
-          // android.jar
-          // leading to NoSuchMethod errors, yet, we keep them for subsequent android versions.
+          // The takeWhile, dropWhile and toList methods are present in the wrappers and from 34.
           "java.util.stream.IntStream"
               + " java.util.stream.IntStream.dropWhile(java.util.function.IntPredicate)",
           "java.util.stream.Stream java.util.stream.Stream.takeWhile(java.util.function.Predicate)",
@@ -70,6 +68,7 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
               + " java.util.stream.LongStream.takeWhile(java.util.function.LongPredicate)",
           "java.util.stream.DoubleStream"
               + " java.util.stream.DoubleStream.dropWhile(java.util.function.DoublePredicate)",
+          "java.util.List java.util.stream.Stream.toList()",
           // FileStore.getBlockSize() was added in 33 which confuses the required library (30).
           "long java.nio.file.FileStore.getBlockSize()",
           // The call is present but unreachable above 26.
