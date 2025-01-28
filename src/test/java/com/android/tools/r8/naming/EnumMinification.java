@@ -17,6 +17,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.enumunboxing.EnumUnboxingTestBase.EnumKeepRules;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
@@ -50,6 +51,7 @@ public class EnumMinification extends TestBase {
         .addProgramClassFileData(enumClassFile)
         .addKeepMainRule(mainClass)
         .addKeepRules("-neverinline enum * extends java.lang.Enum { valueOf(...); }")
+        .addKeepRules(EnumKeepRules.STUDIO.getKeepRules())
         .enableProguardTestOptions()
         .setMinApi(parameters)
         .compile();
