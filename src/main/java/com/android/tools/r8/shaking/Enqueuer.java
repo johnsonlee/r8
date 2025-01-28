@@ -1120,9 +1120,9 @@ public class Enqueuer {
   public boolean registerFieldAccess(
       DexField field, ProgramMethod context, FieldAccessKind accessKind) {
     if (accessKind.isRead()) {
-      registerFieldRead(field, context);
+      return registerFieldRead(field, context);
     } else {
-      registerFieldWrite(field, context);
+      return registerFieldWrite(field, context);
     }
   }
 
