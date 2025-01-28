@@ -7,6 +7,7 @@ package com.android.tools.r8.graph;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AbstractAccessContexts.ConcreteAccessContexts;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
@@ -263,6 +264,14 @@ public class FieldAccessInfoImpl implements FieldAccessInfo {
   @Override
   public boolean isReadFromMethodHandle() {
     return (flags & FLAG_IS_READ_FROM_METHOD_HANDLE) != 0;
+  }
+
+  public void setAccessedFromMethodHandle(FieldAccessKind accessKind) {
+    if (accessKind.isRead()) {
+      setReadFromMethodHandle();
+    } else {
+      setWrittenFromMethodHandle();
+    }
   }
 
   public void setReadFromMethodHandle() {

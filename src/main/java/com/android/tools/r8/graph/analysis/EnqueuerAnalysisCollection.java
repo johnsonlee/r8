@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph.analysis;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.ClasspathOrLibraryClass;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
@@ -18,6 +19,7 @@ import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.Timing;
@@ -152,6 +154,30 @@ public final class EnqueuerAnalysisCollection {
     }
   }
 
+  public void traceFieldAccess(
+      DexField field,
+      SingleFieldResolutionResult<?> resolutionResult,
+      ProgramMethod context,
+      EnqueuerWorklist worklist,
+      FieldAccessKind accessKind) {
+    switch (accessKind) {
+      case INSTANCE_READ:
+        traceInstanceFieldRead(field, resolutionResult, context, worklist);
+        break;
+      case INSTANCE_WRITE:
+        traceInstanceFieldWrite(field, resolutionResult, context, worklist);
+        break;
+      case STATIC_READ:
+        traceStaticFieldRead(field, resolutionResult, context, worklist);
+        break;
+      case STATIC_WRITE:
+        traceStaticFieldWrite(field, resolutionResult, context, worklist);
+        break;
+      default:
+        throw new Unreachable();
+    }
+  }
+
   public void traceInstanceFieldRead(
       DexField field,
       FieldResolutionResult resolutionResult,
@@ -164,7 +190,7 @@ public final class EnqueuerAnalysisCollection {
 
   public void traceInstanceFieldWrite(
       DexField field,
-      FieldResolutionResult resolutionResult,
+      SingleFieldResolutionResult<?> resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {
     for (TraceFieldAccessEnqueuerAnalysis analysis : fieldAccessAnalyses) {
@@ -184,7 +210,7 @@ public final class EnqueuerAnalysisCollection {
 
   public void traceStaticFieldWrite(
       DexField field,
-      FieldResolutionResult resolutionResult,
+      SingleFieldResolutionResult<?> resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {
     for (TraceFieldAccessEnqueuerAnalysis analysis : fieldAccessAnalyses) {
