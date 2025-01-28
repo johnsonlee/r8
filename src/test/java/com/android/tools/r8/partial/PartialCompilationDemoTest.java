@@ -37,7 +37,7 @@ import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Predicate;
+import java.util.function.Consumer;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -146,28 +146,33 @@ public class PartialCompilationDemoTest extends TestBase {
     Path tempDir = temp.newFolder().toPath();
 
     // Different sets of namespaces to shrink.
-    ImmutableMap<String, Predicate<String>> splits =
+    ImmutableMap<String, Consumer<R8PartialCompilationConfiguration.Builder>> splits =
         ImmutableMap.of(
-            "androidx", name -> name.startsWith("androidx."),
+            "androidx", configuration -> configuration.addJavaTypeIncludePattern("androidx.**"),
             "androidx_kotlin_and_kotlinx",
-                name ->
-                    name.startsWith("androidx.")
-                        || name.startsWith("kotlin.")
-                        || name.startsWith("kotlinx."),
+                configuration ->
+                    configuration
+                        .addJavaTypeIncludePattern("androidx.**")
+                        .addJavaTypeIncludePattern("kotlin.**")
+                        .addJavaTypeIncludePattern("kotlinx.**"),
             "more_libraries",
-                name ->
-                    name.startsWith("androidx.")
-                        || name.startsWith("kotlin.")
-                        || name.startsWith("kotlinx.")
-                        || name.startsWith("android.support.")
-                        || name.startsWith("io.ktor.")
-                        || name.startsWith("com.google.android.gms.")
-                        || name.startsWith("com.google.firebase."),
-            "all_but_app namespace", name -> !name.startsWith(appNamespace + "."));
+                configuration ->
+                    configuration
+                        .addJavaTypeIncludePattern("androidx.**")
+                        .addJavaTypeIncludePattern("kotlin.**")
+                        .addJavaTypeIncludePattern("kotlinx.**")
+                        .addJavaTypeIncludePattern("android.support.**")
+                        .addJavaTypeIncludePattern("io.ktor.**")
+                        .addJavaTypeIncludePattern("com.google.android.gms.**")
+                        .addJavaTypeIncludePattern("com.google.firebase.**"),
+            "all_but_app_namespace",
+                configuration ->
+                    configuration.includeAll().addJavaTypeExcludePattern(appNamespace + ".**"));
 
     // Compile with each set of namespaces to shrink and collect DEX size.
     Map<String, Pair<Long, Long>> dexSize = new LinkedHashMap<>();
-    for (Entry<String, Predicate<String>> entry : splits.entrySet()) {
+    for (Entry<String, Consumer<R8PartialCompilationConfiguration.Builder>> entry :
+        splits.entrySet()) {
       long size = runR8PartialAndL8(tempDir, dump, entry.getKey(), entry.getValue());
       dexSize.put(entry.getKey(), new Pair<>(size, 0L));
     }
@@ -205,11 +210,15 @@ public class PartialCompilationDemoTest extends TestBase {
   }
 
   private long runR8PartialAndL8(
-      Path tempDir, CompilerDump dump, String name, Predicate<String> isR8) throws Exception {
+      Path tempDir,
+      CompilerDump dump,
+      String name,
+      Consumer<R8PartialCompilationConfiguration.Builder> partialConfiguration)
+      throws Exception {
     Path tmp = tempDir.resolve(name);
     Files.createDirectory(tmp);
     Path output = tmp.resolve("tivix8.zip");
-    runR8Partial(tempDir, dump, output, isR8);
+    runR8Partial(tempDir, dump, output, partialConfiguration);
     Path l8Output = tmp.resolve("tivix8l8.zip");
     runL8(tmp, dump, output, l8Output);
     Box<Long> size = new Box<>(0L);
@@ -226,14 +235,16 @@ public class PartialCompilationDemoTest extends TestBase {
     return size.get();
   }
 
-  private void runR8Partial(Path tempDir, CompilerDump dump, Path output, Predicate<String> isR8)
+  private void runR8Partial(
+      Path tempDir,
+      CompilerDump dump,
+      Path output,
+      Consumer<R8PartialCompilationConfiguration.Builder> partialConfiguration)
       throws IOException, CompilationFailedException {
     testForR8Partial(parameters.getBackend())
-        .setR8PartialConfigurationJavaTypePredicate(isR8)
+        .setR8PartialConfiguration(partialConfiguration)
         .addOptionsModification(
             options -> {
-              options.partialCompilationConfiguration.setTempDir(tempDir);
-
               // For compiling nowonandroid.
               options.testing.allowUnnecessaryDontWarnWildcards = true;
               options.testing.allowUnusedDontWarnRules = true;

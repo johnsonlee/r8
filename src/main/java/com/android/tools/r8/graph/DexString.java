@@ -273,13 +273,23 @@ public class DexString extends IndexedDexItem
   }
 
   private String decode() throws UTFDataFormatException {
+    return decodeFromMutf8(content, javaLangStringLength);
+  }
+
+  public int decodePrefix(char[] out) throws UTFDataFormatException {
+    return decodePrefixFromMutf8(content, out);
+  }
+
+  public static String decodeFromMutf8(byte[] content, int javaLangStringLength)
+      throws UTFDataFormatException {
     char[] out = new char[javaLangStringLength];
-    int decodedLength = decodePrefix(out);
+    int decodedLength = decodePrefixFromMutf8(content, out);
     return new String(out, 0, decodedLength);
   }
 
   // Inspired from /dex/src/main/java/com/android/dex/Mutf8.java
-  public int decodePrefix(char[] out) throws UTFDataFormatException {
+  public static int decodePrefixFromMutf8(byte[] content, char[] out)
+      throws UTFDataFormatException {
     int s = 0;
     int p = 0;
     int prefixLength = out.length;
@@ -354,11 +364,11 @@ public class DexString extends IndexedDexItem
     return h;
   }
 
-  private UTFDataFormatException badByteException(int a) {
+  private static UTFDataFormatException badByteException(int a) {
     return new UTFDataFormatException("bad byte: " + Integer.toHexString((char) (a & 0xff)) + ")");
   }
 
-  private UTFDataFormatException badSecondByteException(int a, int b) {
+  private static UTFDataFormatException badSecondByteException(int a, int b) {
     return new UTFDataFormatException(
         "bad second byte (first: "
             + Integer.toHexString((char) (a & 0xff))
@@ -367,7 +377,7 @@ public class DexString extends IndexedDexItem
             + ")");
   }
 
-  private UTFDataFormatException badSecondOrThirdByteException(int a, int b, int c) {
+  private static UTFDataFormatException badSecondOrThirdByteException(int a, int b, int c) {
     return new UTFDataFormatException(
         "bad second or third byte (first: "
             + Integer.toHexString((char) (a & 0xff))

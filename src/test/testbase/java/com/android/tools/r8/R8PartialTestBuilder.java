@@ -66,15 +66,6 @@ public class R8PartialTestBuilder
     return this;
   }
 
-  public R8PartialTestBuilder setR8PartialConfigurationJavaTypePredicate(
-      Predicate<String> include) {
-    assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
-        : "Overwriting configuration...?";
-    r8PartialConfiguration =
-        R8PartialCompilationConfiguration.builder().includeJavaType(include).build();
-    return self();
-  }
-
   public R8PartialTestBuilder setR8PartialConfiguration(
       Consumer<R8PartialCompilationConfiguration.Builder> consumer) {
     assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())
