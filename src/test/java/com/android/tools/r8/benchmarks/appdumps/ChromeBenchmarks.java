@@ -6,8 +6,10 @@ package com.android.tools.r8.benchmarks.appdumps;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.R8PartialTestCompileResult;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.Version;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
 import com.android.tools.r8.benchmarks.BenchmarkConfig;
 import com.android.tools.r8.utils.LibraryProvidedProguardRulesTestUtils;
@@ -74,7 +76,12 @@ public class ChromeBenchmarks extends BenchmarkBase {
     compileResult.inspectDiagnosticMessages(
         diagnostics ->
             diagnostics
-                .assertWarningsMatch(LibraryProvidedProguardRulesTestUtils.getDiagnosticMatcher())
+                .applyIf(
+                    Version.isMainVersion(),
+                    d ->
+                        d.assertWarningsMatch(
+                            LibraryProvidedProguardRulesTestUtils.getDiagnosticMatcher()),
+                    TestDiagnosticMessages::assertNoWarnings)
                 .assertNoErrors());
   }
 
