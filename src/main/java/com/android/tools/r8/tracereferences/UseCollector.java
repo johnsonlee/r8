@@ -49,8 +49,8 @@ import com.android.tools.r8.tracereferences.internal.TracedMethodImpl;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -67,9 +67,9 @@ public class UseCollector {
   private final DiagnosticsHandler diagnostics;
   private final Predicate<DexType> targetPredicate;
 
-  private final Set<ClassReference> missingClasses = new HashSet<>();
-  private final Set<FieldReference> missingFields = new HashSet<>();
-  private final Set<MethodReference> missingMethods = new HashSet<>();
+  private final Set<ClassReference> missingClasses = ConcurrentHashMap.newKeySet();
+  private final Set<FieldReference> missingFields = ConcurrentHashMap.newKeySet();
+  private final Set<MethodReference> missingMethods = ConcurrentHashMap.newKeySet();
 
   public final DexString dalvikAnnotationCodegenPrefix;
 
