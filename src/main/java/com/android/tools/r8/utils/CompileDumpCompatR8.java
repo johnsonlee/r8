@@ -13,9 +13,12 @@ import com.android.tools.r8.R8;
 import com.android.tools.r8.R8Command;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.utils.compiledump.CompilerCommandDumpUtils;
+import com.android.tools.r8.utils.compiledump.R8PartialDumpUtils;
 import com.android.tools.r8.utils.compiledump.ResourceShrinkerDumpUtils;
 import com.android.tools.r8.utils.compiledump.StartupProfileDumpUtils;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -65,6 +68,8 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           "--pg-map-output",
           "--desugared-lib",
           "--desugared-lib-pg-conf-output",
+          "--partial-include",
+          "--partial-exclude",
           "--threads",
           "--startup-profile");
 
@@ -99,12 +104,14 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
   }
 
   @SuppressWarnings({"StringSplitter", "BadImport"})
-  public static void main(String[] args) throws CompilationFailedException {
+  public static void main(String[] args) throws CompilationFailedException, IOException {
     boolean isCompatMode = false;
     OutputMode outputMode = OutputMode.DexIndexed;
     Path outputPath = null;
     Path pgMapOutput = null;
     Path desugaredLibJson = null;
+    Path partialIncludeFile = null;
+    Path partialExcludeFile = null;
     StringConsumer desugaredLibKeepRuleConsumer = null;
     CompilationMode compilationMode = CompilationMode.RELEASE;
     List<Path> program = new ArrayList<>();
@@ -203,6 +210,16 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
           case "--desugared-lib-pg-conf-output":
             {
               desugaredLibKeepRuleConsumer = new StringConsumer.FileConsumer(Paths.get(operand));
+              break;
+            }
+          case "--partial-include":
+            {
+              partialIncludeFile = Paths.get(operand);
+              break;
+            }
+          case "--partial-exclude":
+            {
+              partialExcludeFile = Paths.get(operand);
               break;
             }
           case "--threads":
@@ -341,6 +358,15 @@ public class CompileDumpCompatR8 extends CompileDumpBase {
                 }));
     if (pgMapOutput != null) {
       commandBuilder.setProguardMapOutputPath(pgMapOutput);
+    }
+    if (partialIncludeFile != null) {
+      String includePatterns = String.join(",", Files.readAllLines(partialIncludeFile));
+      String excludePatterns =
+          partialExcludeFile != null
+              ? String.join(",", Files.readAllLines(partialExcludeFile))
+              : null;
+      R8PartialDumpUtils.enableExperimentalPartialShrinking(
+          commandBuilder, includePatterns, excludePatterns);
     }
     R8Command command = commandBuilder.build();
     if (threads != -1) {

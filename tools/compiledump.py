@@ -262,6 +262,12 @@ class Dump(object):
     def config_file(self):
         return self.if_exists('proguard.config')
 
+    def r8_include_file(self):
+        return self.if_exists('r8-include.txt')
+
+    def r8_exclude_file(self):
+        return self.if_exists('r8-exclude.txt')
+
     def version_file(self):
         return self.if_exists('r8-version')
 
@@ -327,8 +333,10 @@ def determine_compiler(args, build_properties):
                     " No value for 'force-proguard-compatibility'.")
             if build_properties.get(
                     'force-proguard-compatibility').lower() == 'false':
-                compiler = compiler + 'full'
-        if compiler == 'TraceReferences':
+                compiler = 'r8full'
+        elif compiler == 'r8partial':
+            compiler = 'r8full'
+        elif compiler == 'TraceReferences':
             compiler = build_properties.get('tool').lower()
     if compiler not in compilers:
         error("Unable to determine a compiler to use. Specified %s,"
@@ -652,11 +660,20 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.append('com.android.tools.r8.tracereferences.TraceReferences')
             cmd.extend(
                 determine_trace_references_commands(build_properties, out))
-        if compiler.startswith('r8'):
+        if is_r8_compiler('r8'):
             prepare_r8_wrapper(jar, temp, jdkhome)
             cmd.append('com.android.tools.r8.utils.CompileDumpCompatR8')
-        if compiler == 'r8':
-            cmd.append('--compat')
+            if compiler == 'r8':
+                cmd.append('--compat')
+            elif compiler == 'r8full':
+                r8_partial_include_file = dump.r8_include_file()
+                if r8_partial_include_file:
+                    cmd.append('--partial-include')
+                    cmd.append(r8_partial_include_file)
+                    r8_partial_exclude_file = dump.r8_exclude_file()
+                    if r8_partial_exclude_file:
+                        cmd.append('--partial-exclude')
+                        cmd.append(r8_partial_exclude_file)
         if compiler != 'tracereferences':
             assert mode == 'debug' or mode == 'release'
             cmd.append('--' + mode)
