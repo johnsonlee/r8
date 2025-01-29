@@ -121,7 +121,7 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
   public static boolean shouldEnable(
       AppView<? extends AppInfoWithClassHierarchy> appView, SubtypingInfo subtypingInfo) {
     TestingOptions opts = appView.options().testing;
-    if (!appView.hasLiveness() || !opts.listIterationRewritingEnabled) {
+    if (!appView.hasLiveness()) {
       return false;
     }
     if (opts.listIterationRewritingRewriteCustomIterators) {

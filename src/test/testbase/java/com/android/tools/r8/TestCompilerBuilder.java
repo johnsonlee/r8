@@ -71,7 +71,6 @@ public abstract class TestCompilerBuilder<
           options -> {
             options.testing.allowUnusedDontWarnRules = false;
             options.testing.allowUnnecessaryDontWarnWildcards = false;
-            options.testing.listIterationRewritingEnabled = true;
             options.horizontalClassMergerOptions().enable();
             options.horizontalClassMergerOptions().setEnableInterfaceMerging();
             options.inlinerOptions().enableConstructorInliningWithFinalFields = true;
