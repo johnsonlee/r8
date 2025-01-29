@@ -499,6 +499,7 @@ public class AndroidApp {
     return programResourcesMainDescriptor.get(resource);
   }
 
+  @SuppressWarnings("UnusedVariable")
   public void dump(Path output, DumpOptions dumpOptions, InternalOptions options) {
     OpenOption[] openOptions =
         new OpenOption[] {StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING};
