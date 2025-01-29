@@ -30,6 +30,7 @@ import com.android.tools.r8.naming.mappinginformation.ResidualSignatureMappingIn
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.CfLineToMethodMapper;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OriginalSourceFiles;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.positions.MappedPositionToClassNameMapperBuilder.MappedPositionToClassNamingBuilder;
@@ -119,65 +120,92 @@ public class LineNumberOptimizer {
 
     // Collect which files contain which classes that need to have their line numbers optimized.
     for (DexProgramClass clazz : appView.appInfo().classes()) {
-      IdentityHashMap<DexString, List<ProgramMethod>> methodsByRenamedName =
-          groupMethodsByRenamedName(appView, clazz);
-
-      MappedPositionToClassNamingBuilder classNamingBuilder = builder.addClassNaming(clazz);
-
-      // Process methods ordered by renamed name.
-      List<DexString> renamedMethodNames = new ArrayList<>(methodsByRenamedName.keySet());
-      renamedMethodNames.sort(DexString::compareTo);
-      for (DexString methodName : renamedMethodNames) {
-        List<ProgramMethod> methods = methodsByRenamedName.get(methodName);
-        if (methods.size() > 1) {
-          // If there are multiple methods with the same name (overloaded) then sort them for
-          // deterministic behaviour: the algorithm will assign new line numbers in this order.
-          // Methods with different names can share the same line numbers, that's why they don't
-          // need to be sorted.
-          // If we are compiling to DEX we will try to not generate overloaded names. This saves
-          // space by allowing more debug-information to be canonicalized. If we have overloaded
-          // methods, we either did not rename them, we renamed them according to a supplied map or
-          // they may be bridges for interface methods with covariant return types.
-          sortMethods(methods);
-          assert verifyMethodsAreKeptDirectlyOrIndirectly(appView, methods);
-        }
-
-        PositionRemapper positionRemapper =
-            PositionRemapper.getPositionRemapper(appView, cfLineToMethodMapper);
-
-        for (ProgramMethod method : methods) {
-          DexEncodedMethod definition = method.getDefinition();
-          if (methodName == method.getName()
-              && !mustHaveResidualDebugInfo(appView.options(), definition)
-              && !definition.isD8R8Synthesized()
-              && methods.size() <= 1) {
-            continue;
-          }
-          positionRemapper.setCurrentMethod(definition);
-          List<MappedPosition> mappedPositions;
-          int pcEncodingCutoff =
-              methods.size() == 1 ? representation.getDexPcEncodingCutoff(method) : -1;
-          boolean canUseDexPc = pcEncodingCutoff > 0;
-          if (definition.getCode() != null
-              && (definition.getCode().isCfCode() || definition.getCode().isDexCode())
-              && !appView.isCfByteCodePassThrough(method)) {
-            mappedPositions =
-                positionToMappedRangeMapper.getMappedPositions(
-                    method, positionRemapper, methods.size() > 1, canUseDexPc, pcEncodingCutoff);
-          } else {
-            mappedPositions = new ArrayList<>();
-          }
-
-          classNamingBuilder.addMappedPositions(
-              method, mappedPositions, positionRemapper, canUseDexPc);
-        } // for each method of the group
-      } // for each method group, grouped by name
-    } // for each class
+      if (shouldRun(clazz, appView)) {
+        run(
+            clazz,
+            appView,
+            representation,
+            builder,
+            cfLineToMethodMapper,
+            positionToMappedRangeMapper);
+      }
+    }
 
     // Update all the debug-info objects.
     positionToMappedRangeMapper.updateDebugInfoInCodeObjects();
 
     return builder.build();
+  }
+
+  private static boolean shouldRun(DexProgramClass clazz, AppView<?> appView) {
+    InternalOptions options = appView.options();
+    if (options.partialSubCompilationConfiguration == null) {
+      return true;
+    } else {
+      return !options.partialSubCompilationConfiguration.asR8().hasD8DefinitionFor(clazz.getType());
+    }
+  }
+
+  private static void run(
+      DexProgramClass clazz,
+      AppView<?> appView,
+      DebugRepresentationPredicate representation,
+      MappedPositionToClassNameMapperBuilder builder,
+      CfLineToMethodMapper cfLineToMethodMapper,
+      PositionToMappedRangeMapper positionToMappedRangeMapper) {
+    IdentityHashMap<DexString, List<ProgramMethod>> methodsByRenamedName =
+        groupMethodsByRenamedName(appView, clazz);
+
+    MappedPositionToClassNamingBuilder classNamingBuilder = builder.addClassNaming(clazz);
+
+    // Process methods ordered by renamed name.
+    List<DexString> renamedMethodNames = new ArrayList<>(methodsByRenamedName.keySet());
+    renamedMethodNames.sort(DexString::compareTo);
+    for (DexString methodName : renamedMethodNames) {
+      List<ProgramMethod> methods = methodsByRenamedName.get(methodName);
+      if (methods.size() > 1) {
+        // If there are multiple methods with the same name (overloaded) then sort them for
+        // deterministic behaviour: the algorithm will assign new line numbers in this order.
+        // Methods with different names can share the same line numbers, that's why they don't
+        // need to be sorted.
+        // If we are compiling to DEX we will try to not generate overloaded names. This saves
+        // space by allowing more debug-information to be canonicalized. If we have overloaded
+        // methods, we either did not rename them, we renamed them according to a supplied map or
+        // they may be bridges for interface methods with covariant return types.
+        sortMethods(methods);
+        assert verifyMethodsAreKeptDirectlyOrIndirectly(appView, methods);
+      }
+
+      PositionRemapper positionRemapper =
+          PositionRemapper.getPositionRemapper(appView, cfLineToMethodMapper);
+
+      for (ProgramMethod method : methods) {
+        DexEncodedMethod definition = method.getDefinition();
+        if (methodName == method.getName()
+            && !mustHaveResidualDebugInfo(appView.options(), definition)
+            && !definition.isD8R8Synthesized()
+            && methods.size() <= 1) {
+          continue;
+        }
+        positionRemapper.setCurrentMethod(definition);
+        List<MappedPosition> mappedPositions;
+        int pcEncodingCutoff =
+            methods.size() == 1 ? representation.getDexPcEncodingCutoff(method) : -1;
+        boolean canUseDexPc = pcEncodingCutoff > 0;
+        if (definition.getCode() != null
+            && (definition.getCode().isCfCode() || definition.getCode().isDexCode())
+            && !appView.isCfByteCodePassThrough(method)) {
+          mappedPositions =
+              positionToMappedRangeMapper.getMappedPositions(
+                  method, positionRemapper, methods.size() > 1, canUseDexPc, pcEncodingCutoff);
+        } else {
+          mappedPositions = new ArrayList<>();
+        }
+
+        classNamingBuilder.addMappedPositions(
+            method, mappedPositions, positionRemapper, canUseDexPc);
+      } // for each method of the group
+    } // for each method group, grouped by name
   }
 
   @SuppressWarnings("ComplexBooleanConstant")

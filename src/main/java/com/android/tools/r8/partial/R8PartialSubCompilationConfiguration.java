@@ -218,7 +218,6 @@ public abstract class R8PartialSubCompilationConfiguration {
               .build();
       appView.rebuildAppInfo(newApp);
       assert amendMissingClasses(appView);
-      dexingOutputClasses = null;
     }
 
     public boolean hasD8DefinitionFor(DexReference reference) {
@@ -229,6 +228,10 @@ public abstract class R8PartialSubCompilationConfiguration {
         DexProgramClass holder = dexingOutputClasses.get(member.getHolderType());
         return member.isDefinedOnClass(holder);
       }
+    }
+
+    public boolean isD8Definition(ProgramDefinition definition) {
+      return hasD8DefinitionFor(definition.getReference());
     }
 
     private boolean amendMissingClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {

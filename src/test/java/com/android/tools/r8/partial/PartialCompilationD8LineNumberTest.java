@@ -4,8 +4,10 @@
 package com.android.tools.r8.partial;
 
 import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.TestBase;
@@ -13,6 +15,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.naming.retrace.StackTrace;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,18 +63,32 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
             .addR8ExcludedClasses(ExcludedClass.class)
             .addKeepMainRule(IncludedClass.class)
             .setMinApi(parameters)
-            .compile();
+            .compile()
+            .inspect(
+                inspector -> {
+                  ClassSubject includedClass = inspector.clazz(IncludedClass.class);
+                  assertThat(includedClass, isPresent());
+                  assertEquals(
+                      "SourceFile", includedClass.getDexProgramClass().getSourceFile().toString());
+
+                  ClassSubject excludedClass = inspector.clazz(ExcludedClass.class);
+                  assertThat(excludedClass, isPresent());
+                  assertEquals(
+                      "PartialCompilationD8LineNumberTest.java",
+                      excludedClass.getDexProgramClass().getSourceFile().toString());
+                });
 
     compileResult
         .run(parameters.getRuntime(), ExcludedClass.class)
         .assertFailureWithErrorThatThrows(RuntimeException.class)
-        // TODO(b/392580127): Should be same.
         .inspectOriginalStackTrace(
-            stackTrace -> assertThat(stackTrace, not(isSame(expectedD8StackTrace))));
+            stackTrace -> assertThat(stackTrace, isSame(expectedD8StackTrace)));
 
     compileResult
         .run(parameters.getRuntime(), IncludedClass.class)
         .assertFailureWithErrorThatThrows(RuntimeException.class)
+        .inspectOriginalStackTrace(
+            stackTrace -> assertThat(stackTrace, not(isSame(expectedD8StackTrace))))
         .inspectStackTrace(stackTrace -> assertThat(stackTrace, isSame(expectedR8StackTrace)));
   }
 

@@ -213,6 +213,12 @@ public abstract class DexClass extends DexDefinition
     this.sourceFile = sourceFile;
   }
 
+  public DexString getAndClearSourceFile() {
+    DexString sourceFile = getSourceFile();
+    setSourceFile(null);
+    return sourceFile;
+  }
+
   public Iterable<DexClassAndField> classFields() {
     return Iterables.transform(fields(), field -> DexClassAndField.create(this, field));
   }
