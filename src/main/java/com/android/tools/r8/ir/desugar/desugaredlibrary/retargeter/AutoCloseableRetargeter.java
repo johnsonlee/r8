@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterHelper.createCloseMethod;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterHelper.lookupSuperIncludingInterfaces;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
@@ -125,12 +126,10 @@ public class AutoCloseableRetargeter implements CfInstructionDesugaring {
   private DesugarDescription computeNewTarget(
       DexMethod singleTarget, boolean superInvoke, ProgramMethod context) {
     if (superInvoke) {
-      DexClassAndMethod dexClassAndMethod =
-          appView
-              .appInfoForDesugaring()
-              .lookupSuperTarget(singleTarget, context, appView, appView.appInfoForDesugaring());
-      if (dexClassAndMethod != null && dexClassAndMethod.isLibraryMethod()) {
-        DexType holderType = dexClassAndMethod.getHolderType();
+      DexClassAndMethod superMethod =
+          lookupSuperIncludingInterfaces(appView, singleTarget, context.getContextClass());
+      if (superMethod != null && superMethod.isLibraryMethod()) {
+        DexType holderType = superMethod.getHolderType();
         if (data.superTargetsToRewrite().contains(holderType)) {
           return createWithTarget(
               singleTarget,

@@ -74,7 +74,6 @@ public class GlobalSyntheticsGenerator {
     for (SyntheticKind kind : naming.kinds()) {
       assert !kind.isGlobal()
           || !kind.isMayOverridesNonProgramType()
-          || kind.equals(naming.AUTOCLOSEABLE_TAG)
           || kind.equals(naming.RECORD_TAG)
           || kind.equals(naming.API_MODEL_STUB)
           || kind.equals(naming.METHOD_HANDLES_LOOKUP)

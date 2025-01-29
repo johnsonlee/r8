@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterHelper.lookupSuperIncludingInterfaces;
+
 import com.android.tools.r8.contexts.CompilationContext.MainThreadContext;
 import com.android.tools.r8.contexts.CompilationContext.ProcessorContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -169,11 +171,7 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     // In desugared library, emulated interface methods can be overridden by retarget lib members.
     AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
     assert clazz.lookupVirtualMethod(target) == null;
-    DexClassAndMethod superMethod =
-        appInfoForDesugaring.lookupSuperTarget(target, clazz, appView, appInfoForDesugaring);
-    if (superMethod == null) {
-      superMethod = appInfoForDesugaring.lookupMaximallySpecificMethod(clazz, target);
-    }
+    DexClassAndMethod superMethod = lookupSuperIncludingInterfaces(appView, target, clazz);
     if (superMethod == null
         || !data.superTargetsToRewrite().contains(superMethod.getHolderType())) {
       return null;

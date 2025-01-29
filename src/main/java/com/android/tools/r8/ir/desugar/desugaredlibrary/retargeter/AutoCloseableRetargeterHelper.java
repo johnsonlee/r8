@@ -7,8 +7,10 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
@@ -171,7 +173,7 @@ public class AutoCloseableRetargeterHelper {
         appView
             .getSyntheticItems()
             .createMethod(
-                kinds -> kinds.AUTOCLOSEABLE_DISPATCHER,
+                kinds -> kinds.AUTOCLOSEABLE_FORWARDER,
                 contextSupplier.get(),
                 appView,
                 methodBuilder ->
@@ -197,7 +199,7 @@ public class AutoCloseableRetargeterHelper {
         appView
             .getSyntheticItems()
             .createMethod(
-                kinds -> kinds.AUTOCLOSEABLE_DISPATCHER,
+                kinds -> kinds.THROW_IAE,
                 contextSupplier.get(),
                 appView,
                 methodBuilder ->
@@ -214,5 +216,19 @@ public class AutoCloseableRetargeterHelper {
                                     .generateCfCode()));
     eventConsumer.acceptAutoCloseableDispatchMethod(method, context);
     return method;
+  }
+
+  static DexClassAndMethod lookupSuperIncludingInterfaces(
+      AppView<?> appView, DexMethod target, DexProgramClass context) {
+    DexClassAndMethod superMethod =
+        appView
+            .appInfoForDesugaring()
+            .lookupSuperTarget(target, context, appView, appView.appInfoForDesugaring());
+    if (superMethod != null) {
+      return superMethod;
+    }
+    return appView
+        .appInfoForDesugaring()
+        .lookupMaximallySpecificMethod(context.getContextClass(), target);
   }
 }
