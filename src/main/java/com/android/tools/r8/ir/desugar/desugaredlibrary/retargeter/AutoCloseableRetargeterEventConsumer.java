@@ -4,14 +4,20 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface AutoCloseableRetargeterEventConsumer {
 
-  void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag);
+  void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context);
 
-  void acceptAutoCloseableTagContext(DexProgramClass autoCloseableTag, ProgramMethod context);
+  interface AutoCloseableRetargeterPostProcessingEventConsumer
+      extends AutoCloseableRetargeterEventConsumer {
 
-  void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramMethod context);
+    void acceptAutoCloseableForwardingMethod(ProgramMethod method, ProgramDefinition context);
+
+    void acceptAutoCloseableInterfaceInjection(DexProgramClass clazz, DexClass newInterface);
+  }
 }

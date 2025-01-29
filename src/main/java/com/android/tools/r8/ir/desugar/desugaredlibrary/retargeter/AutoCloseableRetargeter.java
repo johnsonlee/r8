@@ -8,29 +8,26 @@ import static com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCl
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfStackInstruction;
+import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
-import com.android.tools.r8.dex.Constants;
-import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
-import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
-import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider.EmulateDispatchType;
-import com.google.common.collect.ImmutableList;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
@@ -52,7 +49,6 @@ public class AutoCloseableRetargeter implements CfInstructionDesugaring {
       MethodProcessingContext methodProcessingContext,
       AutoCloseableRetargeterEventConsumer eventConsumer) {
     DexItemFactory factory = appView.dexItemFactory();
-    ensureAutoCloseableInterfaceTag(ImmutableList.of(context), eventConsumer, appView);
     LinkedHashMap<DexType, DexMethod> dispatchCases =
         data.synthesizeDispatchCases(appView, context, eventConsumer, methodProcessingContext);
     ProgramMethod method =
@@ -70,55 +66,19 @@ public class AutoCloseableRetargeter implements CfInstructionDesugaring {
                             methodSig ->
                                 new EmulateDispatchSyntheticCfCodeProvider(
                                         methodSig.getHolderType(),
+                                        data.createThrowUnsupportedException(
+                                                appView,
+                                                context,
+                                                eventConsumer,
+                                                methodProcessingContext::createUniqueContext)
+                                            .getReference(),
                                         createCloseMethod(factory, factory.autoCloseableType),
-                                        createCloseMethod(factory, factory.autoCloseableTagType),
                                         dispatchCases,
                                         EmulateDispatchType.AUTO_CLOSEABLE,
                                         appView)
                                     .generateCfCode()));
     eventConsumer.acceptAutoCloseableDispatchMethod(method, context);
     return method.getReference();
-  }
-
-  public static DexType ensureAutoCloseableInterfaceTag(
-      Collection<? extends ProgramDefinition> contexts,
-      AutoCloseableRetargeterEventConsumer eventConsumer,
-      AppView<?> appView) {
-    return appView
-        .getSyntheticItems()
-        .ensureGlobalClass(
-            () -> new MissingGlobalSyntheticsConsumerDiagnostic("Autocloseable desugaring"),
-            kinds -> kinds.AUTOCLOSEABLE_TAG,
-            appView.dexItemFactory().autoCloseableTagType,
-            contexts,
-            appView,
-            builder ->
-                builder
-                    .setInterface()
-                    .setVirtualMethods(ImmutableList.of(synthesizeItfClose(appView))),
-            eventConsumer::acceptAutoCloseableTagProgramClass,
-            clazz -> {
-              for (ProgramDefinition context : contexts) {
-                if (context.isProgramMethod()) {
-                  eventConsumer.acceptAutoCloseableTagContext(clazz, context.asProgramMethod());
-                }
-              }
-            })
-        .getType();
-  }
-
-  private static DexEncodedMethod synthesizeItfClose(AppView<?> appView) {
-    MethodAccessFlags methodAccessFlags =
-        MethodAccessFlags.fromSharedAccessFlags(
-            Constants.ACC_SYNTHETIC | Constants.ACC_PUBLIC | Constants.ACC_ABSTRACT, false);
-    return DexEncodedMethod.syntheticBuilder()
-        .setMethod(
-            createCloseMethod(
-                appView.dexItemFactory(), appView.dexItemFactory().autoCloseableTagType))
-        .setAccessFlags(methodAccessFlags)
-        // Will be traced by the enqueuer.
-        .disableAndroidApiLevelCheck()
-        .build();
   }
 
   @Override
@@ -173,19 +133,26 @@ public class AutoCloseableRetargeter implements CfInstructionDesugaring {
         DexType holderType = dexClassAndMethod.getHolderType();
         if (data.superTargetsToRewrite().contains(holderType)) {
           return createWithTarget(
+              singleTarget,
               (eventConsumer, methodProcessingContext) ->
                   data.synthesizeDispatchCase(
-                      appView, holderType, context, eventConsumer, methodProcessingContext));
+                      appView,
+                      holderType,
+                      context,
+                      eventConsumer,
+                      methodProcessingContext::createUniqueContext));
         }
       }
       return DesugarDescription.nothing();
     }
     return createWithTarget(
+        singleTarget,
         (eventConsumer, methodProcessingContext) ->
             synthesizeDispatcher(context, methodProcessingContext, eventConsumer));
   }
 
   private DesugarDescription createWithTarget(
+      DexMethod target,
       BiFunction<CfInstructionDesugaringEventConsumer, MethodProcessingContext, DexMethod>
           methodProvider) {
     return DesugarDescription.builder()
@@ -203,8 +170,17 @@ public class AutoCloseableRetargeter implements CfInstructionDesugaring {
                   methodProvider.apply(eventConsumer, methodProcessingContext);
               assert appView.definitionFor(newInvokeTarget.getHolderType()) != null;
               assert !appView.definitionFor(newInvokeTarget.getHolderType()).isInterface();
-              return Collections.singletonList(
-                  new CfInvoke(Opcodes.INVOKESTATIC, newInvokeTarget, false));
+              List<CfInstruction> instructions = new ArrayList<>();
+              if (appView.getSyntheticItems().isSynthetic(newInvokeTarget.getHolderType())) {
+                instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, newInvokeTarget, false));
+              } else {
+                instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, newInvokeTarget, false));
+              }
+              if (target.getReturnType().isVoidType()
+                  && !newInvokeTarget.getReturnType().isVoidType()) {
+                instructions.add(new CfStackInstruction(Opcode.Pop));
+              }
+              return instructions;
             })
         .build();
   }

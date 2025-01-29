@@ -58,7 +58,6 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.StreamSupport;
 
 /**
  * Class that gets notified for structural changes made as a result of desugaring (e.g., the
@@ -262,20 +261,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag) {
-      assert StreamSupport.stream(autoCloseableTag.programMethods().spliterator(), false)
-          .allMatch(m -> m.getDefinition().isAbstract());
-      // Intentionally empty.
-    }
-
-    @Override
-    public void acceptAutoCloseableTagContext(
-        DexProgramClass autoCloseableTag, ProgramMethod context) {
-      // Intentionally empty.
-    }
-
-    @Override
-    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramMethod context) {
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
       methodProcessor.scheduleDesugaredMethodForProcessing(method);
     }
 
@@ -579,18 +565,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag) {
-      // Intentionally empty. The class will be hit by tracing if required.
-    }
-
-    @Override
-    public void acceptAutoCloseableTagContext(
-        DexProgramClass autoCloseableTag, ProgramMethod context) {
-      // Intentionally empty.
-    }
-
-    @Override
-    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramMethod context) {
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
       // Intentionally empty. The method will be hit by tracing if required.
     }
 

@@ -5,19 +5,23 @@
 package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
+import com.android.tools.r8.contexts.CompilationContext.UniqueContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.backports.BackportedMethods;
+import com.android.tools.r8.ir.synthetic.ThrowCfCodeProvider;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.google.common.collect.ImmutableSet;
 import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class AutoCloseableRetargeterHelper {
 
@@ -49,7 +53,7 @@ public class AutoCloseableRetargeterHelper {
   // We exclude android.media.MediaDrm which is final and rewritten by the backportedMethodRewriter.
   private Set<DexMethod> methodsToEmulate() {
     ImmutableSet.Builder<DexMethod> builder = ImmutableSet.builder();
-    forEachAutoCloseableSubimplementation(
+    forEachAutoCloseableMissingSubimplementation(
         type -> {
           if (!type.isIdenticalTo(factory.androidMediaMediaDrmType)) {
             builder.add(createCloseMethod(factory, type));
@@ -61,10 +65,20 @@ public class AutoCloseableRetargeterHelper {
 
   // This includes all library types which implements directly AutoCloseable#close() including
   // android.media.MediaDrm.
-  private void forEachAutoCloseableSubimplementation(Consumer<DexType> consumer) {
+  public static void forEachAutoCloseableMissingSubimplementation(
+      Consumer<DexType> consumer,
+      AndroidApiLevel minApiLevel,
+      DexItemFactory factory,
+      boolean withSubtypes) {
     if (minApiLevel.isLessThanOrEqualTo(AndroidApiLevel.V)) {
       consumer.accept(factory.javaUtilConcurrentExecutorServiceType);
       consumer.accept(factory.javaUtilConcurrentForkJoinPoolType);
+      if (withSubtypes) {
+        consumer.accept(factory.createType("Ljava/util/concurrent/ScheduledExecutorService;"));
+        consumer.accept(factory.createType("Ljava/util/concurrent/AbstractExecutorService;"));
+        consumer.accept(factory.createType("Ljava/util/concurrent/ThreadPoolExecutor;"));
+        consumer.accept(factory.createType("Ljava/util/concurrent/ScheduledThreadPoolExecutor;"));
+      }
     }
     if (minApiLevel.isLessThanOrEqualTo(AndroidApiLevel.R)) {
       consumer.accept(factory.androidContentResTypedArrayType);
@@ -81,6 +95,10 @@ public class AutoCloseableRetargeterHelper {
     }
   }
 
+  private void forEachAutoCloseableMissingSubimplementation(Consumer<DexType> consumer) {
+    forEachAutoCloseableMissingSubimplementation(consumer, minApiLevel, factory, false);
+  }
+
   // This includes all library types which implements directly AutoCloseable#close() including
   // android.media.MediaDrm, however, android.media.MediaDrm is final and rewritten if called
   // directly by the backported method rewriter.
@@ -90,7 +108,7 @@ public class AutoCloseableRetargeterHelper {
       AutoCloseableRetargeterEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
     LinkedHashMap<DexType, DexMethod> map = new LinkedHashMap<>();
-    forEachAutoCloseableSubimplementation(
+    forEachAutoCloseableMissingSubimplementation(
         type -> {
           // ForkJoinPool has an optimized version of ExecutorService.close. ForkJoinPool is not
           // present in 19 (added in 21) so R8 cannot use instanceof ForkJoinPool in the emulated
@@ -99,7 +117,11 @@ public class AutoCloseableRetargeterHelper {
             map.put(
                 type,
                 synthesizeDispatchCase(
-                    appView, type, context, eventConsumer, methodProcessingContext));
+                    appView,
+                    type,
+                    context,
+                    eventConsumer,
+                    methodProcessingContext::createUniqueContext));
           }
         });
     return map;
@@ -107,16 +129,16 @@ public class AutoCloseableRetargeterHelper {
 
   public Set<DexType> superTargetsToRewrite() {
     ImmutableSet.Builder<DexType> builder = ImmutableSet.builder();
-    forEachAutoCloseableSubimplementation(builder::add);
+    forEachAutoCloseableMissingSubimplementation(builder::add);
     return builder.build();
   }
 
   public DexMethod synthesizeDispatchCase(
       AppView<?> appView,
       DexType type,
-      ProgramMethod context,
+      ProgramDefinition context,
       AutoCloseableRetargeterEventConsumer eventConsumer,
-      MethodProcessingContext methodProcessingContext) {
+      Supplier<UniqueContext> contextSupplier) {
     assert superTargetsToRewrite().contains(type);
     if (type.isIdenticalTo(factory.javaUtilConcurrentExecutorServiceType)
         || type.isIdenticalTo(factory.javaUtilConcurrentForkJoinPoolType)) {
@@ -124,7 +146,7 @@ public class AutoCloseableRetargeterHelper {
       // ExecutorService.close does not however use unreachable apis and ExecutorService is present
       // at Android api 19.
       return synthesizeExecutorServiceDispatchCase(
-          appView, context, eventConsumer, methodProcessingContext);
+          appView, context, eventConsumer, contextSupplier);
     }
     if (type.isIdenticalTo(factory.androidContentResTypedArrayType)) {
       return factory.createMethod(type, factory.createProto(factory.voidType), "recycle");
@@ -142,15 +164,15 @@ public class AutoCloseableRetargeterHelper {
 
   private DexMethod synthesizeExecutorServiceDispatchCase(
       AppView<?> appView,
-      ProgramMethod context,
+      ProgramDefinition context,
       AutoCloseableRetargeterEventConsumer eventConsumer,
-      MethodProcessingContext methodProcessingContext) {
+      Supplier<UniqueContext> contextSupplier) {
     ProgramMethod method =
         appView
             .getSyntheticItems()
             .createMethod(
                 kinds -> kinds.AUTOCLOSEABLE_DISPATCHER,
-                methodProcessingContext.createUniqueContext(),
+                contextSupplier.get(),
                 appView,
                 methodBuilder ->
                     methodBuilder
@@ -164,5 +186,33 @@ public class AutoCloseableRetargeterHelper {
                                     factory, methodSig)));
     eventConsumer.acceptAutoCloseableDispatchMethod(method, context);
     return method.getReference();
+  }
+
+  ProgramMethod createThrowUnsupportedException(
+      AppView<?> appView,
+      ProgramDefinition context,
+      AutoCloseableRetargeterEventConsumer eventConsumer,
+      Supplier<UniqueContext> contextSupplier) {
+    ProgramMethod method =
+        appView
+            .getSyntheticItems()
+            .createMethod(
+                kinds -> kinds.AUTOCLOSEABLE_DISPATCHER,
+                contextSupplier.get(),
+                appView,
+                methodBuilder ->
+                    methodBuilder
+                        .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                        .setProto(factory.createProto(factory.voidType, factory.objectType))
+                        .setCode(
+                            methodSig ->
+                                new ThrowCfCodeProvider(
+                                        appView,
+                                        methodSig.getHolderType(),
+                                        factory.illegalArgumentExceptionType,
+                                        null)
+                                    .generateCfCode()));
+    eventConsumer.acceptAutoCloseableDispatchMethod(method, context);
+    return method;
   }
 }

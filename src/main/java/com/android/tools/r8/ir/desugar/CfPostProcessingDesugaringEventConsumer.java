@@ -11,10 +11,12 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.conversion.D8MethodProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPICallbackSynthesizorEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterEventConsumer.AutoCloseableRetargeterPostProcessingEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessingDesugaringEventConsumer;
@@ -35,7 +37,8 @@ import java.util.function.BiConsumer;
 public abstract class CfPostProcessingDesugaringEventConsumer
     implements DesugaredLibraryRetargeterPostProcessingEventConsumer,
         InterfaceProcessingDesugaringEventConsumer,
-        DesugaredLibraryAPICallbackSynthesizorEventConsumer {
+        DesugaredLibraryAPICallbackSynthesizorEventConsumer,
+        AutoCloseableRetargeterPostProcessingEventConsumer {
 
   public static CfPostProcessingDesugaringEventConsumer createForD8(
       AppView<?> appView,
@@ -108,6 +111,12 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     }
 
     @Override
+    public void acceptAutoCloseableInterfaceInjection(
+        DexProgramClass clazz, DexClass newInterface) {
+      // Intentionally empty.
+    }
+
+    @Override
     public void acceptEmulatedInterfaceMarkerInterface(
         DexProgramClass clazz, DexClasspathClass newInterface) {
       // Intentionally empty.
@@ -169,6 +178,17 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     public void acceptGenericApiConversionStub(DexClasspathClass dexClasspathClass) {
       // Intentionally empty.
     }
+
+    @Override
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
+      addMethodToReprocess(method);
+    }
+
+    @Override
+    public void acceptAutoCloseableForwardingMethod(
+        ProgramMethod method, ProgramDefinition context) {
+      addMethodToReprocess(method);
+    }
   }
 
   public static class R8PostProcessingDesugaringEventConsumer
@@ -214,6 +234,12 @@ public abstract class CfPostProcessingDesugaringEventConsumer
 
     @Override
     public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
+      additions.injectInterface(clazz, newInterface);
+    }
+
+    @Override
+    public void acceptAutoCloseableInterfaceInjection(
+        DexProgramClass clazz, DexClass newInterface) {
       additions.injectInterface(clazz, newInterface);
     }
 
@@ -270,6 +296,17 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     @Override
     public void acceptGenericApiConversionStub(DexClasspathClass clazz) {
       additions.addLiveClasspathClass(clazz);
+    }
+
+    @Override
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
+      additions.addLiveMethod(method);
+    }
+
+    @Override
+    public void acceptAutoCloseableForwardingMethod(
+        ProgramMethod method, ProgramDefinition context) {
+      additions.addLiveMethod(method);
     }
   }
 }

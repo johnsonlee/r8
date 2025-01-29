@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
+import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
@@ -106,8 +107,25 @@ public class ProfileRewritingCfPostProcessingDesugaringEventConsumer
   }
 
   @Override
+  public void acceptAutoCloseableForwardingMethod(ProgramMethod method, ProgramDefinition context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
+    parent.acceptAutoCloseableForwardingMethod(method, context);
+  }
+
+  @Override
+  public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
+    parent.acceptAutoCloseableDispatchMethod(method, context);
+  }
+
+  @Override
   public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
     parent.acceptInterfaceInjection(clazz, newInterface);
+  }
+
+  @Override
+  public void acceptAutoCloseableInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
+    parent.acceptAutoCloseableInterfaceInjection(clazz, newInterface);
   }
 
   @Override

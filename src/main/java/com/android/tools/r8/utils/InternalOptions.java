@@ -2699,10 +2699,14 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         && !canUseDefaultAndStaticInterfaceMethods();
   }
 
+  public boolean canHaveMissingImplementsAutoCloseableInterface() {
+    return getMinApiLevel().isLessThanOrEqualTo(AndroidApiLevel.V);
+  }
+
   public boolean shouldDesugarAutoCloseable() {
     return desugarState.isOn()
         && getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.K)
-        && getMinApiLevel().isLessThanOrEqualTo(AndroidApiLevel.V)
+        && canHaveMissingImplementsAutoCloseableInterface()
         && testing.enableAutoCloseableDesugaring;
   }
 

@@ -58,10 +58,7 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
 
   @Override
   public CfCode generateCfCode() {
-    DexType receiverType =
-        dispatchType == AUTO_CLOSEABLE
-            ? forwardingMethod.getHolderType()
-            : forwardingMethod.getParameter(0);
+    DexType receiverType = forwardingMethod.getParameter(0);
     List<CfInstruction> instructions = new ArrayList<>();
     CfLabel[] labels = new CfLabel[extraDispatchCases.size() + 1];
     for (int i = 0; i < labels.length; i++) {

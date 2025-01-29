@@ -67,6 +67,7 @@ public class ForwardMethodBuilder {
   private InvokeType invokeType = null;
   private Boolean isInterface = null;
   private boolean castResult = false;
+  private boolean ignoreTargetResult = false;
   private boolean isConstructorDelegate = false;
   private AppInfoWithClassHierarchy appInfoForCastArguments = null;
 
@@ -154,6 +155,11 @@ public class ForwardMethodBuilder {
 
   public ForwardMethodBuilder setCastResult() {
     castResult = true;
+    return this;
+  }
+
+  public ForwardMethodBuilder setIgnoreTargetResult() {
+    ignoreTargetResult = true;
     return this;
   }
 
@@ -380,6 +386,9 @@ public class ForwardMethodBuilder {
         && !targetMethod.getReturnType().isVoidType()) {
       assert ValueType.fromDexType(sourceMethod.getReturnType())
           == ValueType.fromDexType(targetMethod.getReturnType());
+    } else if (ignoreTargetResult) {
+      assert sourceMethod.getReturnType().isVoidType();
+      assert !targetMethod.getReturnType().isVoidType();
     } else {
       assert sourceMethod.getReturnType() == targetMethod.getReturnType();
     }
