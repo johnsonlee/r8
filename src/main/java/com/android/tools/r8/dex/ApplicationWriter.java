@@ -247,9 +247,8 @@ public class ApplicationWriter {
         && options.enableMainDexListCheck) {
       distributor = new VirtualFile.MonoDexDistributor(this, classes, options);
     } else {
-      // Retrieve the startup order for writing the app. In R8, the startup order is created
-      // up-front to guide optimizations through-out the compilation. In D8, the startup
-      // order is only used for writing the app, so we create it here for the first time.
+      // Retrieve the startup order for writing the app. Use an empty startup profile if the startup
+      // profile should not be used for layout.
       StartupProfile startupProfile =
           options.getStartupOptions().isStartupLayoutOptimizationEnabled()
               ? appView.getStartupProfile()

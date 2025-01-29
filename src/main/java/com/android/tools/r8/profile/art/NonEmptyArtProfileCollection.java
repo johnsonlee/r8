@@ -97,6 +97,14 @@ public class NonEmptyArtProfileCollection extends ArtProfileCollection {
     }
   }
 
+  /**
+   * Processes the D8 art profiles before forwarding them to R8, in R8 partial.
+   *
+   * <p>When testing, a synthetic art profile is injected for completeness testing. This first runs
+   * the completeness checker and then removes the synthetic profile.
+   *
+   * <p>In release, this returns the art profiles as-is.
+   */
   @Override
   public ArtProfileCollection transformForR8Partial(AppView<AppInfo> appView) {
     ArtProfileOptions artProfileOptions = appView.options().getArtProfileOptions();
