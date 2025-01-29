@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.SystemPropertyUtils.getSystemPropertyOr
 import static com.android.tools.r8.utils.SystemPropertyUtils.parseSystemPropertyOrDefault;
 
 import com.android.tools.r8.startup.StartupProfileProvider;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SystemPropertyUtils;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Paths;
@@ -65,7 +66,10 @@ public class StartupOptions {
 
   private Collection<StartupProfileProvider> startupProfileProviders;
 
-  public StartupOptions() {
+  private final InternalOptions options;
+
+  public StartupOptions(InternalOptions options) {
+    this.options = options;
     this.startupProfileProviders =
         SystemPropertyUtils.applySystemProperty(
             "com.android.tools.r8.startup.profile",
@@ -74,6 +78,21 @@ public class StartupOptions {
                     StartupProfileProviderUtils.createFromHumanReadableArtProfile(
                         Paths.get(propertyValue))),
             Collections::emptyList);
+  }
+
+  public StartupOptions(InternalOptions options, StartupOptions startupOptions) {
+    this(options);
+    this.enableOutlining = startupOptions.enableOutlining;
+    this.enableMinimalStartupDex = startupOptions.enableMinimalStartupDex;
+    this.enableStartupBoundaryOptimizations = startupOptions.enableStartupBoundaryOptimizations;
+    this.enableStartupCompletenessCheckForTesting =
+        startupOptions.enableStartupCompletenessCheckForTesting;
+    this.enableStartupLayoutOptimization = startupOptions.enableStartupLayoutOptimization;
+    this.enableStartupMixedSectionLayoutOptimizations =
+        startupOptions.enableStartupMixedSectionLayoutOptimizations;
+    this.multiStartupDexDistributionStrategyName =
+        startupOptions.multiStartupDexDistributionStrategyName;
+    this.startupProfileProviders = startupOptions.startupProfileProviders;
   }
 
   public boolean isOutliningEnabled() {
@@ -141,6 +160,8 @@ public class StartupOptions {
   }
 
   public Collection<StartupProfileProvider> getStartupProfileProviders() {
+    assert options.partialSubCompilationConfiguration == null
+        || options.partialSubCompilationConfiguration.isD8();
     return startupProfileProviders;
   }
 

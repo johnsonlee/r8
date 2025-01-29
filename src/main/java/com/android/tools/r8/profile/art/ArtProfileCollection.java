@@ -10,9 +10,10 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.naming.NamingLens;
-import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Timing;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -22,16 +23,21 @@ public abstract class ArtProfileCollection implements Iterable<ArtProfile> {
   public static ArtProfileCollection createInitialArtProfileCollection(
       AppInfo appInfo, InternalOptions options) {
     ArtProfileOptions artProfileOptions = options.getArtProfileOptions();
-    Collection<ArtProfileProvider> artProfileProviders = artProfileOptions.getArtProfileProviders();
-    List<ArtProfile> artProfiles =
-        new ArrayList<>(
-            artProfileProviders.size()
-                + BooleanUtils.intValue(artProfileOptions.isCompletenessCheckForTestingEnabled()));
-    for (ArtProfileProvider artProfileProvider : artProfileProviders) {
-      ArtProfile.Builder artProfileBuilder =
-          ArtProfile.builderForInitialArtProfile(artProfileProvider, options);
-      artProfileProvider.getArtProfile(artProfileBuilder);
-      artProfiles.add(artProfileBuilder.build());
+    List<ArtProfile> artProfiles = new ArrayList<>();
+    if (options.partialSubCompilationConfiguration == null
+        || options.partialSubCompilationConfiguration.isD8()) {
+      Collection<ArtProfileProvider> artProfileProviders =
+          artProfileOptions.getArtProfileProviders();
+      for (ArtProfileProvider artProfileProvider : artProfileProviders) {
+        ArtProfile.Builder artProfileBuilder =
+            ArtProfile.builderForInitialArtProfile(artProfileProvider, options);
+        artProfileProvider.getArtProfile(artProfileBuilder);
+        artProfiles.add(artProfileBuilder.build());
+      }
+    } else {
+      assert options.partialSubCompilationConfiguration.isR8();
+      Iterables.addAll(
+          artProfiles, options.partialSubCompilationConfiguration.asR8().getArtProfiles());
     }
     if (artProfileOptions.isCompletenessCheckForTestingEnabled()) {
       artProfiles.add(createCompleteArtProfile(appInfo));
@@ -48,8 +54,7 @@ public abstract class ArtProfileCollection implements Iterable<ArtProfile> {
   private static ArtProfile createCompleteArtProfile(AppInfo appInfo) {
     ArtProfile.Builder artProfileBuilder = ArtProfile.builder();
     for (DexProgramClass clazz : appInfo.classesWithDeterministicOrder()) {
-      artProfileBuilder.addClassRule(
-          ArtProfileClassRule.builder().setType(clazz.getType()).build());
+      artProfileBuilder.addClassRule(clazz.getType());
       clazz.forEachMethod(
           method ->
               artProfileBuilder.addMethodRule(
@@ -59,6 +64,11 @@ public abstract class ArtProfileCollection implements Iterable<ArtProfile> {
                           methodRuleInfoBuilder ->
                               methodRuleInfoBuilder.setIsHot().setIsStartup().setIsPostStartup())
                       .build()));
+    }
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        appInfo.options().partialSubCompilationConfiguration;
+    if (subCompilationConfiguration != null && subCompilationConfiguration.isR8()) {
+      subCompilationConfiguration.asR8().amendCompleteArtProfile(artProfileBuilder);
     }
     return artProfileBuilder.build();
   }
@@ -79,6 +89,8 @@ public abstract class ArtProfileCollection implements Iterable<ArtProfile> {
   public abstract ArtProfileCollection rewrittenWithLens(AppView<?> appView, NamingLens lens);
 
   public abstract void supplyConsumers(AppView<?> appView);
+
+  public abstract ArtProfileCollection transformForR8Partial(AppView<AppInfo> appView);
 
   public abstract ArtProfileCollection withoutMissingItems(AppView<?> appView);
 

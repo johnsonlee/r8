@@ -1026,8 +1026,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   private final LibraryDesugaringOptions libraryDesugaringOptions =
       new LibraryDesugaringOptions(this);
   private final MappingComposeOptions mappingComposeOptions = new MappingComposeOptions();
-  private final ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);
-  private final StartupOptions startupOptions = new StartupOptions();
+  private ArtProfileOptions artProfileOptions = new ArtProfileOptions(this);
+  private StartupOptions startupOptions = new StartupOptions(this);
   private final InstrumentationOptions instrumentationOptions;
   public R8PartialCompilationConfiguration partialCompilationConfiguration =
       R8PartialCompilationConfiguration.disabledConfiguration();
@@ -1127,8 +1127,16 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return artProfileOptions;
   }
 
+  public void setArtProfileOptions(ArtProfileOptions artProfileOptions) {
+    this.artProfileOptions = artProfileOptions;
+  }
+
   public StartupOptions getStartupOptions() {
     return startupOptions;
+  }
+
+  public void setStartupOptions(StartupOptions startupOptions) {
+    this.startupOptions = startupOptions;
   }
 
   public InstrumentationOptions getInstrumentationOptions() {

@@ -8,18 +8,29 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.Target;
+import com.android.tools.r8.profile.art.ArtProfile;
+import com.android.tools.r8.profile.art.ArtProfileCollection;
+import com.android.tools.r8.profile.art.ArtProfileMethodRule;
+import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.shaking.MissingClasses;
 import com.android.tools.r8.synthesis.SyntheticItems;
-import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public abstract class R8PartialSubCompilationConfiguration {
@@ -52,15 +63,22 @@ public abstract class R8PartialSubCompilationConfiguration {
     private final Set<DexType> d8Types;
     private final Set<DexType> r8Types;
 
+    private ArtProfileCollection artProfiles;
     private ClassToFeatureSplitMap classToFeatureSplitMap;
     private Collection<DexProgramClass> dexedOutputClasses;
     private Collection<DexProgramClass> desugaredOutputClasses;
+    private StartupProfile startupProfile;
 
     public R8PartialD8SubCompilationConfiguration(
         Set<DexType> d8Types, Set<DexType> r8Types, Timing timing) {
       super(timing);
       this.d8Types = d8Types;
       this.r8Types = r8Types;
+    }
+
+    public ArtProfileCollection getArtProfiles() {
+      assert artProfiles != null;
+      return artProfiles;
     }
 
     public ClassToFeatureSplitMap getClassToFeatureSplitMap() {
@@ -75,6 +93,11 @@ public abstract class R8PartialSubCompilationConfiguration {
     public Collection<DexProgramClass> getDesugaredOutputClasses() {
       assert desugaredOutputClasses != null;
       return desugaredOutputClasses;
+    }
+
+    public StartupProfile getStartupProfile() {
+      assert startupProfile != null;
+      return startupProfile;
     }
 
     public MethodConversionOptions.Target getTargetFor(
@@ -111,6 +134,7 @@ public abstract class R8PartialSubCompilationConfiguration {
     }
 
     public void writeApplication(AppView<AppInfo> appView) {
+      artProfiles = appView.getArtProfileCollection().transformForR8Partial(appView);
       classToFeatureSplitMap =
           appView.appInfo().getClassToFeatureSplitMap().commitSyntheticsForR8Partial(appView);
       dexedOutputClasses = new ArrayList<>();
@@ -122,22 +146,34 @@ public abstract class R8PartialSubCompilationConfiguration {
           desugaredOutputClasses.add(clazz);
         }
       }
+      startupProfile = appView.getStartupProfile();
     }
   }
 
   public static class R8PartialR8SubCompilationConfiguration
       extends R8PartialSubCompilationConfiguration {
 
+    private ArtProfileCollection artProfiles;
     private ClassToFeatureSplitMap classToFeatureSplitMap;
-    private Collection<DexProgramClass> dexingOutputClasses;
+    private Map<DexType, DexProgramClass> dexingOutputClasses;
+    private StartupProfile startupProfile;
 
     public R8PartialR8SubCompilationConfiguration(
+        ArtProfileCollection artProfiles,
         ClassToFeatureSplitMap classToFeatureSplitMap,
         Collection<DexProgramClass> dexingOutputClasses,
+        StartupProfile startupProfile,
         Timing timing) {
       super(timing);
+      this.artProfiles = artProfiles;
       this.classToFeatureSplitMap = classToFeatureSplitMap;
-      this.dexingOutputClasses = dexingOutputClasses;
+      this.dexingOutputClasses =
+          MapUtils.transform(dexingOutputClasses, IdentityHashMap::new, DexClass::getType);
+      this.startupProfile = startupProfile;
+    }
+
+    public ArtProfileCollection getArtProfiles() {
+      return artProfiles;
     }
 
     public ClassToFeatureSplitMap getClassToFeatureSplitMap() {
@@ -146,30 +182,60 @@ public abstract class R8PartialSubCompilationConfiguration {
 
     public Collection<DexProgramClass> getDexingOutputClasses() {
       assert dexingOutputClasses != null;
-      return dexingOutputClasses;
+      return dexingOutputClasses.values();
+    }
+
+    public StartupProfile getStartupProfile() {
+      assert startupProfile != null;
+      return startupProfile;
+    }
+
+    public void amendCompleteArtProfile(ArtProfile.Builder artProfileBuilder) {
+      List<DexProgramClass> dexingOutputClassesSorted =
+          ListUtils.sort(dexingOutputClasses.values(), Comparator.comparing(DexClass::getType));
+      for (DexProgramClass clazz : dexingOutputClassesSorted) {
+        artProfileBuilder.addClassRule(clazz.getType());
+        clazz.forEachMethod(
+            method ->
+                artProfileBuilder.addMethodRule(
+                    ArtProfileMethodRule.builder()
+                        .setMethod(method.getReference())
+                        .acceptMethodRuleInfoBuilder(
+                            methodRuleInfoBuilder ->
+                                methodRuleInfoBuilder.setIsHot().setIsStartup().setIsPostStartup())
+                        .build()));
+      }
     }
 
     public void commitDexingOutputClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
-      Set<DexType> dexingOutputTypes =
-          SetUtils.mapIdentityHashSet(dexingOutputClasses, DexClass::getType);
       DirectMappedDexApplication newApp =
           appView
               .app()
               .asDirect()
               .builder()
-              .removeClasspathClasses(clazz -> dexingOutputTypes.contains(clazz.getType()))
-              .addProgramClasses(dexingOutputClasses)
+              .removeClasspathClasses(clazz -> dexingOutputClasses.containsKey(clazz.getType()))
+              .addProgramClasses(dexingOutputClasses.values())
               .build();
       appView.rebuildAppInfo(newApp);
       assert amendMissingClasses(appView);
       dexingOutputClasses = null;
     }
 
+    public boolean hasD8DefinitionFor(DexReference reference) {
+      if (reference.isDexType()) {
+        return dexingOutputClasses.containsKey(reference.asDexType());
+      } else {
+        DexMember<?, ?> member = reference.asDexMember();
+        DexProgramClass holder = dexingOutputClasses.get(member.getHolderType());
+        return member.isDefinedOnClass(holder);
+      }
+    }
+
     private boolean amendMissingClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
       if (appView.hasLiveness()) {
         MissingClasses.Builder missingClassesBuilder =
             appView.appInfo().getMissingClasses().builder();
-        for (DexProgramClass clazz : dexingOutputClasses) {
+        for (DexProgramClass clazz : dexingOutputClasses.values()) {
           clazz.forEachImmediateSuperClassMatching(
               appView.app(),
               (supertype, superclass) -> superclass == null,

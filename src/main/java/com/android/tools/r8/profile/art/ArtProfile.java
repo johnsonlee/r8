@@ -8,7 +8,6 @@ import com.android.tools.r8.TextInputStream;
 import com.android.tools.r8.TextOutputStream;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
@@ -17,6 +16,7 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingLens;
 import com.android.tools.r8.naming.NamingLens;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.profile.AbstractProfile;
 import com.android.tools.r8.profile.AbstractProfileRule;
 import com.android.tools.r8.utils.InternalOptions;
@@ -179,15 +179,13 @@ public class ArtProfile
     AppInfo appInfo = appView.appInfo();
     return transform(
         (classRule, builder) -> {
-          if (appInfo.hasDefinitionForWithoutExistenceAssert(classRule.getType())) {
+          if (hasDefinitionFor(appInfo, classRule.getType())) {
             builder.addClassRule(
                 ArtProfileClassRule.builder().setType(classRule.getType()).build());
           }
         },
         (methodRule, builder) -> {
-          DexClass clazz =
-              appInfo.definitionForWithoutExistenceAssert(methodRule.getMethod().getHolderType());
-          if (methodRule.getMethod().isDefinedOnClass(clazz)) {
+          if (hasDefinitionFor(appInfo, methodRule.getMethod())) {
             builder.addMethodRule(
                 ArtProfileMethodRule.builder()
                     .setMethod(methodRule.getMethod())
@@ -197,6 +195,17 @@ public class ArtProfile
                     .build());
           }
         });
+  }
+
+  private boolean hasDefinitionFor(AppInfo appInfo, DexReference reference) {
+    if (appInfo.hasDefinitionForWithoutExistenceAssert(reference)) {
+      return true;
+    }
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        appInfo.options().partialSubCompilationConfiguration;
+    return subCompilationConfiguration != null
+        && subCompilationConfiguration.isR8()
+        && subCompilationConfiguration.asR8().hasD8DefinitionFor(reference);
   }
 
   public ArtProfile withoutPrunedItems(PrunedItems prunedItems) {

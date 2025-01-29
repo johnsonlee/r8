@@ -6,12 +6,12 @@ package com.android.tools.r8.profile.startup.profile;
 
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.SetUtils;
@@ -129,18 +129,26 @@ public class NonEmptyStartupProfile extends StartupProfile {
     AppInfo appInfo = appView.appInfo();
     return transform(
         (classRule, builder) -> {
-          if (appInfo.hasDefinitionForWithoutExistenceAssert(classRule.getReference())) {
+          if (hasDefinitionFor(appInfo, classRule.getReference())) {
             builder.addClassRule(classRule);
           }
         },
         (methodRule, builder) -> {
-          DexClass clazz =
-              appInfo.definitionForWithoutExistenceAssert(
-                  methodRule.getReference().getHolderType());
-          if (methodRule.getReference().isDefinedOnClass(clazz)) {
+          if (hasDefinitionFor(appInfo, methodRule.getReference())) {
             builder.addMethodRule(methodRule);
           }
         });
+  }
+
+  private boolean hasDefinitionFor(AppInfo appInfo, DexReference reference) {
+    if (appInfo.hasDefinitionForWithoutExistenceAssert(reference)) {
+      return true;
+    }
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        appInfo.options().partialSubCompilationConfiguration;
+    return subCompilationConfiguration != null
+        && subCompilationConfiguration.isR8()
+        && subCompilationConfiguration.asR8().hasD8DefinitionFor(reference);
   }
 
   @Override

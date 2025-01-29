@@ -65,18 +65,23 @@ public abstract class StartupProfile
     return startupProfile != null ? startupProfile : empty();
   }
 
-  public static StartupProfile createInitialStartupProfileForD8(AppView<?> appView) {
+  public static StartupProfile createInitialStartupProfileForD8(DexApplication application) {
     return createInitialStartupProfile(
-        appView.options(),
-        origin -> new MissingStartupProfileItemsDiagnostic.Builder(appView).setOrigin(origin));
+        application.options,
+        origin -> new MissingStartupProfileItemsDiagnostic.Builder(application).setOrigin(origin));
   }
 
   public static StartupProfile createInitialStartupProfileForR8(DexApplication application) {
     // In R8 we expect a startup profile that matches the input app. Since profiles gathered from
     // running on ART will include synthetics, and these synthetics are not in the input app, we do
     // not raise warnings if some rules in the profile do not match anything.
-    return createInitialStartupProfile(
-        application.options, origin -> MissingStartupProfileItemsDiagnostic.Builder.nop());
+    InternalOptions options = application.options;
+    if (options.partialSubCompilationConfiguration != null) {
+      return options.partialSubCompilationConfiguration.asR8().getStartupProfile();
+    } else {
+      return createInitialStartupProfile(
+          options, origin -> MissingStartupProfileItemsDiagnostic.Builder.nop());
+    }
   }
 
   public static StartupProfile empty() {

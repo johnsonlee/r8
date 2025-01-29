@@ -162,7 +162,7 @@ public class StartupTestingUtils {
 
   public static void addStartupProfile(
       TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder,
-      Collection<ExternalStartupItem> startupItems) {
+      Collection<? extends ExternalStartupItem> startupItems) {
     StartupProfileProvider startupProfileProvider =
         new StartupProfileProvider() {
           @Override
@@ -188,9 +188,12 @@ public class StartupTestingUtils {
         };
     if (testBuilder.isD8TestBuilder()) {
       testBuilder.asD8TestBuilder().addStartupProfileProviders(startupProfileProvider);
-    } else {
+    } else if (testBuilder.isR8TestBuilder()) {
       assertTrue(testBuilder.isR8TestBuilder());
       testBuilder.asR8TestBuilder().addStartupProfileProviders(startupProfileProvider);
+    } else {
+      assertTrue(testBuilder.isR8PartialTestBuilder());
+      testBuilder.asR8PartialTestBuilder().addStartupProfileProviders(startupProfileProvider);
     }
   }
 

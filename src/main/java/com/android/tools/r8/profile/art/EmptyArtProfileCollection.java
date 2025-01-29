@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.profile.art;
 
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -55,6 +56,11 @@ public class EmptyArtProfileCollection extends ArtProfileCollection {
   @Override
   public void supplyConsumers(AppView<?> appView) {
     assert appView.options().getArtProfileOptions().getArtProfilesForRewriting().isEmpty();
+  }
+
+  @Override
+  public ArtProfileCollection transformForR8Partial(AppView<AppInfo> appView) {
+    return this;
   }
 
   @Override

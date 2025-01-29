@@ -37,6 +37,17 @@ public class ArtProfileOptions {
     this.options = options;
   }
 
+  // Constructor for D8 in R8 partial.
+  public ArtProfileOptions(InternalOptions options, ArtProfileOptions artProfileOptions) {
+    this(options);
+    this.artProfilesForRewriting = artProfileOptions.artProfilesForRewriting;
+    this.enableCompletenessCheckForTesting = artProfileOptions.enableCompletenessCheckForTesting;
+    this.enableNopCheckForTesting = artProfileOptions.enableNopCheckForTesting;
+    this.hasReadArtProfileProviders = artProfileOptions.hasReadArtProfileProviders;
+    this.allowReadingEmptyArtProfileProvidersMultipleTimesForTesting =
+        artProfileOptions.allowReadingEmptyArtProfileProvidersMultipleTimesForTesting;
+  }
+
   public Collection<ArtProfileForRewriting> getArtProfilesForRewriting() {
     return artProfilesForRewriting;
   }
@@ -45,6 +56,8 @@ public class ArtProfileOptions {
     assert !hasReadArtProfileProviders
         || (allowReadingEmptyArtProfileProvidersMultipleTimesForTesting
             && artProfilesForRewriting.isEmpty());
+    assert options.partialSubCompilationConfiguration == null
+        || options.partialSubCompilationConfiguration.isD8();
     hasReadArtProfileProviders = true;
     return ListUtils.map(artProfilesForRewriting, ArtProfileForRewriting::getArtProfileProvider);
   }
@@ -57,9 +70,7 @@ public class ArtProfileOptions {
     return enableCompletenessCheckForTesting
         && !options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
         && !options.getStartupOptions().isStartupCompletenessCheckForTestingEnabled()
-        && !options.getInstrumentationOptions().isInstrumentationEnabled()
-        // TODO(b/390355818): Enable completeness testing for R8 partial.
-        && options.partialSubCompilationConfiguration == null;
+        && !options.getInstrumentationOptions().isInstrumentationEnabled();
   }
 
   public boolean isNopCheckForTestingEnabled() {

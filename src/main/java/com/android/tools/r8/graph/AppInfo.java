@@ -212,6 +212,16 @@ public class AppInfo implements DexDefinitionSupplier {
     return definitionForWithoutExistenceAssert(type) != null;
   }
 
+  public final boolean hasDefinitionForWithoutExistenceAssert(DexMember<?, ?> member) {
+    return member.isDefinedOnClass(definitionForWithoutExistenceAssert(member.getHolderType()));
+  }
+
+  public final boolean hasDefinitionForWithoutExistenceAssert(DexReference reference) {
+    return reference.isDexType()
+        ? hasDefinitionForWithoutExistenceAssert(reference.asDexType())
+        : hasDefinitionForWithoutExistenceAssert(reference.asDexMember());
+  }
+
   @SuppressWarnings("ReferenceEquality")
   public DexClass definitionForDesugarDependency(DexClass dependent, DexType type) {
     if (dependent.type == type) {
