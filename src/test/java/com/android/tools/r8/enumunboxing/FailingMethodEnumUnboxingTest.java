@@ -51,14 +51,7 @@ public class FailingMethodEnumUnboxingTest extends EnumUnboxingTestBase {
             .addInnerClasses(FailingMethodEnumUnboxingTest.class)
             .addKeepMainRules(TESTS)
             .addKeepRules(enumKeepRules.getKeepRules())
-            .addOptionsModification(
-                opt -> {
-                  enableEnumOptions(opt, enumValueOptimization);
-                  if (enumKeepRules == EnumKeepRules.NONE) {
-                    // Look for Enum.valueOf() when tracing rather than rely on -keeps.
-                    opt.experimentalTraceEnumReflection = true;
-                  }
-                })
+            .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
             .addEnumUnboxingInspector(
                 inspector ->
                     inspector.assertNotUnboxed(

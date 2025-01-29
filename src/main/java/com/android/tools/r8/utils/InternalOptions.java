@@ -770,8 +770,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       System.getProperty("com.android.tools.r8.ignoreBootClasspathEnumsForMaindexTracing") != null;
   public boolean pruneNonVissibleAnnotationClasses =
       System.getProperty("com.android.tools.r8.pruneNonVissibleAnnotationClasses") != null;
-  public boolean experimentalTraceEnumReflection =
-      System.getProperty("com.android.tools.r8.experimentalTraceEnumReflection") != null;
 
   // Flag to turn on/offLoad/store optimization in the Cf back-end.
   public boolean enableLoadStoreOptimization = true;

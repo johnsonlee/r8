@@ -39,14 +39,7 @@ public class ValueOfEnumUnboxingFailureTest extends EnumUnboxingTestBase {
         .addEnumUnboxingInspector(inspector -> inspector.assertNotUnboxed(Main.Enum.class))
         .enableNeverClassInliningAnnotations()
         .addKeepRules(enumKeepRules.getKeepRules())
-        .addOptionsModification(
-            opt -> {
-              enableEnumOptions(opt, enumValueOptimization);
-              if (enumKeepRules == EnumKeepRules.NONE) {
-                // Look for Enum.valueOf() when tracing rather than rely on -keeps.
-                opt.experimentalTraceEnumReflection = true;
-              }
-            })
+        .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), success)

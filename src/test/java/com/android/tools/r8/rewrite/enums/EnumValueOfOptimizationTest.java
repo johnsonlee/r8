@@ -49,13 +49,6 @@ public class EnumValueOfOptimizationTest extends TestBase {
         .addInnerClasses(EnumValueOfOptimizationTest.class)
         .addKeepMainRule(Main.class)
         .addKeepRules(enumKeepRules.getKeepRules())
-        .addOptionsModification(
-            opt -> {
-              if (enumKeepRules == EnumKeepRules.NONE) {
-                // Look for Enum.valueOf() when tracing rather than rely on -keeps.
-                opt.experimentalTraceEnumReflection = true;
-              }
-            })
         .applyIf(
             enableNoVerticalClassMergingAnnotations,
             R8TestBuilder::enableNoVerticalClassMergingAnnotations,

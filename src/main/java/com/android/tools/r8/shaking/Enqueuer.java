@@ -99,7 +99,9 @@ import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteBuilderShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
+import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.ArrayPut;
+import com.android.tools.r8.ir.code.ConstClass;
 import com.android.tools.r8.ir.code.ConstantValueUtils;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -551,10 +553,6 @@ public class Enqueuer {
       ProtoEnqueuerExtension.register(appView, analysesBuilder);
       ResourceAccessAnalysis.register(appView, this, analysesBuilder);
       RuntimeTypeCheckInfo.register(runtimeTypeCheckInfoBuilder, analysesBuilder);
-      if (options.experimentalTraceEnumReflection) {
-        EnqueuerEnumReflectionSupport.register(
-            appView, this::markEnumValuesAsReachable, analysesBuilder);
-      }
     }
     analyses = analysesBuilder.build();
 
@@ -1550,6 +1548,11 @@ public class Enqueuer {
     MethodResolutionResult resolutionResult =
         handleInvokeOfDirectTarget(invokedMethod, context, reason);
     analyses.traceInvokeDirect(invokedMethod, resolutionResult, context);
+
+    if (invokedMethod.equals(appView.dexItemFactory().javaUtilEnumMapMembers.constructor)) {
+      // EnumMap uses reflection.
+      pendingReflectiveUses.add(context);
+    }
   }
 
   void traceInvokeInterface(
@@ -1604,6 +1607,10 @@ public class Enqueuer {
       identifierNameStrings.add(invokedMethod);
       // Revisit the current method to implicitly add -keep rule for items with reflective access.
       pendingReflectiveUses.add(context);
+    } else if (invokedMethod == dexItemFactory.enumMembers.valueOf
+        || dexItemFactory.javaUtilEnumSetMembers.isFactoryMethod(invokedMethod)) {
+      // See comment in handleEnumValueOfOrCollectionInstantiation.
+      pendingReflectiveUses.add(context);
     } else if (invokedMethod == dexItemFactory.proxyMethods.newProxyInstance) {
       pendingReflectiveUses.add(context);
     } else if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
@@ -1640,6 +1647,7 @@ public class Enqueuer {
         invokedMethod, context, registry, KeepReason.invokedFromLambdaCreatedIn(context));
   }
 
+  @SuppressWarnings("ReferenceEquality")
   private void traceInvokeVirtual(
       DexMethod invokedMethod,
       ProgramMethod context,
@@ -1648,11 +1656,10 @@ public class Enqueuer {
     if (registry != null && !registry.markInvokeVirtualAsSeen(invokedMethod)) {
       return;
     }
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (invokedMethod.isIdenticalTo(dexItemFactory.classMethods.newInstance)
-        || invokedMethod.isIdenticalTo(dexItemFactory.constructorMethods.newInstance)) {
+    if (invokedMethod == appView.dexItemFactory().classMethods.newInstance
+        || invokedMethod == appView.dexItemFactory().constructorMethods.newInstance) {
       pendingReflectiveUses.add(context);
-    } else if (dexItemFactory.classMethods.isReflectiveMemberLookup(invokedMethod)) {
+    } else if (appView.dexItemFactory().classMethods.isReflectiveMemberLookup(invokedMethod)) {
       // Implicitly add -identifiernamestring rule for the Java reflection in use.
       identifierNameStrings.add(invokedMethod);
       // Revisit the current method to implicitly add -keep rule for items with reflective access.
@@ -5217,24 +5224,33 @@ public class Enqueuer {
     InstructionIterator iterator = code.instructionIterator();
     while (iterator.hasNext()) {
       Instruction instruction = iterator.next();
-      if (instruction.isInvokeMethod()) {
-        handleReflectiveBehavior(method, instruction.asInvokeMethod());
-      }
+      handleReflectiveBehavior(method, instruction);
     }
   }
 
-  private void handleReflectiveBehavior(ProgramMethod method, InvokeMethod invoke) {
+  @SuppressWarnings("ReferenceEquality")
+  private void handleReflectiveBehavior(ProgramMethod method, Instruction instruction) {
+    if (!instruction.isInvokeMethod()) {
+      return;
+    }
+    InvokeMethod invoke = instruction.asInvokeMethod();
     DexMethod invokedMethod = invoke.getInvokedMethod();
     DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (invokedMethod.isIdenticalTo(dexItemFactory.classMethods.newInstance)) {
+    if (invokedMethod == dexItemFactory.classMethods.newInstance) {
       handleJavaLangClassNewInstance(method, invoke);
       return;
     }
-    if (invokedMethod.isIdenticalTo(dexItemFactory.constructorMethods.newInstance)) {
+    if (invokedMethod == dexItemFactory.constructorMethods.newInstance) {
       handleJavaLangReflectConstructorNewInstance(method, invoke);
       return;
     }
-    if (invokedMethod.isIdenticalTo(dexItemFactory.proxyMethods.newProxyInstance)) {
+    if (invokedMethod == dexItemFactory.enumMembers.valueOf
+        || invokedMethod == dexItemFactory.javaUtilEnumMapMembers.constructor
+        || dexItemFactory.javaUtilEnumSetMembers.isFactoryMethod(invokedMethod)) {
+      handleEnumValueOfOrCollectionInstantiation(method, invoke);
+      return;
+    }
+    if (invokedMethod == dexItemFactory.proxyMethods.newProxyInstance) {
       handleJavaLangReflectProxyNewProxyInstance(method, invoke);
       return;
     }
@@ -5554,6 +5570,47 @@ public class Enqueuer {
           worklist.addIfNotSeen(implementedClass);
         }
       }
+    }
+  }
+
+  private void handleEnumValueOfOrCollectionInstantiation(
+      ProgramMethod context, InvokeMethod invoke) {
+    if (invoke.inValues().isEmpty()) {
+      // Should never happen.
+      return;
+    }
+
+    // The use of java.lang.Enum.valueOf(java.lang.Class, java.lang.String) will indirectly
+    // access the values() method of the enum class passed as the first argument. The method
+    // SomeEnumClass.valueOf(java.lang.String) which is generated by javac for all enums will
+    // call this method.
+    // Likewise, EnumSet and EnumMap call values() on the passed in Class.
+    Value firstArg = invoke.getFirstNonReceiverArgument();
+    if (firstArg.isPhi()) {
+      return;
+    }
+    DexType type;
+    if (invoke
+        .getInvokedMethod()
+        .getParameter(0)
+        .isIdenticalTo(appView.dexItemFactory().classType)) {
+      // EnumMap.<init>(), EnumSet.noneOf(), EnumSet.allOf(), Enum.valueOf().
+      ConstClass constClass = firstArg.definition.asConstClass();
+      if (constClass == null || !constClass.getType().isClassType()) {
+        return;
+      }
+      type = constClass.getType();
+    } else {
+      // EnumSet.of(), EnumSet.range()
+      ClassTypeElement typeElement = firstArg.getType().asClassType();
+      if (typeElement == null) {
+        return;
+      }
+      type = typeElement.getClassType();
+    }
+    DexProgramClass clazz = getProgramClassOrNull(type, context);
+    if (clazz != null && clazz.isEnum()) {
+      markEnumValuesAsReachable(clazz, KeepReason.invokedFrom(context));
     }
   }
 
