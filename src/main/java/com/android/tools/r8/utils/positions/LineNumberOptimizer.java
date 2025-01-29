@@ -100,7 +100,6 @@ public class LineNumberOptimizer {
         || newMapVersion.isUnknown();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public static ClassNameMapper run(
       AppView<?> appView,
       AndroidApp inputApp,
@@ -121,7 +120,7 @@ public class LineNumberOptimizer {
     // Collect which files contain which classes that need to have their line numbers optimized.
     for (DexProgramClass clazz : appView.appInfo().classes()) {
       if (shouldRun(clazz, appView)) {
-        run(
+        runForClass(
             clazz,
             appView,
             representation,
@@ -146,7 +145,7 @@ public class LineNumberOptimizer {
     }
   }
 
-  private static void run(
+  private static void runForClass(
       DexProgramClass clazz,
       AppView<?> appView,
       DebugRepresentationPredicate representation,
@@ -181,7 +180,7 @@ public class LineNumberOptimizer {
 
       for (ProgramMethod method : methods) {
         DexEncodedMethod definition = method.getDefinition();
-        if (methodName == method.getName()
+        if (method.getName().isIdenticalTo(methodName)
             && !mustHaveResidualDebugInfo(appView.options(), definition)
             && !definition.isD8R8Synthesized()
             && methods.size() <= 1) {
