@@ -2122,6 +2122,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
         System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
     public boolean reverseClassSortingForDeterminism = false;
 
+    public boolean enableAutoCloseableDesugaring = false;
     public boolean enableNumberUnboxer = false;
     public boolean printNumberUnboxed = false;
     public boolean roundtripThroughLir = false;
@@ -2696,6 +2697,13 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return desugarState.isOn()
         && interfaceMethodDesugaring == OffOrAuto.Auto
         && !canUseDefaultAndStaticInterfaceMethods();
+  }
+
+  public boolean shouldDesugarAutoCloseable() {
+    return desugarState.isOn()
+        && getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.K)
+        && getMinApiLevel().isLessThanOrEqualTo(AndroidApiLevel.V)
+        && testing.enableAutoCloseableDesugaring;
   }
 
   public boolean isSwitchRewritingEnabled() {

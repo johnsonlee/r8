@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
@@ -119,6 +120,9 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
             : null;
     if (desugaredLibraryRetargeter != null) {
       desugarings.add(desugaredLibraryRetargeter);
+    }
+    if (appView.options().shouldDesugarAutoCloseable()) {
+      desugarings.add(new AutoCloseableRetargeter(appView));
     }
     disableDesugarer = DesugaredLibraryDisableDesugarer.create(appView);
     if (disableDesugarer != null) {

@@ -31,9 +31,12 @@ import com.android.tools.r8.graph.FieldCollection.FieldCollectionFactory;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.NestHostClassAttribute;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
@@ -74,6 +77,7 @@ public class GlobalSyntheticsGenerator {
     for (SyntheticKind kind : naming.kinds()) {
       assert !kind.isGlobal()
           || !kind.isMayOverridesNonProgramType()
+          || kind.equals(naming.AUTOCLOSEABLE_TAG)
           || kind.equals(naming.RECORD_TAG)
           || kind.equals(naming.API_MODEL_STUB)
           || kind.equals(naming.METHOD_HANDLES_LOOKUP)
@@ -179,6 +183,22 @@ public class GlobalSyntheticsGenerator {
     // Add global synthetic class for records.
     RecordTagSynthesizer.ensureRecordClassHelper(
         appView, synthesizingContext, RecordDesugaringEventConsumer.empty(), null, null);
+
+    AutoCloseableRetargeter.ensureAutoCloseableInterfaceTag(
+        synthesizingContext,
+        new AutoCloseableRetargeterEventConsumer() {
+          @Override
+          public void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag) {}
+
+          @Override
+          public void acceptAutoCloseableTagContext(
+              DexProgramClass autoCloseableTag, ProgramMethod context) {}
+
+          @Override
+          public void acceptAutoCloseableDispatchMethod(
+              ProgramMethod method, ProgramMethod context) {}
+        },
+        appView);
 
     VarHandleDesugaringEventConsumer varHandleEventConsumer =
         VarHandleDesugaringEventConsumer.empty();

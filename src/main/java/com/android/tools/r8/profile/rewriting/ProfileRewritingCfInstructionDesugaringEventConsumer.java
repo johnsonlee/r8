@@ -342,6 +342,29 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   }
 
   @Override
+  public void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag) {
+    parent.acceptAutoCloseableTagProgramClass(autoCloseableTag);
+  }
+
+  @Override
+  public void acceptAutoCloseableTagContext(
+      DexProgramClass autoCloseableTag, ProgramMethod context) {
+    additionsCollection.applyIfContextIsInProfile(
+        context,
+        additionsBuilder -> {
+          additionsBuilder.addRule(autoCloseableTag);
+          autoCloseableTag.forEachProgramMethod(additionsBuilder::addRule);
+        });
+    parent.acceptAutoCloseableTagContext(autoCloseableTag, context);
+  }
+
+  @Override
+  public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramMethod context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
+    parent.acceptAutoCloseableDispatchMethod(method, context);
+  }
+
+  @Override
   public void acceptRecordClass(DexProgramClass recordClass) {
     parent.acceptRecordClass(recordClass);
   }

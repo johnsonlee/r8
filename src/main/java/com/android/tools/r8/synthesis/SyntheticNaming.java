@@ -26,6 +26,7 @@ public class SyntheticNaming {
   private KindGenerator generator = new KindGenerator();
 
   // Global synthetics.
+  public final SyntheticKind AUTOCLOSEABLE_TAG = generator.forGlobalClass();
   public final SyntheticKind RECORD_TAG = generator.forGlobalClass();
   public final SyntheticKind API_MODEL_STUB = generator.forGlobalClass();
   public final SyntheticKind METHOD_HANDLES_LOOKUP = generator.forGlobalClass();
@@ -66,6 +67,8 @@ public class SyntheticNaming {
   public final SyntheticKind CONST_DYNAMIC = generator.forNonSharableInstanceClass("$Condy");
 
   // Method synthetics.
+  public final SyntheticKind AUTOCLOSEABLE_DISPATCHER =
+      generator.forSingleMethodWithGlobalMerging("AutoCloseableDispatcher");
   public final SyntheticKind TYPE_SWITCH_HELPER =
       generator.forSingleMethodWithGlobalMerging("TypeSwitch");
   public final SyntheticKind ENUM_UNBOXING_CHECK_NOT_ZERO_METHOD =

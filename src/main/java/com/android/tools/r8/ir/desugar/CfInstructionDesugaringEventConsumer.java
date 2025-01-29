@@ -26,6 +26,7 @@ import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEvent
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicClass;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPIConverterEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibRewriterEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialBridgeInfo;
@@ -57,6 +58,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.StreamSupport;
 
 /**
  * Class that gets notified for structural changes made as a result of desugaring (e.g., the
@@ -77,7 +79,8 @@ public abstract class CfInstructionDesugaringEventConsumer
         ApiInvokeOutlinerDesugaringEventConsumer,
         VarHandleDesugaringEventConsumer,
         DesugaredLibRewriterEventConsumer,
-        TypeSwitchDesugaringEventConsumer {
+        TypeSwitchDesugaringEventConsumer,
+        AutoCloseableRetargeterEventConsumer {
 
   public static CfInstructionDesugaringEventConsumer createForD8(
       AppView<?> appView,
@@ -256,6 +259,24 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptRecordClassContext(DexProgramClass recordTagClass, ProgramMethod context) {
       // Intentionally empty.
+    }
+
+    @Override
+    public void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag) {
+      assert StreamSupport.stream(autoCloseableTag.programMethods().spliterator(), false)
+          .allMatch(m -> m.getDefinition().isAbstract());
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptAutoCloseableTagContext(
+        DexProgramClass autoCloseableTag, ProgramMethod context) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramMethod context) {
+      methodProcessor.scheduleDesugaredMethodForProcessing(method);
     }
 
     @Override
@@ -555,6 +576,22 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptRecordClassContext(DexProgramClass recordTagClass, ProgramMethod context) {
       // Intentionally empty.
+    }
+
+    @Override
+    public void acceptAutoCloseableTagProgramClass(DexProgramClass autoCloseableTag) {
+      // Intentionally empty. The class will be hit by tracing if required.
+    }
+
+    @Override
+    public void acceptAutoCloseableTagContext(
+        DexProgramClass autoCloseableTag, ProgramMethod context) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramMethod context) {
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
