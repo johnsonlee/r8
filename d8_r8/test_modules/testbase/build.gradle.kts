@@ -110,6 +110,7 @@ tasks {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
     dependsOn(gradle.includedBuild("keepanno").task(":jar"))
     dependsOn(gradle.includedBuild("resourceshrinker").task(":jar"))
+    dependsOn(gradle.includedBuild("resourceshrinker").task(":depsJar"))
     from(testDependencies().map(::zipTree))
     from(resourceShrinkerDepsJarTask.outputs.getFiles().map(::zipTree))
     from(keepAnnoJarTask.outputs.getFiles().map(::zipTree))
