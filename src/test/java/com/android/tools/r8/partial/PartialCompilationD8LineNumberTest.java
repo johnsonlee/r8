@@ -5,6 +5,7 @@ package com.android.tools.r8.partial;
 
 import static com.android.tools.r8.naming.retrace.StackTrace.isSame;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -55,7 +56,7 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
   }
 
   @Test
-  public void test() throws Exception {
+  public void test() throws Throwable {
     parameters.assumeR8PartialTestParameters();
     R8PartialTestCompileResult compileResult =
         testForR8Partial(parameters.getBackend())
@@ -76,6 +77,11 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
                   assertEquals(
                       "PartialCompilationD8LineNumberTest.java",
                       excludedClass.getDexProgramClass().getSourceFile().toString());
+                })
+            .inspectProguardMap(
+                map -> {
+                  assertThat(map, containsString(IncludedClass.class.getTypeName()));
+                  assertThat(map, not(containsString(ExcludedClass.class.getTypeName())));
                 });
 
     compileResult
