@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.Emu
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterL8SynthesizerEventConsumer;
 import com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider;
+import com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider.EmulateDispatchType;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.synthesis.SyntheticClassBuilder;
 import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
@@ -284,7 +285,12 @@ public class DesugaredLibraryRetargeterSyntheticHelper {
     DexMethod itfMethod = emulatedInterfaceDispatchMethod(itfClass, descriptor);
     assert descriptor.getDispatchCases().isEmpty();
     return new EmulateDispatchSyntheticCfCodeProvider(
-            methodSig.getHolderType(), forwardingMethod, itfMethod, new LinkedHashMap<>(), appView)
+            methodSig.getHolderType(),
+            forwardingMethod,
+            itfMethod,
+            new LinkedHashMap<>(),
+            EmulateDispatchType.ALL_STATIC,
+            appView)
         .generateCfCode();
   }
 }

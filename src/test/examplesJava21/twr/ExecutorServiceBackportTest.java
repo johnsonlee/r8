@@ -4,8 +4,14 @@
 
 package twr;
 
+import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.compileAutoCloseableAndroidLibraryClasses;
+import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
+
+import com.android.tools.r8.D8TestCompileResult;
+import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.backports.AbstractBackportTest;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -31,6 +37,32 @@ public class ExecutorServiceBackportTest extends AbstractBackportTest {
     super(parameters, ExecutorService.class, Main.class);
     registerTarget(AndroidApiLevel.BAKLAVA, 1);
     ignoreInvokes("isTerminated");
+  }
+
+  @Override
+  protected void configureProgram(TestBuilder<?, ?> builder) throws Exception {
+    super.configureProgram(builder);
+    if (builder.isJvmTestBuilder()) {
+      builder.addProgramClassFileData(getAutoCloseableAndroidClassData(parameters));
+    } else {
+      builder
+          .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+          .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters));
+    }
+  }
+
+  @Override
+  protected void configure(D8TestCompileResult builder) throws Exception {
+    if (parameters.isDexRuntime()) {
+      builder.addBootClasspathFiles(compileAutoCloseableAndroidLibraryClasses(this, parameters));
+    } else {
+      builder.addRunClasspathClassFileData(getAutoCloseableAndroidClassData(parameters));
+    }
+  }
+
+  @Override
+  public void testD8Cf() throws Exception {
+    super.testD8Cf();
   }
 
   public static class Main {

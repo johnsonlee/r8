@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.ir.synthetic;
 
+import static com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider.EmulateDispatchType.ALL_STATIC;
+import static com.android.tools.r8.ir.synthetic.EmulateDispatchSyntheticCfCodeProvider.EmulateDispatchType.AUTO_CLOSEABLE;
+
 import com.android.tools.r8.cf.code.CfCheckCast;
 import com.android.tools.r8.cf.code.CfFrame;
 import com.android.tools.r8.cf.code.CfIf;
@@ -29,8 +32,14 @@ import org.objectweb.asm.Opcodes;
 
 public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
 
+  public enum EmulateDispatchType {
+    ALL_STATIC,
+    AUTO_CLOSEABLE
+  }
+
   private final DexMethod forwardingMethod;
   private final DexMethod interfaceMethod;
+  private final EmulateDispatchType dispatchType;
   private final LinkedHashMap<DexType, DexMethod> extraDispatchCases;
 
   public EmulateDispatchSyntheticCfCodeProvider(
@@ -38,11 +47,13 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
       DexMethod forwardingMethod,
       DexMethod interfaceMethod,
       LinkedHashMap<DexType, DexMethod> extraDispatchCases,
+      EmulateDispatchType dispatchType,
       AppView<?> appView) {
     super(appView, holder);
     this.forwardingMethod = forwardingMethod;
     this.interfaceMethod = interfaceMethod;
     this.extraDispatchCases = extraDispatchCases;
+    this.dispatchType = dispatchType;
   }
 
   @Override
@@ -89,8 +100,7 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
       // Call basic block.
       instructions.add(new CfLoad(ValueType.fromDexType(receiverType), 0));
       instructions.add(new CfCheckCast(dispatch.getKey()));
-      loadExtraParameters(instructions);
-      instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, dispatch.getValue(), false));
+      forwardCall(instructions, dispatch.getValue());
       addReturn(instructions);
     }
 
@@ -98,10 +108,26 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
     instructions.add(labels[nextLabel]);
     instructions.add(frame.clone());
     instructions.add(new CfLoad(ValueType.fromDexType(receiverType), 0));
-    loadExtraParameters(instructions);
-    instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, forwardingMethod, false));
+    forwardCall(instructions, forwardingMethod);
     addReturn(instructions);
     return standardCfCodeFromInstructions(instructions);
+  }
+
+  private void forwardCall(List<CfInstruction> instructions, DexMethod method) {
+    if (dispatchType == ALL_STATIC
+        || appView.getSyntheticItems().isSynthetic(method.getHolderType())) {
+      loadExtraParameters(instructions);
+      instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method, false));
+      return;
+    }
+    assert dispatchType == AUTO_CLOSEABLE;
+    instructions.add(new CfCheckCast(method.holder));
+    loadExtraParameters(instructions);
+    if (appView.definitionFor(method.getHolderType()).isInterface()) {
+      instructions.add(new CfInvoke(Opcodes.INVOKEINTERFACE, method, true));
+    } else {
+      instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, method, false));
+    }
   }
 
   private void loadExtraParameters(List<CfInstruction> instructions) {
@@ -113,10 +139,10 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
 
   @SuppressWarnings("ReferenceEquality")
   private void addReturn(List<CfInstruction> instructions) {
-    if (interfaceMethod.proto.returnType == appView.dexItemFactory().voidType) {
+    if (interfaceMethod.getReturnType().isVoidType()) {
       instructions.add(new CfReturnVoid());
     } else {
-      instructions.add(new CfReturn(ValueType.fromDexType(interfaceMethod.proto.returnType)));
+      instructions.add(new CfReturn(ValueType.fromDexType(interfaceMethod.getReturnType())));
     }
   }
 }

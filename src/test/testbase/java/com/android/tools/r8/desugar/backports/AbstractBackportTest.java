@@ -189,13 +189,17 @@ public abstract class AbstractBackportTest extends TestBase {
     ignoredInvokes.add(methodName);
   }
 
-  protected void configureProgram(TestBuilder<?, ?> builder) throws IOException {
+  protected void configureProgram(TestBuilder<?, ?> builder) throws Exception {
     builder.addProgramClasses(MiniAssert.class, IgnoreInvokes.class);
     if (testClass != null) {
       testClass.addAsProgramClass(builder);
     } else {
       builder.addProgramFiles(testJar);
     }
+  }
+
+  protected void configureD8Options(D8TestBuilder d8TestBuilder) throws IOException {
+    // Intentionally empty.
   }
 
   @Test
@@ -233,6 +237,7 @@ public abstract class AbstractBackportTest extends TestBase {
     testForD8()
         .setMinApi(parameters)
         .apply(this::configureProgram)
+        .apply(this::configureD8Options)
         .setIncludeClassesChecksum(true)
         .compileWithExpectedDiagnostics(this::checkDiagnostics)
         .apply(this::configure)
@@ -256,8 +261,10 @@ public abstract class AbstractBackportTest extends TestBase {
     testForD8(Backend.CF)
         .setMinApi(parameters)
         .apply(this::configureProgram)
+        .apply(this::configureD8Options)
         .setIncludeClassesChecksum(true)
         .compileWithExpectedDiagnostics(this::checkDiagnostics)
+        .apply(this::configure)
         .run(parameters.getRuntime(), testClassName)
         .assertSuccess()
         .inspect(this::assertDesugaring);

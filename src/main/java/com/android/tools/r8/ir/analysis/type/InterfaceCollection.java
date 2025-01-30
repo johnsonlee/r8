@@ -5,6 +5,8 @@ package com.android.tools.r8.ir.analysis.type;
 
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterHelper;
+import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Pair;
@@ -21,13 +23,26 @@ import java.util.function.Predicate;
 
 public class InterfaceCollection {
 
-  @SuppressWarnings("ReferenceEquality")
   public static boolean isKnownToImplement(
       DexType iface, DexType implementor, InternalOptions options) {
     if (options.canHaveZipFileWithMissingCloseableBug()
-        && implementor == options.dexItemFactory().zipFileType
-        && iface == options.dexItemFactory().closeableType) {
+        && implementor.isIdenticalTo(options.dexItemFactory().zipFileType)
+        && iface.isIdenticalTo(options.dexItemFactory().closeableType)) {
       return false;
+    }
+    if (options.canHaveMissingImplementsAutoCloseableInterface()
+        && iface.isIdenticalTo(options.dexItemFactory().autoCloseableType)) {
+      BooleanBox booleanBox = new BooleanBox(true);
+      AutoCloseableRetargeterHelper.forEachAutoCloseableMissingSubimplementation(
+          type -> {
+            if (type.isIdenticalTo(implementor)) {
+              booleanBox.set(false);
+            }
+          },
+          options.getMinApiLevel(),
+          options.dexItemFactory(),
+          true);
+      return booleanBox.get();
     }
     return true;
   }
@@ -42,10 +57,6 @@ public class InterfaceCollection {
           iface,
           !implementor.isLibraryClass()
               || isKnownToImplement(iface, implementor.getType(), options));
-    }
-
-    public Builder addInterface(DexType iface, DexType implementor, InternalOptions options) {
-      return addInterface(iface, isKnownToImplement(iface, implementor, options));
     }
 
     public Builder addInterface(DexType type, boolean isKnown) {

@@ -106,6 +106,7 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/util/OptionalLong;");
     factory.createSynthesizedType("Ljava/util/Set;");
     factory.createSynthesizedType("Ljava/util/concurrent/ExecutorService;");
+    factory.createSynthesizedType("Ljava/util/concurrent/ForkJoinPool;");
     factory.createSynthesizedType("Ljava/util/concurrent/TimeUnit;");
     factory.createSynthesizedType("Ljava/util/concurrent/atomic/AtomicReference;");
     factory.createSynthesizedType("Ljava/util/concurrent/atomic/AtomicReferenceArray;");
@@ -2430,12 +2431,42 @@ public final class BackportedMethods {
     CfLabel label13 = new CfLabel();
     CfLabel label14 = new CfLabel();
     CfLabel label15 = new CfLabel();
+    CfLabel label16 = new CfLabel();
+    CfLabel label17 = new CfLabel();
+    CfLabel label18 = new CfLabel();
     return new CfCode(
         method.holder,
         4,
         4,
         ImmutableList.of(
             label0,
+            new CfStaticFieldRead(
+                factory.createField(
+                    factory.createType("Landroid/os/Build$VERSION;"),
+                    factory.intType,
+                    factory.createString("SDK_INT"))),
+            new CfConstNumber(23, ValueType.INT),
+            new CfIfCmp(IfType.LE, ValueType.INT, label3),
+            label1,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType("Ljava/util/concurrent/ForkJoinPool;"),
+                    factory.createProto(factory.createType("Ljava/util/concurrent/ForkJoinPool;")),
+                    factory.createString("commonPool")),
+                false),
+            new CfIfCmp(IfType.NE, ValueType.OBJECT, label3),
+            label2,
+            new CfReturnVoid(),
+            label3,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/util/concurrent/ExecutorService;"))
+                    })),
             new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
                 185,
@@ -2445,10 +2476,10 @@ public final class BackportedMethods {
                     factory.createString("isTerminated")),
                 true),
             new CfStore(ValueType.INT, 1),
-            label1,
+            label4,
             new CfLoad(ValueType.INT, 1),
-            new CfIf(IfType.NE, ValueType.INT, label14),
-            label2,
+            new CfIf(IfType.NE, ValueType.INT, label17),
+            label5,
             new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
                 185,
@@ -2457,10 +2488,10 @@ public final class BackportedMethods {
                     factory.createProto(factory.voidType),
                     factory.createString("shutdown")),
                 true),
-            label3,
+            label6,
             new CfConstNumber(0, ValueType.INT),
             new CfStore(ValueType.INT, 2),
-            label4,
+            label7,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1, 2},
@@ -2471,8 +2502,8 @@ public final class BackportedMethods {
                       FrameType.intType()
                     })),
             new CfLoad(ValueType.INT, 1),
-            new CfIf(IfType.NE, ValueType.INT, label12),
-            label5,
+            new CfIf(IfType.NE, ValueType.INT, label15),
+            label8,
             new CfLoad(ValueType.OBJECT, 0),
             new CfConstNumber(1, ValueType.LONG),
             new CfStaticFieldRead(
@@ -2491,9 +2522,9 @@ public final class BackportedMethods {
                     factory.createString("awaitTermination")),
                 true),
             new CfStore(ValueType.INT, 1),
-            label6,
-            new CfGoto(label4),
-            label7,
+            label9,
+            new CfGoto(label7),
+            label10,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1, 2},
@@ -2508,10 +2539,10 @@ public final class BackportedMethods {
                         FrameType.initializedNonNullReference(
                             factory.createType("Ljava/lang/InterruptedException;"))))),
             new CfStore(ValueType.OBJECT, 3),
-            label8,
+            label11,
             new CfLoad(ValueType.INT, 2),
-            new CfIf(IfType.NE, ValueType.INT, label11),
-            label9,
+            new CfIf(IfType.NE, ValueType.INT, label14),
+            label12,
             new CfLoad(ValueType.OBJECT, 0),
             new CfInvoke(
                 185,
@@ -2521,10 +2552,10 @@ public final class BackportedMethods {
                     factory.createString("shutdownNow")),
                 true),
             new CfStackInstruction(CfStackInstruction.Opcode.Pop),
-            label10,
+            label13,
             new CfConstNumber(1, ValueType.INT),
             new CfStore(ValueType.INT, 2),
-            label11,
+            label14,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1, 2},
@@ -2534,8 +2565,8 @@ public final class BackportedMethods {
                       FrameType.intType(),
                       FrameType.intType()
                     })),
-            new CfGoto(label4),
-            label12,
+            new CfGoto(label7),
+            label15,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1, 2},
@@ -2546,8 +2577,8 @@ public final class BackportedMethods {
                       FrameType.intType()
                     })),
             new CfLoad(ValueType.INT, 2),
-            new CfIf(IfType.EQ, ValueType.INT, label14),
-            label13,
+            new CfIf(IfType.EQ, ValueType.INT, label17),
+            label16,
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -2562,7 +2593,7 @@ public final class BackportedMethods {
                     factory.createProto(factory.voidType),
                     factory.createString("interrupt")),
                 false),
-            label14,
+            label17,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1},
@@ -2572,13 +2603,13 @@ public final class BackportedMethods {
                       FrameType.intType()
                     })),
             new CfReturnVoid(),
-            label15),
+            label18),
         ImmutableList.of(
             new CfTryCatch(
-                label5,
-                label6,
+                label8,
+                label9,
                 ImmutableList.of(factory.createType("Ljava/lang/InterruptedException;")),
-                ImmutableList.of(label7))),
+                ImmutableList.of(label10))),
         ImmutableList.of());
   }
 

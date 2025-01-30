@@ -73,6 +73,7 @@ public class DexItemFactory {
   public static final String throwableDescriptorString = "Ljava/lang/Throwable;";
   public static final String dalvikAnnotationSignatureString = "Ldalvik/annotation/Signature;";
   public static final String recordTagDescriptorString = "Lcom/android/tools/r8/RecordTag;";
+  public static final String autoCloseableTagString = "Lcom/android/tools/r8/AutoCloseableTag;";
   public static final String recordDescriptorString = "Ljava/lang/Record;";
   public static final String desugarVarHandleDescriptorString =
       "Lcom/android/tools/r8/DesugarVarHandle;";
@@ -260,6 +261,7 @@ public class DexItemFactory {
   public final DexString objectDescriptor = createString("Ljava/lang/Object;");
   public final DexString recordDescriptor = createString(recordDescriptorString);
   public final DexString recordTagDescriptor = createString(recordTagDescriptorString);
+  public final DexString autoCloseableTagDescriptor = createString(autoCloseableTagString);
   public final DexString objectArrayDescriptor = createString("[Ljava/lang/Object;");
   public final DexString classDescriptor = createString("Ljava/lang/Class;");
   public final DexString classLoaderDescriptor = createString("Ljava/lang/ClassLoader;");
@@ -441,6 +443,7 @@ public class DexItemFactory {
   public final DexType objectType = createStaticallyKnownType(objectDescriptor);
   public final DexType recordType = createStaticallyKnownType(recordDescriptor);
   public final DexType recordTagType = createStaticallyKnownType(recordTagDescriptor);
+  public final DexType autoCloseableTagType = createStaticallyKnownType(autoCloseableTagDescriptor);
   public final DexType objectArrayType = createStaticallyKnownType(objectArrayDescriptor);
   public final DexType classArrayType = createStaticallyKnownType(classArrayDescriptor);
   public final DexType enumType = createStaticallyKnownType(enumDescriptor);
@@ -665,6 +668,7 @@ public class DexItemFactory {
       createStaticallyKnownType(androidContentContentProviderClientDescriptorString);
   public final DexType androidDrmDrmManagerClientType =
       createStaticallyKnownType(androidDrmDrmManagerClientDescriptorString);
+  public final DexType androidMediaMediaDrm = createStaticallyKnownType("Landroid/media/MediaDrm;");
   public final DexType androidMediaMediaDrmType =
       createStaticallyKnownType(androidMediaMediaDrmDescriptorString);
   public final DexType androidMediaMediaMetadataRetrieverType =
@@ -893,6 +897,11 @@ public class DexItemFactory {
   public final DexType desugarMethodHandlesLookupType =
       createStaticallyKnownType(desugarMethodHandlesLookupDescriptorString);
   public final DexType mockitoType = createStaticallyKnownType("Lorg/mockito/Mockito;");
+
+  public final DexType javaUtilConcurrentExecutorServiceType =
+      createStaticallyKnownType("Ljava/util/concurrent/ExecutorService;");
+  public final DexType javaUtilConcurrentForkJoinPoolType =
+      createStaticallyKnownType("Ljava/util/concurrent/ForkJoinPool;");
 
   public final ObjectMethodsMembers objectMethodsMembers = new ObjectMethodsMembers();
   public final ServiceLoaderMethods serviceLoaderMethods = new ServiceLoaderMethods();

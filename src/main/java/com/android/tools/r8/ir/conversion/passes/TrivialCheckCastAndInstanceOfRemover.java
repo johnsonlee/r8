@@ -311,6 +311,13 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
               .isPossiblyFalse()) {
         return false;
       }
+      if (appView.options().canHaveMissingImplementsAutoCloseableInterface()
+          && instanceOfBaseType.isIdenticalTo(appView.dexItemFactory().autoCloseableType)
+          && instanceOfClass.isLibraryClass()) {
+        // Library classes may be messed up since they may implement AutoCloseable from a different
+        // api level than the api level they are introduced.
+        return false;
+      }
     }
 
     Value inValue = instanceOf.value();
