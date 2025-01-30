@@ -232,7 +232,7 @@ public class RootSetUtils {
           new R8PartialUseCollector(appView) {
 
             private final ProguardKeepRuleModifiers modifiers =
-                ProguardKeepRuleModifiers.builder().setAllowsObfuscation(true).build();
+                ProguardKeepRuleModifiers.builder().build();
             // TODO(b/390576160): Add a test that this works when using -whyareyoukeeping.
             private final ReferencedFromD8InR8PartialFakeProguardRule keepRule =
                 new ReferencedFromD8InR8PartialFakeProguardRule();
