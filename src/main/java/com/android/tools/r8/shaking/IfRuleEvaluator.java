@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.shaking.ifrules.MaterializedSubsequentRulesOptimizer;
@@ -23,7 +22,7 @@ import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.UncheckedExecutionException;
-import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -41,21 +40,18 @@ public class IfRuleEvaluator {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory factory;
-  private final SubtypingInfo subtypingInfo;
   private final Enqueuer enqueuer;
   private final ConsequentRootSetBuilder rootSetBuilder;
   private final TaskCollection<?> tasks;
 
   IfRuleEvaluator(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      SubtypingInfo subtypingInfo,
       Enqueuer enqueuer,
       ConsequentRootSetBuilder rootSetBuilder,
       TaskCollection<?> tasks) {
     assert tasks.isEmpty();
     this.appView = appView;
     this.factory = appView.dexItemFactory();
-    this.subtypingInfo = subtypingInfo;
     this.enqueuer = enqueuer;
     this.rootSetBuilder = rootSetBuilder;
     this.tasks = tasks;
@@ -101,11 +97,10 @@ public class IfRuleEvaluator {
     if (classKind == ClassKind.PROGRAM) {
       return ifRule.relevantCandidatesForRule(
           appView,
-          subtypingInfo,
+          enqueuer.getSubtypingInfo(),
           (Iterable<DexProgramClass>) classesWithNewlyLiveMembers,
           isEffectivelyLive);
     }
-    assert classKind == ClassKind.LIBRARY;
     return classesWithNewlyLiveMembers;
   }
 
@@ -361,7 +356,7 @@ public class IfRuleEvaluator {
               .collect(Collectors.toList());
       // Member rules are combined as AND logic: if found unsatisfied member rule, this
       // combination of live members is not a good fit.
-      ProgramMethodSet methodsSatisfyingRule = ProgramMethodSet.create();
+      DexClassAndMethodSet methodsSatisfyingRule = DexClassAndMethodSet.create();
       boolean satisfied =
           memberKeepRules.stream()
               .allMatch(
@@ -372,7 +367,7 @@ public class IfRuleEvaluator {
                     DexClassAndMethod methodSatisfyingRule =
                         rootSetBuilder.getMethodSatisfyingRule(memberRule, methodsInCombination);
                     if (methodSatisfyingRule != null) {
-                      methodsSatisfyingRule.add(methodSatisfyingRule.asProgramMethod());
+                      methodsSatisfyingRule.add(methodSatisfyingRule);
                       return true;
                     }
                     return false;

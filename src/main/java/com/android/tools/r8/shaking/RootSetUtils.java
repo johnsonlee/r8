@@ -2394,10 +2394,8 @@ public class RootSetUtils {
     }
 
     static ConsequentRootSetBuilder builder(
-        AppView<? extends AppInfoWithClassHierarchy> appView,
-        Enqueuer enqueuer,
-        SubtypingInfo subtypingInfo) {
-      return new ConsequentRootSetBuilder(appView, enqueuer, subtypingInfo);
+        AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+      return new ConsequentRootSetBuilder(appView, enqueuer, enqueuer.getSubtypingInfo());
     }
   }
 

@@ -3,23 +3,24 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.shaking.RootSetUtils.ConsequentRootSetBuilder;
-import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 
 public class ProguardIfRulePreconditionMatch {
 
   private final ProguardIfRule ifRule;
   private final DexClass classMatch;
-  private final ProgramMethodSet methodsMatch;
+  private final DexClassAndMethodSet methodsMatch;
 
   public ProguardIfRulePreconditionMatch(ProguardIfRule ifRule, DexClass classMatch) {
-    this(ifRule, classMatch, ProgramMethodSet.empty());
+    this(ifRule, classMatch, DexClassAndMethodSet.empty());
   }
 
   public ProguardIfRulePreconditionMatch(
-      ProguardIfRule ifRule, DexClass classMatch, ProgramMethodSet methodsMatch) {
+      ProguardIfRule ifRule, DexClass classMatch, DexClassAndMethodSet methodsMatch) {
     this.ifRule = ifRule;
     this.classMatch = classMatch;
     this.methodsMatch = methodsMatch;
@@ -50,13 +51,18 @@ public class ProguardIfRulePreconditionMatch {
   }
 
   private void disallowMethodOptimizationsForReevaluation(ConsequentRootSetBuilder rootSetBuilder) {
-    for (ProgramMethod method : methodsMatch) {
-      rootSetBuilder
-          .getDependentMinimumKeepInfo()
-          .getOrCreateUnconditionalMinimumKeepInfoFor(method.getReference())
-          .asMethodJoiner()
-          .disallowClassInlining()
-          .disallowInlining();
+    if (classMatch.isProgramClass()) {
+      for (DexClassAndMethod method : methodsMatch) {
+        assert method.isProgramMethod();
+        rootSetBuilder
+            .getDependentMinimumKeepInfo()
+            .getOrCreateUnconditionalMinimumKeepInfoFor(method.getReference())
+            .asMethodJoiner()
+            .disallowClassInlining()
+            .disallowInlining();
+      }
+    } else {
+      assert methodsMatch.stream().noneMatch(Definition::isProgramMethod);
     }
   }
 }

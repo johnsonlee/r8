@@ -18,7 +18,6 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.NewlyLiveClassEnqueuerAnalysis;
@@ -33,6 +32,7 @@ import com.android.tools.r8.utils.Timing;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -145,26 +145,50 @@ public class IfRuleEvaluatorFactory
     return false;
   }
 
-  public ConsequentRootSet applyActiveIfRulesToLibraryClasses(Enqueuer enqueuer, Timing timing)
+  public void applyActiveIfRulesToClasspathClasses(
+      ConsequentRootSetBuilder consequentRootSetBuilder, Enqueuer enqueuer, Timing timing)
       throws ExecutionException {
-    timing.begin("Apply if rules to library classes");
-    SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
-    ConsequentRootSetBuilder consequentRootSetBuilder =
-        ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
+    try (Timing t = timing.begin("Apply if rules to classpath classes")) {
+      applyActiveIfRulesToNonProgramClass(
+          consequentRootSetBuilder,
+          enqueuer,
+          appView.app().asDirect().classpathClasses(),
+          ClassKind.CLASSPATH,
+          timing);
+    }
+  }
+
+  public void applyActiveIfRulesToLibraryClasses(
+      ConsequentRootSetBuilder consequentRootSetBuilder, Enqueuer enqueuer, Timing timing)
+      throws ExecutionException {
+    if (!appView.testing().applyIfRulesToLibrary) {
+      return;
+    }
+    try (Timing t = timing.begin("Apply if rules to library classes")) {
+      applyActiveIfRulesToNonProgramClass(
+          consequentRootSetBuilder,
+          enqueuer,
+          appView.app().asDirect().libraryClasses(),
+          ClassKind.LIBRARY,
+          timing);
+    }
+  }
+
+  private <T extends DexClass> void applyActiveIfRulesToNonProgramClass(
+      ConsequentRootSetBuilder consequentRootSetBuilder,
+      Enqueuer enqueuer,
+      Collection<T> classes,
+      ClassKind<T> classKind,
+      Timing timing)
+      throws ExecutionException {
     IfRuleEvaluator evaluator =
-        new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
+        new IfRuleEvaluator(appView, enqueuer, consequentRootSetBuilder, tasks);
     evaluator.processActiveIfRulesWithMembers(
-        activeIfRulesWithMembers,
-        ClassKind.LIBRARY,
-        appView.app().asDirect().libraryClasses(),
-        alwaysTrue());
+        activeIfRulesWithMembers, classKind, classes, alwaysTrue());
     evaluator.processActiveIfRulesWithoutMembers(
         activeIfRulesWithoutMembers,
-        newIdentityHashMapFromCollection(
-            appView.app().asDirect().libraryClasses(), DexClass::getType, Function.identity()),
+        newIdentityHashMapFromCollection(classes, DexClass::getType, Function.identity()),
         timing);
-    timing.end();
-    return consequentRootSetBuilder.buildConsequentRootSet();
   }
 
   @Override
@@ -172,9 +196,12 @@ public class IfRuleEvaluatorFactory
       Enqueuer enqueuer, EnqueuerWorklist worklist, ExecutorService executorService, Timing timing)
       throws ExecutionException {
     boolean isFirstFixpoint = setSeenFixpoint();
-    if (isFirstFixpoint && appView.testing().applyIfRulesToLibrary) {
-      ConsequentRootSet consequentRootSet = applyActiveIfRulesToLibraryClasses(enqueuer, timing);
-      enqueuer.addConsequentRootSet(consequentRootSet);
+    if (isFirstFixpoint) {
+      ConsequentRootSetBuilder consequentRootSetBuilder =
+          ConsequentRootSet.builder(appView, enqueuer);
+      applyActiveIfRulesToClasspathClasses(consequentRootSetBuilder, enqueuer, timing);
+      applyActiveIfRulesToLibraryClasses(consequentRootSetBuilder, enqueuer, timing);
+      enqueuer.addConsequentRootSet(consequentRootSetBuilder.buildConsequentRootSet());
     }
     if (!shouldProcessActiveIfRulesWithMembers(isFirstFixpoint)
         && !shouldProcessActiveIfRulesWithoutMembers(isFirstFixpoint)) {
@@ -201,11 +228,10 @@ public class IfRuleEvaluatorFactory
 
   private ConsequentRootSet processActiveIfRules(
       Enqueuer enqueuer, boolean isFirstFixpoint, Timing timing) throws ExecutionException {
-    SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
     ConsequentRootSetBuilder consequentRootSetBuilder =
-        ConsequentRootSet.builder(appView, enqueuer, subtypingInfo);
+        ConsequentRootSet.builder(appView, enqueuer);
     IfRuleEvaluator evaluator =
-        new IfRuleEvaluator(appView, subtypingInfo, enqueuer, consequentRootSetBuilder, tasks);
+        new IfRuleEvaluator(appView, enqueuer, consequentRootSetBuilder, tasks);
     timing.begin("If rules with members");
     if (shouldProcessActiveIfRulesWithMembers(isFirstFixpoint)) {
       processActiveIfRulesWithMembers(evaluator, isFirstFixpoint);
