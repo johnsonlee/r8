@@ -46,11 +46,6 @@ public class JvmTestBuilder extends TestBuilder<JvmTestRunResult, JvmTestBuilder
   }
 
   @Override
-  public boolean isJvmTestBuilder() {
-    return true;
-  }
-
-  @Override
   JvmTestBuilder self() {
     return this;
   }

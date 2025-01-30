@@ -96,10 +96,6 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return self;
   }
 
-  public boolean isJvmTestBuilder() {
-    return false;
-  }
-
   @Deprecated
   public RR run(String mainClass)
       throws CompilationFailedException, ExecutionException, IOException {

@@ -926,24 +926,21 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
       initializeMathExactApis(factory, factory.mathType);
 
-      // AutoCloseable desugaring is disabled on low min-api levels, we rely on backports instead.
-      if (!appView.options().shouldDesugarAutoCloseable()) {
-        // android.content.res.ContentProviderClient
+      // android.content.res.ContentProviderClient
 
-        // void android.content.ContentProviderClient.close()
-        addProvider(
-            new InvokeRewriter(
-                factory.androidContentContentProviderClientMembers.close,
-                ContentProviderClientMethodRewrites.rewriteClose()));
+      // void android.content.ContentProviderClient.close()
+      addProvider(
+          new InvokeRewriter(
+              factory.androidContentContentProviderClientMembers.close,
+              ContentProviderClientMethodRewrites.rewriteClose()));
 
-        // android.drm.DrmManagerClient
+      // android.drm.DrmManagerClient
 
-        // void android.drm.DrmManagerClient.close()
-        addProvider(
-            new InvokeRewriter(
-                factory.androidDrmDrmManagerClientMembers.close,
-                DrmManagerClientMethodRewrites.rewriteClose()));
-      }
+      // void android.drm.DrmManagerClient.close()
+      addProvider(
+          new InvokeRewriter(
+              factory.androidDrmDrmManagerClientMembers.close,
+              DrmManagerClientMethodRewrites.rewriteClose()));
     }
 
     /**
@@ -1200,14 +1197,11 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
               "stripTrailingZeros",
               bigDecimal));
 
-      // AutoCloseable desugaring is disabled on low min-api levels, we rely on backports instead.
-      if (!appView.options().shouldDesugarAutoCloseable()) {
-        // void android.media.MetadataRetriever.close()
-        addProvider(
-            new InvokeRewriter(
-                factory.androidMediaMetadataRetrieverMembers.close,
-                MediaMetadataRetrieverMethodRewrites.rewriteClose()));
-      }
+      // void android.drm.DrmManagerClient.close()
+      addProvider(
+          new InvokeRewriter(
+              factory.androidMediaMetadataRetrieverMembers.close,
+              MediaMetadataRetrieverMethodRewrites.rewriteClose()));
     }
 
     private void initializeAndroidRObjectsMethodProviderWithSupplier(DexItemFactory factory) {
@@ -1454,16 +1448,13 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
           new InvokeRewriter(
               factory.androidUtilSparseArrayMembers.set, SparseArrayMethodRewrites.rewriteSet()));
 
-      // AutoCloseable desugaring is disabled on low min-api levels, we rely on backports instead.
-      if (!appView.options().shouldDesugarAutoCloseable()) {
-        // android.content.res.TypedArray
+      // android.content.res.TypedArray
 
-        // void android.content.res.TypedArray.close()
-        addProvider(
-            new InvokeRewriter(
-                factory.androidContentResTypedArrayMembers.close,
-                TypedArrayMethodRewrites.rewriteClose()));
-      }
+      // void android.content.res.TypedArray.close()
+      addProvider(
+          new InvokeRewriter(
+              factory.androidContentResTypedArrayMembers.close,
+              TypedArrayMethodRewrites.rewriteClose()));
     }
 
     private void initializeAndroidSv2MethodProviders(DexItemFactory factory) {
@@ -1883,20 +1874,17 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
                     (Integer) versionCodeFull[1])));
       }
 
-      // AutoCloseable desugaring is disabled on low min-api levels, we rely on backports instead.
-      if (!appView.options().shouldDesugarAutoCloseable()) {
-        // void java.util.concurrent.ExecutorService.close()
-        type = factory.createType("Ljava/util/concurrent/ExecutorService;");
-        name = factory.createString("close");
-        proto = factory.createProto(factory.voidType);
-        method = factory.createMethod(type, proto, name);
-        addProvider(
-            new StatifyingMethodGenerator(
-                method,
-                BackportedMethods::ExecutorServiceMethods_closeExecutorService,
-                "closeExecutorService",
-                type));
-      }
+      // void java.util.concurrent.ExecutorService.close()
+      type = factory.createType("Ljava/util/concurrent/ExecutorService;");
+      name = factory.createString("close");
+      proto = factory.createProto(factory.voidType);
+      method = factory.createMethod(type, proto, name);
+      addProvider(
+          new StatifyingMethodGenerator(
+              method,
+              BackportedMethods::ExecutorServiceMethods_closeExecutorService,
+              "closeExecutorService",
+              type));
     }
 
     private void initializeAndroidUMethodProviders(DexItemFactory factory) {

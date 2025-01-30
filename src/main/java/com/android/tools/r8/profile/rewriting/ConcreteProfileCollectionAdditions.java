@@ -80,12 +80,6 @@ public class ConcreteProfileCollectionAdditions extends ProfileCollectionAdditio
         context, additionsBuilder -> additionsBuilder.addRule(method).addRule(method.getHolder()));
   }
 
-  public void addMethodAndHolderIfContextIsInProfile(
-      ProgramMethod method, ProgramDefinition context) {
-    applyIfContextIsInProfile(
-        context, additionsBuilder -> additionsBuilder.addRule(method).addRule(method.getHolder()));
-  }
-
   void applyIfContextIsInProfile(
       ProgramDefinition context, Consumer<ProfileAdditionsBuilder> builderConsumer) {
     if (context.isProgramClass()) {

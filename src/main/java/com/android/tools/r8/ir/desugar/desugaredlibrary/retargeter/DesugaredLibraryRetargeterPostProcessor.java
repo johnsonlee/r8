@@ -161,7 +161,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
     assert resolvedMethod != null;
     DexEncodedMethod desugaringForwardingMethod =
         DexEncodedMethod.createDesugaringForwardingMethod(
-            resolvedMethod, clazz, forwardMethod, appView.dexItemFactory(), true);
+            resolvedMethod, clazz, forwardMethod, appView.dexItemFactory());
     desugaringForwardingMethod.setLibraryMethodOverride(OptionalBool.TRUE);
     return desugaringForwardingMethod;
   }

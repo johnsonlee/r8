@@ -26,7 +26,6 @@ import com.android.tools.r8.ir.desugar.backports.BackportedMethodDesugaringEvent
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicClass;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryWrapperSynthesizerEventConsumer.DesugaredLibraryAPIConverterEventConsumer;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibRewriterEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterInstructionEventConsumer;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialBridgeInfo;
@@ -78,8 +77,7 @@ public abstract class CfInstructionDesugaringEventConsumer
         ApiInvokeOutlinerDesugaringEventConsumer,
         VarHandleDesugaringEventConsumer,
         DesugaredLibRewriterEventConsumer,
-        TypeSwitchDesugaringEventConsumer,
-        AutoCloseableRetargeterEventConsumer {
+        TypeSwitchDesugaringEventConsumer {
 
   public static CfInstructionDesugaringEventConsumer createForD8(
       AppView<?> appView,
@@ -258,11 +256,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptRecordClassContext(DexProgramClass recordTagClass, ProgramMethod context) {
       // Intentionally empty.
-    }
-
-    @Override
-    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
-      methodProcessor.scheduleDesugaredMethodForProcessing(method);
     }
 
     @Override
@@ -562,11 +555,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptRecordClassContext(DexProgramClass recordTagClass, ProgramMethod context) {
       // Intentionally empty.
-    }
-
-    @Override
-    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
-      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override

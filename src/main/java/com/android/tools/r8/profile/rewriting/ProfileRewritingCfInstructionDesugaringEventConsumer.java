@@ -342,12 +342,6 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   }
 
   @Override
-  public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
-    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
-    parent.acceptAutoCloseableDispatchMethod(method, context);
-  }
-
-  @Override
   public void acceptRecordClass(DexProgramClass recordClass) {
     parent.acceptRecordClass(recordClass);
   }

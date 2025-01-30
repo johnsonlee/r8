@@ -1274,11 +1274,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
   }
 
   public static DexEncodedMethod createDesugaringForwardingMethod(
-      DexClassAndMethod target,
-      DexClass clazz,
-      DexMethod forwardMethod,
-      DexItemFactory factory,
-      boolean targetIsStatic) {
+      DexClassAndMethod target, DexClass clazz, DexMethod forwardMethod, DexItemFactory factory) {
     assert forwardMethod != null;
     // New method will have the same name, proto, and also all the flags of the
     // default method, including bridge flag.
@@ -1289,23 +1285,16 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     newFlags.unsetAbstract();
     // Holder is companion class, or retarget method, not an interface.
     boolean isInterfaceMethodReference = false;
-    ForwardMethodBuilder builder =
-        ForwardMethodBuilder.builder(factory).setNonStaticSource(newMethod);
-    if (targetIsStatic) {
-      builder.setStaticTarget(forwardMethod, isInterfaceMethodReference);
-    } else {
-      builder.setVirtualTarget(forwardMethod, isInterfaceMethodReference);
-    }
-    if (forwardMethod.getReturnType().isNotIdenticalTo(target.getReturnType())) {
-      assert target.getReturnType().isVoidType();
-      builder.setIgnoreTargetResult();
-    }
     return syntheticBuilder()
         .setMethod(newMethod)
         .setAccessFlags(newFlags)
         .setGenericSignature(MethodTypeSignature.noSignature())
         .setAnnotations(DexAnnotationSet.empty())
-        .setCode(builder.buildCf())
+        .setCode(
+            ForwardMethodBuilder.builder(factory)
+                .setNonStaticSource(newMethod)
+                .setStaticTarget(forwardMethod, isInterfaceMethodReference)
+                .buildCf())
         .setApiLevelForDefinition(target.getDefinition().getApiLevelForDefinition())
         .setApiLevelForCode(target.getDefinition().getApiLevelForCode())
         .build();

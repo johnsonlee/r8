@@ -169,13 +169,7 @@ public class GenerateBackportMethods extends MethodGenerationBase {
   private static CfInstruction rewriteToAndroidOsBuildVersion(
       DexItemFactory itemFactory, CfInstruction instruction) {
     // Rewrite references to UnsafeStub to sun.misc.Unsafe.
-    if (instruction.isStaticFieldGet()
-        && instruction
-            .asFieldInstruction()
-            .getField()
-            .getHolderType()
-            .toString()
-            .contains("Stub")) {
+    if (instruction.isStaticFieldGet()) {
       CfStaticFieldRead fieldGet = instruction.asStaticFieldGet();
       return new CfStaticFieldRead(
           itemFactory.createField(
@@ -188,10 +182,7 @@ public class GenerateBackportMethods extends MethodGenerationBase {
           .asFrame()
           .mapReferenceTypes(
               type -> {
-                if (type.toString().contains("Stub")) {
-                  throw new RuntimeException("Unexpected CfFrame instruction.");
-                }
-                return type;
+                throw new RuntimeException("Unexpected CfFrame instruction.");
               });
     }
     return instruction;
@@ -213,12 +204,6 @@ public class GenerateBackportMethods extends MethodGenerationBase {
       code.setInstructions(
           code.getInstructions().stream()
               .map(instruction -> rewriteToUnsafe(factory, instruction))
-              .collect(Collectors.toList()));
-    }
-    if (holderName.equals("ExecutorServiceMethods") && methodName.equals("closeExecutorService")) {
-      code.setInstructions(
-          code.getInstructions().stream()
-              .map(instruction -> rewriteToAndroidOsBuildVersion(factory, instruction))
               .collect(Collectors.toList()));
     }
     if (holderName.equals("AndroidOsBuildVersionMethods") && methodName.equals("getSdkIntFull")) {
