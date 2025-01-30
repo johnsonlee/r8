@@ -78,7 +78,7 @@ public class LookUpCloseResourceTest extends TestBase {
     for (DexProgramClass clazz : appInfoForMax.classes()) {
       OptionalBool contains =
           appInfoForMax.implementedInterfaces(clazz.getType()).contains(factory.autoCloseableType);
-      if (contains.isTrue() && clazz.getType() != factory.autoCloseableType) {
+      if (contains.isPossiblyTrue() && clazz.getType() != factory.autoCloseableType) {
         if (clazz.lookupVirtualMethod(close.withHolder(clazz.getType(), factory)) != null) {
           autoCloseableSubclassesWithOverride.add(clazz.getType());
         } else {
