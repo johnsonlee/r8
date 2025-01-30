@@ -6,11 +6,14 @@ package com.android.tools.r8.keepanno.utils;
 
 import static com.android.tools.r8.references.Reference.classFromClass;
 import static com.android.tools.r8.references.Reference.classFromTypeName;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cfmethodgeneration.CodeGenerationBase;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
 import com.google.common.base.Strings;
@@ -32,6 +35,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class KeepItemAnnotationGenerator {
 
@@ -40,11 +45,47 @@ public class KeepItemAnnotationGenerator {
     Generator.run(
         (file, content) -> {
           try {
-            Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+            Files.write(file, content.getBytes(StandardCharsets.UTF_8), CREATE, TRUNCATE_EXISTING);
           } catch (IOException e) {
             throw new RuntimeException(e);
           }
         });
+  }
+
+  private static String getHeaderString(int year, String simpleNameOfGenerator) {
+    String result =
+        StringUtils.lines(
+            "/*",
+            " * Copyright " + year + " The Android Open Source Project",
+            " *",
+            " * Licensed under the Apache License, Version 2.0 (the \"License\");",
+            " * you may not use this file except in compliance with the License.",
+            " * You may obtain a copy of the License at",
+            " *",
+            " *      http://www.apache.org/licenses/LICENSE-2.0",
+            " *",
+            " * Unless required by applicable law or agreed to in writing, software",
+            " * distributed under the License is distributed on an \"AS IS\" BASIS,",
+            " * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.",
+            " * See the License for the specific language governing permissions and",
+            " * limitations under the License.",
+            " */");
+    if (simpleNameOfGenerator != null) {
+      result +=
+          StringUtils.lines(
+              "",
+              "// ***********************************************************************************",
+              "// GENERATED FILE. DO NOT EDIT! See " + simpleNameOfGenerator + ".java.",
+              "// ***********************************************************************************");
+    }
+    result +=
+        StringUtils.lines(
+            "",
+            "// ***********************************************************************************",
+            "// MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.",
+            "// ***********************************************************************************",
+            "");
+    return result;
   }
 
   public static class EnumReference {
@@ -64,157 +105,12 @@ public class KeepItemAnnotationGenerator {
   private static final ClassReference JAVA_STRING = classFromClass(String.class);
   private static final ClassReference JAVA_RETENTION_POLICY = classFromClass(RetentionPolicy.class);
 
-  private static final String PKG = "com.android.tools.r8.keepanno.";
-  private static final String AST_PKG = PKG + "ast.";
-  private static final String ANNO_PKG = PKG + "annotations.";
-
-  private static final ClassReference ANNOTATION_CONSTANTS = astClass("AnnotationConstants");
-
-  static final ClassReference STRING_PATTERN = annoClass("StringPattern");
-  static final ClassReference TYPE_PATTERN = annoClass("TypePattern");
-  static final ClassReference CLASS_NAME_PATTERN = annoClass("ClassNamePattern");
-  static final ClassReference INSTANCE_OF_PATTERN = annoClass("InstanceOfPattern");
-  static final ClassReference ANNOTATION_PATTERN = annoClass("AnnotationPattern");
-  static final ClassReference USES_REFLECTION = annoClass("UsesReflection");
-  static final ClassReference USED_BY_REFLECTION = annoClass("UsedByReflection");
-  static final ClassReference USED_BY_NATIVE = annoClass("UsedByNative");
-  static final ClassReference CHECK_REMOVED = annoClass("CheckRemoved");
-  static final ClassReference CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
-  static final ClassReference KEEP_EDGE = annoClass("KeepEdge");
-  static final ClassReference KEEP_BINDING = annoClass("KeepBinding");
-  static final ClassReference KEEP_TARGET = annoClass("KeepTarget");
-  static final ClassReference KEEP_CONDITION = annoClass("KeepCondition");
-  static final ClassReference KEEP_FOR_API = annoClass("KeepForApi");
-
-  public static final ClassReference KEEP_ITEM_KIND = annoClass("KeepItemKind");
-  private static final EnumReference KIND_ONLY_CLASS = enumRef(KEEP_ITEM_KIND, "ONLY_CLASS");
-  private static final EnumReference KIND_ONLY_MEMBERS = enumRef(KEEP_ITEM_KIND, "ONLY_MEMBERS");
-  private static final EnumReference KIND_ONLY_METHODS = enumRef(KEEP_ITEM_KIND, "ONLY_METHODS");
-  private static final EnumReference KIND_ONLY_FIELDS = enumRef(KEEP_ITEM_KIND, "ONLY_FIELDS");
-  private static final EnumReference KIND_CLASS_AND_MEMBERS =
-      enumRef(KEEP_ITEM_KIND, "CLASS_AND_MEMBERS");
-  private static final EnumReference KIND_CLASS_AND_METHODS =
-      enumRef(KEEP_ITEM_KIND, "CLASS_AND_METHODS");
-  private static final EnumReference KIND_CLASS_AND_FIELDS =
-      enumRef(KEEP_ITEM_KIND, "CLASS_AND_FIELDS");
-  public static final List<EnumReference> KEEP_ITEM_KIND_VALUES =
-      ImmutableList.of(
-          KIND_ONLY_CLASS,
-          KIND_ONLY_MEMBERS,
-          KIND_ONLY_METHODS,
-          KIND_ONLY_FIELDS,
-          KIND_CLASS_AND_MEMBERS,
-          KIND_CLASS_AND_METHODS,
-          KIND_CLASS_AND_FIELDS);
-
-  static final ClassReference KEEP_CONSTRAINT = annoClass("KeepConstraint");
-  private static final EnumReference CONSTRAINT_LOOKUP = enumRef(KEEP_CONSTRAINT, "LOOKUP");
-  private static final EnumReference CONSTRAINT_NAME = enumRef(KEEP_CONSTRAINT, "NAME");
-  private static final EnumReference CONSTRAINT_VISIBILITY_RELAX =
-      enumRef(KEEP_CONSTRAINT, "VISIBILITY_RELAX");
-  private static final EnumReference CONSTRAINT_VISIBILITY_RESTRICT =
-      enumRef(KEEP_CONSTRAINT, "VISIBILITY_RESTRICT");
-  private static final EnumReference CONSTRAINT_VISIBILITY_INVARIANT =
-      enumRef(KEEP_CONSTRAINT, "VISIBILITY_INVARIANT");
-  private static final EnumReference CONSTRAINT_CLASS_INSTANTIATE =
-      enumRef(KEEP_CONSTRAINT, "CLASS_INSTANTIATE");
-  private static final EnumReference CONSTRAINT_METHOD_INVOKE =
-      enumRef(KEEP_CONSTRAINT, "METHOD_INVOKE");
-  private static final EnumReference CONSTRAINT_FIELD_GET = enumRef(KEEP_CONSTRAINT, "FIELD_GET");
-  private static final EnumReference CONSTRAINT_FIELD_SET = enumRef(KEEP_CONSTRAINT, "FIELD_SET");
-  private static final EnumReference CONSTRAINT_METHOD_REPLACE =
-      enumRef(KEEP_CONSTRAINT, "METHOD_REPLACE");
-  private static final EnumReference CONSTRAINT_FIELD_REPLACE =
-      enumRef(KEEP_CONSTRAINT, "FIELD_REPLACE");
-  private static final EnumReference CONSTRAINT_NEVER_INLINE =
-      enumRef(KEEP_CONSTRAINT, "NEVER_INLINE");
-  private static final EnumReference CONSTRAINT_CLASS_OPEN_HIERARCHY =
-      enumRef(KEEP_CONSTRAINT, "CLASS_OPEN_HIERARCHY");
-  private static final EnumReference CONSTRAINT_GENERIC_SIGNATURE =
-      enumRef(KEEP_CONSTRAINT, "GENERIC_SIGNATURE");
-  static final List<EnumReference> KEEP_CONSTRAINT_VALUES =
-      ImmutableList.of(
-          CONSTRAINT_LOOKUP,
-          CONSTRAINT_NAME,
-          CONSTRAINT_VISIBILITY_RELAX,
-          CONSTRAINT_VISIBILITY_RESTRICT,
-          CONSTRAINT_VISIBILITY_INVARIANT,
-          CONSTRAINT_CLASS_INSTANTIATE,
-          CONSTRAINT_METHOD_INVOKE,
-          CONSTRAINT_FIELD_GET,
-          CONSTRAINT_FIELD_SET,
-          CONSTRAINT_METHOD_REPLACE,
-          CONSTRAINT_FIELD_REPLACE,
-          CONSTRAINT_NEVER_INLINE,
-          CONSTRAINT_CLASS_OPEN_HIERARCHY,
-          CONSTRAINT_GENERIC_SIGNATURE);
-
-  static final ClassReference MEMBER_ACCESS_FLAGS = annoClass("MemberAccessFlags");
-  private static final EnumReference MEMBER_ACCESS_PUBLIC = enumRef(MEMBER_ACCESS_FLAGS, "PUBLIC");
-  private static final EnumReference MEMBER_ACCESS_PROTECTED =
-      enumRef(MEMBER_ACCESS_FLAGS, "PROTECTED");
-  private static final EnumReference MEMBER_ACCESS_PACKAGE_PRIVATE =
-      enumRef(MEMBER_ACCESS_FLAGS, "PACKAGE_PRIVATE");
-  private static final EnumReference MEMBER_ACCESS_PRIVATE =
-      enumRef(MEMBER_ACCESS_FLAGS, "PRIVATE");
-  private static final EnumReference MEMBER_ACCESS_STATIC = enumRef(MEMBER_ACCESS_FLAGS, "STATIC");
-  private static final EnumReference MEMBER_ACCESS_FINAL = enumRef(MEMBER_ACCESS_FLAGS, "FINAL");
-  private static final EnumReference MEMBER_ACCESS_SYNTHETIC =
-      enumRef(MEMBER_ACCESS_FLAGS, "SYNTHETIC");
-  static final List<EnumReference> MEMBER_ACCESS_VALUES =
-      ImmutableList.of(
-          MEMBER_ACCESS_PUBLIC,
-          MEMBER_ACCESS_PROTECTED,
-          MEMBER_ACCESS_PACKAGE_PRIVATE,
-          MEMBER_ACCESS_PRIVATE,
-          MEMBER_ACCESS_STATIC,
-          MEMBER_ACCESS_FINAL,
-          MEMBER_ACCESS_SYNTHETIC);
-
-  static final ClassReference METHOD_ACCESS_FLAGS = annoClass("MethodAccessFlags");
-  private static final EnumReference METHOD_ACCESS_SYNCHRONIZED =
-      enumRef(METHOD_ACCESS_FLAGS, "SYNCHRONIZED");
-  private static final EnumReference METHOD_ACCESS_BRIDGE = enumRef(METHOD_ACCESS_FLAGS, "BRIDGE");
-  private static final EnumReference METHOD_ACCESS_NATIVE = enumRef(METHOD_ACCESS_FLAGS, "NATIVE");
-  private static final EnumReference METHOD_ACCESS_ABSTRACT =
-      enumRef(METHOD_ACCESS_FLAGS, "ABSTRACT");
-  private static final EnumReference METHOD_ACCESS_STRICT_FP =
-      enumRef(METHOD_ACCESS_FLAGS, "STRICT_FP");
-  static final List<EnumReference> METHOD_ACCESS_VALUES =
-      ImmutableList.of(
-          METHOD_ACCESS_SYNCHRONIZED,
-          METHOD_ACCESS_BRIDGE,
-          METHOD_ACCESS_NATIVE,
-          METHOD_ACCESS_ABSTRACT,
-          METHOD_ACCESS_STRICT_FP);
-
-  static final ClassReference FIELD_ACCESS_FLAGS = annoClass("FieldAccessFlags");
-  private static final EnumReference FIELD_ACCESS_VOLATILE =
-      enumRef(FIELD_ACCESS_FLAGS, "VOLATILE");
-  private static final EnumReference FIELD_ACCESS_TRANSIENT =
-      enumRef(FIELD_ACCESS_FLAGS, "TRANSIENT");
-  static final List<EnumReference> FIELD_ACCESS_VALUES =
-      ImmutableList.of(FIELD_ACCESS_VOLATILE, FIELD_ACCESS_TRANSIENT);
-
-  private static final String DEFAULT_INVALID_STRING_PATTERN =
-      "@" + getUnqualifiedName(STRING_PATTERN) + "(exact = \"\")";
-  private static final String DEFAULT_INVALID_TYPE_PATTERN =
-      "@" + getUnqualifiedName(TYPE_PATTERN) + "(name = \"\")";
-  private static final String DEFAULT_INVALID_CLASS_NAME_PATTERN =
-      "@" + getUnqualifiedName(CLASS_NAME_PATTERN) + "(unqualifiedName = \"\")";
-  private static final String DEFAULT_ANY_INSTANCE_OF_PATTERN =
-      "@" + getUnqualifiedName(INSTANCE_OF_PATTERN) + "()";
+  private static final String AST_PKG = "com.android.tools.r8.keepanno.ast";
+  private static final String R8_ANNO_PKG = "com.android.tools.r8.keepanno.annotations";
+  private static final String ANDROIDX_ANNO_PKG = "androidx.annotation.keep";
 
   private static ClassReference astClass(String unqualifiedName) {
-    return classFromTypeName(AST_PKG + unqualifiedName);
-  }
-
-  private static ClassReference annoClass(String unqualifiedName) {
-    return classFromTypeName(ANNO_PKG + unqualifiedName);
-  }
-
-  private static EnumReference enumRef(ClassReference enumClass, String valueName) {
-    return new EnumReference(enumClass, valueName);
+    return classFromTypeName(AST_PKG + "." + unqualifiedName);
   }
 
   public static String quote(String str) {
@@ -404,15 +300,210 @@ public class KeepItemAnnotationGenerator {
 
   public static class Generator {
 
-    private static final List<Class<?>> ANNOTATION_IMPORTS =
+    final ClassReference ANNOTATION_CONSTANTS;
+
+    final ClassReference STRING_PATTERN;
+    final ClassReference TYPE_PATTERN;
+    final ClassReference CLASS_NAME_PATTERN;
+    final ClassReference INSTANCE_OF_PATTERN;
+    final ClassReference ANNOTATION_PATTERN;
+    final ClassReference USES_REFLECTION;
+    final ClassReference USED_BY_REFLECTION;
+    final ClassReference USED_BY_NATIVE;
+    final ClassReference CHECK_REMOVED;
+    final ClassReference CHECK_OPTIMIZED_OUT;
+    final ClassReference KEEP_EDGE;
+    final ClassReference KEEP_BINDING;
+    final ClassReference KEEP_TARGET;
+    final ClassReference KEEP_CONDITION;
+    final ClassReference KEEP_FOR_API;
+
+    final ClassReference KEEP_ITEM_KIND;
+    final EnumReference KIND_ONLY_CLASS;
+    final EnumReference KIND_ONLY_MEMBERS;
+    final EnumReference KIND_ONLY_METHODS;
+    final EnumReference KIND_ONLY_FIELDS;
+    final EnumReference KIND_CLASS_AND_MEMBERS;
+    final EnumReference KIND_CLASS_AND_METHODS;
+    final EnumReference KIND_CLASS_AND_FIELDS;
+    final List<EnumReference> KEEP_ITEM_KIND_VALUES;
+
+    final ClassReference KEEP_CONSTRAINT;
+    final EnumReference CONSTRAINT_LOOKUP;
+    final EnumReference CONSTRAINT_NAME;
+    final EnumReference CONSTRAINT_VISIBILITY_RELAX;
+    final EnumReference CONSTRAINT_VISIBILITY_RESTRICT;
+    final EnumReference CONSTRAINT_VISIBILITY_INVARIANT;
+    final EnumReference CONSTRAINT_CLASS_INSTANTIATE;
+    final EnumReference CONSTRAINT_METHOD_INVOKE;
+    final EnumReference CONSTRAINT_FIELD_GET;
+    final EnumReference CONSTRAINT_FIELD_SET;
+    final EnumReference CONSTRAINT_METHOD_REPLACE;
+    final EnumReference CONSTRAINT_FIELD_REPLACE;
+    final EnumReference CONSTRAINT_NEVER_INLINE;
+    final EnumReference CONSTRAINT_CLASS_OPEN_HIERARCHY;
+    final EnumReference CONSTRAINT_GENERIC_SIGNATURE;
+    final List<EnumReference> KEEP_CONSTRAINT_VALUES;
+
+    final ClassReference MEMBER_ACCESS_FLAGS;
+    final EnumReference MEMBER_ACCESS_PUBLIC;
+    final EnumReference MEMBER_ACCESS_PROTECTED;
+    final EnumReference MEMBER_ACCESS_PACKAGE_PRIVATE;
+    final EnumReference MEMBER_ACCESS_PRIVATE;
+    final EnumReference MEMBER_ACCESS_STATIC;
+    final EnumReference MEMBER_ACCESS_FINAL;
+    final EnumReference MEMBER_ACCESS_SYNTHETIC;
+    final List<EnumReference> MEMBER_ACCESS_VALUES;
+
+    final ClassReference METHOD_ACCESS_FLAGS;
+    final EnumReference METHOD_ACCESS_SYNCHRONIZED;
+    final EnumReference METHOD_ACCESS_BRIDGE;
+    final EnumReference METHOD_ACCESS_NATIVE;
+    final EnumReference METHOD_ACCESS_ABSTRACT;
+    final EnumReference METHOD_ACCESS_STRICT_FP;
+    final List<EnumReference> METHOD_ACCESS_VALUES;
+
+    final ClassReference FIELD_ACCESS_FLAGS;
+    final EnumReference FIELD_ACCESS_VOLATILE;
+    final EnumReference FIELD_ACCESS_TRANSIENT;
+    final List<EnumReference> FIELD_ACCESS_VALUES;
+
+    final String DEFAULT_INVALID_STRING_PATTERN;
+    final String DEFAULT_INVALID_TYPE_PATTERN;
+    final String DEFAULT_INVALID_CLASS_NAME_PATTERN;
+    final String DEFAULT_ANY_INSTANCE_OF_PATTERN;
+
+    final List<Class<?>> ANNOTATION_IMPORTS =
         ImmutableList.of(ElementType.class, Retention.class, RetentionPolicy.class, Target.class);
 
     private final PrintStream writer;
+    private final String pkg;
     private int indent = 0;
 
-    public Generator(PrintStream writer) {
+    public Generator(PrintStream writer, String pkg) {
       this.writer = writer;
+      this.pkg = pkg;
+
+      ANNOTATION_CONSTANTS = astClass("AnnotationConstants");
+
+      STRING_PATTERN = annoClass("StringPattern");
+      TYPE_PATTERN = annoClass("TypePattern");
+      CLASS_NAME_PATTERN = annoClass("ClassNamePattern");
+      INSTANCE_OF_PATTERN = annoClass("InstanceOfPattern");
+      ANNOTATION_PATTERN = annoClass("AnnotationPattern");
+      USES_REFLECTION = annoClass("UsesReflection");
+      USED_BY_REFLECTION = annoClass("UsedByReflection");
+      USED_BY_NATIVE = annoClass("UsedByNative");
+      CHECK_REMOVED = annoClass("CheckRemoved");
+      CHECK_OPTIMIZED_OUT = annoClass("CheckOptimizedOut");
+      KEEP_EDGE = annoClass("KeepEdge");
+      KEEP_BINDING = annoClass("KeepBinding");
+      KEEP_TARGET = annoClass("KeepTarget");
+      KEEP_CONDITION = annoClass("KeepCondition");
+      KEEP_FOR_API = annoClass("KeepForApi");
+
+      KEEP_ITEM_KIND = annoClass("KeepItemKind");
+      KIND_ONLY_CLASS = enumRef(KEEP_ITEM_KIND, "ONLY_CLASS");
+      KIND_ONLY_MEMBERS = enumRef(KEEP_ITEM_KIND, "ONLY_MEMBERS");
+      KIND_ONLY_METHODS = enumRef(KEEP_ITEM_KIND, "ONLY_METHODS");
+      KIND_ONLY_FIELDS = enumRef(KEEP_ITEM_KIND, "ONLY_FIELDS");
+      KIND_CLASS_AND_MEMBERS = enumRef(KEEP_ITEM_KIND, "CLASS_AND_MEMBERS");
+      KIND_CLASS_AND_METHODS = enumRef(KEEP_ITEM_KIND, "CLASS_AND_METHODS");
+      KIND_CLASS_AND_FIELDS = enumRef(KEEP_ITEM_KIND, "CLASS_AND_FIELDS");
+      KEEP_ITEM_KIND_VALUES =
+          ImmutableList.of(
+              KIND_ONLY_CLASS,
+              KIND_ONLY_MEMBERS,
+              KIND_ONLY_METHODS,
+              KIND_ONLY_FIELDS,
+              KIND_CLASS_AND_MEMBERS,
+              KIND_CLASS_AND_METHODS,
+              KIND_CLASS_AND_FIELDS);
+
+      KEEP_CONSTRAINT = annoClass("KeepConstraint");
+      CONSTRAINT_LOOKUP = enumRef(KEEP_CONSTRAINT, "LOOKUP");
+      CONSTRAINT_NAME = enumRef(KEEP_CONSTRAINT, "NAME");
+      CONSTRAINT_VISIBILITY_RELAX = enumRef(KEEP_CONSTRAINT, "VISIBILITY_RELAX");
+      CONSTRAINT_VISIBILITY_RESTRICT = enumRef(KEEP_CONSTRAINT, "VISIBILITY_RESTRICT");
+      CONSTRAINT_VISIBILITY_INVARIANT = enumRef(KEEP_CONSTRAINT, "VISIBILITY_INVARIANT");
+      CONSTRAINT_CLASS_INSTANTIATE = enumRef(KEEP_CONSTRAINT, "CLASS_INSTANTIATE");
+      CONSTRAINT_METHOD_INVOKE = enumRef(KEEP_CONSTRAINT, "METHOD_INVOKE");
+      CONSTRAINT_FIELD_GET = enumRef(KEEP_CONSTRAINT, "FIELD_GET");
+      CONSTRAINT_FIELD_SET = enumRef(KEEP_CONSTRAINT, "FIELD_SET");
+      CONSTRAINT_METHOD_REPLACE = enumRef(KEEP_CONSTRAINT, "METHOD_REPLACE");
+      CONSTRAINT_FIELD_REPLACE = enumRef(KEEP_CONSTRAINT, "FIELD_REPLACE");
+      CONSTRAINT_NEVER_INLINE = enumRef(KEEP_CONSTRAINT, "NEVER_INLINE");
+      CONSTRAINT_CLASS_OPEN_HIERARCHY = enumRef(KEEP_CONSTRAINT, "CLASS_OPEN_HIERARCHY");
+      CONSTRAINT_GENERIC_SIGNATURE = enumRef(KEEP_CONSTRAINT, "GENERIC_SIGNATURE");
+      KEEP_CONSTRAINT_VALUES =
+          ImmutableList.of(
+              CONSTRAINT_LOOKUP,
+              CONSTRAINT_NAME,
+              CONSTRAINT_VISIBILITY_RELAX,
+              CONSTRAINT_VISIBILITY_RESTRICT,
+              CONSTRAINT_VISIBILITY_INVARIANT,
+              CONSTRAINT_CLASS_INSTANTIATE,
+              CONSTRAINT_METHOD_INVOKE,
+              CONSTRAINT_FIELD_GET,
+              CONSTRAINT_FIELD_SET,
+              CONSTRAINT_METHOD_REPLACE,
+              CONSTRAINT_FIELD_REPLACE,
+              CONSTRAINT_NEVER_INLINE,
+              CONSTRAINT_CLASS_OPEN_HIERARCHY,
+              CONSTRAINT_GENERIC_SIGNATURE);
+
+      MEMBER_ACCESS_FLAGS = annoClass("MemberAccessFlags");
+      MEMBER_ACCESS_PUBLIC = enumRef(MEMBER_ACCESS_FLAGS, "PUBLIC");
+      MEMBER_ACCESS_PROTECTED = enumRef(MEMBER_ACCESS_FLAGS, "PROTECTED");
+      MEMBER_ACCESS_PACKAGE_PRIVATE = enumRef(MEMBER_ACCESS_FLAGS, "PACKAGE_PRIVATE");
+      MEMBER_ACCESS_PRIVATE = enumRef(MEMBER_ACCESS_FLAGS, "PRIVATE");
+      MEMBER_ACCESS_STATIC = enumRef(MEMBER_ACCESS_FLAGS, "STATIC");
+      MEMBER_ACCESS_FINAL = enumRef(MEMBER_ACCESS_FLAGS, "FINAL");
+      MEMBER_ACCESS_SYNTHETIC = enumRef(MEMBER_ACCESS_FLAGS, "SYNTHETIC");
+      MEMBER_ACCESS_VALUES =
+          ImmutableList.of(
+              MEMBER_ACCESS_PUBLIC,
+              MEMBER_ACCESS_PROTECTED,
+              MEMBER_ACCESS_PACKAGE_PRIVATE,
+              MEMBER_ACCESS_PRIVATE,
+              MEMBER_ACCESS_STATIC,
+              MEMBER_ACCESS_FINAL,
+              MEMBER_ACCESS_SYNTHETIC);
+
+      METHOD_ACCESS_FLAGS = annoClass("MethodAccessFlags");
+      METHOD_ACCESS_SYNCHRONIZED = enumRef(METHOD_ACCESS_FLAGS, "SYNCHRONIZED");
+      METHOD_ACCESS_BRIDGE = enumRef(METHOD_ACCESS_FLAGS, "BRIDGE");
+      METHOD_ACCESS_NATIVE = enumRef(METHOD_ACCESS_FLAGS, "NATIVE");
+      METHOD_ACCESS_ABSTRACT = enumRef(METHOD_ACCESS_FLAGS, "ABSTRACT");
+      METHOD_ACCESS_STRICT_FP = enumRef(METHOD_ACCESS_FLAGS, "STRICT_FP");
+      METHOD_ACCESS_VALUES =
+          ImmutableList.of(
+              METHOD_ACCESS_SYNCHRONIZED,
+              METHOD_ACCESS_BRIDGE,
+              METHOD_ACCESS_NATIVE,
+              METHOD_ACCESS_ABSTRACT,
+              METHOD_ACCESS_STRICT_FP);
+
+      FIELD_ACCESS_FLAGS = annoClass("FieldAccessFlags");
+      FIELD_ACCESS_VOLATILE = enumRef(FIELD_ACCESS_FLAGS, "VOLATILE");
+      FIELD_ACCESS_TRANSIENT = enumRef(FIELD_ACCESS_FLAGS, "TRANSIENT");
+      FIELD_ACCESS_VALUES = ImmutableList.of(FIELD_ACCESS_VOLATILE, FIELD_ACCESS_TRANSIENT);
+
+      DEFAULT_INVALID_STRING_PATTERN = "@" + getUnqualifiedName(STRING_PATTERN) + "(exact = \"\")";
+      DEFAULT_INVALID_TYPE_PATTERN = "@" + getUnqualifiedName(TYPE_PATTERN) + "(name = \"\")";
+      DEFAULT_INVALID_CLASS_NAME_PATTERN =
+          "@" + getUnqualifiedName(CLASS_NAME_PATTERN) + "(unqualifiedName = \"\")";
+      DEFAULT_ANY_INSTANCE_OF_PATTERN = "@" + getUnqualifiedName(INSTANCE_OF_PATTERN) + "()";
     }
+
+    private ClassReference annoClass(String unqualifiedName) {
+      return classFromTypeName(pkg + "." + unqualifiedName);
+    }
+
+    private EnumReference enumRef(ClassReference enumClass, String valueName) {
+      return new EnumReference(enumClass, valueName);
+    }
+
 
     public void withIndent(Runnable fn) {
       indent += 2;
@@ -434,13 +525,17 @@ public class KeepItemAnnotationGenerator {
     }
 
     private void printCopyRight(int year) {
-      println(
-          CodeGenerationBase.getHeaderString(
-              year, KeepItemAnnotationGenerator.class.getSimpleName()));
+      if (pkg.equals(ANDROIDX_ANNO_PKG)) {
+        println(getHeaderString(2025, KeepItemAnnotationGenerator.class.getSimpleName()));
+      } else {
+        println(
+            CodeGenerationBase.getHeaderString(
+                year, KeepItemAnnotationGenerator.class.getSimpleName()));
+      }
     }
 
-    private void printPackage(String pkg) {
-      println("package com.android.tools.r8.keepanno." + pkg + ";");
+    private void printPackage() {
+      println("package " + this.pkg + ";");
       println();
     }
 
@@ -675,7 +770,7 @@ public class KeepItemAnnotationGenerator {
       return new Group(KIND_GROUP).addMember(getKindMember());
     }
 
-    private static GroupMember getKindMember() {
+    private GroupMember getKindMember() {
       return new GroupMember("kind")
           .defaultValue(KEEP_ITEM_KIND, "KeepItemKind.DEFAULT")
           .setDocTitle("Specify the kind of this item pattern.")
@@ -707,7 +802,7 @@ public class KeepItemAnnotationGenerator {
       return new Group(CONSTRAINTS_GROUP).addMember(constraints()).addMember(constraintAdditions());
     }
 
-    private static GroupMember constraints() {
+    private GroupMember constraints() {
       return new GroupMember("constraints")
           .setDocTitle("Define the usage constraints of the target.")
           .addParagraph("The specified constraints must remain valid for the target.")
@@ -728,7 +823,7 @@ public class KeepItemAnnotationGenerator {
           .defaultArrayEmpty(KEEP_CONSTRAINT);
     }
 
-    private static GroupMember constraintAdditions() {
+    private GroupMember constraintAdditions() {
       return new GroupMember("constraintAdditions")
           .setDocTitle("Add additional usage constraints of the target.")
           .addParagraph(
@@ -739,7 +834,7 @@ public class KeepItemAnnotationGenerator {
           .defaultArrayEmpty(KEEP_CONSTRAINT);
     }
 
-    private static GroupMember constrainAnnotations() {
+    private GroupMember constrainAnnotations() {
       return new GroupMember("constrainAnnotations")
           .setDocTitle("Patterns for annotations that must remain on the item.")
           .addParagraph(
@@ -1239,7 +1334,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateStringPattern() {
       printCopyRight(2024);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching strings.")
@@ -1267,7 +1362,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateTypePattern() {
       printCopyRight(2023);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching types.")
@@ -1285,7 +1380,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateClassNamePattern() {
       printCopyRight(2023);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching names of classes and interfaces.")
@@ -1316,7 +1411,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateInstanceOfPattern() {
       printCopyRight(2024);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching instances of classes and interfaces.")
@@ -1338,7 +1433,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateAnnotationPattern() {
       printCopyRight(2024);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching annotations.")
@@ -1362,7 +1457,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateKeepBinding() {
       printCopyRight(2022);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A binding of a keep item.")
@@ -1392,7 +1487,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateKeepTarget() {
       printCopyRight(2022);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A target for a keep edge.")
@@ -1422,7 +1517,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateKeepCondition() {
       printCopyRight(2022);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("A condition for a keep edge.")
@@ -1445,7 +1540,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateKeepForApi() {
       printCopyRight(2023);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle(
@@ -1499,7 +1594,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateUsesReflection() {
       printCopyRight(2022);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle(
@@ -1571,7 +1666,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateUsedByX(String annotationClassName, String doc) {
       printCopyRight(2023);
-      printPackage("annotations");
+      printPackage();
       printImports(ANNOTATION_IMPORTS);
       DocPrinter.printer()
           .setDocTitle("Annotation to mark a class, field or method as being " + doc + ".")
@@ -1665,7 +1760,7 @@ public class KeepItemAnnotationGenerator {
 
     private void generateConstants() {
       printCopyRight(2023);
-      printPackage("ast");
+      println("package com.android.tools.r8.keepanno.ast;");
       printImports();
       DocPrinter.printer()
           .setDocTitle(
@@ -2084,9 +2179,28 @@ public class KeepItemAnnotationGenerator {
         throws IOException {
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
       PrintStream printStream = new PrintStream(byteStream);
-      Generator generator = new Generator(printStream);
+      Generator generator = new Generator(printStream, R8_ANNO_PKG);
       fn.accept(generator);
       String formatted = byteStream.toString();
+      if (file.toString().endsWith(".java")) {
+        formatted = CodeGenerationBase.formatRawOutput(formatted);
+      }
+      Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
+      write.accept(resolved, formatted);
+    }
+
+    private static void writeFile(
+        String pkg,
+        Function<Generator, ClassReference> f,
+        Consumer<Generator> fn,
+        BiConsumer<Path, String> write)
+        throws IOException {
+      ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+      PrintStream printStream = new PrintStream(byteStream);
+      Generator generator = new Generator(printStream, pkg);
+      fn.accept(generator);
+      String formatted = byteStream.toString();
+      Path file = source(f.apply(generator));
       if (file.toString().endsWith(".java")) {
         formatted = CodeGenerationBase.formatRawOutput(formatted);
       }
@@ -2105,25 +2219,84 @@ public class KeepItemAnnotationGenerator {
           generator -> KeepAnnoMarkdownGenerator.generateMarkdownDoc(generator, projectRoot),
           write);
 
-      writeFile(source(ANNOTATION_CONSTANTS), Generator::generateConstants, write);
-      writeFile(source(STRING_PATTERN), Generator::generateStringPattern, write);
-      writeFile(source(TYPE_PATTERN), Generator::generateTypePattern, write);
-      writeFile(source(CLASS_NAME_PATTERN), Generator::generateClassNamePattern, write);
-      writeFile(source(INSTANCE_OF_PATTERN), Generator::generateInstanceOfPattern, write);
-      writeFile(source(ANNOTATION_PATTERN), Generator::generateAnnotationPattern, write);
-      writeFile(source(KEEP_BINDING), Generator::generateKeepBinding, write);
-      writeFile(source(KEEP_TARGET), Generator::generateKeepTarget, write);
-      writeFile(source(KEEP_CONDITION), Generator::generateKeepCondition, write);
-      writeFile(source(KEEP_FOR_API), Generator::generateKeepForApi, write);
-      writeFile(source(USES_REFLECTION), Generator::generateUsesReflection, write);
       writeFile(
-          source(USED_BY_REFLECTION),
-          g -> g.generateUsedByX("UsedByReflection", "accessed reflectively"),
+          R8_ANNO_PKG,
+          generator -> generator.ANNOTATION_CONSTANTS,
+          Generator::generateConstants,
           write);
-      writeFile(
-          source(USED_BY_NATIVE),
-          g -> g.generateUsedByX("UsedByNative", "accessed from native code via JNI"),
-          write);
+      // Create a copy of the non-generated classes in the androidx namespace.
+      String[] nonGeneratedClasses =
+          new String[] {
+            "CheckOptimizedOut",
+            "CheckRemoved",
+            "ClassAccessFlags",
+            "FieldAccessFlags",
+            "KeepConstraint",
+            "KeepEdge",
+            "KeepItemKind",
+            "KeepOption",
+            "MemberAccessFlags",
+            "MethodAccessFlags"
+          };
+      for (String clazz : nonGeneratedClasses) {
+        Path from = source(classFromTypeName(R8_ANNO_PKG + "." + clazz));
+        Path to = source(classFromTypeName(ANDROIDX_ANNO_PKG + "." + clazz));
+        Path fromResolved = Paths.get(ToolHelper.getProjectRoot()).resolve(from);
+        Path toResolved = Paths.get(ToolHelper.getProjectRoot()).resolve(to);
+        List<String> lines = FileUtils.readAllLines(fromResolved);
+        List<String> out = new ArrayList<>();
+        out.add(getHeaderString(2025, null));
+
+        // Remove the R8 Copyright header.
+        lines = lines.subList(3, lines.size());
+        out.addAll(
+            lines.stream()
+                .map(s -> StringUtils.replaceAll(s, R8_ANNO_PKG, ANDROIDX_ANNO_PKG))
+                .collect(Collectors.toList()));
+        // TODO(b/392865072): Write the annotation files to the androidx namespace.
+        if (false) {
+          FileUtils.writeTextFile(toResolved, out);
+        }
+      }
+      // TODO(b/392865072): Write the annotation files to the androidx namespace.
+      for (String pkg : new String[] {R8_ANNO_PKG /*, ANDROIDX_ANNO_PKG*/}) {
+        writeFile(
+            pkg, generator -> generator.STRING_PATTERN, Generator::generateStringPattern, write);
+        writeFile(pkg, generator -> generator.TYPE_PATTERN, Generator::generateTypePattern, write);
+        writeFile(
+            pkg,
+            generator -> generator.CLASS_NAME_PATTERN,
+            Generator::generateClassNamePattern,
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.INSTANCE_OF_PATTERN,
+            Generator::generateInstanceOfPattern,
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.ANNOTATION_PATTERN,
+            Generator::generateAnnotationPattern,
+            write);
+        writeFile(pkg, generator -> generator.KEEP_BINDING, Generator::generateKeepBinding, write);
+        writeFile(pkg, generator -> generator.KEEP_TARGET, Generator::generateKeepTarget, write);
+        writeFile(
+            pkg, generator -> generator.KEEP_CONDITION, Generator::generateKeepCondition, write);
+        writeFile(pkg, generator -> generator.KEEP_FOR_API, Generator::generateKeepForApi, write);
+        writeFile(
+            pkg, generator -> generator.USES_REFLECTION, Generator::generateUsesReflection, write);
+        writeFile(
+            pkg,
+            generator -> generator.USED_BY_REFLECTION,
+            generator -> generator.generateUsedByX("UsedByReflection", "accessed reflectively"),
+            write);
+        writeFile(
+            pkg,
+            generator -> generator.USED_BY_NATIVE,
+            generator ->
+                generator.generateUsedByX("UsedByNative", "accessed from native code via JNI"),
+            write);
+      }
     }
   }
 }

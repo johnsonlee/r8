@@ -4,27 +4,6 @@
 
 package com.android.tools.r8.keepanno.utils;
 
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.ANNOTATION_PATTERN;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.FIELD_ACCESS_FLAGS;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.FIELD_ACCESS_VALUES;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_BINDING;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_CONDITION;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_CONSTRAINT;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_CONSTRAINT_VALUES;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_EDGE;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_FOR_API;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_ITEM_KIND;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_ITEM_KIND_VALUES;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.KEEP_TARGET;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.MEMBER_ACCESS_FLAGS;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.MEMBER_ACCESS_VALUES;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.METHOD_ACCESS_FLAGS;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.METHOD_ACCESS_VALUES;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.STRING_PATTERN;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.TYPE_PATTERN;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USED_BY_NATIVE;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USED_BY_REFLECTION;
-import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.USES_REFLECTION;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.getUnqualifiedName;
 import static com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.quote;
 
@@ -89,24 +68,28 @@ public class KeepAnnoMarkdownGenerator {
     this.generator = generator;
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     // Annotations.
-    addAnnotationReplacements(KEEP_EDGE, builder, generator.getKeepEdgeGroups());
-    addAnnotationReplacements(KEEP_BINDING, builder, generator.getBindingGroups());
-    addAnnotationReplacements(KEEP_TARGET, builder, generator.getTargetGroups());
-    addAnnotationReplacements(KEEP_CONDITION, builder, generator.getConditionGroups());
-    addAnnotationReplacements(USES_REFLECTION, builder, generator.getUsesReflectionGroups());
-    addAnnotationReplacements(USED_BY_REFLECTION, builder, generator.getUsedByReflectionGroups());
-    addAnnotationReplacements(USED_BY_NATIVE, builder, generator.getUsedByNativeGroups());
-    addAnnotationReplacements(KEEP_FOR_API, builder, generator.getKeepForApiGroups());
-    addAnnotationReplacements(STRING_PATTERN, builder, generator.getStringPatternGroups());
-    addAnnotationReplacements(TYPE_PATTERN, builder, generator.getTypePatternGroups());
-    addAnnotationReplacements(ANNOTATION_PATTERN, builder, generator.getAnnotationPatternGroups());
+    addAnnotationReplacements(generator.KEEP_EDGE, builder, generator.getKeepEdgeGroups());
+    addAnnotationReplacements(generator.KEEP_BINDING, builder, generator.getBindingGroups());
+    addAnnotationReplacements(generator.KEEP_TARGET, builder, generator.getTargetGroups());
+    addAnnotationReplacements(generator.KEEP_CONDITION, builder, generator.getConditionGroups());
+    addAnnotationReplacements(
+        generator.USES_REFLECTION, builder, generator.getUsesReflectionGroups());
+    addAnnotationReplacements(
+        generator.USED_BY_REFLECTION, builder, generator.getUsedByReflectionGroups());
+    addAnnotationReplacements(generator.USED_BY_NATIVE, builder, generator.getUsedByNativeGroups());
+    addAnnotationReplacements(generator.KEEP_FOR_API, builder, generator.getKeepForApiGroups());
+    addAnnotationReplacements(
+        generator.STRING_PATTERN, builder, generator.getStringPatternGroups());
+    addAnnotationReplacements(generator.TYPE_PATTERN, builder, generator.getTypePatternGroups());
+    addAnnotationReplacements(
+        generator.ANNOTATION_PATTERN, builder, generator.getAnnotationPatternGroups());
 
     // Enums.
-    addEnumReplacements(KEEP_ITEM_KIND, KEEP_ITEM_KIND_VALUES, builder);
-    addEnumReplacements(KEEP_CONSTRAINT, KEEP_CONSTRAINT_VALUES, builder);
-    addEnumReplacements(MEMBER_ACCESS_FLAGS, MEMBER_ACCESS_VALUES, builder);
-    addEnumReplacements(METHOD_ACCESS_FLAGS, METHOD_ACCESS_VALUES, builder);
-    addEnumReplacements(FIELD_ACCESS_FLAGS, FIELD_ACCESS_VALUES, builder);
+    addEnumReplacements(generator.KEEP_ITEM_KIND, generator.KEEP_ITEM_KIND_VALUES, builder);
+    addEnumReplacements(generator.KEEP_CONSTRAINT, generator.KEEP_CONSTRAINT_VALUES, builder);
+    addEnumReplacements(generator.MEMBER_ACCESS_FLAGS, generator.MEMBER_ACCESS_VALUES, builder);
+    addEnumReplacements(generator.METHOD_ACCESS_FLAGS, generator.METHOD_ACCESS_VALUES, builder);
+    addEnumReplacements(generator.FIELD_ACCESS_FLAGS, generator.FIELD_ACCESS_VALUES, builder);
 
     typeLinkReplacements = builder.build();
     populateCodeAndDocReplacements(
