@@ -34,7 +34,7 @@ import com.android.tools.r8.graph.DexValue.DexValueType;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
 import com.android.tools.r8.graph.GenericSignature.FieldTypeSignature;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
-import com.android.tools.r8.jar.CfApplicationWriter;
+import com.android.tools.r8.jar.CfApplicationClassWriter;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.ParsingContext.AnnotationParsingContext;
 import com.android.tools.r8.keepanno.ast.ParsingContext.ClassParsingContext;
@@ -129,12 +129,12 @@ public class JarClassFileReader<T extends DexClass> {
         parsingOptions);
 
     // Read marker.
-    if (reader.getItemCount() > CfApplicationWriter.MARKER_STRING_CONSTANT_POOL_INDEX
-        && reader.getItem(CfApplicationWriter.MARKER_STRING_CONSTANT_POOL_INDEX) > 0) {
+    if (reader.getItemCount() > CfApplicationClassWriter.MARKER_STRING_CONSTANT_POOL_INDEX
+        && reader.getItem(CfApplicationClassWriter.MARKER_STRING_CONSTANT_POOL_INDEX) > 0) {
       try {
         Object maybeMarker =
             reader.readConst(
-                CfApplicationWriter.MARKER_STRING_CONSTANT_POOL_INDEX,
+                CfApplicationClassWriter.MARKER_STRING_CONSTANT_POOL_INDEX,
                 new char[reader.getMaxStringLength()]);
         if (maybeMarker instanceof String) {
           application.getFactory().createMarkerString((String) maybeMarker);
