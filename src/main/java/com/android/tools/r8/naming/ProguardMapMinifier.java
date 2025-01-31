@@ -559,7 +559,6 @@ public class ProguardMapMinifier {
     private final Set<DexReference> unmappedReferences;
     private final Map<DexString, DexType> classRenamingsMappingToDifferentName;
 
-    @SuppressWarnings("ReferenceEquality")
     ProguardMapMinifiedRenaming(
         AppView<? extends AppInfoWithClassHierarchy> appView,
         ClassRenaming classRenaming,
@@ -571,7 +570,7 @@ public class ProguardMapMinifier {
       classRenamingsMappingToDifferentName = new HashMap<>();
       classRenaming.classRenaming.forEach(
           (type, dexString) -> {
-            if (type.descriptor != dexString) {
+            if (type.getDescriptor().isNotIdenticalTo(dexString)) {
               classRenamingsMappingToDifferentName.put(dexString, type);
             }
           });

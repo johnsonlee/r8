@@ -184,6 +184,8 @@ public abstract class NamingLens {
     return true;
   }
 
+  public abstract NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens();
+
   public abstract static class NonIdentityNamingLens extends NamingLens {
 
     private final DexItemFactory dexItemFactory;
@@ -250,6 +252,11 @@ public abstract class NamingLens {
     @Override
     public boolean verifyRenamingConsistentWithResolution(DexMethod item) {
       return true;
+    }
+
+    @Override
+    public NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens() {
+      return this;
     }
   }
 }

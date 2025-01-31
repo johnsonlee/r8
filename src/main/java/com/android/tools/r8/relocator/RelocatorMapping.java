@@ -203,5 +203,10 @@ public class RelocatorMapping {
     public boolean verifyRenamingConsistentWithResolution(DexMethod item) {
       return true;
     }
+
+    @Override
+    public NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens() {
+      return this;
+    }
   }
 }

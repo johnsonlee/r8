@@ -116,4 +116,9 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
   public boolean verifyRenamingConsistentWithResolution(DexMethod item) {
     return namingLens.verifyRenamingConsistentWithResolution(item);
   }
+
+  @Override
+  public NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens() {
+    return namingLens;
+  }
 }

@@ -20,7 +20,6 @@ import java.util.Map;
 // to com.android.tools.r8.DesugarMethodHandlesLookup.
 public class VarHandleDesugaringRewritingNamingLens extends NonIdentityNamingLens {
 
-  private final DexItemFactory factory;
   private final NamingLens namingLens;
   private final Map<DexType, DexString> mapping;
 
@@ -93,9 +92,13 @@ public class VarHandleDesugaringRewritingNamingLens extends NonIdentityNamingLen
 
   private VarHandleDesugaringRewritingNamingLens(
       AppView<?> appView, Map<DexType, DexString> mapping) {
-    super(appView.dexItemFactory());
-    this.factory = appView.dexItemFactory();
-    this.namingLens = appView.getNamingLens();
+    this(appView.dexItemFactory(), appView.getNamingLens(), mapping);
+  }
+
+  private VarHandleDesugaringRewritingNamingLens(
+      DexItemFactory factory, NamingLens namingLens, Map<DexType, DexString> mapping) {
+    super(factory);
+    this.namingLens = namingLens;
     this.mapping = mapping;
   }
 
@@ -105,8 +108,8 @@ public class VarHandleDesugaringRewritingNamingLens extends NonIdentityNamingLen
 
   @SuppressWarnings("ReferenceEquality")
   private DexString getRenaming(DexType type) {
-    assert type != factory.desugarMethodHandlesLookupType;
-    assert type != factory.desugarVarHandleType;
+    assert type != dexItemFactory().desugarMethodHandlesLookupType;
+    assert type != dexItemFactory().desugarVarHandleType;
     return mapping.get(type);
   }
 
@@ -152,5 +155,13 @@ public class VarHandleDesugaringRewritingNamingLens extends NonIdentityNamingLen
   @Override
   public boolean verifyRenamingConsistentWithResolution(DexMethod item) {
     return namingLens.verifyRenamingConsistentWithResolution(item);
+  }
+
+  @Override
+  public NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens() {
+    NamingLens newParent = namingLens.withoutDesugaredLibraryPrefixRewritingNamingLens();
+    return newParent != namingLens
+        ? new VarHandleDesugaringRewritingNamingLens(dexItemFactory(), newParent, mapping)
+        : this;
   }
 }

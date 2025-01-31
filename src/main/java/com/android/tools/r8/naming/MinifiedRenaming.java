@@ -148,6 +148,11 @@ class MinifiedRenaming extends NonIdentityNamingLens {
   }
 
   @Override
+  public NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens() {
+    return this;
+  }
+
+  @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
     renaming.forEach(

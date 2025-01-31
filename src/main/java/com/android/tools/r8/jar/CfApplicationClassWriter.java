@@ -94,7 +94,7 @@ public class CfApplicationClassWriter {
     // For "pass through" classes which has already been library desugared use the identity lens.
     this.namingLens =
         appView.isAlreadyLibraryDesugared(clazz)
-            ? NamingLens.getIdentityLens()
+            ? appView.getNamingLens().withoutDesugaredLibraryPrefixRewritingNamingLens()
             : appView.getNamingLens();
     this.options = appView.options();
   }

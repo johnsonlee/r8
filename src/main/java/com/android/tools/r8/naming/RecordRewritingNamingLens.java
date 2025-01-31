@@ -18,7 +18,6 @@ import com.android.tools.r8.utils.InternalOptions;
 // Naming lens for rewriting java.lang.Record to the internal RecordTag type.
 public class RecordRewritingNamingLens extends NonIdentityNamingLens {
 
-  private final DexItemFactory factory;
   private final NamingLens namingLens;
 
   public static void commitRecordRewritingNamingLens(AppView<?> appView) {
@@ -36,9 +35,12 @@ public class RecordRewritingNamingLens extends NonIdentityNamingLens {
   }
 
   public RecordRewritingNamingLens(AppView<?> appView) {
-    super(appView.dexItemFactory());
-    this.factory = appView.dexItemFactory();
-    this.namingLens = appView.getNamingLens();
+    this(appView.dexItemFactory(), appView.getNamingLens());
+  }
+
+  public RecordRewritingNamingLens(DexItemFactory factory, NamingLens namingLens) {
+    super(factory);
+    this.namingLens = namingLens;
   }
 
   private boolean isRenamed(DexType type) {
@@ -47,8 +49,8 @@ public class RecordRewritingNamingLens extends NonIdentityNamingLens {
 
   @SuppressWarnings("ReferenceEquality")
   private DexString getRenaming(DexType type) {
-    if (type == factory.recordType) {
-      return factory.recordTagType.descriptor;
+    if (type == dexItemFactory().recordType) {
+      return dexItemFactory().recordTagType.descriptor;
     }
     return null;
   }
@@ -95,5 +97,13 @@ public class RecordRewritingNamingLens extends NonIdentityNamingLens {
   @Override
   public boolean verifyRenamingConsistentWithResolution(DexMethod item) {
     return namingLens.verifyRenamingConsistentWithResolution(item);
+  }
+
+  @Override
+  public NamingLens withoutDesugaredLibraryPrefixRewritingNamingLens() {
+    NamingLens newParent = namingLens.withoutDesugaredLibraryPrefixRewritingNamingLens();
+    return newParent != namingLens
+        ? new RecordRewritingNamingLens(dexItemFactory(), newParent)
+        : this;
   }
 }
