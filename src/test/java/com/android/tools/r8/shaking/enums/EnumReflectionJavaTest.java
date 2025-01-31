@@ -1,4 +1,4 @@
-// Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -8,6 +8,17 @@ import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumA;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumB;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumC;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumD;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumE;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumF;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumG;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumH;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumI;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumJ;
+import com.android.tools.r8.shaking.enums.EnumReflectionJavaTest.Helpers.EnumK;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -18,8 +29,9 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+/** Tests for the non-Android-specific APIs that cause an Enum type's values() method to be kept. */
 @RunWith(Parameterized.class)
-public class EnumCollectionsTest extends TestBase {
+public class EnumReflectionJavaTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -44,7 +56,8 @@ public class EnumCollectionsTest extends TestBase {
           "valueOf: K",
           "phi: [B]");
 
-  public static class TestMain {
+  public static class Helpers {
+
     public enum EnumA {
       A,
       B
@@ -56,7 +69,7 @@ public class EnumCollectionsTest extends TestBase {
     }
 
     public enum EnumC {
-      C,
+      C {}, // Test anonymous subtype.
       D
     }
 
@@ -109,7 +122,9 @@ public class EnumCollectionsTest extends TestBase {
       K,
       L
     }
+  }
 
+  public static class TestMain {
     @NeverInline
     private static void noneOf() {
       System.out.println("none: " + EnumSet.complementOf(EnumSet.noneOf(EnumA.class)));
@@ -186,10 +201,16 @@ public class EnumCollectionsTest extends TestBase {
     }
   }
 
+  // EnumC.C references this class in its constructor.
+  private static final String ENUM_SUBTYPE_BRIDGE_CLASS_NAME =
+      EnumReflectionJavaTest.class.getName() + "$1";
+
   @Test
   public void testRuntime() throws Exception {
     testForRuntime(parameters)
-        .addProgramClassesAndInnerClasses(TestMain.class)
+        .addProgramClassesAndInnerClasses(Helpers.class)
+        .addProgramClasses(TestMain.class)
+        .addProgramClasses(Class.forName(ENUM_SUBTYPE_BRIDGE_CLASS_NAME))
         .run(parameters.getRuntime(), TestMain.class)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
@@ -198,7 +219,9 @@ public class EnumCollectionsTest extends TestBase {
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
-        .addProgramClassesAndInnerClasses(TestMain.class)
+        .addProgramClassesAndInnerClasses(Helpers.class)
+        .addProgramClasses(TestMain.class)
+        .addProgramClasses(Class.forName(ENUM_SUBTYPE_BRIDGE_CLASS_NAME))
         .enableInliningAnnotations()
         .addKeepMainRule(TestMain.class)
         .compile()

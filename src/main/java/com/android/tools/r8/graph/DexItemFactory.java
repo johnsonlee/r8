@@ -402,9 +402,6 @@ public class DexItemFactory {
   // Method names used on MethodHandles.
   public final DexString lookupString = createString("lookup");
   public final DexString privateLookupInString = createString("privateLookupIn");
-  public final DexString mockString = createString("mock");
-  public final DexString spyString = createString("spy");
-
   public final DexType booleanType = createStaticallyKnownType(booleanDescriptor);
   public final DexType byteType = createStaticallyKnownType(byteDescriptor);
   public final DexType charType = createStaticallyKnownType(charDescriptor);
@@ -640,9 +637,6 @@ public class DexItemFactory {
       createStaticallyKnownType("Ljava/util/logging/Level;");
   public final DexType javaUtilLoggingLoggerType =
       createStaticallyKnownType("Ljava/util/logging/Logger;");
-  public final DexType javaUtilEnumMapType = createStaticallyKnownType("Ljava/util/EnumMap;");
-  public final DexType javaUtilEnumSetType = createStaticallyKnownType("Ljava/util/EnumSet;");
-
   public final DexType androidAppActivity = createStaticallyKnownType("Landroid/app/Activity;");
   public final DexType androidAppFragment = createStaticallyKnownType("Landroid/app/Fragment;");
   public final DexType androidAppZygotePreload =
@@ -764,8 +758,6 @@ public class DexItemFactory {
   public final JavaUtilLocaleMembers javaUtilLocaleMembers = new JavaUtilLocaleMembers();
   public final JavaUtilLoggingLevelMembers javaUtilLoggingLevelMembers =
       new JavaUtilLoggingLevelMembers();
-  public final JavaUtilEnumMapMembers javaUtilEnumMapMembers = new JavaUtilEnumMapMembers();
-  public final JavaUtilEnumSetMembers javaUtilEnumSetMembers = new JavaUtilEnumSetMembers();
 
   public final List<LibraryMembers> libraryMembersCollection =
       ImmutableList.of(
@@ -896,8 +888,6 @@ public class DexItemFactory {
       createStaticallyKnownType(desugarVarHandleDescriptorString);
   public final DexType desugarMethodHandlesLookupType =
       createStaticallyKnownType(desugarMethodHandlesLookupDescriptorString);
-  public final DexType mockitoType = createStaticallyKnownType("Lorg/mockito/Mockito;");
-
   public final DexType javaUtilConcurrentExecutorServiceType =
       createStaticallyKnownType("Ljava/util/concurrent/ExecutorService;");
   public final DexType javaUtilConcurrentForkJoinPoolType =
@@ -1611,28 +1601,6 @@ public class DexItemFactory {
       consumer.accept(FINEST);
       consumer.accept(SEVERE);
       consumer.accept(WARNING);
-    }
-  }
-
-  public class JavaUtilEnumMapMembers {
-    public final DexMethod constructor =
-        createMethod(javaUtilEnumMapType, createProto(voidType, classType), constructorMethodName);
-  }
-
-  public class JavaUtilEnumSetMembers {
-    private final DexString allOfString = createString("allOf");
-    private final DexString noneOfString = createString("noneOf");
-    private final DexString rangeString = createString("range");
-
-    public boolean isFactoryMethod(DexMethod invokedMethod) {
-      if (!invokedMethod.getHolderType().equals(javaUtilEnumSetType)) {
-        return false;
-      }
-      DexString name = invokedMethod.getName();
-      return name.isIdenticalTo(allOfString)
-          || name.isIdenticalTo(noneOfString)
-          || name.isIdenticalTo(ofMethodName)
-          || name.isIdenticalTo(rangeString);
     }
   }
 

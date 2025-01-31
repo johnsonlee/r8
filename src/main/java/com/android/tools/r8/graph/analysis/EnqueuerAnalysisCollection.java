@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
@@ -38,6 +39,9 @@ public final class EnqueuerAnalysisCollection {
   private final TraceInstanceOfEnqueuerAnalysis[] instanceOfAnalyses;
   private final TraceInvokeEnqueuerAnalysis[] invokeAnalyses;
   private final TraceNewInstanceEnqueuerAnalysis[] newInstanceAnalyses;
+
+  // IR analysis.
+  private final IrBasedEnqueuerAnalysis[] irBasedEnqueuerAnalyses;
 
   // Reachability events.
   private final NewlyFailedMethodResolutionEnqueuerAnalysis[] newlyFailedMethodResolutionAnalyses;
@@ -64,6 +68,8 @@ public final class EnqueuerAnalysisCollection {
       TraceInstanceOfEnqueuerAnalysis[] instanceOfAnalyses,
       TraceInvokeEnqueuerAnalysis[] invokeAnalyses,
       TraceNewInstanceEnqueuerAnalysis[] newInstanceAnalyses,
+      // IR analysis.
+      IrBasedEnqueuerAnalysis[] irBasedEnqueuerAnalyses,
       // Reachability events.
       NewlyFailedMethodResolutionEnqueuerAnalysis[] newlyFailedMethodResolutionAnalyses,
       NewlyLiveClassEnqueuerAnalysis[] newlyLiveClassAnalyses,
@@ -86,6 +92,8 @@ public final class EnqueuerAnalysisCollection {
     this.instanceOfAnalyses = instanceOfAnalyses;
     this.invokeAnalyses = invokeAnalyses;
     this.newInstanceAnalyses = newInstanceAnalyses;
+    // IR Analysis.
+    this.irBasedEnqueuerAnalyses = irBasedEnqueuerAnalyses;
     // Reachability events.
     this.newlyFailedMethodResolutionAnalyses = newlyFailedMethodResolutionAnalyses;
     this.newlyLiveClassAnalyses = newlyLiveClassAnalyses;
@@ -357,6 +365,15 @@ public final class EnqueuerAnalysisCollection {
     }
   }
 
+  public boolean handleReflectiveInvoke(ProgramMethod method, InvokeMethod invoke) {
+    for (IrBasedEnqueuerAnalysis analysis : irBasedEnqueuerAnalyses) {
+      if (analysis.handleReflectiveInvoke(method, invoke)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public static class Builder {
 
     // Trace events.
@@ -368,6 +385,9 @@ public final class EnqueuerAnalysisCollection {
     private final List<TraceInstanceOfEnqueuerAnalysis> instanceOfAnalyses = new ArrayList<>();
     private final List<TraceInvokeEnqueuerAnalysis> invokeAnalyses = new ArrayList<>();
     private final List<TraceNewInstanceEnqueuerAnalysis> newInstanceAnalyses = new ArrayList<>();
+
+    // IR analysis.
+    private final List<IrBasedEnqueuerAnalysis> irBasedEnqueuerAnalyses = new ArrayList<>();
 
     // Reachability events.
     private final List<NewlyFailedMethodResolutionEnqueuerAnalysis>
@@ -427,6 +447,12 @@ public final class EnqueuerAnalysisCollection {
 
     public Builder addTraceNewInstanceAnalysis(TraceNewInstanceEnqueuerAnalysis analysis) {
       newInstanceAnalyses.add(analysis);
+      return this;
+    }
+
+    // IR analysis.
+    public Builder addIrBasedEnqueuerAnalysis(IrBasedEnqueuerAnalysis analysis) {
+      irBasedEnqueuerAnalyses.add(analysis);
       return this;
     }
 
@@ -507,6 +533,8 @@ public final class EnqueuerAnalysisCollection {
           instanceOfAnalyses.toArray(TraceInstanceOfEnqueuerAnalysis[]::new),
           invokeAnalyses.toArray(TraceInvokeEnqueuerAnalysis[]::new),
           newInstanceAnalyses.toArray(TraceNewInstanceEnqueuerAnalysis[]::new),
+          // IR analysis.
+          irBasedEnqueuerAnalyses.toArray(IrBasedEnqueuerAnalysis[]::new),
           // Reachability events.
           newlyFailedMethodResolutionAnalyses.toArray(
               NewlyFailedMethodResolutionEnqueuerAnalysis[]::new),
