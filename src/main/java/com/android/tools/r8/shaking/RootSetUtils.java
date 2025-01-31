@@ -231,8 +231,14 @@ public class RootSetUtils {
       R8PartialUseCollector useCollector =
           new R8PartialUseCollector(appView) {
 
+            // Allow D8/R8 boundary obfuscation. We disable repackaging of the R8 part since
+            // repackaging uses a graph lens, which would need to be applied to the D8 part before
+            // the application writer (though this is perfectly doable).
             private final ProguardKeepRuleModifiers modifiers =
-                ProguardKeepRuleModifiers.builder().build();
+                ProguardKeepRuleModifiers.builder()
+                    .setAllowsObfuscation(true)
+                    .setAllowsRepackaging(false)
+                    .build();
             // TODO(b/390576160): Add a test that this works when using -whyareyoukeeping.
             private final ReferencedFromD8InR8PartialFakeProguardRule keepRule =
                 new ReferencedFromD8InR8PartialFakeProguardRule();
