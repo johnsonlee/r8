@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 public class ThreadingModuleBlocking implements ThreadingModule {
 
@@ -28,16 +29,26 @@ public class ThreadingModuleBlocking implements ThreadingModule {
   }
 
   @Override
+  public boolean isSingleThreaded() {
+    return false;
+  }
+
+  @Override
   public <T> Future<T> submit(Callable<T> task, ExecutorService executorService) {
     return executorService.submit(task);
   }
 
   @Override
   public <T> void awaitFutures(List<Future<T>> futures) throws ExecutionException {
-    Iterator<? extends Future<?>> it = futures.iterator();
+    forEach(futures, ignore -> {});
+  }
+
+  @Override
+  public <T> void forEach(List<Future<T>> futures, Consumer<T> consumer) throws ExecutionException {
+    Iterator<Future<T>> it = futures.iterator();
     try {
       while (it.hasNext()) {
-        it.next().get();
+        consumer.accept(it.next().get());
       }
     } catch (InterruptedException e) {
       throw new RuntimeException("Interrupted while waiting for future.", e);

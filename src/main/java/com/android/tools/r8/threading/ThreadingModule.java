@@ -17,6 +17,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 /**
  * Threading module interface to enable non-blocking usage of R8.
@@ -35,9 +36,13 @@ public interface ThreadingModule {
 
   ExecutorService createThreadedExecutorService(int threadCount);
 
+  boolean isSingleThreaded();
+
   <T> Future<T> submit(Callable<T> task, ExecutorService executorService) throws ExecutionException;
 
   <T> void awaitFutures(List<Future<T>> futures) throws ExecutionException;
+
+  <T> void forEach(List<Future<T>> futures, Consumer<T> consumer) throws ExecutionException;
 
   class Loader {
 

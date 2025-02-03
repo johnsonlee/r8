@@ -12,6 +12,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 public class ThreadingModuleSingleThreaded implements ThreadingModule {
 
@@ -28,6 +29,11 @@ public class ThreadingModuleSingleThreaded implements ThreadingModule {
   }
 
   @Override
+  public boolean isSingleThreaded() {
+    return true;
+  }
+
+  @Override
   public <T> Future<T> submit(Callable<T> task, ExecutorService executorService)
       throws ExecutionException {
     try {
@@ -41,6 +47,18 @@ public class ThreadingModuleSingleThreaded implements ThreadingModule {
   @Override
   public <T> void awaitFutures(List<Future<T>> futures) throws ExecutionException {
     assert allDone(futures);
+  }
+
+  @Override
+  public <T> void forEach(List<Future<T>> futures, Consumer<T> consumer) throws ExecutionException {
+    assert allDone(futures);
+    for (Future<T> future : futures) {
+      try {
+        consumer.accept(future.get());
+      } catch (InterruptedException e) {
+        throw new RuntimeException("Interrupted while waiting for future.", e);
+      }
+    }
   }
 
   private <T> boolean allDone(List<Future<T>> futures) {

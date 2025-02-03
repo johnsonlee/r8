@@ -9,12 +9,14 @@ import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.google.common.util.concurrent.Futures;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class TaskCollection<T> {
@@ -41,6 +43,24 @@ public class TaskCollection<T> {
   public TaskCollection(
       InternalOptions options, ExecutorService executorService, int initialCapacity) {
     this(options.getThreadingModule(), executorService, initialCapacity);
+  }
+
+  public <S> void stream(Collection<S> items, Function<S, T> fn, Consumer<T> consumer)
+      throws ExecutionException {
+    if (threadingModule.isSingleThreaded()) {
+      for (S item : items) {
+        try {
+          consumer.accept(fn.apply(item));
+        } catch (Exception e) {
+          throw new ExecutionException(e);
+        }
+      }
+    } else {
+      for (S item : items) {
+        submit(() -> fn.apply(item));
+      }
+      forEach(consumer);
+    }
   }
 
   /**
@@ -71,6 +91,11 @@ public class TaskCollection<T> {
         consumer.accept(Futures.getDone(future));
       }
     }
+    futures.clear();
+  }
+
+  public void forEach(Consumer<T> consumer) throws ExecutionException {
+    threadingModule.forEach(futures, consumer);
     futures.clear();
   }
 

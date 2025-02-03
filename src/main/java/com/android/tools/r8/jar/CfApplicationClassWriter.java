@@ -5,8 +5,6 @@ package com.android.tools.r8.jar;
 
 import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 
-import com.android.tools.r8.ByteDataView;
-import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.SourceFileEnvironment;
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.errors.CodeSizeOverflowDiagnostic;
@@ -45,7 +43,6 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticNaming;
 import com.android.tools.r8.utils.AsmUtils;
 import com.android.tools.r8.utils.ComparatorUtils;
-import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.collect.ImmutableMap;
@@ -103,14 +100,13 @@ public class CfApplicationClassWriter {
     return !appView.appInfo().hasDefinitionForWithoutExistenceAssert(type);
   }
 
-  void writeClassCatchingErrors(
-      ClassFileConsumer consumer,
+  Result writeClassCatchingErrors(
       LensCodeRewriterUtils rewriter,
       Optional<String> markerString,
       SourceFileEnvironment sourceFileEnvironment) {
     assert SyntheticNaming.verifyNotInternalSynthetic(clazz.getType());
     try {
-      writeClass(consumer, rewriter, markerString, sourceFileEnvironment);
+      return writeClass(rewriter, markerString, sourceFileEnvironment);
     } catch (ClassTooLargeException e) {
       throw options.reporter.fatalError(
           new ConstantPoolOverflowDiagnostic(
@@ -129,8 +125,7 @@ public class CfApplicationClassWriter {
     }
   }
 
-  private void writeClass(
-      ClassFileConsumer consumer,
+  private Result writeClass(
       LensCodeRewriterUtils rewriter,
       Optional<String> markerString,
       SourceFileEnvironment sourceFileEnvironment) {
@@ -234,8 +229,7 @@ public class CfApplicationClassWriter {
       // so don't assert that verifyCf() returns true.
       verifyCf(result);
     }
-    ExceptionUtils.withConsumeResourceHandler(
-        options.reporter, handler -> consumer.accept(ByteDataView.of(result), desc, handler));
+    return new Result(desc, result);
   }
 
   private String getSourceDebugExtension(DexAnnotationSet annotations) {
@@ -597,5 +591,24 @@ public class CfApplicationClassWriter {
     ClassReader reader = new ClassReader(result);
     PrintWriter pw = new PrintWriter(System.out);
     CheckClassAdapter.verify(reader, false, pw);
+  }
+
+  public static class Result {
+
+    private final String descriptor;
+    private final byte[] classFileData;
+
+    Result(String descriptor, byte[] classFileData) {
+      this.descriptor = descriptor;
+      this.classFileData = classFileData;
+    }
+
+    public String getDescriptor() {
+      return descriptor;
+    }
+
+    public byte[] getClassFileData() {
+      return classFileData;
+    }
   }
 }
