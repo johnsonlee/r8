@@ -5,7 +5,9 @@ package com.android.tools.r8.keepanno;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
@@ -17,6 +19,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class KeepUsesReflectionAnnotationTest extends KeepAnnoTestBase {
@@ -25,7 +28,7 @@ public class KeepUsesReflectionAnnotationTest extends KeepAnnoTestBase {
 
   @Parameter public KeepAnnoParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static List<KeepAnnoParameters> data() {
     return createParameters(
         getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build());
@@ -40,17 +43,35 @@ public class KeepUsesReflectionAnnotationTest extends KeepAnnoTestBase {
         .allowUnusedProguardConfigurationRules()
         .run(TestClass.class)
         .assertSuccessWithOutput(EXPECTED)
-        .applyIf(parameters.isShrinker(), r -> r.inspect(this::checkOutput));
+        .applyIf(
+            parameters.isShrinker(), r -> r.inspect(inspector -> checkOutput(inspector, false)));
+  }
+
+  @Test
+  public void testUsesReflectionInD8OfR8Partial() throws Exception {
+    assumeTrue(parameters.isR8Partial());
+    testForKeepAnno(parameters)
+        .addProgramClasses(getInputClasses())
+        .applyIfR8Partial(
+            builder ->
+                builder
+                    .clearR8PartialConfiguration()
+                    .setR8PartialConfiguration(b -> b.includeAll().excludeClasses(A.class)))
+        .addKeepMainRule(TestClass.class)
+        .run(TestClass.class)
+        .assertSuccessWithOutput(EXPECTED)
+        .applyIf(
+            parameters.isShrinker(), r -> r.inspect(inspector -> checkOutput(inspector, true)));
   }
 
   public List<Class<?>> getInputClasses() {
     return ImmutableList.of(TestClass.class, A.class, B.class, C.class);
   }
 
-  private void checkOutput(CodeInspector inspector) {
+  private void checkOutput(CodeInspector inspector, boolean aOnClasspath) {
     assertThat(inspector.clazz(A.class), isPresent());
     assertThat(inspector.clazz(B.class), isPresent());
-    assertThat(inspector.clazz(C.class), parameters.isPG() ? isPresent() : isAbsent());
+    assertThat(inspector.clazz(C.class), isPresentIf(parameters.isPG() || aOnClasspath));
     assertThat(inspector.clazz(B.class).method("void", "bar"), isPresent());
     assertThat(inspector.clazz(B.class).method("void", "bar", "int"), isAbsent());
   }

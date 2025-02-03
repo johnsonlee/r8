@@ -13,7 +13,6 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
@@ -53,7 +52,7 @@ public class KeepAnnotationMatcherPredicates {
   }
 
   public boolean matchesClass(
-      DexProgramClass clazz, KeepClassItemPattern classPattern, AppInfoWithClassHierarchy appInfo) {
+      DexClass clazz, KeepClassItemPattern classPattern, AppInfoWithClassHierarchy appInfo) {
     return matchesClassName(clazz.getType(), classPattern.getClassNamePattern())
         && matchesAnnotatedBy(clazz.annotations(), classPattern.getAnnotatedByPattern())
         && matchesInstanceOfPattern(clazz, classPattern.getInstanceOfPattern(), appInfo);

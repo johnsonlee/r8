@@ -122,6 +122,11 @@ public abstract class KeepAnnoTestBuilder {
     return this;
   }
 
+  public KeepAnnoTestBuilder applyIfR8Partial(
+      ThrowableConsumer<R8PartialTestBuilder> builderConsumer) {
+    return this;
+  }
+
   public KeepAnnoTestBuilder applyIfPG(ThrowableConsumer<ProguardTestBuilder> builderConsumer) {
     return this;
   }
@@ -343,6 +348,13 @@ public abstract class KeepAnnoTestBuilder {
       builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
       builder.addR8PartialOptionsModification(
           o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
+    }
+
+    @Override
+    public KeepAnnoTestBuilder applyIfR8Partial(
+        ThrowableConsumer<R8PartialTestBuilder> builderConsumer) {
+      builderConsumer.acceptWithRuntimeException(builder);
+      return this;
     }
 
     @Override

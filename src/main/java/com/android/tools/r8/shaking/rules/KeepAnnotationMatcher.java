@@ -6,10 +6,12 @@ package com.android.tools.r8.shaking.rules;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Definition;
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndMember;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramDefinition;
-import com.android.tools.r8.graph.ProgramMember;
 import com.android.tools.r8.keepanno.ast.KeepAnnotationPattern;
 import com.android.tools.r8.keepanno.ast.KeepBindingReference;
 import com.android.tools.r8.keepanno.ast.KeepBindings;
@@ -42,7 +44,6 @@ import com.android.tools.r8.keepanno.ast.KeepTarget;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.shaking.MinimumKeepInfoCollection;
-import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -58,13 +59,13 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 public class KeepAnnotationMatcher {
 
   public static ApplicableRulesEvaluator computeInitialRules(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       List<KeepDeclaration> keepDeclarations,
-      ThreadingModule threadingModule,
       ExecutorService executorService)
       throws ExecutionException {
     KeepAnnotationMatcherPredicates predicates =
@@ -73,7 +74,7 @@ public class KeepAnnotationMatcher {
     ThreadUtils.processItems(
         keepDeclarations,
         declaration -> processDeclaration(declaration, appView.appInfo(), predicates, builder),
-        threadingModule,
+        appView.options().getThreadingModule(),
         executorService);
     return builder.build(appView);
   }
@@ -329,7 +330,7 @@ public class KeepAnnotationMatcher {
             appInfo
                 .dexItemFactory()
                 .createType(classPattern.getClassNamePattern().getExactDescriptor());
-        DexProgramClass clazz = DexProgramClass.asProgramClassOrNull(appInfo.definitionFor(type));
+        DexClass clazz = appInfo.definitionFor(type);
         if (clazz == null) {
           continueWithNoClass(classIndex);
           return;
@@ -349,7 +350,7 @@ public class KeepAnnotationMatcher {
       }
     }
 
-    private void continueWithClass(int classIndex, DexProgramClass clazz) {
+    private void continueWithClass(int classIndex, DexClass clazz) {
       assignment.setClass(classIndex, clazz);
       IntList classMemberIndexList = schema.classMembers.get(classIndex);
       findMatchingMember(0, classMemberIndexList, clazz, classIndex + 1);
@@ -373,7 +374,7 @@ public class KeepAnnotationMatcher {
     private void findMatchingMember(
         int memberInHolderIndex,
         IntList memberIndexTranslation,
-        DexProgramClass holder,
+        DexClass holder,
         int nextClassIndex) {
       if (memberInHolderIndex == memberIndexTranslation.size()) {
         // All members of this class are assigned, continue search for the next class.
@@ -383,7 +384,7 @@ public class KeepAnnotationMatcher {
       int memberIndex = memberIndexTranslation.getInt(memberInHolderIndex);
       KeepMemberItemPattern memberItemPattern = schema.members.get(memberIndex);
       BooleanBox didContinue = new BooleanBox(false);
-      Consumer<ProgramDefinition> continueWithMember =
+      Consumer<Definition> continueWithMember =
           m -> {
             didContinue.isTrue();
             continueWithMember(
@@ -397,7 +398,7 @@ public class KeepAnnotationMatcher {
                   // The empty class can only match the "all member" pattern but with no assignment.
                   continueWithMember.accept(holder);
                 } else {
-                  holder.forEachProgramMember(
+                  holder.forEachClassMember(
                       m -> {
                         if (predicates.matchesGeneralMember(
                             m.getDefinition(), generalMemberPattern)) {
@@ -407,10 +408,10 @@ public class KeepAnnotationMatcher {
                 }
               },
               fieldPattern ->
-                  holder.forEachProgramFieldMatching(
+                  holder.forEachClassFieldMatching(
                       f -> predicates.matchesField(f, fieldPattern, appInfo), continueWithMember),
               methodPattern ->
-                  holder.forEachProgramMethodMatching(
+                  holder.forEachClassMethodMatching(
                       m -> predicates.matchesMethod(m, methodPattern, appInfo),
                       continueWithMember));
       if (didContinue.isFalse()) {
@@ -421,13 +422,13 @@ public class KeepAnnotationMatcher {
     }
 
     private void continueWithMember(
-        ProgramDefinition definition,
+        Definition definition,
         int memberIndex,
         int nextMemberInHolderIndex,
         IntList memberIndexTranslation,
         int nextClassIndex) {
-      if (definition.isProgramMember()) {
-        assignment.setMember(memberIndex, definition.asProgramMember());
+      if (definition.isMember()) {
+        assignment.setMember(memberIndex, definition.asMember());
       } else {
         assert definition.isProgramClass();
         assert !definition.asProgramClass().hasMethodsOrFields();
@@ -549,27 +550,27 @@ public class KeepAnnotationMatcher {
    */
   private static class Assignment {
 
-    final List<DexProgramClass> classes;
-    final List<ProgramMember<?, ?>> members;
+    final List<DexClass> classes;
+    final List<DexClassAndMember<?, ?>> members;
     boolean hasEmptyMembers = false;
 
     private Assignment(NormalizedSchema schema) {
-      classes = Arrays.asList(new DexProgramClass[schema.classes.size()]);
-      members = Arrays.asList(new ProgramMember<?, ?>[schema.members.size()]);
+      classes = Arrays.asList(new DexClass[schema.classes.size()]);
+      members = Arrays.asList(new DexClassAndMember<?, ?>[schema.members.size()]);
     }
 
-    ProgramDefinition getItemForReference(int keyReference) {
+    Definition getItemForReference(int keyReference) {
       if (NormalizedSchema.isClassKeyReference(keyReference)) {
         return classes.get(NormalizedSchema.decodeClassKeyReference(keyReference));
       }
       return members.get(NormalizedSchema.decodeMemberKeyReference(keyReference));
     }
 
-    void setClass(int index, DexProgramClass type) {
+    void setClass(int index, DexClass type) {
       classes.set(index, type);
     }
 
-    void setMember(int index, ProgramMember<?, ?> member) {
+    void setMember(int index, DexClassAndMember<?, ?> member) {
       members.set(index, member);
     }
 
@@ -583,19 +584,21 @@ public class KeepAnnotationMatcher {
           schema.declaration,
           schema.preconditions.isEmpty()
               ? Collections.emptyList()
-              : getItemList(schema.preconditions, false),
-          getItemList(schema.consequences, true),
+              : getItemList(schema.preconditions, false, Definition::isProgramDefinition),
+          getItemList(schema.consequences, true, Definition::isProgramDefinition),
           getConstraints(schema));
     }
 
-    private List<ProgramDefinition> getItemList(IntList indexReferences, boolean allowUnset) {
+    @SuppressWarnings("unchecked")
+    private <T extends Definition> List<T> getItemList(
+        IntList indexReferences, boolean allowUnset, Predicate<Definition> predicate) {
       assert !indexReferences.isEmpty();
-      List<ProgramDefinition> definitions = new ArrayList<>(indexReferences.size());
+      List<T> definitions = new ArrayList<>(indexReferences.size());
       for (int i = 0; i < indexReferences.size(); i++) {
-        ProgramDefinition item = getItemForReference(indexReferences.getInt(i));
+        Definition item = getItemForReference(indexReferences.getInt(i));
         assert item != null || hasEmptyMembers || allowUnset;
-        if (item != null) {
-          definitions.add(item);
+        if (item != null && predicate.test(item)) {
+          definitions.add((T) item);
         }
       }
       return definitions;
@@ -609,7 +612,7 @@ public class KeepAnnotationMatcher {
       // constraints, so it matches the consequence list.
       ImmutableList.Builder<KeepConstraints> builder = ImmutableList.builder();
       for (int i = 0; i < schema.consequences.size(); i++) {
-        ProgramDefinition item = getItemForReference(schema.consequences.getInt(i));
+        Definition item = getItemForReference(schema.consequences.getInt(i));
         if (item != null) {
           builder.add(schema.constraints.get(i));
         }

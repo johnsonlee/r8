@@ -239,6 +239,18 @@ public abstract class DexClass extends DexDefinition
     return Iterables.concat(fields(predicate), methods(predicate));
   }
 
+  public boolean hasFields() {
+    return fieldCollection.size() > 0;
+  }
+
+  public boolean hasMethods() {
+    return methodCollection.size() > 0;
+  }
+
+  public boolean hasMethodsOrFields() {
+    return hasMethods() || hasFields();
+  }
+
   public FieldCollection getFieldCollection() {
     return fieldCollection;
   }
@@ -336,6 +348,11 @@ public abstract class DexClass extends DexDefinition
 
   public void forEachMethod(Consumer<DexEncodedMethod> consumer) {
     methodCollection.forEachMethod(consumer);
+  }
+
+  public void forEachClassMember(Consumer<? super DexClassAndMember<?, ?>> consumer) {
+    forEachClassField(consumer);
+    forEachClassMethod(consumer);
   }
 
   public List<DexEncodedField> allFieldsSorted() {

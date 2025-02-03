@@ -679,18 +679,6 @@ public class DexProgramClass extends DexClass
     return false;
   }
 
-  public boolean hasFields() {
-    return fieldCollection.size() > 0;
-  }
-
-  public boolean hasMethods() {
-    return methodCollection.size() > 0;
-  }
-
-  public boolean hasMethodsOrFields() {
-    return hasMethods() || hasFields();
-  }
-
   /** Determine if the class or any of its methods/fields has any attributes. */
   public boolean hasClassOrMemberAnnotations() {
     return !annotations().isEmpty()
