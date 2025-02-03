@@ -259,6 +259,11 @@ public class SyntheticNaming {
 
     public abstract boolean isSingleSyntheticMethod();
 
+    @SuppressWarnings("ReferenceEquality")
+    public boolean mayCallOtherSyntheticMethods(SyntheticNaming naming) {
+      return this == naming.AUTOCLOSEABLE_DISPATCHER;
+    }
+
     public abstract boolean isFixedSuffixSynthetic();
 
     public abstract boolean isGlobal();

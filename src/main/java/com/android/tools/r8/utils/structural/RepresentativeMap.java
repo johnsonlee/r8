@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.structural;
 
-import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.DexItem;
 
 @FunctionalInterface
-public interface RepresentativeMap {
-  DexType getRepresentative(DexType type);
+public interface RepresentativeMap<T extends DexItem> {
+  T getRepresentative(T type);
 }

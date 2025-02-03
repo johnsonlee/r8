@@ -6,12 +6,14 @@ package com.android.tools.r8.synthesis;
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.structural.HasherWrapper;
 import com.android.tools.r8.utils.structural.RepresentativeMap;
 import com.google.common.hash.HashCode;
+import java.util.Map;
 
 /**
  * Base type for the definition of a synthetic item.
@@ -38,6 +40,14 @@ abstract class SyntheticDefinition<
   }
 
   public SyntheticClasspathDefinition asClasspathDefinition() {
+    return null;
+  }
+
+  public boolean isMethodDefinition() {
+    return false;
+  }
+
+  public SyntheticMethodDefinition asMethodDefinition() {
     return null;
   }
 
@@ -70,7 +80,7 @@ abstract class SyntheticDefinition<
 
   public abstract C getHolder();
 
-  final HashCode computeHash(RepresentativeMap map, boolean intermediate) {
+  final HashCode computeHash(RepresentativeMap<DexType> map, boolean intermediate) {
     HasherWrapper hasher = HasherWrapper.murmur3128Hasher();
     hasher.putInt(kind.getId());
     if (!getKind().isShareable()) {
@@ -90,20 +100,22 @@ abstract class SyntheticDefinition<
     return hasher.hash();
   }
 
-  abstract void internalComputeHash(HasherWrapper hasher, RepresentativeMap map);
+  abstract void internalComputeHash(HasherWrapper hasher, RepresentativeMap<DexType> map);
 
   final boolean isEquivalentTo(
       D other,
       boolean includeContext,
       GraphLens graphLens,
+      Map<DexMethod, DexMethod> methodMap,
       ClassToFeatureSplitMap classToFeatureSplitMap) {
-    return compareTo(other, includeContext, graphLens, classToFeatureSplitMap) == 0;
+    return compareTo(other, includeContext, graphLens, methodMap, classToFeatureSplitMap) == 0;
   }
 
   int compareTo(
       D other,
       boolean includeContext,
       GraphLens graphLens,
+      Map<DexMethod, DexMethod> methodMap,
       ClassToFeatureSplitMap classToFeatureSplitMap) {
     {
       int order = kind.compareTo(other.getKind());
@@ -129,7 +141,7 @@ abstract class SyntheticDefinition<
       assert order != 0;
       return order;
     }
-    RepresentativeMap map = null;
+    RepresentativeMap<DexType> map = null;
     // If the synthetics have been moved include the original types in the equivalence.
     if (graphLens.isNonIdentityLens()) {
       DexType thisOrigType = graphLens.getOriginalType(thisType);
@@ -149,10 +161,11 @@ abstract class SyntheticDefinition<
     if (map == null) {
       map = t -> otherType.isIdenticalTo(t) ? thisType : t;
     }
-    return internalCompareTo(other, map);
+    return internalCompareTo(other, map, m -> methodMap.getOrDefault(m, m));
   }
 
-  abstract int internalCompareTo(D other, RepresentativeMap map);
+  abstract int internalCompareTo(
+      D other, RepresentativeMap<DexType> typeMap, RepresentativeMap<DexMethod> methodMap);
 
   public abstract boolean isValid();
 }

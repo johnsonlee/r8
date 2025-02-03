@@ -266,6 +266,12 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptAutoCloseableForwardingMethod(
+        ProgramMethod method, ProgramDefinition context) {
+      methodProcessor.scheduleDesugaredMethodForProcessing(method);
+    }
+
+    @Override
     public void acceptVarHandleDesugaringClass(DexProgramClass clazz) {
       clazz
           .programMethods()
@@ -566,6 +572,12 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
+      // Intentionally empty. The method will be hit by tracing if required.
+    }
+
+    @Override
+    public void acceptAutoCloseableForwardingMethod(
+        ProgramMethod method, ProgramDefinition context) {
       // Intentionally empty. The method will be hit by tracing if required.
     }
 

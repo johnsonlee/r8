@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils.structural;
 
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
+
 /** Specified types must implement methods to determine equality, hashing and order. */
 public interface StructuralItem<T extends StructuralItem<T>> extends Ordered<T> {
 
@@ -34,9 +37,10 @@ public interface StructuralItem<T extends StructuralItem<T>> extends Ordered<T> 
    * <p>This should *not* be overwritten, instead items should overwrite acceptCompareTo which will
    * ensure that the effect is in place for any CompareToVisitor.
    */
-  default int compareWithTypeEquivalenceTo(T other, RepresentativeMap map) {
-    return CompareToVisitorWithTypeEquivalence.run(
-        self(), other, map, StructuralItem::acceptCompareTo);
+  default int compareWithSyntheticEquivalenceTo(
+      T other, RepresentativeMap<DexType> map, RepresentativeMap<DexMethod> methodMap) {
+    return CompareToVisitorWithSyntheticEquivalence.run(
+        self(), other, map, methodMap, StructuralItem::acceptCompareTo);
   }
 
   /** Default accept for compareTo visitors. Override to change behavior. */
@@ -67,7 +71,7 @@ public interface StructuralItem<T extends StructuralItem<T>> extends Ordered<T> 
    * <p>This should *not* be overwritten, instead items should overwrite acceptHashing which will
    * ensure that the effect is in place for any HashingVisitor.
    */
-  default void hashWithTypeEquivalence(HasherWrapper hasher, RepresentativeMap map) {
+  default void hashWithTypeEquivalence(HasherWrapper hasher, RepresentativeMap<DexType> map) {
     HashingVisitorWithTypeEquivalence.run(self(), hasher, map, StructuralItem::acceptHashing);
   }
 

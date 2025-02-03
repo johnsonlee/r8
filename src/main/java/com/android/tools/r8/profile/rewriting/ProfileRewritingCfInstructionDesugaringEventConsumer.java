@@ -348,6 +348,12 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   }
 
   @Override
+  public void acceptAutoCloseableForwardingMethod(ProgramMethod method, ProgramDefinition context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
+    parent.acceptAutoCloseableForwardingMethod(method, context);
+  }
+
+  @Override
   public void acceptRecordClass(DexProgramClass recordClass) {
     parent.acceptRecordClass(recordClass);
   }

@@ -186,7 +186,7 @@ public class AutoCloseableRetargeterHelper {
                             methodSig ->
                                 BackportedMethods.ExecutorServiceMethods_closeExecutorService(
                                     factory, methodSig)));
-    eventConsumer.acceptAutoCloseableDispatchMethod(method, context);
+    eventConsumer.acceptAutoCloseableForwardingMethod(method, context);
     return method.getReference();
   }
 

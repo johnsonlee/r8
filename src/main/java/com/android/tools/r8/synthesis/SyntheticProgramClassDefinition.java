@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.structural.HasherWrapper;
 import com.android.tools.r8.utils.structural.RepresentativeMap;
@@ -54,13 +56,16 @@ class SyntheticProgramClassDefinition
   }
 
   @Override
-  void internalComputeHash(HasherWrapper hasher, RepresentativeMap map) {
+  void internalComputeHash(HasherWrapper hasher, RepresentativeMap<DexType> map) {
     clazz.hashWithTypeEquivalence(hasher, map);
   }
 
   @Override
-  int internalCompareTo(SyntheticProgramClassDefinition o, RepresentativeMap map) {
-    return clazz.compareWithTypeEquivalenceTo(o.clazz, map);
+  int internalCompareTo(
+      SyntheticProgramClassDefinition o,
+      RepresentativeMap<DexType> typeMap,
+      RepresentativeMap<DexMethod> methodMap) {
+    return clazz.compareWithSyntheticEquivalenceTo(o.clazz, typeMap, methodMap);
   }
 
   @Override

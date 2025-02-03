@@ -13,10 +13,10 @@ public interface AutoCloseableRetargeterEventConsumer {
 
   void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context);
 
+  void acceptAutoCloseableForwardingMethod(ProgramMethod method, ProgramDefinition context);
+
   interface AutoCloseableRetargeterPostProcessingEventConsumer
       extends AutoCloseableRetargeterEventConsumer {
-
-    void acceptAutoCloseableForwardingMethod(ProgramMethod method, ProgramDefinition context);
 
     void acceptAutoCloseableInterfaceInjection(DexProgramClass clazz, DexClass newInterface);
   }

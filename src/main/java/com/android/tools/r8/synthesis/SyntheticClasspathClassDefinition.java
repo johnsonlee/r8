@@ -4,6 +4,8 @@
 package com.android.tools.r8.synthesis;
 
 import com.android.tools.r8.graph.DexClasspathClass;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.structural.HasherWrapper;
 import com.android.tools.r8.utils.structural.RepresentativeMap;
@@ -44,13 +46,16 @@ class SyntheticClasspathClassDefinition
   }
 
   @Override
-  void internalComputeHash(HasherWrapper hasher, RepresentativeMap map) {
+  void internalComputeHash(HasherWrapper hasher, RepresentativeMap<DexType> map) {
     clazz.hashWithTypeEquivalence(hasher, map);
   }
 
   @Override
-  int internalCompareTo(SyntheticClasspathClassDefinition o, RepresentativeMap map) {
-    return clazz.compareWithTypeEquivalenceTo(o.clazz, map);
+  int internalCompareTo(
+      SyntheticClasspathClassDefinition o,
+      RepresentativeMap<DexType> typeMap,
+      RepresentativeMap<DexMethod> methodMap) {
+    return clazz.compareWithSyntheticEquivalenceTo(o.clazz, typeMap, methodMap);
   }
 
   @Override

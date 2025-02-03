@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.synthesis;
 
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.structural.HasherWrapper;
@@ -40,6 +42,16 @@ class SyntheticMethodDefinition
   }
 
   @Override
+  public boolean isMethodDefinition() {
+    return true;
+  }
+
+  @Override
+  public SyntheticMethodDefinition asMethodDefinition() {
+    return this;
+  }
+
+  @Override
   public boolean isProgramDefinition() {
     return true;
   }
@@ -60,13 +72,18 @@ class SyntheticMethodDefinition
   }
 
   @Override
-  void internalComputeHash(HasherWrapper hasher, RepresentativeMap map) {
+  void internalComputeHash(HasherWrapper hasher, RepresentativeMap<DexType> map) {
     method.getDefinition().hashWithTypeEquivalence(hasher, map);
   }
 
   @Override
-  int internalCompareTo(SyntheticMethodDefinition other, RepresentativeMap map) {
-    return method.getDefinition().compareWithTypeEquivalenceTo(other.method.getDefinition(), map);
+  int internalCompareTo(
+      SyntheticMethodDefinition other,
+      RepresentativeMap<DexType> typeMap,
+      RepresentativeMap<DexMethod> methodMap) {
+    return method
+        .getDefinition()
+        .compareWithSyntheticEquivalenceTo(other.method.getDefinition(), typeMap, methodMap);
   }
 
   @Override

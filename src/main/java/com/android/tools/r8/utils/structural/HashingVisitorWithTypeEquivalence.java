@@ -20,19 +20,23 @@ import java.util.function.ToLongFunction;
 public class HashingVisitorWithTypeEquivalence extends HashingVisitor {
 
   public static <T> void run(
-      T item, HasherWrapper hasher, RepresentativeMap map, StructuralMapping<T> accept) {
+      T item, HasherWrapper hasher, RepresentativeMap<DexType> map, StructuralMapping<T> accept) {
     run(item, hasher, map, (i, visitor) -> visitor.visit(i, accept));
   }
 
   public static <T> void run(
-      T item, HasherWrapper hasher, RepresentativeMap map, HashingAccept<T> hashingAccept) {
+      T item,
+      HasherWrapper hasher,
+      RepresentativeMap<DexType> map,
+      HashingAccept<T> hashingAccept) {
     hashingAccept.acceptHashing(item, new HashingVisitorWithTypeEquivalence(hasher, map));
   }
 
   private final HasherWrapper hash;
-  private final RepresentativeMap representatives;
+  private final RepresentativeMap<DexType> representatives;
 
-  private HashingVisitorWithTypeEquivalence(HasherWrapper hash, RepresentativeMap representatives) {
+  private HashingVisitorWithTypeEquivalence(
+      HasherWrapper hash, RepresentativeMap<DexType> representatives) {
     this.hash = hash;
     this.representatives = representatives;
   }

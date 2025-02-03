@@ -13,6 +13,7 @@ import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.ContentProviderClient;
 import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.DrmManagerClient;
@@ -36,6 +37,7 @@ public class AutoCloseableRetargeterAndroidTest extends AbstractBackportTest {
   public static TestParametersCollection data() {
     return getTestParameters()
         .withDexRuntimes()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK21)
         .withApiLevelsStartingAtIncluding(AndroidApiLevel.K)
         .enableApiLevelsForCf()
         .build();

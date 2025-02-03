@@ -18,6 +18,7 @@ public class DefaultCompareToVisitor {
   }
 
   public static <T> int run(T item1, T item2, CompareToAccept<T> compareToAccept) {
-    return CompareToVisitorWithTypeEquivalence.run(item1, item2, t -> t, compareToAccept);
+    return CompareToVisitorWithSyntheticEquivalence.run(
+        item1, item2, t -> t, m -> m, compareToAccept);
   }
 }

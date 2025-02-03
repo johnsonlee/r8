@@ -11,6 +11,8 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.HashSet;
@@ -56,15 +58,16 @@ public class StructuralItemsCustomOrderTest extends TestBase {
   @Test
   public void testOrderWithIdentityEquivalence() {
     // These mirror the above exactly but using the compare result.
-    RepresentativeMap map = t -> t;
+    RepresentativeMap<DexType> map = t -> t;
+    RepresentativeMap<DexMethod> mmap = m -> m;
 
-    assertFalse(b1.compareWithTypeEquivalenceTo(b2, map) < 0);
-    assertTrue(b2.compareWithTypeEquivalenceTo(b2_copy, map) == 0);
-    assertTrue(b2.compareWithTypeEquivalenceTo(b1, map) < 0);
+    assertFalse(b1.compareWithSyntheticEquivalenceTo(b2, map, mmap) < 0);
+    assertTrue(b2.compareWithSyntheticEquivalenceTo(b2_copy, map, mmap) == 0);
+    assertTrue(b2.compareWithSyntheticEquivalenceTo(b1, map, mmap) < 0);
 
-    assertFalse(a1b1.compareWithTypeEquivalenceTo(a1b2, map) < 0);
-    assertTrue(a1b2.compareWithTypeEquivalenceTo(a2b1, map) < 0);
-    assertFalse(a2b1.compareWithTypeEquivalenceTo(a1b2_copy, map) < 0);
+    assertFalse(a1b1.compareWithSyntheticEquivalenceTo(a1b2, map, mmap) < 0);
+    assertTrue(a1b2.compareWithSyntheticEquivalenceTo(a2b1, map, mmap) < 0);
+    assertFalse(a2b1.compareWithSyntheticEquivalenceTo(a1b2_copy, map, mmap) < 0);
   }
 
   @Test

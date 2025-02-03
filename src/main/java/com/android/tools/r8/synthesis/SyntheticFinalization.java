@@ -581,24 +581,23 @@ public class SyntheticFinalization {
     Map<DexType, EquivalenceGroup<T>> equivalences = new IdentityHashMap<>();
     boolean intermediate = appView.options().intermediate;
     timing.begin("Groups");
+    List<List<T>> directPotentialEquivalences = new ArrayList<>();
+    List<List<T>> indirectPotentialEquivalences = new ArrayList<>();
     potentialEquivalences.forEach(
         members -> {
-          List<EquivalenceGroup<T>> groups = groupEquivalent(appView, members);
-          for (EquivalenceGroup<T> group : groups) {
-            // If the group has a pinned representative don't construct an external type.
-            if (group.isPinned(appView)) {
-              EquivalenceGroup<T> previous =
-                  equivalences.put(group.getRepresentative().getHolder().getType(), group);
-              assert previous == null;
-            } else {
-              groupsPerPrefix
-                  .computeIfAbsent(
-                      group.getRepresentative().getPrefixForExternalSyntheticType(appView),
-                      k -> new ArrayList<>())
-                  .add(group);
-            }
+          T t = members.get(0);
+          if (t.getKind().mayCallOtherSyntheticMethods(appView.getSyntheticItems().getNaming())) {
+            indirectPotentialEquivalences.add(members);
+          } else {
+            directPotentialEquivalences.add(members);
           }
         });
+    directPotentialEquivalences.forEach(
+        members ->
+            groupPerPrefix(appView, groupsPerPrefix, ImmutableMap.of(), equivalences, members));
+    Map<DexMethod, DexMethod> methodMap = collectMethodMap(directPotentialEquivalences);
+    indirectPotentialEquivalences.forEach(
+        members -> groupPerPrefix(appView, groupsPerPrefix, methodMap, equivalences, members));
     timing.end();
     timing.begin("External creation");
     groupsPerPrefix.forEach(
@@ -643,6 +642,51 @@ public class SyntheticFinalization {
     return equivalences;
   }
 
+  private static <T extends SyntheticDefinition<?, T, ?>>
+      Map<DexMethod, DexMethod> collectMethodMap(List<List<T>> directPotentialEquivalences) {
+    Map<DexMethod, DexMethod> methodMap = new IdentityHashMap<>();
+    for (List<T> directPotentialEquivalence : directPotentialEquivalences) {
+      if (directPotentialEquivalence.size() > 1) {
+        // The representative is used only for comparison so any representative works as long as
+        // it's the same in the compilation, we can pick 0 without sorting.
+        T representative = directPotentialEquivalence.get(0);
+        if (representative.isMethodDefinition()) {
+          DexMethod methodRepresentative =
+              representative.asMethodDefinition().getMethod().getReference();
+          for (int i = 1; i < directPotentialEquivalence.size(); i++) {
+            DexMethod next =
+                directPotentialEquivalence.get(i).asMethodDefinition().getMethod().getReference();
+            methodMap.put(next, methodRepresentative);
+          }
+        }
+      }
+    }
+    return methodMap;
+  }
+
+  private static <T extends SyntheticDefinition<?, T, ?>> void groupPerPrefix(
+      AppView<?> appView,
+      Map<String, List<EquivalenceGroup<T>>> groupsPerPrefix,
+      Map<DexMethod, DexMethod> methodMap,
+      Map<DexType, EquivalenceGroup<T>> equivalences,
+      List<T> members) {
+    List<EquivalenceGroup<T>> groups = groupEquivalent(appView, members, methodMap);
+    for (EquivalenceGroup<T> group : groups) {
+      // If the group has a pinned representative don't construct an external type.
+      if (group.isPinned(appView)) {
+        EquivalenceGroup<T> previous =
+            equivalences.put(group.getRepresentative().getHolder().getType(), group);
+        assert previous == null;
+      } else {
+        groupsPerPrefix
+            .computeIfAbsent(
+                group.getRepresentative().getPrefixForExternalSyntheticType(appView),
+                k -> new ArrayList<>())
+            .add(group);
+      }
+    }
+  }
+
   @SuppressWarnings("MixedMutabilityReturnType")
   private <T extends SyntheticDefinition<?, T, ?>> int compareForFinalGroupSorting(
       EquivalenceGroup<T> a, EquivalenceGroup<T> b) {
@@ -657,7 +701,7 @@ public class SyntheticFinalization {
 
   @SuppressWarnings("MixedMutabilityReturnType")
   private static <T extends SyntheticDefinition<?, T, ?>> List<EquivalenceGroup<T>> groupEquivalent(
-      AppView<?> appView, List<T> potentialEquivalence) {
+      AppView<?> appView, List<T> potentialEquivalence, Map<DexMethod, DexMethod> methodMap) {
     // Fast path the singleton groups.
     if (potentialEquivalence.size() == 1) {
       return ImmutableList.of(EquivalenceGroup.singleton(potentialEquivalence.get(0)));
@@ -674,7 +718,7 @@ public class SyntheticFinalization {
     List<T> sortedPotentialMembers =
         ListUtils.sort(
             potentialEquivalence,
-            (a, b) -> a.compareTo(b, includeContext, graphLens, classToFeatureSplitMap));
+            (a, b) -> a.compareTo(b, includeContext, graphLens, methodMap, classToFeatureSplitMap));
     List<List<T>> potentialGroups = new ArrayList<>();
     {
       List<T> currentGroup = new ArrayList<>();
@@ -683,7 +727,7 @@ public class SyntheticFinalization {
       for (int i = 1; i < sortedPotentialMembers.size(); i++) {
         T member = sortedPotentialMembers.get(i);
         if (!currentRepresentative.isEquivalentTo(
-            member, includeContext, graphLens, classToFeatureSplitMap)) {
+            member, includeContext, graphLens, methodMap, classToFeatureSplitMap)) {
           potentialGroups.add(currentGroup);
           currentGroup = new ArrayList<>();
           currentRepresentative = member;
@@ -846,7 +890,8 @@ public class SyntheticFinalization {
         syntheticTypes.add(appView.graphLens().getOriginalType(t));
       }
     }
-    RepresentativeMap map = t -> syntheticTypes.contains(t) ? appView.dexItemFactory().voidType : t;
+    RepresentativeMap<DexType> map =
+        t -> syntheticTypes.contains(t) ? appView.options().dexItemFactory().voidType : t;
     Map<HashCode, List<T>> equivalences = new HashMap<>(definitions.size());
     List<List<T>> result = new ArrayList<>();
     boolean intermediate = appView.options().intermediate;
