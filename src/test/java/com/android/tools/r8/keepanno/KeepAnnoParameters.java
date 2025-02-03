@@ -13,8 +13,11 @@ public class KeepAnnoParameters {
   public enum KeepAnnoConfig {
     REFERENCE,
     R8_DIRECT,
+    R8_PARTIAL_DIRECT,
     R8_NORMALIZED,
+    R8_PARTIAL_NORMALIZED,
     R8_RULES,
+    R8_PARTIAL_RULES,
     R8_LEGACY,
     PG;
   }
@@ -60,12 +63,20 @@ public class KeepAnnoParameters {
     return isCurrentR8() || isLegacyR8();
   }
 
+  public boolean isR8Partial() {
+    return config == KeepAnnoConfig.R8_PARTIAL_DIRECT
+        || config == KeepAnnoConfig.R8_PARTIAL_NORMALIZED
+        || config == KeepAnnoConfig.R8_PARTIAL_RULES;
+  }
+
   public boolean isPG() {
     return config == KeepAnnoConfig.PG;
   }
 
   public boolean isCurrentR8() {
-    return isNativeR8() || config == KeepAnnoConfig.R8_RULES;
+    return isNativeR8()
+        || config == KeepAnnoConfig.R8_RULES
+        || config == KeepAnnoConfig.R8_PARTIAL_RULES;
   }
 
   public boolean isLegacyR8() {
@@ -73,11 +84,15 @@ public class KeepAnnoParameters {
   }
 
   public boolean isNativeR8() {
-    return config == KeepAnnoConfig.R8_DIRECT || config == KeepAnnoConfig.R8_NORMALIZED;
+    return config == KeepAnnoConfig.R8_DIRECT
+        || config == KeepAnnoConfig.R8_PARTIAL_DIRECT
+        || config == KeepAnnoConfig.R8_NORMALIZED
+        || config == KeepAnnoConfig.R8_PARTIAL_NORMALIZED;
   }
 
   public boolean isExtractRules() {
     return config == KeepAnnoConfig.R8_RULES
+        || config == KeepAnnoConfig.R8_PARTIAL_RULES
         || config == KeepAnnoConfig.R8_LEGACY
         || config == KeepAnnoConfig.PG;
   }

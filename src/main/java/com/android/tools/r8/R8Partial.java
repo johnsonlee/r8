@@ -8,6 +8,8 @@ import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.graph.LazyLoadedDexApplication;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.partial.R8PartialD8Result;
 import com.android.tools.r8.partial.R8PartialInput;
 import com.android.tools.r8.partial.R8PartialProgramPartioning;
@@ -85,14 +87,17 @@ class R8Partial {
 
   private R8PartialInput runProcessInputStep(AndroidApp androidApp, ExecutorService executor)
       throws IOException {
-    DirectMappedDexApplication app =
-        new ApplicationReader(androidApp, options, timing).read(executor).toDirect();
+    LazyLoadedDexApplication lazyApp =
+        new ApplicationReader(androidApp, options, timing).read(executor);
+    List<KeepDeclaration> keepDeclarations = lazyApp.getKeepDeclarations();
+    DirectMappedDexApplication app = lazyApp.toDirect();
     R8PartialProgramPartioning partioning = R8PartialProgramPartioning.create(app);
     return new R8PartialInput(
         partioning.getD8Classes(),
         partioning.getR8Classes(),
         app.classpathClasses(),
-        app.libraryClasses());
+        app.libraryClasses(),
+        keepDeclarations);
   }
 
   private R8PartialD8Result runD8Step(R8PartialInput input, ExecutorService executor)
@@ -193,12 +198,16 @@ class R8Partial {
             d8Result.getArtProfiles(),
             d8Result.getClassToFeatureSplitMap(),
             d8Result.getDexedClasses(),
+            input.getKeepDeclarations(),
             d8Result.getStartupProfile(),
             timing);
     r8Options.setArtProfileOptions(
         new ArtProfileOptions(r8Options, options.getArtProfileOptions()));
     r8Options.setFeatureSplitConfiguration(options.getFeatureSplitConfiguration());
     r8Options.setStartupOptions(new StartupOptions(r8Options, options.getStartupOptions()));
+    r8Options.setKeepSpecificationSources(options.getKeepSpecifications());
+    r8Options.getTestingOptions().enableEmbeddedKeepAnnotations =
+        options.getTestingOptions().enableEmbeddedKeepAnnotations;
     r8Options.mapConsumer = options.mapConsumer;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;

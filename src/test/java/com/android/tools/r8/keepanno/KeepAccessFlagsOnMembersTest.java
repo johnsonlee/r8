@@ -17,7 +17,6 @@ import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.keepanno.ast.AnnotationConstants;
 import com.android.tools.r8.transformers.ClassTransformer;
 import com.android.tools.r8.transformers.MethodTransformer;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -49,8 +48,7 @@ public class KeepAccessFlagsOnMembersTest extends TestBase {
           configs.add(c.invert());
         });
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withApiLevel(AndroidApiLevel.B).build(),
-        configs);
+        getTestParameters().withDefaultDexRuntime().withMaximumApiLevel().build(), configs);
   }
 
   @Test

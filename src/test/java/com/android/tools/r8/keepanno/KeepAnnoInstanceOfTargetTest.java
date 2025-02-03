@@ -8,7 +8,6 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
 import org.junit.Test;
@@ -26,7 +25,7 @@ public class KeepAnnoInstanceOfTargetTest extends KeepAnnoTestBase {
   @Parameterized.Parameters(name = "{0}")
   public static List<KeepAnnoParameters> data() {
     return createParameters(
-        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
+        getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build());
   }
 
   @Test

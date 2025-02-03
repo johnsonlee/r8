@@ -6,7 +6,6 @@ package com.android.tools.r8.keepanno.doctests;
 import com.android.tools.r8.keepanno.KeepAnnoParameters;
 import com.android.tools.r8.keepanno.KeepAnnoTestBase;
 import com.android.tools.r8.keepanno.doctests.GenericSignaturePrinter.TestClass;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
 import org.junit.Test;
@@ -27,7 +26,7 @@ public class SignatureConstraintsDocumentationTest extends KeepAnnoTestBase {
   @Parameterized.Parameters(name = "{0}")
   public static List<KeepAnnoParameters> data() {
     return createParameters(
-        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
+        getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build());
   }
 
   @Test

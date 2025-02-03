@@ -12,6 +12,7 @@ import com.android.tools.r8.utils.ThrowingAction;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.function.Consumer;
+import org.junit.AssumptionViolatedException;
 
 public class AssertUtils {
 
@@ -56,6 +57,9 @@ public class AssertUtils {
         action.execute();
         fail("Expected action to fail with an exception, but succeeded");
       } catch (Throwable e) {
+        if (e instanceof AssumptionViolatedException) {
+          throw e;
+        }
         assertEquals(printStackTraceToString(e), clazz, e.getClass());
         if (consumer != null) {
           consumer.accept(e);

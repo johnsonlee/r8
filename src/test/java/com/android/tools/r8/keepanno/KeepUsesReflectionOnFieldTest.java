@@ -5,13 +5,11 @@ package com.android.tools.r8.keepanno;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +30,7 @@ public class KeepUsesReflectionOnFieldTest extends KeepAnnoTestBase {
   @Parameterized.Parameters(name = "{0}")
   public static List<KeepAnnoParameters> data() {
     return createParameters(
-        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
+        getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build());
   }
 
   @Test

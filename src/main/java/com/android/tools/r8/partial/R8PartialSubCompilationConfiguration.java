@@ -16,6 +16,7 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.Target;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.profile.art.ArtProfile;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.art.ArtProfileMethodRule;
@@ -156,12 +157,14 @@ public abstract class R8PartialSubCompilationConfiguration {
     private ArtProfileCollection artProfiles;
     private ClassToFeatureSplitMap classToFeatureSplitMap;
     private Map<DexType, DexProgramClass> dexingOutputClasses;
+    private List<KeepDeclaration> keepDeclarations;
     private StartupProfile startupProfile;
 
     public R8PartialR8SubCompilationConfiguration(
         ArtProfileCollection artProfiles,
         ClassToFeatureSplitMap classToFeatureSplitMap,
         Collection<DexProgramClass> dexingOutputClasses,
+        List<KeepDeclaration> keepDeclarations,
         StartupProfile startupProfile,
         Timing timing) {
       super(timing);
@@ -169,6 +172,7 @@ public abstract class R8PartialSubCompilationConfiguration {
       this.classToFeatureSplitMap = classToFeatureSplitMap;
       this.dexingOutputClasses =
           MapUtils.transform(dexingOutputClasses, IdentityHashMap::new, DexClass::getType);
+      this.keepDeclarations = keepDeclarations;
       this.startupProfile = startupProfile;
     }
 
@@ -183,6 +187,13 @@ public abstract class R8PartialSubCompilationConfiguration {
     public Collection<DexProgramClass> getDexingOutputClasses() {
       assert dexingOutputClasses != null;
       return dexingOutputClasses.values();
+    }
+
+    public List<KeepDeclaration> getAndClearKeepDeclarations() {
+      List<KeepDeclaration> result = keepDeclarations;
+      assert result != null;
+      keepDeclarations = null;
+      return result;
     }
 
     public StartupProfile getStartupProfile() {

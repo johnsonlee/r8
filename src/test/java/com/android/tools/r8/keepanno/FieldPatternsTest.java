@@ -11,7 +11,6 @@ import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.TypePattern;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +31,7 @@ public class FieldPatternsTest extends KeepAnnoTestBase {
   @Parameterized.Parameters(name = "{0}")
   public static List<KeepAnnoParameters> data() {
     return createParameters(
-        getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build());
+        getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build());
   }
 
   @Test

@@ -11,7 +11,6 @@ import com.android.tools.r8.keepanno.annotations.InstanceOfPattern;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.TypePattern;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -31,7 +30,7 @@ public class KeepTypePatternWithInstanceOfTest extends KeepAnnoTestBase {
     return createParameters(
         getTestParameters()
             .withDefaultRuntimes()
-            .withApiLevel(AndroidApiLevel.B)
+            .withMaximumApiLevel()
             .enableApiLevelsForCf()
             .build());
   }

@@ -8,8 +8,11 @@ package com.android.tools.r8.keepanno;
 import com.android.tools.r8.ExternalR8TestBuilder;
 import com.android.tools.r8.ProguardTestBuilder;
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8PartialTestBuilder;
+import com.android.tools.r8.R8PartialTestCompileResult;
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
@@ -25,6 +28,7 @@ import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractor;
 import com.android.tools.r8.keepanno.keeprules.KeepRuleExtractorOptions;
 import com.android.tools.r8.keepanno.proto.KeepSpecProtos.KeepSpec;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration.Builder;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,6 +49,11 @@ public abstract class KeepAnnoTestBuilder {
       case R8_NORMALIZED:
       case R8_RULES:
         return new R8NativeBuilder(params, temp);
+      case R8_PARTIAL_DIRECT:
+      case R8_PARTIAL_NORMALIZED:
+      case R8_PARTIAL_RULES:
+        params.parameters().assumeR8PartialTestParameters();
+        return new R8PartialNativeBuilder(params, temp);
       case R8_LEGACY:
         return new R8LegacyBuilder(params, temp);
       case PG:
@@ -56,7 +65,7 @@ public abstract class KeepAnnoTestBuilder {
 
   private final KeepAnnoParameters keepAnnoParams;
 
-  private KeepAnnoTestBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
+  private KeepAnnoTestBuilder(KeepAnnoParameters params) {
     this.keepAnnoParams = params;
   }
 
@@ -148,7 +157,7 @@ public abstract class KeepAnnoTestBuilder {
     private final TestBuilder<? extends SingleTestRunResult<?>, ?> builder;
 
     public ReferenceBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
-      super(params, temp);
+      super(params);
       if (parameters().isCfRuntime()) {
         builder = TestBase.testForJvm(temp);
       } else {
@@ -182,36 +191,26 @@ public abstract class KeepAnnoTestBuilder {
     }
   }
 
-  private static class R8NativeBuilder extends KeepAnnoTestBuilder {
+  private abstract static class R8NativeBuilderBase<
+          B extends R8TestBuilder<R, ?, ?>, R extends R8TestCompileResultBase<R>>
+      extends KeepAnnoTestBuilder {
 
-    private KeepAnnoConfig config;
-    private final R8FullTestBuilder builder;
-    private List<Consumer<R8TestCompileResult>> compileResultConsumers = new ArrayList<>();
+    final B builder;
+    final KeepAnnoConfig config;
 
-    private R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
-      super(params, temp);
-      config = params.config();
-      builder =
-          TestBase.testForR8(temp, parameters().getBackend())
-              .enableExperimentalKeepAnnotations()
-              .setMinApi(parameters());
+    final List<Consumer<R>> compileResultConsumers = new ArrayList<>();
 
-      // TODO(b/323816623): Replace the testing flag by the API call.
-      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
-      builder.addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
+    private R8NativeBuilderBase(KeepAnnoParameters params, B builder) {
+      super(params);
+      this.builder = builder;
+      this.config = params.config();
     }
 
-    private boolean isExtractRules() {
-      return config == KeepAnnoConfig.R8_RULES;
-    }
+    abstract boolean isExtractRules();
 
-    private boolean isNormalizeEdges() {
-      return config == KeepAnnoConfig.R8_NORMALIZED;
-    }
+    abstract boolean isNormalizeEdges();
 
-    private boolean isDirect() {
-      return config == KeepAnnoConfig.R8_DIRECT;
-    }
+    abstract boolean isDirect();
 
     @Override
     public KeepAnnoTestBuilder allowUnusedProguardConfigurationRules() {
@@ -252,18 +251,10 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
-    public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses)
-        throws IOException {
+    public KeepAnnoTestBuilder addProgramClassFileData(List<byte[]> programClasses) {
       for (byte[] programClass : programClasses) {
         extractAndAdd(programClass);
       }
-      return this;
-    }
-
-    @Override
-    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
-      compileResultConsumers.add(
-          result -> configConsumer.accept(result.getProguardConfiguration()));
       return this;
     }
 
@@ -295,10 +286,78 @@ public abstract class KeepAnnoTestBuilder {
     }
 
     @Override
+    public KeepAnnoTestBuilder inspectOutputConfig(Consumer<String> configConsumer) {
+      compileResultConsumers.add(
+          result -> configConsumer.accept(result.getProguardConfiguration()));
+      return this;
+    }
+
+    @Override
     public SingleTestRunResult<?> run(Class<?> mainClass) throws Exception {
-      R8TestCompileResult compileResult = builder.compile();
+      R compileResult = builder.compile();
       compileResultConsumers.forEach(fn -> fn.accept(compileResult));
       return compileResult.run(parameters().getRuntime(), mainClass);
+    }
+  }
+
+  private static class R8NativeBuilder
+      extends R8NativeBuilderBase<R8FullTestBuilder, R8TestCompileResult> {
+
+    private R8NativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
+      super(params, TestBase.testForR8(temp, params.getBackend()));
+      builder.enableExperimentalKeepAnnotations().setMinApi(parameters());
+
+      // TODO(b/323816623): Replace the testing flag by the API call.
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+      builder.addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
+    }
+
+    @Override
+    boolean isExtractRules() {
+      return config == KeepAnnoConfig.R8_RULES;
+    }
+
+    @Override
+    boolean isNormalizeEdges() {
+      return config == KeepAnnoConfig.R8_NORMALIZED;
+    }
+
+    @Override
+    boolean isDirect() {
+      return config == KeepAnnoConfig.R8_DIRECT;
+    }
+  }
+
+  private static class R8PartialNativeBuilder
+      extends R8NativeBuilderBase<R8PartialTestBuilder, R8PartialTestCompileResult> {
+
+    private R8PartialNativeBuilder(KeepAnnoParameters params, TemporaryFolder temp) {
+      super(params, TestBase.testForR8Partial(temp, params.getBackend()));
+
+      builder
+          .setR8PartialConfiguration(Builder::includeAll)
+          .enableExperimentalKeepAnnotations()
+          .setMinApi(parameters());
+
+      // TODO(b/323816623): Replace the testing flag by the API call.
+      builder.getBuilder().setEnableExperimentalKeepAnnotations(false);
+      builder.addR8PartialOptionsModification(
+          o -> o.testing.enableEmbeddedKeepAnnotations = isDirect());
+    }
+
+    @Override
+    boolean isExtractRules() {
+      return config == KeepAnnoConfig.R8_PARTIAL_RULES;
+    }
+
+    @Override
+    boolean isNormalizeEdges() {
+      return config == KeepAnnoConfig.R8_PARTIAL_NORMALIZED;
+    }
+
+    @Override
+    boolean isDirect() {
+      return config == KeepAnnoConfig.R8_PARTIAL_DIRECT;
     }
   }
 
@@ -310,7 +369,7 @@ public abstract class KeepAnnoTestBuilder {
     private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
 
     public R8LegacyBuilder(KeepAnnoParameters params, TemporaryFolder temp) throws IOException {
-      super(params, temp);
+      super(params);
       builder =
           TestBase.testForExternalR8(temp, parameters().getBackend())
               .useProvidedR8(KeepAnnoTestUtils.R8_LIB)
@@ -372,7 +431,7 @@ public abstract class KeepAnnoTestBuilder {
     private final List<Consumer<List<String>>> configConsumers = new ArrayList<>();
 
     public PGBuilder(KeepAnnoParameters params, TemporaryFolder temp) throws IOException {
-      super(params, temp);
+      super(params);
       builder =
           TestBase.testForProguard(KeepAnnoTestUtils.PG_VERSION, temp)
               .addProgramFiles(KeepAnnoTestUtils.getKeepAnnoLib(temp))

@@ -10,7 +10,6 @@ import com.android.tools.r8.keepanno.annotations.KeepEdge;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.MethodAccessFlags;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -27,7 +26,7 @@ public class MainMethodsDocumentationTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
+    return getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build();
   }
 
   public MainMethodsDocumentationTest(TestParameters parameters) {

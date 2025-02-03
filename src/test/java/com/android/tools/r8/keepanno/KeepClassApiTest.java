@@ -13,7 +13,6 @@ import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.keepanno.annotations.MemberAccessFlags;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -38,7 +37,7 @@ public class KeepClassApiTest extends KeepAnnoTestBase {
     return createParameters(
         getTestParameters()
             .withDefaultRuntimes()
-            .withApiLevel(AndroidApiLevel.B)
+            .withMaximumApiLevel()
             .enableApiLevelsForCf()
             .build());
   }

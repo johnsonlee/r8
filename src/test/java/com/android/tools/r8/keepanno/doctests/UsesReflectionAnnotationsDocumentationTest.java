@@ -15,7 +15,6 @@ import com.android.tools.r8.keepanno.annotations.KeepConstraint;
 import com.android.tools.r8.keepanno.annotations.KeepTarget;
 import com.android.tools.r8.keepanno.annotations.UsesReflection;
 import com.android.tools.r8.keepanno.doctests.UsesReflectionAnnotationsDocumentationTest.Example1.MyAnnotationPrinter.MyClass;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +37,7 @@ public class UsesReflectionAnnotationsDocumentationTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDefaultRuntimes().withApiLevel(AndroidApiLevel.B).build();
+    return getTestParameters().withDefaultRuntimes().withMaximumApiLevel().build();
   }
 
   public UsesReflectionAnnotationsDocumentationTest(TestParameters parameters) {

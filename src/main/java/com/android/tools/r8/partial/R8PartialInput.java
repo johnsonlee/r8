@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.utils.InternalClasspathOrLibraryClassProvider;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.MapUtils;
@@ -18,6 +19,7 @@ import com.android.tools.r8.utils.SetUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,18 +29,21 @@ public class R8PartialInput {
   private final Collection<DexProgramClass> r8Classes;
   private final Map<DexType, DexClasspathClass> classpathClasses;
   private final Map<DexType, DexLibraryClass> libraryClasses;
+  private final List<KeepDeclaration> keepDeclarations;
 
   public R8PartialInput(
       Collection<DexProgramClass> d8Classes,
       Collection<DexProgramClass> r8Classes,
       Collection<DexClasspathClass> classpathClasses,
-      Collection<DexLibraryClass> libraryClasses) {
+      Collection<DexLibraryClass> libraryClasses,
+      List<KeepDeclaration> keepDeclarations) {
     this.d8Classes = d8Classes;
     this.r8Classes = r8Classes;
     this.classpathClasses =
         MapUtils.transform(classpathClasses, IdentityHashMap::new, DexClass::getType);
     this.libraryClasses =
         MapUtils.transform(libraryClasses, IdentityHashMap::new, DexClass::getType);
+    this.keepDeclarations = keepDeclarations;
   }
 
   public void configure(D8Command.Builder commandBuilder) throws IOException {
@@ -72,5 +77,9 @@ public class R8PartialInput {
     // Intentionally not returning r8Classes.keySet(). This allows clearing the map after providing
     // the classes to the D8 compilation.
     return SetUtils.mapIdentityHashSet(r8Classes, DexClass::getType);
+  }
+
+  public List<KeepDeclaration> getKeepDeclarations() {
+    return keepDeclarations;
   }
 }
