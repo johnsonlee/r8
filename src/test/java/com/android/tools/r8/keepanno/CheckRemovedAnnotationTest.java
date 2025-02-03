@@ -4,7 +4,6 @@
 package com.android.tools.r8.keepanno;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertThrowsIf;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.allOf;
@@ -18,6 +17,7 @@ import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.DiagnosticsLevel;
 import com.android.tools.r8.DiagnosticsMatcher;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.errors.CheckDiscardDiagnostic;
 import com.android.tools.r8.keepanno.annotations.CheckRemoved;
 import com.android.tools.r8.utils.StringUtils;
@@ -57,49 +57,35 @@ public class CheckRemovedAnnotationTest extends KeepAnnoTestBase {
   @Test
   public void testCurrentR8() throws Exception {
     assumeTrue(parameters.isR8() && parameters.isCurrentR8());
-    // TODO(b/392828287): Investigate R8 partial.
-    assertThrowsIf(
-        parameters.isR8Partial(),
-        RuntimeException.class,
-        () ->
-            testForKeepAnno(parameters)
-                .enableNativeInterpretation()
-                .addProgramClasses(getInputClasses())
-                .addKeepMainRule(TestClass.class)
-                .applyIfR8Current(
-                    b ->
-                        b.allowDiagnosticWarningMessages()
-                            .setDiagnosticsLevelModifier(
-                                (level, diagnostic) ->
-                                    level == DiagnosticsLevel.ERROR
-                                        ? DiagnosticsLevel.WARNING
-                                        : level)
-                            .compileWithExpectedDiagnostics(
-                                diagnostics -> {
-                                  diagnostics
-                                      .assertOnlyWarnings()
-                                      .assertWarningsMatch(
-                                          DiagnosticsMatcher.diagnosticType(
-                                              CheckDiscardDiagnostic.class));
-                                  CheckDiscardDiagnostic discard =
-                                      (CheckDiscardDiagnostic) diagnostics.getWarnings().get(0);
-                                  // The discard error should report for both the method A.foo and
-                                  // the class
-                                  // B.
-                                  assertEquals(
-                                      discard.getDiagnosticMessage(),
-                                      2,
-                                      discard.getNumberOfFailures());
-                                  assertThat(
-                                      discard,
-                                      diagnosticMessage(
-                                          allOf(
-                                              containsString("A.foo() was not discarded"),
-                                              containsString("B was not discarded"))));
-                                })
-                            .run(parameters.getRuntime(), TestClass.class)
-                            .assertSuccessWithOutput(EXPECTED)
-                            .inspect(this::checkOutput)));
+    testForKeepAnno(parameters)
+        .enableNativeInterpretation()
+        .addProgramClasses(getInputClasses())
+        .addKeepMainRule(TestClass.class)
+        .applyIfR8Current(
+            b ->
+                b.allowDiagnosticWarningMessages()
+                    .setDiagnosticsLevelModifier(
+                        (level, diagnostic) ->
+                            level == DiagnosticsLevel.ERROR ? DiagnosticsLevel.WARNING : level)
+                    .compileWithExpectedDiagnostics(this::inspectDiagnostics)
+                    .run(parameters.getRuntime(), TestClass.class)
+                    .assertSuccessWithOutput(EXPECTED)
+                    .inspect(this::checkOutput));
+  }
+
+  private void inspectDiagnostics(TestDiagnosticMessages diagnostics) {
+    diagnostics
+        .assertOnlyWarnings()
+        .assertWarningsMatch(DiagnosticsMatcher.diagnosticType(CheckDiscardDiagnostic.class));
+    CheckDiscardDiagnostic discard = (CheckDiscardDiagnostic) diagnostics.getWarnings().get(0);
+    // The discard error should report for both the method A.foo and the class B.
+    assertEquals(discard.getDiagnosticMessage(), 2, discard.getNumberOfFailures());
+    assertThat(
+        discard,
+        diagnosticMessage(
+            allOf(
+                containsString("A.foo() was not discarded"),
+                containsString("B was not discarded"))));
   }
 
   @Test

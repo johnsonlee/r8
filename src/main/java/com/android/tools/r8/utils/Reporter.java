@@ -64,7 +64,7 @@ public class Reporter implements DiagnosticsHandler {
     // To avoid having an entry for fatal error in the public  API enum use null to signal
     // fatal error internally.
     if (level != null) {
-      DiagnosticsLevel modifiedLevel = clientHandler.modifyDiagnosticsLevel(level, diagnostic);
+      DiagnosticsLevel modifiedLevel = modifyDiagnosticsLevel(level, diagnostic);
       level = modifiedLevel != null ? modifiedLevel : level;
       level = mapDiagnosticsLevel(level, diagnostic);
     } else {
@@ -86,6 +86,11 @@ public class Reporter implements DiagnosticsHandler {
       default:
         throw new Unreachable();
     }
+  }
+
+  @Override
+  public DiagnosticsLevel modifyDiagnosticsLevel(DiagnosticsLevel level, Diagnostic diagnostic) {
+    return clientHandler.modifyDiagnosticsLevel(level, diagnostic);
   }
 
   @Override
