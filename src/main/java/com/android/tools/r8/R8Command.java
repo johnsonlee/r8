@@ -782,10 +782,6 @@ public final class R8Command extends BaseCompilerCommand {
       return !mainDexRules.isEmpty();
     }
 
-    private boolean hasNativeMultidex() {
-      return isMinApiLevelSet() && getMinApiLevel() >= AndroidApiLevel.L.getLevel();
-    }
-
     private static void verifyResourceSplitOrProgramSplit(FeatureSplit featureSplit) {
       assert featureSplit.getProgramConsumer() instanceof DexIndexedConsumer
           || featureSplit.getAndroidResourceProvider() != null;

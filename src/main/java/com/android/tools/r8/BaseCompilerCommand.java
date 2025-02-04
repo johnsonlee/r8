@@ -920,5 +920,9 @@ public abstract class BaseCompilerCommand extends BaseCommand {
     ClassConflictResolver getClassConflictResolver() {
       return classConflictResolver;
     }
+
+    boolean hasNativeMultidex() {
+      return isMinApiLevelSet() && getMinApiLevel() >= AndroidApiLevel.L.getLevel();
+    }
   }
 }

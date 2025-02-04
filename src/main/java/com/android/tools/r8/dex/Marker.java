@@ -36,7 +36,8 @@ public class Marker {
     R8,
     R8Partial,
     Relocator,
-    TraceReferences;
+    TraceReferences,
+    R8Assistant;
 
     public static Tool[] valuesR8andD8() {
       return new Tool[] {Tool.D8, Tool.R8};
@@ -55,6 +56,7 @@ public class Marker {
   private static final String R8_PARTIAL_PREFIX = PREFIX + Tool.R8Partial + "{";
   private static final String L8_PREFIX = PREFIX + Tool.L8 + "{";
   private static final String RELOCATOR_PREFIX = PREFIX + Tool.Relocator + "{";
+  private static final String R8_ASSISTANT_PREFIX = PREFIX + Tool.R8Assistant + "{";
 
   private final JsonObject jsonObject;
   private final Tool tool;
@@ -183,6 +185,7 @@ public class Marker {
       case D8:
       case L8:
       case R8:
+      case R8Assistant:
         // Before adding backend we would always compile to dex if min-api was specified.
         // This is not fully true for D8 which had a window from aug to oct 2020 where the min-api
         // was added for CF builds too. However, that was (and still is) only used internally and
@@ -297,6 +300,9 @@ public class Marker {
       }
       if (str.startsWith(RELOCATOR_PREFIX)) {
         return internalParse(Tool.Relocator, str.substring(RELOCATOR_PREFIX.length() - 1));
+      }
+      if (str.startsWith(R8_ASSISTANT_PREFIX)) {
+        return internalParse(Tool.R8Assistant, str.substring(R8_ASSISTANT_PREFIX.length() - 1));
       }
     }
     return null;
