@@ -209,6 +209,7 @@ class R8Partial {
     r8Options.getTestingOptions().enableEmbeddedKeepAnnotations =
         options.getTestingOptions().enableEmbeddedKeepAnnotations;
     r8Options.mapConsumer = options.mapConsumer;
+    r8Options.sourceFileProvider = options.sourceFileProvider;
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
       r8Options.androidResourceConsumer = options.androidResourceConsumer;

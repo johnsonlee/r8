@@ -9,19 +9,21 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.R8CommandParser;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestDiagnosticMessagesImpl;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -32,11 +34,15 @@ import org.junit.runners.Parameterized.Parameters;
 public class SourceFileTemplateTest extends TestBase {
 
   @Parameter(0)
+  public boolean enablePartialCompilation;
+
+  @Parameter(1)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withApiLevel(AndroidApiLevel.B).build();
+  @Parameters(name = "{1}, partial: {0}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        BooleanUtils.values(), getTestParameters().withAllRuntimes().withMaximumApiLevel().build());
   }
 
   @Test
@@ -44,15 +50,15 @@ public class SourceFileTemplateTest extends TestBase {
     String template = "MySourceFile";
     compileWithSourceFileTemplate(
         template,
-        inspector -> {
-          assertEquals(
-              template,
-              inspector.clazz(TestClass.class).getDexProgramClass().getSourceFile().toString());
-        });
+        inspector ->
+            assertEquals(
+                template,
+                inspector.clazz(TestClass.class).getDexProgramClass().getSourceFile().toString()));
   }
 
   @Test
   public void testInvalidVariables() {
+    assumeFalse(enablePartialCompilation);
     TestDiagnosticMessagesImpl messages = new TestDiagnosticMessagesImpl();
     parseSourceFileTemplate("My%Source%File", messages);
     messages
@@ -65,6 +71,7 @@ public class SourceFileTemplateTest extends TestBase {
 
   @Test
   public void testInvalidVariablesMix() {
+    assumeFalse(enablePartialCompilation);
     TestDiagnosticMessagesImpl messages = new TestDiagnosticMessagesImpl();
     parseSourceFileTemplate("My%%MAP_IDJUNK", messages);
     messages
@@ -75,6 +82,7 @@ public class SourceFileTemplateTest extends TestBase {
 
   @Test
   public void testNoEscape() {
+    assumeFalse(enablePartialCompilation);
     TestDiagnosticMessagesImpl messages = new TestDiagnosticMessagesImpl();
     parseSourceFileTemplate("My%%SourceFile", messages);
     messages
@@ -127,8 +135,14 @@ public class SourceFileTemplateTest extends TestBase {
 
   private <E extends Exception> void compileWithSourceFileTemplate(
       String template, ThrowingConsumer<CodeInspector, E> inspection) throws Exception {
-    testForR8(parameters.getBackend())
-        .addProgramClasses(TestClass.class)
+    R8TestBuilder<?, ?, ?> builder;
+    if (enablePartialCompilation) {
+      parameters.assumeR8PartialTestParameters();
+      builder = testForR8Partial(parameters.getBackend()).addR8IncludedClasses(TestClass.class);
+    } else {
+      builder = testForR8(parameters.getBackend()).addProgramClasses(TestClass.class);
+    }
+    builder
         .addKeepMainRule(TestClass.class)
         .setMinApi(parameters)
         .setSourceFileTemplate(template)
