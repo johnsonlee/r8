@@ -542,10 +542,8 @@ public abstract class BaseCompilerCommand extends BaseCommand {
       return self();
     }
 
-    protected InternalProgramOutputPathConsumer createProgramOutputConsumer(
-        Path path,
-        OutputMode mode,
-        boolean consumeDataResources) {
+    InternalProgramOutputPathConsumer createProgramOutputConsumer(
+        Path path, OutputMode mode, boolean consumeDataResources) {
       if (mode == OutputMode.DexIndexed) {
         return FileUtils.isArchive(path)
             ? new DexIndexedConsumer.ArchiveConsumer(path, consumeDataResources)

@@ -632,14 +632,6 @@ public final class R8Command extends BaseCompilerCommand {
       return this;
     }
 
-    @Override
-    protected InternalProgramOutputPathConsumer createProgramOutputConsumer(
-        Path path,
-        OutputMode mode,
-        boolean consumeDataResources) {
-      return super.createProgramOutputConsumer(path, mode, consumeDataResources);
-    }
-
     /**
      * Add a collection of startup profile providers that should be used for distributing the
      * program classes in DEX. The given startup profiles are also used to disallow optimizations
