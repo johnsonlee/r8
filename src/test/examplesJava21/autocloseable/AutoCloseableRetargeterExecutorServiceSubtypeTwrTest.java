@@ -5,19 +5,22 @@
 package autocloseable;
 
 import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.DeterminismChecker;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -35,7 +38,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase {
+public class AutoCloseableRetargeterExecutorServiceSubtypeTwrTest extends TestBase {
 
   @Parameter public TestParameters parameters;
 
@@ -49,7 +52,7 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
   }
 
   public static String EXPECTED_OUTPUT =
-      StringUtils.lines("close", "close", "close", "close", "close", "close", "close", "SUCCESS");
+      StringUtils.lines("close", "close", "close", "close", "close", "SUCCESS");
 
   @Test
   public void testJvm() throws Exception {
@@ -113,6 +116,33 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
             Main.class,
             String.valueOf(parameters.getApiLevel().getLevel()))
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  @Test
+  public void testD8Determinism() throws Exception {
+    assumeTrue(parameters.isDexRuntime());
+    Path logDirectory = temp.newFolder().toPath();
+    Path ref = compileWithD8Determinism(logDirectory);
+    Path next = compileWithD8Determinism(logDirectory);
+    assertProgramsEqual(ref, next);
+    // Check that setting the determinism checker wrote a log file.
+    assertTrue(Files.exists(logDirectory.resolve("0.log")));
+  }
+
+  private Path compileWithD8Determinism(Path logDirectory) throws Exception {
+    return testForD8(parameters.getBackend())
+        .addInnerClassesAndStrippedOuter(getClass())
+        .setMinApi(parameters)
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
+        .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters))
+        .allowStdoutMessages()
+        .addOptionsModification(
+            options ->
+                options
+                    .getTestingOptions()
+                    .setDeterminismChecker(DeterminismChecker.createWithFileBacking(logDirectory)))
+        .compile()
+        .writeToZip();
   }
 
   public static class PrintForkJoinPool extends ForkJoinPool {
@@ -283,65 +313,45 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
   public static class Main {
 
     public static void main(String[] args) throws Exception {
-      PrintForkJoinPool forkJoinPool = new PrintForkJoinPool();
-      forkJoinPool.close();
-      forkJoinPool = new PrintForkJoinPool();
-      close(forkJoinPool);
-
-      ForkJoinPool forkJoinPool2 = new PrintForkJoinPool();
-      forkJoinPool2.close();
-
-      ExecutorService executorService = new PrintForkJoinPool();
-      executorService.close();
-      executorService = new PrintForkJoinPool();
-      closeExecutorService(executorService);
-
-      OverrideForkJoinPool overrideForkJoinPool = new OverrideForkJoinPool();
-      overrideForkJoinPool.close();
-      overrideForkJoinPool = new OverrideForkJoinPool();
-      close(overrideForkJoinPool);
-
-      ForkJoinPool overrideForkJoinPool1 = new OverrideForkJoinPool();
-      overrideForkJoinPool1.close();
-
-      executorService = new OverrideForkJoinPool();
-      executorService.close();
-      executorService = new OverrideForkJoinPool();
-      closeExecutorService(executorService);
-
-      OverrideForkJoinPool2 overrideForkJoinPool2 = new OverrideForkJoinPool2();
-      overrideForkJoinPool2.close();
-      overrideForkJoinPool2 = new OverrideForkJoinPool2();
-      close(overrideForkJoinPool2);
-
-      ForkJoinPool overrideForkJoinPool22 = new OverrideForkJoinPool2();
-      overrideForkJoinPool22.close();
-
-      executorService = new OverrideForkJoinPool2();
-      executorService.close();
-      executorService = new OverrideForkJoinPool2();
-      closeExecutorService(executorService);
-
-      Executor1 executor1 = new Executor1();
-      executor1.close();
-      Executor2 executor2 = new Executor2();
-      executor2.close();
-      ExecutorService executor11 = new Executor1();
-      close(executor11);
-      ExecutorService executor22 = new Executor2();
-      close(executor22);
-
+      raw();
+      subtypes();
       System.out.println("SUCCESS");
     }
 
-    @NeverInline
-    public static void closeExecutorService(ExecutorService ac) throws Exception {
-      ac.close();
+    private static void subtypes() throws Exception {
+      try (PrintForkJoinPool forkJoinPool = new PrintForkJoinPool()) {}
+
+      try (ForkJoinPool forkJoinPool = new PrintForkJoinPool()) {}
+
+      try (ExecutorService executorService = new PrintForkJoinPool()) {}
+
+      try (OverrideForkJoinPool overrideForkJoinPool = new OverrideForkJoinPool()) {}
+
+      try (ForkJoinPool overrideForkJoinPool1 = new OverrideForkJoinPool()) {}
+
+      try (ExecutorService executorService = new OverrideForkJoinPool()) {}
+
+      try (OverrideForkJoinPool2 overrideForkJoinPool = new OverrideForkJoinPool2()) {}
+
+      try (OverrideForkJoinPool overrideForkJoinPool = new OverrideForkJoinPool2()) {}
+
+      try (ForkJoinPool overrideForkJoinPool1 = new OverrideForkJoinPool2()) {}
+
+      try (ExecutorService executorService = new OverrideForkJoinPool2()) {}
+
+      try (Executor1 executorService = new Executor1()) {}
+
+      try (ExecutorService executorService = new Executor1()) {}
+
+      try (Executor2 executorService = new Executor2()) {}
+
+      try (ExecutorService executorService = new Executor2()) {}
     }
 
-    @NeverInline
-    public static void close(AutoCloseable ac) throws Exception {
-      ac.close();
+    private static void raw() throws Exception {
+      try (ForkJoinPool forkJoinPool = new ForkJoinPool()) {}
+
+      try (ExecutorService forkJoinPool = new ForkJoinPool()) {}
     }
   }
 }

@@ -47,18 +47,12 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
       ExecutorService executorService) {
-    ensureInterfacesAndForwardingMethodsSynthesized(programClasses, eventConsumer);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private void ensureInterfacesAndForwardingMethodsSynthesized(
-      Collection<DexProgramClass> programClasses,
-      AutoCloseableRetargeterPostProcessingEventConsumer eventConsumer) {
     ProcessorContext processorContext = appView.createProcessorContext();
     MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
     for (DexProgramClass clazz : programClasses) {
       if (clazz.superType == null) {
-        assert clazz.type == appView.dexItemFactory().objectType : clazz.type.toSourceString();
+        assert clazz.type.isIdenticalTo(appView.dexItemFactory().objectType)
+            : clazz.type.toSourceString();
         continue;
       }
       if (implementsAutoCloseableAtLibraryBoundary(clazz)) {
@@ -71,46 +65,51 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     if (clazz.interfaces.contains(appView.dexItemFactory().autoCloseableType)) {
       return true;
     }
-    WorkList<DexType> workList = collectLibrarySuperTypeAndInterfaces(clazz);
+    WorkList<DexClass> workList = collectLibrarySuperTypeAndInterfaces(clazz);
     return libraryTypesImplementsAutoCloseable(workList, clazz);
   }
 
-  private WorkList<DexType> collectLibrarySuperTypeAndInterfaces(DexProgramClass clazz) {
-    WorkList<DexType> workList = WorkList.newIdentityWorkList();
+  private WorkList<DexClass> collectLibrarySuperTypeAndInterfaces(DexProgramClass clazz) {
+    WorkList<DexClass> workList = WorkList.newIdentityWorkList();
     DexClass superclass = appView.definitionFor(clazz.superType);
     // Only performs computation if superclass is a library class, but not object to filter out
     // the most common case.
     if (superclass != null
         && superclass.isLibraryClass()
         && !superclass.type.isIdenticalTo(appView.dexItemFactory().objectType)) {
-      workList.addIfNotSeen(superclass.type);
+      workList.addIfNotSeen(superclass);
     }
     for (DexType itf : clazz.interfaces) {
       DexClass superItf = appView.definitionFor(itf);
       if (superItf != null) {
-        workList.addIfNotSeen(superItf.type);
+        workList.addIfNotSeen(superItf);
       }
     }
     return workList;
   }
 
   private boolean libraryTypesImplementsAutoCloseable(
-      WorkList<DexType> workList, DexProgramClass clazz) {
+      WorkList<DexClass> workList, DexProgramClass clazz) {
     while (workList.hasNext()) {
-      DexType current = workList.next();
-      if (current.isIdenticalTo(appView.dexItemFactory().objectType)) {
+      DexClass current = workList.next();
+      if (current.getType().isIdenticalTo(appView.dexItemFactory().objectType)) {
         continue;
       }
-      DexClass currentClass = appView.definitionFor(current);
-      if (currentClass == null) {
-        reportInvalidSupertype(current, clazz);
-        continue;
-      }
-      if (currentClass.interfaces.contains(appView.dexItemFactory().autoCloseableType)) {
+      if (current.interfaces.contains(appView.dexItemFactory().autoCloseableType)) {
         return true;
       }
-      workList.addIfNotSeen(currentClass.superType);
-      workList.addIfNotSeen(currentClass.interfaces);
+      DexClass superClass = appView.definitionFor(current.superType);
+      if (superClass == null) {
+        reportInvalidSupertype(current.superType, clazz);
+      } else {
+        workList.addIfNotSeen(superClass);
+      }
+      for (DexType itf : current.interfaces) {
+        DexClass superItf = appView.definitionFor(itf);
+        if (superItf != null) {
+          workList.addIfNotSeen(superItf);
+        }
+      }
     }
     return false;
   }
