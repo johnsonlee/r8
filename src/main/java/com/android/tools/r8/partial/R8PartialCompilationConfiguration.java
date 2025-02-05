@@ -113,6 +113,10 @@ public class R8PartialCompilationConfiguration {
       return this;
     }
 
+    public Builder includeClasses(Class<?>... classes) {
+      return includeClasses(Arrays.asList(classes));
+    }
+
     public Builder includeClasses(Collection<Class<?>> classes) {
       for (Class<?> clazz : classes) {
         includePredicates.add(new ClassNameMatcher(DescriptorUtils.javaClassToDescriptor(clazz)));
