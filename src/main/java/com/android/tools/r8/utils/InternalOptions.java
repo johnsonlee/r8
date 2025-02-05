@@ -981,6 +981,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // EXPERIMENTAL flag to get behaviour as close to Proguard as possible.
   public boolean forceProguardCompatibility = false;
+  public boolean protectApiSurface = false;
   public AssertionConfigurationWithDefault assertionsConfiguration = null;
   public boolean configurationDebugging = false;
 
@@ -999,6 +1000,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean shouldCompileMethodInReleaseMode(AppView<?> appView, ProgramMethod method) {
     return !shouldCompileMethodInDebugMode(method);
+  }
+
+  public boolean shouldProtectApiSurface() {
+    return protectApiSurface || isGeneratingClassFiles();
   }
 
   private final AccessModifierOptions accessModifierOptions = new AccessModifierOptions(this);

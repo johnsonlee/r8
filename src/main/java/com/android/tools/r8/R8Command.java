@@ -131,6 +131,7 @@ public final class R8Command extends BaseCompilerCommand {
     private boolean disableTreeShaking = false;
     private boolean disableMinification = false;
     private boolean forceProguardCompatibility = false;
+    private boolean protectApiSurface = false;
     private Optional<Boolean> includeDataResources = Optional.empty();
     private StringConsumer proguardUsageConsumer = null;
     private StringConsumer proguardSeedsConsumer = null;
@@ -276,6 +277,19 @@ public final class R8Command extends BaseCompilerCommand {
     /** Get the current value of Proguard compatibility mode. */
     public boolean getProguardCompatibility() {
       return forceProguardCompatibility;
+    }
+
+    /**
+     * Option to protect the API surface of the given compilation unit.
+     *
+     * <p>If true, R8 will not add public or protected members to classes that are kept or have kept
+     * subclasses, to not alter the public API surface of the compilation unit.
+     *
+     * <p>Defaults to true when compiling to class files.
+     */
+    public Builder setProtectApiSurface(boolean value) {
+      this.protectApiSurface = value;
+      return self();
     }
 
     /** Add proguard configuration-file resources. */
@@ -820,6 +834,7 @@ public final class R8Command extends BaseCompilerCommand {
               configuration.isShrinking(),
               configuration.isObfuscating(),
               forceProguardCompatibility,
+              protectApiSurface,
               includeDataResources,
               proguardMapConsumer,
               partitionMapConsumer,
@@ -1089,6 +1104,7 @@ public final class R8Command extends BaseCompilerCommand {
   private final boolean enableTreeShaking;
   private final boolean enableMinification;
   private final boolean forceProguardCompatibility;
+  private final boolean protectApiSurface;
   private final Optional<Boolean> includeDataResources;
   private final StringConsumer proguardMapConsumer;
   private final PartitionMapConsumer partitionMapConsumer;
@@ -1176,6 +1192,7 @@ public final class R8Command extends BaseCompilerCommand {
       boolean enableTreeShaking,
       boolean enableMinification,
       boolean forceProguardCompatibility,
+      boolean protectApiSurface,
       Optional<Boolean> includeDataResources,
       StringConsumer proguardMapConsumer,
       PartitionMapConsumer partitionMapConsumer,
@@ -1242,6 +1259,7 @@ public final class R8Command extends BaseCompilerCommand {
     this.enableTreeShaking = enableTreeShaking;
     this.enableMinification = enableMinification;
     this.forceProguardCompatibility = forceProguardCompatibility;
+    this.protectApiSurface = protectApiSurface;
     this.includeDataResources = includeDataResources;
     this.proguardMapConsumer = proguardMapConsumer;
     this.partitionMapConsumer = partitionMapConsumer;
@@ -1273,6 +1291,7 @@ public final class R8Command extends BaseCompilerCommand {
     enableTreeShaking = false;
     enableMinification = false;
     forceProguardCompatibility = false;
+    protectApiSurface = false;
     includeDataResources = null;
     proguardMapConsumer = null;
     partitionMapConsumer = null;
@@ -1452,6 +1471,7 @@ public final class R8Command extends BaseCompilerCommand {
 
     assert !internal.forceProguardCompatibility;
     internal.forceProguardCompatibility = forceProguardCompatibility;
+    internal.protectApiSurface = protectApiSurface;
 
     internal.enableInheritanceClassInDexDistributor = isOptimizeMultidexForLinearAlloc();
 

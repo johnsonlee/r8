@@ -18,7 +18,7 @@ public class AccessModifierOptions {
   }
 
   public boolean canPollutePublicApi() {
-    return isAccessModificationRulePresent() || options.isGeneratingDex();
+    return isAccessModificationRulePresent() || !options.shouldProtectApiSurface();
   }
 
   public boolean isAccessModificationEnabled() {
