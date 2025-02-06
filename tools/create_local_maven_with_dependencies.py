@@ -25,7 +25,7 @@ ASM_VERSION = '9.7.1' # When updating update tools/asmifier.py and Toolhelper as
 ESPRESSO_VERSION = '3.0.0'
 FASTUTIL_VERSION = '7.2.1'
 KOTLIN_METADATA_VERSION = '2.1.0'
-KOTLIN_VERSION = '1.9.20'
+KOTLIN_VERSION = '2.0.21'
 GUAVA_VERSION = '32.1.2-jre'
 GSON_VERSION = '2.10.1'
 JAVASSIST_VERSION = '3.29.2-GA'
@@ -82,6 +82,8 @@ BUILD_DEPENDENCIES = [
         version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-tooling-core:{version}'.format(
         version=KOTLIN_VERSION),
+    'org.jetbrains.kotlin:kotlin-build-tools-impl:{version}'.format(
+        version=KOTLIN_VERSION),
     'org.jetbrains.kotlin:kotlin-metadata-jvm:{version}'.format(
         version=KOTLIN_METADATA_VERSION),
 ]
@@ -100,7 +102,7 @@ TEST_DEPENDENCIES = [
 
 PLUGIN_DEPENDENCIES = [
   'com.google.protobuf:protobuf-gradle-plugin:0.9.4',
-  'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:pom:4.2.1',
+  'org.gradle.kotlin.kotlin-dsl:org.gradle.kotlin.kotlin-dsl.gradle.plugin:pom:5.1.2',
   'org.jetbrains.kotlin:kotlin-gradle-plugin-api:1.9.10',
   'net.ltgt.errorprone:net.ltgt.errorprone.gradle.plugin:pom:3.0.1',
   'org.spdx.sbom:org.spdx.sbom.gradle.plugin:pom:0.4.0',
