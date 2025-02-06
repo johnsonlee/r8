@@ -7,6 +7,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.compilerapi.mockdata.MockClass;
 import com.android.tools.r8.compilerapi.mockdata.MockClassWithAssertion;
+import com.android.tools.r8.compilerapi.mockdata.MockClassWithPrivateMethod;
 import com.android.tools.r8.compilerapi.mockdata.PostStartupMockClass;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -74,6 +75,10 @@ public abstract class CompilerApiTest {
 
   public Class<?> getMockClassWithAssertion() {
     return MockClassWithAssertion.class;
+  }
+
+  public Class<?> getMockClassWithPrivateMethod() {
+    return MockClassWithPrivateMethod.class;
   }
 
   public Class<?> getPostStartupMockClass() {

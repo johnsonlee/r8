@@ -28,6 +28,7 @@ import com.android.tools.r8.compilerapi.mockdata.MockClass;
 import com.android.tools.r8.compilerapi.mockdata.MockClassWithAssertion;
 import com.android.tools.r8.compilerapi.mockdata.PostStartupMockClass;
 import com.android.tools.r8.compilerapi.partitionmap.PartitionMapCommandTest;
+import com.android.tools.r8.compilerapi.protectapisurface.ProtectApiSurfaceTest;
 import com.android.tools.r8.compilerapi.sampleapi.D8ApiUsageSampleTest;
 import com.android.tools.r8.compilerapi.sampleapi.R8ApiUsageSampleTest;
 import com.android.tools.r8.compilerapi.sourcefile.CustomSourceFileTest;
@@ -77,7 +78,8 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
           InputMapTest.ApiTest.class,
           MainDexListTest.ApiTest.class,
           MainDexClassesTest.ApiTest.class,
-          MainDexRulesTest.ApiTest.class);
+          MainDexRulesTest.ApiTest.class,
+          ProtectApiSurfaceTest.ApiTest.class);
 
   private static final List<Class<? extends CompilerApiTest>> CLASSES_PENDING_BINARY_COMPATIBILITY =
       ImmutableList.of(PartialShrinkingPreviewApiTest.ApiTest.class);
