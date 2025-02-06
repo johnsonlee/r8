@@ -202,6 +202,8 @@ def Run(options):
                 utils.GRADLE_TASK_CONSOLIDATED_LICENSE,
                 utils.GRADLE_TASK_KEEP_ANNO_JAR,
                 utils.GRADLE_TASK_KEEP_ANNO_DOC,
+                utils.GRADLE_TASK_KEEP_ANNO_LEGACY_JAR,
+                utils.GRADLE_TASK_KEEP_ANNO_ANDROIDX_JAR,
                 utils.GRADLE_TASK_R8,
                 utils.GRADLE_TASK_R8LIB, utils.GRADLE_TASK_R8LIB_NO_DEPS,
                 utils.GRADLE_TASK_THREADING_MODULE_BLOCKING,
@@ -288,6 +290,8 @@ def Run(options):
             utils.DESUGAR_CONFIGURATION_JDK11_MAVEN_ZIP,
             utils.DESUGAR_CONFIGURATION_JDK11_NIO_MAVEN_ZIP, utils.R8_SRC_JAR,
             utils.KEEPANNO_ANNOTATIONS_JAR,
+            utils.KEEPANNO_LEGACY_ANNOTATIONS_JAR,
+            utils.KEEPANNO_ANDROIDX_ANNOTATIONS_JAR,
             utils.GENERATED_LICENSE,
             'd8_r8/main/build/spdx/r8.spdx.json'
         ]

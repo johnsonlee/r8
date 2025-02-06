@@ -115,6 +115,7 @@ tasks {
     from(resourceShrinkerDepsJarTask.outputs.getFiles().map(::zipTree))
     from(keepAnnoJarTask.outputs.getFiles().map(::zipTree))
     exclude("com/android/tools/r8/keepanno/annotations/**")
+    exclude("androidx/annotation/keep/**")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set("deps.jar")
   }

@@ -83,8 +83,7 @@ public class KeepItemAnnotationGenerator {
             "",
             "// ***********************************************************************************",
             "// MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.",
-            "// ***********************************************************************************",
-            "");
+            "// ***********************************************************************************");
     return result;
   }
 
@@ -2253,13 +2252,9 @@ public class KeepItemAnnotationGenerator {
             lines.stream()
                 .map(s -> StringUtils.replaceAll(s, R8_ANNO_PKG, ANDROIDX_ANNO_PKG))
                 .collect(Collectors.toList()));
-        // TODO(b/392865072): Write the annotation files to the androidx namespace.
-        if (false) {
-          FileUtils.writeTextFile(toResolved, out);
-        }
+        FileUtils.writeTextFile(toResolved, out);
       }
-      // TODO(b/392865072): Write the annotation files to the androidx namespace.
-      for (String pkg : new String[] {R8_ANNO_PKG /*, ANDROIDX_ANNO_PKG*/}) {
+      for (String pkg : new String[] {R8_ANNO_PKG, ANDROIDX_ANNO_PKG}) {
         writeFile(
             pkg, generator -> generator.STRING_PATTERN, Generator::generateStringPattern, write);
         writeFile(pkg, generator -> generator.TYPE_PATTERN, Generator::generateTypePattern, write);

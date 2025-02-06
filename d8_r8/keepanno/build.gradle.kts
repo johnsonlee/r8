@@ -63,6 +63,22 @@ tasks {
     archiveFileName.set("keepanno-annotations.jar")
   }
 
+  val keepAnnoLegacyAnnotationsJar by registering(Jar::class) {
+    dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    from(sourceSets.main.get().output)
+    include("com/android/tools/r8/keepanno/annotations/*")
+    destinationDirectory.set(getRoot().resolveAll("build", "libs"))
+    archiveFileName.set("keepanno-annotations-legacy.jar")
+  }
+
+  val keepAnnoAndroidXAnnotationsJar by registering(Jar::class) {
+    dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    from(sourceSets.main.get().output)
+    include("androidx/annotation/keep/*")
+    destinationDirectory.set(getRoot().resolveAll("build", "libs"))
+    archiveFileName.set("keepanno-annotations-androidx.jar")
+  }
+
   val keepAnnoJar by registering(Jar::class) {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
     from(sourceSets.main.get().output)
