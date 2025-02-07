@@ -14,8 +14,8 @@ import com.android.tools.r8.R8Command;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.compilerapi.CompilerApiTest;
 import com.android.tools.r8.compilerapi.CompilerApiTestRunner;
+import com.android.tools.r8.compilerapi.protectapisurface.ProtectApiSurfaceTest.ApiTest.ProtectApiSurfaceConfiguration;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.nio.file.Path;
@@ -37,31 +37,33 @@ public class ProtectApiSurfaceTest extends CompilerApiTestRunner {
 
   @Test
   public void testDefault() throws Exception {
-    runTest(OptionalBool.UNKNOWN);
+    runTest(ProtectApiSurfaceConfiguration.DEFAULT);
   }
 
   @Test
   public void testEnabled() throws Exception {
-    runTest(OptionalBool.TRUE);
+    runTest(ProtectApiSurfaceConfiguration.ENABLED);
   }
 
   @Test
   public void testDisabled() throws Exception {
-    runTest(OptionalBool.FALSE);
+    runTest(ProtectApiSurfaceConfiguration.DISABLED);
   }
 
-  private void runTest(OptionalBool protectApiSurface) throws Exception {
+  private void runTest(ProtectApiSurfaceConfiguration protectApiSurface) throws Exception {
     Path out = temp.newFolder().toPath().resolve("out.jar");
     ApiTest test = new ApiTest(ApiTest.PARAMETERS);
     test.runR8(new DexIndexedConsumer.ArchiveConsumer(out), protectApiSurface);
     inspect(new CodeInspector(out), protectApiSurface);
   }
 
-  private void inspect(CodeInspector inspector, OptionalBool protectApiSurface) {
+  private void inspect(CodeInspector inspector, ProtectApiSurfaceConfiguration protectApiSurface) {
     MethodSubject method =
         inspector.allClasses().iterator().next().uniqueMethodWithFinalName("greet");
     assertThat(method, isPresent());
-    assertThat(method, protectApiSurface.isTrue() ? isPrivate() : isPublic());
+    assertThat(
+        method,
+        protectApiSurface == ProtectApiSurfaceConfiguration.ENABLED ? isPrivate() : isPublic());
   }
 
   public static class ApiTest extends CompilerApiTest {
@@ -70,7 +72,8 @@ public class ProtectApiSurfaceTest extends CompilerApiTestRunner {
       super(parameters);
     }
 
-    public void runR8(DexIndexedConsumer programConsumer, OptionalBool protectApiSurface)
+    public void runR8(
+        DexIndexedConsumer programConsumer, ProtectApiSurfaceConfiguration protectApiSurface)
         throws Exception {
       R8Command.Builder commandBuilder =
           R8Command.builder()
@@ -82,15 +85,22 @@ public class ProtectApiSurfaceTest extends CompilerApiTestRunner {
               .addLibraryFiles(getAndroidJar())
               .setMinApiLevel(SOME_API_LEVEL)
               .setProgramConsumer(programConsumer);
-      if (!protectApiSurface.isUnknown()) {
-        commandBuilder.setProtectApiSurface(protectApiSurface.isTrue());
+      if (protectApiSurface != ProtectApiSurfaceConfiguration.DEFAULT) {
+        commandBuilder.setProtectApiSurface(
+            protectApiSurface == ProtectApiSurfaceConfiguration.ENABLED);
       }
       R8.run(commandBuilder.build());
     }
 
     @Test
     public void testEnabled() throws Exception {
-      runR8(DexIndexedConsumer.emptyConsumer(), OptionalBool.TRUE);
+      runR8(DexIndexedConsumer.emptyConsumer(), ProtectApiSurfaceConfiguration.ENABLED);
+    }
+
+    public enum ProtectApiSurfaceConfiguration {
+      DEFAULT,
+      ENABLED,
+      DISABLED
     }
   }
 }
