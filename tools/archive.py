@@ -173,34 +173,8 @@ def Run(options):
         SetRLimitToMax()
     if not utils.IsWindows():
         PrintResourceInfo()
-    version = GetVersion()
-    is_main = IsMain(version)
-    if is_main:
-        # On main we use the git hash to archive with
-        print('On main, using git hash for archiving')
-        version = GetGitHash()
-
 
     with utils.TempDir() as temp:
-        version_file = os.path.join(temp, 'r8-version.properties')
-        with open(version_file, 'w') as version_writer:
-            version_writer.write('version.sha=' + GetGitHash() + '\n')
-            version_writer.write('version.version=' + version + '\n')
-            if not os.environ.get('SWARMING_BOT_ID') and not options.dry_run:
-                raise Exception('Environment variable SWARMING_BOT_ID not set')
-
-            releaser = \
-                ("releaser=<local developer build>\n" if options.dry_run
-                  else 'releaser=go/r8bot ('
-                      + (os.environ.get('SWARMING_BOT_ID') or 'foo') + ')\n')
-            version_writer.write(releaser)
-            version_writer.write('version-file.version.code=1\n')
-
-        create_maven_release.generate_r8_maven_zip(
-            utils.MAVEN_ZIP_LIB,
-            version_file=version_file,
-            skip_gradle_build=options.skip_gradle_build)
-
         # Ensure all archived artifacts has been built before archiving.
         # The target tasks postfixed by 'lib' depend on the actual target task so
         # building it invokes the original task first.
@@ -219,6 +193,31 @@ def Run(options):
                 utils.GRADLE_TASK_SOURCE_JAR,
                 utils.GRADLE_TASK_SWISS_ARMY_KNIFE, '-Pno_internal'
             ])
+        version = GetVersion()
+        is_main = IsMain(version)
+        if is_main:
+            # On main we use the git hash to archive with
+            print('On main, using git hash for archiving')
+            version = GetGitHash()
+
+        version_file = os.path.join(temp, 'r8-version.properties')
+        with open(version_file, 'w') as version_writer:
+            version_writer.write('version.sha=' + GetGitHash() + '\n')
+            version_writer.write('version.version=' + version + '\n')
+            if not os.environ.get('SWARMING_BOT_ID') and not options.dry_run:
+                raise Exception('Environment variable SWARMING_BOT_ID not set')
+
+            releaser = \
+                ("releaser=<local developer build>\n" if options.dry_run
+                  else 'releaser=go/r8bot ('
+                      + (os.environ.get('SWARMING_BOT_ID') or 'foo') + ')\n')
+            version_writer.write(releaser)
+            version_writer.write('version-file.version.code=1\n')
+
+        create_maven_release.generate_r8_maven_zip(
+            utils.MAVEN_ZIP_LIB,
+            version_file=version_file,
+            skip_gradle_build=options.skip_gradle_build)
 
         # Create maven release of the desuage_jdk_libs configuration. This require
         # an r8.jar with dependencies to have been built.
