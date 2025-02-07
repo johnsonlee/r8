@@ -173,16 +173,24 @@ def Run(options):
         SetRLimitToMax()
     if not utils.IsWindows():
         PrintResourceInfo()
+    version = GetVersion()
+    is_main = IsMain(version)
+    if is_main:
+        # On main we use the git hash to archive with
+        print('On main, using git hash for archiving')
+        version = GetGitHash()
+
 
     with utils.TempDir() as temp:
         version_file = os.path.join(temp, 'r8-version.properties')
         with open(version_file, 'w') as version_writer:
             version_writer.write('version.sha=' + GetGitHash() + '\n')
+            version_writer.write('version.version=' + version + '\n')
             if not os.environ.get('SWARMING_BOT_ID') and not options.dry_run:
                 raise Exception('Environment variable SWARMING_BOT_ID not set')
 
             releaser = \
-                ("<local developer build>" if options.dry_run
+                ("releaser=<local developer build>\n" if options.dry_run
                   else 'releaser=go/r8bot ('
                       + (os.environ.get('SWARMING_BOT_ID') or 'foo') + ')\n')
             version_writer.write(releaser)
@@ -240,12 +248,6 @@ def Run(options):
             utils.DESUGAR_IMPLEMENTATION_JDK11,
             utils.LIBRARY_DESUGAR_CONVERSIONS_ZIP)
 
-        version = GetVersion()
-        is_main = IsMain(version)
-        if is_main:
-            # On main we use the git hash to archive with
-            print('On main, using git hash for archiving')
-            version = GetGitHash()
 
         destination = GetVersionDestination('gs://', version, is_main)
         if utils.cloud_storage_exists(destination) and not options.dry_run:
