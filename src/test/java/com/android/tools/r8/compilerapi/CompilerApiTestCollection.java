@@ -26,6 +26,7 @@ import com.android.tools.r8.compilerapi.maindex.MainDexRulesTest;
 import com.android.tools.r8.compilerapi.mapid.CustomMapIdTest;
 import com.android.tools.r8.compilerapi.mockdata.MockClass;
 import com.android.tools.r8.compilerapi.mockdata.MockClassWithAssertion;
+import com.android.tools.r8.compilerapi.mockdata.MockClassWithPrivateMethod;
 import com.android.tools.r8.compilerapi.mockdata.PostStartupMockClass;
 import com.android.tools.r8.compilerapi.partitionmap.PartitionMapCommandTest;
 import com.android.tools.r8.compilerapi.protectapisurface.ProtectApiSurfaceTest;
@@ -111,6 +112,7 @@ public class CompilerApiTestCollection extends BinaryCompatibilityTestCollection
         CompilerApiTest.class,
         MockClass.class,
         MockClassWithAssertion.class,
+        MockClassWithPrivateMethod.class,
         PostStartupMockClass.class);
   }
 
