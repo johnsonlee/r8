@@ -8,16 +8,17 @@ import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.c
 import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
 import static org.hamcrest.CoreMatchers.containsString;
 
+import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.ContentProviderClientApiLevel24;
-import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.DrmManagerClientApiLevel24;
-import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.MediaMetadataRetrieverApiLevel29;
-import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.TypedArrayAndroidApiLevel31;
+import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.ContentProviderClient;
+import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.DrmManagerClient;
+import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.MediaMetadataRetriever;
+import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.TypedArray;
 import com.android.tools.r8.desugar.backports.AbstractBackportTest;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -78,6 +79,11 @@ public class AutoCloseableRetargeterAndroidSubtypeTest extends AbstractBackportT
     ignoreInvokes("release");
 
     registerTarget(AndroidApiLevel.B, 4);
+  }
+
+  @Override
+  protected void configureD8Options(D8TestBuilder d8TestBuilder) throws IOException {
+    d8TestBuilder.addOptionsModification(opt -> opt.testing.enableAutoCloseableDesugaring = true);
   }
 
   @Override
@@ -147,22 +153,22 @@ public class AutoCloseableRetargeterAndroidSubtypeTest extends AbstractBackportT
   private static byte[] getTestRunner() throws IOException {
     return transformer(TestRunner.class)
         .replaceClassDescriptorInMethodInstructions(
-            descriptor(ContentProviderClientApiLevel24.class),
+            descriptor(ContentProviderClient.class),
             DexItemFactory.androidContentContentProviderClientDescriptorString)
         .replaceClassDescriptorInMethodInstructions(
-            descriptor(DrmManagerClientApiLevel24.class),
+            descriptor(DrmManagerClient.class),
             DexItemFactory.androidDrmDrmManagerClientDescriptorString)
         .replaceClassDescriptorInMethodInstructions(
-            descriptor(MediaMetadataRetrieverApiLevel29.class),
+            descriptor(MediaMetadataRetriever.class),
             DexItemFactory.androidMediaMediaMetadataRetrieverDescriptorString)
         .replaceClassDescriptorInMethodInstructions(
-            descriptor(TypedArrayAndroidApiLevel31.class),
+            descriptor(TypedArray.class),
             DexItemFactory.androidContentResTypedArrayDescriptorString)
         .clearNest()
         .transform();
   }
 
-  public static class ContentProviderClientOverride extends ContentProviderClientApiLevel24 {
+  public static class ContentProviderClientOverride extends ContentProviderClient {
 
     public void close() {
       super.close();
@@ -170,9 +176,9 @@ public class AutoCloseableRetargeterAndroidSubtypeTest extends AbstractBackportT
     }
   }
 
-  public static class ContentProviderClientSub extends ContentProviderClientApiLevel24 {}
+  public static class ContentProviderClientSub extends ContentProviderClient {}
 
-  public static class DrmManagerClientOverride extends DrmManagerClientApiLevel24 {
+  public static class DrmManagerClientOverride extends DrmManagerClient {
 
     public void close() {
       super.close();
@@ -180,9 +186,9 @@ public class AutoCloseableRetargeterAndroidSubtypeTest extends AbstractBackportT
     }
   }
 
-  public static class DrmManagerClientSub extends DrmManagerClientApiLevel24 {}
+  public static class DrmManagerClientSub extends DrmManagerClient {}
 
-  public static class MediaMetadataRetrieverOverride extends MediaMetadataRetrieverApiLevel29 {
+  public static class MediaMetadataRetrieverOverride extends MediaMetadataRetriever {
 
     public void close() {
       super.close();
@@ -190,9 +196,9 @@ public class AutoCloseableRetargeterAndroidSubtypeTest extends AbstractBackportT
     }
   }
 
-  public static class MediaMetadataRetrieverSub extends MediaMetadataRetrieverApiLevel29 {}
+  public static class MediaMetadataRetrieverSub extends MediaMetadataRetriever {}
 
-  public static class TypedArrayOverride extends TypedArrayAndroidApiLevel31 {
+  public static class TypedArrayOverride extends TypedArray {
 
     public void close() {
       super.close();
@@ -200,7 +206,7 @@ public class AutoCloseableRetargeterAndroidSubtypeTest extends AbstractBackportT
     }
   }
 
-  public static class TypedArraySub extends TypedArrayAndroidApiLevel31 {}
+  public static class TypedArraySub extends TypedArray {}
 
   public static class TestRunner extends MiniAssert {
 

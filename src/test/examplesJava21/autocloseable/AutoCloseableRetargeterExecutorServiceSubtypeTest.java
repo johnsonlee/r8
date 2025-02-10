@@ -66,6 +66,7 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
     assumeTrue(parameters.isDexRuntime());
     testForD8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
+        .addOptionsModification(opt -> opt.testing.enableAutoCloseableDesugaring = true)
         .setMinApi(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
         .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters))
@@ -103,6 +104,7 @@ public class AutoCloseableRetargeterExecutorServiceSubtypeTest extends TestBase 
         .addKeepMainRule(Main.class)
         .addInnerClassesAndStrippedOuter(getClass())
         .addInliningAnnotations()
+        .addOptionsModification(opt -> opt.testing.enableAutoCloseableDesugaring = true)
         .setMinApi(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
         .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters))
