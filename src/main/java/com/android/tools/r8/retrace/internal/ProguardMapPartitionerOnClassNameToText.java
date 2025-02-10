@@ -142,18 +142,13 @@ public class ProguardMapPartitionerOnClassNameToText implements ProguardMapParti
                           holder, classNameMapper.getSourceFile(holder));
                     }
                   });
-              StringBuilder payloadBuilder = new StringBuilder();
               if (!partitionFileNameBuilder.isEmpty()) {
-                payloadBuilder
-                    .append("# ")
-                    .append(partitionFileNameBuilder.build().serialize())
-                    .append("\n");
+                payload = "# " + partitionFileNameBuilder.build().serialize() + "\n" + payload;
               }
-              payloadBuilder.append(payload);
               mappingPartitionConsumer.accept(
                   new MappingPartitionImpl(
                       classNamingForNameMapper.renamedName,
-                      payloadBuilder.toString().getBytes(StandardCharsets.UTF_8)));
+                      payload.getBytes(StandardCharsets.UTF_8)));
               keys.add(classNamingForNameMapper.renamedName);
             });
     MapVersion mapVersion = MapVersion.MAP_VERSION_UNKNOWN;
