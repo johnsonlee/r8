@@ -15,6 +15,7 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.IrBasedEnqueuerAnalysis;
@@ -24,14 +25,15 @@ import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
-import com.android.tools.r8.shaking.KeepInfoCollection.MutableKeepInfoCollection;
-import java.util.HashSet;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import java.util.ArrayDeque;
+import java.util.Map;
 import java.util.Set;
 
 /** Ensure classes passed to Mockito.mock() and Mockito.spy() are not marked as "final". */
 class EnqueuerMockitoAnalysis
     implements TraceInvokeEnqueuerAnalysis, IrBasedEnqueuerAnalysis, FinishedEnqueuerAnalysis {
-
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final Enqueuer enqueuer;
 
@@ -39,7 +41,8 @@ class EnqueuerMockitoAnalysis
   private final DexString mockString;
   private final DexString spyString;
 
-  private final Set<DexProgramClass> mockedProgramClasses = new HashSet<>();
+  private final Set<DexProgramClass> mockedProgramClasses = Sets.newIdentityHashSet();
+  private final Map<DexProgramClass, ProgramMethod> spiedInstanceTypes = Maps.newIdentityHashMap();
 
   public EnqueuerMockitoAnalysis(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
@@ -121,14 +124,17 @@ class EnqueuerMockitoAnalysis
         return true;
       }
       mockedType = classType.toDexType(dexItemFactory);
+      DexProgramClass spiedClass = asProgramClassOrNull(appView.definitionFor(mockedType, context));
+      if (spiedClass != null) {
+        spiedInstanceTypes.putIfAbsent(spiedClass, context);
+      }
     }
 
-    keepMockedType(context, mockedType, enqueuer.getKeepInfo());
+    recordMockedType(context, mockedType);
     return true;
   }
 
-  private void keepMockedType(
-      ProgramMethod context, DexType mockedType, MutableKeepInfoCollection keepInfo) {
+  private void recordMockedType(ProgramMethod context, DexType mockedType) {
     DexType curType = mockedType;
     while (curType != null) {
       DexProgramClass programClass = asProgramClassOrNull(appView.definitionFor(curType, context));
@@ -136,29 +142,57 @@ class EnqueuerMockitoAnalysis
         return;
       }
 
-      if (curType.isIdenticalTo(mockedType)) {
-        // Make sure the type is not made final so that it can still be subclassed by Mockito.
-        keepInfo.joinClass(programClass, Joiner::disallowOptimization);
+      if (!mockedProgramClasses.add(programClass)) {
+        return;
       }
-
-      mockedProgramClasses.add(programClass);
       curType = programClass.getSuperType();
     }
   }
 
   @Override
   public void done(Enqueuer enqueuer) {
-    for (DexProgramClass programClass : mockedProgramClasses) {
-      // disallowOptimization --> prevent method from being marked final.
-      // allowCodeReplacement --> do not inline or optimize based on method body.
-      programClass.forEachProgramVirtualMethodMatching(
-          enqueuer::isMethodLive,
-          virtualMethod ->
-              enqueuer
-                  .getKeepInfo()
-                  .joinMethod(
-                      virtualMethod,
-                      joiner -> joiner.disallowOptimization().allowCodeReplacement()));
+    // When Mockity.spy(instance) is used, all subtypes of the given type must be mockable.
+    SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
+    ArrayDeque<DexType> subtypeDeque = new ArrayDeque<>();
+    Set<DexProgramClass> seen = Sets.newIdentityHashSet();
+    for (var entry : spiedInstanceTypes.entrySet()) {
+      DexProgramClass spiedClass = entry.getKey();
+      ProgramMethod context = entry.getValue();
+      if (!seen.add(spiedClass)) {
+        continue;
+      }
+      subtypeDeque.addAll(subtypingInfo.allImmediateSubtypes(spiedClass.getType()));
+      while (!subtypeDeque.isEmpty()) {
+        DexType subtype = subtypeDeque.removeLast();
+        DexProgramClass subClass = asProgramClassOrNull(appView.definitionFor(subtype, context));
+        if (subClass == null || !seen.add(subClass)) {
+          continue;
+        }
+        mockedProgramClasses.add(subClass);
+
+        subtypeDeque.addAll(subtypingInfo.allImmediateSubtypes(subtype));
+      }
     }
+
+    for (DexProgramClass mockedClass : mockedProgramClasses) {
+      if (enqueuer.isTypeLive(mockedClass)) {
+        ensureClassIsMockable(mockedClass);
+      }
+    }
+  }
+
+  private void ensureClassIsMockable(DexProgramClass programClass) {
+    // Ensures the type is not made final so that it can still be subclassed.
+    enqueuer.getKeepInfo().joinClass(programClass, Joiner::disallowOptimization);
+
+    // disallowOptimization --> prevent method from being marked final.
+    // allowCodeReplacement --> do not inline or optimize based on method body.
+    programClass.forEachProgramVirtualMethodMatching(
+        enqueuer::isMethodLive,
+        virtualMethod ->
+            enqueuer.getKeepInfo()
+                .joinMethod(
+                    virtualMethod,
+                    joiner -> joiner.disallowOptimization().allowCodeReplacement()));
   }
 }
