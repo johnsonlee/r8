@@ -16,7 +16,18 @@ package com.android.tools.r8.keepanno.ast;
  */
 public final class AnnotationConstants {
   public static final class Edge {
-    public static final String DESCRIPTOR = "Lcom/android/tools/r8/keepanno/annotations/KeepEdge;";
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepEdge;";
+    private static final String DESCRIPTOR_LEGACY =
+        "Lcom/android/tools/r8/keepanno/annotations/KeepEdge;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String description = "description";
     public static final String bindings = "bindings";
     public static final String preconditions = "preconditions";
@@ -24,43 +35,100 @@ public final class AnnotationConstants {
   }
 
   public static final class ForApi {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepForApi;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/KeepForApi;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String description = "description";
     public static final String additionalTargets = "additionalTargets";
     public static final String memberAccess = "memberAccess";
   }
 
   public static final class UsesReflection {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/UsesReflection;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/UsesReflection;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String description = "description";
     public static final String value = "value";
     public static final String additionalPreconditions = "additionalPreconditions";
   }
 
   public static final class UsedByReflection {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/UsedByReflection;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/UsedByReflection;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String description = "description";
     public static final String preconditions = "preconditions";
     public static final String additionalTargets = "additionalTargets";
   }
 
   public static final class UsedByNative {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/UsedByNative;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/UsedByNative;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
     // Content is the same as UsedByReflection.
   }
 
   public static final class CheckRemoved {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/CheckRemoved;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/CheckRemoved;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
   }
 
   public static final class CheckOptimizedOut {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/CheckOptimizedOut;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/CheckOptimizedOut;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
   }
 
   /** Item properties common to binding items, conditions and targets. */
@@ -123,19 +191,48 @@ public final class AnnotationConstants {
   }
 
   public static final class Binding {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepBinding;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/KeepBinding;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String bindingName = "bindingName";
   }
 
   public static final class Condition {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepCondition;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/KeepCondition;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
   }
 
   public static final class Target {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepTarget;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/KeepTarget;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String kind = "kind";
     public static final String constraintsGroup = "constraints";
     public static final String constraints = "constraints";
@@ -144,8 +241,18 @@ public final class AnnotationConstants {
   }
 
   public static final class Kind {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepItemKind;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/KeepItemKind;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String ONLY_CLASS = "ONLY_CLASS";
     public static final String ONLY_MEMBERS = "ONLY_MEMBERS";
     public static final String ONLY_METHODS = "ONLY_METHODS";
@@ -156,8 +263,18 @@ public final class AnnotationConstants {
   }
 
   public static final class Constraints {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/KeepConstraint;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/KeepConstraint;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String LOOKUP = "LOOKUP";
     public static final String NAME = "NAME";
     public static final String VISIBILITY_RELAX = "VISIBILITY_RELAX";
@@ -175,8 +292,18 @@ public final class AnnotationConstants {
   }
 
   public static final class MemberAccess {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/MemberAccessFlags;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/MemberAccessFlags;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String NEGATION_PREFIX = "NON_";
     public static final String PUBLIC = "PUBLIC";
     public static final String PROTECTED = "PROTECTED";
@@ -188,8 +315,18 @@ public final class AnnotationConstants {
   }
 
   public static final class MethodAccess {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/MethodAccessFlags;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/MethodAccessFlags;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String SYNCHRONIZED = "SYNCHRONIZED";
     public static final String BRIDGE = "BRIDGE";
     public static final String NATIVE = "NATIVE";
@@ -198,15 +335,35 @@ public final class AnnotationConstants {
   }
 
   public static final class FieldAccess {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/FieldAccessFlags;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/FieldAccessFlags;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String VOLATILE = "VOLATILE";
     public static final String TRANSIENT = "TRANSIENT";
   }
 
   public static final class StringPattern {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/StringPattern;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/StringPattern;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String stringExactPatternGroup = "string-exact-pattern";
     public static final String exact = "exact";
     public static final String startsWith = "startsWith";
@@ -214,8 +371,18 @@ public final class AnnotationConstants {
   }
 
   public static final class TypePattern {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/TypePattern;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/TypePattern;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String typePatternGroup = "type-pattern";
     public static final String name = "name";
     public static final String constant = "constant";
@@ -224,8 +391,18 @@ public final class AnnotationConstants {
   }
 
   public static final class ClassNamePattern {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/ClassNamePattern;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/ClassNamePattern;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String classNameGroup = "class-name";
     public static final String name = "name";
     public static final String constant = "constant";
@@ -236,15 +413,35 @@ public final class AnnotationConstants {
   }
 
   public static final class InstanceOfPattern {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/InstanceOfPattern;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/InstanceOfPattern;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String inclusive = "inclusive";
     public static final String classNamePattern = "classNamePattern";
   }
 
   public static final class AnnotationPattern {
-    public static final String DESCRIPTOR =
+    private static final String DESCRIPTOR = "Landroidx/annotation/keep/AnnotationPattern;";
+    private static final String DESCRIPTOR_LEGACY =
         "Lcom/android/tools/r8/keepanno/annotations/AnnotationPattern;";
+
+    public static boolean isDescriptor(String descriptor) {
+      return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);
+    }
+
+    public static String getDescriptor() {
+      return DESCRIPTOR;
+    }
+
     public static final String annotationNameGroup = "annotation-name";
     public static final String name = "name";
     public static final String constant = "constant";

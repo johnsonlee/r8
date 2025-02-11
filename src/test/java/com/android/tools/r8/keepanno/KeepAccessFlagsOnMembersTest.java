@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -104,7 +105,7 @@ public class KeepAccessFlagsOnMembersTest extends TestBase {
             new MethodTransformer() {
               @Override
               public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-                assertEquals(AnnotationConstants.UsesReflection.DESCRIPTOR, descriptor);
+                assertTrue(AnnotationConstants.UsesReflection.isDescriptor(descriptor));
                 return new AnnotationVisitor(
                     ASM_VERSION, super.visitAnnotation(descriptor, visible)) {
                   @Override
@@ -113,7 +114,7 @@ public class KeepAccessFlagsOnMembersTest extends TestBase {
                     return new AnnotationVisitor(ASM_VERSION, super.visitArray(name)) {
                       @Override
                       public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-                        assertEquals(AnnotationConstants.Target.DESCRIPTOR, descriptor);
+                        assertTrue(AnnotationConstants.Target.isDescriptor(descriptor));
                         return new AnnotationVisitor(
                             ASM_VERSION, super.visitAnnotation(name, descriptor)) {
                           @Override
@@ -122,7 +123,7 @@ public class KeepAccessFlagsOnMembersTest extends TestBase {
                             AnnotationVisitor visitor = super.visitArray(name);
                             visitor.visitEnum(
                                 null,
-                                AnnotationConstants.MemberAccess.DESCRIPTOR,
+                                AnnotationConstants.MemberAccess.getDescriptor(),
                                 config.enumValue);
                             visitor.visitEnd();
                             return null;

@@ -23,7 +23,7 @@ public class KeepConstraintsVisitor extends AnnotationVisitorBase {
 
   @Override
   public void visitEnum(String ignore, String descriptor, String value) {
-    if (!descriptor.equals(AnnotationConstants.Constraints.DESCRIPTOR)) {
+    if (!AnnotationConstants.Constraints.isDescriptor(descriptor)) {
       super.visitEnum(ignore, descriptor, value);
     }
     switch (value) {

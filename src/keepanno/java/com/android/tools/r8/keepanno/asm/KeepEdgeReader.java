@@ -100,18 +100,16 @@ public class KeepEdgeReader implements Opcodes {
   }
 
   private static boolean isEmbeddedAnnotation(String descriptor) {
-    switch (descriptor) {
-      case AnnotationConstants.Edge.DESCRIPTOR:
-      case AnnotationConstants.UsesReflection.DESCRIPTOR:
-      case AnnotationConstants.ForApi.DESCRIPTOR:
-      case AnnotationConstants.UsedByReflection.DESCRIPTOR:
-      case AnnotationConstants.UsedByNative.DESCRIPTOR:
-      case AnnotationConstants.CheckRemoved.DESCRIPTOR:
-      case AnnotationConstants.CheckOptimizedOut.DESCRIPTOR:
-        return true;
-      default:
-        return false;
+    if (AnnotationConstants.Edge.isDescriptor(descriptor)
+        || AnnotationConstants.UsesReflection.isDescriptor(descriptor)
+        || AnnotationConstants.ForApi.isDescriptor(descriptor)
+        || AnnotationConstants.UsedByReflection.isDescriptor(descriptor)
+        || AnnotationConstants.UsedByNative.isDescriptor(descriptor)
+        || AnnotationConstants.CheckRemoved.isDescriptor(descriptor)
+        || AnnotationConstants.CheckOptimizedOut.isDescriptor(descriptor)) {
+      return true;
     }
+    return false;
   }
 
   public static List<KeepDeclaration> readKeepEdges(byte[] classFileBytes) {
@@ -345,10 +343,10 @@ public class KeepEdgeReader implements Opcodes {
       if (!readEmbedded || !isEmbeddedAnnotation(descriptor)) {
         return null;
       }
-      if (descriptor.equals(Edge.DESCRIPTOR)) {
+      if (Edge.isDescriptor(descriptor)) {
         return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
-      if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
+      if (AnnotationConstants.UsesReflection.isDescriptor(descriptor)) {
         return new UsesReflectionVisitor(
             parsingContext,
             parent::accept,
@@ -358,19 +356,19 @@ public class KeepEdgeReader implements Opcodes {
                     .setClassNamePattern(KeepQualifiedClassNamePattern.exact(className))
                     .build());
       }
-      if (descriptor.equals(ForApi.DESCRIPTOR)) {
+      if (ForApi.isDescriptor(descriptor)) {
         return new ForApiClassVisitor(parsingContext, parent::accept, setContext, className);
       }
-      if (descriptor.equals(UsedByReflection.DESCRIPTOR)
-          || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
+      if (UsedByReflection.isDescriptor(descriptor)
+          || AnnotationConstants.UsedByNative.isDescriptor(descriptor)) {
         return new UsedByReflectionClassVisitor(
             parsingContext, parent::accept, setContext, className);
       }
-      if (descriptor.equals(AnnotationConstants.CheckRemoved.DESCRIPTOR)) {
+      if (AnnotationConstants.CheckRemoved.isDescriptor(descriptor)) {
         return new CheckRemovedClassVisitor(
             parsingContext, parent::accept, setContext, className, KeepCheckKind.REMOVED);
       }
-      if (descriptor.equals(AnnotationConstants.CheckOptimizedOut.DESCRIPTOR)) {
+      if (AnnotationConstants.CheckOptimizedOut.isDescriptor(descriptor)) {
         return new CheckRemovedClassVisitor(
             parsingContext, parent::accept, setContext, className, KeepCheckKind.OPTIMIZED_OUT);
       }
@@ -489,10 +487,10 @@ public class KeepEdgeReader implements Opcodes {
         // Only the embedded annotations can be on methods.
         return null;
       }
-      if (descriptor.equals(Edge.DESCRIPTOR)) {
+      if (Edge.isDescriptor(descriptor)) {
         return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
-      if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
+      if (AnnotationConstants.UsesReflection.isDescriptor(descriptor)) {
         return new UsesReflectionVisitor(
             parsingContext,
             parent::accept,
@@ -500,7 +498,7 @@ public class KeepEdgeReader implements Opcodes {
             bindingsHelper ->
                 createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
-      if (descriptor.equals(AnnotationConstants.ForApi.DESCRIPTOR)) {
+      if (AnnotationConstants.ForApi.isDescriptor(descriptor)) {
         return new ForApiMemberVisitor(
             parsingContext,
             parent::accept,
@@ -508,8 +506,8 @@ public class KeepEdgeReader implements Opcodes {
             bindingsHelper ->
                 createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
-      if (descriptor.equals(AnnotationConstants.UsedByReflection.DESCRIPTOR)
-          || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
+      if (AnnotationConstants.UsedByReflection.isDescriptor(descriptor)
+          || AnnotationConstants.UsedByNative.isDescriptor(descriptor)) {
         return new UsedByReflectionMemberVisitor(
             parsingContext,
             parent::accept,
@@ -517,7 +515,7 @@ public class KeepEdgeReader implements Opcodes {
             bindingsHelper ->
                 createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper));
       }
-      if (descriptor.equals(AnnotationConstants.CheckRemoved.DESCRIPTOR)) {
+      if (AnnotationConstants.CheckRemoved.isDescriptor(descriptor)) {
         return new CheckRemovedMemberVisitor(
             parsingContext,
             parent::accept,
@@ -526,7 +524,7 @@ public class KeepEdgeReader implements Opcodes {
                 createMethodItemContext(className, methodName, methodDescriptor, bindingsHelper),
             KeepCheckKind.REMOVED);
       }
-      if (descriptor.equals(AnnotationConstants.CheckOptimizedOut.DESCRIPTOR)) {
+      if (AnnotationConstants.CheckOptimizedOut.isDescriptor(descriptor)) {
         return new CheckRemovedMemberVisitor(
             parsingContext,
             parent::accept,
@@ -624,10 +622,10 @@ public class KeepEdgeReader implements Opcodes {
         // Only the embedded annotations can be on fields.
         return null;
       }
-      if (descriptor.equals(Edge.DESCRIPTOR)) {
+      if (Edge.isDescriptor(descriptor)) {
         return new KeepEdgeVisitor(parsingContext, parent::accept, setContext);
       }
-      if (descriptor.equals(AnnotationConstants.UsesReflection.DESCRIPTOR)) {
+      if (AnnotationConstants.UsesReflection.isDescriptor(descriptor)) {
         return new UsesReflectionVisitor(
             parsingContext,
             parent::accept,
@@ -635,7 +633,7 @@ public class KeepEdgeReader implements Opcodes {
             bindingsHelper ->
                 createMemberItemContext(className, fieldName, fieldTypeDescriptor, bindingsHelper));
       }
-      if (descriptor.equals(ForApi.DESCRIPTOR)) {
+      if (ForApi.isDescriptor(descriptor)) {
         return new ForApiMemberVisitor(
             parsingContext,
             parent::accept,
@@ -643,8 +641,8 @@ public class KeepEdgeReader implements Opcodes {
             bindingsHelper ->
                 createMemberItemContext(className, fieldName, fieldTypeDescriptor, bindingsHelper));
       }
-      if (descriptor.equals(UsedByReflection.DESCRIPTOR)
-          || descriptor.equals(AnnotationConstants.UsedByNative.DESCRIPTOR)) {
+      if (UsedByReflection.isDescriptor(descriptor)
+          || AnnotationConstants.UsedByNative.isDescriptor(descriptor)) {
         return new UsedByReflectionMemberVisitor(
             parsingContext,
             parent::accept,
@@ -822,7 +820,7 @@ public class KeepEdgeReader implements Opcodes {
       // The class context/holder is the annotated class.
       visit(Item.className, className);
       // The default kind is to target the class and its members.
-      visitEnum(null, Kind.DESCRIPTOR, Kind.CLASS_AND_MEMBERS);
+      visitEnum(null, Kind.getDescriptor(), Kind.CLASS_AND_MEMBERS);
     }
 
     @Override
@@ -863,8 +861,8 @@ public class KeepEdgeReader implements Opcodes {
       if (!getKind().isOnlyClass() && isDefaultMemberDeclaration()) {
         // If no member declarations have been made, set public & protected as the default.
         AnnotationVisitor v = visitArray(Item.memberAccess);
-        v.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PUBLIC);
-        v.visitEnum(null, MemberAccess.DESCRIPTOR, MemberAccess.PROTECTED);
+        v.visitEnum(null, MemberAccess.getDescriptor(), MemberAccess.PUBLIC);
+        v.visitEnum(null, MemberAccess.getDescriptor(), MemberAccess.PROTECTED);
       }
       super.visitEnd();
       // Currently there is no way of changing constraints on KeepForApi.
@@ -1109,7 +1107,7 @@ public class KeepEdgeReader implements Opcodes {
     public void visitEnd() {
       if (getKind() == null && !isDefaultMemberDeclaration()) {
         // If no explict kind is set and member declarations have been made, keep the class too.
-        visitEnum(null, Kind.DESCRIPTOR, Kind.CLASS_AND_MEMBERS);
+        visitEnum(null, Kind.getDescriptor(), Kind.CLASS_AND_MEMBERS);
       }
       super.visitEnd();
       for (KeepBindingReference bindingReference : getItems()) {
@@ -1188,7 +1186,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnum(String name, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.Kind.DESCRIPTOR)) {
+      if (!Kind.isDescriptor(descriptor)) {
         super.visitEnum(name, descriptor, value);
       }
       KeepEdgeReader.ItemKind kind = KeepEdgeReader.ItemKind.fromString(value);
@@ -1336,7 +1334,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
       assert name == null;
-      if (descriptor.equals(AnnotationConstants.Binding.DESCRIPTOR)) {
+      if (AnnotationConstants.Binding.isDescriptor(descriptor)) {
         return new KeepBindingVisitor(parsingContext.annotation(descriptor), helper);
       }
       return super.visitAnnotation(name, descriptor);
@@ -1362,7 +1360,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
       assert name == null;
-      if (descriptor.equals(Condition.DESCRIPTOR)) {
+      if (Condition.isDescriptor(descriptor)) {
         return new KeepConditionVisitor(
             parsingContext.annotation(descriptor), builder::addCondition, bindingsHelper);
       }
@@ -1394,7 +1392,7 @@ public class KeepEdgeReader implements Opcodes {
     @Override
     public AnnotationVisitor visitAnnotation(String name, String descriptor) {
       assert name == null;
-      if (descriptor.equals(Target.DESCRIPTOR)) {
+      if (Target.isDescriptor(descriptor)) {
         return KeepTargetVisitor.create(
             parsingContext.annotation(descriptor), builder::addTarget, bindingsHelper);
       }
@@ -1898,7 +1896,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnum(String name, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.Kind.DESCRIPTOR)) {
+      if (!AnnotationConstants.Kind.isDescriptor(descriptor)) {
         super.visitEnum(name, descriptor, value);
       }
       ItemKind kind = ItemKind.fromString(value);
@@ -2177,7 +2175,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnum(String ignore, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.MemberAccess.DESCRIPTOR)) {
+      if (!AnnotationConstants.MemberAccess.isDescriptor(descriptor)) {
         super.visitEnum(ignore, descriptor, value);
       }
       boolean handled =
@@ -2236,7 +2234,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnum(String ignore, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.MethodAccess.DESCRIPTOR)) {
+      if (!AnnotationConstants.MethodAccess.isDescriptor(descriptor)) {
         super.visitEnum(ignore, descriptor, value);
       }
       boolean handled =
@@ -2265,7 +2263,7 @@ public class KeepEdgeReader implements Opcodes {
               });
       if (!handled) {
         // Continue visitation with the "member" descriptor to allow matching the common values.
-        super.visitEnum(ignore, MemberAccess.DESCRIPTOR, value);
+        super.visitEnum(ignore, MemberAccess.getDescriptor(), value);
       }
     }
   }
@@ -2282,7 +2280,7 @@ public class KeepEdgeReader implements Opcodes {
 
     @Override
     public void visitEnum(String ignore, String descriptor, String value) {
-      if (!descriptor.equals(AnnotationConstants.FieldAccess.DESCRIPTOR)) {
+      if (!AnnotationConstants.FieldAccess.isDescriptor(descriptor)) {
         super.visitEnum(ignore, descriptor, value);
       }
       boolean handled =
@@ -2302,7 +2300,7 @@ public class KeepEdgeReader implements Opcodes {
               });
       if (!handled) {
         // Continue visitation with the "member" descriptor to allow matching the common values.
-        super.visitEnum(ignore, MemberAccess.DESCRIPTOR, value);
+        super.visitEnum(ignore, MemberAccess.getDescriptor(), value);
       }
     }
   }

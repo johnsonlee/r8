@@ -212,9 +212,10 @@ public class R8PartialTestBuilder
   }
 
   @Override
-  public R8PartialTestBuilder enableExperimentalKeepAnnotations() {
+  public R8PartialTestBuilder enableExperimentalKeepAnnotations(
+      KeepAnnotationLibrary keepAnnotationLibrary) {
     return addR8PartialOptionsModification(
             o -> o.getTestingOptions().enableEmbeddedKeepAnnotations = true)
-        .addKeepAnnoLibToClasspath();
+        .addKeepAnnoLibToClasspath(keepAnnotationLibrary);
   }
 }

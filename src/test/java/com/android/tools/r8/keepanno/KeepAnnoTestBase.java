@@ -4,6 +4,10 @@
 
 package com.android.tools.r8.keepanno;
 
+import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
+import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.LEGACY;
+
+import com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -28,7 +32,16 @@ public abstract class KeepAnnoTestBase extends TestBase {
     return keepAnnoParams;
   }
 
+  private KeepAnnoTestBuilder testForKeepAnno(
+      KeepAnnoParameters params, KeepAnnotationLibrary keepAnnotationLibrary) throws IOException {
+    return KeepAnnoTestBuilder.forKeepAnnoTest(params, temp, keepAnnotationLibrary);
+  }
+
   public KeepAnnoTestBuilder testForKeepAnno(KeepAnnoParameters params) throws IOException {
-    return KeepAnnoTestBuilder.forKeepAnnoTest(params, temp);
+    return testForKeepAnno(params, LEGACY);
+  }
+
+  public KeepAnnoTestBuilder testForKeepAnnoAndroidX(KeepAnnoParameters params) throws IOException {
+    return testForKeepAnno(params, ANDROIDX);
   }
 }

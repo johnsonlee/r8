@@ -4,11 +4,13 @@
 
 package com.android.tools.r8.keepanno;
 
+import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.ProguardVersion;
+import com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.asm.KeepEdgeReader;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
@@ -29,16 +31,22 @@ public class KeepAnnoTestUtils {
 
   public static ProguardVersion PG_VERSION = ProguardVersion.V7_4_1;
 
+  public static final String DESCRIPTOR_PREFIX = "Landroidx/annotation/keep/";
+  public static final String DESCRIPTOR_LEGACY_PREFIX =
+      "Lcom/android/tools/r8/keepanno/annotations/";
+
   // Track support for R8 version 8.0.46 which is included in AGP 8.0.2
   public static Path R8_LIB =
       Paths.get(ToolHelper.THIRD_PARTY_DIR, "r8-releases", "8.0.46", "r8lib.jar");
 
-  public static Path getKeepAnnoLib(TemporaryFolder temp) throws IOException {
+  public static Path getKeepAnnoLib(
+      TemporaryFolder temp, KeepAnnotationLibrary keepAnnotationLibrary) throws IOException {
     Path archive = temp.newFolder().toPath().resolve("keepanno.jar");
     ArchiveConsumer consumer = new ArchiveConsumer(archive);
     for (Path root : ToolHelper.getBuildPropKeepAnnoRuntimePath()) {
-      Path annoDir =
-          root.resolve(Paths.get("com", "android", "tools", "r8", "keepanno", "annotations"));
+      String descriptorPrefix =
+          (keepAnnotationLibrary == ANDROIDX ? DESCRIPTOR_PREFIX : DESCRIPTOR_LEGACY_PREFIX);
+      Path annoDir = root.resolve(descriptorPrefix.substring(1, descriptorPrefix.length() - 1));
       assertTrue(Files.isDirectory(root));
       assertTrue(Files.isDirectory(annoDir));
       try (Stream<Path> paths = Files.list(annoDir)) {
@@ -48,7 +56,7 @@ public class KeepAnnoTestUtils {
                 byte[] data = FileUtils.uncheckedReadAllBytes(p);
                 String fileName = p.getFileName().toString();
                 String className = fileName.substring(0, fileName.lastIndexOf('.'));
-                String desc = "Lcom/android/tools/r8/keepanno/annotations/" + className + ";";
+                String desc = descriptorPrefix + className + ";";
                 consumer.accept(ByteDataView.of(data), desc, null);
               }
             });
@@ -56,6 +64,10 @@ public class KeepAnnoTestUtils {
     }
     consumer.finished(null);
     return archive;
+  }
+
+  public static Path getKeepAnnoLib(TemporaryFolder temp) throws IOException {
+    return getKeepAnnoLib(temp, ANDROIDX);
   }
 
   public static List<String> extractRulesFromFiles(

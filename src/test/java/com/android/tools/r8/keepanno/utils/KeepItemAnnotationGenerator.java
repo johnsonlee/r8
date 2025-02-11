@@ -13,6 +13,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.cfmethodgeneration.CodeGenerationBase;
 import com.android.tools.r8.keepanno.annotations.KeepItemKind;
 import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
@@ -523,14 +524,18 @@ public class KeepItemAnnotationGenerator {
       writer.print('\n');
     }
 
-    private void printCopyRight(int year) {
-      if (pkg.equals(ANDROIDX_ANNO_PKG)) {
+    private void printCopyRight(int year, boolean forceR8Copyright) {
+      if (pkg.equals(ANDROIDX_ANNO_PKG) && !forceR8Copyright) {
         println(getHeaderString(2025, KeepItemAnnotationGenerator.class.getSimpleName()));
       } else {
         println(
             CodeGenerationBase.getHeaderString(
                 year, KeepItemAnnotationGenerator.class.getSimpleName()));
       }
+    }
+
+    private void printCopyRight(int year) {
+      printCopyRight(year, false);
     }
 
     private void printPackage() {
@@ -1758,7 +1763,8 @@ public class KeepItemAnnotationGenerator {
     }
 
     private void generateConstants() {
-      printCopyRight(2023);
+      // The generated AnnotationConstants class is part of R8.
+      printCopyRight(2023, true);
       println("package com.android.tools.r8.keepanno.ast;");
       printImports();
       DocPrinter.printer()
@@ -1807,7 +1813,17 @@ public class KeepItemAnnotationGenerator {
 
     private void generateAnnotationConstants(ClassReference clazz) {
       String desc = clazz.getDescriptor();
-      println("public static final String DESCRIPTOR = " + quote(desc) + ";");
+      String desc_legacy =
+          "Lcom/android/tools/r8/keepanno/annotations"
+              + desc.substring(desc.lastIndexOf(DescriptorUtils.DESCRIPTOR_PACKAGE_SEPARATOR));
+      println("private static final String DESCRIPTOR = " + quote(desc) + ";");
+      println("private static final String DESCRIPTOR_LEGACY = " + quote(desc_legacy) + ";");
+      println("public static boolean isDescriptor(String descriptor) {");
+      println("  return DESCRIPTOR.equals(descriptor) || DESCRIPTOR_LEGACY.equals(descriptor);");
+      println("}");
+      println("public static String getDescriptor() {");
+      println("  return DESCRIPTOR;");
+      println("}");
     }
 
     List<Group> getKeepEdgeGroups() {
@@ -2219,7 +2235,7 @@ public class KeepItemAnnotationGenerator {
           write);
 
       writeFile(
-          R8_ANNO_PKG,
+          ANDROIDX_ANNO_PKG,
           generator -> generator.ANNOTATION_CONSTANTS,
           Generator::generateConstants,
           write);

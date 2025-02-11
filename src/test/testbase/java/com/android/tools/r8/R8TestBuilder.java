@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
+
 import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
@@ -70,6 +72,11 @@ public abstract class R8TestBuilder<
         RR extends TestRunResult<RR>,
         T extends R8TestBuilder<CR, RR, T>>
     extends TestShrinkerBuilder<R8Command, Builder, CR, RR, T> {
+
+  public enum KeepAnnotationLibrary {
+    ANDROIDX,
+    LEGACY
+  }
 
   enum AllowedDiagnosticMessages {
     ALL,
@@ -810,18 +817,27 @@ public abstract class R8TestBuilder<
     return self();
   }
 
-  public T enableExperimentalKeepAnnotations() {
+  public T enableExperimentalKeepAnnotations(KeepAnnotationLibrary keepAnnotationLibrary) {
     return addOptionsModification(o -> o.testing.enableEmbeddedKeepAnnotations = true)
-        .addKeepAnnoLibToClasspath();
+        .addKeepAnnoLibToClasspath(keepAnnotationLibrary);
   }
 
-  public T addKeepAnnoLibToClasspath() {
+  public T enableExperimentalKeepAnnotations() {
+    return enableExperimentalKeepAnnotations(ANDROIDX);
+  }
+
+  public T addKeepAnnoLibToClasspath(KeepAnnotationLibrary keepAnnotationLibrary) {
     try {
-      builder.addClasspathFiles(KeepAnnoTestUtils.getKeepAnnoLib(getState().getTempFolder()));
+      builder.addClasspathFiles(
+          KeepAnnoTestUtils.getKeepAnnoLib(getState().getTempFolder(), keepAnnotationLibrary));
       return self();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public T addKeepAnnoLibToClasspath() {
+    return addKeepAnnoLibToClasspath(ANDROIDX);
   }
 
   public T enableProguardTestOptions() {
