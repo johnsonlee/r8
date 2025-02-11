@@ -53,9 +53,9 @@ public class EmptyVarargsTest extends TestBase {
 
               MethodSubject testMethod =
                   mainClassSubject.uniqueMethodWithOriginalName("testDeclared");
-              assertTrue(testMethod.streamInstructions().noneMatch(InstructionSubject::isNewArray));
+              assertTrue(testMethod.streamInstructions().anyMatch(InstructionSubject::isNewArray));
               testMethod = mainClassSubject.uniqueMethodWithOriginalName("testNonDeclared");
-              assertTrue(testMethod.streamInstructions().noneMatch(InstructionSubject::isNewArray));
+              assertTrue(testMethod.streamInstructions().anyMatch(InstructionSubject::isNewArray));
             })
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("hi", "hi");

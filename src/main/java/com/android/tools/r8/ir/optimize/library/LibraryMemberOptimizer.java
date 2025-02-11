@@ -46,12 +46,9 @@ public class LibraryMemberOptimizer implements CodeOptimization {
     this.appView = appView;
     timing.begin("Register optimizers");
     PrimitiveMethodOptimizer.forEachPrimitiveOptimizer(appView, this::register);
-    register(new ClassOptimizer(appView));
     register(new CollectionsOptimizer(appView));
-    register(new ConstructorOptimizer(appView));
     register(new ListOptimizer(appView));
     register(new MapOptimizer(appView));
-    register(new MethodOptimizer(appView));
     register(new ObjectMethodOptimizer(appView));
     register(new ObjectsMethodOptimizer(appView));
     register(new SetOptimizer(appView));
