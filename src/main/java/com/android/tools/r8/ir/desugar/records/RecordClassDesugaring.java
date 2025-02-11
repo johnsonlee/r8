@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
+import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -66,11 +67,14 @@ public class RecordClassDesugaring
   public void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService) {
-    for (DexProgramClass clazz : programClasses) {
-      if (clazz.isRecord()) {
-        assert clazz.superType == factory.recordType;
-        clazz.accessFlags.unsetRecord();
+      ExecutorService executorService,
+      Timing timing) {
+    try (Timing t0 = timing.begin("Record class desugaring")) {
+      for (DexProgramClass clazz : programClasses) {
+        if (clazz.isRecord()) {
+          assert clazz.superType == factory.recordType;
+          clazz.accessFlags.unsetRecord();
+        }
       }
     }
   }

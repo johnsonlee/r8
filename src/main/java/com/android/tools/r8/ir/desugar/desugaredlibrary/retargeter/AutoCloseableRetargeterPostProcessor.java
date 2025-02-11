@@ -21,6 +21,7 @@ import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterEventConsumer.AutoCloseableRetargeterPostProcessingEventConsumer;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
@@ -48,33 +49,36 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
   public void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService) {
-    ProcessorContext processorContext = appView.createProcessorContext();
-    MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
-    List<ProgramMethod> bridges = new ArrayList<>();
-    for (DexProgramClass clazz : programClasses) {
-      if (clazz.superType == null) {
-        assert clazz.type.isIdenticalTo(appView.dexItemFactory().objectType)
-            : clazz.type.toSourceString();
-        continue;
-      }
-      if (clazz.isInterface() && appView.options().isInterfaceMethodDesugaringEnabled()) {
-        // We cannot add default methods on interfaces if interface method desugaring is enabled.
-        continue;
-      }
-      if (implementsAutoCloseableAtLibraryBoundary(clazz)) {
-        ProgramMethod bridge =
-            ensureInterfacesAndForwardingMethodsSynthesized(
-                eventConsumer, clazz, mainThreadContext);
-        if (bridge != null) {
-          bridges.add(bridge);
+      ExecutorService executorService,
+      Timing timing) {
+    try (Timing t0 = timing.begin("Auto closeable retargeter post processor")) {
+      ProcessorContext processorContext = appView.createProcessorContext();
+      MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
+      List<ProgramMethod> bridges = new ArrayList<>();
+      for (DexProgramClass clazz : programClasses) {
+        if (clazz.superType == null) {
+          assert clazz.type.isIdenticalTo(appView.dexItemFactory().objectType)
+              : clazz.type.toSourceString();
+          continue;
+        }
+        if (clazz.isInterface() && appView.options().isInterfaceMethodDesugaringEnabled()) {
+          // We cannot add default methods on interfaces if interface method desugaring is enabled.
+          continue;
+        }
+        if (implementsAutoCloseableAtLibraryBoundary(clazz)) {
+          ProgramMethod bridge =
+              ensureInterfacesAndForwardingMethodsSynthesized(
+                  eventConsumer, clazz, mainThreadContext);
+          if (bridge != null) {
+            bridges.add(bridge);
+          }
         }
       }
-    }
-    // We add the bridges in the end so they don't interfer with lookups in between.
-    for (ProgramMethod bridge : bridges) {
-      bridge.getHolder().addVirtualMethod(bridge.getDefinition());
-      eventConsumer.acceptAutoCloseableForwardingMethod(bridge, bridge.getHolder());
+      // We add the bridges in the end so they don't interfer with lookups in between.
+      for (ProgramMethod bridge : bridges) {
+        bridge.getHolder().addVirtualMethod(bridge.getDefinition());
+        eventConsumer.acceptAutoCloseableForwardingMethod(bridge, bridge.getHolder());
+      }
     }
   }
 

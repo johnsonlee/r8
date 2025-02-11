@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.FieldAccessInfoCollectionModifier;
 import com.android.tools.r8.utils.DescriptorUtils;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableMap;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -113,7 +114,8 @@ public class EnumUnboxingUtilityClasses {
                   OptimizationFeedbackSimple.getInstance(),
                   methodProcessor,
                   methodProcessingContext,
-                  MethodConversionOptions.forLirPhase(appView)),
+                  MethodConversionOptions.forLirPhase(appView),
+                  Timing.empty()),
           appView.options().getThreadingModule(),
           executorService);
       return utilityClasses;

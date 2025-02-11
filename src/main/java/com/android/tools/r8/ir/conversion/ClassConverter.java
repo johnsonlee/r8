@@ -17,6 +17,8 @@ import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.Timing.TimingMerger;
 import com.android.tools.r8.utils.collections.ImmutableDeque;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
@@ -60,12 +62,14 @@ public abstract class ClassConverter {
         : new DefaultClassConverter(appView, converter, methodProcessor, interfaceProcessor);
   }
 
-  public ClassConverterResult convertClasses(ExecutorService executorService)
+  public ClassConverterResult convertClasses(ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    ClassConverterResult.Builder resultBuilder = ClassConverterResult.builder();
-    internalConvertClasses(resultBuilder, executorService);
-    notifyAllClassesConverted();
-    return resultBuilder.build();
+    try (Timing t0 = timing.begin("Convert classes")) {
+      ClassConverterResult.Builder resultBuilder = ClassConverterResult.builder();
+      internalConvertClasses(resultBuilder, executorService, timing);
+      notifyAllClassesConverted();
+      return resultBuilder.build();
+    }
   }
 
   private static Deque<List<DexProgramClass>> getDeterministicNestWaves(
@@ -111,7 +115,7 @@ public abstract class ClassConverter {
   }
 
   private void internalConvertClasses(
-      ClassConverterResult.Builder resultBuilder, ExecutorService executorService)
+      ClassConverterResult.Builder resultBuilder, ExecutorService executorService, Timing timing)
       throws ExecutionException {
     Collection<DexProgramClass> classes = appView.appInfo().classes();
     ProfileCollectionAdditions profileCollectionAdditions =
@@ -144,8 +148,10 @@ public abstract class ClassConverter {
       wave = firstWave;
     }
 
+    int round = 1;
     while (!wave.isEmpty()) {
       // TODO(b/179755192): Avoid marking classes as scheduled by building up waves of methods.
+      timing.begin("Wave " + round++);
       for (DexProgramClass clazz : wave) {
         methodProcessor.addScheduled(clazz);
       }
@@ -157,12 +163,21 @@ public abstract class ClassConverter {
       // Process the wave and wait for all IR processing to complete.
       methodProcessor.newWave();
       checkWaveDeterminism(wave);
-      ThreadUtils.processItems(
-          wave,
-          clazz -> convertClass(clazz, instructionDesugaringEventConsumerForWave),
-          appView.options().getThreadingModule(),
-          executorService);
+      TimingMerger merger = timing.beginMerger("Class conversion", executorService);
+      Collection<Timing> timings =
+          ThreadUtils.processItemsWithResults(
+              wave,
+              clazz -> {
+                Timing threadTiming =
+                    convertClass(clazz, instructionDesugaringEventConsumerForWave);
+                threadTiming.end();
+                return threadTiming;
+              },
+              appView.options().getThreadingModule(),
+              executorService);
       methodProcessor.awaitMethodProcessing();
+      merger.add(timings);
+      merger.end();
 
       // Finalize the desugaring of the processed classes. This may require processing (and
       // reprocessing) of some methods.
@@ -181,7 +196,8 @@ public abstract class ClassConverter {
               if (definition.isProcessed()) {
                 definition.markNotProcessed();
               }
-              methodProcessor.processMethod(method, instructionDesugaringEventConsumerForWave);
+              methodProcessor.processMethod(
+                  method, instructionDesugaringEventConsumerForWave, Timing.empty());
               if (interfaceProcessor != null) {
                 interfaceProcessor.processMethod(method, instructionDesugaringEventConsumerForWave);
               }
@@ -193,6 +209,8 @@ public abstract class ClassConverter {
         methodProcessor.awaitMethodProcessing();
         assert instructionDesugaringEventConsumerForWave.verifyNothingToFinalize();
       }
+
+      timing.end();
 
       if (!nestProcessingWaves.isEmpty()) {
         wave = nestProcessingWaves.removeFirst();
@@ -221,12 +239,17 @@ public abstract class ClassConverter {
             });
   }
 
-  abstract void convertClass(
+  abstract Timing convertClass(
       DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer);
 
   void convertMethods(
-      DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer) {
-    converter.convertMethods(clazz, desugaringEventConsumer, methodProcessor, interfaceProcessor);
+      DexProgramClass clazz,
+      CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+      Timing timing) {
+    try (Timing t0 = timing.begin("Process methods")) {
+      converter.convertMethods(
+          clazz, desugaringEventConsumer, methodProcessor, interfaceProcessor, timing);
+    }
   }
 
   abstract void notifyAllClassesConverted();
@@ -242,9 +265,11 @@ public abstract class ClassConverter {
     }
 
     @Override
-    void convertClass(
+    Timing convertClass(
         DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer) {
-      convertMethods(clazz, desugaringEventConsumer);
+      Timing threadTiming = Timing.create(clazz.getTypeName(), appView.options());
+      convertMethods(clazz, desugaringEventConsumer, threadTiming);
+      return threadTiming;
     }
 
     @Override
@@ -266,16 +291,18 @@ public abstract class ClassConverter {
     }
 
     @Override
-    void convertClass(
+    Timing convertClass(
         DexProgramClass clazz, CfInstructionDesugaringEventConsumer desugaringEventConsumer) {
       // Classes which has already been through library desugaring will not go through IR
       // processing again.
+      Timing threadTiming = Timing.create(clazz.getTypeName(), appView.options());
       LibraryDesugaredChecker libraryDesugaredChecker = new LibraryDesugaredChecker(appView);
       if (libraryDesugaredChecker.isClassLibraryDesugared(clazz)) {
         alreadyLibraryDesugared.add(clazz.getType());
       } else {
-        convertMethods(clazz, desugaringEventConsumer);
+        convertMethods(clazz, desugaringEventConsumer, threadTiming);
       }
+      return threadTiming;
     }
 
     @Override

@@ -21,6 +21,7 @@ import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.utils.SetUtils;
+import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -56,40 +57,44 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
   public void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService) {
-    ProcessorContext processorContext = appView.createProcessorContext();
-    MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
-    Set<DexMethod> newlyLiveMethods = eventConsumer.getNewlyLiveMethods();
-    assert noPendingWrappersOrConversions();
-    for (DexProgramClass clazz : programClasses) {
-      if (!appView.isAlreadyLibraryDesugared(clazz)) {
-        ArrayList<DexEncodedMethod> callbacks = new ArrayList<>();
-        // We note that methods requiring callbacks are library overrides, therefore, they should
-        // always be live in R8.
-        for (ProgramMethod virtualProgramMethod : clazz.virtualProgramMethods()) {
-          if (shouldRegisterCallback(virtualProgramMethod)) {
-            if (!isLiveMethod(virtualProgramMethod, newlyLiveMethods)) {
-              // This happens for live non instantiated types, library overrides are not live there.
-              continue;
+      ExecutorService executorService,
+      Timing timing) {
+    try (Timing t0 = timing.begin("Desugared library API callback synthesizer")) {
+      ProcessorContext processorContext = appView.createProcessorContext();
+      MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
+      Set<DexMethod> newlyLiveMethods = eventConsumer.getNewlyLiveMethods();
+      assert noPendingWrappersOrConversions();
+      for (DexProgramClass clazz : programClasses) {
+        if (!appView.isAlreadyLibraryDesugared(clazz)) {
+          ArrayList<DexEncodedMethod> callbacks = new ArrayList<>();
+          // We note that methods requiring callbacks are library overrides, therefore, they should
+          // always be live in R8.
+          for (ProgramMethod virtualProgramMethod : clazz.virtualProgramMethods()) {
+            if (shouldRegisterCallback(virtualProgramMethod)) {
+              if (!isLiveMethod(virtualProgramMethod, newlyLiveMethods)) {
+                // This happens for live non instantiated types, library overrides are not live
+                // there.
+                continue;
+              }
+              if (trackedCallBackAPIs != null) {
+                trackedCallBackAPIs.add(virtualProgramMethod.getReference());
+              }
+              ProgramMethod callback =
+                  wrapperSynthesizor
+                      .getConversionCfProvider()
+                      .generateCallbackConversion(
+                          virtualProgramMethod, eventConsumer, mainThreadContext);
+              callbacks.add(callback.getDefinition());
             }
-            if (trackedCallBackAPIs != null) {
-              trackedCallBackAPIs.add(virtualProgramMethod.getReference());
-            }
-            ProgramMethod callback =
-                wrapperSynthesizor
-                    .getConversionCfProvider()
-                    .generateCallbackConversion(
-                        virtualProgramMethod, eventConsumer, mainThreadContext);
-            callbacks.add(callback.getDefinition());
+          }
+          if (!callbacks.isEmpty()) {
+            clazz.addVirtualMethods(callbacks);
           }
         }
-        if (!callbacks.isEmpty()) {
-          clazz.addVirtualMethods(callbacks);
-        }
       }
+      assert noPendingWrappersOrConversions();
+      generateTrackingWarnings();
     }
-    assert noPendingWrappersOrConversions();
-    generateTrackingWarnings();
   }
 
   private boolean isLiveMethod(

@@ -28,7 +28,7 @@ public class Timing implements AutoCloseable {
           "com.android.tools.r8.printtimes.minvalue_ms", 10);
   private static final int MINIMUM_REPORT_PERCENTAGE =
       SystemPropertyUtils.parseSystemPropertyOrDefault(
-          "com.android.tools.r8.printtimes.minvalue", 2);
+          "com.android.tools.r8.printtimes.minvalue", 0);
 
   private static final Timing EMPTY =
       new Timing("<empty>", false) {

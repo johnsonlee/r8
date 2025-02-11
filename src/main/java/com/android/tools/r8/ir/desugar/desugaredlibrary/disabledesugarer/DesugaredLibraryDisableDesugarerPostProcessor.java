@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
+import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -37,12 +38,15 @@ public class DesugaredLibraryDisableDesugarerPostProcessor implements CfPostProc
   public void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService) {
-    for (DexType multiDexType : appView.dexItemFactory().multiDexTypes) {
-      DexClass clazz =
-          appView.appInfoForDesugaring().definitionForWithoutExistenceAssert(multiDexType);
-      if (clazz != null && clazz.isProgramClass()) {
-        rewriteMultiDexProgramClass(clazz.asProgramClass());
+      ExecutorService executorService,
+      Timing timing) {
+    try (Timing t0 = timing.begin("Desugared library disable desugarer post processor")) {
+      for (DexType multiDexType : appView.dexItemFactory().multiDexTypes) {
+        DexClass clazz =
+            appView.appInfoForDesugaring().definitionForWithoutExistenceAssert(multiDexType);
+        if (clazz != null && clazz.isProgramClass()) {
+          rewriteMultiDexProgramClass(clazz.asProgramClass());
+        }
       }
     }
   }

@@ -9,6 +9,7 @@ import com.android.tools.r8.ir.conversion.D8MethodProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
+import com.android.tools.r8.utils.Timing;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -21,12 +22,12 @@ public interface CfInstructionDesugaringCollectionSupplier {
 
   void finalizeNestDesugaring();
 
-  void generateDesugaredLibraryApiConverterTrackingWarnings();
+  void generateDesugaredLibraryApiConverterTrackingWarnings(Timing timing);
 
   InterfaceMethodProcessorFacade getInterfaceMethodProcessorFacade(
       InterfaceProcessor interfaceProcessor);
 
-  void processClasspath(D8MethodProcessor methodProcessor, ExecutorService executor)
+  void processClasspath(D8MethodProcessor methodProcessor, ExecutorService executor, Timing timing)
       throws ExecutionException;
 
   static CfInstructionDesugaringCollectionSupplier createForD8(AppView<?> appView) {
@@ -65,9 +66,11 @@ public interface CfInstructionDesugaringCollectionSupplier {
     }
 
     @Override
-    public void generateDesugaredLibraryApiConverterTrackingWarnings() {
-      desugaring.withDesugaredLibraryAPIConverter(
-          DesugaredLibraryAPIConverter::generateTrackingWarnings);
+    public void generateDesugaredLibraryApiConverterTrackingWarnings(Timing timing) {
+      try (Timing t0 = timing.begin("Generate desugared library api converter tracking warnings")) {
+        desugaring.withDesugaredLibraryAPIConverter(
+            DesugaredLibraryAPIConverter::generateTrackingWarnings);
+      }
     }
 
     @Override
@@ -79,12 +82,15 @@ public interface CfInstructionDesugaringCollectionSupplier {
     }
 
     @Override
-    public void processClasspath(D8MethodProcessor methodProcessor, ExecutorService executor)
+    public void processClasspath(
+        D8MethodProcessor methodProcessor, ExecutorService executor, Timing timing)
         throws ExecutionException {
-      desugaring.withD8NestBasedAccessDesugaring(
-          nestBasedAccessDesugaring ->
-              nestBasedAccessDesugaring.synthesizeBridgesForNestBasedAccessesOnClasspath(
-                  methodProcessor, executor));
+      try (Timing t0 = timing.begin("Process classpath for desugaring")) {
+        desugaring.withD8NestBasedAccessDesugaring(
+            nestBasedAccessDesugaring ->
+                nestBasedAccessDesugaring.synthesizeBridgesForNestBasedAccessesOnClasspath(
+                    methodProcessor, executor));
+      }
     }
   }
 
@@ -102,7 +108,7 @@ public interface CfInstructionDesugaringCollectionSupplier {
     }
 
     @Override
-    public void generateDesugaredLibraryApiConverterTrackingWarnings() {
+    public void generateDesugaredLibraryApiConverterTrackingWarnings(Timing timing) {
       // Intentionally empty.
     }
 
@@ -113,7 +119,8 @@ public interface CfInstructionDesugaringCollectionSupplier {
     }
 
     @Override
-    public void processClasspath(D8MethodProcessor methodProcessor, ExecutorService executor) {
+    public void processClasspath(
+        D8MethodProcessor methodProcessor, ExecutorService executor, Timing timing) {
       // Intentionally empty.
     }
   }

@@ -31,7 +31,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationDirectory;
 import com.android.tools.r8.graph.DexAnnotationSet;
-import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexDebugInfoForWriting;
 import com.android.tools.r8.graph.DexEncodedArray;
 import com.android.tools.r8.graph.DexEncodedField;
@@ -576,8 +575,7 @@ public class ApplicationWriter {
     virtualFile.computeMapping(appView, lazyDexStrings.size(), timing);
     timing.end();
     timing.begin("Rewrite jumbo strings");
-    rewriteCodeWithJumboStrings(
-        virtualFile.getObjectMapping(), virtualFile.classes(), appView.appInfo().app());
+    rewriteCodeWithJumboStrings(virtualFile.getObjectMapping(), virtualFile.classes());
     timing.end();
   }
 
@@ -988,9 +986,7 @@ public class ApplicationWriter {
    * be used.
    */
   protected void rewriteCodeWithJumboStrings(
-      ObjectToOffsetMapping mapping,
-      Collection<DexProgramClass> classes,
-      DexApplication application) {
+      ObjectToOffsetMapping mapping, Collection<DexProgramClass> classes) {
     // Do not bail out early if forcing jumbo string processing.
     if (!options.testing.forceJumboStringProcessing) {
       // If there are no strings with jumbo indices at all this is a no-op.

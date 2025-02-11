@@ -372,7 +372,8 @@ public class IRConverter {
   public void optimizeSynthesizedMethod(
       ProgramMethod synthesizedMethod,
       MethodProcessorEventConsumer eventConsumer,
-      MutableMethodConversionOptions conversionOptions) {
+      MutableMethodConversionOptions conversionOptions,
+      Timing timing) {
     if (!synthesizedMethod.getDefinition().isProcessed()) {
       // Process the generated method, but don't apply any outlining.
       OneTimeMethodProcessor methodProcessor =
@@ -384,7 +385,8 @@ public class IRConverter {
                   delayedOptimizationFeedback,
                   methodProcessor,
                   methodProcessingContext,
-                  conversionOptions));
+                  conversionOptions,
+                  timing));
     }
   }
 
@@ -417,7 +419,8 @@ public class IRConverter {
                   delayedOptimizationFeedback,
                   methodProcessor,
                   methodProcessingContext,
-                  conversionOptions),
+                  conversionOptions,
+                  Timing.empty()),
           appView.options().getThreadingModule(),
           executorService);
     }
@@ -429,13 +432,14 @@ public class IRConverter {
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext,
-      MutableMethodConversionOptions conversionOptions) {
+      MutableMethodConversionOptions conversionOptions,
+      Timing timing) {
     DexEncodedMethod definition = method.getDefinition();
     Code code = definition.getCode();
     boolean matchesMethodFilter = options.methodMatchesFilter(definition);
     if (code != null && matchesMethodFilter) {
       return rewriteDesugaredCode(
-          method, feedback, methodProcessor, methodProcessingContext, conversionOptions);
+          method, feedback, methodProcessor, methodProcessingContext, conversionOptions, timing);
     } else {
       // Mark abstract methods as processed as well.
       definition.markProcessed(ConstraintWithTarget.NEVER);
@@ -456,13 +460,19 @@ public class IRConverter {
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext,
-      MutableMethodConversionOptions conversionOptions) {
+      MutableMethodConversionOptions conversionOptions,
+      Timing timing) {
     return ExceptionUtils.withOriginAndPositionAttachmentHandler(
         method.getOrigin(),
         new MethodPosition(method.getReference().asMethodReference()),
         () ->
             rewriteDesugaredCodeInternal(
-                method, feedback, methodProcessor, methodProcessingContext, conversionOptions));
+                method,
+                feedback,
+                methodProcessor,
+                methodProcessingContext,
+                conversionOptions,
+                timing));
   }
 
   protected Timing rewriteDesugaredCodeInternal(
@@ -470,7 +480,8 @@ public class IRConverter {
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
       MethodProcessingContext methodProcessingContext,
-      MutableMethodConversionOptions conversionOptions) {
+      MutableMethodConversionOptions conversionOptions,
+      Timing timing) {
     if (options.verbose) {
       options.reporter.info(
           new StringDiagnostic("Processing: " + method.toSourceString()));
@@ -489,7 +500,8 @@ public class IRConverter {
       feedback.markProcessed(method.getDefinition(), ConstraintWithTarget.NEVER);
       return Timing.empty();
     }
-    return optimize(code, feedback, conversionOptions, methodProcessor, methodProcessingContext);
+    return optimize(
+        code, feedback, conversionOptions, methodProcessor, methodProcessingContext, timing);
   }
 
   // TODO(b/140766440): Convert all sub steps an implementer of CodeOptimization
@@ -498,13 +510,12 @@ public class IRConverter {
       OptimizationFeedback feedback,
       MethodConversionOptions methodConversionOptions,
       MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext) {
+      MethodProcessingContext methodProcessingContext,
+      Timing timing) {
     ProgramMethod context = code.context();
     DexEncodedMethod method = context.getDefinition();
     DexProgramClass holder = context.getHolder();
     assert holder != null;
-
-    Timing timing = Timing.create(context.toSourceString(), options);
 
     String previous = printMethod(code, "Initial IR (SSA)", null);
 

@@ -259,7 +259,8 @@ public class GeneratedMessageLiteShrinker {
                 OptimizationFeedbackIgnore.getInstance(),
                 methodProcessor,
                 methodProcessingContext,
-                MethodConversionOptions.forLirPhase(appView)),
+                MethodConversionOptions.forLirPhase(appView),
+                Timing.empty()),
         appView.options().getThreadingModule(),
         executorService);
     timing.end();

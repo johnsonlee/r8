@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.utils.Timing;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -13,6 +14,7 @@ public interface CfPostProcessingDesugaring {
   void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService)
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException;
 }

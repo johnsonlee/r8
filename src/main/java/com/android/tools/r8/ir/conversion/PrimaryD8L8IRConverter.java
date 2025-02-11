@@ -96,7 +96,8 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       DexProgramClass clazz,
       CfInstructionDesugaringEventConsumer desugaringEventConsumer,
       D8MethodProcessor methodProcessor,
-      InterfaceProcessor interfaceProcessor) {
+      InterfaceProcessor interfaceProcessor,
+      Timing timing) {
     // When converting all methods on a class always convert <clinit> first.
     ProgramMethod classInitializer = clazz.getProgramClassInitializer();
 
@@ -107,12 +108,12 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     //  the need to copy the method list.
     List<ProgramMethod> methods = ListUtils.newArrayList(clazz::forEachProgramMethod);
     if (classInitializer != null) {
-      methodProcessor.processMethod(classInitializer, desugaringEventConsumer);
+      methodProcessor.processMethod(classInitializer, desugaringEventConsumer, timing);
     }
 
     for (ProgramMethod method : methods) {
       if (!method.getDefinition().isClassInitializer()) {
-        methodProcessor.processMethod(method, desugaringEventConsumer);
+        methodProcessor.processMethod(method, desugaringEventConsumer, timing);
         if (interfaceProcessor != null) {
           interfaceProcessor.processMethod(method, desugaringEventConsumer);
         }
@@ -131,7 +132,8 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       ProgramMethod method,
       CfInstructionDesugaringEventConsumer desugaringEventConsumer,
       MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext) {
+      MethodProcessingContext methodProcessingContext,
+      Timing timing) {
     DexEncodedMethod definition = method.getDefinition();
     if (options.isGeneratingClassFiles() && definition.hasClassFileVersion()) {
       definition.downgradeClassFileVersion(
@@ -152,7 +154,8 @@ public class PrimaryD8L8IRConverter extends IRConverter {
           desugaringEventConsumer,
           simpleOptimizationFeedback,
           methodProcessor,
-          methodProcessingContext);
+          methodProcessingContext,
+          timing);
     } else {
       assert definition.getCode().isDexCode();
     }
@@ -254,7 +257,7 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       CfClassSynthesizerDesugaringEventConsumer classSynthesizerEventConsumer)
       throws ExecutionException {
     CfClassSynthesizerDesugaringCollection.create(appView)
-        .synthesizeClasses(executorService, classSynthesizerEventConsumer);
+        .synthesizeClasses(executorService, classSynthesizerEventConsumer, timing);
   }
 
   private DexApplication commitPendingSyntheticItems(
@@ -274,20 +277,20 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       throws ExecutionException {
     ClassConverterResult classConverterResult =
         ClassConverter.create(appView, this, methodProcessor, interfaceProcessor)
-            .convertClasses(executorService);
+            .convertClasses(executorService, timing);
 
     // The synthesis of accessibility bridges in nest based access desugaring will schedule and
     // await the processing of synthesized methods.
-    instructionDesugaring.processClasspath(methodProcessor, executorService);
+    instructionDesugaring.processClasspath(methodProcessor, executorService, timing);
     methodProcessor.awaitMethodProcessing();
 
     // There should be no outstanding method processing.
     methodProcessor.verifyNoPendingMethodProcessing();
 
     rewriteEnclosingLambdaMethodAttributes(
-        appView, classConverterResult.getForcefullyMovedLambdaMethods());
+        appView, classConverterResult.getForcefullyMovedLambdaMethods(), timing);
 
-    instructionDesugaring.generateDesugaredLibraryApiConverterTrackingWarnings();
+    instructionDesugaring.generateDesugaredLibraryApiConverterTrackingWarnings(timing);
   }
 
   private void postProcessingDesugaringForD8(
@@ -295,41 +298,46 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       InterfaceProcessor interfaceProcessor,
       ExecutorService executorService)
       throws ExecutionException {
-    CfPostProcessingDesugaringEventConsumer eventConsumer =
-        CfPostProcessingDesugaringEventConsumer.createForD8(
-            appView,
-            methodProcessor.getProfileCollectionAdditions(),
-            methodProcessor,
-            instructionDesugaring);
-    methodProcessor.newWave();
-    InterfaceMethodProcessorFacade interfaceDesugaring =
-        instructionDesugaring.getInterfaceMethodProcessorFacade(interfaceProcessor);
-    CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, m -> true)
-        .postProcessingDesugaring(appView.appInfo().classes(), eventConsumer, executorService);
-    methodProcessor.awaitMethodProcessing();
-    eventConsumer.finalizeDesugaring();
+    try (Timing t0 = timing.begin("Post processing desugaring")) {
+      CfPostProcessingDesugaringEventConsumer eventConsumer =
+          CfPostProcessingDesugaringEventConsumer.createForD8(
+              appView,
+              methodProcessor.getProfileCollectionAdditions(),
+              methodProcessor,
+              instructionDesugaring);
+      methodProcessor.newWave();
+      InterfaceMethodProcessorFacade interfaceDesugaring =
+          instructionDesugaring.getInterfaceMethodProcessorFacade(interfaceProcessor);
+      CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, m -> true)
+          .postProcessingDesugaring(
+              appView.appInfo().classes(), eventConsumer, executorService, timing);
+      methodProcessor.awaitMethodProcessing();
+      eventConsumer.finalizeDesugaring();
+    }
   }
 
   void prepareDesugaring(
       CfInstructionDesugaringEventConsumer desugaringEventConsumer, ExecutorService executorService)
       throws ExecutionException {
-    // Prepare desugaring by collecting all the synthetic methods required on program classes.
-    ProgramAdditions programAdditions = new ProgramAdditions();
-    ThreadingModule threadingModule = appView.options().getThreadingModule();
-    ThreadUtils.processItems(
-        appView.appInfo().classes(),
-        clazz -> {
-          CfInstructionDesugaringCollection instructionDesugaringForClass =
-              instructionDesugaring.get(clazz);
-          clazz.forEachProgramMethodMatching(
-              method -> method.hasCode() && method.getCode().isCfCode(),
-              method ->
-                  instructionDesugaringForClass.prepare(
-                      method, desugaringEventConsumer, programAdditions));
-        },
-        threadingModule,
-        executorService);
-    programAdditions.apply(threadingModule, executorService);
+    try (Timing t0 = timing.begin("Prepare desugaring")) {
+      // Prepare desugaring by collecting all the synthetic methods required on program classes.
+      ProgramAdditions programAdditions = new ProgramAdditions();
+      ThreadingModule threadingModule = appView.options().getThreadingModule();
+      ThreadUtils.processItems(
+          appView.appInfo().classes(),
+          clazz -> {
+            CfInstructionDesugaringCollection instructionDesugaringForClass =
+                instructionDesugaring.get(clazz);
+            clazz.forEachProgramMethodMatching(
+                method -> method.hasCode() && method.getCode().isCfCode(),
+                method ->
+                    instructionDesugaringForClass.prepare(
+                        method, desugaringEventConsumer, programAdditions));
+          },
+          threadingModule,
+          executorService);
+      programAdditions.apply(threadingModule, executorService);
+    }
   }
 
   private void processCovariantReturnTypeAnnotations(
@@ -346,7 +354,8 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       CfInstructionDesugaringEventConsumer desugaringEventConsumer,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext) {
+      MethodProcessingContext methodProcessingContext,
+      Timing timing) {
     return ExceptionUtils.withOriginAndPositionAttachmentHandler(
         method.getOrigin(),
         new MethodPosition(method.getReference().asMethodReference()),
@@ -356,7 +365,8 @@ public class PrimaryD8L8IRConverter extends IRConverter {
                 desugaringEventConsumer,
                 feedback,
                 methodProcessor,
-                methodProcessingContext));
+                methodProcessingContext,
+                timing));
   }
 
   private Timing rewriteNonDesugaredCodeInternal(
@@ -364,32 +374,37 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       CfInstructionDesugaringEventConsumer desugaringEventConsumer,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext) {
-    desugar(method, desugaringEventConsumer, methodProcessingContext);
+      MethodProcessingContext methodProcessingContext,
+      Timing timing) {
+    desugar(method, desugaringEventConsumer, methodProcessingContext, timing);
     return rewriteDesugaredCodeInternal(
         method,
         feedback,
         methodProcessor,
         methodProcessingContext,
-        MethodConversionOptions.forD8(appView, method));
+        MethodConversionOptions.forD8(appView, method),
+        timing);
   }
 
   private boolean desugar(
       ProgramMethod method,
       CfInstructionDesugaringEventConsumer desugaringEventConsumer,
-      MethodProcessingContext methodProcessingContext) {
+      MethodProcessingContext methodProcessingContext,
+      Timing timing) {
     // Due to some mandatory desugarings, we need to run desugaring even if desugaring is disabled.
     if (!method.getDefinition().getCode().isCfCode()) {
       return false;
     }
-    CfInstructionDesugaringCollection instructionDesugaringForMethod =
-        instructionDesugaring.get(method);
-    instructionDesugaringForMethod.scan(method, desugaringEventConsumer);
-    if (instructionDesugaringForMethod.needsDesugaring(method)) {
-      instructionDesugaringForMethod.desugar(
-          method, methodProcessingContext, desugaringEventConsumer);
-      return true;
+    try (Timing t0 = timing.begin("Desugar code")) {
+      CfInstructionDesugaringCollection instructionDesugaringForMethod =
+          instructionDesugaring.get(method);
+      instructionDesugaringForMethod.scan(method, desugaringEventConsumer);
+      if (instructionDesugaringForMethod.needsDesugaring(method)) {
+        instructionDesugaringForMethod.desugar(
+            method, methodProcessingContext, desugaringEventConsumer);
+        return true;
+      }
+      return false;
     }
-    return false;
   }
 }

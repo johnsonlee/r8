@@ -18,6 +18,7 @@ import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterSynthesizerEventConsumer.DesugaredLibraryRetargeterPostProcessingEventConsumer;
 import com.android.tools.r8.utils.OptionalBool;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,9 +52,12 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
   public void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService) {
-    assert !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
-    ensureInterfacesAndForwardingMethodsSynthesized(programClasses, eventConsumer);
+      ExecutorService executorService,
+      Timing timing) {
+    try (Timing t0 = timing.begin("Desugared library retargeter post processor")) {
+      assert !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
+      ensureInterfacesAndForwardingMethodsSynthesized(programClasses, eventConsumer);
+    }
   }
 
   @SuppressWarnings("ReferenceEquality")

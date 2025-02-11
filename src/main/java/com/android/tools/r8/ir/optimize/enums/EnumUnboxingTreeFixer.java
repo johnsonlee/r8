@@ -295,7 +295,8 @@ class EnumUnboxingTreeFixer implements ProgramClassFixer {
                 OptimizationFeedback.getSimple(),
                 methodProcessor,
                 methodProcessingContext,
-                MethodConversionOptions.forLirPhase(appView)),
+                MethodConversionOptions.forLirPhase(appView),
+                Timing.empty()),
         appView.options().getThreadingModule(),
         executorService);
 

@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibr
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
 import com.android.tools.r8.utils.CollectionUtils;
+import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -42,7 +43,8 @@ public abstract class CfPostProcessingDesugaringCollection {
   public abstract void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService)
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException;
 
   public static class NonEmptyCfPostProcessingDesugaringCollection
@@ -102,12 +104,14 @@ public abstract class CfPostProcessingDesugaringCollection {
     public void postProcessingDesugaring(
         Collection<DexProgramClass> programClasses,
         CfPostProcessingDesugaringEventConsumer eventConsumer,
-        ExecutorService executorService)
+        ExecutorService executorService,
+        Timing timing)
         throws ExecutionException {
       Collection<DexProgramClass> sortedProgramClasses =
           CollectionUtils.sort(programClasses, Comparator.comparing(DexClass::getType));
       for (CfPostProcessingDesugaring desugaring : desugarings) {
-        desugaring.postProcessingDesugaring(sortedProgramClasses, eventConsumer, executorService);
+        desugaring.postProcessingDesugaring(
+            sortedProgramClasses, eventConsumer, executorService, timing);
       }
     }
   }
@@ -128,7 +132,8 @@ public abstract class CfPostProcessingDesugaringCollection {
     public void postProcessingDesugaring(
         Collection<DexProgramClass> programClasses,
         CfPostProcessingDesugaringEventConsumer eventConsumer,
-        ExecutorService executorService) {
+        ExecutorService executorService,
+        Timing timing) {
       // Intentionally empty.
     }
   }

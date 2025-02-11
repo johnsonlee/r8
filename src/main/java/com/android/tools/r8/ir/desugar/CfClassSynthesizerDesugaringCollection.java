@@ -12,6 +12,7 @@ import com.android.tools.r8.ir.desugar.itf.ProgramEmulatedInterfaceSynthesizer;
 import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
@@ -50,7 +51,9 @@ public abstract class CfClassSynthesizerDesugaringCollection {
   }
 
   public abstract void synthesizeClasses(
-      ExecutorService executorService, CfClassSynthesizerDesugaringEventConsumer eventConsumer)
+      ExecutorService executorService,
+      CfClassSynthesizerDesugaringEventConsumer eventConsumer,
+      Timing timing)
       throws ExecutionException;
 
   static class NonEmptyCfClassSynthesizerCollection extends CfClassSynthesizerDesugaringCollection {
@@ -67,23 +70,27 @@ public abstract class CfClassSynthesizerDesugaringCollection {
 
     @Override
     public void synthesizeClasses(
-        ExecutorService executorService, CfClassSynthesizerDesugaringEventConsumer eventConsumer)
+        ExecutorService executorService,
+        CfClassSynthesizerDesugaringEventConsumer eventConsumer,
+        Timing timing)
         throws ExecutionException {
-      assert synthesizers.stream()
-              .map(CfClassSynthesizerDesugaring::uniqueIdentifier)
-              .collect(Collectors.toSet())
-              .size()
-          == synthesizers.size();
-      ProcessorContext processorContext = appView.createProcessorContext();
-      ThreadUtils.processItems(
-          synthesizers,
-          synthesizer -> {
-            ClassSynthesisDesugaringContext classSynthesisDesugaringContext =
-                processorContext.createClassSynthesisDesugaringContext(synthesizer);
-            synthesizer.synthesizeClasses(classSynthesisDesugaringContext, eventConsumer);
-          },
-          appView.options().getThreadingModule(),
-          executorService);
+      try (Timing t0 = timing.begin("Synthesize classes for desugaring")) {
+        assert synthesizers.stream()
+                .map(CfClassSynthesizerDesugaring::uniqueIdentifier)
+                .collect(Collectors.toSet())
+                .size()
+            == synthesizers.size();
+        ProcessorContext processorContext = appView.createProcessorContext();
+        ThreadUtils.processItems(
+            synthesizers,
+            synthesizer -> {
+              ClassSynthesisDesugaringContext classSynthesisDesugaringContext =
+                  processorContext.createClassSynthesisDesugaringContext(synthesizer);
+              synthesizer.synthesizeClasses(classSynthesisDesugaringContext, eventConsumer);
+            },
+            appView.options().getThreadingModule(),
+            executorService);
+      }
     }
   }
 
@@ -91,7 +98,9 @@ public abstract class CfClassSynthesizerDesugaringCollection {
 
     @Override
     public void synthesizeClasses(
-        ExecutorService executorService, CfClassSynthesizerDesugaringEventConsumer eventConsumer) {
+        ExecutorService executorService,
+        CfClassSynthesizerDesugaringEventConsumer eventConsumer,
+        Timing timing) {
       // Intentionally empty.
     }
   }

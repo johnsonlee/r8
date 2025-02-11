@@ -14,6 +14,7 @@ import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.Timing;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -65,8 +66,11 @@ public class InterfaceMethodProcessorFacade implements CfPostProcessingDesugarin
   public void postProcessingDesugaring(
       Collection<DexProgramClass> programClasses,
       CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService)
+      ExecutorService executorService,
+      Timing timing)
       throws ExecutionException {
-    processClassesConcurrently(programClasses, eventConsumer, executorService);
+    try (Timing t0 = timing.begin("Interface method processor facade")) {
+      processClassesConcurrently(programClasses, eventConsumer, executorService);
+    }
   }
 }

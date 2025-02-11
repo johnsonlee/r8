@@ -42,7 +42,7 @@ class ApplicationWriterExperimental extends ApplicationWriter {
       List<VirtualFile> virtualFiles,
       List<LazyDexString> lazyDexStrings)
       throws ExecutionException {
-    if (virtualFiles.size() == 0) {
+    if (virtualFiles.isEmpty()) {
       return new ArrayList<>();
     }
     // Collect strings from all virtual files into the last DEX section.
@@ -89,8 +89,7 @@ class ApplicationWriterExperimental extends ApplicationWriter {
     virtualFile.computeMapping(appView, lazyDexStrings.size(), timing, mapping);
     timing.end();
     timing.begin("Rewrite jumbo strings");
-    rewriteCodeWithJumboStrings(
-        virtualFile.getObjectMapping(), virtualFile.classes(), appView.appInfo().app());
+    rewriteCodeWithJumboStrings(virtualFile.getObjectMapping(), virtualFile.classes());
     timing.end();
   }
 

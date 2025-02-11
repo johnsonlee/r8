@@ -13,6 +13,7 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.threading.SynchronizedTaskCollection;
+import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -98,7 +99,8 @@ public class D8MethodProcessor extends MethodProcessor {
                 eventConsumer,
                 OptimizationFeedbackIgnore.getInstance(),
                 this,
-                processorContext.createMethodProcessingContext(method)));
+                processorContext.createMethodProcessingContext(method),
+                Timing.empty()));
   }
 
   @Override
@@ -120,7 +122,8 @@ public class D8MethodProcessor extends MethodProcessor {
                 OptimizationFeedbackIgnore.getInstance(),
                 this,
                 processorContext.createMethodProcessingContext(method),
-                MethodConversionOptions.forD8(converter.appView, method)));
+                MethodConversionOptions.forD8(converter.appView, method),
+                Timing.empty()));
   }
 
   public void scheduleDesugaredMethodsForProcessing(Iterable<ProgramMethod> methods) {
@@ -138,12 +141,15 @@ public class D8MethodProcessor extends MethodProcessor {
   }
 
   public void processMethod(
-      ProgramMethod method, CfInstructionDesugaringEventConsumer desugaringEventConsumer) {
+      ProgramMethod method,
+      CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+      Timing timing) {
     converter.convertMethod(
         method,
         desugaringEventConsumer,
         this,
-        processorContext.createMethodProcessingContext(method));
+        processorContext.createMethodProcessingContext(method),
+        timing);
   }
 
   public boolean verifyNoPendingMethodProcessing() {

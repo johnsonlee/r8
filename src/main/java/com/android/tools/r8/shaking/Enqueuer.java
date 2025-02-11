@@ -4804,14 +4804,14 @@ public class Enqueuer {
       }
 
       if (mode.isInitialTreeShaking()) {
-        timing.time("Post processing desugaring", this::postProcessingDesugaring);
+        timing.time("Post processing desugaring", () -> postProcessingDesugaring(timing));
       }
     } finally {
       timing.end();
     }
   }
 
-  private void postProcessingDesugaring() throws ExecutionException {
+  private void postProcessingDesugaring(Timing timing) throws ExecutionException {
     desugaring.withDesugaredLibraryAPIConverter(
         DesugaredLibraryAPIConverter::generateTrackingWarnings);
 
@@ -4840,7 +4840,7 @@ public class Enqueuer {
         desugaring.getInterfaceMethodPostProcessingDesugaringR8(
             liveMethods::contains, interfaceProcessor);
     CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, liveMethods::contains)
-        .postProcessingDesugaring(liveTypes.items, eventConsumer, executorService);
+        .postProcessingDesugaring(liveTypes.items, eventConsumer, executorService, timing);
 
     if (syntheticAdditions.isEmpty()) {
       return;
