@@ -4,7 +4,6 @@
 package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.errors.CompilationError;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,8 +33,6 @@ public class ProguardKeepAttributes {
   public static final String PERMITTED_SUBCLASSES = "PermittedSubclasses";
   public static final String STACK_MAP_TABLE = "StackMapTable";
 
-  public static final List<String> KEEP_ALL = ImmutableList.of("*");
-
   public boolean sourceFile = false;
   public boolean sourceDir = false;
   public boolean innerClasses = false;
@@ -56,7 +53,27 @@ public class ProguardKeepAttributes {
   public boolean stackMapTable = false;
   public boolean permittedSubclasses = false;
 
-  private ProguardKeepAttributes() {}
+  public ProguardKeepAttributes() {}
+
+  public ProguardKeepAttributes keepAllAttributesExceptRuntimeInvisibleAnnotations() {
+    sourceFile = true;
+    sourceDir = true;
+    innerClasses = true;
+    enclosingMethod = true;
+    signature = true;
+    exceptions = true;
+    localVariableTable = true;
+    localVariableTypeTable = true;
+    methodParameters = true;
+    sourceDebugExtension = true;
+    runtimeVisibleAnnotations = true;
+    runtimeVisibleParameterAnnotations = true;
+    runtimeVisibleTypeAnnotations = true;
+    annotationDefault = true;
+    stackMapTable = true;
+    permittedSubclasses = true;
+    return this;
+  }
 
   /**
    * Implements ProGuards attribute matching rules.

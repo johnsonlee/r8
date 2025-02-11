@@ -310,6 +310,12 @@ public class ProguardConfiguration {
     }
 
     public ProguardConfiguration buildRaw() {
+      ProguardKeepAttributes proguardKeepAttributes =
+          ProguardKeepAttributes.fromPatterns(keepAttributePatterns);
+      // For Proguard -keepattributes are only applicable when obfuscating.
+      if (forceProguardCompatibility && !isObfuscating()) {
+        proguardKeepAttributes.keepAllAttributesExceptRuntimeInvisibleAnnotations();
+      }
       ProguardConfiguration configuration =
           new ProguardConfiguration(
               String.join(System.lineSeparator(), parsedConfiguration),
@@ -331,7 +337,7 @@ public class ProguardConfiguration {
               printMappingFile,
               applyMappingFile,
               renameSourceFileAttribute,
-              ProguardKeepAttributes.fromPatterns(keepAttributePatterns),
+              proguardKeepAttributes,
               keepPackageNamesPatterns.build(),
               dontWarnPatterns.build(),
               dontNotePatterns.build(),
@@ -357,10 +363,6 @@ public class ProguardConfiguration {
     }
 
     public ProguardConfiguration build() {
-      if (forceProguardCompatibility && !isObfuscating()) {
-        // For Proguard -keepattributes are only applicable when obfuscating.
-        keepAttributePatterns.addAll(ProguardKeepAttributes.KEEP_ALL);
-      }
 
       if (packageObfuscationMode == PackageObfuscationMode.NONE && obfuscating) {
         packageObfuscationMode = PackageObfuscationMode.MINIFICATION;

@@ -177,7 +177,7 @@ public class RootSetUtils {
       attributesConfig =
           options.getProguardConfiguration() != null
               ? options.getProguardConfiguration().getKeepAttributes()
-              : ProguardKeepAttributes.fromPatterns(ProguardKeepAttributes.KEEP_ALL);
+              : new ProguardKeepAttributes().keepAllAttributesExceptRuntimeInvisibleAnnotations();
       annotationRetention =
           getRetentionFromAttributeConfig(
               attributesConfig.runtimeVisibleAnnotations,
