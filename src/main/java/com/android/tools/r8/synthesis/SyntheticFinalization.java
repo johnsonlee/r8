@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.fixup.TreeFixerBase;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -586,7 +587,14 @@ public class SyntheticFinalization {
     potentialEquivalences.forEach(
         members -> {
           T t = members.get(0);
-          if (t.getKind().mayCallOtherSyntheticMethods(appView.getSyntheticItems().getNaming())) {
+          boolean mayCallOtherSyntheticMethods = false;
+          if (t.isMethodDefinition()) {
+            ProgramMethod method = t.asMethodDefinition().getMethod();
+            mayCallOtherSyntheticMethods =
+                method.registerCodeReferencesWithResult(
+                    new CallOtherMergeableSyntheticMethodUseRegistry(appView, method));
+          }
+          if (mayCallOtherSyntheticMethods) {
             indirectPotentialEquivalences.add(members);
           } else {
             directPotentialEquivalences.add(members);

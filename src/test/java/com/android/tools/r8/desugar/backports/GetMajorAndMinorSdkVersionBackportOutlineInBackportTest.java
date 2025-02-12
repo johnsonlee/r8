@@ -137,10 +137,7 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
       assertEquals(
           1,
           countInvokeStaticToMethod(apiOutline1.uniqueMethod(), getGetMajorSdkVersion(inspector)));
-      // TODO(b/382242341):There are 4 backports, as even though they are identical two by two, they
-      //  are not currently shared, as synthetic sharing does not see equivalence of the backports
-      //  calling the API outline synthetics, which are shared.
-      for (int i = 2; i < 6; i++) {
+      for (int i = 2; i < 3; i++) {
         ClassSubject backport =
             inspector.clazz(
                 SyntheticItemsTestUtils.syntheticBackportWithForwardingClass(TestClass.class, i));
@@ -174,8 +171,6 @@ public class GetMajorAndMinorSdkVersionBackportOutlineInBackportTest extends Tes
     } else {
       ClassSubject apiOutline0 =
           inspector.clazz(SyntheticItemsTestUtils.syntheticApiOutlineClass(TestClass.class, 0));
-      // TODO(b/382242341): There are 4 methods merged into the outline synthetic. Two calling
-      //  getMajorSdkVersion and two calling getMinorSdkVersion.
       assertEquals(4, apiOutline0.allMethods().size());
       MethodSubject main = inspector.clazz(TestClass.class).mainMethod();
       assertEquals(
