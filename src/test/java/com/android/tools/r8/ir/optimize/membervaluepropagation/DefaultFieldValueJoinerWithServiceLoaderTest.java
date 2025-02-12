@@ -45,8 +45,7 @@ public class DefaultFieldValueJoinerWithServiceLoaderTest extends TestBase {
                 Origin.unknown()))
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/389737060): Should be 0, 1, 0, 2.
-        .assertSuccessWithOutputLines("1", "1", "2", "2");
+        .assertSuccessWithOutputLines("0", "1", "0", "2");
   }
 
   public interface A {

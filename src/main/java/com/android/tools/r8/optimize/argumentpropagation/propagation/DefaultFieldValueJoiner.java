@@ -330,6 +330,7 @@ public class DefaultFieldValueJoiner {
       throws ExecutionException {
     // To simplify the analysis, we currently bail out for non-final classes.
     // TODO(b/296030319): Handle non-final classes.
+    Set<DexType> serviceImplementations = appView.appServices().computeAllServiceImplementations();
     MapUtils.removeIf(
         nonFinalInstanceFields,
         (holderType, fields) -> {
@@ -337,7 +338,8 @@ public class DefaultFieldValueJoiner {
           DexProgramClass holder = fields.iterator().next().getHolder();
           // If the class is kept it could be instantiated directly, in which case all default field
           // values could be live.
-          if (appView.getKeepInfo(holder).isPinned(appView.options())) {
+          if (appView.getKeepInfo(holder).isPinned(appView.options())
+              || serviceImplementations.contains(holder.getType())) {
             fields.forEach(liveDefaultValueConsumer);
             return true;
           }
