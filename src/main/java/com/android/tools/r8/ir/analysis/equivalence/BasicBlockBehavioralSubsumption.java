@@ -254,8 +254,6 @@ public class BasicBlockBehavioralSubsumption {
   }
 
   private boolean valuesAreIdentical(Value value, Value other) {
-    value = value.getAliasedValue();
-    other = other.getAliasedValue();
     if (value == other) {
       return true;
     }

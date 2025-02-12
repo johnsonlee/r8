@@ -27,8 +27,6 @@ public class DifferentAssumptionsOnReturnValuesTest extends TestBase {
   }
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("f(null)", "f returned null");
-  private static final String NOT_EXPECTED_OUTPUT =
-      StringUtils.lines("f(null)", "f returned non null");
 
   @Test
   public void testJvm() throws Exception {
@@ -58,7 +56,7 @@ public class DifferentAssumptionsOnReturnValuesTest extends TestBase {
         .enableInliningAnnotations()
         .run(parameters.getRuntime(), TestClass.class)
         // TODO(b/395489597): This should not happen.
-        .assertSuccessWithOutput(NOT_EXPECTED_OUTPUT);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class TestClass {
