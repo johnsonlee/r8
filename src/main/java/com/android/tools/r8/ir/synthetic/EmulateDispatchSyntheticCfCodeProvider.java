@@ -123,17 +123,9 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
     assert dispatchType == AUTO_CLOSEABLE;
     instructions.add(new CfCheckCast(method.holder));
     loadExtraParameters(instructions);
-    // The type method.getHolderType() may not resolve if compiled without android library, for
-    // example, with the jdk as android.jar.
-    if (method
-        .getHolderType()
-        .isIdenticalTo(appView.dexItemFactory().javaUtilConcurrentExecutorServiceType)) {
-      assert appView.definitionFor(method.getHolderType()) == null
-          || appView.definitionFor(method.getHolderType()).isInterface();
+    if (appView.definitionFor(method.getHolderType()).isInterface()) {
       instructions.add(new CfInvoke(Opcodes.INVOKEINTERFACE, method, true));
     } else {
-      assert appView.definitionFor(method.getHolderType()) == null
-          || !appView.definitionFor(method.getHolderType()).isInterface();
       instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, method, false));
     }
   }

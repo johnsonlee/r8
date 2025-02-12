@@ -155,20 +155,6 @@ public class SyntheticItemsTestUtils {
     return syntheticClass(reference, naming.TWR_CLOSE_RESOURCE, id);
   }
 
-  public static ClassReference syntheticAutoCloseableDispatcherClass(
-      ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.AUTOCLOSEABLE_DISPATCHER, id);
-  }
-
-  public static ClassReference syntheticAutoCloseableForwarderClass(
-      ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.AUTOCLOSEABLE_FORWARDER, id);
-  }
-
-  public static ClassReference syntheticThrowIAEClass(ClassReference classReference, int id) {
-    return syntheticClass(classReference, naming.THROW_IAE, id);
-  }
-
   public static MethodReference syntheticLambdaMethod(Class<?> clazz, int id, Method method) {
     ClassReference syntheticHolder = syntheticLambdaClass(clazz, id);
     MethodReference originalMethod = Reference.methodFromMethod(method);

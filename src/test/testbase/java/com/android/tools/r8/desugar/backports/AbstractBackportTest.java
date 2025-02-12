@@ -242,6 +242,7 @@ public abstract class AbstractBackportTest extends TestBase {
         .compileWithExpectedDiagnostics(this::checkDiagnostics)
         .apply(this::configure)
         .inspect(this::assertDesugaring)
+        .apply(this::configure)
         .run(parameters.getRuntime(), testClassName)
         .apply(runResultConsumer);
   }

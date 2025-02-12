@@ -8,6 +8,7 @@ import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.c
 import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
 import static org.hamcrest.CoreMatchers.containsString;
 
+import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
@@ -53,6 +54,12 @@ public class AutoCloseableRetargeterAndroidTest extends AbstractBackportTest {
     registerTarget(AndroidApiLevel.B, 5);
   }
 
+  @Override
+  protected void configureD8Options(D8TestBuilder d8TestBuilder) throws IOException {
+    d8TestBuilder.addOptionsModification(opt -> opt.testing.enableAutoCloseableDesugaring = true);
+  }
+
+  @Override
   protected void configureProgram(TestBuilder<?, ?> builder) throws Exception {
     super.configureProgram(builder);
     if (builder.isJvmTestBuilder()) {

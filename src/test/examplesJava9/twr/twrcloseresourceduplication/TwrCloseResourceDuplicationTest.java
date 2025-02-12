@@ -13,7 +13,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.FoundClassSubject;
@@ -128,11 +127,6 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
               if (hasTwrCloseResourceApiOutlines()) {
                 expectedSynthetics += 1;
               }
-              InternalOptions options = inspector.getApplication().options;
-              options.setMinApiLevel(parameters.getApiLevel());
-              if (options.shouldDesugarAutoCloseable()) {
-                expectedSynthetics += 3;
-              }
               assertEquals(INPUT_CLASSES + expectedSynthetics, inspector.allClasses().size());
             });
   }
@@ -167,19 +161,7 @@ public class TwrCloseResourceDuplicationTest extends TestBase {
                         .getTypeName());
                 assertEquals(classOutputWithSynthetics, foundClasses);
               } else {
-                Set<String> classOutputWithSynthetics = new HashSet<>(nonSyntheticClassOutput);
-                if (parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
-                  // Above N, the forwarder is inlined in the dispatcher.
-                  classOutputWithSynthetics.add(
-                      SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
-                              Reference.classFromTypeName(BAR), 1)
-                          .getTypeName());
-                }
-                classOutputWithSynthetics.add(
-                    SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
-                            Reference.classFromTypeName(BAR), 0)
-                        .getTypeName());
-                assertEquals(classOutputWithSynthetics, foundClasses);
+                assertEquals(nonSyntheticClassOutput, foundClasses);
               }
             });
   }

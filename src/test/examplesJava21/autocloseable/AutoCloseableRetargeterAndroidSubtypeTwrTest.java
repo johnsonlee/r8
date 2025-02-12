@@ -8,11 +8,11 @@ import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.c
 import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
 import static org.hamcrest.CoreMatchers.containsString;
 
+import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.ContentProviderClientApiLevel24;
 import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.DrmManagerClientApiLevel24;
@@ -36,7 +36,6 @@ public class AutoCloseableRetargeterAndroidSubtypeTwrTest extends AbstractBackpo
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntime(CfVm.JDK21)
         .withDexRuntimes()
         .withApiLevelsStartingAtIncluding(AndroidApiLevel.K)
         .enableApiLevelsForCf()
@@ -80,6 +79,11 @@ public class AutoCloseableRetargeterAndroidSubtypeTwrTest extends AbstractBackpo
     ignoreInvokes("release");
 
     registerTarget(AndroidApiLevel.B, 5);
+  }
+
+  @Override
+  protected void configureD8Options(D8TestBuilder d8TestBuilder) throws IOException {
+    d8TestBuilder.addOptionsModification(opt -> opt.testing.enableAutoCloseableDesugaring = true);
   }
 
   @Override
@@ -316,6 +320,11 @@ public class AutoCloseableRetargeterAndroidSubtypeTwrTest extends AbstractBackpo
         box2[0] = val;
       }
       MiniAssert.assertTrue(box2[0].wasClosed);
+    }
+
+    // Forwards to MiniAssert to avoid having to make it public.
+    public static void doFail(String message) {
+      MiniAssert.fail(message);
     }
   }
 }

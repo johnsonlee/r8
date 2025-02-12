@@ -11,7 +11,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.IntBox;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -19,7 +18,6 @@ import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -116,15 +114,11 @@ public class TwrSuppressedExceptionsTest extends TestBase {
         .addProgramClassFileData(getProgramInputs())
         .setMinApi(parameters)
         .addKeepMainRule(TEST_CLASS)
-        // TODO(b/214250388): Don't warn about AutoClosable and ForkJoinPool in synthesized code.
+        // TODO(b/214250388): Don't warn about AutoClosable in synthesized code.
         .apply(
             b -> {
               if (!apiLevelHasTwrCloseResourceSupport(parameters.isDexRuntime())) {
                 b.addDontWarn(AutoCloseable.class);
-              } else if (parameters
-                  .getApiLevel()
-                  .isBetweenBothIncluded(AndroidApiLevel.K, AndroidApiLevel.K_WATCH)) {
-                b.addDontWarn(ForkJoinPool.class);
               }
             })
         .run(parameters.getRuntime(), TEST_CLASS)

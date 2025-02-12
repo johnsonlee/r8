@@ -4,20 +4,12 @@
 
 package com.android.tools.r8.desugar.backports;
 
-import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.compileAutoCloseableAndroidLibraryClasses;
-import static com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.getAutoCloseableAndroidClassData;
 import static org.hamcrest.CoreMatchers.containsString;
 
-import com.android.tools.r8.D8TestCompileResult;
-import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.desugar.AutoCloseableAndroidLibraryFileData.MediaMetadataRetriever;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import org.junit.Test;
@@ -30,19 +22,16 @@ public class MediaMetadataRetrieverBackportTest extends AbstractBackportTest {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters()
-        .withCfRuntimesStartingFromIncluding(CfVm.JDK11)
-        .withDexRuntimes()
-        .withAllApiLevelsAlsoForCf()
-        .build();
+    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
   }
 
   public MediaMetadataRetrieverBackportTest(TestParameters parameters) throws IOException {
     super(
         parameters,
-        DescriptorUtils.descriptorToJavaType(
-            DexItemFactory.androidMediaMediaMetadataRetrieverDescriptorString),
-        ImmutableList.of(MediaMetadataRetrieverBackportTest.getTestRunner()));
+        MediaMetadataRetrieverBackportTest.getMediaMetadataRetriever(parameters),
+        ImmutableList.of(
+            MediaMetadataRetrieverBackportTest.getTestRunner(),
+            MediaMetadataRetrieverBackportTest.getMediaMetadataRetriever(parameters)));
 
     // The constructor is used by the test and release has been available since API 10 and is the
     // method close is rewritten to.
@@ -53,27 +42,6 @@ public class MediaMetadataRetrieverBackportTest extends AbstractBackportTest {
     registerTarget(AndroidApiLevel.Q, 1);
   }
 
-  @Override
-  protected void configureProgram(TestBuilder<?, ?> builder) throws Exception {
-    super.configureProgram(builder);
-    if (builder.isJvmTestBuilder()) {
-      builder.addProgramClassFileData(getAutoCloseableAndroidClassData(parameters));
-    } else {
-      builder
-          .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.BAKLAVA))
-          .addLibraryClassFileData(getAutoCloseableAndroidClassData(parameters));
-    }
-  }
-
-  @Override
-  protected void configure(D8TestCompileResult builder) throws Exception {
-    if (parameters.isDexRuntime()) {
-      builder.addBootClasspathFiles(compileAutoCloseableAndroidLibraryClasses(this, parameters));
-    } else {
-      builder.addRunClasspathClassFileData(getAutoCloseableAndroidClassData(parameters));
-    }
-  }
-
   @Test
   public void testJvm() throws Exception {
     parameters.assumeJvmTestParameters();
@@ -81,7 +49,19 @@ public class MediaMetadataRetrieverBackportTest extends AbstractBackportTest {
         .apply(this::configureProgram)
         .run(parameters.getRuntime(), getTestClassName())
         // Fails when not desugared.
-        .assertFailureWithErrorThatMatches(containsString("close should not be called"));
+        .assertFailureWithErrorThatMatches(containsString("Failed: close should not be called"));
+  }
+
+  private static byte[] getMediaMetadataRetriever(TestParameters parameters) throws IOException {
+    if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.Q)) {
+      return transformer(MediaMetadataRetrieverApiLevel29.class)
+          .setClassDescriptor(DexItemFactory.androidMediaMediaMetadataRetrieverDescriptorString)
+          .transform();
+    } else {
+      return transformer(MediaMetadataRetriever.class)
+          .setClassDescriptor(DexItemFactory.androidMediaMediaMetadataRetrieverDescriptorString)
+          .transform();
+    }
   }
 
   private static byte[] getTestRunner() throws IOException {
@@ -90,6 +70,30 @@ public class MediaMetadataRetrieverBackportTest extends AbstractBackportTest {
             descriptor(MediaMetadataRetriever.class),
             DexItemFactory.androidMediaMediaMetadataRetrieverDescriptorString)
         .transform();
+  }
+
+  public static class MediaMetadataRetriever {
+    public boolean wasClosed = false;
+
+    public void close() {
+      TestRunner.doFail("close should not be called");
+    }
+
+    public void release() {
+      wasClosed = true;
+    }
+  }
+
+  public static class MediaMetadataRetrieverApiLevel29 {
+    public boolean wasClosed = false;
+
+    public void close() {
+      wasClosed = true;
+    }
+
+    public void release() {
+      TestRunner.doFail("release should not be called");
+    }
   }
 
   public static class TestRunner extends MiniAssert {

@@ -121,12 +121,8 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (desugaredLibraryRetargeter != null) {
       desugarings.add(desugaredLibraryRetargeter);
     }
-    AutoCloseableRetargeter autoCloseableRetargeter =
-        appView.options().shouldDesugarAutoCloseable()
-            ? new AutoCloseableRetargeter(appView)
-            : null;
-    if (autoCloseableRetargeter != null) {
-      desugarings.add(autoCloseableRetargeter);
+    if (appView.options().shouldDesugarAutoCloseable()) {
+      desugarings.add(new AutoCloseableRetargeter(appView));
     }
     disableDesugarer = DesugaredLibraryDisableDesugarer.create(appView);
     if (disableDesugarer != null) {
@@ -153,7 +149,6 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
             SetUtils.newImmutableSetExcludingNullItems(
                 alwaysThrowingInstructionDesugaring,
                 backportedMethodRewriter,
-                autoCloseableRetargeter,
                 desugaredLibraryRetargeter),
             SetUtils.newImmutableSetExcludingNullItems(
                 lambdaDesugaring, stringConcatDesugaring, recordRewriter));
