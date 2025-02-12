@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.keepanno.api.genericsignature;
 
+import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.LEGACY;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
@@ -68,7 +69,7 @@ public class KeepGenericSignaturesApiTest extends KeepAnnoTestBase {
         JavaCompilerTool.create(parameters.parameters().asCfRuntime(), temp)
             .addSourceFiles(
                 ListUtils.map(getClientClasses(), ToolHelper::getSourceFileForTestClass))
-            .addClasspathFiles(lib.get(), KeepAnnoTestUtils.getKeepAnnoLib(temp))
+            .addClasspathFiles(lib.get(), KeepAnnoTestUtils.getKeepAnnoLib(temp, LEGACY))
             .compile();
 
     testForRuntime(parameters.parameters())
