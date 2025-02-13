@@ -68,8 +68,9 @@ public class DesugaredLibraryInvokeAllResolveTest extends DesugaredLibraryTestBa
               + " java.util.stream.LongStream.takeWhile(java.util.function.LongPredicate)",
           "java.util.stream.DoubleStream"
               + " java.util.stream.DoubleStream.dropWhile(java.util.function.DoublePredicate)",
+          // Stream.toList() and FileStore.getBlockSize() were added in 33 which confuses the
+          // required library (30).
           "java.util.List java.util.stream.Stream.toList()",
-          // FileStore.getBlockSize() was added in 33 which confuses the required library (30).
           "long java.nio.file.FileStore.getBlockSize()",
           // The call is present but unreachable above 26.
           "java.nio.channels.FileChannel"

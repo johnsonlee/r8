@@ -8,7 +8,6 @@
     {
       "api_level_below_or_equal": 10000,
       "amend_library_method": [
-        "public java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)",
         "public static java.nio.file.Path java.nio.file.Path#of(java.lang.String, java.lang.String[])",
         "public static java.nio.file.Path java.nio.file.Path#of(java.net.URI)"
       ]
@@ -70,6 +69,12 @@
       }
     },
     {
+      "api_level_below_or_equal": 33,
+      "amend_library_method": [
+        "public java.util.List java.util.stream.Stream#toList()"
+      ]
+    },
+    {
       "api_level_below_or_equal": 32,
       "rewrite_prefix": {
         "java.net.URLDecoder": "j$.net.URLDecoder",
@@ -88,6 +93,7 @@
       },
       "amend_library_method": [
         "public static java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)",
+        "public java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)",
         "public java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()",
         "public long java.util.concurrent.TimeUnit#convert(java.time.Duration)",
         "public long java.io.InputStream#transferTo(java.io.OutputStream)",
@@ -104,6 +110,18 @@
         "java.util.concurrent.Flow$Subscriber",
         "java.util.concurrent.Flow$Subscription"
       ]
+    },
+    {
+      "api_level_below_or_equal": 33,
+      "api_level_greater_or_equal": 24,
+      "emulate_interface": {
+        "java.util.stream.Stream": {
+          "rewrittenType": "j$.util.stream.Stream",
+          "emulatedMethods": [
+            "public java.util.List java.util.stream.Stream#toList()"
+          ]
+        }
+      }
     },
     {
       "api_level_below_or_equal": 32,
