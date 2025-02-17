@@ -77,6 +77,8 @@ public abstract class InvokeMethod extends Invoke {
     }
   }
 
+  public abstract Builder<? extends Builder, ? extends InvokeMethod> newBuilder();
+
   public Value getFirstNonReceiverArgument() {
     return getArgument(getFirstNonReceiverArgumentIndex());
   }
@@ -346,11 +348,12 @@ public abstract class InvokeMethod extends Invoke {
     return false;
   }
 
-  abstract static class Builder<B extends Builder<B, I>, I extends InvokeMethod>
+  public abstract static class Builder<B extends Builder<B, I>, I extends InvokeMethod>
       extends BuilderBase<B, I> {
 
     protected DexMethod method;
     protected List<Value> arguments = Collections.emptyList();
+    protected boolean isInterface = false;
 
     public B setArguments(Value... arguments) {
       return setArguments(Arrays.asList(arguments));
@@ -365,6 +368,11 @@ public abstract class InvokeMethod extends Invoke {
     public B setFreshOutValue(AppView<?> appView, ValueFactory factory) {
       return super.setFreshOutValue(
           factory, TypeElement.fromDexType(method.getReturnType(), maybeNull(), appView));
+    }
+
+    public B setIsInterface(boolean isInterface) {
+      this.isInterface = isInterface;
+      return self();
     }
 
     public B setSingleArgument(Value argument) {

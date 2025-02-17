@@ -34,6 +34,15 @@ public class InvokeSuper extends InvokeMethodWithReceiver {
     this.isInterface = isInterface;
   }
 
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  @Override
+  public Builder newBuilder() {
+    return builder();
+  }
+
   @Override
   public boolean getInterfaceBit() {
     return isInterface;
@@ -131,5 +140,18 @@ public class InvokeSuper extends InvokeMethodWithReceiver {
   @Override
   public void buildLir(LirBuilder<Value, ?> builder) {
     builder.addInvokeSuper(getInvokedMethod(), arguments(), isInterface);
+  }
+
+  public static class Builder extends InvokeMethod.Builder<Builder, InvokeSuper> {
+
+    @Override
+    public InvokeSuper build() {
+      return amend(new InvokeSuper(method, outValue, arguments, isInterface));
+    }
+
+    @Override
+    public Builder self() {
+      return this;
+    }
   }
 }

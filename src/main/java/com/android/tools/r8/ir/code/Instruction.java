@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public abstract class Instruction
@@ -1763,6 +1764,13 @@ public abstract class Instruction
 
     protected Value outValue;
     protected Position position;
+
+    public final B applyIf(boolean condition, Consumer<B> consumer) {
+      if (condition) {
+        consumer.accept(self());
+      }
+      return self();
+    }
 
     public abstract I build();
 

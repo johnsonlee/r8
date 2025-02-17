@@ -37,6 +37,11 @@ public class InvokePolymorphic extends InvokeMethod {
   }
 
   @Override
+  public Builder<? extends Builder, ? extends InvokeMethod> newBuilder() {
+    throw new Unreachable();
+  }
+
+  @Override
   public boolean getInterfaceBit() {
     return false;
   }

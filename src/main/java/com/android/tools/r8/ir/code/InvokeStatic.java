@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.code;
 
-
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeStatic;
@@ -45,6 +44,11 @@ public class InvokeStatic extends InvokeMethod {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  @Override
+  public Builder newBuilder() {
+    return builder();
   }
 
   @Override
@@ -229,7 +233,7 @@ public class InvokeStatic extends InvokeMethod {
       assert method != null;
       assert method.getArity() == arguments.size();
       assert outValue == null || !method.getReturnType().isVoidType();
-      return amend(new InvokeStatic(method, outValue, arguments));
+      return amend(new InvokeStatic(method, outValue, arguments, isInterface));
     }
 
     @Override

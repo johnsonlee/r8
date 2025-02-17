@@ -52,6 +52,11 @@ public class InvokeDirect extends InvokeMethodWithReceiver {
   }
 
   @Override
+  public Builder newBuilder() {
+    return builder();
+  }
+
+  @Override
   public int opcode() {
     return Opcodes.INVOKE_DIRECT;
   }

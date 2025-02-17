@@ -37,6 +37,11 @@ public class InvokeVirtual extends InvokeMethodWithReceiver {
   }
 
   @Override
+  public Builder newBuilder() {
+    return builder();
+  }
+
+  @Override
   public boolean getInterfaceBit() {
     return false;
   }

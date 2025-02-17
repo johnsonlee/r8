@@ -44,6 +44,10 @@ public class ArrayGet extends ArrayAccess {
     this.type = type;
   }
 
+  public static Builder builder() {
+    return new Builder();
+  }
+
   @Override
   public int opcode() {
     return Opcodes.ARRAY_GET;
@@ -298,5 +302,41 @@ public class ArrayGet extends ArrayAccess {
   @Override
   public void buildLir(LirBuilder<Value, ?> builder) {
     builder.addArrayGet(getMemberType(), array(), index());
+  }
+
+  public static class Builder extends BuilderBase<Builder, ArrayGet> {
+
+    private Value arrayValue;
+    private Value indexValue;
+    private MemberType memberType;
+
+    public Builder setArrayValue(Value arrayValue) {
+      this.arrayValue = arrayValue;
+      return this;
+    }
+
+    public Builder setIndexValue(Value indexValue) {
+      this.indexValue = indexValue;
+      return this;
+    }
+
+    public Builder setMemberType(MemberType memberType) {
+      this.memberType = memberType;
+      return this;
+    }
+
+    @Override
+    public ArrayGet build() {
+      if (memberType == null && outValue.getType().isReferenceType()) {
+        memberType = MemberType.OBJECT;
+      }
+      assert memberType != null;
+      return amend(new ArrayGet(memberType, outValue, arrayValue, indexValue));
+    }
+
+    @Override
+    public Builder self() {
+      return this;
+    }
   }
 }
