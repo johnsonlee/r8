@@ -61,6 +61,11 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
     this.runnableCompiledResult = computeRunnableCompiledResult();
   }
 
+  public DesugaredLibraryTestCompileResult<T> disassemble() throws IOException, ExecutionException {
+    compileResult.disassemble();
+    return this;
+  }
+
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectCustomLib(
       ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
     assert customLibCompile != null;
