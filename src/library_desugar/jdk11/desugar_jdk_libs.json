@@ -7,6 +7,42 @@
   "common_flags": [
     {
       "api_level_below_or_equal": 10000,
+      "amend_library_field": [
+        "public static java.time.LocalDate java.time.LocalDate#EPOCH"
+      ],
+      "amend_library_method": [
+        "public int java.time.Duration#toHoursPart()",
+        "public int java.time.Duration#toMillisPart()",
+        "public int java.time.Duration#toMinutesPart()",
+        "public int java.time.Duration#toNanosPart()",
+        "public int java.time.Duration#toSecondsPart()",
+        "public java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)",
+        "public java.time.Duration java.time.Duration#truncatedTo(java.time.temporal.TemporalUnit)",
+        "public java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()",
+        "public java.util.List java.util.stream.Stream#toList()",
+        "public java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate)",
+        "public java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate, java.time.Period)",
+        "public long java.time.LocalDate#toEpochSecond(java.time.LocalTime, java.time.ZoneOffset)",
+        "public long java.time.OffsetTime#toEpochSecond(java.time.LocalDate)",
+        "public long java.time.Duration#dividedBy(java.time.Duration)",
+        "public long java.time.Duration#toDaysPart()",
+        "public long java.time.Duration#toSeconds()",
+        "public long java.time.LocalTime#toEpochSecond(java.time.LocalDate, java.time.ZoneOffset)",
+        "public long java.util.concurrent.TimeUnit#convert(java.time.Duration)",
+        "public static java.time.Clock java.time.Clock#tickMillis(java.time.ZoneId)",
+        "public static java.time.LocalDate java.time.LocalDate#ofInstant(java.time.Instant, java.time.ZoneId)",
+        "public static java.time.LocalTime java.time.LocalTime#ofInstant(java.time.Instant, java.time.ZoneId)",
+        "public static java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#filtering(java.util.function.Predicate, java.util.stream.Collector)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#flatMapping(java.util.function.Function, java.util.stream.Collector)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableList()",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)",
+        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableSet()"
+      ]
+    },
+    {
+      "api_level_below_or_equal": 10000,
       "api_level_greater_or_equal": 26,
       "rewrite_prefix": {
         "java.time.DesugarLocalDate": "j$.time.DesugarLocalDate",
@@ -23,18 +59,7 @@
         "long java.time.LocalDate#toEpochSecond(java.time.LocalTime, java.time.ZoneOffset)": "java.time.DesugarLocalDate",
         "java.time.Clock java.time.Clock#tickMillis(java.time.ZoneId)": "java.time.DesugarClock",
         "long java.time.OffsetTime#toEpochSecond(java.time.LocalDate)": "java.time.DesugarOffsetTime"
-      },
-      "amend_library_field": [
-        "public static java.time.LocalDate java.time.LocalDate#EPOCH"
-      ],
-      "amend_library_method": [
-        "public java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate)",
-        "public java.util.stream.Stream java.time.LocalDate#datesUntil(java.time.LocalDate, java.time.Period)",
-        "public static java.time.LocalDate java.time.LocalDate#ofInstant(java.time.Instant, java.time.ZoneId)",
-        "public long java.time.LocalDate#toEpochSecond(java.time.LocalTime, java.time.ZoneOffset)",
-        "public static java.time.Clock java.time.Clock#tickMillis(java.time.ZoneId)",
-        "public long java.time.OffsetTime#toEpochSecond(java.time.LocalDate)"
-      ]
+      }
     },
     {
       "api_level_below_or_equal": 10000,
@@ -53,12 +78,6 @@
       }
     },
     {
-      "api_level_below_or_equal": 33,
-      "amend_library_method": [
-        "public java.util.List java.util.stream.Stream#toList()"
-      ]
-    },
-    {
       "api_level_below_or_equal": 32,
       "rewrite_prefix": {
         "java.util.concurrent.DesugarTimeUnit": "j$.util.concurrent.DesugarTimeUnit"
@@ -67,13 +86,7 @@
         "java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)": "java.util.concurrent.DesugarTimeUnit",
         "java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()": "java.util.concurrent.DesugarTimeUnit",
         "long java.util.concurrent.TimeUnit#convert(java.time.Duration)": "java.util.concurrent.DesugarTimeUnit"
-      },
-      "amend_library_method": [
-        "public static java.util.concurrent.TimeUnit java.util.concurrent.TimeUnit#of(java.time.temporal.ChronoUnit)",
-        "public java.lang.Object[] java.util.Collection#toArray(java.util.function.IntFunction)",
-        "public java.time.temporal.ChronoUnit java.util.concurrent.TimeUnit#toChronoUnit()",
-        "public long java.util.concurrent.TimeUnit#convert(java.time.Duration)"
-      ]
+      }
     },
     {
       "api_level_below_or_equal": 29,
@@ -119,15 +132,7 @@
         "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function)": "java.util.stream.DesugarCollectors",
         "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)": "java.util.stream.DesugarCollectors",
         "java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableSet()": "java.util.stream.DesugarCollectors"
-      },
-      "amend_library_method": [
-        "public static java.util.stream.Collector java.util.stream.Collectors#filtering(java.util.function.Predicate, java.util.stream.Collector)",
-        "public static java.util.stream.Collector java.util.stream.Collectors#flatMapping(java.util.function.Function, java.util.stream.Collector)",
-        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableList()",
-        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function)",
-        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableMap(java.util.function.Function, java.util.function.Function, java.util.function.BinaryOperator)",
-        "public static java.util.stream.Collector java.util.stream.Collectors#toUnmodifiableSet()"
-      ]
+      }
     },
     {
       "api_level_below_or_equal": 30,
@@ -148,20 +153,7 @@
         "java.time.Duration java.time.Duration#truncatedTo(java.time.temporal.TemporalUnit)": "java.time.DesugarDuration",
         "java.time.LocalTime java.time.LocalTime#ofInstant(java.time.Instant, java.time.ZoneId)": "java.time.DesugarLocalTime",
         "long java.time.LocalTime#toEpochSecond(java.time.LocalDate, java.time.ZoneOffset)": "java.time.DesugarLocalTime"
-      },
-      "amend_library_method": [
-        "public long java.time.Duration#dividedBy(java.time.Duration)",
-        "public long java.time.Duration#toDaysPart()",
-        "public int java.time.Duration#toHoursPart()",
-        "public int java.time.Duration#toMillisPart()",
-        "public int java.time.Duration#toMinutesPart()",
-        "public int java.time.Duration#toNanosPart()",
-        "public long java.time.Duration#toSeconds()",
-        "public int java.time.Duration#toSecondsPart()",
-        "public java.time.Duration java.time.Duration#truncatedTo(java.time.temporal.TemporalUnit)",
-        "public static java.time.LocalTime java.time.LocalTime#ofInstant(java.time.Instant, java.time.ZoneId)",
-        "public long java.time.LocalTime#toEpochSecond(java.time.LocalDate, java.time.ZoneOffset)"
-      ]
+      }
     },
     {
       "api_level_below_or_equal": 25,
@@ -381,6 +373,7 @@
     {
       "api_level_below_or_equal": 10000,
       "amend_library_method": [
+        "public java.time.chrono.IsoEra java.time.LocalDate#getEra()",
         "public static java.util.stream.DoubleStream java.util.stream.DoubleStream#iterate(double, java.util.function.DoublePredicate, java.util.function.DoubleUnaryOperator)",
         "public static java.util.stream.IntStream java.util.stream.IntStream#iterate(int, java.util.function.IntPredicate, java.util.function.IntUnaryOperator)",
         "public static java.util.stream.LongStream java.util.stream.LongStream#iterate(long, java.util.function.LongPredicate, java.util.function.LongUnaryOperator)",
@@ -392,10 +385,7 @@
       "api_level_greater_or_equal": 26,
       "covariant_retarget_method": {
         "java.time.chrono.IsoEra java.time.LocalDate#getEra()": "java.time.chrono.Era"
-      },
-      "amend_library_method": [
-        "public java.time.chrono.IsoEra java.time.LocalDate#getEra()"
-      ]
+      }
     },
     {
       "api_level_below_or_equal": 25,

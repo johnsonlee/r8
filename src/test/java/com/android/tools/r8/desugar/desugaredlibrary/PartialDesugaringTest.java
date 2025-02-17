@@ -77,8 +77,7 @@ public class PartialDesugaringTest extends DesugaredLibraryTestBase {
       ImmutableSet.of(
           "java.util.stream.Stream java.util.stream.Stream.takeWhile(java.util.function.Predicate)",
           "java.util.stream.Stream"
-              + " java.util.stream.Stream.dropWhile(java.util.function.Predicate)",
-          "java.util.List java.util.stream.Stream.toList()");
+              + " java.util.stream.Stream.dropWhile(java.util.function.Predicate)");
   private static final Set<String> FAILURES_NUMBER_STREAM =
       ImmutableSet.of(
           "java.util.stream.IntStream"
