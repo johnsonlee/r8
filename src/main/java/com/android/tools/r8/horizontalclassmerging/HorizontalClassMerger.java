@@ -183,11 +183,10 @@ public class HorizontalClassMerger {
       KeepInfoCollection keepInfo = appView.getKeepInfo();
       keepInfo.mutate(mutator -> mutator.removeKeepInfoForMergedClasses(prunedItems));
       appView.rewriteWithLens(horizontalClassMergerGraphLens, executorService, timing);
-      LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
       new IdentifierMinifier(appViewWithClassHierarchy)
           .rewriteDexItemBasedConstStringInStaticFields(executorService);
+      LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
       appView.rebuildAppInfo(newApplication);
-      appView.clearCodeRewritings(executorService, timing);
     } else {
       SyntheticItems syntheticItems = appView.appInfo().getSyntheticItems();
       assert !syntheticItems.hasPendingSyntheticClasses();

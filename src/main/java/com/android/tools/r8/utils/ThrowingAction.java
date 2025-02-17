@@ -5,6 +5,11 @@
 package com.android.tools.r8.utils;
 
 @FunctionalInterface
-public interface ThrowingAction<E extends Throwable> {
-  void execute() throws E;
+public interface ThrowingAction<T extends Throwable> {
+
+  void execute() throws T;
+
+  static ThrowingAction<RuntimeException> empty() {
+    return () -> {};
+  }
 }

@@ -29,6 +29,7 @@ import com.android.tools.r8.shaking.KeepClassInfo.Joiner;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.Timing.TimingMerger;
 import com.google.common.collect.Streams;
@@ -250,7 +251,7 @@ public class VerticalClassMerger {
 
   private void rewriteCodeWithLens(ExecutorService executorService, Timing timing)
       throws ExecutionException {
-    LirConverter.rewriteLirWithLens(appView, timing, executorService);
+    LirConverter.rewriteLirWithLens(appView, timing, executorService, ThrowingAction.empty());
     new IdentifierMinifier(appView).rewriteDexItemBasedConstStringInStaticFields(executorService);
   }
 

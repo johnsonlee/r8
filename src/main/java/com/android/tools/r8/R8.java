@@ -524,7 +524,6 @@ public class R8 {
       assert ArtProfileCompletenessChecker.verify(appView);
 
       LirConverter.rewriteLirWithLens(appView, timing, executorService);
-      appView.clearCodeRewritings(executorService, timing);
 
       VerticalClassMerger.createForInitialClassMerging(appViewWithLiveness, timing)
           .runIfNecessary(executorService, timing);
@@ -757,13 +756,11 @@ public class R8 {
       }
 
       GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging = null;
-      if (appView.hasCfByteCodePassThroughMethods()) {
-        LirConverter.rewriteLirWithLens(appView, timing, executorService);
-        appView.clearCodeRewritings(executorService, timing);
-      } else {
-        // Rewrite LIR with lens to allow building IR from LIR in class mergers.
-        LirConverter.rewriteLirWithLens(appView, timing, executorService);
-        appView.clearCodeRewritings(executorService, timing);
+
+      // Rewrite LIR with lens to allow building IR from LIR in class mergers.
+      LirConverter.rewriteLirWithLens(appView, timing, executorService);
+
+      if (!appView.hasCfByteCodePassThroughMethods()) {
         assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
         if (appView.hasLiveness()) {

@@ -35,6 +35,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.verticalclassmerging.IncompleteVerticalClassMergerBridgeCode;
 import java.util.concurrent.ExecutionException;
@@ -85,6 +86,19 @@ public class LirConverter {
       Timing timing,
       ExecutorService executorService)
       throws ExecutionException {
+    rewriteLirWithLens(
+        appView,
+        timing,
+        executorService,
+        () -> appView.clearCodeRewritings(executorService, timing));
+  }
+
+  public static <T extends Throwable> void rewriteLirWithLens(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Timing timing,
+      ExecutorService executorService,
+      ThrowingAction<T> onChangedAction)
+      throws ExecutionException, T {
     assert appView.testing().canUseLir(appView);
     assert appView.testing().isSupportedLirPhase();
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
@@ -108,6 +122,8 @@ public class LirConverter {
     timing.begin("LIR->LIR@" + graphLens.getClass().getName());
     rewriteLirWithUnappliedLens(appView, executorService);
     timing.end();
+
+    onChangedAction.execute();
   }
 
   private static void rewriteLirWithUnappliedLens(
