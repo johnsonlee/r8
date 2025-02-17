@@ -14,7 +14,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,34 +54,21 @@ public class CollectionOfTest extends DesugaredLibraryTestBase {
     this.compilationSpecification = compilationSpecification;
   }
 
-  private String getExpectedOutput(boolean desugaredLib, boolean alwaysBackportListSetMapMethods) {
+  private String getExpectedOutput() {
     if (parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.R)) {
       return EXPECTED_OUTPUT_CORRECT;
-    }
-    if (alwaysBackportListSetMapMethods) {
-      return EXPECTED_OUTPUT_BACKPORT;
-    }
-    if (desugaredLib && libraryDesugaringSpecification != JDK8) {
-      if (parameters.getApiLevel().isLessThan(AndroidApiLevel.N)) {
-        return EXPECTED_OUTPUT_CORRECT;
-      }
-      // TODO(b/243679691): This should also be correct, but is not because we use backports in
-      //  partial desugaring.
-      return EXPECTED_OUTPUT_BACKPORT;
     }
     return EXPECTED_OUTPUT_BACKPORT;
   }
 
   @Test
   public void testCollectionOf() throws Throwable {
-    for (Boolean value : BooleanUtils.values()) {
-      testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-          .addProgramFiles(INPUT_JAR)
-          .addKeepMainRule(MAIN_CLASS)
-          .addOptionsModification(opt -> opt.testing.alwaysBackportListSetMapMethods = value)
-          .run(parameters.getRuntime(), MAIN_CLASS)
-          .assertSuccessWithOutput(getExpectedOutput(true, value));
-    }
+    testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
+        .addProgramFiles(INPUT_JAR)
+        .addKeepMainRule(MAIN_CLASS)
+        .compile()
+        .run(parameters.getRuntime(), MAIN_CLASS)
+        .assertSuccessWithOutput(getExpectedOutput());
   }
 
   @Test
@@ -94,6 +80,6 @@ public class CollectionOfTest extends DesugaredLibraryTestBase {
         .addProgramFiles(INPUT_JAR)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN_CLASS)
-        .assertSuccessWithOutput(getExpectedOutput(false, true));
+        .assertSuccessWithOutput(getExpectedOutput());
   }
 }

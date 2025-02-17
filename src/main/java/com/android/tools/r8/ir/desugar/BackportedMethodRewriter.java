@@ -334,10 +334,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         initializeAndroidQMethodProviders(factory);
       }
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.R)) {
-        if (options.testing.alwaysBackportListSetMapMethods
-            || typeIsPresentWithoutBackportsFrom(factory.javaUtilSetType, AndroidApiLevel.R)) {
-          initializeAndroidRSetListMapMethodProviders(factory);
-        }
+        initializeAndroidRSetListMapMethodProviders(factory);
         if (typeIsAbsentOrPresentWithoutBackportsFrom(factory.objectsType, AndroidApiLevel.R)) {
           initializeAndroidRObjectsMethodProviders(factory);
           if (typeIsPresent(factory.supplierType)) {
@@ -347,10 +344,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       }
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.S)) {
         initializeAndroidSMethodProviders(factory);
-        if (options.testing.alwaysBackportListSetMapMethods
-            || typeIsPresentWithoutBackportsFrom(factory.javaUtilSetType, AndroidApiLevel.S)) {
-          initializeAndroidSSetListMapMethodProviders(factory);
-        }
+        initializeAndroidSSetListMapMethodProviders(factory);
       }
       if (options.getMinApiLevel().isLessThan(AndroidApiLevel.Sv2)) {
         initializeAndroidSv2MethodProviders(factory);

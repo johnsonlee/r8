@@ -2174,8 +2174,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
       return currentPhase == LirPhase.POST;
     }
 
-    // If false, use the desugared library implementation when desugared library is enabled.
-    public boolean alwaysBackportListSetMapMethods = true;
     public boolean neverReuseCfLocalRegisters = false;
     public boolean checkReceiverAlwaysNullInCallSiteOptimization = true;
     public boolean forceInlineAPIConversions = false;
