@@ -30,24 +30,23 @@ import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class LocalDateEpochTest extends DesugaredLibraryTestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("1970-01-01");
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
         .withDexRuntimesStartingFromIncluding(Version.V8_1_0)
         .withAllApiLevels()
         .build();
-  }
-
-  public LocalDateEpochTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -70,9 +69,9 @@ public class LocalDateEpochTest extends DesugaredLibraryTestBase {
   public void testR8() throws Exception {
     parameters.assumeDexRuntime();
     testForR8(parameters.getBackend())
-        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.R))
-        .addProgramClasses(DesugarLocalDate.class)
         .addProgramClassFileData(getMainClassFileData())
+        .addLibraryClasses(DesugarLocalDate.class)
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.R))
         .addKeepMainRule(Main.class)
         .setMinApi(parameters)
         .addOptionsModification(
@@ -80,6 +79,7 @@ public class LocalDateEpochTest extends DesugaredLibraryTestBase {
                 opt.getLibraryDesugaringOptions()
                     .setDesugaredLibrarySpecification(getSpecification(opt)))
         .compile()
+        .addRunClasspathClasses(DesugarLocalDate.class)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
