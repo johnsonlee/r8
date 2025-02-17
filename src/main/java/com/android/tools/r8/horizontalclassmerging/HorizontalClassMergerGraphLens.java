@@ -22,6 +22,7 @@ import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.ExtraConstantIntParameter;
 import com.android.tools.r8.ir.conversion.ExtraParameter;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
@@ -87,6 +88,7 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
       DexMethod reference,
       DexMethod context,
       InvokeType type,
+      OptionalBool isInterface,
       GraphLens codeLens,
       LookupMethodContinuation continuation) {
     if (this == codeLens) {
@@ -105,7 +107,8 @@ public class HorizontalClassMergerGraphLens extends ClassMergerGraphLens {
               .build();
       return continuation.lookupMethod(lookupResult);
     }
-    return super.internalLookupMethod(reference, context, type, codeLens, continuation);
+    return super.internalLookupMethod(
+        reference, context, type, isInterface, codeLens, continuation);
   }
 
   /**

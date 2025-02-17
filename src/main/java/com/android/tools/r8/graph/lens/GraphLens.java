@@ -29,6 +29,7 @@ import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
 import com.android.tools.r8.optimize.MemberRebindingLens;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
@@ -293,6 +294,20 @@ public abstract class GraphLens {
     return lookupMethod(method, context, type, null);
   }
 
+  public final MethodLookupResult lookupMethod(
+      DexMethod method, DexMethod context, InvokeType type, GraphLens codeLens) {
+    return lookupMethod(method, context, type, codeLens, OptionalBool.unknown());
+  }
+
+  public final MethodLookupResult lookupMethod(
+      DexMethod method,
+      DexMethod context,
+      InvokeType type,
+      GraphLens codeLens,
+      boolean isInterface) {
+    return lookupMethod(method, context, type, codeLens, OptionalBool.of(isInterface));
+  }
+
   /**
    * Lookup a rebound or non-rebound method reference using the current graph lens.
    *
@@ -305,12 +320,17 @@ public abstract class GraphLens {
    *     should generally use the result of calling {@link AppView#codeLens()}.
    */
   public abstract MethodLookupResult lookupMethod(
-      DexMethod method, DexMethod context, InvokeType type, GraphLens codeLens);
+      DexMethod method,
+      DexMethod context,
+      InvokeType type,
+      GraphLens codeLens,
+      OptionalBool isInterface);
 
   protected abstract MethodLookupResult internalLookupMethod(
       DexMethod reference,
       DexMethod context,
       InvokeType type,
+      OptionalBool isInterface,
       GraphLens codeLens,
       LookupMethodContinuation continuation);
 

@@ -27,6 +27,7 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.shaking.KeepInfoCollection;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.BidirectionalOneToOneHashMap;
@@ -175,6 +176,7 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
       DexMethod reference,
       DexMethod context,
       InvokeType type,
+      OptionalBool isInterface,
       GraphLens codeLens,
       LookupMethodContinuation continuation) {
     if (this == codeLens) {
@@ -186,7 +188,8 @@ public class VerticalClassMergerGraphLens extends ClassMergerGraphLens {
               .build();
       return continuation.lookupMethod(lookupResult);
     }
-    return super.internalLookupMethod(reference, context, type, codeLens, continuation);
+    return super.internalLookupMethod(
+        reference, context, type, isInterface, codeLens, continuation);
   }
 
   @Override

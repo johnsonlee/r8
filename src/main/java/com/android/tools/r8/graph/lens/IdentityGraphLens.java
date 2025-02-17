@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.utils.IterableUtils;
+import com.android.tools.r8.utils.OptionalBool;
 
 final class IdentityGraphLens extends GraphLens {
 
@@ -53,9 +54,17 @@ final class IdentityGraphLens extends GraphLens {
 
   @Override
   public MethodLookupResult lookupMethod(
-      DexMethod method, DexMethod context, InvokeType type, GraphLens codeLens) {
+      DexMethod method,
+      DexMethod context,
+      InvokeType type,
+      GraphLens codeLens,
+      OptionalBool isInterface) {
     assert codeLens == null || codeLens.isIdentityLens();
-    return MethodLookupResult.builder(this, codeLens).setReference(method).setType(type).build();
+    return MethodLookupResult.builder(this, codeLens)
+        .setReference(method)
+        .setType(type)
+        .setIsInterface(isInterface)
+        .build();
   }
 
   @Override
@@ -78,11 +87,12 @@ final class IdentityGraphLens extends GraphLens {
       DexMethod reference,
       DexMethod context,
       InvokeType type,
+      OptionalBool isInterface,
       GraphLens codeLens,
       LookupMethodContinuation continuation) {
     // Passes the method reference back to the next graph lens. The identity lens intentionally
     // does not set the rebound method reference, since it does not know what that is.
-    return continuation.lookupMethod(lookupMethod(reference, context, type, codeLens));
+    return continuation.lookupMethod(lookupMethod(reference, context, type, codeLens, isInterface));
   }
 
   @Override

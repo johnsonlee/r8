@@ -5,6 +5,7 @@
 package com.android.tools.r8.lightir;
 
 import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
+import static com.android.tools.r8.lightir.LirOpcodeUtils.getInterfaceBitFromInvokeOpcode;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -129,7 +130,8 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   private void onInvoke(DexMethod method, InvokeType type, boolean isInterface) {
-    MethodLookupResult result = graphLens.lookupMethod(method, contextReference, type, codeLens);
+    MethodLookupResult result =
+        graphLens.lookupMethod(method, contextReference, type, codeLens, isInterface);
     if (hasPotentialNonTrivialInvokeRewriting(method, type, result)) {
       hasNonTrivialRewritings = true;
       return;
@@ -547,10 +549,11 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       // the instruction updated to the new type. The constant pool is amended with the mapped
       // method if needed.
       InvokeType type = LirOpcodeUtils.getInvokeType(opcode);
+      boolean isInterface = getInterfaceBitFromInvokeOpcode(opcode);
       int constantIndex = view.getNextConstantOperand();
       DexMethod method = (DexMethod) code.getConstantItem(constantIndex);
       MethodLookupResult result =
-          graphLens.lookupMethod(method, context.getReference(), type, codeLens);
+          graphLens.lookupMethod(method, context.getReference(), type, codeLens, isInterface);
       boolean newIsInterface = lookupIsInterface(method, opcode, result);
       InvokeType newType = result.getType();
       int newOpcode = newType.getLirOpcode(newIsInterface);
@@ -583,18 +586,26 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   // TODO(b/157111832): This should be part of the graph lens lookup result.
   private boolean lookupIsInterface(DexMethod method, int opcode, MethodLookupResult result) {
-    boolean wasInterface = LirOpcodeUtils.getInterfaceBitFromInvokeOpcode(opcode);
     // Update interface bit after member rebinding.
+    boolean useInterfaceBitOfDefinition;
     if (codeLens.isIdentityLens() && method.isNotIdenticalTo(result.getReference())) {
-      return result.getReference().getHolderType().isInterfaceOrDefault(appView, wasInterface);
+      useInterfaceBitOfDefinition = true;
+    } else if (graphLens.isVerticalClassMergerLens()
+        && graphLens
+            .asVerticalClassMergerLens()
+            .hasInterfaceBeenMergedIntoClass(method.getHolderType())) {
+      useInterfaceBitOfDefinition = true;
+    } else {
+      useInterfaceBitOfDefinition = false;
     }
-    // Update interface bit after vertical class merging.
-    VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
-    if (verticalClassMergerLens != null
-        && verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(method.getHolderType())) {
-      return result.getReference().getHolderType().isInterfaceOrDefault(appView, wasInterface);
+    if (useInterfaceBitOfDefinition) {
+      DexType holderType = result.getReference().getHolderType();
+      return holderType.isInterfaceOrDefault(appView, getInterfaceBitFromInvokeOpcode(opcode));
     }
-    return wasInterface;
+    if (result.isInterface().isTrueOrFalse()) {
+      return result.isInterface().isTrue();
+    }
+    return getInterfaceBitFromInvokeOpcode(opcode);
   }
 
   private LirCode<EV> rewriteTryCatchTable(LirCode<EV> code) {

@@ -10,6 +10,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.google.common.collect.Streams;
 import java.util.function.Predicate;
@@ -80,7 +81,11 @@ public abstract class NonIdentityGraphLens extends GraphLens {
 
   @Override
   public MethodLookupResult lookupMethod(
-      DexMethod method, DexMethod context, InvokeType invokeType, GraphLens codeLens) {
+      DexMethod method,
+      DexMethod context,
+      InvokeType invokeType,
+      GraphLens codeLens,
+      OptionalBool isInterface) {
     if (method.getHolderType().isArrayType()) {
       assert Streams.stream(method.getReferencedBaseTypes(dexItemFactory))
           .allMatch(type -> type.isIdenticalTo(lookupClassType(type, codeLens)));
@@ -91,7 +96,8 @@ public abstract class NonIdentityGraphLens extends GraphLens {
           .build();
     }
     assert method.getHolderType().isClassType();
-    return internalLookupMethod(method, context, invokeType, codeLens, result -> result);
+    return internalLookupMethod(
+        method, context, invokeType, isInterface, codeLens, result -> result);
   }
 
   @Override
@@ -130,17 +136,19 @@ public abstract class NonIdentityGraphLens extends GraphLens {
       DexMethod reference,
       DexMethod context,
       InvokeType type,
+      OptionalBool isInterface,
       GraphLens codeLens,
       LookupMethodContinuation continuation) {
     if (this == codeLens) {
       GraphLens identityLens = getIdentityLens();
       return identityLens.internalLookupMethod(
-          reference, context, type, identityLens, continuation);
+          reference, context, type, isInterface, identityLens, continuation);
     }
     return previousLens.internalLookupMethod(
         reference,
         getPreviousMethodSignature(context),
         type,
+        isInterface,
         codeLens,
         previous ->
             continuation.lookupMethod(internalDescribeLookupMethod(previous, context, codeLens)));

@@ -95,6 +95,7 @@ public class MemberRebindingIdentityLens extends DefaultNonIdentityGraphLens {
         .setReboundReference(getReboundMethodReference(previous.getReference()))
         .setPrototypeChanges(previous.getPrototypeChanges())
         .setType(previous.getType())
+        .setIsInterface(previous.isInterface())
         .build();
   }
 

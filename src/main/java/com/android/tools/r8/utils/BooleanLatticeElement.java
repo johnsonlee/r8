@@ -36,6 +36,10 @@ public abstract class BooleanLatticeElement {
     return false;
   }
 
+  public boolean isTrueOrFalse() {
+    return !isUnknown();
+  }
+
   public boolean isFalse() {
     return false;
   }

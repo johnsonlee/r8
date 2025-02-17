@@ -8,6 +8,7 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.optimize.bridgehoisting.BridgeHoistingLens;
+import com.android.tools.r8.utils.OptionalBool;
 
 /**
  * Result of a method lookup in a GraphLens.
@@ -18,21 +19,28 @@ import com.android.tools.r8.optimize.bridgehoisting.BridgeHoistingLens;
  */
 public class MethodLookupResult extends MemberLookupResult<DexMethod> {
 
+  private final OptionalBool isInterface;
   private final InvokeType type;
   private final RewrittenPrototypeDescription prototypeChanges;
 
   public MethodLookupResult(
       DexMethod reference,
       DexMethod reboundReference,
+      OptionalBool isInterface,
       InvokeType type,
       RewrittenPrototypeDescription prototypeChanges) {
     super(reference, reboundReference);
+    this.isInterface = isInterface;
     this.type = type;
     this.prototypeChanges = prototypeChanges;
   }
 
   public static Builder builder(GraphLens lens, GraphLens codeLens) {
     return new Builder(lens, codeLens);
+  }
+
+  public OptionalBool isInterface() {
+    return isInterface;
   }
 
   public InvokeType getType() {
@@ -63,12 +71,22 @@ public class MethodLookupResult extends MemberLookupResult<DexMethod> {
     private final GraphLens lens;
     private final GraphLens codeLens;
 
+    private OptionalBool isInterface = OptionalBool.UNKNOWN;
     private RewrittenPrototypeDescription prototypeChanges = RewrittenPrototypeDescription.none();
     private InvokeType type;
 
     private Builder(GraphLens lens, GraphLens codeLens) {
       this.lens = lens;
       this.codeLens = codeLens;
+    }
+
+    public Builder setIsInterface(boolean isInterface) {
+      return setIsInterface(OptionalBool.of(isInterface));
+    }
+
+    public Builder setIsInterface(OptionalBool isInterface) {
+      this.isInterface = isInterface;
+      return this;
     }
 
     public Builder setPrototypeChanges(RewrittenPrototypeDescription prototypeChanges) {
@@ -82,7 +100,8 @@ public class MethodLookupResult extends MemberLookupResult<DexMethod> {
     }
 
     public MethodLookupResult build() {
-      return new MethodLookupResult(reference, reboundReference, type, prototypeChanges)
+      return new MethodLookupResult(
+              reference, reboundReference, isInterface, type, prototypeChanges)
           .verify(lens, codeLens);
     }
 

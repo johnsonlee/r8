@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.ExtraUnusedParameter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneRepresentativeMap;
 import com.android.tools.r8.utils.collections.BidirectionalOneToManyRepresentativeHashMap;
@@ -139,6 +140,7 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
       DexMethod reference,
       DexMethod context,
       InvokeType type,
+      OptionalBool isInterface,
       GraphLens codeLens,
       LookupMethodContinuation continuation) {
     if (this == codeLens) {
@@ -156,7 +158,8 @@ public class EnumUnboxingLens extends NestedGraphLensWithCustomLensCodeRewriter 
               .build();
       return continuation.lookupMethod(lookupResult);
     }
-    return super.internalLookupMethod(reference, context, type, codeLens, continuation);
+    return super.internalLookupMethod(
+        reference, context, type, isInterface, codeLens, continuation);
   }
 
   @Override
