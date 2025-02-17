@@ -94,14 +94,6 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
                 parameters, libraryDesugaringSpecification, compilationSpecification)
             .addProgramFiles(Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "stream.jar"))
             .addKeepMainRule(TEST_CLASS)
-            .applyIf(
-                compilationSpecification.isProgramShrink(),
-                b ->
-                    b.addOptionsModification(
-                        options -> {
-                          // TODO(b/140233505): Allow devirtualization once fixed.
-                          options.enableDevirtualization = false;
-                        }))
             .compile()
             .inspect(this::checkRewrittenInvokes)
             .inspectKeepRules(
@@ -146,11 +138,25 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
         classSubject
             .uniqueMethodWithOriginalName("main")
             .streamInstructions()
-            .filter(instr -> instr.isInvokeInterface() || instr.isInvokeStatic())
+            .filter(
+                instr ->
+                    instr.isInvokeInterface() || instr.isInvokeStatic() || instr.isInvokeVirtual())
+            .filter(
+                instr -> {
+                  String holder = instr.getMethod().getHolderType().getTypeName();
+                  return !holder.equals("java.lang.Class")
+                      && !holder.equals("java.lang.Object")
+                      && !holder.equals("java.io.PrintStream");
+                })
             .collect(Collectors.toList());
+    assertEquals(22, invokes.size());
     assertInvokeStaticMatching(invokes, 0, "Set$-EL;spliterator");
     assertInvokeStaticMatching(invokes, 1, "Collection$-EL;stream");
-    assertInvokeInterfaceMatching(invokes, 2, "Set;iterator");
+    if (compilationSpecification.isProgramShrink()) {
+      assertInvokeVirtualMatching(invokes, 2, "HashSet;iterator");
+    } else {
+      assertInvokeInterfaceMatching(invokes, 2, "Set;iterator");
+    }
     assertInvokeStaticMatching(invokes, 3, "Collection$-EL;stream");
     assertInvokeStaticMatching(invokes, 4, "Set$-EL;spliterator");
     assertInvokeInterfaceMatching(invokes, 8, "Iterator;remove");
@@ -165,7 +171,6 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
     assertInvokeStaticMatching(invokes, 19, "Comparator$-CC;comparingInt");
     assertInvokeStaticMatching(invokes, 20, "List$-EL;sort");
     assertInvokeStaticMatching(invokes, 21, "Collection$-EL;stream");
-    assertEquals(22, invokes.size());
   }
 
   private void assertInvokeInterfaceMatching(List<InstructionSubject> invokes, int i, String s) {
@@ -175,6 +180,11 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
 
   private void assertInvokeStaticMatching(List<InstructionSubject> invokes, int i, String s) {
     assertTrue(invokes.get(i).isInvokeStatic());
+    assertTrue(invokes.get(i).toString().contains(s));
+  }
+
+  private void assertInvokeVirtualMatching(List<InstructionSubject> invokes, int i, String s) {
+    assertTrue(invokes.get(i).isInvokeVirtual());
     assertTrue(invokes.get(i).toString().contains(s));
   }
 
