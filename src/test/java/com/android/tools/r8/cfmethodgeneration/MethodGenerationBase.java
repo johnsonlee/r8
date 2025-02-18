@@ -85,7 +85,7 @@ public abstract class MethodGenerationBase extends CodeGenerationBase {
     List<DexEncodedField> fields = new ArrayList<>();
     readMethodTemplatesInto(codePrinter, generatedMethods::put, fields::add);
     generateRawOutput(generatedMethods, fields, codePrinter, tempFile.toPath());
-    String result = formatRawOutput(tempFile.toPath());
+    String result = javaFormatRawOutput(tempFile.toPath());
 
     tempFile.deleteOnExit();
     return result;

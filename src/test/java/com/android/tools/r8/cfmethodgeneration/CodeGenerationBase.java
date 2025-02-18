@@ -9,6 +9,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
@@ -19,22 +20,61 @@ import java.nio.file.Paths;
 
 public abstract class CodeGenerationBase extends TestBase {
 
-  private static final Path GOOGLE_FORMAT_DIR =
+  private static final Path GOOGLE_KOTLIN_FORMAT_DIR =
+      Paths.get(ToolHelper.THIRD_PARTY_DIR, "google", "google-kotlin-format", "0.54");
+  private static final Path GOOGLE_KOTLIN_FORMAT_JAR =
+      GOOGLE_KOTLIN_FORMAT_DIR.resolve("ktfmt-0.54-jar-with-dependencies.jar");
+  private static final Path GOOGLE_JAVA_FORMAT_DIR =
       Paths.get(ToolHelper.THIRD_PARTY_DIR, "google", "google-java-format", "1.24.0");
-  private static final Path GOOGLE_FORMAT_JAR =
-      GOOGLE_FORMAT_DIR.resolve("google-java-format-1.24.0-all-deps.jar");
+  private static final Path GOOGLE_JAVA_FORMAT_JAR =
+      GOOGLE_JAVA_FORMAT_DIR.resolve("google-java-format-1.24.0-all-deps.jar");
 
   protected final DexItemFactory factory = new DexItemFactory();
 
-  public static String formatRawOutput(String rawOutput) throws IOException {
+  public static String kotlinFormatRawOutput(String rawOutput) throws IOException {
+    Path temporaryFile = File.createTempFile("output-", ".kt").toPath();
+    Files.write(temporaryFile, rawOutput.getBytes());
+    kotlinFormatRawOutput(temporaryFile);
+    String result = FileUtils.readTextFile(temporaryFile);
+    temporaryFile.toFile().deleteOnExit();
+    return result;
+  }
+
+  public static String javaFormatRawOutput(String rawOutput) throws IOException {
     File temporaryFile = File.createTempFile("output-", ".java");
     Files.write(temporaryFile.toPath(), rawOutput.getBytes());
-    String result = formatRawOutput(temporaryFile.toPath());
+    String result = javaFormatRawOutput(temporaryFile.toPath());
     temporaryFile.deleteOnExit();
     return result;
   }
 
-  public static String formatRawOutput(Path tempFile) throws IOException {
+  public static String kotlinFormatRawOutput(Path tempFile) throws IOException {
+    // Apply google format.
+    ProcessBuilder builder =
+        new ProcessBuilder(
+            ImmutableList.of(
+                getJavaExecutable(),
+                "-jar",
+                GOOGLE_KOTLIN_FORMAT_JAR.toString(),
+                "--google-style",
+                tempFile.toAbsolutePath().toString()));
+    String commandString = String.join(" ", builder.command());
+    System.out.println(commandString);
+    Process process = builder.start();
+    ProcessResult result = ToolHelper.drainProcessOutputStreams(process, commandString);
+    // Kotlin formatter will write "Done formatting..." to stderr.
+    if (result.exitCode != 0) {
+      throw new IllegalStateException(result.toString());
+    }
+    // Fix line separators.
+    String content = result.stdout;
+    if (!StringUtils.LINE_SEPARATOR.equals("\n")) {
+      return content.replace(StringUtils.LINE_SEPARATOR, "\n");
+    }
+    return content;
+  }
+
+  public static String javaFormatRawOutput(Path tempFile) throws IOException {
     // Apply google format.
     ProcessBuilder builder =
         new ProcessBuilder(
@@ -47,7 +87,7 @@ public abstract class CodeGenerationBase extends TestBase {
                 "--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
                 "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
                 "-jar",
-                GOOGLE_FORMAT_JAR.toString(),
+                GOOGLE_JAVA_FORMAT_JAR.toString(),
                 tempFile.toAbsolutePath().toString()));
     String commandString = String.join(" ", builder.command());
     System.out.println(commandString);

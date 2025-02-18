@@ -33,7 +33,7 @@ public abstract class CfClassGenerator extends CodeGenerationBase {
   public abstract Class<?> getImplementation();
 
   public String generateClass() throws IOException {
-    return formatRawOutput(generateRawOutput());
+    return javaFormatRawOutput(generateRawOutput());
   }
 
   private String generateRawOutput() throws IOException {

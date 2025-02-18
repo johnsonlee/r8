@@ -144,7 +144,7 @@ public class GenerateCovariantReturnTypeMethodsTest extends TestBase {
             .toString();
     Path tempFile = Files.createTempFile("output-", ".java");
     Files.write(tempFile, javaSourceCode.getBytes(StandardCharsets.UTF_8));
-    return MethodGenerationBase.formatRawOutput(tempFile);
+    return MethodGenerationBase.javaFormatRawOutput(tempFile);
   }
 
   private static void registerCovariantMethod(

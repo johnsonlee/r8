@@ -84,7 +84,7 @@ public class GenerateAvailableApiExceptions {
     String rawOutput = builder.toString();
     Path tempFile = Files.createTempFile("output-", ".java");
     FileUtils.writeTextFile(tempFile, rawOutput);
-    return MethodGenerationBase.formatRawOutput(tempFile);
+    return MethodGenerationBase.javaFormatRawOutput(tempFile);
   }
 
   private static boolean isThrowable(
