@@ -2198,7 +2198,7 @@ public class KeepItemAnnotationGenerator {
       fn.accept(generator);
       String formatted = byteStream.toString();
       if (file.toString().endsWith(".java")) {
-        formatted = CodeGenerationBase.formatRawOutput(formatted);
+        formatted = CodeGenerationBase.javaFormatRawOutput(formatted);
       }
       Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
       write.accept(resolved, formatted);
@@ -2217,7 +2217,7 @@ public class KeepItemAnnotationGenerator {
       String formatted = byteStream.toString();
       Path file = source(f.apply(generator));
       if (file.toString().endsWith(".java")) {
-        formatted = CodeGenerationBase.formatRawOutput(formatted);
+        formatted = CodeGenerationBase.javaFormatRawOutput(formatted);
       }
       Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
       write.accept(resolved, formatted);
