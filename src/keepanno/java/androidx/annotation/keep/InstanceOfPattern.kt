@@ -22,30 +22,30 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep;
+package androidx.annotation.keep
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import kotlin.annotation.Retention
+import kotlin.annotation.Target
 
 /**
  * A pattern structure for matching instances of classes and interfaces.
  *
- * <p>If no properties are set, the default pattern matches any instance.
+ * <p>
+ * If no properties are set, the default pattern matches any instance.
  */
-@Target(ElementType.ANNOTATION_TYPE)
-@Retention(RetentionPolicy.CLASS)
-public @interface InstanceOfPattern {
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.ANNOTATION_CLASS)
+annotation class InstanceOfPattern(
 
   /**
    * True if the pattern should include the directly matched classes.
    *
-   * <p>If false, the pattern is exclusive and only matches classes that are strict subclasses of
-   * the pattern.
+   * <p>
+   * If false, the pattern is exclusive and only matches classes that are strict subclasses of the
+   * pattern.
    */
-  boolean inclusive() default true;
+  val inclusive: Boolean = true,
 
   /** Instances of classes matching the class-name pattern. */
-  ClassNamePattern classNamePattern() default @ClassNamePattern(unqualifiedName = "");
-}
+  val classNamePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
+)

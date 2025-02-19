@@ -22,29 +22,29 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep;
+package androidx.annotation.keep
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import kotlin.annotation.Retention
+import kotlin.annotation.Target
 
 /**
  * Annotation to declare the reflective usages made by a class, method or field.
  *
- * <p>The annotation's 'value' is a list of targets to be kept if the annotated item is used. The
+ * <p>
+ * The annotation's 'value' is a list of targets to be kept if the annotated item is used. The
  * annotated item is a precondition for keeping any of the specified targets. Thus, if an annotated
  * method is determined to be unused by the program, the annotation itself will not be in effect and
  * the targets will not be kept (assuming nothing else is otherwise keeping them).
  *
- * <p>The annotation's 'additionalPreconditions' is optional and can specify additional conditions
- * that should be satisfied for the annotation to be in effect.
+ * <p>
+ * The annotation's 'additionalPreconditions' is optional and can specify additional conditions that
+ * should be satisfied for the annotation to be in effect.
  *
- * <p>The translation of the {@link UsesReflection} annotation into a {@link KeepEdge} is as
- * follows:
+ * <p>
+ * The translation of the {@link UsesReflection} annotation into a {@link KeepEdge} is as follows:
  *
- * <p>Assume the item of the annotation is denoted by 'CTX' and referred to as its context.
- *
+ * <p>
+ * Assume the item of the annotation is denoted by 'CTX' and referred to as its context.
  * <pre>
  * &#64;UsesReflection(value = targets, [additionalPreconditions = preconditions])
  * ==&gt;
@@ -75,28 +75,33 @@ import java.lang.annotation.Target;
  *   }
  * </pre>
  */
-@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
-@Retention(RetentionPolicy.CLASS)
-public @interface UsesReflection {
+@Retention(AnnotationRetention.BINARY)
+@Target(
+  AnnotationTarget.CLASS,
+  AnnotationTarget.FIELD,
+  AnnotationTarget.FUNCTION,
+  AnnotationTarget.CONSTRUCTOR,
+)
+annotation class UsesReflection(
 
   /**
    * Optional description to document the reason for this annotation.
    *
    * @return The descriptive message. Defaults to no description.
    */
-  String description() default "";
+  val description: String = "",
 
   /**
    * Consequences that must be kept if the annotation is in effect.
    *
    * @return The list of target consequences.
    */
-  KeepTarget[] value();
+  val value: Array<KeepTarget>,
 
   /**
    * Additional preconditions for the annotation to be in effect.
    *
    * @return The list of additional preconditions. Defaults to no additional preconditions.
    */
-  KeepCondition[] additionalPreconditions() default {};
-}
+  val additionalPreconditions: Array<KeepCondition> = [],
+)
