@@ -28,6 +28,9 @@ KOTLIN_FMT_SHA1 = path.join(
     'third_party', 'google', 'google-kotlin-format', '0.54.tar.gz.sha1')
 KOTLIN_FMT_TGZ = path.join(
     'third_party', 'google', 'google-kotlin-format', '0.54.tar.gz.sha1')
+KOTLIN_FMT_IGNORE = {
+  'src/test/java/com/android/tools/r8/kotlin/metadata/inline_class_fun_descriptor_classes_app/main.kt'
+}
 
 FMT_CMD = path.join(
     'third_party',
@@ -62,6 +65,8 @@ def CheckFormatting(input_api, output_api, branch):
     if not path.endswith('.java') and not path.endswith('.kt'):
       continue
     if path.endswith('.kt'):
+      if path in KOTLIN_FMT_IGNORE:
+        continue
       result = check_output(
         [GetJavaExecutable(), '-jar', KOTLIN_FMT_JAR, '--google-style', '-n', path])
       if len(result) > 0:

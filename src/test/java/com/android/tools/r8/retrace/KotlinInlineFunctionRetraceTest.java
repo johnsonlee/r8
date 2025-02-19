@@ -9,7 +9,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.containsLinePosi
 import static com.android.tools.r8.utils.codeinspector.Matchers.isInlineFrame;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isInlineStack;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 
@@ -92,7 +91,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
         .addRunClasspathFiles(buildOnDexRuntime(parameters, kotlinc.getKotlinStdlibJar()))
         .run(parameters.getRuntime(), "retrace.MainKt")
         .assertFailureWithErrorThatMatches(containsString("inlineExceptionStatic"))
-        .assertFailureWithErrorThatMatches(containsString("at retrace.MainKt.main(Main.kt:15)"));
+        .assertFailureWithErrorThatMatches(containsString("at retrace.MainKt.main(Main.kt:13)"));
   }
 
   @Test
@@ -182,7 +181,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
                           inlineExceptionStatic(kotlinInspector), 3, 8, FILENAME_INLINE_STATIC),
                       // TODO(b/146399675): There should be a nested frame on
                       //  retrace.NestedInlineFunctionKt.nestedInline(line 10).
-                      LinePosition.create(mainSubject.asFoundMethodSubject(), 3, 10, mainFileName));
+                      LinePosition.create(mainSubject.asFoundMethodSubject(), 3, 9, mainFileName));
               checkInlineInformation(stackTrace, codeInspector, mainSubject, inlineStack);
             });
   }
@@ -213,7 +212,7 @@ public class KotlinInlineFunctionRetraceTest extends KotlinTestBase {
                           inlineExceptionStatic(kotlinInspector), 2, 8, FILENAME_INLINE_STATIC),
                       // TODO(b/146399675): There should be a nested frame on
                       //  retrace.NestedInlineFunctionKt.nestedInline(line 10).
-                      LinePosition.create(mainSubject.asFoundMethodSubject(), 2, 10, mainFileName));
+                      LinePosition.create(mainSubject.asFoundMethodSubject(), 2, 9, mainFileName));
               checkInlineInformation(stackTrace, codeInspector, mainSubject, inlineStack);
             });
   }
