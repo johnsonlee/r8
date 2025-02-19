@@ -71,7 +71,7 @@ public class KotlinInlineFunctionInSameFileRetraceTests extends KotlinTestBase {
   }
 
   private int getObfuscatedLinePosition() {
-    return kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72) ? 43 : 32;
+    return kotlinc.is(KotlinCompilerVersion.KOTLINC_1_3_72) ? 43 : 30;
   }
 
   @Test
