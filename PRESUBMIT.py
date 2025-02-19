@@ -68,18 +68,24 @@ def CheckFormatting(input_api, output_api, branch):
     path = f.LocalPath()
     if not path.endswith('.java') and not path.endswith('.kt'):
       continue
-    if path in KOTLIN_FMT_IGNORE:
-      continue
-    if path.endswith('.kt') and not seen_kotlin_error:
+    if path.endswith('.kt'):
+      if path in KOTLIN_FMT_IGNORE:
+        continue
       pending_kotlin_files.append(path)
       if len(pending_kotlin_files) == KOTLIN_FMT_BATCH_SIZE:
         seen_kotlin_error = CheckKotlinFormatting(pending_kotlin_files, output_api, results)
         pending_kotlin_files = []
-    elif not seen_java_error:
+    else:
       seen_java_error = CheckJavaFormatting(path, branch, output_api, results)
-
+  # Check remaining Kotlin files if any.
   if len(pending_kotlin_files) > 0:
-    CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+    seen_kotlin_error = CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+  # Provide the reformatting commands if needed.
+  if seen_kotlin_error:
+    results.append(output_api.PresubmitError(KotlinFormatPresubmitMessage()))
+  if seen_java_error:
+    results.append(output_api.PresubmitError(JavaFormatPresubMessage()))
+
   # Comment this out to easily presumbit changes
   # results.append(output_api.PresubmitError("TESTING"))
   return results
@@ -90,7 +96,11 @@ def CheckKotlinFormatting(paths, output_api, results):
   cmd.extend(paths)
   result = check_output(cmd)
   if len(result) > 0:
-    results.append(output_api.PresubmitError(KotlinFormatPresubmitMessage()))
+    with_format_error = result.splitlines()
+    for path in with_format_error:
+      results.append(
+        output_api.PresubmitError(
+          "File {path} needs formatting".format(path=path.decode('utf-8'))))
   return len(result) > 0
 
 
@@ -117,7 +127,6 @@ def CheckJavaFormatting(path, branch, output_api, results):
   (stdout, stderr) = proc.communicate(input=diff)
   if len(stdout) > 0:
     results.append(output_api.PresubmitError(stdout.decode('utf-8')))
-    results.append(output_api.PresubmitError(JavaFormatPresubMessage()))
   return len(stdout) > 0
 
 
