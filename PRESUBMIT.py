@@ -31,6 +31,7 @@ KOTLIN_FMT_TGZ = path.join(
 KOTLIN_FMT_IGNORE = {
   'src/test/java/com/android/tools/r8/kotlin/metadata/inline_class_fun_descriptor_classes_app/main.kt'
 }
+KOTLIN_FMT_BATCH_SIZE = 100
 
 FMT_CMD = path.join(
     'third_party',
@@ -55,6 +56,9 @@ def CheckDoNotMerge(input_api, output_api):
   return []
 
 def CheckFormatting(input_api, output_api, branch):
+  seen_kotlin_error = False
+  seen_java_error = False
+  pending_kotlin_files = []
   EnsureDepFromGoogleCloudStorage(
     KOTLIN_FMT_JAR, KOTLIN_FMT_TGZ, KOTLIN_FMT_SHA1, 'google-kotlin-format')
   EnsureDepFromGoogleCloudStorage(
@@ -64,14 +68,34 @@ def CheckFormatting(input_api, output_api, branch):
     path = f.LocalPath()
     if not path.endswith('.java') and not path.endswith('.kt'):
       continue
-    if path.endswith('.kt'):
-      if path in KOTLIN_FMT_IGNORE:
-        continue
-      result = check_output(
-        [GetJavaExecutable(), '-jar', KOTLIN_FMT_JAR, '--google-style', '-n', path])
-      if len(result) > 0:
-        results.append(output_api.PresubmitError(
-          """Please fix the Kotlin formatting by running:
+    if path in KOTLIN_FMT_IGNORE:
+      continue
+    if path.endswith('.kt') and not seen_kotlin_error:
+      pending_kotlin_files.append(path)
+      if len(pending_kotlin_files) == KOTLIN_FMT_BATCH_SIZE:
+        seen_kotlin_error = CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+        pending_kotlin_files = []
+    elif not seen_java_error:
+      seen_java_error = CheckJavaFormatting(path, branch, output_api, results)
+
+  if len(pending_kotlin_files) > 0:
+    CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+  # Comment this out to easily presumbit changes
+  # results.append(output_api.PresubmitError("TESTING"))
+  return results
+
+
+def CheckKotlinFormatting(paths, output_api, results):
+  cmd = [GetJavaExecutable(), '-jar', KOTLIN_FMT_JAR, '--google-style', '-n']
+  cmd.extend(paths)
+  result = check_output(cmd)
+  if len(result) > 0:
+    results.append(output_api.PresubmitError(KotlinFormatPresubmitMessage()))
+  return len(result) > 0
+
+
+def KotlinFormatPresubmitMessage():
+  return """Please fix the Kotlin formatting by running:
 
   git diff $(git cl upstream) --name-only "*.kt" | xargs {java} -jar {fmt_jar} --google-style
 
@@ -82,20 +106,23 @@ or fix formatting, commit and upload:
 or bypass the checks with:
 
   git cl upload --bypass-hooks
-        """.format(java=GetJavaExecutable(), fmt_jar=KOTLIN_FMT_JAR)))
-        return results
-    else:
-      # Now path.endeWith('.java') is true.
-      diff = check_output(
-          ['git', 'diff', '--no-prefix', '-U0', branch, '--', path])
+    """.format(java=GetJavaExecutable(), fmt_jar=KOTLIN_FMT_JAR)
 
-      proc = Popen(FMT_CMD, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-      (stdout, stderr) = proc.communicate(input=diff)
-      if len(stdout) > 0:
-        results.append(output_api.PresubmitError(stdout.decode('utf-8')))
-    if len(results) > 0:
-      results.append(output_api.PresubmitError(
-          """Please fix the Java formatting by running:
+
+def CheckJavaFormatting(path, branch, output_api, results):
+  diff = check_output(
+      ['git', 'diff', '--no-prefix', '-U0', branch, '--', path])
+
+  proc = Popen(FMT_CMD, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+  (stdout, stderr) = proc.communicate(input=diff)
+  if len(stdout) > 0:
+    results.append(output_api.PresubmitError(stdout.decode('utf-8')))
+    results.append(output_api.PresubmitError(JavaFormatPresubMessage()))
+  return len(stdout) > 0
+
+
+def JavaFormatPresubMessage():
+  return """Please fix the Java formatting by running:
 
   git diff -U0 $(git cl upstream) | %s -p1 -i
 
@@ -115,9 +142,8 @@ If formatting fails with 'No enum constant javax.lang.model.element.Modifier.SEA
     FMT_CMD,
     FMT_CMD_JDK17,
     '--google-java-format-jar',
-    'third_party/google/google-java-format/1.24.0/google-java-format-1.24.0-all-deps.jar'
-)))
-  return results
+    'third_party/google/google-java-format/1.24.0/google-java-format-1.24.0-all-deps.jar')
+
 
 def CheckDeterministicDebuggingChanged(input_api, output_api, branch):
   for f in input_api.AffectedFiles():
