@@ -16,67 +16,88 @@ public var primitiveProp: Int = Int.MAX_VALUE
 
 // Serves as intermediate to make sure the access to a property is done from a separate class.
 private object Intermediate {
-    fun readPrivateProp() = privateProp
-    fun writePrivateProp(s: String) { privateProp = s }
+  fun readPrivateProp() = privateProp
 
-    fun readInternalProp() = internalProp
-    fun writeInternalProp(s: String) { internalProp = s }
+  fun writePrivateProp(s: String) {
+    privateProp = s
+  }
 
-    fun readPublicProp() = publicProp
-    fun writePublicProp(s: String) { publicProp = s }
+  fun readInternalProp() = internalProp
 
-    fun readPrimitiveProp() = primitiveProp
-    fun writePrimitiveProp(i: Int) { primitiveProp = i }
+  fun writeInternalProp(s: String) {
+    internalProp = s
+  }
 
-    fun readLateInitPrivateProp() = privateLateInitProp
-    fun writeLateInitPrivateProp(s: String) { privateLateInitProp = s }
+  fun readPublicProp() = publicProp
 
-    fun readLateInitInternalProp() = internalLateInitProp
-    fun writeLateInitInternalProp(s: String) { internalLateInitProp = s }
+  fun writePublicProp(s: String) {
+    publicProp = s
+  }
 
-    fun readLateInitPublicProp() = publicLateInitProp
-    fun writeLateInitPublicProp(s: String) { publicLateInitProp = s }
+  fun readPrimitiveProp() = primitiveProp
+
+  fun writePrimitiveProp(i: Int) {
+    primitiveProp = i
+  }
+
+  fun readLateInitPrivateProp() = privateLateInitProp
+
+  fun writeLateInitPrivateProp(s: String) {
+    privateLateInitProp = s
+  }
+
+  fun readLateInitInternalProp() = internalLateInitProp
+
+  fun writeLateInitInternalProp(s: String) {
+    internalLateInitProp = s
+  }
+
+  fun readLateInitPublicProp() = publicLateInitProp
+
+  fun writeLateInitPublicProp(s: String) {
+    publicLateInitProp = s
+  }
 }
 
 fun doNotUseProperties(): String {
-    return "doNotUseProperties"
+  return "doNotUseProperties"
 }
 
 fun fileProperties_noUseOfProperties() {
-    println(ObjectProperties.doNotUseProperties())
+  println(ObjectProperties.doNotUseProperties())
 }
 
 fun fileProperties_usePrivateProp() {
-    Intermediate.writePrivateProp("foo")
-    println(Intermediate.readPrivateProp())
+  Intermediate.writePrivateProp("foo")
+  println(Intermediate.readPrivateProp())
 }
 
 fun fileProperties_useInternalProp() {
-    Intermediate.writeInternalProp("foo")
-    println(Intermediate.readInternalProp())
+  Intermediate.writeInternalProp("foo")
+  println(Intermediate.readInternalProp())
 }
 
 fun fileProperties_usePublicProp() {
-    Intermediate.writePublicProp("foo")
-    println(Intermediate.readPublicProp())
+  Intermediate.writePublicProp("foo")
+  println(Intermediate.readPublicProp())
 }
 
 fun fileProperties_usePrimitiveProp() {
-    Intermediate.writePrimitiveProp(Int.MIN_VALUE)
-    println(Intermediate.readPrimitiveProp())
+  Intermediate.writePrimitiveProp(Int.MIN_VALUE)
+  println(Intermediate.readPrimitiveProp())
 }
 
 fun fileProperties_useLateInitPrivateProp() {
-    Intermediate.writeLateInitPrivateProp("foo")
-    println(Intermediate.readLateInitPrivateProp())
+  Intermediate.writeLateInitPrivateProp("foo")
+  println(Intermediate.readLateInitPrivateProp())
 }
 
 fun fileProperties_useLateInitInternalProp() {
-    Intermediate.writeLateInitInternalProp( "foo")
-    println(Intermediate.readLateInitInternalProp())
+  Intermediate.writeLateInitInternalProp("foo")
+  println(Intermediate.readLateInitInternalProp())
 }
 
 fun fileProperties_useLateInitPublicProp() {
-    Intermediate.writeLateInitPublicProp("foo")
-    println(Intermediate.readLateInitPublicProp())
+  Intermediate.writeLateInitPublicProp("foo")
+  println(Intermediate.readLateInitPublicProp())
 }

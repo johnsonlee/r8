@@ -4,8 +4,8 @@
 package com.android.tools.r8.kotlin.metadata.extension_function_app
 
 import com.android.tools.r8.kotlin.metadata.extension_function_lib.B
-import com.android.tools.r8.kotlin.metadata.extension_function_lib.extension
 import com.android.tools.r8.kotlin.metadata.extension_function_lib.csHash
+import com.android.tools.r8.kotlin.metadata.extension_function_lib.extension
 import com.android.tools.r8.kotlin.metadata.extension_function_lib.longArrayHash
 import com.android.tools.r8.kotlin.metadata.extension_function_lib.myApply
 

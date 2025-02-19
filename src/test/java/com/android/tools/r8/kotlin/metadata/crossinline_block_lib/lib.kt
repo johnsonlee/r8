@@ -4,10 +4,7 @@
 
 package com.android.tools.r8.kotlin.metadata.crossinline_block_lib
 
-public inline fun foo(
-  bar: String? = null,
-  crossinline block: () -> String? = { null }
-) {
+public inline fun foo(bar: String? = null, crossinline block: () -> String? = { null }) {
   block()
 }
 
@@ -44,7 +41,7 @@ public inline fun bar(
   bar30: Int = 42,
   bar31: Int = 42,
   bar32: Int = 42,
-  bar33: Int = 42
+  bar33: Int = 42,
 ) {
   println(bar1)
   println(bar2)

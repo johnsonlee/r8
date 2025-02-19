@@ -9,10 +9,10 @@ lateinit var f: ByteArray
 fun main(args: Array<String>) {
   val byteArray = ByteArray(4, { it.toByte() })
   f = byteArray
-  read(byteArray, len=1)
-  read(byteArray, len=2)
-  read(len=3)
-  read(len=4)
+  read(byteArray, len = 1)
+  read(byteArray, len = 2)
+  read(len = 3)
+  read(len = 4)
 }
 
 fun read(b: ByteArray = f, off: Int = 0, len: Int = b.size) {

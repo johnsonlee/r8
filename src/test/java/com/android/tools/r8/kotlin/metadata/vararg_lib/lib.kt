@@ -4,7 +4,7 @@
 package com.android.tools.r8.kotlin.metadata.vararg_lib
 
 class SomeClass {
-  fun foo(x : String) {
+  fun foo(x: String) {
     println("SomeClass::$x")
   }
 }
@@ -12,8 +12,6 @@ class SomeClass {
 fun bar(vararg strs: String, f: (SomeClass, String) -> Unit) {
   if (strs.isNotEmpty() && strs.any { it.startsWith("R8") }) {
     val instance = SomeClass()
-    strs
-      .filter { it.startsWith("R8") }
-      .map { f.invoke(instance, it) }
+    strs.filter { it.startsWith("R8") }.map { f.invoke(instance, it) }
   }
 }

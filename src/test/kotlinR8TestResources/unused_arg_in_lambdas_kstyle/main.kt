@@ -9,7 +9,7 @@ private var COUNT = 11
 
 private fun next() = "${COUNT++}"
 
-fun consumeTwo(l: ((x: Any?, unused: Any?) -> Any)) : Any {
+fun consumeTwo(l: ((x: Any?, unused: Any?) -> Any)): Any {
   // This can be implicitly added by kotlinc
   TypeIntrinsics.beforeCheckcastToFunctionOfArity(l, 2)
   return l(next(), next())

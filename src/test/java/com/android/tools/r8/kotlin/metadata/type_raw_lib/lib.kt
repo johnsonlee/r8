@@ -6,5 +6,5 @@ package com.android.tools.r8.kotlin.metadata.type_raw_lib
 
 class ClassWithRawType {
 
-  fun returnsRaw() = JavaLibraryClass.getGeneric();
+  fun returnsRaw() = JavaLibraryClass.getGeneric()
 }

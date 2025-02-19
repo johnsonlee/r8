@@ -4,12 +4,12 @@
 
 package lambdas_jstyle_runnable
 
-import lambdas_jstyle_runnable.inner.Delegator3
-import lambdas_jstyle_runnable.inner.Implementer4
 import java.util.ArrayDeque
 import java.util.Queue
+import lambdas_jstyle_runnable.inner.Delegator3
+import lambdas_jstyle_runnable.inner.Implementer4
 
-private val queue : Queue<String> = ArrayDeque<String>()
+private val queue: Queue<String> = ArrayDeque<String>()
 
 fun publish(message: String) {
   queue.add(message)

@@ -6,19 +6,24 @@ package com.android.tools.r8.kotlin.sealed.kt
 
 sealed interface SealedInterfaceSubClasses {
   object A : SealedInterfaceSubClasses {
-    override fun toString() : String { return "I am A" }
+    override fun toString(): String {
+      return "I am A"
+    }
   }
+
   object B : SealedInterfaceSubClasses {
-    override fun toString() : String { return "I am B" }
+    override fun toString(): String {
+      return "I am B"
+    }
   }
 }
 
-fun f(o : SealedInterfaceSubClasses) {
+fun f(o: SealedInterfaceSubClasses) {
   when (o) {
     SealedInterfaceSubClasses.A -> print("an A: ")
     SealedInterfaceSubClasses.B -> print("a B: ")
   }
-  println(o);
+  println(o)
 }
 
 fun main() {

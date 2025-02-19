@@ -11,11 +11,11 @@ package dataclass
  * See https://kotlinlang.org/docs/reference/multi-declarations.html.
  */
 fun main(args: Array<String>) {
-    testSomeDataClassComponentFunctions()
+  testSomeDataClassComponentFunctions()
 }
 
 fun testSomeDataClassComponentFunctions() {
-    // We only access to age (tied to component2 method)
-    val (_, age) = Person("Albert", 28)
-    println("Age: $age")
+  // We only access to age (tied to component2 method)
+  val (_, age) = Person("Albert", 28)
+  println("Age: $age")
 }

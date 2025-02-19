@@ -23,12 +23,23 @@ fun trivialTypeAssertionsForFunctions() {
   val test = Test()
   assert(test::getFirstBoolean.parameters.size == 1)
   assert(test::getFirstBoolean.parameters.get(0).name == "l")
-  assert(test::getFirstBoolean
-           .parameters.get(0).type.classifier.toString() == "class kotlin.collections.List")
+  assert(
+    test::getFirstBoolean.parameters.get(0).type.classifier.toString() ==
+      "class kotlin.collections.List"
+  )
   assert(test::getFirstBoolean.parameters.get(0).type.arguments.size == 1)
-  assert(test::getFirstBoolean
-           .parameters.get(0).type.arguments.get(0).type!!.classifier.toString().equals(
-                test::boolean.returnType.classifier.toString()))
+  assert(
+    test::getFirstBoolean
+      .parameters
+      .get(0)
+      .type
+      .arguments
+      .get(0)
+      .type!!
+      .classifier
+      .toString()
+      .equals(test::boolean.returnType.classifier.toString())
+  )
 }
 
 fun runReflective() {
@@ -62,7 +73,10 @@ fun runReflective() {
   test::testNumber.get().add(test::number.get())
   println(test::getFirstNumber.call(test::testNumber.get()))
   test::functionWithUnit.call({ i: Int -> println(i) })
-  test::functionWithVoid.call({ i: Int -> println(i); null })
+  test::functionWithVoid.call({ i: Int ->
+    println(i)
+    null
+  })
 }
 
 fun main() {

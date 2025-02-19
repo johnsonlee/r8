@@ -4,23 +4,23 @@
 package com.android.tools.r8.kotlin.metadata.unit_primitive_lib
 
 class Lib {
-  fun testUnit() : Unit {
+  fun testUnit(): Unit {
     println("testUnit")
   }
 
-  fun testInt() : Int {
+  fun testInt(): Int {
     return 42
   }
 
-  fun testIntArray() : IntArray {
+  fun testIntArray(): IntArray {
     return intArrayOf(42)
   }
 
-  fun testUInt() : UInt {
+  fun testUInt(): UInt {
     return 42u
   }
 
-  fun testUIntArray() : UIntArray {
+  fun testUIntArray(): UIntArray {
     return uintArrayOf(42u)
   }
 }

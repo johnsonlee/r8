@@ -7,23 +7,25 @@ enum class KDirection {
   North,
   South,
   East,
-  West
+  West,
 }
 
-fun direction1(direction: KDirection) = when (direction) {
-  KDirection.North -> "N"
-  KDirection.South -> "S"
-  KDirection.East -> "E"
-  KDirection.West -> "W"
-}
+fun direction1(direction: KDirection) =
+  when (direction) {
+    KDirection.North -> "N"
+    KDirection.South -> "S"
+    KDirection.East -> "E"
+    KDirection.West -> "W"
+  }
 
 // Different declaration order than direction1 or direction2
-fun direction2(direction: KDirection) = when (direction) {
-  KDirection.East -> "E"
-  KDirection.North -> "N"
-  KDirection.West -> "W"
-  KDirection.South -> "S"
-}
+fun direction2(direction: KDirection) =
+  when (direction) {
+    KDirection.East -> "E"
+    KDirection.North -> "N"
+    KDirection.West -> "W"
+    KDirection.South -> "S"
+  }
 
 fun main(args: Array<String>) {
   println(direction1(KDirection.North))

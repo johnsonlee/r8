@@ -14,6 +14,20 @@ sys.path.append(path.dirname(inspect.getfile(lambda: None)))
 sys.path.append(os.path.join(
     path.dirname(inspect.getfile(lambda: None)), 'tools'))
 from tools.utils import EnsureDepFromGoogleCloudStorage
+from tools.jdk import GetJavaExecutable
+
+
+KOTLIN_FMT_JAR = path.join(
+  'third_party',
+  'google',
+  'google-kotlin-format',
+  '0.54',
+  'ktfmt-0.54-jar-with-dependencies.jar')
+
+KOTLIN_FMT_SHA1 = path.join(
+    'third_party', 'google', 'google-kotlin-format', '0.54.tar.gz.sha1')
+KOTLIN_FMT_TGZ = path.join(
+    'third_party', 'google', 'google-kotlin-format', '0.54.tar.gz.sha1')
 
 FMT_CMD = path.join(
     'third_party',
@@ -38,22 +52,45 @@ def CheckDoNotMerge(input_api, output_api):
   return []
 
 def CheckFormatting(input_api, output_api, branch):
-  EnsureDepFromGoogleCloudStorage(FMT_CMD, FMT_TGZ, FMT_SHA1, 'google-format')
+  EnsureDepFromGoogleCloudStorage(
+    KOTLIN_FMT_JAR, KOTLIN_FMT_TGZ, KOTLIN_FMT_SHA1, 'google-kotlin-format')
+  EnsureDepFromGoogleCloudStorage(
+    FMT_CMD, FMT_TGZ, FMT_SHA1, 'google-java-format')
   results = []
   for f in input_api.AffectedFiles():
     path = f.LocalPath()
-    if not path.endswith('.java'):
+    if not path.endswith('.java') and not path.endswith('.kt'):
       continue
-    diff = check_output(
-        ['git', 'diff', '--no-prefix', '-U0', branch, '--', path])
+    if path.endswith('.kt'):
+      result = check_output(
+        [GetJavaExecutable(), '-jar', KOTLIN_FMT_JAR, '--google-style', '-n', path])
+      if len(result) > 0:
+        results.append(output_api.PresubmitError(
+          """Please fix the Kotlin formatting by running:
 
-    proc = Popen(FMT_CMD, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-    (stdout, stderr) = proc.communicate(input=diff)
-    if len(stdout) > 0:
-      results.append(output_api.PresubmitError(stdout.decode('utf-8')))
-  if len(results) > 0:
-    results.append(output_api.PresubmitError(
-        """Please fix the formatting by running:
+  git diff $(git cl upstream) --name-only "*.kt" | xargs {java} -jar {fmt_jar} --google-style
+
+or fix formatting, commit and upload:
+
+  git diff $(git cl upstream) --name-only "*.kt" | xargs {java} -jar {fmt_jar} --google-style && git commit -a --amend --no-edit && git cl upload
+
+or bypass the checks with:
+
+  git cl upload --bypass-hooks
+        """.format(java=GetJavaExecutable(), fmt_jar=KOTLIN_FMT_JAR)))
+        return results
+    else:
+      # Now path.endeWith('.java') is true.
+      diff = check_output(
+          ['git', 'diff', '--no-prefix', '-U0', branch, '--', path])
+
+      proc = Popen(FMT_CMD, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+      (stdout, stderr) = proc.communicate(input=diff)
+      if len(stdout) > 0:
+        results.append(output_api.PresubmitError(stdout.decode('utf-8')))
+    if len(results) > 0:
+      results.append(output_api.PresubmitError(
+          """Please fix the Java formatting by running:
 
   git diff -U0 $(git cl upstream) | %s -p1 -i
 

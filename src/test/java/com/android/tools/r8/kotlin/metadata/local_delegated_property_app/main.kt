@@ -8,33 +8,34 @@ import kotlin.reflect.KProperty
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
-class Resource(private var s : String = "Initial string") {
+class Resource(private var s: String = "Initial string") {
 
   override fun toString(): String {
-    return s;
+    return s
   }
 }
 
 object CustomDelegate {
 
-  private var resource : Resource = Resource()
+  private var resource: Resource = Resource()
 
   operator fun getValue(thisRef: Any?, property: KProperty<*>): Resource {
     println("$resource has been read in CustomDelegate from '${property.name}'")
-    return resource;
+    return resource
   }
 
   operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Resource) {
     println("$value has been assigned to '${property.name}'")
-    this.resource = resource;
+    this.resource = resource
   }
 }
 
 open class Base {
 
-  fun doSomethingOnBarRef() : Resource {
+  fun doSomethingOnBarRef(): Resource {
     var x by CustomDelegate
-    val propRef = x.javaClass.kotlin.declaredMemberProperties.first() as KMutableProperty1<Resource, String>
+    val propRef =
+      x.javaClass.kotlin.declaredMemberProperties.first() as KMutableProperty1<Resource, String>
     propRef.isAccessible = true
     propRef.set(x, "New value")
     propRef.get(x)
@@ -51,9 +52,7 @@ object Impl : Base() {
   }
 }
 
-
 fun main() {
   val impl = Impl()
   impl.doSomethingOnBarRef()
 }
-

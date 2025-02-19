@@ -7,6 +7,7 @@ class ClassWithCompanion {
   fun doStuff() {
     println(foo)
   }
+
   companion object {
     val foo: String
       get() = "Hello World!"

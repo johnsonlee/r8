@@ -24,5 +24,5 @@ fun doubleCheckAssertionsEnabled() {
 }
 
 fun main() {
-  doubleCheckAssertionsEnabled();
+  doubleCheckAssertionsEnabled()
 }

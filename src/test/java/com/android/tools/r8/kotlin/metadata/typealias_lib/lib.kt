@@ -15,8 +15,9 @@ package com.android.tools.r8.kotlin.metadata.typealias_lib
 typealias Jude = Long
 
 interface Itf {
-  fun foo() : Itf
-  fun hey() : Jude
+  fun foo(): Itf
+
+  fun hey(): Jude
 }
 
 // KmTypeAlias {
@@ -58,7 +59,7 @@ typealias myAliasedArray<T> = Array<T>
 typealias APIs = myAliasedArray<API>
 
 open class Impl : API {
-  override fun foo() : API {
+  override fun foo(): API {
     println("Impl::foo")
     return this
   }
@@ -68,6 +69,6 @@ open class Impl : API {
   }
 }
 
-fun seq(vararg itfs : Itf) : APIs {
+fun seq(vararg itfs: Itf): APIs {
   return arrayOf(*itfs)
 }

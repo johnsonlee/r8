@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 @file:kotlin.jvm.JvmMultifileClass
 @file:kotlin.jvm.JvmName("UtilKt")
+
 package com.android.tools.r8.kotlin.metadata.multifileclass_lib
 
 @SinceKotlin("1.3")

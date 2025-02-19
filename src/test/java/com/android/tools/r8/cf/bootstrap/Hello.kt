@@ -3,6 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.cf.bootstrap
 
-fun main(args : Array<String>) {
+fun main(args: Array<String>) {
   println("I'm Woody. Howdy, howdy, howdy.")
 }

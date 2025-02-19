@@ -14,7 +14,7 @@ interface Printable {
 value class Name(val s: String) : Printable {
 
   init {
-    require(s.length > 0) { }
+    require(s.length > 0) {}
   }
 
   val length: Int
@@ -25,15 +25,14 @@ value class Name(val s: String) : Printable {
   }
 }
 
-@JvmInline
-value class UInt(val x: Int)
+@JvmInline value class UInt(val x: Int)
 
 // Represented as 'public final void compute(int x)' on the JVM
 fun compute(x: Int) {
-  println(x);
+  println(x)
 }
 
 // Also represented as 'public final void compute(int x)' on the JVM thus name is mangled!
 fun compute(x: UInt) {
-  println(x);
+  println(x)
 }

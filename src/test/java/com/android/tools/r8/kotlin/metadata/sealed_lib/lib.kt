@@ -15,11 +15,12 @@ data class Sum(val left: Expr, val right: Expr) : BinOp(left, right, "+")
 
 object ExprFactory {
   fun createNum(i: Int): Expr = Num(i)
+
   fun createSum(e1: Expr, e2: Expr): Expr = Sum(e1, e2)
 }
 
 fun Expr.eval(): Int =
-  when(this) {
+  when (this) {
     is Num -> num
     is Sum -> e1.eval() + e2.eval()
     else -> throw IllegalArgumentException("Unknown Expr: $this")

@@ -4,11 +4,13 @@
 
 package com.android.tools.r8.kotlin.metadata.allow_access_modification_lib
 
-internal class Lib internal constructor(
+internal class Lib
+internal constructor(
   internal val readOnlyPropPrimaryInternal: Int,
-  internal var propPrimaryInternal : Int,
+  internal var propPrimaryInternal: Int,
   private val readOnlyPropPrimaryPrivate: Int,
-  internal var propPrimaryPrivate : Int) {
+  internal var propPrimaryPrivate: Int,
+) {
 
   internal val propInternal: Int = 42
   private var propPrivate: Int = 0

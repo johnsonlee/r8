@@ -6,7 +6,5 @@ package retrace
 // Adding a few spaces to better see where the debug information is positioned.
 
 fun main(args: Array<String>) {
-  inlineExceptionStatic {
-    throw Exception("Never get's here")
-  }
+  inlineExceptionStatic { throw Exception("Never get's here") }
 }

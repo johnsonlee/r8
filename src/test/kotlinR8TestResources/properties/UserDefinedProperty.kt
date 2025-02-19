@@ -4,19 +4,21 @@
 package properties
 
 class UserDefinedProperty() {
-    public var durationInMilliSeconds: Int = 0
+  public var durationInMilliSeconds: Int = 0
 
-    var durationInSeconds: Int
-        get() = durationInMilliSeconds / 1000
-        set(v) { durationInMilliSeconds = v * 1000 }
+  var durationInSeconds: Int
+    get() = durationInMilliSeconds / 1000
+    set(v) {
+      durationInMilliSeconds = v * 1000
+    }
 }
 
 fun userDefinedProperty_noUseOfProperties() {
-    UserDefinedProperty()
+  UserDefinedProperty()
 }
 
 fun userDefinedProperty_useProperties() {
-    val obj = UserDefinedProperty()
-    obj.durationInSeconds = 5
-    println(obj.durationInSeconds)
+  val obj = UserDefinedProperty()
+  obj.durationInSeconds = 5
+  println(obj.durationInSeconds)
 }

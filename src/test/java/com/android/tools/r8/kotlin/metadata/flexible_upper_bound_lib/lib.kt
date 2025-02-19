@@ -6,14 +6,14 @@ package com.android.tools.r8.kotlin.metadata.flexible_upper_bound_lib
 
 open class A<T> {
 
-  open fun foo(t : T) {
+  open fun foo(t: T) {
     println("A.foo(): " + t.toString())
   }
 }
 
 class B : A<Int>() {
 
-  override fun foo(t : Int) {
+  override fun foo(t: Int) {
     println("B.foo(): " + t)
   }
 }

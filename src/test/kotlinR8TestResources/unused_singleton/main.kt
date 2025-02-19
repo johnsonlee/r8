@@ -6,8 +6,7 @@ package unused_singleton
 import unused_singleton.TestModule.provideGreeting
 
 internal object TestModule {
-  @JvmStatic
-  fun provideGreeting() = "Hello"
+  @JvmStatic fun provideGreeting() = "Hello"
 }
 
 fun main(args: Array<String>?) {

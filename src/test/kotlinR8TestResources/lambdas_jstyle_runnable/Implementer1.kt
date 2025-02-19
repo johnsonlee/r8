@@ -4,16 +4,17 @@
 
 package lambdas_jstyle_runnable
 
-private val liveChecker = object : Runnable {
-  override fun run() {
-    if (!Thread.currentThread().isInterrupted) {
-      publish("liveChecker")
+private val liveChecker =
+  object : Runnable {
+    override fun run() {
+      if (!Thread.currentThread().isInterrupted) {
+        publish("liveChecker")
+      }
     }
   }
-}
 
 class Implementer1 {
-  fun getRunnable() : Runnable {
+  fun getRunnable(): Runnable {
     return liveChecker
   }
 }

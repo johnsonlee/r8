@@ -24,8 +24,7 @@ class Person(var name: String) {
   val canDrink: Boolean
     get() = age >= 21
 
-  @set:JvmName("changeMaritalStatus")
-  var married: Boolean = false
+  @set:JvmName("changeMaritalStatus") var married: Boolean = false
 }
 
 fun Person.changeAgeLegally(newAge: Int) {

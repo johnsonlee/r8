@@ -5,10 +5,6 @@ package retrace
 
 // Some spaces to better see if retrace is working as expected.
 
-
 fun main(args: Array<String>) {
-  nestedInline {
-    throw Exception("Never get's here")
-  }
+  nestedInline { throw Exception("Never get's here") }
 }
-

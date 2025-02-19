@@ -10,6 +10,6 @@ fun multipleAssertions() {
 }
 
 fun main() {
-  simpleAssertion();
-  multipleAssertions();
+  simpleAssertion()
+  multipleAssertions()
 }

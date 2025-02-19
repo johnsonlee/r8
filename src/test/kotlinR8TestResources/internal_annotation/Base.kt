@@ -7,8 +7,7 @@ package internal_annotation
 internal abstract class Base {
   protected abstract fun foo(): Any?
 
-  public override fun toString(): String =
-      "${foo() ?: this::class.java.name}"
+  public override fun toString(): String = "${foo() ?: this::class.java.name}"
 }
 
 // If we don't adjust annotation values, lack of f(3|4) will trigger errors on legacy VMs.
@@ -21,9 +20,5 @@ internal class Impl(val flag: Boolean) : Base() {
     }
   }
 
-  public override fun toString(): String =
-      if (flag)
-        super.toString()
-      else
-        "Impl::toString"
+  public override fun toString(): String = if (flag) super.toString() else "Impl::toString"
 }

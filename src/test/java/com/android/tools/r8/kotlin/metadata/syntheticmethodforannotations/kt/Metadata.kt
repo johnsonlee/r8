@@ -10,11 +10,9 @@ annotation class Test
 
 class Data {
   companion object {
-    @Test
-    var All: Set<String> = emptySet()
+    @Test var All: Set<String> = emptySet()
 
-    @property:Test
-    var All2: Set<String> = emptySet()
+    @property:Test var All2: Set<String> = emptySet()
   }
 }
 

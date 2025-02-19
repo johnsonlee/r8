@@ -5,23 +5,23 @@
 package accessors
 
 class Accessor {
-    companion object {
-        private val property = "foo"
+  companion object {
+    private val property = "foo"
 
-        fun accessPropertyFromCompanionClass() {
-            println(property)
-        }
+    fun accessPropertyFromCompanionClass() {
+      println(property)
     }
+  }
 
-    fun accessPropertyFromOuterClass() {
-        println(property)
-    }
+  fun accessPropertyFromOuterClass() {
+    println(property)
+  }
 }
 
 fun accessor_accessPropertyFromCompanionClass() {
-    Accessor.accessPropertyFromCompanionClass()
+  Accessor.accessPropertyFromCompanionClass()
 }
 
 fun accessor_accessPropertyFromOuterClass() {
-    Accessor().accessPropertyFromOuterClass()
+  Accessor().accessPropertyFromOuterClass()
 }

@@ -13,6 +13,8 @@ fun main() {
   val primaryConstructor = Skynet::class.primaryConstructor
   val skynet = primaryConstructor?.call(java.time.LocalDateTime.of(1997, 8, 29, 2, 14, 0))
   val sd = skynet?.specialDay
-  println("Wuhuu, my special day is: " +
-            "${sd?.year}-${sd?.monthValue}-${sd?.dayOfMonth}-${sd?.hour}-${sd?.minute}")
+  println(
+    "Wuhuu, my special day is: " +
+      "${sd?.year}-${sd?.monthValue}-${sd?.dayOfMonth}-${sd?.hour}-${sd?.minute}"
+  )
 }

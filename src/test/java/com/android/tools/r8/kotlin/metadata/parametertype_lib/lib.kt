@@ -4,12 +4,13 @@
 package com.android.tools.r8.kotlin.metadata.parametertype_lib
 
 interface Itf {
-  fun foo(arg : Itf)
+  fun foo(arg: Itf)
+
   fun bar()
 }
 
 open class Impl : Itf {
-  override fun foo(arg : Itf) {
+  override fun foo(arg: Itf) {
     arg.bar()
   }
 

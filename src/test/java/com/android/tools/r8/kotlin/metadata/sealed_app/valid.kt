@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata.sealed_app
 
-import com.android.tools.r8.kotlin.metadata.sealed_lib.eval
 import com.android.tools.r8.kotlin.metadata.sealed_lib.ExprFactory
+import com.android.tools.r8.kotlin.metadata.sealed_lib.eval
 
 fun main() {
   println(ExprFactory.createSum(ExprFactory.createNum(4), ExprFactory.createNum(2)).eval())

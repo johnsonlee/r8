@@ -5,10 +5,9 @@ package com.android.tools.r8.kotlin.metadata.propertytype_app
 
 import com.android.tools.r8.kotlin.metadata.propertytype_lib.Impl
 
-class ProgramClass : Impl(8) {
-}
+class ProgramClass : Impl(8) {}
 
 fun main() {
-  val instance : Impl = ProgramClass()
+  val instance: Impl = ProgramClass()
   println(instance.prop1)
 }

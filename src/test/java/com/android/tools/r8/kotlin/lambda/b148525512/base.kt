@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.kotlin.lambda.b148525512
 
-fun printInt(l: () -> Int ) = println(l())
+fun printInt(l: () -> Int) = println(l())
 
 open class Base(@JvmField var x: Int, @JvmField var y: Int)
 

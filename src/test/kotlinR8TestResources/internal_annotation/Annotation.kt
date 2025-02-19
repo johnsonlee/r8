@@ -5,14 +5,10 @@ package internal_annotation
 
 @Target(AnnotationTarget.CLASS)
 internal annotation class Annotation(
-    @get:JvmName("f1")
-    val field1: Int = 0,
-    @get:JvmName("f2")
-    val field2: String = "",
-    @get:JvmName("f3")
-    val field3: IntArray = [],
-    @get:JvmName("f4")
-    val field4: Array<String> = []
+  @get:JvmName("f1") val field1: Int = 0,
+  @get:JvmName("f2") val field2: String = "",
+  @get:JvmName("f3") val field3: IntArray = [],
+  @get:JvmName("f4") val field4: Array<String> = [],
 )
 
 @JvmName("foo")
@@ -34,5 +30,4 @@ internal fun Base.getUnusedFields(): Array<String>? {
   return res.toTypedArray()
 }
 
-private fun Base.getMyAnnotation(): Annotation? =
-    javaClass.getAnnotation(Annotation::class.java)
+private fun Base.getMyAnnotation(): Annotation? = javaClass.getAnnotation(Annotation::class.java)

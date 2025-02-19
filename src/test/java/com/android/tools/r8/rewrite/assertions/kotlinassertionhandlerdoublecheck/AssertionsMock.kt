@@ -5,6 +5,5 @@
 package com.android.tools.r8.rewrite.assertions.kotlinassertionhandlerdoublecheck
 
 object AssertionsMock {
-    @JvmField
-    val ENABLED: Boolean = false
+  @JvmField val ENABLED: Boolean = false
 }

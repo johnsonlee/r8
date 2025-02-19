@@ -7,26 +7,25 @@ package intrinsics
 import java.lang.reflect.InvocationTargetException
 
 fun main(args: Array<String>) {
-    testParameterNullCheck()
+  testParameterNullCheck()
 }
 
 fun expectsNonNullParameters(a: String, b: String): String = a + b
 
 fun testParameterNullCheck() {
-    println("> ${expectsNonNullParameters("pre", "post")} <")
+  println("> ${expectsNonNullParameters("pre", "post")} <")
 
-    val intrinsics = Class.forName("intrinsics.IntrinsicsKt")
-    val method = intrinsics.getMethod(
-            "expectsNonNullParameters", String::class.java, String::class.java)
+  val intrinsics = Class.forName("intrinsics.IntrinsicsKt")
+  val method =
+    intrinsics.getMethod("expectsNonNullParameters", String::class.java, String::class.java)
 
-    println("> ${method.invoke(null, "pre", "post")} <")
+  println("> ${method.invoke(null, "pre", "post")} <")
 
-    try {
-        println("> ${method.invoke(null, "pre", null)} <")
-    } catch (e: InvocationTargetException) {
-        println("> exception: ${e.targetException::javaClass} <")
-        return
-    }
-    throw AssertionError()
+  try {
+    println("> ${method.invoke(null, "pre", null)} <")
+  } catch (e: InvocationTargetException) {
+    println("> exception: ${e.targetException::javaClass} <")
+    return
+  }
+  throw AssertionError()
 }
-

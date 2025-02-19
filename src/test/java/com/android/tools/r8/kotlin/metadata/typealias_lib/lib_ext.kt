@@ -7,7 +7,7 @@ package com.android.tools.r8.kotlin.metadata.typealias_lib
 
 // Unused type aliases
 
-open class LibraryClass { }
+open class LibraryClass {}
 
 // KmTypeAlias {
 //   name: Unused
@@ -36,7 +36,7 @@ typealias UnusedTypeArgument<T> = Unused
 // Expansion to simple class
 
 open class SimpleClass {
-  val y : Int = 42;
+  val y: Int = 42
 }
 
 // KmTypeAlias {
@@ -53,14 +53,13 @@ typealias AlphaNaming = SimpleClass
 class SimpleClassTester {
 
   companion object {
-    fun f(a : Any) : AlphaNaming {
-      return a as AlphaNaming;
+    fun f(a: Any): AlphaNaming {
+      return a as AlphaNaming
     }
 
-    fun g(a : AlphaNaming) : Any {
-      return a;
+    fun g(a: AlphaNaming): Any {
+      return a
     }
-
   }
 }
 
@@ -68,7 +67,7 @@ class SimpleClassTester {
 
 interface Api {
 
-  fun foo();
+  fun foo()
 }
 
 class ApiImpl : Api {
@@ -96,15 +95,15 @@ class VerticalClassMergingTester {
       return ApiImpl()
     }
 
-    fun passThrough(a : ApiAlias) : ApiAlias {
-      return a;
+    fun passThrough(a: ApiAlias): ApiAlias {
+      return a
     }
   }
 }
 
 // Multiple expansions
 
-class Arr<K>(val x : K)
+class Arr<K>(val x: K)
 
 // KmTypeAlias {
 //   name: Arr1D
@@ -138,14 +137,13 @@ class Arr2DTester {
 
   companion object {
 
-    fun <K> f(a : Arr1D<Arr1D<K>>) : Arr2D<K> {
-      return a;
+    fun <K> f(a: Arr1D<Arr1D<K>>): Arr2D<K> {
+      return a
     }
 
-    fun <K> g(a : Arr2D<K>) : Arr1D<Arr1D<K>> {
-      return a;
+    fun <K> g(a: Arr2D<K>): Arr1D<Arr1D<K>> {
+      return a
     }
-
   }
 }
 
@@ -186,7 +184,8 @@ typealias IntSet = Set<Int>
 //   typeParameters: K
 //   underlyingType {
 //     classifier: Class(name=kotlin/collections/MutableMap)
-//     arguments: TypeParameter(id=0),TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/IntSet)
+//     arguments:
+// TypeParameter(id=0),TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/IntSet)
 //   }
 //   expandedType {
 //     classifier: Class(name=kotlin/collections/MutableMap)
@@ -199,20 +198,20 @@ class InterfaceTester {
 
   companion object {
 
-    fun f(i : Any) : MyI {
+    fun f(i: Any): MyI {
       return i as MyI
     }
 
-    fun g(myI : MyI) : Any {
-      return myI;
+    fun g(myI: MyI): Any {
+      return myI
     }
 
-    fun h(k : MyMapToSetOfInt<Int>) : MutableMap<Int, IntSet> {
-      return k;
+    fun h(k: MyMapToSetOfInt<Int>): MutableMap<Int, IntSet> {
+      return k
     }
 
-    fun i(myMap : MutableMap<Int, IntSet>) : MyMapToSetOfInt<Int> {
-      return myMap;
+    fun i(myMap: MutableMap<Int, IntSet>): MyMapToSetOfInt<Int> {
+      return myMap
     }
   }
 }
@@ -250,20 +249,20 @@ class FunctionTester {
 
   companion object {
 
-    fun f(a : (Int, Any) -> Unit) : MyHandler {
-      return a;
+    fun f(a: (Int, Any) -> Unit): MyHandler {
+      return a
     }
 
-    fun g(a : MyHandler) : (Int, Any) -> Unit {
-      return a;
+    fun g(a: MyHandler): (Int, Any) -> Unit {
+      return a
     }
 
-    fun h(a : (Boolean) -> Boolean) : MyGenericPredicate<Boolean> {
-      return a;
+    fun h(a: (Boolean) -> Boolean): MyGenericPredicate<Boolean> {
+      return a
     }
 
-    fun i(a : MyGenericPredicate<Boolean>) : (Boolean) -> Boolean {
-      return a;
+    fun i(a: MyGenericPredicate<Boolean>): (Boolean) -> Boolean {
+      return a
     }
   }
 }
@@ -271,10 +270,8 @@ class FunctionTester {
 // Expansion to nested classes
 
 class Outer {
-  class Nested(val y : Int) {
-    inner class Inner(val x : Int) {
-
-    }
+  class Nested(val y: Int) {
+    inner class Inner(val x: Int) {}
   }
 }
 
@@ -304,20 +301,20 @@ class OuterTester {
 
   companion object {
 
-    fun f(a : Any) : OuterNested {
-      return a as OuterNested;
+    fun f(a: Any): OuterNested {
+      return a as OuterNested
     }
 
-    fun g(a : OuterNested) : Any {
-      return a;
+    fun g(a: OuterNested): Any {
+      return a
     }
 
-    fun h(a : Any) : OuterNestedInner {
-      return a as OuterNestedInner;
+    fun h(a: Any): OuterNestedInner {
+      return a as OuterNestedInner
     }
 
-    fun i(a : OuterNestedInner) : Any {
-      return a;
+    fun i(a: OuterNestedInner): Any {
+      return a
     }
   }
 }
@@ -335,17 +332,19 @@ class ClassWithCompanion {
 // KmTypeAlias {
 //   name: ClassWithCompanionC
 //   underlyingType {
-//     classifier: Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/ClassWithCompanion.Companion)
+//     classifier:
+// Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/ClassWithCompanion.Companion)
 //   }
 //   expandedType {
-//     classifier: Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/ClassWithCompanion.Companion)
+//     classifier:
+// Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/ClassWithCompanion.Companion)
 //   }
 // },
 typealias ClassWithCompanionC = ClassWithCompanion.Companion
 
 // Expansion to constructor
 
-class C(val x : Int) {
+class C(val x: Int) {
 
   private constructor() : this(0)
 }
@@ -365,12 +364,12 @@ class CWithConstructorTester {
 
   companion object {
 
-    fun f(a : Any) : CWithConstructor {
-      return a as CWithConstructor;
+    fun f(a: Any): CWithConstructor {
+      return a as CWithConstructor
     }
 
-    fun g(a : CWithConstructor) : Any {
-      return a;
+    fun g(a: CWithConstructor): Any {
+      return a
     }
   }
 }
@@ -380,7 +379,8 @@ class CWithConstructorTester {
 // KmTypeAlias {
 //   name: StillCWithConstructor
 //   underlyingType {
-//     classifier: TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/CWithConstructor)
+//     classifier:
+// TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/CWithConstructor)
 //   }
 //   expandedType {
 //     classifier: Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/C)
@@ -392,11 +392,13 @@ typealias StillCWithConstructor = CWithConstructor
 //   name: MyAdvancedMap
 //   underlyingType {
 //     classifier: Class(name=kotlin/collections/MutableMap)
-//     arguments: TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/OuterNested),TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/OuterNestedInner)
+//     arguments:
+// TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/OuterNested),TypeAlias(name=com/android/tools/r8/kotlin/metadata/typealias_lib/OuterNestedInner)
 //   }
 //   expandedType {
 //     classifier: Class(name=kotlin/collections/MutableMap)
-//     arguments: Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/Outer.Nested),Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/Outer.Nested.Inner)
+//     arguments:
+// Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/Outer.Nested),Class(name=com/android/tools/r8/kotlin/metadata/typealias_lib/Outer.Nested.Inner)
 //   }
 // },
 typealias MyAdvancedMap = MutableMap<OuterNested, OuterNestedInner>
@@ -405,20 +407,20 @@ class UnderlyingTypeTester {
 
   companion object {
 
-    fun f(a : StillCWithConstructor) : CWithConstructor {
-      return a;
+    fun f(a: StillCWithConstructor): CWithConstructor {
+      return a
     }
 
-    fun g(a : CWithConstructor) : StillCWithConstructor {
-      return a;
+    fun g(a: CWithConstructor): StillCWithConstructor {
+      return a
     }
 
-    fun h(a : MutableMap<OuterNested, OuterNestedInner>) : MyAdvancedMap {
-      return a;
+    fun h(a: MutableMap<OuterNested, OuterNestedInner>): MyAdvancedMap {
+      return a
     }
 
-    fun i(a : MyAdvancedMap) : MutableMap<OuterNested, OuterNestedInner> {
-      return a;
+    fun i(a: MyAdvancedMap): MutableMap<OuterNested, OuterNestedInner> {
+      return a
     }
   }
 }

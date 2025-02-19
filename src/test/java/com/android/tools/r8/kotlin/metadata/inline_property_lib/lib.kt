@@ -4,12 +4,13 @@
 
 package com.android.tools.r8.kotlin.metadata.inline_property_lib
 
-class Lib(val number : Int) {
+class Lib(val number: Int) {
 
   val is42
-    inline get() = number == 42;
+    inline get() = number == 42
 }
 
 class LibExt
-  val Lib.is7
-    inline get() = number == 7;
+
+val Lib.is7
+  inline get() = number == 7

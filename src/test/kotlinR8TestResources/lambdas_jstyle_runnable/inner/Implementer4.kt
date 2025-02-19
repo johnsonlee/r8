@@ -6,7 +6,7 @@ package lambdas_jstyle_runnable.inner
 
 import lambdas_jstyle_runnable.publish
 
-private val reachableChecker : Runnable by lazy {
+private val reachableChecker: Runnable by lazy {
   Runnable {
     if (!Thread.currentThread().isInterrupted) {
       publish("reachableChecker")
@@ -15,7 +15,7 @@ private val reachableChecker : Runnable by lazy {
 }
 
 class Implementer4 {
-  fun getRunnable() : Runnable {
+  fun getRunnable(): Runnable {
     return reachableChecker
   }
 }

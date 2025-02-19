@@ -7,11 +7,11 @@ fun foo(field: String) {
   println("field is " + field)
 }
 
-fun bar(field : String) {
+fun bar(field: String) {
   println(field)
   foo(field)
 }
 
-fun main(args : Array<String>) {
+fun main(args: Array<String>) {
   bar((if (args.size > 0) args.get(0) else null) as String)
 }

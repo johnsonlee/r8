@@ -6,9 +6,10 @@ package com.android.tools.r8.kotlin.metadata.allow_access_modification_lib
 
 class LibReference(
   val readOnlyPropPrimaryInternal: Int,
-  var propPrimaryInternal : Int,
+  var propPrimaryInternal: Int,
   val readOnlyPropPrimaryPrivate: Int,
-  var propPrimaryPrivate : Int) {
+  var propPrimaryPrivate: Int,
+) {
 
   val readOnlyPropInternal: Int = 42
   var propPrivate: Int = 42

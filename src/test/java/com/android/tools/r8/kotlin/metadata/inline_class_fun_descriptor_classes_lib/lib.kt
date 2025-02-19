@@ -4,15 +4,14 @@
 
 package com.android.tools.r8.kotlin.metadata.inline_class_fun_descriptor_classes_lib
 
-@JvmInline
-value class Password(val s: String)
+@JvmInline value class Password(val s: String)
 
 @KeepForApi
-fun create(pw : String) : Password {
+fun create(pw: String): Password {
   return Password(pw)
 }
 
 @KeepForApi
-fun login(pw : Password) {
+fun login(pw: Password) {
   println(pw.s)
 }

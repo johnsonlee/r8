@@ -11,22 +11,22 @@ open class Base
 
 class Sub : Base() {
 
-  var notExposedProperty : Int = 42
-  var keptProperty : String = "Hello World";
+  var notExposedProperty: Int = 42
+  var keptProperty: String = "Hello World"
 
-  fun notKept() : Boolean {
+  fun notKept(): Boolean {
     return true
   }
 
   @NeverInline
-  fun keptWithoutPinning() : Int {
+  fun keptWithoutPinning(): Int {
     if (System.currentTimeMillis() == 0L) {
-      return 41;
+      return 41
     }
-    return 42;
+    return 42
   }
 
-  fun kept() : Int {
+  fun kept(): Int {
     if (System.currentTimeMillis() > 0) {
       notExposedProperty = 0
       keptProperty = "Goodbye World"
@@ -38,7 +38,7 @@ class Sub : Base() {
 class SubUser {
 
   @NeverInline
-  fun use(s : Sub) {
+  fun use(s: Sub) {
     println(s.notExposedProperty)
     println(s.keptProperty)
   }

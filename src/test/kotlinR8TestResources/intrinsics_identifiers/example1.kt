@@ -14,4 +14,3 @@ fun main(args: Array<String>) {
     println(instance.toBeRenamedMethod("arg4"))
   }
 }
-

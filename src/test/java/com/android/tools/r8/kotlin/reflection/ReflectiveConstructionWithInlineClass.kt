@@ -5,10 +5,8 @@
 package com.android.tools.r8.kotlin.reflection
 
 import kotlin.reflect.full.primaryConstructor
-import kotlin.time.Duration
 
-@JvmInline
-value class Value(private val rawValue: Int)
+@JvmInline value class Value(private val rawValue: Int)
 
 data class Data(val value: Value)
 

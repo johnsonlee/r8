@@ -11,11 +11,11 @@ package dataclass
  * See https://kotlinlang.org/docs/reference/multi-declarations.html.
  */
 fun main(args: Array<String>) {
-    testAllDataClassComponentFunctions()
+  testAllDataClassComponentFunctions()
 }
 
 fun testAllDataClassComponentFunctions() {
-    val (name, age) = Person("Albert", 28)
-    println("Name: $name")
-    println("Age: $age")
+  val (name, age) = Person("Albert", 28)
+  println("Name: $name")
+  println("Age: $age")
 }

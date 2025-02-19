@@ -8,7 +8,7 @@ import com.android.tools.r8.kotlin.metadata.delegated_property_lib.MyDelegatedPr
 
 fun main() {
   val myDelegatedProperty = MyDelegatedProperty()
-  myDelegatedProperty.oldName = "foobar";
+  myDelegatedProperty.oldName = "foobar"
   println(myDelegatedProperty.newName)
   println(myDelegatedProperty::oldName.toString())
 }

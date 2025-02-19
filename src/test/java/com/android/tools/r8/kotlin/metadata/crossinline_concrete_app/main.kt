@@ -8,11 +8,13 @@ import com.android.tools.r8.kotlin.metadata.crossinline_concrete_lib.Context
 import com.android.tools.r8.kotlin.metadata.crossinline_concrete_lib.Handler
 
 fun main() {
-  Handler({ context, throwable ->
-    println(context)
-  }).handle(object : Context {
-    override fun toString(): String {
-      return "foo"
-    }
-  }, NullPointerException())
+  Handler({ context, throwable -> println(context) })
+    .handle(
+      object : Context {
+        override fun toString(): String {
+          return "foo"
+        }
+      },
+      NullPointerException(),
+    )
 }

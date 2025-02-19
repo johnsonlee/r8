@@ -18,13 +18,13 @@ import com.android.tools.r8.kotlin.metadata.typeargument_lib.unBoxAndBox
 import com.android.tools.r8.kotlin.metadata.typeargument_lib.unboxAndPutInBox
 import com.android.tools.r8.kotlin.metadata.typeargument_lib.update
 
-class SomeSubClass(val x : Int) : SomeClass(), Comparable<SomeClass> {
+class SomeSubClass(val x: Int) : SomeClass(), Comparable<SomeClass> {
 
   override fun compareTo(other: SomeClass): Int {
     if (other !is SomeSubClass) {
-      return -1;
+      return -1
     }
-    return x.compareTo(other.x);
+    return x.compareTo(other.x)
   }
 }
 
@@ -40,7 +40,7 @@ fun testInvariant() {
 }
 
 fun testCoVariant() {
- println(CoVariant(42).classGenerics().t)
+  println(CoVariant(42).classGenerics().t)
 }
 
 fun testContraVariant() {
@@ -71,7 +71,7 @@ fun testPlainBox() {
 fun main() {
   testInvariant()
   testCoVariant()
-  testContraVariant();
+  testContraVariant()
   testExtension()
   testPlainBox()
 }

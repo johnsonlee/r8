@@ -5,10 +5,10 @@
 package non_null
 
 inline fun coalesce(a: String?, b: String?): String? = a ?: b
-fun aOrDefault(a: String?, default: String): String =
-        coalesce(a, default) ?: throw AssertionError()
+
+fun aOrDefault(a: String?, default: String): String = coalesce(a, default) ?: throw AssertionError()
 
 fun main(args: Array<String>) {
-    println(aOrDefault(null, "null"))
-    println(aOrDefault("null", "non-null"))
+  println(aOrDefault(null, "null"))
+  println(aOrDefault("null", "non-null"))
 }

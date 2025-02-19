@@ -11,7 +11,7 @@ private val statusRunnable = Runnable {
 }
 
 class Implementer2 {
-  fun getRunnable() : Runnable {
+  fun getRunnable(): Runnable {
     return statusRunnable
   }
 }

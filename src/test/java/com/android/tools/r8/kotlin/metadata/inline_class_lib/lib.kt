@@ -4,9 +4,8 @@
 
 package com.android.tools.r8.kotlin.metadata.inline_class_lib
 
-@JvmInline
-value class Password(private val s: String)
+@JvmInline value class Password(private val s: String)
 
-fun login(pw : Password) {
+fun login(pw: Password) {
   println(pw)
 }

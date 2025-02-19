@@ -12,7 +12,7 @@ private val innerRunnable = Runnable {
   }
 }
 
-open class Implementer3(private val priority : Int) : Runnable {
+open class Implementer3(private val priority: Int) : Runnable {
   override fun run() {
     Thread.currentThread().priority = priority
     innerRunnable.run()

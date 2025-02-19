@@ -7,7 +7,7 @@ package com.android.tools.r8.enumunboxing.kotlin
 enum class Color {
   RED,
   GREEN,
-  BLUE
+  BLUE,
 }
 
 fun main() {

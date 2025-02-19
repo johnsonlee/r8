@@ -3,5 +3,4 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.kotlin.metadata.anno
 
-@Retention(AnnotationRetention.RUNTIME)
-annotation class Anno
+@Retention(AnnotationRetention.RUNTIME) annotation class Anno

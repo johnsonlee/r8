@@ -5,14 +5,8 @@ package retrace
 
 fun main(args: Array<String>) {
   println("Before")
-  inlineExceptionStatic {
-    throw Exception("Never get's here")
-  }
+  inlineExceptionStatic { throw Exception("Never get's here") }
   println("Middle")
-  inlineExceptionStatic {
-    throw Exception("Never get's here")
-  }
+  inlineExceptionStatic { throw Exception("Never get's here") }
   println("After")
 }
-
-

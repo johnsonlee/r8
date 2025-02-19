@@ -4,7 +4,5 @@
 package retrace
 
 fun main(args: Array<String>) {
-  InlineFunction().inlineExceptionInstance {
-    throw Exception("Never get's here")
-  }
+  InlineFunction().inlineExceptionInstance { throw Exception("Never get's here") }
 }

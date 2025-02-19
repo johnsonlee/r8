@@ -6,7 +6,5 @@ package com.android.tools.r8.kotlin.metadata.vararg_app
 import com.android.tools.r8.kotlin.metadata.vararg_lib.bar
 
 fun main() {
-  bar("R8") { instance, str ->
-    instance.foo(str)
-  }
+  bar("R8") { instance, str -> instance.foo(str) }
 }

@@ -5,5 +5,5 @@
 package com.android.tools.r8.kotlin.lambda.b159688129
 
 fun test() {
-  run({  })
+  run({})
 }

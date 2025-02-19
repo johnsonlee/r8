@@ -8,7 +8,7 @@ import java.net.URI
 fun main(args: Array<String>) {
   // By specifying non-null type of variables for library uses,
   // kotlin.jvm.internal.Intrinsics#check*Null(...) is added by kotlinc.
-  val uri : URI = URI.create("google.com")
-  val host : String = uri.host
+  val uri: URI = URI.create("google.com")
+  val host: String = uri.host
   println(host)
 }

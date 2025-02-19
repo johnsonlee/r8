@@ -7,14 +7,15 @@ package com.android.tools.r8.kotlin.metadata.anonymous_lib
 class Test {
 
   abstract class A {
-    abstract fun foo() : String;
+    abstract fun foo(): String
   }
 
-  private val internalProp = object : A() {
-    override fun foo(): String {
-      return "foo";
+  private val internalProp =
+    object : A() {
+      override fun foo(): String {
+        return "foo"
+      }
     }
-  }
 
   val prop = internalProp
 }

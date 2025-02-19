@@ -6,6 +6,4 @@ package com.android.tools.r8.kotlin.metadata.inline_class_fun_descriptor_classes
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class KeepForApi {
-
-}
+annotation class KeepForApi {}

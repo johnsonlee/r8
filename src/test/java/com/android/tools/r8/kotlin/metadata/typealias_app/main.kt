@@ -38,67 +38,72 @@ class ProgramClass : Impl() {
 }
 
 fun testUnusedArgument() {
-  val u = UnusedTypeArgument<Int>();
+  val u = UnusedTypeArgument<Int>()
 }
 
 fun testSimpleClass() {
-  val simple = object : AlphaNaming() { }
+  val simple = object : AlphaNaming() {}
   println(SimpleClassTester.f(SimpleClassTester.g(simple)).y)
 }
 
 fun testArr2D() {
-  val arr1d : Arr1D<Int> = Arr1D(42);
-  val arr2d : Arr2D<Int> = Arr2D(arr1d);
-  println(Arr2DTester.f(Arr2DTester.g(arr2d)).x.x);
+  val arr1d: Arr1D<Int> = Arr1D(42)
+  val arr2d: Arr2D<Int> = Arr2D(arr1d)
+  println(Arr2DTester.f(Arr2DTester.g(arr2d)).x.x)
 }
 
 fun testInterface() {
-  val myInstance = object : MyI {
-    override fun f() {
-      println("42");
+  val myInstance =
+    object : MyI {
+      override fun f() {
+        println("42")
+      }
     }
-  }
   InterfaceTester.f(myInstance).f()
 
-  val map : MyMapToSetOfInt<Int> = HashMap();
-  val set : IntSet = mutableSetOf(42);
-  map.put(1, set);
-  println(InterfaceTester.i(InterfaceTester.h(map))[1]?.iterator()?.next() ?: "");
+  val map: MyMapToSetOfInt<Int> = HashMap()
+  val set: IntSet = mutableSetOf(42)
+  map.put(1, set)
+  println(InterfaceTester.i(InterfaceTester.h(map))[1]?.iterator()?.next() ?: "")
 }
 
 fun testFunctionTypes() {
-  FunctionTester.f(FunctionTester.g({ i : Int, a : Any ->
-    println(i)
-    println(a)
-  }))(42, "42")
-  FunctionTester.h(FunctionTester.i({ b ->
-    println(b)
-    false
-  }))(true)
+  FunctionTester.f(
+    FunctionTester.g({ i: Int, a: Any ->
+      println(i)
+      println(a)
+    })
+  )(42, "42")
+  FunctionTester.h(
+    FunctionTester.i({ b ->
+      println(b)
+      false
+    })
+  )(true)
 }
 
 fun testNestedClasses() {
-  val nested = OuterNested(42);
-  val myInner : OuterNestedInner = nested.Inner(1)
+  val nested = OuterNested(42)
+  val myInner: OuterNestedInner = nested.Inner(1)
   println(OuterTester.f(OuterTester.g(nested)).y)
   println(OuterTester.h(OuterTester.i(myInner)).x)
 }
 
 fun testCompanion() {
-  println(ClassWithCompanionC.fooOnCompanion);
+  println(ClassWithCompanionC.fooOnCompanion)
 }
 
 fun testConstructor() {
-  println(CWithConstructorTester.f(CWithConstructorTester.g(CWithConstructor(42))).x);
+  println(CWithConstructorTester.f(CWithConstructorTester.g(CWithConstructor(42))).x)
 }
 
 fun testUnderlyingType() {
   val cWithConstructor = StillCWithConstructor(42)
   println(UnderlyingTypeTester.f(UnderlyingTypeTester.g(cWithConstructor)).x)
-  val advancedMap : MyAdvancedMap = HashMap();
-  val nested = OuterNested(42);
-  val myInner : OuterNestedInner = nested.Inner(1)
-  advancedMap.put(nested, myInner);
+  val advancedMap: MyAdvancedMap = HashMap()
+  val nested = OuterNested(42)
+  val myInner: OuterNestedInner = nested.Inner(1)
+  advancedMap.put(nested, myInner)
   val sameMap = UnderlyingTypeTester.h(UnderlyingTypeTester.i(advancedMap))
   println(sameMap.get(nested)?.x)
 }

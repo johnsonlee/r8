@@ -4,81 +4,80 @@
 
 class KotlinInline {
 
-    fun processObject(obj: Any, func: (Any) -> Unit) {
-        func(obj)
-    }
+  fun processObject(obj: Any, func: (Any) -> Unit) {
+    func(obj)
+  }
 
-    fun printObject(obj: Any) {
-        println(obj)
-    }
+  fun printObject(obj: Any) {
+    println(obj)
+  }
 
-    fun invokeInlinedFunctions() {
-        inlinedA {
-            val inA = 1
-            inlinedB {
-                val inB = 2
-                foo(inA, inB)
-            }
-        }
+  fun invokeInlinedFunctions() {
+    inlinedA {
+      val inA = 1
+      inlinedB {
+        val inB = 2
+        foo(inA, inB)
+      }
     }
+  }
 
-    inline fun inlinedA(f: () -> Unit) {
-        f()
-    }
+  inline fun inlinedA(f: () -> Unit) {
+    f()
+  }
 
-    inline fun inlinedB(f: () -> Unit) {
-        f()
-    }
+  inline fun inlinedB(f: () -> Unit) {
+    f()
+  }
 
-    fun foo(a: Int, b: Int) {
-        println("a=$a, b=$b")
-    }
+  fun foo(a: Int, b: Int) {
+    println("a=$a, b=$b")
+  }
 
-    fun emptyMethod(unused: Int) {
-    }
+  fun emptyMethod(unused: Int) {}
 
-    fun singleInline() {
-        emptyMethod(0)
-        inlined()
-        emptyMethod(1)
-    }
+  fun singleInline() {
+    emptyMethod(0)
+    inlined()
+    emptyMethod(1)
+  }
 
-    inline fun inlined() {
-        emptyMethod(-1)
-    }
+  inline fun inlined() {
+    emptyMethod(-1)
+  }
 
-    // Double inlining
-    fun testNestedInlining() {
-        val l1 = Int.MAX_VALUE
-        val l2 = Int.MIN_VALUE
-        inlinee1(l1, l2)
-    }
-    inline fun inlinee1(a: Int, b: Int) {
-        val c = a - 2
-        inlinee2(1) {
-            val left = a + b
-            val right = a - b
-            foo(left, right)
-        }
-        inlinee2(c) {
-            foo(b, a)
-        }
-    }
+  // Double inlining
+  fun testNestedInlining() {
+    val l1 = Int.MAX_VALUE
+    val l2 = Int.MIN_VALUE
+    inlinee1(l1, l2)
+  }
 
-    inline fun inlinee2(p: Int, block: () -> Unit) {
-        if (p > 0) {
-            block()
-        }
+  inline fun inlinee1(a: Int, b: Int) {
+    val c = a - 2
+    inlinee2(1) {
+      val left = a + b
+      val right = a - b
+      foo(left, right)
     }
+    inlinee2(c) { foo(b, a) }
+  }
 
-    companion object {
-        @JvmStatic fun main(args: Array<String>) {
-            println("Hello world!")
-            val instance = KotlinInline()
-            instance.processObject(instance, instance::printObject)
-            instance.invokeInlinedFunctions()
-            instance.singleInline()
-            instance.testNestedInlining()
-        }
+  inline fun inlinee2(p: Int, block: () -> Unit) {
+    if (p > 0) {
+      block()
     }
+  }
+
+  companion object {
+    @JvmStatic
+    fun main(args: Array<String>) {
+      println("Hello world!")
+      val instance = KotlinInline()
+      instance.processObject(instance, instance::printObject)
+      instance.invokeInlinedFunctions()
+      instance.singleInline()
+      instance.testNestedInlining()
+    }
+  }
 }

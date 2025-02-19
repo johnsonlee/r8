@@ -8,14 +8,16 @@ import com.android.tools.r8.kotlin.metadata.unit_primitive_lib.Lib
 import kotlin.reflect.full.declaredFunctions
 
 fun main() {
-  var lib = Lib();
-  lib::class.declaredFunctions.forEach({
-    println(it)
-    var msg = it.call(lib)
-    if (msg is IntArray) {
-      println(msg[0])
-    } else {
-      println(msg)
-    }
-  })
+  var lib = Lib()
+  lib::class
+    .declaredFunctions
+    .forEach({
+      println(it)
+      var msg = it.call(lib)
+      if (msg is IntArray) {
+        println(msg[0])
+      } else {
+        println(msg)
+      }
+    })
 }

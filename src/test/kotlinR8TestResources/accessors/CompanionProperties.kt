@@ -5,26 +5,26 @@
 package accessors
 
 class CompanionProperties {
-    companion object {
-        private var privateProp: String = "privateProp"
-    }
+  companion object {
+    private var privateProp: String = "privateProp"
+  }
 
-    fun callSetterPrivateProp(v: String) {
-        privateProp = v
-    }
+  fun callSetterPrivateProp(v: String) {
+    privateProp = v
+  }
 
-    fun callGetterPrivateProp(): String {
-        return privateProp
-    }
+  fun callGetterPrivateProp(): String {
+    return privateProp
+  }
 }
 
 fun companionProperties_noUseOfProperties() {
-    CompanionProperties()
-    println("DONE")
+  CompanionProperties()
+  println("DONE")
 }
 
 fun companionProperties_usePrivatePropFromOuter() {
-    val obj = CompanionProperties()
-    obj.callSetterPrivateProp("foo")
-    println(obj.callGetterPrivateProp())
+  val obj = CompanionProperties()
+  obj.callSetterPrivateProp("foo")
+  println(obj.callGetterPrivateProp())
 }

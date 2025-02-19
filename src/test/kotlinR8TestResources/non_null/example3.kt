@@ -5,6 +5,7 @@ package non_null
 
 class Foo(val tag: String) {
   var bar: Bar? = null
+
   fun foo() {
     println("Foo::$tag")
   }

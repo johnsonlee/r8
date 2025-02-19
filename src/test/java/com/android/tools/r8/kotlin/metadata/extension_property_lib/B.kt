@@ -15,5 +15,5 @@ open class Super : I {
 
 class B : Super()
 
-val B.asI : I
+val B.asI: I
   get() = this

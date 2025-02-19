@@ -5,5 +5,8 @@
 package com.android.tools.r8.kotlin.metadata.enum_lib
 
 enum class Direction {
-  UP, RIGHT, DOWN, LEFT
+  UP,
+  RIGHT,
+  DOWN,
+  LEFT,
 }

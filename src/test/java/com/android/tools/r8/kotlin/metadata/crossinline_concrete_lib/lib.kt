@@ -4,9 +4,7 @@
 
 package com.android.tools.r8.kotlin.metadata.crossinline_concrete_lib
 
-public interface Context {
-
-}
+public interface Context {}
 
 public inline fun Handler(crossinline handler: (Context, Throwable) -> Unit): Handler =
   ConcreteClass().getHandler(handler)

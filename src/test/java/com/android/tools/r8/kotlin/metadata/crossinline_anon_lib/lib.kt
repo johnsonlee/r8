@@ -4,14 +4,11 @@
 
 package com.android.tools.r8.kotlin.metadata.crossinline_anon_lib
 
-public interface Context {
-
-}
+public interface Context {}
 
 public inline fun Handler(crossinline handler: (Context, Throwable) -> Unit): Handler =
   object : Handler {
-    override fun handle(context: Context, exception: Throwable) =
-      handler.invoke(context, exception)
+    override fun handle(context: Context, exception: Throwable) = handler.invoke(context, exception)
   }
 
 public interface Handler {

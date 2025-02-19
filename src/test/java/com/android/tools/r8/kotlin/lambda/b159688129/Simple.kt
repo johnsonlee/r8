@@ -5,12 +5,12 @@
 package com.android.tools.r8.kotlin.lambda.b159688129
 
 fun main() {
-  runSimple { println("Hello1")}
-  runSimple { println("Hello2")}
-  runSimple { println("Hello3")}
-  runSimple { println("Hello4")}
-  runSimple { println("Hello5")}
-  runSimple { println("Hello6")}
+  runSimple { println("Hello1") }
+  runSimple { println("Hello2") }
+  runSimple { println("Hello3") }
+  runSimple { println("Hello4") }
+  runSimple { println("Hello5") }
+  runSimple { println("Hello6") }
 }
 
 fun runSimple(cb: () -> Unit) {

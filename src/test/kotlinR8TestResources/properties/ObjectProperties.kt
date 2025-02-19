@@ -5,72 +5,72 @@
 package properties
 
 object ObjectProperties {
-    private var privateProp: String = "privateProp"
-    internal var internalProp: String = "internalProp"
-    public var publicProp: String = "publicProp"
+  private var privateProp: String = "privateProp"
+  internal var internalProp: String = "internalProp"
+  public var publicProp: String = "publicProp"
 
-    private lateinit var privateLateInitProp: String
-    internal lateinit var internalLateInitProp: String
-    public lateinit var publicLateInitProp: String
+  private lateinit var privateLateInitProp: String
+  internal lateinit var internalLateInitProp: String
+  public lateinit var publicLateInitProp: String
 
-    public var primitiveProp: Int = Int.MAX_VALUE
+  public var primitiveProp: Int = Int.MAX_VALUE
 
-    fun callSetterPrivateProp(v: String) {
-        privateProp = v
-    }
+  fun callSetterPrivateProp(v: String) {
+    privateProp = v
+  }
 
-    fun callGetterPrivateProp(): String {
-        return privateProp
-    }
+  fun callGetterPrivateProp(): String {
+    return privateProp
+  }
 
-    fun callSetterLateInitPrivateProp(v: String) {
-        privateLateInitProp = v
-    }
+  fun callSetterLateInitPrivateProp(v: String) {
+    privateLateInitProp = v
+  }
 
-    fun callGetterLateInitPrivateProp(): String {
-        return privateLateInitProp
-    }
+  fun callGetterLateInitPrivateProp(): String {
+    return privateLateInitProp
+  }
 
-    fun doNotUseProperties(): String {
-        return "doNotUseProperties"
-    }
+  fun doNotUseProperties(): String {
+    return "doNotUseProperties"
+  }
 }
 
 fun objectProperties_noUseOfProperties() {
-    println(ObjectProperties.doNotUseProperties())
+  println(ObjectProperties.doNotUseProperties())
 }
 
 fun objectProperties_usePrivateProp() {
-    ObjectProperties.callSetterPrivateProp("foo")
-    println(ObjectProperties.callGetterPrivateProp())
+  ObjectProperties.callSetterPrivateProp("foo")
+  println(ObjectProperties.callGetterPrivateProp())
 }
 
 fun objectProperties_useInternalProp() {
-    ObjectProperties.internalProp = "foo"
-    println(ObjectProperties.internalProp)
+  ObjectProperties.internalProp = "foo"
+  println(ObjectProperties.internalProp)
 }
 
 fun objectProperties_usePublicProp() {
-    ObjectProperties.publicProp = "foo"
-    println(ObjectProperties.publicProp)
+  ObjectProperties.publicProp = "foo"
+  println(ObjectProperties.publicProp)
 }
 
 fun objectProperties_usePrimitiveProp() {
-    ObjectProperties.primitiveProp = Int.MIN_VALUE
-    println(ObjectProperties.primitiveProp)
+  ObjectProperties.primitiveProp = Int.MIN_VALUE
+  println(ObjectProperties.primitiveProp)
 }
 
 fun objectProperties_useLateInitPrivateProp() {
-    ObjectProperties.callSetterLateInitPrivateProp("foo")
-    println(ObjectProperties.callGetterLateInitPrivateProp())
+  ObjectProperties.callSetterLateInitPrivateProp("foo")
+  println(ObjectProperties.callGetterLateInitPrivateProp())
 }
 
 fun objectProperties_useLateInitInternalProp() {
-    ObjectProperties.internalLateInitProp = "foo"
-    println(ObjectProperties.internalLateInitProp)
+  ObjectProperties.internalLateInitProp = "foo"
+  println(ObjectProperties.internalLateInitProp)
 }
 
 fun objectProperties_useLateInitPublicProp() {
-    ObjectProperties.publicLateInitProp = "foo"
-    println(ObjectProperties.publicLateInitProp)
+  ObjectProperties.publicLateInitProp = "foo"
+  println(ObjectProperties.publicLateInitProp)
 }

@@ -6,7 +6,8 @@ package com.android.tools.r8.kotlin.metadata.jvmstatic_lib
 
 interface InterfaceWithCompanion {
   companion object {
-    @JvmStatic fun greet(username: String) {
+    @JvmStatic
+    fun greet(username: String) {
       println("Hello, $username")
     }
   }
@@ -15,11 +16,10 @@ interface InterfaceWithCompanion {
 object Lib {
 
   @JvmStatic
-  fun staticFun(func : () -> Boolean) {
+  fun staticFun(func: () -> Boolean) {
     println("Calling func...")
     func()
   }
 
-  @JvmStatic
-  var staticProp : String = ""
+  @JvmStatic var staticProp: String = ""
 }

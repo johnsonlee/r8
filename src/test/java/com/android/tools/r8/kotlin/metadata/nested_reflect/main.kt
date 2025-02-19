@@ -8,6 +8,7 @@ import kotlin.reflect.full.primaryConstructor
 
 class Outer {
   data class Nested(val data: Int)
+
   inner class Inner(val data: Int)
 }
 

@@ -3,11 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package minify_enum
 
-enum class MinifyEnum(
-    val nullableStr1: String?,
-    val nullableStr2: String?,
-    val number3: String
-) {
+enum class MinifyEnum(val nullableStr1: String?, val nullableStr2: String?, val number3: String) {
   UNKNOWN(null, null, "")
 }
 

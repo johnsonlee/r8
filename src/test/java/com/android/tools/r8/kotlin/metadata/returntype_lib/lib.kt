@@ -4,11 +4,11 @@
 package com.android.tools.r8.kotlin.metadata.returntype_lib
 
 interface Itf {
-  fun foo() : Itf
+  fun foo(): Itf
 }
 
 open class Impl : Itf {
-  override fun foo() : Itf {
+  override fun foo(): Itf {
     println("Impl::foo")
     return this
   }

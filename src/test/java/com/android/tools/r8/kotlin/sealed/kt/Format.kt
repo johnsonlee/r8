@@ -5,16 +5,20 @@
 package com.android.tools.r8.kotlin.sealed.kt
 
 public sealed class Format(val name: String) {
-    object Zip : Format("ZIP")
-    object Directory : Format("DIRECTORY")
+  object Zip : Format("ZIP")
+
+  object Directory : Format("DIRECTORY")
 }
 
 fun main() {
-  val value = when ("ZIP") {
+  val value =
+    when ("ZIP") {
       Format.Zip.name -> Format.Zip
       Format.Directory.name -> Format.Directory
-      else -> throw IllegalArgumentException(
-          "Valid formats: ${Format.Zip.name} or ${Format.Directory.name}.")
-  }
+      else ->
+        throw IllegalArgumentException(
+          "Valid formats: ${Format.Zip.name} or ${Format.Directory.name}."
+        )
+    }
   println(value.name)
 }

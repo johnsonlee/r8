@@ -4,11 +4,13 @@
 package intrinsics_identifiers
 
 class AnotherClass {
-  var anotherField : String = "PREFIX"
-  fun anotherMethod(arg: String) : String {
+  var anotherField: String = "PREFIX"
+
+  fun anotherMethod(arg: String): String {
     return anotherField + arg
   }
-  fun updateField(arg: String) : Unit {
+
+  fun updateField(arg: String): Unit {
     anotherField = arg
   }
 }
@@ -24,4 +26,3 @@ fun main(args: Array<String>) {
     println(instance.anotherMethod("arg4"))
   }
 }
-

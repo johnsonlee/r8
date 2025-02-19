@@ -27,5 +27,8 @@ fun main() {
   test.testNumber.add(test.number)
   println(test.getFirstNumber(test.testNumber))
   test.functionWithUnit { println(it) }
-  test.functionWithVoid { println(it); null }
+  test.functionWithVoid {
+    println(it)
+    null
+  }
 }

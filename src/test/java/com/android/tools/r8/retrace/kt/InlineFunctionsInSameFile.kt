@@ -4,9 +4,7 @@
 package retrace
 
 inline fun foo() {
-  bar {
-     throw Exception("foo")
-  }
+  bar { throw Exception("foo") }
 }
 
 inline fun bar(f: () -> Unit) {

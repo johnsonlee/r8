@@ -9,18 +9,21 @@ import lambdas_jstyle_trivial.next
 import lambdas_jstyle_trivial.nextInt
 
 fun testInner() {
-    testInner1(nextInt(), nextInt(), nextInt(), nextInt())
+  testInner1(nextInt(), nextInt(), nextInt(), nextInt())
 }
 
 private data class InnerLocal<out T>(val id: T)
 
 private fun testInner1(c0: Int, c1: Int, c2: Int, c3: Int) {
-    Lambdas.acceptIntConsumer({ println("{${next()}:$it}") }, 100)
-    Lambdas.acceptStringConsumer({ println("${next()}:{$it}:{$c0}") }, next())
-    Lambdas.acceptGenericConsumer({ println("${next()}:{$it}:{$c0}:{$c1}") }, next())
-    Lambdas.acceptGenericConsumer(
-            { println("${next()}:{$it}:{$c0}:{$c1}:{$c2}") }, InnerLocal(next()))
-    Lambdas.acceptGenericConsumer(
-            { println("${next()}:{$it}:{$c0}:{$c1}:{$c2}:{$c3") }, InnerLocal(InnerLocal(next())))
+  Lambdas.acceptIntConsumer({ println("{${next()}:$it}") }, 100)
+  Lambdas.acceptStringConsumer({ println("${next()}:{$it}:{$c0}") }, next())
+  Lambdas.acceptGenericConsumer({ println("${next()}:{$it}:{$c0}:{$c1}") }, next())
+  Lambdas.acceptGenericConsumer(
+    { println("${next()}:{$it}:{$c0}:{$c1}:{$c2}") },
+    InnerLocal(next()),
+  )
+  Lambdas.acceptGenericConsumer(
+    { println("${next()}:{$it}:{$c0}:{$c1}:{$c2}:{$c3") },
+    InnerLocal(InnerLocal(next())),
+  )
 }
-

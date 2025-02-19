@@ -24,8 +24,15 @@ fun main() {
   // We cannot reflect on annotations on typealiases:
   // https://youtrack.jetbrains.com/issue/KT-21489
   Quux::methodWithTypeAnnotations
-      .returnType.arguments.get(0).type?.annotations?.get(0)?.printAnnoWithClassAndEnum()
-  val nested = Quux::methodWithNestedAnnotations.returnType.arguments[0].type?.annotations?.get(0) as Nested
+    .returnType
+    .arguments
+    .get(0)
+    .type
+    ?.annotations
+    ?.get(0)
+    ?.printAnnoWithClassAndEnum()
+  val nested =
+    Quux::methodWithNestedAnnotations.returnType.arguments[0].type?.annotations?.get(0) as Nested
   println(nested.message)
   nested.kept.printAnnoWithClassAndEnum()
   if (nested::class.memberProperties.any { it.name.equals("notKept") }) {

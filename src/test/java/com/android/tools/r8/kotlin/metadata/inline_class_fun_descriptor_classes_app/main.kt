@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin.metadata.inline_class_fun_descriptor_classes_app
 
 import com.android.tools.r8.kotlin.metadata.inline_class_fun_descriptor_classes_lib.create
-import com.android.tools.r8.kotlin.metadata.inline_class_fun_descriptor_classes_lib.Password
 import com.android.tools.r8.kotlin.metadata.inline_class_fun_descriptor_classes_lib.login
 
 fun main() {
