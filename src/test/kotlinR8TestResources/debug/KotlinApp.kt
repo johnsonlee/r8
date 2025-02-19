@@ -4,27 +4,26 @@
 
 class KotlinApp {
 
-  fun ifElse(cond: Boolean) {
-    val a = 10
-    if (cond) {
-      val b = a * 2
-      printInt(b)
-    } else {
-      val c = a / 2
-      print(c)
+    fun ifElse(cond: Boolean) {
+        val a = 10
+        if (cond) {
+            val b = a * 2
+            printInt(b)
+        } else {
+            val c = a / 2
+            print(c)
+        }
     }
-  }
 
-  fun printInt(i: Int) {
-    println(i)
-  }
-
-  companion object {
-    @JvmStatic
-    fun main(args: Array<String>) {
-      val instance = KotlinApp()
-      instance.ifElse(true)
-      instance.ifElse(false)
+    fun printInt(i: Int) {
+        println(i)
     }
-  }
+
+    companion object {
+        @JvmStatic fun main(args: Array<String>) {
+            val instance = KotlinApp()
+            instance.ifElse(true)
+            instance.ifElse(false)
+        }
+    }
 }
