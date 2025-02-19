@@ -272,6 +272,7 @@ public class ToolHelper {
   // TODO(b/270105162): These should be removed when finished transitioning.
   public static final Path R8_WITH_RELOCATED_DEPS_17_JAR =
       Paths.get(LIBS_DIR, "r8_with_relocated_deps_17.jar");
+  public static final Path ASSISTANT_JAR = Paths.get(LIBS_DIR, "assistant.jar");
   public static final Path R8LIB_JAR = Paths.get(LIBS_DIR, "r8lib.jar");
   public static final Path R8LIB_MAP = Paths.get(LIBS_DIR, "r8lib.jar.map");
   public static final Path R8LIB_MAP_PARTITIONED = Paths.get(LIBS_DIR, "r8lib.jar_map.zip");

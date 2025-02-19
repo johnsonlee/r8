@@ -6,7 +6,9 @@ package com.android.tools.r8.assistant;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.R8Assistant;
@@ -15,11 +17,13 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,6 +39,26 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withNativeMultidexDexRuntimes().withMaximumApiLevel().build();
+  }
+
+  @Test
+  public void testR8LibRuntimeFiles() throws IOException {
+    assumeTrue(ToolHelper.isTestingR8Lib());
+    ZipUtils.iter(
+        ToolHelper.ASSISTANT_JAR,
+        zipEntry -> {
+          try {
+            if (ZipUtils.isClassFile(zipEntry.getName())) {
+              byte[] bytesAssistant =
+                  ZipUtils.readSingleEntry(ToolHelper.ASSISTANT_JAR, zipEntry.getName());
+              byte[] bytesR8Lib =
+                  ZipUtils.readSingleEntry(ToolHelper.R8LIB_JAR, zipEntry.getName());
+              assertArrayEquals(bytesAssistant, bytesR8Lib);
+            }
+          } catch (IOException e) {
+            throw new UncheckedIOException(e);
+          }
+        });
   }
 
   @Test

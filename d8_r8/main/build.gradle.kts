@@ -41,6 +41,7 @@ dependencies {
   implementation(":keepanno")
   implementation(":resourceshrinker")
   compileOnly(Deps.asm)
+  implementation(":assistant")
   compileOnly(Deps.asmCommons)
   compileOnly(Deps.asmUtil)
   compileOnly(Deps.fastUtil)
@@ -89,6 +90,7 @@ spdxSbom {
 }
 
 val keepAnnoJarTask = projectTask("keepanno", "jar")
+val assistantJarTask = projectTask("assistant", "jar")
 val resourceShrinkerJarTask = projectTask("resourceshrinker", "jar")
 val resourceShrinkerDepsTask = projectTask("resourceshrinker", "depsJar")
 
@@ -211,11 +213,13 @@ tasks {
 
   val swissArmyKnife by registering(Jar::class) {
     dependsOn(keepAnnoJarTask)
+    dependsOn(assistantJarTask)
     dependsOn(resourceShrinkerJarTask)
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
     from(sourceSets.main.get().output)
     exclude("com/android/tools/r8/threading/providers/**")
     from(keepAnnoJarTask.outputs.files.map(::zipTree))
+    from(assistantJarTask.outputs.files.map(::zipTree))
     from(resourceShrinkerJarTask.outputs.files.map(::zipTree))
     from(getRoot().resolve("LICENSE"))
     entryCompression = ZipEntryCompression.STORED

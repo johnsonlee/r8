@@ -6,7 +6,9 @@
 import argparse
 import os
 import subprocess
+import shutil
 import sys
+import zipfile
 
 import jdk
 import utils
@@ -30,6 +32,9 @@ def parse_options():
                         action='store_true',
                         default=False,
                         help='Create a socket for debugging')
+    parser.add_argument('--replace-from-jar',
+                        default=None,
+                        help='Replace output jar with classes from this jar.')
     parser.add_argument(
         '--excldeps-variant',
         action='store_true',
@@ -78,6 +83,26 @@ def get_r8_version(r8jar):
         else:
             return output
 
+def replace_in_jar(r8jar, replace_from):
+    with utils.TempDir() as temp:
+        result = os.path.join(temp, 'result.jar')
+        skip_from_r8jar = set()
+        with zipfile.ZipFile(result, 'w') as output_file:
+            with zipfile.ZipFile(replace_from, 'r') as input_file:
+                for zipinfo in input_file.infolist():
+                    if zipinfo.filename.endswith('.class'):
+                        data = input_file.read(zipinfo)
+                        zipinfo.date_time = (1980, 1, 1, 0, 0, 0)
+                        output_file.writestr(zipinfo, data)
+                        skip_from_r8jar.add(zipinfo.filename)
+                    else:
+                        assert (zipinfo.filename == 'META-INF/MANIFEST.MF' or
+                                zipinfo.is_dir())
+            with zipfile.ZipFile(r8jar, 'r') as input_file:
+                for zipinfo in input_file.infolist():
+                    if not zipinfo.filename in skip_from_r8jar:
+                        output_file.writestr(zipinfo, input_file.read(zipinfo))
+        shutil.copyfile(result, r8jar)
 
 def main():
     args = parse_options()
@@ -123,7 +148,8 @@ def main():
         cmd.extend(['--pg-map', args.pg_map])
     print(' '.join(cmd))
     subprocess.check_call(cmd)
-
+    if args.replace_from_jar:
+        replace_in_jar(args.output, args.replace_from_jar)
 
 if __name__ == '__main__':
     sys.exit(main())

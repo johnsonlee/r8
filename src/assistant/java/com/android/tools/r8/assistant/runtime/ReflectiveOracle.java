@@ -24,6 +24,7 @@ public class ReflectiveOracle {
     return INSTANCE;
   }
 
+  @KeepForApi
   public static class Stack {
 
     private final StackTraceElement[] stackTraceElements;
@@ -65,6 +66,7 @@ public class ReflectiveOracle {
     getInstance().onClassGetDeclaredMethod(Stack.createStack(), clazz, name, parameters);
   }
 
+  @KeepForApi
   public static class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
     @Override
     public void onClassNewInstance(Stack stack, Class<?> clazz) {

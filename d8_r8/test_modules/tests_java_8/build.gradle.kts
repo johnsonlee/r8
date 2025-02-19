@@ -38,6 +38,7 @@ val testbaseDepsJarTask = projectTask("testbase", "depsJar")
 // incompatible java class file version. By depending on the jar we circumvent that.
 val keepAnnoJarTask = projectTask("keepanno", "jar")
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
+val assistantCompileTask = projectTask("assistant", "compileJava")
 val mainCompileTask = projectTask("main", "compileJava")
 val mainDepsJarTask = projectTask("main", "depsJar")
 val resourceShrinkerJavaCompileTask = projectTask("resourceshrinker", "compileJava")
@@ -48,6 +49,7 @@ dependencies {
   implementation(keepAnnoJarTask.outputs.files)
   implementation(mainCompileTask.outputs.files)
   implementation(projectTask("main", "processResources").outputs.files)
+  implementation(assistantCompileTask.outputs.files)
   implementation(resourceShrinkerJavaCompileTask.outputs.files)
   implementation(resourceShrinkerKotlinCompileTask.outputs.files)
   implementation(resourceShrinkerDepsJarTask.outputs.files)
@@ -148,6 +150,7 @@ tasks {
         File.pathSeparator + mainDepsJarTask.outputs.files.singleFile +
         File.pathSeparator + getRoot().resolveAll("src", "main", "resources") +
         File.pathSeparator + keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
+        File.pathSeparator + assistantCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + resourceShrinkerJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +
         File.pathSeparator + resourceShrinkerKotlinCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[1])
     systemProperty("R8_DEPS", mainDepsJarTask.outputs.files.singleFile)
