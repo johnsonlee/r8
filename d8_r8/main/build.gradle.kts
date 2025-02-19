@@ -283,6 +283,8 @@ val swissArmyKnifeWithoutLicense by registering(Zip::class) {
     dependsOn(swissArmyKnife)
     from(swissArmyKnife.get().outputs.files.map(::zipTree))
     exclude("LICENSE")
+    exclude("androidx/")
+    exclude("androidx/annotation/")
     exclude("androidx/annotation/keep/**")
     archiveFileName.set("swiss-army-no-license.jar")
 }
