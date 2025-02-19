@@ -25,7 +25,7 @@ import org.gradle.workers.WorkerExecutor
 abstract class DownloadAllDependenciesTask : DefaultTask() {
 
   private var _root: File? = null
-  private var _thirdPartyDeps: List<ThirdPartyDependency>? = null;
+  private var _thirdPartyDeps: List<ThirdPartyDependency>? = null
 
   @InputFiles
   fun getInputFile(): List<File> {
@@ -39,17 +39,16 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
 
   @OutputFiles
   fun getOutputFiles(): List<File> {
-      return _thirdPartyDeps!!.map {
-        _root!!.resolve(it.sha1File.resolveSibling(it.sha1File.name.replace(".sha1", "")))
-      }
+    return _thirdPartyDeps!!.map {
+      _root!!.resolve(it.sha1File.resolveSibling(it.sha1File.name.replace(".sha1", "")))
+    }
   }
 
-  @Inject
-  protected abstract fun getWorkerExecutor(): WorkerExecutor?
+  @Inject protected abstract fun getWorkerExecutor(): WorkerExecutor?
 
   fun setDependencies(root: File, thirdPartyDeps: List<ThirdPartyDependency>) {
     this._root = root
-    this._thirdPartyDeps = thirdPartyDeps;
+    this._thirdPartyDeps = thirdPartyDeps
   }
 
   @TaskAction
@@ -77,11 +76,11 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
   }
 
   interface RunDownloadParameters : WorkParameters {
-    val type : Property<DependencyType>
-    val sha1File : RegularFileProperty
-    val outputDir : RegularFileProperty
-    val tarGzFile : RegularFileProperty
-    val root : RegularFileProperty
+    val type: Property<DependencyType>
+    val sha1File: RegularFileProperty
+    val outputDir: RegularFileProperty
+    val tarGzFile: RegularFileProperty
+    val root: RegularFileProperty
   }
 
   abstract class RunDownload : WorkAction<RunDownloadParameters> {
@@ -90,7 +89,7 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
       val outputDir = parameters.outputDir.asFile.get()
       val tarGzFile = parameters.tarGzFile.asFile.get()
       if (!shouldExecute(outputDir, tarGzFile, sha1File)) {
-        return;
+        return
       }
       if (outputDir.exists() && outputDir.isDirectory) {
         outputDir.delete()
@@ -117,9 +116,12 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
         runProcess(
           parameters,
           ProcessBuilder()
-            .command("bash",
-                     "-c",
-                     "download_from_google_storage " + java.lang.String.join(" ", args)))
+            .command(
+              "bash",
+              "-c",
+              "download_from_google_storage " + java.lang.String.join(" ", args),
+            ),
+        )
       }
     }
 
@@ -128,9 +130,10 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
       if (OperatingSystem.current().isWindows) {
         throw RuntimeException("Downloading from x20 unsupported on windows")
       }
-      runProcess(parameters,
-        ProcessBuilder()
-          .command("bash", "-c", "tools/download_from_x20.py $sha1File"))
+      runProcess(
+        parameters,
+        ProcessBuilder().command("bash", "-c", "tools/download_from_x20.py $sha1File"),
+      )
     }
 
     @Throws(IOException::class, InterruptedException::class)
@@ -140,24 +143,27 @@ abstract class DownloadAllDependenciesTask : DefaultTask() {
       val p = builder.start()
       val exit = p.waitFor()
       if (exit != 0) {
-        throw IOException("Process failed for $command\n"
-            + BufferedReader(
-            InputStreamReader(p.errorStream, StandardCharsets.UTF_8))
-            .lines()
-            .collect(Collectors.joining("\n")))
+        throw IOException(
+          "Process failed for $command\n" +
+            BufferedReader(InputStreamReader(p.errorStream, StandardCharsets.UTF_8))
+              .lines()
+              .collect(Collectors.joining("\n"))
+        )
       }
     }
   }
 
   companion object {
-    fun shouldExecute(outputDir: File, tarGzFile: File, sha1File: File) : Boolean {
+    fun shouldExecute(outputDir: File, tarGzFile: File, sha1File: File): Boolean {
       // First run will write the tar.gz file, causing the second run to still be out-of-date.
       // Check if the modification time of the tar is newer than the sha in which case we are done.
-      if (outputDir.exists()
-        && outputDir.isDirectory
-        && outputDir.list()!!.isNotEmpty()
-        && tarGzFile.exists()
-        && sha1File.lastModified() <= tarGzFile.lastModified()) {
+      if (
+        outputDir.exists() &&
+          outputDir.isDirectory &&
+          outputDir.list()!!.isNotEmpty() &&
+          tarGzFile.exists() &&
+          sha1File.lastModified() <= tarGzFile.lastModified()
+      ) {
         return false
       }
       return true

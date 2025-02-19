@@ -26,16 +26,19 @@ class TestConfigurationHelper {
       out.append("--------------------------------------\n")
       val retracePath = project.getRoot().resolveAll("tools", "retrace.py")
       val command =
-              mutableListOf(
-                      "python3", retracePath.toString(),
-                      "--quiet",
-                      "--map", mappingFile.toString(),
-                      "--r8jar", r8jar.toString())
+        mutableListOf(
+          "python3",
+          retracePath.toString(),
+          "--quiet",
+          "--map",
+          mappingFile.toString(),
+          "--r8jar",
+          r8jar.toString(),
+        )
       val process = ProcessBuilder(command).start()
       process.outputStream.use { exception.printStackTrace(PrintStream(it)) }
       process.outputStream.close()
-      val processCompleted = process.waitFor(20L, TimeUnit.SECONDS)
-        && process.exitValue() == 0
+      val processCompleted = process.waitFor(20L, TimeUnit.SECONDS) && process.exitValue() == 0
       out.append(process.inputStream.bufferedReader().use { it.readText() })
       if (!processCompleted) {
         out.append(command.joinToString(" ") + "\n")
@@ -46,7 +49,7 @@ class TestConfigurationHelper {
         out.append("\n\n--------------------------------------\n")
         out.append("OBFUSCATED STACKTRACE\n")
         out.append("--------------------------------------\n")
-        var baos = ByteArrayOutputStream();
+        var baos = ByteArrayOutputStream()
         exception.printStackTrace(PrintStream(baos, true, StandardCharsets.UTF_8))
         out.append(baos.toString())
       }
@@ -68,8 +71,7 @@ class TestConfigurationHelper {
         test.systemProperty("com.android.tools.r8.kotlincompilerold", "1")
       }
 
-      if (project.hasProperty("dex_vm")
-          && project.property("dex_vm") != "default") {
+      if (project.hasProperty("dex_vm") && project.property("dex_vm") != "default") {
         println("NOTE: Running with non default vm: " + project.property("dex_vm"))
         test.systemProperty("dex_vm", project.property("dex_vm")!!)
       }
@@ -83,7 +85,8 @@ class TestConfigurationHelper {
       if (project.hasProperty("art_profile_rewriting_completeness_check")) {
         test.systemProperty(
           "com.android.tools.r8.artprofilerewritingcompletenesscheck",
-          project.property("art_profile_rewriting_completeness_check")!!)
+          project.property("art_profile_rewriting_completeness_check")!!,
+        )
       }
 
       if (project.hasProperty("disable_assertions")) {
@@ -92,18 +95,20 @@ class TestConfigurationHelper {
 
       // Forward project properties into system properties.
       listOf(
-        "local_development",
-        "slow_tests",
-        "desugar_jdk_json_dir",
-        "desugar_jdk_libs",
-        "test_dir",
-        "command_cache_dir",
-        "command_cache_stats_dir").forEach {
-        val propertyName = it
-        if (project.hasProperty(propertyName)) {
-          project.property(propertyName)?.let { v -> test.systemProperty(propertyName, v) }
+          "local_development",
+          "slow_tests",
+          "desugar_jdk_json_dir",
+          "desugar_jdk_libs",
+          "test_dir",
+          "command_cache_dir",
+          "command_cache_stats_dir",
+        )
+        .forEach {
+          val propertyName = it
+          if (project.hasProperty(propertyName)) {
+            project.property(propertyName)?.let { v -> test.systemProperty(propertyName, v) }
+          }
         }
-      }
 
       if (project.hasProperty("no_internal")) {
         test.exclude("com/android/tools/r8/internal/**")
@@ -121,53 +126,63 @@ class TestConfigurationHelper {
         test.maxHeapSize = "4G"
       }
 
-      if (isR8Lib
-        || project.hasProperty("one_line_per_test")
-        || project.hasProperty("update_test_timestamp")) {
-        test.addTestListener(object : TestListener {
-          val testTimes = mutableMapOf<TestDescriptor?,Long>()
-          val maxPrintTimesCount = 200
-          override fun beforeSuite(desc: TestDescriptor?) {}
-          override fun afterSuite(desc: TestDescriptor?, result: TestResult?) {
-            if (project.hasProperty("print_times")) {
-              // desc.parent == null when we are all done
-              if (desc?.parent == null) {
-                testTimes.toList()
-                  .sortedByDescending { it.second }
-                  .take(maxPrintTimesCount)
-                  .forEach {
-                    println("${it.first} took: ${it.second}")
+      if (
+        isR8Lib ||
+          project.hasProperty("one_line_per_test") ||
+          project.hasProperty("update_test_timestamp")
+      ) {
+        test.addTestListener(
+          object : TestListener {
+            val testTimes = mutableMapOf<TestDescriptor?, Long>()
+            val maxPrintTimesCount = 200
+
+            override fun beforeSuite(desc: TestDescriptor?) {}
+
+            override fun afterSuite(desc: TestDescriptor?, result: TestResult?) {
+              if (project.hasProperty("print_times")) {
+                // desc.parent == null when we are all done
+                if (desc?.parent == null) {
+                  testTimes
+                    .toList()
+                    .sortedByDescending { it.second }
+                    .take(maxPrintTimesCount)
+                    .forEach { println("${it.first} took: ${it.second}") }
                 }
               }
             }
-          }
-          override fun beforeTest(desc: TestDescriptor?) {
-            if (project.hasProperty("one_line_per_test")) {
-              println("Start executing ${desc}")
-            }
-            if (project.hasProperty("print_times")) {
-              testTimes[desc] = Date().getTime()
-            }
-          }
 
-          override fun afterTest(desc: TestDescriptor?, result: TestResult?) {
-            if (project.hasProperty("one_line_per_test")) {
-              println("Done executing ${desc} with result: ${result?.resultType}")
+            override fun beforeTest(desc: TestDescriptor?) {
+              if (project.hasProperty("one_line_per_test")) {
+                println("Start executing ${desc}")
+              }
+              if (project.hasProperty("print_times")) {
+                testTimes[desc] = Date().getTime()
+              }
             }
-            if (project.hasProperty("print_times")) {
-              testTimes[desc] = Date().getTime() - testTimes[desc]!!
-            }
-            if (project.hasProperty("update_test_timestamp")) {
-              File(project.property("update_test_timestamp")!!.toString())
-                .writeText(Date().getTime().toString())
-            }
-            if (isR8Lib
-              && result?.resultType == TestResult.ResultType.FAILURE
-              && result.exception != null) {
-              println(retrace(project, r8Jar!!, r8LibMappingFile!!, result.exception as Throwable))
+
+            override fun afterTest(desc: TestDescriptor?, result: TestResult?) {
+              if (project.hasProperty("one_line_per_test")) {
+                println("Done executing ${desc} with result: ${result?.resultType}")
+              }
+              if (project.hasProperty("print_times")) {
+                testTimes[desc] = Date().getTime() - testTimes[desc]!!
+              }
+              if (project.hasProperty("update_test_timestamp")) {
+                File(project.property("update_test_timestamp")!!.toString())
+                  .writeText(Date().getTime().toString())
+              }
+              if (
+                isR8Lib &&
+                  result?.resultType == TestResult.ResultType.FAILURE &&
+                  result.exception != null
+              ) {
+                println(
+                  retrace(project, r8Jar!!, r8LibMappingFile!!, result.exception as Throwable)
+                )
+              }
             }
           }
-        })
+        )
       }
 
       val userDefinedCoresPerFork = System.getenv("R8_GRADLE_CORES_PER_FORK")
