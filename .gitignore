@@ -116,7 +116,7 @@ third_party/gmscore/*
 third_party/google/google-java-format/1.24.0
 third_party/google/google-java-format/1.24.0.tar.gz
 third_party/google/google-kotlin-format/0.54
-third_party/google/google-kotlin-format/0.52.tar.gz
+third_party/google/google-kotlin-format/0.54.tar.gz
 third_party/google/yapf/20231013
 third_party/google/yapf/20231013.tar.gz
 third_party/google-java-format
