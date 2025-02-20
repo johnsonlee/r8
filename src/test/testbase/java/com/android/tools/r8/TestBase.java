@@ -238,6 +238,10 @@ public class TestBase {
     return testForD8(temp, backend);
   }
 
+  public AssistantTestBuilder testForAssistant() {
+    return AssistantTestBuilder.create(new TestState(temp));
+  }
+
   public RelocatorTestBuilder testForRelocator(boolean external) {
     return RelocatorTestBuilder.create(new TestState(temp), external);
   }

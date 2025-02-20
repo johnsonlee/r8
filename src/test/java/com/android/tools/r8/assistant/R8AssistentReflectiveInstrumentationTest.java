@@ -4,15 +4,11 @@
 package com.android.tools.r8.assistant;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.OutputMode;
-import com.android.tools.r8.R8Assistant;
-import com.android.tools.r8.R8AssistantCommand;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -24,7 +20,6 @@ import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -63,41 +58,16 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
 
   @Test
   public void testInstrumentation() throws Exception {
-    Path d8Compilation =
-        testForD8(parameters.getBackend())
-            .addInnerClasses(getClass())
-            .setMinApi(parameters)
-            .compile()
-            .inspect(codeInspector -> inspectStaticCallsInReflectOn(0, codeInspector))
-            .writeToZip();
-    R8AssistantCommand.Builder builder = R8AssistantCommand.builder();
-    Path outputPath = temp.newFile("instrumented.jar").toPath();
-    // TODO(b/393265921): Add testForR8Assistant and avoid building up the command here
-    R8AssistantCommand command =
-        builder
-            .addProgramFiles(d8Compilation)
-            .setMinApiLevel(parameters.getApiLevel().getLevel())
-            .setOutput(outputPath, OutputMode.DexIndexed)
-            .build();
-    R8Assistant.run(command);
-    inspectStaticCallsInReflectOn(outputPath, 2);
-
-    String artOutput =
-        ToolHelper.runArtNoVerificationErrors(
-            outputPath.toString(),
-            TestClass.class
-                .getName()); // For now, just test that the printed logs are what we expect
-    String expectedNewInstanceString =
-        "Reflectively created new instance of " + Bar.class.getName();
-    assertThat(artOutput, containsString(expectedNewInstanceString));
-    String expectedGetDeclaredMethod =
-        "Reflectively got declared method callMe on " + Bar.class.getName();
-    assertThat(artOutput, containsString(expectedGetDeclaredMethod));
-  }
-
-  private static void inspectStaticCallsInReflectOn(Path outputPath, int count) throws IOException {
-    CodeInspector inspector = new CodeInspector(outputPath);
-    inspectStaticCallsInReflectOn(count, inspector);
+    testForAssistant()
+        .addInnerClasses(getClass())
+        .setMinApi(parameters)
+        .compile()
+        .inspectOriginalDex(inspector -> inspectStaticCallsInReflectOn(0, inspector))
+        .inspect(inspector -> inspectStaticCallsInReflectOn(2, inspector))
+        .run(parameters.getRuntime(), TestClass.class)
+        .assertSuccessWithOutputLines(
+            "Reflectively created new instance of " + Bar.class.getName(),
+            "Reflectively got declared method callMe on " + Bar.class.getName());
   }
 
   private static void inspectStaticCallsInReflectOn(int count, CodeInspector inspector) {
