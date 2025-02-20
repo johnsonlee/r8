@@ -10,10 +10,14 @@ import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer.TracedClass;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer.TracedField;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer.TracedMethod;
+import com.android.tools.r8.tracereferences.TraceReferencesConsumer.TracedReference;
 import com.android.tools.r8.tracereferences.internal.TraceReferencesResult;
+import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
+import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -89,13 +93,14 @@ abstract class Formatter {
       Set<PackageReference> keepPackageNames,
       Map<ClassReference, Set<TracedField>> fields,
       Map<ClassReference, Set<TracedMethod>> methods) {
-    List<TracedClass> sortedTypes = new ArrayList<>(types);
-    sortedTypes.sort(Comparator.comparing(tracedClass -> tracedClass.getReference().getTypeName()));
+    List<TracedClass> sortedTypes =
+        ListUtils.sort(
+            types, Comparator.comparing(tracedClass -> tracedClass.getReference().getDescriptor()));
     for (TracedClass type : sortedTypes) {
       Set<TracedMethod> methodsForClass =
-          methods.getOrDefault(type.getReference(), Collections.emptySet());
+          MapUtils.removeOrDefault(methods, type.getReference(), Collections.emptySet());
       Set<TracedField> fieldsForClass =
-          fields.getOrDefault(type.getReference(), Collections.emptySet());
+          MapUtils.removeOrDefault(fields, type.getReference(), Collections.emptySet());
       if (type.isMissingDefinition()) {
         continue;
       }
@@ -123,6 +128,10 @@ abstract class Formatter {
       }
       printTypeFooter();
     }
+    assert Streams.stream(IterableUtils.flatten(fields.values()))
+        .allMatch(TracedReference::isMissingDefinition);
+    assert Streams.stream(IterableUtils.flatten(methods.values()))
+        .allMatch(TracedReference::isMissingDefinition);
     List<String> packageNamesToKeep =
         keepPackageNames.stream()
             .map(PackageReference::getPackageName)

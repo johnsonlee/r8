@@ -123,6 +123,12 @@ public class UseCollector {
     consumer.acceptMethod(tracedMethod, diagnostics);
   }
 
+  protected void notifyPresentMethod(
+      DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
+    TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom, reference);
+    consumer.acceptMethod(tracedMethod, diagnostics);
+  }
+
   protected void notifyPackageOf(Definition definition) {
     consumer.acceptPackage(
         Reference.packageFromString(definition.getContextType().getPackageName()), diagnostics);
@@ -212,19 +218,6 @@ public class UseCollector {
     }
   }
 
-  private void addSuperMethodFromTarget(
-      DexClassAndMethod method, ProgramMethod context, DefinitionContext referencedFrom) {
-    assert !method.isProgramMethod();
-    assert isTargetType(method.getHolderType());
-    // There should be no need to register the types referenced from the method signature:
-    // - The return type and the parameter types are registered when visiting the source method
-    //   that overrides this target method,
-    // - The holder type is registered from visiting the extends/implements clause of the sub
-    //   class.
-    notifyPresentMethod(method, referencedFrom);
-    ensurePackageAccessToMember(method, context.getHolder());
-  }
-
   private <R, T extends TracedReference<R, ?>> void collectMissing(
       T tracedReference, Set<R> missingCollection) {
     if (tracedReference.isMissingDefinition()) {
@@ -291,7 +284,23 @@ public class UseCollector {
           if (resolvedMethod != null
               && !resolvedMethod.isProgramMethod()
               && isTargetType(resolvedMethod.getHolderType())) {
-            addSuperMethodFromTarget(resolvedMethod, method, referencedFrom);
+            // There should be no need to register the types referenced from the method signature:
+            // - The return type and the parameter types are registered when visiting the source
+            //   method that overrides this target method,
+            // - The holder type is registered from visiting the extends/implements clause of the
+            //   sub class.
+            if (resolvedMethod.getHolderType().isIdenticalTo(superType)) {
+              notifyPresentMethod(resolvedMethod, referencedFrom);
+            } else if (isTargetType(superType)) {
+              notifyPresentMethod(
+                  resolvedMethod,
+                  referencedFrom,
+                  resolvedMethod.getReference().withHolder(superType, factory));
+            } else {
+              notifyPresentMethod(resolvedMethod, referencedFrom);
+              addClass(resolvedMethod.getHolder(), referencedFrom);
+            }
+            ensurePackageAccessToMember(resolvedMethod, method.getHolder());
           }
         });
   }

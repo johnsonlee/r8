@@ -4,7 +4,6 @@
 package com.android.tools.r8.tracereferences;
 
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
@@ -57,8 +56,7 @@ public class TraceReferencesIndirectOverrideTest extends TestBase {
                     .setOutputConsumer(testingKeepRuleConsumer)
                     .build())
             .build());
-    // TODO(b/397904338): shouldBeKept() should be kept.
-    assertThat(testingKeepRuleConsumer.get(), not(containsString("shouldBeKept")));
+    assertThat(testingKeepRuleConsumer.get(), containsString("shouldBeKept"));
   }
 
   static class A {

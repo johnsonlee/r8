@@ -26,6 +26,14 @@ public class TracedMethodImpl extends TracedReferenceBase<MethodReference, Metho
   }
 
   public TracedMethodImpl(
+      DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
+    this(
+        reference.asMethodReference(),
+        referencedFrom,
+        new MethodAccessFlagsImpl(method.getAccessFlags()));
+  }
+
+  public TracedMethodImpl(
       MethodReference methodReference,
       DefinitionContext referencedFrom,
       MethodAccessFlags accessFlags) {
