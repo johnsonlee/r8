@@ -210,7 +210,9 @@ tasks {
             generatedKeepRulesProvider.getSingleOutputFile(),
             // TODO(b/294351878): Remove once enum issue is fixed
             getRoot().resolveAll("src", "main", "keep_r8resourceshrinker.txt"))
-    inputs.files(listOf(r8WithRelocatedDepsJar, inputJar).union(keepRuleFiles).union(classpath))
+    inputs.files(listOf(r8WithRelocatedDepsJar, inputJar,
+                        getRoot().resolveAll("tools", "create_r8lib.py"))
+                   .union(keepRuleFiles).union(classpath))
     val outputJar = getRoot().resolveAll("build", "libs", artifactName)
     outputs.file(outputJar)
     commandLine = createR8LibCommandLine(
