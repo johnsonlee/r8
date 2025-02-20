@@ -39,6 +39,7 @@ val testbaseDepsJarTask = projectTask("testbase", "depsJar")
 val keepAnnoJarTask = projectTask("keepanno", "jar")
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
 val assistantCompileTask = projectTask("assistant", "compileJava")
+val keepAnnoCompileKotlinTask = projectTask("keepanno", "compileKotlin")
 val mainCompileTask = projectTask("main", "compileJava")
 val mainDepsJarTask = projectTask("main", "depsJar")
 val resourceShrinkerJavaCompileTask = projectTask("resourceshrinker", "compileJava")
@@ -136,11 +137,13 @@ tasks {
     systemProperty("TEST_DATA_LOCATION",
                    layout.buildDirectory.dir("classes/java/test").get().toString())
     systemProperty("TESTBASE_DATA_LOCATION",
-                   testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
-
+                   testbaseJavaCompileTask.outputs.files.asPath.split(File.pathSeparator)[0])
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
-      keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
+      extractClassesPaths(
+        "keepanno/",
+        keepAnnoCompileTask.outputs.files.asPath,
+        keepAnnoCompileKotlinTask.outputs.files.asPath))
     // This path is set when compiling examples jar task in DependenciesPlugin.
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
                     getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
