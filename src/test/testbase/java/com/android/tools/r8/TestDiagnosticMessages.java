@@ -19,7 +19,7 @@ import java.util.Iterator;
 import java.util.List;
 import org.hamcrest.Matcher;
 
-public abstract class TestDiagnosticMessages {
+public abstract class TestDiagnosticMessages implements DiagnosticsHandler {
 
   public <E extends Exception> TestDiagnosticMessages applyIf(
       boolean condition,
