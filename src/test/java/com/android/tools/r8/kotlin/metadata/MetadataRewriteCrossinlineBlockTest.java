@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.kotlin.metadata;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -29,7 +30,13 @@ public class MetadataRewriteCrossinlineBlockTest extends KotlinMetadataTestBase 
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters()
+            // Exclude Kotlin 1.3, as that does not support trailing comma in multi line argument
+            // lists, which the Kotlin formatter enforces.
+            .withCompilersStartingFromIncluding(KotlinCompilerVersion.KOTLINC_1_4_20)
+            .withAllLambdaGenerations()
+            .withAllTargetVersions()
+            .build());
   }
 
   public MetadataRewriteCrossinlineBlockTest(

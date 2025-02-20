@@ -83,6 +83,10 @@ public class KotlinCompilerTool {
 
     public static final KotlinCompilerVersion MIN_SUPPORTED_VERSION = KOTLINC_2_0_20;
     public static final KotlinCompilerVersion MAX_SUPPORTED_VERSION = KOTLINC_2_0_20;
+    public static final KotlinCompilerVersion[] DEV_COMPILERS =
+        new KotlinCompilerVersion[] {
+          KotlinCompilerVersion.KOTLINC_2_1_0_BETA1, KotlinCompilerVersion.KOTLIN_DEV
+        };
 
     private final String folder;
     private final KotlinLambdaGeneration defaultLambdaGeneration;

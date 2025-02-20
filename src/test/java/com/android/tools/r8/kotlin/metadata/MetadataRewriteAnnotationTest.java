@@ -5,14 +5,13 @@
 package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_4_20;
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.MIN_SUPPORTED_VERSION;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndNotRenamed;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
-import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
@@ -63,7 +62,9 @@ public class MetadataRewriteAnnotationTest extends KotlinMetadataTestBase {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
         getKotlinTestParameters()
-            .withCompilersStartingFromIncluding(MIN_SUPPORTED_VERSION)
+            // Exclude Kotlin 1.3, as that does not support trailing comma in multi line argument
+            // lists, which the Kotlin formatter enforces.
+            .withCompilersStartingFromIncluding(KotlinCompilerVersion.KOTLINC_1_4_20)
             .withAllLambdaGenerations()
             .withAllTargetVersions()
             .build());

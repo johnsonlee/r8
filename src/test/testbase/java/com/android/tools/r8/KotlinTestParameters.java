@@ -9,7 +9,6 @@ import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinCompilerTool.KotlinLambdaGeneration;
 import com.android.tools.r8.KotlinCompilerTool.KotlinTargetVersion;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -193,13 +192,15 @@ public class KotlinTestParameters {
       List<KotlinCompilerVersion> compilerVersions;
       if (withDevCompiler) {
         compilerVersions =
-            ImmutableList.of(
-                KotlinCompilerVersion.KOTLINC_2_1_0_BETA1, KotlinCompilerVersion.KOTLIN_DEV);
+            Arrays.stream(KotlinCompilerVersion.DEV_COMPILERS)
+                .filter(c -> compilerFilter.test(c))
+                .collect(Collectors.toList());
       } else if (withOldCompilers) {
         compilerVersions =
             Arrays.stream(KotlinCompilerVersion.values())
                 .filter(c -> c.isLessThan(KotlinCompilerVersion.MIN_SUPPORTED_VERSION))
                 .filter(c -> oldCompilerFilter.test(c))
+                .filter(c -> compilerFilter.test(c))
                 .collect(Collectors.toList());
       } else {
         compilerVersions =

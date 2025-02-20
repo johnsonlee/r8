@@ -9,6 +9,7 @@ import static junit.framework.TestCase.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 
+import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper.ProcessResult;
@@ -53,7 +54,13 @@ public class MetadataRewriteAllowAccessModificationTest extends KotlinMetadataTe
   public static Collection<Object[]> data() {
     return buildParameters(
         getTestParameters().withCfRuntimes().build(),
-        getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build());
+        getKotlinTestParameters()
+            // Exclude Kotlin 1.3, as that does not support trailing comma in multi line argument
+            // lists, which the Kotlin formatter enforces.
+            .withCompilersStartingFromIncluding(KotlinCompilerVersion.KOTLINC_1_4_20)
+            .withAllLambdaGenerations()
+            .withAllTargetVersions()
+            .build());
   }
 
   public MetadataRewriteAllowAccessModificationTest(
