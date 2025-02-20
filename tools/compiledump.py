@@ -561,6 +561,7 @@ def prepare_r8_wrapper(dist, temp, jdkhome):
 
 
 def prepare_d8_wrapper(dist, temp, jdkhome):
+    compile_reflective_helper(temp, jdkhome)
     compile_wrapper_with_javac(
         dist, temp, jdkhome,
         os.path.join(
