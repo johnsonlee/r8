@@ -73,13 +73,16 @@ def CheckFormatting(input_api, output_api, branch):
         continue
       pending_kotlin_files.append(path)
       if len(pending_kotlin_files) == KOTLIN_FMT_BATCH_SIZE:
-        seen_kotlin_error = CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+        seen_kotlin_error = (CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+                             or seen_kotlin_error)
         pending_kotlin_files = []
     else:
-      seen_java_error = CheckJavaFormatting(path, branch, output_api, results)
+      seen_java_error = (CheckJavaFormatting(path, branch, output_api, results)
+                         or seen_java_error)
   # Check remaining Kotlin files if any.
   if len(pending_kotlin_files) > 0:
-    seen_kotlin_error = CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+    seen_kotlin_error = (CheckKotlinFormatting(pending_kotlin_files, output_api, results)
+                         or seen_kotlin_error)
   # Provide the reformatting commands if needed.
   if seen_kotlin_error:
     results.append(output_api.PresubmitError(KotlinFormatPresubmitMessage()))
