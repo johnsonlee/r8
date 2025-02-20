@@ -56,29 +56,32 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
         DEBUGGEE_CLASS,
         breakpoint(DEBUGGEE_CLASS, methodName),
         run(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(41, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(40, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         stepOver(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(42, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(41, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         kotlinStepOver(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(43, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(42, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         run());
   }
 
@@ -90,33 +93,36 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
         DEBUGGEE_CLASS,
         breakpoint(DEBUGGEE_CLASS, methodName),
         run(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(41, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(40, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         stepOver(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(42, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(41, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         stepInto(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          // The actual line number (the one encoded in debug information) is different than the
-          // source file one.
-          // TODO(shertz) extract original line number from JSR-45's SMAP (only supported on
-          // Android O+).
-          assertTrue(42 != s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              // The actual line number (the one encoded in debug information) is different than the
+              // source file one.
+              // TODO(shertz) extract original line number from JSR-45's SMAP (only supported on
+              // Android O+).
+              assertTrue(41 != s.getLineNumber());
+              s.checkLocal("this");
+            }),
         run());
   }
 
@@ -128,34 +134,38 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
         DEBUGGEE_CLASS,
         breakpoint(DEBUGGEE_CLASS, methodName),
         run(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(41, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(40, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         stepOver(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(42, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(41, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         stepInto(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+            }),
         kotlinStepOut(),
-        inspect(s -> {
-          assertEquals(DEBUGGEE_CLASS, s.getClassName());
-          assertEquals(methodName, s.getMethodName());
-          assertEquals(SOURCE_FILE, s.getSourceFile());
-          assertEquals(43, s.getLineNumber());
-          s.checkLocal("this");
-        }),
+        inspect(
+            s -> {
+              assertEquals(DEBUGGEE_CLASS, s.getClassName());
+              assertEquals(methodName, s.getMethodName());
+              assertEquals(SOURCE_FILE, s.getSourceFile());
+              assertEquals(42, s.getLineNumber());
+              s.checkLocal("this");
+            }),
         run());
   }
 
@@ -287,17 +297,17 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
         inspect(
             s -> {
               assertEquals(inliningMethodName, s.getMethodName());
-              assertEquals(52, s.getLineNumber());
+              assertEquals(51, s.getLineNumber());
               s.checkLocal("this");
             }),
         checkLocal("this"),
         checkNoLocals("l1", "l2"),
         stepOver(),
-        checkLine(SOURCE_FILE, 53),
+        checkLine(SOURCE_FILE, 52),
         checkLocals("this", "l1"),
         checkNoLocal("l2"),
         stepOver(),
-        checkLine(SOURCE_FILE, 54),
+        checkLine(SOURCE_FILE, 53),
         checkLocals("this", "l1", "l2"),
         stepInto(),
         // We jumped into 1st inlinee but the current method is the same
