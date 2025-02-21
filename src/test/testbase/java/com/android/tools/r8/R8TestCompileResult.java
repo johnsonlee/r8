@@ -47,6 +47,16 @@ public class R8TestCompileResult extends R8TestCompileResultBase<R8TestCompileRe
   }
 
   @Override
+  public boolean isR8CompileResult() {
+    return true;
+  }
+
+  @Override
+  public R8TestCompileResult asR8CompileResult() {
+    return this;
+  }
+
+  @Override
   public R8TestCompileResult self() {
     return this;
   }

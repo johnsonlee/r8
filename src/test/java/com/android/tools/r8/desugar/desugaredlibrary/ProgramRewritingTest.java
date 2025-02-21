@@ -189,35 +189,51 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
   }
 
   private void assertGeneratedKeepRulesAreCorrect(String keepRules) {
-
     String prefix = libraryDesugaringSpecification.functionPrefix(parameters);
     String expectedResult =
         StringUtils.lines(
             "-keep class j$.util.Collection$-EL {",
-            "    j$.util.stream.Stream stream(java.util.Collection);",
+            "  public static j$.util.stream.Stream stream(java.util.Collection);",
             "}",
             "-keep class j$.util.Comparator$-CC {",
-            "    java.util.Comparator comparingInt(" + prefix + ".util.function.ToIntFunction);",
+            "  public static java.util.Comparator comparingInt("
+                + prefix
+                + ".util.function.ToIntFunction);",
             "}",
             "-keep class j$.util.DesugarArrays {",
-            "    j$.util.Spliterator spliterator(java.lang.Object[]);",
-            "    j$.util.Spliterator spliterator(java.lang.Object[], int, int);",
-            "    j$.util.stream.Stream stream(java.lang.Object[]);",
-            "    j$.util.stream.Stream stream(java.lang.Object[], int, int);",
+            "  public static j$.util.Spliterator spliterator(java.lang.Object[]);",
+            "  public static j$.util.Spliterator spliterator(java.lang.Object[], int, int);",
+            "  public static j$.util.stream.Stream stream(java.lang.Object[]);",
+            "  public static j$.util.stream.Stream stream(java.lang.Object[], int, int);",
             "}",
             "-keep class j$.util.List$-EL {",
-            "    void sort(java.util.List, java.util.Comparator);",
+            "  public static void sort(java.util.List, java.util.Comparator);",
             "}",
             "-keep class j$.util.Set$-EL {",
-            "    j$.util.Spliterator spliterator(java.util.Set);",
+            "  public static j$.util.Spliterator spliterator(java.util.Set);",
             "}",
-            "-keep class j$.util.Spliterator",
-            "-keep class " + prefix + ".util.function.ToIntFunction { *; }",
+            "-keep interface j$.util.Spliterator {",
+            "}");
+    if (prefix.equals("j$")) {
+      expectedResult +=
+          StringUtils.lines(
+              "-keep interface j$.util.function.ToIntFunction {",
+              "  public int applyAsInt(java.lang.Object);",
+              "}");
+    }
+    expectedResult +=
+        StringUtils.lines(
             "-keep class j$.util.stream.IntStream$-CC {",
-            "    j$.util.stream.IntStream range(int, int);",
+            "  public static j$.util.stream.IntStream range(int, int);",
             "}",
-            "-keep class j$.util.stream.IntStream",
-            "-keep class j$.util.stream.Stream");
+            "-keep interface j$.util.stream.IntStream {",
+            "}",
+            "-keep interface j$.util.stream.Stream {",
+            "}");
+    if (prefix.equals("java")) {
+      expectedResult +=
+          StringUtils.lines("-keep interface java.util.function.ToIntFunction {", "}");
+    }
     assertEquals(expectedResult.trim(), keepRules.trim());
   }
 }

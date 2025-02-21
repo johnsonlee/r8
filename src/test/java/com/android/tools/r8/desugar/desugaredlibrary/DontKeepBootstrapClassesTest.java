@@ -5,13 +5,15 @@ package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
-import static org.junit.Assert.assertTrue;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CustomLibrarySpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.StringUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
@@ -56,11 +58,10 @@ public class DontKeepBootstrapClassesTest extends DesugaredLibraryTestBase {
             keepRule -> {
               if (libraryDesugaringSpecification.hasEmulatedInterfaceDesugaring(parameters)) {
                 String prefix = libraryDesugaringSpecification.functionPrefix(parameters);
-                assertTrue(
-                    keepRule.stream()
-                        .anyMatch(
-                            kr ->
-                                kr.contains("-keep class " + prefix + ".util.function.Consumer")));
+                String allKeepRules = StringUtils.lines(keepRule);
+                assertThat(
+                    allKeepRules,
+                    containsString("-keep interface " + prefix + ".util.function.Consumer"));
               }
             });
   }

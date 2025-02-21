@@ -90,6 +90,22 @@ public abstract class TestCompileResult<
     this.libraryDesugaringTestConfiguration = libraryDesugaringTestConfiguration;
   }
 
+  public boolean isR8CompileResult() {
+    return false;
+  }
+
+  public R8TestCompileResult asR8CompileResult() {
+    return null;
+  }
+
+  public boolean isR8PartialCompileResult() {
+    return false;
+  }
+
+  public R8PartialTestCompileResult asR8PartialCompileResult() {
+    return null;
+  }
+
   public CR addVmArguments(Collection<String> arguments) {
     vmArguments.addAll(arguments);
     return self();

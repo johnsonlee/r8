@@ -9,7 +9,6 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
-import com.android.tools.r8.FeatureSplit;
 import com.android.tools.r8.L8TestBuilder;
 import com.android.tools.r8.L8TestCompileResult;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
@@ -24,7 +23,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
-import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase.KeepRuleConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
 import com.android.tools.r8.profile.art.ArtProfileConsumer;
 import com.android.tools.r8.profile.art.ArtProfileForRewriting;
@@ -35,6 +33,7 @@ import com.android.tools.r8.tracereferences.TraceReferences;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import com.google.common.base.Charsets;
 import java.io.IOException;
@@ -42,10 +41,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.junit.Assume;
 
 public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
@@ -61,7 +60,6 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private boolean l8FinalPrefixVerification = true;
   private boolean overrideDefaultLibrary = false;
   private CustomLibrarySpecification customLibrarySpecification = null;
-  private TestingKeepRuleConsumer keepRuleConsumer = null;
   private List<ExternalArtProfile> l8ResidualArtProfiles = new ArrayList<>();
   private boolean managedPostPrefix = false;
 
@@ -84,10 +82,6 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
         LibraryDesugaringTestConfiguration.builder()
             .addDesugaredLibraryConfiguration(
                 StringResource.fromFile(libraryDesugaringSpecification.getSpecification()));
-    if (compilationSpecification.isL8Shrink() && !compilationSpecification.isCfToCf()) {
-      keepRuleConsumer = new TestingKeepRuleConsumer();
-      libraryConfBuilder.setKeepRuleConsumer(keepRuleConsumer);
-    }
     builder.enableCoreLibraryDesugaring(libraryConfBuilder.build());
   }
 
@@ -224,17 +218,16 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   private void withD8TestBuilder(Consumer<D8TestBuilder> consumer) {
-    if (!builder.isD8TestBuilder()) {
-      return;
+    if (builder.isD8TestBuilder()) {
+      consumer.accept((D8TestBuilder) builder);
     }
-    consumer.accept((D8TestBuilder) builder);
   }
 
-  private void withR8TestBuilder(Consumer<R8TestBuilder<?, ?, ?>> consumer) {
-    if (!builder.isTestShrinkerBuilder()) {
-      return;
+  private <E extends Throwable> void withR8TestBuilder(
+      ThrowingConsumer<R8TestBuilder<?, ?, ?>, E> consumer) throws E {
+    if (builder.isTestShrinkerBuilder()) {
+      consumer.accept((R8TestBuilder<?, ?, ?>) builder);
     }
-    consumer.accept((R8TestBuilder<?, ?, ?>) builder);
   }
 
   public DesugaredLibraryTestBuilder<T> allowUnusedDontWarnPatterns() {
@@ -267,8 +260,8 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> applyIfR8TestBuilder(
-      Consumer<R8TestBuilder<?, ?, ?>> consumer) {
+  public <E extends Throwable> DesugaredLibraryTestBuilder<T> applyIfR8TestBuilder(
+      ThrowingConsumer<R8TestBuilder<?, ?, ?>, E> consumer) throws E {
     withR8TestBuilder(consumer);
     return this;
   }
@@ -330,9 +323,8 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> addFeatureSplit(
-      Function<FeatureSplit.Builder, FeatureSplit> featureSplitBuilder) {
-    withR8TestBuilder(b -> b.addFeatureSplit(featureSplitBuilder));
+  public DesugaredLibraryTestBuilder<T> addFeatureSplit(Class<?>... classes) throws IOException {
+    withR8TestBuilder(b -> b.addFeatureSplit(classes));
     return this;
   }
 
@@ -417,8 +409,8 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   private DesugaredLibraryTestCompileResult<T> internalCompile(
       TestCompileResult<?, ? extends SingleTestRunResult<?>> compile)
-      throws CompilationFailedException, IOException, ExecutionException {
-    L8TestCompileResult l8Compile = compileDesugaredLibrary(compile, keepRuleConsumer);
+      throws CompilationFailedException, IOException {
+    L8TestCompileResult l8Compile = compileDesugaredLibrary(compile);
     D8TestCompileResult customLibCompile = compileCustomLib();
     if (managedPostPrefix) {
       System.clearProperty("com.android.tools.r8.desugaredLibraryPostPrefix");
@@ -427,7 +419,6 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
         test,
         compile,
         parameters,
-        libraryDesugaringSpecification,
         compilationSpecification,
         customLibCompile,
         l8Compile,
@@ -442,29 +433,22 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   private L8TestCompileResult compileDesugaredLibrary(
-      TestCompileResult<?, ? extends SingleTestRunResult<?>> compile,
-      KeepRuleConsumer keepRuleConsumer)
-      throws CompilationFailedException, IOException, ExecutionException {
+      TestCompileResult<?, ? extends SingleTestRunResult<?>> compile)
+      throws CompilationFailedException, IOException {
     if (!compilationSpecification.isL8Shrink()) {
-      return compileDesugaredLibrary(null);
-    }
-    if (!compilationSpecification.isTraceReferences()) {
-      // When going to dex we can get the generated keep rule through the keep rule consumer.
-      assert keepRuleConsumer != null;
-      return compileDesugaredLibrary(keepRuleConsumer.get());
+      return internalCompileDesugaredLibrary(null);
     }
     L8TestCompileResult nonShrunk =
         test.testForL8(parameters.getApiLevel(), Backend.CF)
             .apply(libraryDesugaringSpecification::configureL8TestBuilder)
             .apply(b -> configure(b, Backend.CF))
             .compile();
-    String keepRules =
-        collectKeepRulesWithTraceReferences(compile.writeToZip(), nonShrunk.writeToZip());
-    return compileDesugaredLibrary(keepRules);
+    String keepRules = collectKeepRulesWithTraceReferences(compile, nonShrunk);
+    return internalCompileDesugaredLibrary(keepRules);
   }
 
-  private L8TestCompileResult compileDesugaredLibrary(String keepRule)
-      throws CompilationFailedException, IOException, ExecutionException {
+  private L8TestCompileResult internalCompileDesugaredLibrary(String keepRule)
+      throws CompilationFailedException, IOException {
     assert !compilationSpecification.isL8Shrink() || keepRule != null;
     return test.testForL8(parameters.getApiLevel(), parameters.getBackend())
         .apply(
@@ -476,21 +460,24 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   private void configure(L8TestBuilder l8Builder, Backend backend) {
-    l8Builder
-        .applyIf(!l8FinalPrefixVerification, L8TestBuilder::ignoreFinalPrefixVerification)
-        .applyIf(
-            compilationSpecification.isL8Shrink() && !backend.isCf() && !l8ExtraKeepRules.isEmpty(),
-            b -> b.addKeepRules(l8ExtraKeepRules))
-        .addOptionsModifier(l8OptionModifier);
-    for (ArtProfileForRewriting artProfileForRewriting : l8ArtProfilesForRewriting) {
-      l8Builder.addArtProfileForRewriting(
-          artProfileForRewriting.getArtProfileProvider(),
-          artProfileForRewriting.getResidualArtProfileConsumer());
+    l8Builder.applyIf(!l8FinalPrefixVerification, L8TestBuilder::ignoreFinalPrefixVerification);
+    if (backend.isDex()) {
+      l8Builder
+          .applyIf(
+              compilationSpecification.isL8Shrink() && !l8ExtraKeepRules.isEmpty(),
+              b -> b.addKeepRules(l8ExtraKeepRules))
+          .addOptionsModifier(l8OptionModifier);
+      for (ArtProfileForRewriting artProfileForRewriting : l8ArtProfilesForRewriting) {
+        l8Builder.addArtProfileForRewriting(
+            artProfileForRewriting.getArtProfileProvider(),
+            artProfileForRewriting.getResidualArtProfileConsumer());
+      }
     }
   }
 
   public String collectKeepRulesWithTraceReferences(
-      Path desugaredProgramClassFile, Path desugaredLibraryClassFile)
+      TestCompileResult<?, ? extends SingleTestRunResult<?>> compileResult,
+      L8TestCompileResult l8TestCompileResult)
       throws CompilationFailedException, IOException {
     Path generatedKeepRules = test.temp.newFile().toPath();
     ArrayList<String> args = new ArrayList<>();
@@ -500,9 +487,19 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       args.add(libraryFile.toString());
     }
     args.add("--target");
-    args.add(desugaredLibraryClassFile.toString());
+    args.add(l8TestCompileResult.writeToZip().toString());
     args.add("--source");
-    args.add(desugaredProgramClassFile.toString());
+    args.add(compileResult.writeToZip().toString());
+    List<Path> features = Collections.emptyList();
+    if (compileResult.isR8CompileResult()) {
+      features = compileResult.asR8CompileResult().getFeatures();
+    } else if (compileResult.isR8PartialCompileResult()) {
+      features = compileResult.asR8PartialCompileResult().getFeatures();
+    }
+    for (Path feature : features) {
+      args.add("--source");
+      args.add(feature.toString());
+    }
     args.add("--output");
     args.add(generatedKeepRules.toString());
     args.add("--map-diagnostics");

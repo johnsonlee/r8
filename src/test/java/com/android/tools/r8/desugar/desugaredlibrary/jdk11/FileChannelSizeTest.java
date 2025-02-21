@@ -35,7 +35,7 @@ public class FileChannelSizeTest extends DesugaredLibraryTestBase {
   private static final String EXPECTED_KEEP_RULES =
       StringUtils.lines(
           "-keep class j$.nio.channels.DesugarChannels {",
-          "    java.nio.channels.FileChannel"
+          "  public static java.nio.channels.FileChannel"
               + " convertMaybeLegacyFileChannelFromLibrary(java.nio.channels.FileChannel);",
           "}");
 

@@ -48,6 +48,16 @@ public class R8PartialTestCompileResult
   }
 
   @Override
+  public boolean isR8PartialCompileResult() {
+    return true;
+  }
+
+  @Override
+  public R8PartialTestCompileResult asR8PartialCompileResult() {
+    return this;
+  }
+
+  @Override
   public R8PartialTestCompileResult self() {
     return this;
   }

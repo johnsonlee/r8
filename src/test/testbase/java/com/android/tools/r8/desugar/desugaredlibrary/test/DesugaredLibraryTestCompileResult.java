@@ -5,6 +5,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8TestCompileResult;
@@ -31,7 +32,6 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
   private final T test;
   private final TestCompileResult<?, ? extends SingleTestRunResult<?>> compileResult;
   private final TestParameters parameters;
-  private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
   private final D8TestCompileResult customLibCompile;
   private final L8TestCompileResult l8Compile;
@@ -44,7 +44,6 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
       T test,
       TestCompileResult<?, ? extends SingleTestRunResult<?>> compileResult,
       TestParameters parameters,
-      LibraryDesugaringSpecification libraryDesugaringSpecification,
       CompilationSpecification compilationSpecification,
       D8TestCompileResult customLibCompile,
       L8TestCompileResult l8Compile,
@@ -53,7 +52,6 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
     this.test = test;
     this.compileResult = compileResult;
     this.parameters = parameters;
-    this.libraryDesugaringSpecification = libraryDesugaringSpecification;
     this.compilationSpecification = compilationSpecification;
     this.customLibCompile = customLibCompile;
     this.l8Compile = l8Compile;
@@ -66,23 +64,21 @@ public class DesugaredLibraryTestCompileResult<T extends DesugaredLibraryTestBas
     return this;
   }
 
-  public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectCustomLib(
-      ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
-    assert customLibCompile != null;
-    customLibCompile.inspect(consumer);
-    return this;
+  public Path getFeature(int index) {
+    if (compileResult.isR8CompileResult()) {
+      return compileResult.asR8CompileResult().getFeature(index);
+    } else if (compileResult.isR8PartialCompileResult()) {
+      return compileResult.asR8PartialCompileResult().getFeature(index);
+    } else {
+      fail();
+      return null;
+    }
   }
 
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectL8(
       ThrowingConsumer<CodeInspector, E> consumer) throws IOException, E {
     l8Compile.inspect(consumer);
     return this;
-  }
-
-  public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectL8ResidualArtProfile(
-      ThrowingConsumer<ArtProfileInspector, E> consumer) throws E, IOException {
-    return inspectL8ResidualArtProfile(
-        (rewrittenArtProfile, inspector) -> consumer.accept(rewrittenArtProfile));
   }
 
   public <E extends Throwable> DesugaredLibraryTestCompileResult<T> inspectL8ResidualArtProfile(

@@ -6,9 +6,7 @@ package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8SHRINK;
-import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8SHRINK_TR;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.R8_L8SHRINK;
-import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.R8_L8SHRINK_TR;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,7 +42,7 @@ public class JavaUtilFunctionTest extends DesugaredLibraryTestBase {
     return buildParameters(
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
         getJdk8Jdk11(),
-        ImmutableSet.of(D8_L8DEBUG, D8_L8SHRINK, R8_L8SHRINK, D8_L8SHRINK_TR, R8_L8SHRINK_TR));
+        ImmutableSet.of(D8_L8DEBUG, D8_L8SHRINK, R8_L8SHRINK));
   }
 
   public JavaUtilFunctionTest(

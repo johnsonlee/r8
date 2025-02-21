@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.optimize.serviceloader;
 
-import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8SHRINK_TR;
-import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.R8_L8SHRINK_TR;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8SHRINK;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.R8_L8SHRINK;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 import static org.junit.Assume.assumeTrue;
 
@@ -68,7 +68,7 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
     return buildParameters(
         getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
         ImmutableList.of(JDK11),
-        ImmutableList.of(D8_L8SHRINK_TR, R8_L8SHRINK_TR));
+        ImmutableList.of(D8_L8SHRINK, R8_L8SHRINK));
   }
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("true", "true", "1", "1");
@@ -114,7 +114,7 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
   @Test
   public void testD8WithoutDesugaredLibrary() throws Throwable {
     parameters.assumeR8TestParameters();
-    assumeTrue(compilationSpecification == D8_L8SHRINK_TR);
+    assumeTrue(compilationSpecification == D8_L8SHRINK);
     testForD8(parameters.getBackend())
         .addLibraryFiles(ToolHelper.getAndroidJar(apiLevelWithJavaTime()))
         .addInnerClasses(getClass())
@@ -130,7 +130,7 @@ public class ServiceLoaderDesugaredLibraryTest extends DesugaredLibraryTestBase 
   @Test
   public void testR8WithoutDesugaredLibrary() throws Throwable {
     parameters.assumeR8TestParameters();
-    assumeTrue(compilationSpecification == D8_L8SHRINK_TR);
+    assumeTrue(compilationSpecification == D8_L8SHRINK);
     testForR8(parameters.getBackend())
         .addLibraryFiles(ToolHelper.getAndroidJar(apiLevelWithJavaTime()))
         .addInnerClasses(getClass())

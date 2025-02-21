@@ -9,6 +9,8 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpec
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestParameters;
@@ -19,7 +21,6 @@ import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.DesugaredLibraryTestCompileResult;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
-import com.android.tools.r8.dexsplitter.SplitterTestBase;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -88,17 +89,19 @@ public class FeatureSplitTest extends DesugaredLibraryTestBase {
     }
     // Ensure count, toArray and forEach are kept.
     String prefix = libraryDesugaringSpecification.functionPrefix(parameters);
-    assertTrue(
-        keepRules.contains(
+    assertThat(
+        keepRules,
+        containsString(
             "-keep class j$.lang.Iterable$-EL {\n"
-                + "    void forEach(java.lang.Iterable, "
+                + "  public static void forEach(java.lang.Iterable, "
                 + prefix
                 + ".util.function.Consumer);"));
-    assertTrue(
-        keepRules.contains(
-            "-keep class j$.util.stream.Stream {\n"
-                + "    long count();\n"
-                + "    java.lang.Object[] toArray();"));
+    assertThat(
+        keepRules,
+        containsString(
+            "-keep interface j$.util.stream.Stream {\n"
+                + "  public long count();\n"
+                + "  public java.lang.Object[] toArray();"));
   }
 
   private void assertClassPresent(Path appPath, Class<?> present) throws IOException {
@@ -244,27 +247,18 @@ public class FeatureSplitTest extends DesugaredLibraryTestBase {
     }
 
     public CompiledWithFeature invoke(FeatureSplitTest tester) throws Throwable {
-
-      basePath = temp.newFile("base.zip").toPath();
-      feature1Path = temp.newFile("feature1.zip").toPath();
-      feature2Path = temp.newFile("feature2.zip").toPath();
-
       DesugaredLibraryTestCompileResult<?> compileResult =
           tester
               .testForDesugaredLibrary(
                   parameters, libraryDesugaringSpecification, compilationSpecification)
               .addProgramClasses(BaseClass.class, RunInterface.class, SplitRunner.class)
-              .addFeatureSplit(
-                  builder ->
-                      SplitterTestBase.simpleSplitProvider(
-                          builder, feature1Path, temp, FeatureClass.class))
-              .addFeatureSplit(
-                  builder ->
-                      SplitterTestBase.simpleSplitProvider(
-                          builder, feature2Path, temp, FeatureClass2.class))
+              .addFeatureSplit(FeatureClass.class)
+              .addFeatureSplit(FeatureClass2.class)
               .addKeepAllClassesRule()
-              .compile()
-              .writeToZip(basePath);
+              .compile();
+      basePath = compileResult.writeToZip();
+      feature1Path = compileResult.getFeature(0);
+      feature2Path = compileResult.getFeature(1);
 
       // Stream desugaring is not needed >= N.
       if (parameters.getApiLevel().getLevel() >= AndroidApiLevel.N.getLevel()) {

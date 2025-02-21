@@ -50,7 +50,7 @@ abstract class Formatter {
     StringUtils.append(
         output,
         ListUtils.map(method.getFormalTypes(), TypeReference::getTypeName),
-        ",",
+        ", ",
         BraceType.PARENS);
   }
 
