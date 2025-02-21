@@ -18,10 +18,12 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Mark that an item must be optimized out of the residual program.
@@ -36,11 +38,9 @@ import kotlin.annotation.Target
  * inlining vs merging, the use of this annotation is somewhat unreliable and should be used with
  * caution. In most cases it is more appropriate to use {@link CheckRemoved}.
  */
-@Retention(AnnotationRetention.BINARY)
-@Target(
-  AnnotationTarget.TYPE,
-  AnnotationTarget.FIELD,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.CONSTRUCTOR,
-)
-annotation class CheckOptimizedOut(val description: String = "")
+@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Retention(RetentionPolicy.CLASS)
+public @interface CheckOptimizedOut {
+
+  String description() default "";
+}

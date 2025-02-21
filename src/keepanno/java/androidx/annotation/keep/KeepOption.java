@@ -18,15 +18,12 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
-enum class KeepItemKind {
-  ONLY_CLASS,
-  ONLY_MEMBERS,
-  ONLY_METHODS,
-  ONLY_FIELDS,
-  CLASS_AND_MEMBERS,
-  CLASS_AND_METHODS,
-  CLASS_AND_FIELDS,
-  DEFAULT,
+public enum KeepOption {
+  SHRINKING,
+  OPTIMIZATION,
+  OBFUSCATION,
+  ACCESS_MODIFICATION,
+  ANNOTATION_REMOVAL,
 }

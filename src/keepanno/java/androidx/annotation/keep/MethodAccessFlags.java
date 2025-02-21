@@ -18,23 +18,40 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
-
-@Retention(AnnotationRetention.BINARY)
-@Target(
-  AnnotationTarget.TYPE,
-  AnnotationTarget.FIELD,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.CONSTRUCTOR,
-)
-annotation class KeepEdge(
-  val description: String = "",
-
-  //   val retention : Array<RetentionPolicy> = [RetentionPolicy.RUNTIME]
-  val bindings: Array<KeepBinding> = [],
-  val preconditions: Array<KeepCondition> = [],
-  val consequences: Array<KeepTarget> = [],
-)
+/**
+ * Valid matches on method access flags and their negations.
+ *
+ * <p>The negated elements make it easier to express the inverse as we cannot use a "not/negation"
+ * operation syntactically.
+ */
+public enum MethodAccessFlags {
+  // General member flags.
+  PUBLIC,
+  NON_PUBLIC,
+  PRIVATE,
+  NON_PRIVATE,
+  PROTECTED,
+  NON_PROTECTED,
+  PACKAGE_PRIVATE,
+  NON_PACKAGE_PRIVATE,
+  STATIC,
+  NON_STATIC,
+  FINAL,
+  NON_FINAL,
+  SYNTHETIC,
+  NON_SYNTHETIC,
+  // Method specific flags.
+  SYNCHRONIZED,
+  NON_SYNCHRONIZED,
+  BRIDGE,
+  NON_BRIDGE,
+  // VARARGS - No PG parser support
+  NATIVE,
+  NON_NATIVE,
+  ABSTRACT,
+  NON_ABSTRACT,
+  STRICT_FP,
+  NON_STRICT_FP
+}

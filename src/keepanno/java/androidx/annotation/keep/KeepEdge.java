@@ -18,29 +18,21 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
-/**
- * Valid matches on class access flags and their negations.
- *
- * <p>The negated elements make it easier to express the inverse as we cannot use a "not/negation"
- * operation syntactically.
- */
-enum class ClassAccessFlags {
-  PUBLIC,
-  NON_PUBLIC,
-  PACKAGE_PRIVATE,
-  NON_PACKAGE_PRIVATE,
-  FINAL,
-  NON_FINAL,
-  INTERFACE,
-  NON_INTERFACE,
-  ABSTRACT,
-  NON_ABSTRACT,
-  SYNTHETIC,
-  NON_SYNTHETIC,
-  ANNOTATION,
-  NON_ANNOTATION,
-  ENUM,
-  NON_ENUM,
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Retention(RetentionPolicy.CLASS)
+public @interface KeepEdge {
+  String description() default "";
+
+  KeepBinding[] bindings() default {};
+
+  KeepCondition[] preconditions() default {};
+
+  KeepTarget[] consequences();
 }

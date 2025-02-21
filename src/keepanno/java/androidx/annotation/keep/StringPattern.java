@@ -22,55 +22,51 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * A pattern structure for matching strings.
  *
- * <p>
- * If no properties are set, the default pattern matches any string.
+ * <p>If no properties are set, the default pattern matches any string.
  */
-@Retention(AnnotationRetention.BINARY)
-@Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class StringPattern(
+@Target(ElementType.ANNOTATION_TYPE)
+@Retention(RetentionPolicy.CLASS)
+public @interface StringPattern {
 
   /**
    * Exact string content.
    *
-   * <p>
-   * For example, {@code "foo"} or {@code "java.lang.String"}.
+   * <p>For example, {@code "foo"} or {@code "java.lang.String"}.
    *
-   * <p>
-   * Mutually exclusive with the following other properties defining string-exact-pattern:
+   * <p>Mutually exclusive with the following other properties defining string-exact-pattern:
+   *
    * <ul>
-   * <li>startsWith
-   * <li>endsWith
+   *   <li>startsWith
+   *   <li>endsWith
    * </ul>
    */
-  val exact: String = "",
+  String exact() default "";
 
   /**
    * Matches strings beginning with the given prefix.
    *
-   * <p>
-   * For example, {@code "get"} to match strings such as {@code "getMyValue"}.
+   * <p>For example, {@code "get"} to match strings such as {@code "getMyValue"}.
    *
-   * <p>
-   * Mutually exclusive with the property `exact` also defining string-prefix-pattern.
+   * <p>Mutually exclusive with the property `exact` also defining string-prefix-pattern.
    */
-  val startsWith: String = "",
+  String startsWith() default "";
 
   /**
    * Matches strings ending with the given suffix.
    *
-   * <p>
-   * For example, {@code "Setter"} to match strings such as {@code "myValueSetter"}.
+   * <p>For example, {@code "Setter"} to match strings such as {@code "myValueSetter"}.
    *
-   * <p>
-   * Mutually exclusive with the property `exact` also defining string-suffix-pattern.
+   * <p>Mutually exclusive with the property `exact` also defining string-suffix-pattern.
    */
-  val endsWith: String = "",
-)
+  String endsWith() default "";
+}

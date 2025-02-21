@@ -22,82 +22,77 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
-import java.lang.annotation.RetentionPolicy
-import kotlin.annotation.Retention
-import kotlin.annotation.Target
-import kotlin.reflect.KClass
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * A pattern structure for matching annotations.
  *
- * <p>
- * If no properties are set, the default pattern matches any annotation with a runtime retention
+ * <p>If no properties are set, the default pattern matches any annotation with a runtime retention
  * policy.
  */
-@Retention(AnnotationRetention.BINARY)
-@Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class AnnotationPattern(
+@Target(ElementType.ANNOTATION_TYPE)
+@Retention(RetentionPolicy.CLASS)
+public @interface AnnotationPattern {
 
   /**
    * Define the annotation-name pattern by fully qualified class name.
    *
-   * <p>
-   * Mutually exclusive with the following other properties defining annotation-name:
+   * <p>Mutually exclusive with the following other properties defining annotation-name:
+   *
    * <ul>
-   * <li>constant
-   * <li>namePattern
+   *   <li>constant
+   *   <li>namePattern
    * </ul>
    *
-   * <p>
-   * If none are specified the default is to match any annotation name.
+   * <p>If none are specified the default is to match any annotation name.
    *
    * @return The qualified class name that defines the annotation.
    */
-  val name: String = "",
+  String name() default "";
 
   /**
    * Define the annotation-name pattern by reference to a {@code Class} constant.
    *
-   * <p>
-   * Mutually exclusive with the following other properties defining annotation-name:
+   * <p>Mutually exclusive with the following other properties defining annotation-name:
+   *
    * <ul>
-   * <li>name
-   * <li>namePattern
+   *   <li>name
+   *   <li>namePattern
    * </ul>
    *
-   * <p>
-   * If none are specified the default is to match any annotation name.
+   * <p>If none are specified the default is to match any annotation name.
    *
    * @return The Class constant that defines the annotation.
    */
-  val constant: KClass<*> = Object::class,
+  Class<?> constant() default Object.class;
 
   /**
    * Define the annotation-name pattern by reference to a class-name pattern.
    *
-   * <p>
-   * Mutually exclusive with the following other properties defining annotation-name:
+   * <p>Mutually exclusive with the following other properties defining annotation-name:
+   *
    * <ul>
-   * <li>name
-   * <li>constant
+   *   <li>name
+   *   <li>constant
    * </ul>
    *
-   * <p>
-   * If none are specified the default is to match any annotation name.
+   * <p>If none are specified the default is to match any annotation name.
    *
    * @return The class-name pattern that defines the annotation.
    */
-  val namePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
+  ClassNamePattern namePattern() default @ClassNamePattern(unqualifiedName = "");
 
   /**
    * Specify which retention policies must be set for the annotations.
    *
-   * <p>
-   * Matches annotations with matching retention policies
+   * <p>Matches annotations with matching retention policies
    *
    * @return Retention policies. By default {@code RetentionPolicy.RUNTIME}.
    */
-  val retention: Array<RetentionPolicy> = [RetentionPolicy.RUNTIME],
-)
+  RetentionPolicy[] retention() default {RetentionPolicy.RUNTIME};
+}

@@ -18,40 +18,27 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep
+package androidx.annotation.keep;
 
 /**
- * Valid matches on method access flags and their negations.
+ * Valid matches on member access flags and their negations.
  *
  * <p>The negated elements make it easier to express the inverse as we cannot use a "not/negation"
  * operation syntactically.
  */
-enum class MethodAccessFlags {
-  // General member flags.
+public enum MemberAccessFlags {
   PUBLIC,
   NON_PUBLIC,
-  PRIVATE,
-  NON_PRIVATE,
   PROTECTED,
   NON_PROTECTED,
   PACKAGE_PRIVATE,
   NON_PACKAGE_PRIVATE,
+  PRIVATE,
+  NON_PRIVATE,
   STATIC,
   NON_STATIC,
   FINAL,
   NON_FINAL,
   SYNTHETIC,
-  NON_SYNTHETIC,
-  // Method specific flags.
-  SYNCHRONIZED,
-  NON_SYNCHRONIZED,
-  BRIDGE,
-  NON_BRIDGE,
-  // VARARGS - No PG parser support
-  NATIVE,
-  NON_NATIVE,
-  ABSTRACT,
-  NON_ABSTRACT,
-  STRICT_FP,
-  NON_STRICT_FP,
+  NON_SYNTHETIC
 }
