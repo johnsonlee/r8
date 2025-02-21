@@ -18,6 +18,7 @@ import static com.android.tools.r8.utils.FileUtils.CLASS_EXTENSION;
 import static com.android.tools.r8.utils.FileUtils.JAVA_EXTENSION;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
@@ -275,7 +276,7 @@ public abstract class Jdk11StreamAbstractTests extends DesugaredLibraryTestBase 
     Assume.assumeFalse(
         "getAllFilesWithSuffixInDirectory() seems to find different files on Windows",
         ToolHelper.isWindows());
-    Assume.assumeTrue(
+    assumeTrue(
         "Requires Java base extensions, should add it when not desugaring",
         parameters.getApiLevel().getLevel() < AndroidApiLevel.N.getLevel());
 
@@ -289,19 +290,34 @@ public abstract class Jdk11StreamAbstractTests extends DesugaredLibraryTestBase 
         Arrays.stream(JDK_11_STREAM_TEST_COMPILED_FILES)
             .filter(file -> !file.toString().contains("lang/invoke"))
             .collect(Collectors.toList());
-    return testForDesugaredLibrary(
-            parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(filesToCompile)
-        .applyIf(
-            !libraryDesugaringSpecification.hasNioFileDesugaring(parameters),
-            b -> b.addProgramFiles(getPathsFiles()))
-        .addProgramFiles(getSafeVarArgsFile())
-        .addProgramFiles(testNGSupportProgramFiles())
-        .addProgramClassFileData(getTestNGMainRunner())
-        .addOptionsModification(opt -> opt.testing.trackDesugaredAPIConversions = true)
-        .disableL8AnnotationRemoval()
-        .compile()
-        .withArt6Plus64BitsLib();
+    // Prohibit publicizing LoggingTestCase#setContext. Currently L8 does not support modifying the
+    // InternalOptions for the R8 compilation inside L8, so we use a system property.
+    System.setProperty(
+        "com.android.tools.r8.accessmodification.forcePackagePrivateAndProtected", "0");
+    try {
+      return testForDesugaredLibrary(
+              parameters, libraryDesugaringSpecification, compilationSpecification)
+          .addProgramFiles(filesToCompile)
+          .applyIf(
+              !libraryDesugaringSpecification.hasNioFileDesugaring(parameters),
+              b -> b.addProgramFiles(getPathsFiles()))
+          .addProgramFiles(getSafeVarArgsFile())
+          .addProgramFiles(testNGSupportProgramFiles())
+          .addProgramClassFileData(getTestNGMainRunner())
+          .addL8KeepRules(
+              // Keep LoggingTestCase#setContext so that it is not publicized.
+              // Otherwise, the test runner incorrectly tries to run it as a @Test.
+              "-keepclassmembers class j$.util.stream.LoggingTestCase {",
+              "  protected void setContext(java.lang.String, java.lang.Object);",
+              "}")
+          .addOptionsModification(opt -> opt.testing.trackDesugaredAPIConversions = true)
+          .disableL8AnnotationRemoval()
+          .compile()
+          .withArt6Plus64BitsLib();
+    } finally {
+      System.clearProperty(
+          "com.android.tools.r8.accessmodification.forcePackagePrivateAndProtected");
+    }
   }
 
   private void runSuccessfulTests(

@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
@@ -266,6 +267,17 @@ public abstract class Jdk11TimeAbstractTests extends DesugaredLibraryTestBase {
             .applyIf(
                 !libraryDesugaringSpecification.hasNioFileDesugaring(parameters),
                 b -> b.addProgramFiles(getPathsFiles()))
+            .apply(
+                b ->
+                    // JDK 11 time tests inspect the visibility of private fields and constructors
+                    // using reflection.
+                    forEachImmutableClass(
+                        className ->
+                            b.addL8KeepRules(
+                                "-keepclassmembers class " + className + " {",
+                                "  private final <fields>;",
+                                "  private <init>(...);",
+                                "}")))
             .compile()
             .withArt6Plus64BitsLib();
     for (String success : toRun) {
@@ -281,5 +293,22 @@ public abstract class Jdk11TimeAbstractTests extends DesugaredLibraryTestBase {
             result.getStdOut().contains(StringUtils.lines(success + ": SUCCESS")));
       }
     }
+  }
+
+  private static void forEachImmutableClass(Consumer<String> consumer) {
+    consumer.accept("j$.time.Duration");
+    consumer.accept("j$.time.Instant");
+    consumer.accept("j$.time.LocalDate");
+    consumer.accept("j$.time.LocalDateTime");
+    consumer.accept("j$.time.LocalTime");
+    consumer.accept("j$.time.MonthDay");
+    consumer.accept("j$.time.OffsetDateTime");
+    consumer.accept("j$.time.OffsetTime");
+    consumer.accept("j$.time.Period");
+    consumer.accept("j$.time.Year");
+    consumer.accept("j$.time.YearMonth");
+    consumer.accept("j$.time.ZonedDateTime");
+    consumer.accept("j$.time.ZoneOffset");
+    consumer.accept("j$.time.temporal.ValueRange");
   }
 }

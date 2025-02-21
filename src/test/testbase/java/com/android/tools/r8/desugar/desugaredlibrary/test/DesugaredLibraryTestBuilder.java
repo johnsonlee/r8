@@ -33,6 +33,7 @@ import com.android.tools.r8.tracereferences.TraceReferences;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import com.google.common.base.Charsets;
@@ -55,7 +56,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private final CompilationSpecification compilationSpecification;
   private final TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> builder;
   private List<ArtProfileForRewriting> l8ArtProfilesForRewriting = new ArrayList<>();
-  private String l8ExtraKeepRules = "";
+  private List<String> l8ExtraKeepRules = new ArrayList<>();
   private Consumer<InternalOptions> l8OptionModifier = ConsumerUtils.emptyConsumer();
   private boolean l8FinalPrefixVerification = true;
   private boolean overrideDefaultLibrary = false;
@@ -281,9 +282,9 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> addL8KeepRules(String keepRules) {
+  public DesugaredLibraryTestBuilder<T> addL8KeepRules(String... keepRules) {
     if (compilationSpecification.isL8Shrink()) {
-      l8ExtraKeepRules += keepRules + "\n";
+      Collections.addAll(l8ExtraKeepRules, keepRules);
     }
     return this;
   }
@@ -465,7 +466,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       l8Builder
           .applyIf(
               compilationSpecification.isL8Shrink() && !l8ExtraKeepRules.isEmpty(),
-              b -> b.addKeepRules(l8ExtraKeepRules))
+              b -> b.addKeepRules(StringUtils.lines(l8ExtraKeepRules)))
           .addOptionsModifier(l8OptionModifier);
       for (ArtProfileForRewriting artProfileForRewriting : l8ArtProfilesForRewriting) {
         l8Builder.addArtProfileForRewriting(

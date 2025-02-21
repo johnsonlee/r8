@@ -5,11 +5,14 @@
 package com.android.tools.r8.optimize.accessmodification;
 
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.SystemPropertyUtils;
 
 public class AccessModifierOptions {
 
   // TODO(b/131130038): Do not allow accessmodification when kept.
-  private boolean forceModifyPackagePrivateAndProtectedMethods = true;
+  private boolean forceModifyPackagePrivateAndProtectedMethods =
+      SystemPropertyUtils.parseSystemPropertyOrDefault(
+          "com.android.tools.r8.accessmodification.forcePackagePrivateAndProtected", true);
 
   private final InternalOptions options;
 
@@ -25,10 +28,7 @@ public class AccessModifierOptions {
     if (isAccessModificationRulePresent()) {
       return true;
     }
-    // TODO(b/288062771): Enable access modification by default for L8.
-    return !options.getLibraryDesugaringOptions().isL8()
-        && !options.forceProguardCompatibility
-        && options.isOptimizing();
+    return !options.forceProguardCompatibility && options.isOptimizing();
   }
 
   private boolean isAccessModificationRulePresent() {
