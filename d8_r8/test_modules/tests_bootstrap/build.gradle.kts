@@ -33,7 +33,6 @@ val testbaseDepsJarTask = projectTask("testbase", "depsJar")
 
 val keepAnnoJarTask = projectTask("keepanno", "jar")
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
-val keepAnnoCompileKotlinTask = projectTask("keepanno", "compileKotlin")
 val mainR8RelocatedTask = projectTask("main", "r8WithRelocatedDeps")
 val resourceShrinkerJavaCompileTask = projectTask("resourceshrinker", "compileJava")
 val resourceShrinkerKotlinCompileTask = projectTask("resourceshrinker", "compileKotlin")
@@ -81,10 +80,7 @@ tasks {
                    testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
-      extractClassesPaths(
-        "keepanno/",
-        keepAnnoCompileTask.outputs.files.asPath,
-        keepAnnoCompileKotlinTask.outputs.files.asPath))
+      keepAnnoCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
     systemProperty("R8_WITH_RELOCATED_DEPS", mainR8RelocatedTask.outputs.files.singleFile)
     systemProperty("BUILD_PROP_R8_RUNTIME_PATH", mainR8RelocatedTask.outputs.files.singleFile)
   }

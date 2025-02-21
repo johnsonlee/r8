@@ -4,11 +4,8 @@
 
 package com.android.tools.r8.keepanno;
 
-import static com.android.tools.r8.R8TestBuilder.KeepAnnotationLibrary.ANDROIDX;
 
 import com.android.tools.r8.ExternalR8TestBuilder;
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
-import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.ProguardTestBuilder;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8PartialTestBuilder;
@@ -466,15 +463,8 @@ public abstract class KeepAnnoTestBuilder {
         TemporaryFolder temp)
         throws IOException {
       super(params);
-      KotlinCompiler kotlinc = new KotlinCompiler(KotlinCompilerVersion.MAX_SUPPORTED_VERSION);
       builder =
           TestBase.testForProguard(KeepAnnoTestUtils.PG_VERSION, temp)
-              .applyIf(
-                  keepAnnotationLibrary == ANDROIDX,
-                  b ->
-                      b.addDefaultRuntimeLibrary(parameters())
-                          .addLibraryFiles(
-                              kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinAnnotationJar()))
               .addProgramFiles(KeepAnnoTestUtils.getKeepAnnoLib(temp, keepAnnotationLibrary))
               .setMinApi(parameters());
     }

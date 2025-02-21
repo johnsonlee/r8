@@ -1152,11 +1152,3 @@ fun Project.allPublicDependencies(): List<ThirdPartyDependency> {
 fun Project.allInternalDependencies(): List<ThirdPartyDependency> {
   return allDependencies().filter { x -> x.type == DependencyType.X20 }
 }
-
-fun extractClassesPaths(prefix: String, vararg paths: String): String {
-  val result: MutableList<String> = ArrayList()
-  paths.forEach { it ->
-    result.addAll(it.split(File.pathSeparator).filter { it.contains("${prefix}build/classes") })
-  }
-  return result.joinToString(File.pathSeparator)
-}

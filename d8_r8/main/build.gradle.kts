@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import java.net.URI
+import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.exists
 import java.nio.file.Files.readString
 import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.api.artifacts.ModuleVersionIdentifier
@@ -87,9 +89,8 @@ spdxSbom {
   }
 }
 
-val assistantJarTask = projectTask("assistant", "jar")
 val keepAnnoJarTask = projectTask("keepanno", "jar")
-val keepAnnoAndroidXAnnotationsJar = projectTask("keepanno", "keepAnnoAndroidXAnnotationsJar")
+val assistantJarTask = projectTask("assistant", "jar")
 val resourceShrinkerJarTask = projectTask("resourceshrinker", "jar")
 val resourceShrinkerDepsTask = projectTask("resourceshrinker", "depsJar")
 
@@ -291,10 +292,8 @@ val swissArmyKnifeWithoutLicense by registering(Zip::class) {
 val r8WithRelocatedDeps by registering(Exec::class) {
     dependsOn(depsJar)
     dependsOn(swissArmyKnifeWithoutLicense)
-    dependsOn(keepAnnoAndroidXAnnotationsJar)
-    val swissArmy = swissArmyKnifeWithoutLicense.get().outputs.files.singleFile
-    val deps = depsJar.get().outputs.files.singleFile
-    val androidXAnnotationsJar = keepAnnoAndroidXAnnotationsJar.outputs.files.singleFile
+    val swissArmy = swissArmyKnifeWithoutLicense.get().outputs.getFiles().getSingleFile()
+    val deps = depsJar.get().outputs.files.getSingleFile()
     inputs.files(listOf(swissArmy, deps))
     val output = getRoot().resolveAll("build", "libs", "r8.jar")
     outputs.file(output)
@@ -306,8 +305,6 @@ val r8WithRelocatedDeps by registering(Exec::class) {
              "$swissArmy",
              "--input",
              "$deps",
-             "--input",
-             "$androidXAnnotationsJar",
              "--output",
              "$output",
              // Add identity mapping to enforce no relocation of things already in package
