@@ -82,7 +82,7 @@ import kotlin.annotation.Target
   AnnotationTarget.FUNCTION,
   AnnotationTarget.CONSTRUCTOR,
 )
-annotation class UsesReflection(
+public annotation class UsesReflection(
 
   /**
    * Optional description to document the reason for this annotation.

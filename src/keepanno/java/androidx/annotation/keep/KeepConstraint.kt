@@ -30,7 +30,7 @@ package androidx.annotation.keep
  * it is safe to remove the annotations. However, it would not be safe to remove parameters from the
  * method.
  */
-enum class KeepConstraint {
+public enum class KeepConstraint {
   /**
    * Indicates that the target item is being looked up reflectively.
    *

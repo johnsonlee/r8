@@ -38,7 +38,7 @@ import kotlin.reflect.KClass
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class AnnotationPattern(
+public annotation class AnnotationPattern(
 
   /**
    * Define the annotation-name pattern by fully qualified class name.

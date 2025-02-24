@@ -30,7 +30,7 @@ import kotlin.annotation.Target
   AnnotationTarget.FUNCTION,
   AnnotationTarget.CONSTRUCTOR,
 )
-annotation class KeepEdge(
+public annotation class KeepEdge(
   val description: String = "",
 
   //   val retention : Array<RetentionPolicy> = [RetentionPolicy.RUNTIME]

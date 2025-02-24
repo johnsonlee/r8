@@ -48,6 +48,10 @@ java {
   withSourcesJar()
 }
 
+kotlin {
+  explicitApi()
+}
+
 dependencies {
   compileOnly(Deps.asm)
   compileOnly(Deps.guava)

@@ -20,7 +20,7 @@
 
 package androidx.annotation.keep
 
-enum class KeepOption {
+public enum class KeepOption {
   SHRINKING,
   OPTIMIZATION,
   OBFUSCATION,

@@ -35,7 +35,7 @@ import kotlin.annotation.Target
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class StringPattern(
+public annotation class StringPattern(
 
   /**
    * Exact string content.

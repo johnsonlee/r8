@@ -26,7 +26,7 @@ package androidx.annotation.keep
  * <p>The negated elements make it easier to express the inverse as we cannot use a "not/negation"
  * operation syntactically.
  */
-enum class MemberAccessFlags {
+public enum class MemberAccessFlags {
   PUBLIC,
   NON_PUBLIC,
   PROTECTED,

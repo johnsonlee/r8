@@ -43,4 +43,4 @@ import kotlin.annotation.Target
   AnnotationTarget.FUNCTION,
   AnnotationTarget.CONSTRUCTOR,
 )
-annotation class CheckOptimizedOut(val description: String = "")
+public annotation class CheckOptimizedOut(val description: String = "")

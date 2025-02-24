@@ -41,7 +41,7 @@ import kotlin.reflect.KClass
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class KeepCondition(
+public annotation class KeepCondition(
 
   /**
    * Define the class pattern by reference to a binding.

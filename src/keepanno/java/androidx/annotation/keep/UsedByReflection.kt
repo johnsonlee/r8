@@ -53,7 +53,7 @@ import kotlin.reflect.KClass
   AnnotationTarget.FUNCTION,
   AnnotationTarget.CONSTRUCTOR,
 )
-annotation class UsedByReflection(
+public annotation class UsedByReflection(
 
   /**
    * Optional description to document the reason for this annotation.

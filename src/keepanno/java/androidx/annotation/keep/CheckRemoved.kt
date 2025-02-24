@@ -39,4 +39,4 @@ import kotlin.annotation.Target
   AnnotationTarget.FUNCTION,
   AnnotationTarget.CONSTRUCTOR,
 )
-annotation class CheckRemoved(val description: String = "")
+public annotation class CheckRemoved(val description: String = "")

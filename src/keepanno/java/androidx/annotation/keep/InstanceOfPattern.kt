@@ -35,7 +35,7 @@ import kotlin.annotation.Target
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class InstanceOfPattern(
+public annotation class InstanceOfPattern(
 
   /**
    * True if the pattern should include the directly matched classes.

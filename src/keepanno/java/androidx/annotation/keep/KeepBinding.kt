@@ -45,7 +45,7 @@ import kotlin.reflect.KClass
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class KeepBinding(
+public annotation class KeepBinding(
 
   /**
    * Name with which other bindings, conditions or targets can reference the bound item pattern.

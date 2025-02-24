@@ -39,7 +39,7 @@ import kotlin.reflect.KClass
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class TypePattern(
+public annotation class TypePattern(
 
   /**
    * Exact type name as a string.

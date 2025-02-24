@@ -20,7 +20,7 @@
 
 package androidx.annotation.keep
 
-enum class KeepItemKind {
+public enum class KeepItemKind {
   ONLY_CLASS,
   ONLY_MEMBERS,
   ONLY_METHODS,

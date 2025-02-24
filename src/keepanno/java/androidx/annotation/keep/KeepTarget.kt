@@ -41,7 +41,7 @@ import kotlin.reflect.KClass
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
-annotation class KeepTarget(
+public annotation class KeepTarget(
 
   /**
    * Specify the kind of this item pattern.

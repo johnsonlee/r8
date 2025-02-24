@@ -47,7 +47,7 @@ import kotlin.reflect.KClass
   AnnotationTarget.FUNCTION,
   AnnotationTarget.CONSTRUCTOR,
 )
-annotation class KeepForApi(
+public annotation class KeepForApi(
 
   /**
    * Optional description to document the reason for this annotation.

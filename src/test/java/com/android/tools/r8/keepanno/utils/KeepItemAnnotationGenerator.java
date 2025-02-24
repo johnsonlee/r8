@@ -610,7 +610,7 @@ public class KeepItemAnnotationGenerator {
       if (generateKotlin()) {
         println("@Retention(AnnotationRetention.BINARY)");
         println("@Target(AnnotationTarget.ANNOTATION_CLASS)");
-        println("annotation class " + clazz + "(");
+        println("public annotation class " + clazz + "(");
       } else {
         println("@Target(ElementType.ANNOTATION_TYPE)");
         println("@Retention(RetentionPolicy.CLASS)");
@@ -627,7 +627,7 @@ public class KeepItemAnnotationGenerator {
         println("  AnnotationTarget.FUNCTION,");
         println("  AnnotationTarget.CONSTRUCTOR,");
         println(")");
-        println("annotation class " + clazz + "(");
+        println("public annotation class " + clazz + "(");
       } else {
         println(
             "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
