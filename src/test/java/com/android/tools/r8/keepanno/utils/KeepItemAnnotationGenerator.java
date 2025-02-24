@@ -125,11 +125,17 @@ public class KeepItemAnnotationGenerator {
   public static class GroupMember extends DocPrinterBase<GroupMember> {
 
     final String name;
+    final String kotlinName;
     String valueType = null;
     String valueDefault = null;
 
     GroupMember(String name) {
+      this(name, name);
+    }
+
+    GroupMember(String name, String kotlinName) {
       this.name = name;
+      this.kotlinName = kotlinName;
     }
 
     public GroupMember setType(String type) {
@@ -154,10 +160,10 @@ public class KeepItemAnnotationGenerator {
       }
       if (generator.generateKotlin()) {
         if (kotlinValueDefault() == null) {
-          generator.println("val " + name + ": " + kotlinValueType() + ",");
+          generator.println("val " + kotlinName + ": " + kotlinValueType() + ",");
         } else {
           generator.println(
-              "val " + name + ": " + kotlinValueType() + " = " + kotlinValueDefault() + ",");
+              "val " + kotlinName + ": " + kotlinValueType() + " = " + kotlinValueDefault() + ",");
         }
       } else {
         if (valueDefault == null) {
@@ -810,7 +816,7 @@ public class KeepItemAnnotationGenerator {
     private Group instanceOfPatternInclusive() {
       return new Group("instance-of-inclusive")
           .addMember(
-              new GroupMember("inclusive")
+              new GroupMember("inclusive", "isInclusive")
                   .setDocTitle("True if the pattern should include the directly matched classes.")
                   .addParagraph(
                       "If false, the pattern is exclusive and only matches classes that are",

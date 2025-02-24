@@ -44,7 +44,7 @@ public annotation class InstanceOfPattern(
    * If false, the pattern is exclusive and only matches classes that are strict subclasses of the
    * pattern.
    */
-  val inclusive: Boolean = true,
+  val isInclusive: Boolean = true,
 
   /** Instances of classes matching the class-name pattern. */
   val classNamePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
