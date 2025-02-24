@@ -179,7 +179,6 @@ public class SupportedClassesGenerator {
       AppView<?> appView =
           AppView.createForD8(
               initialAppInfo,
-              options.getLibraryDesugaringOptions().getTypeRewriter(),
               Timing.empty());
       AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
 

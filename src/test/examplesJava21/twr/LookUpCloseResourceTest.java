@@ -188,7 +188,6 @@ public class LookUpCloseResourceTest extends TestBase {
         new ApplicationReader(app, options, Timing.empty()).read().toDirect();
     AppInfo initialAppInfo =
         AppInfo.createInitialAppInfo(libHolder, GlobalSyntheticsStrategy.forNonSynthesizing());
-    return AppView.createForD8(
-        initialAppInfo, options.getLibraryDesugaringOptions().getTypeRewriter(), Timing.empty());
+    return AppView.createForD8(initialAppInfo, Timing.empty());
   }
 }

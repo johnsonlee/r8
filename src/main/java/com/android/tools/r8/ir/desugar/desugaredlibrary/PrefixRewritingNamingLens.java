@@ -17,11 +17,11 @@ import com.android.tools.r8.utils.InternalOptions;
 // Naming lens for rewriting type prefixes.
 public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
 
-  private final AppView<?> appView;
+  private final LibraryDesugaringOptions libraryDesugaringOptions;
   private final NamingLens namingLens;
 
   public static void commitPrefixRewritingNamingLens(AppView<?> appView) {
-    if (!appView.desugaredLibraryTypeRewriter.isRewriting()) {
+    if (!appView.options().getLibraryDesugaringOptions().hasTypeRewriter()) {
       return;
     }
     InternalOptions options = appView.options();
@@ -34,7 +34,7 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
 
   public PrefixRewritingNamingLens(AppView<?> appView) {
     super(appView.dexItemFactory());
-    this.appView = appView;
+    this.libraryDesugaringOptions = appView.options().getLibraryDesugaringOptions();
     this.namingLens = appView.getNamingLens();
   }
 
@@ -44,8 +44,9 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
 
   private DexString getRenaming(DexType type) {
     DexString descriptor = null;
-    if (appView.desugaredLibraryTypeRewriter.hasRewrittenType(type, appView)) {
-      descriptor = appView.desugaredLibraryTypeRewriter.rewrittenType(type, appView).descriptor;
+    DesugaredLibraryTypeRewriter typeRewriter = libraryDesugaringOptions.getTypeRewriter();
+    if (typeRewriter.hasRewrittenType(type)) {
+      descriptor = typeRewriter.rewrittenType(type).descriptor;
     }
     return descriptor;
   }
@@ -105,10 +106,12 @@ public class PrefixRewritingNamingLens extends NonIdentityNamingLens {
   }
 
   private boolean verifyNotPrefixRewrittenPackage(String packageName) {
-    appView.desugaredLibraryTypeRewriter.forAllRewrittenTypes(
-        dexType -> {
-          assert !dexType.getPackageDescriptor().equals(packageName);
-        });
+    libraryDesugaringOptions
+        .getTypeRewriter()
+        .forEachRewrittenType(
+            dexType -> {
+              assert !dexType.getPackageDescriptor().equals(packageName);
+            });
     return true;
   }
 

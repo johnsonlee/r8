@@ -13,7 +13,6 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAmender;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.PrefixRewritingNamingLens;
 import com.android.tools.r8.jar.CfApplicationWriter;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
@@ -167,13 +166,9 @@ public class L8 {
     LazyLoadedDexApplication lazyApp =
         new ApplicationReader(inputApp, options, timing).read(executor);
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, lazyApp);
-    DesugaredLibraryTypeRewriter typeRewriter =
-        options.getLibraryDesugaringOptions().getTypeRewriter();
-
-    DexApplication app = new L8TreePruner(options).prune(lazyApp, typeRewriter);
+    DexApplication app = new L8TreePruner(options).prune(lazyApp);
     return AppView.createForL8(
-        AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forSingleOutputMode()),
-        typeRewriter);
+        AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forSingleOutputMode()));
   }
 
   private static void run(String[] args) throws CompilationFailedException {

@@ -317,7 +317,8 @@ public class MissingClasses {
     private static void addWithRewrittenType(
         ImmutableSet.Builder<DexType> builder, DexType type, AppView<?> appView) {
       builder.add(type);
-      DexType rewrittenType = appView.desugaredLibraryTypeRewriter.rewrittenType(type, appView);
+      DexType rewrittenType =
+          appView.options().getLibraryDesugaringOptions().getTypeRewriter().rewrittenType(type);
       if (rewrittenType != null) {
         builder.add(rewrittenType);
       }

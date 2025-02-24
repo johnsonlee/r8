@@ -22,6 +22,7 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -148,7 +149,11 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
       return false;
     }
     DexType holderType = invokedMethod.getHolderType();
-    if (appView.desugaredLibraryTypeRewriter.hasRewrittenType(holderType, appView)
+    if (appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getTypeRewriter()
+            .hasRewrittenType(holderType)
         || holderType.isArrayType()) {
       return false;
     }
@@ -171,8 +176,11 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
         != null) {
       return true;
     }
-    return appView.desugaredLibraryTypeRewriter.hasRewrittenTypeInSignature(
-        invokedMethod.getProto(), appView);
+    return appView
+        .options()
+        .getLibraryDesugaringOptions()
+        .getTypeRewriter()
+        .hasRewrittenTypeInSignature(invokedMethod.getProto());
   }
 
   // The problem is that a method can resolve into a library method which is not present at runtime,
@@ -201,17 +209,19 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
 
   public static DexMethod methodWithVivifiedTypeInSignature(
       DexMethod originalMethod, DexType holder, AppView<?> appView) {
-    DexType[] newParameters = originalMethod.proto.parameters.values.clone();
+    DexType[] newParameters = originalMethod.getParameters().getBacking().clone();
+    DesugaredLibraryTypeRewriter typeRewriter =
+        appView.options().getLibraryDesugaringOptions().getTypeRewriter();
     int index = 0;
-    for (DexType param : originalMethod.proto.parameters.values) {
-      if (appView.desugaredLibraryTypeRewriter.hasRewrittenType(param, appView)) {
+    for (DexType param : originalMethod.getParameters()) {
+      if (typeRewriter.hasRewrittenType(param)) {
         newParameters[index] = vivifiedTypeFor(param, appView);
       }
       index++;
     }
-    DexType returnType = originalMethod.proto.returnType;
+    DexType returnType = originalMethod.getReturnType();
     DexType newReturnType =
-        appView.desugaredLibraryTypeRewriter.hasRewrittenType(returnType, appView)
+        typeRewriter.hasRewrittenType(returnType)
             ? vivifiedTypeFor(returnType, appView)
             : returnType;
     DexProto newProto = appView.dexItemFactory().createProto(newReturnType, newParameters);
@@ -244,7 +254,11 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
             .createSynthesizedType(
                 DescriptorUtils.javaTypeToDescriptor(VIVIFIED_PREFIX + type.toString()));
     // We would need to ensure a classpath class for each type to remove this rewriteType call.
-    appView.desugaredLibraryTypeRewriter.rewriteType(vivifiedType, type);
+    appView
+        .options()
+        .getLibraryDesugaringOptions()
+        .getTypeRewriter()
+        .rewriteType(vivifiedType, type);
     return vivifiedType;
   }
 

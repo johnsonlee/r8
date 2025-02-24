@@ -18,6 +18,7 @@ public class LibraryDesugaringOptions {
   private MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification =
       MachineDesugaredLibrarySpecification.empty();
   private String synthesizedClassPrefix = "";
+  private DesugaredLibraryTypeRewriter typeRewriter;
 
   private final InternalOptions options;
 
@@ -46,6 +47,25 @@ public class LibraryDesugaringOptions {
     return synthesizedClassPrefix;
   }
 
+  public DesugaredLibraryTypeRewriter getTypeRewriter() {
+    if (typeRewriter == null) {
+      synchronized (this) {
+        if (typeRewriter == null) {
+          typeRewriter =
+              machineDesugaredLibrarySpecification.requiresTypeRewriting()
+                  ? new MachineTypeRewriter(
+                      options.dexItemFactory(), machineDesugaredLibrarySpecification)
+                  : DesugaredLibraryTypeRewriter.empty();
+        }
+      }
+    }
+    return typeRewriter;
+  }
+
+  public boolean hasTypeRewriter() {
+    return getTypeRewriter().isRewriting();
+  }
+
   public boolean isDesugaredLibraryCompilation() {
     return machineDesugaredLibrarySpecification.isLibraryCompilation();
   }
@@ -57,6 +77,7 @@ public class LibraryDesugaringOptions {
   public void resetDesugaredLibrarySpecificationForTesting() {
     loadMachineDesugaredLibrarySpecification = null;
     machineDesugaredLibrarySpecification = MachineDesugaredLibrarySpecification.empty();
+    typeRewriter = null;
   }
 
   public void configureDesugaredLibrary(
@@ -105,11 +126,5 @@ public class LibraryDesugaringOptions {
     timing.begin("Load machine specification");
     loadMachineDesugaredLibrarySpecification.accept(timing, app);
     timing.end();
-  }
-
-  public DesugaredLibraryTypeRewriter getTypeRewriter() {
-    return machineDesugaredLibrarySpecification.requiresTypeRewriting()
-        ? new MachineTypeRewriter(machineDesugaredLibrarySpecification)
-        : DesugaredLibraryTypeRewriter.empty();
   }
 }

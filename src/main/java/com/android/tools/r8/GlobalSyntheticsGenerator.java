@@ -33,7 +33,6 @@ import com.android.tools.r8.graph.MethodCollection.MethodCollectionFactory;
 import com.android.tools.r8.graph.NestHostClassAttribute;
 import com.android.tools.r8.graph.ThrowExceptionCode;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.records.RecordTagSynthesizer;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
@@ -157,8 +156,6 @@ public class GlobalSyntheticsGenerator {
     ApplicationReader applicationReader = new ApplicationReader(inputApp, options, timing);
     DirectMappedDexApplication app = applicationReader.read(executor).toDirect();
     timing.end();
-    DesugaredLibraryTypeRewriter typeRewriter =
-        options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         timing.time(
             "Create app-info",
@@ -166,7 +163,7 @@ public class GlobalSyntheticsGenerator {
                 AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forSingleOutputMode()));
     // Now that the dex-application is fully loaded, close any internal archive providers.
     inputApp.closeInternalArchiveProviders();
-    return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
+    return timing.time("Create app-view", () -> AppView.createForD8(appInfo, timing));
   }
 
   private static void createGlobalSynthetics(

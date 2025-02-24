@@ -34,6 +34,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ProgramOrClasspathDefinition;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.references.ClassReference;
@@ -276,7 +277,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     this.globalSyntheticsStrategy = globalSyntheticsStrategy;
   }
 
-  public Map<DexType, Set<DexType>> getFinalGlobalSyntheticContexts(AppView appView) {
+  public Map<DexType, Set<DexType>> getFinalGlobalSyntheticContexts(AppView<?> appView) {
     assert isFinalized();
     DexItemFactory factory = appView.dexItemFactory();
     ImmutableMap<DexType, Set<DexType>> globalContexts = committed.getGlobalContexts();
@@ -770,15 +771,16 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       Function<SynthesizingContext, DexType> contextToType,
       AppView<?> appView,
       DexType type) {
+    DesugaredLibraryTypeRewriter typeRewriter =
+        appView.options().getLibraryDesugaringOptions().getTypeRewriter();
     DexType rewrittenContextType =
-        appView.desugaredLibraryTypeRewriter.rewrittenContextType(
-            outerContext.getSynthesizingContextType());
+        typeRewriter.rewrittenContextType(outerContext.getSynthesizingContextType());
     if (rewrittenContextType == null) {
       return;
     }
     SynthesizingContext synthesizingContext = SynthesizingContext.fromType(rewrittenContextType);
     DexType rewrittenType = contextToType.apply(synthesizingContext);
-    appView.desugaredLibraryTypeRewriter.rewriteType(type, rewrittenType);
+    typeRewriter.rewriteType(type, rewrittenType);
   }
 
   public DexProgramClass createClass(
@@ -924,7 +926,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       SynthesizingContext outerContext,
       AppView<?> appView) {
     Function<SynthesizingContext, DexType> contextToType =
-        (c) -> SyntheticNaming.createFixedType(kind, c, appView.dexItemFactory());
+        c -> SyntheticNaming.createFixedType(kind, c, appView.dexItemFactory());
     DexType type = contextToType.apply(outerContext);
     synchronized (type) {
       DexClass clazz = appView.definitionFor(type);
@@ -1084,7 +1086,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     assert kind.isGlobal();
     assert !contexts.isEmpty();
     if (appView.options().intermediate && !appView.options().hasGlobalSyntheticsConsumer()) {
-      appView.reporter().fatalError(diagnosticSupplier.get());
+      throw appView.reporter().fatalError(diagnosticSupplier.get());
     }
     // A global type is its own context.
     SynthesizingContext outerContext = SynthesizingContext.fromType(globalType);

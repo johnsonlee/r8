@@ -32,7 +32,6 @@ import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueConstantPropagationJoiner;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueFieldJoiner;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueParameterJoiner;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.optimize.enums.EnumDataMap;
 import com.android.tools.r8.ir.optimize.info.MethodResolutionOptimizationInfoCollection;
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoFactory;
@@ -130,9 +129,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
   private final SimpleInliningConstraintFactory simpleInliningConstraintFactory =
       new SimpleInliningConstraintFactory();
 
-  // Desugaring.
-  public final DesugaredLibraryTypeRewriter desugaredLibraryTypeRewriter;
-
   // Modeling.
   private final LibraryMethodSideEffectModelCollection libraryMethodSideEffectModelCollection;
 
@@ -174,14 +170,12 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       T appInfo,
       ArtProfileCollection artProfileCollection,
       StartupProfile startupProfile,
-      WholeProgramOptimizations wholeProgramOptimizations,
-      DesugaredLibraryTypeRewriter mapper) {
+      WholeProgramOptimizations wholeProgramOptimizations) {
     this(
         appInfo,
         artProfileCollection,
         startupProfile,
         wholeProgramOptimizations,
-        mapper,
         Timing.empty());
   }
 
@@ -190,7 +184,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
       ArtProfileCollection artProfileCollection,
       StartupProfile startupProfile,
       WholeProgramOptimizations wholeProgramOptimizations,
-      DesugaredLibraryTypeRewriter mapper,
       Timing timing) {
     assert appInfo != null;
     this.appInfo = appInfo;
@@ -214,7 +207,6 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
             "Dont warn config",
             () -> DontWarnConfiguration.create(options().getProguardConfiguration()));
     this.initClassLens = timing.time("Init class lens", InitClassLens::getThrowingInstance);
-    this.desugaredLibraryTypeRewriter = mapper;
     timing.begin("Create argument propagator");
     if (enableWholeProgramOptimizations() && options().callSiteOptimizationOptions().isEnabled()) {
       this.argumentPropagator = new ArgumentPropagator(withLiveness());
@@ -247,17 +239,12 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
     return libraryMemberOptimizer.isModeled(type);
   }
 
-  private static DesugaredLibraryTypeRewriter defaultTypeRewriter(AppInfo appInfo) {
-    return appInfo.options().getLibraryDesugaringOptions().getTypeRewriter();
-  }
-
   public static <T extends AppInfo> AppView<T> createForD8(T appInfo) {
     return new AppView<>(
         appInfo,
         ArtProfileCollection.createInitialArtProfileCollection(appInfo, appInfo.options()),
         StartupProfile.empty(),
-        WholeProgramOptimizations.OFF,
-        defaultTypeRewriter(appInfo));
+        WholeProgramOptimizations.OFF);
   }
 
   public static AppView<AppInfoWithClassHierarchy> createForD8MainDexTracing(
@@ -272,18 +259,15 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         appInfo,
         ArtProfileCollection.empty(),
         StartupProfile.empty(),
-        WholeProgramOptimizations.ON,
-        defaultTypeRewriter(appInfo));
+        WholeProgramOptimizations.ON);
   }
 
-  public static <T extends AppInfo> AppView<T> createForD8(
-      T appInfo, DesugaredLibraryTypeRewriter mapper, Timing timing) {
+  public static <T extends AppInfo> AppView<T> createForD8(T appInfo, Timing timing) {
     return new AppView<>(
         appInfo,
         ArtProfileCollection.createInitialArtProfileCollection(appInfo, appInfo.options()),
         StartupProfile.createInitialStartupProfileForD8(appInfo.app()),
         WholeProgramOptimizations.OFF,
-        mapper,
         timing);
   }
 
@@ -305,18 +289,15 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         appInfo,
         ArtProfileCollection.createInitialArtProfileCollection(appInfo, appInfo.options()),
         StartupProfile.createInitialStartupProfileForR8(application),
-        WholeProgramOptimizations.ON,
-        defaultTypeRewriter(appInfo));
+        WholeProgramOptimizations.ON);
   }
 
-  public static <T extends AppInfo> AppView<T> createForL8(
-      T appInfo, DesugaredLibraryTypeRewriter mapper) {
+  public static <T extends AppInfo> AppView<T> createForL8(T appInfo) {
     return new AppView<>(
         appInfo,
         ArtProfileCollection.createInitialArtProfileCollection(appInfo, appInfo.options()),
         StartupProfile.empty(),
-        WholeProgramOptimizations.OFF,
-        mapper);
+        WholeProgramOptimizations.OFF);
   }
 
   public static <T extends AppInfo> AppView<T> createForRelocator(T appInfo) {
@@ -324,8 +305,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         appInfo,
         ArtProfileCollection.empty(),
         StartupProfile.empty(),
-        WholeProgramOptimizations.OFF,
-        defaultTypeRewriter(appInfo));
+        WholeProgramOptimizations.OFF);
   }
 
   public static AppView<AppInfoWithClassHierarchy> createForTracer(
@@ -334,8 +314,7 @@ public class AppView<T extends AppInfo> implements DexDefinitionSupplier, Librar
         appInfo,
         ArtProfileCollection.empty(),
         StartupProfile.empty(),
-        WholeProgramOptimizations.ON,
-        defaultTypeRewriter(appInfo));
+        WholeProgramOptimizations.ON);
   }
 
   public AbstractValueFactory abstractValueFactory() {

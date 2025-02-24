@@ -25,7 +25,6 @@ import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.analysis.value.AbstractValueFactory;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAmender;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.PrefixRewritingNamingLens;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
@@ -178,8 +177,6 @@ public final class D8 {
     timing.begin("Load desugared lib");
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
     timing.end();
-    DesugaredLibraryTypeRewriter typeRewriter =
-        options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         timing.time(
             "Create app-info",
@@ -191,7 +188,7 @@ public final class D8 {
                         : GlobalSyntheticsStrategy.forPerFileMode(),
                     createInitialD8ClassToFeatureSplitMap(options),
                     applicationReader.readMainDexClasses(app)));
-    return timing.time("Create app-view", () -> AppView.createForD8(appInfo, typeRewriter, timing));
+    return timing.time("Create app-view", () -> AppView.createForD8(appInfo, timing));
   }
 
   static void runInternal(AndroidApp inputApp, InternalOptions options, ExecutorService executor)
@@ -281,7 +278,7 @@ public final class D8 {
       if (options.isGeneratingDex()
           && hasDexResources
           && hasClassResources
-          && appView.desugaredLibraryTypeRewriter.isRewriting()) {
+          && appView.options().getLibraryDesugaringOptions().hasTypeRewriter()) {
         // There are both cf and dex inputs in the program, and rewriting is required for
         // desugared library only on cf inputs. We cannot easily rewrite part of the program
         // without iterating again the IR. We fall-back to writing one app with rewriting and

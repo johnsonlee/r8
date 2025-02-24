@@ -65,7 +65,7 @@ import com.android.tools.r8.ir.desugar.backports.ObjectsMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.OptionalMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.SparseArrayMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.TypedArrayMethodRewrites;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
@@ -213,19 +213,13 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     options
         .getLibraryDesugaringOptions()
         .loadMachineDesugaredLibrarySpecification(Timing.empty(), app);
-    DesugaredLibraryTypeRewriter typeRewriter =
-        options.getLibraryDesugaringOptions().getTypeRewriter();
     AppInfo appInfo =
         AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing());
-    AppView<?> appView = AppView.createForD8(appInfo, typeRewriter, Timing.empty());
+    AppView<?> appView = AppView.createForD8(appInfo, Timing.empty());
     BackportedMethodRewriter.RewritableMethods rewritableMethods =
         new BackportedMethodRewriter.RewritableMethods(appView);
     rewritableMethods.visit(methods);
-    if (appInfo != null) {
-      DesugaredLibraryRetargeter desugaredLibraryRetargeter =
-          new DesugaredLibraryRetargeter(appView);
-      desugaredLibraryRetargeter.visit(methods);
-    }
+    new DesugaredLibraryRetargeter(appView).visit(methods);
     rewritableMethods.visitFields(fields);
   }
 
@@ -413,16 +407,14 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     private boolean typeIsInDesugaredLibrary(DexType type) {
-      return appView.desugaredLibraryTypeRewriter.hasRewrittenType(type, appView)
-          || appView
-              .options()
-              .getLibraryDesugaringOptions()
+      LibraryDesugaringOptions libraryDesugaringOptions =
+          appView.options().getLibraryDesugaringOptions();
+      return libraryDesugaringOptions.getTypeRewriter().hasRewrittenType(type)
+          || libraryDesugaringOptions
               .getMachineDesugaredLibrarySpecification()
               .getEmulatedInterfaces()
               .containsKey(type)
-          || appView
-              .options()
-              .getLibraryDesugaringOptions()
+          || libraryDesugaringOptions
               .getMachineDesugaredLibrarySpecification()
               .getMaintainType()
               .contains(type);

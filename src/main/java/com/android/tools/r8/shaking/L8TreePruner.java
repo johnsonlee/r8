@@ -7,7 +7,6 @@ package com.android.tools.r8.shaking;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryTypeRewriter;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -27,7 +26,7 @@ public class L8TreePruner {
     this.options = options;
   }
 
-  public DexApplication prune(DexApplication app, DesugaredLibraryTypeRewriter typeRewriter) {
+  public DexApplication prune(DexApplication app) {
     Set<DexType> maintainType =
         options
             .getLibraryDesugaringOptions()
@@ -44,7 +43,7 @@ public class L8TreePruner {
     boolean pruneNestMember = false;
     for (DexProgramClass aClass : app.classes()) {
       typeMap.put(aClass.type, aClass);
-      if (typeRewriter.hasRewrittenType(aClass.type, null)
+      if (options.getLibraryDesugaringOptions().getTypeRewriter().hasRewrittenType(aClass.type)
           || emulatedInterfaces.contains(aClass.type)
           || maintainType.contains(aClass.type)) {
         toKeep.add(aClass);

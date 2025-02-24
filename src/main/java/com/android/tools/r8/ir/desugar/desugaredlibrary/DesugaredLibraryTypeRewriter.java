@@ -4,10 +4,11 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary;
 
-import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
+import com.google.common.collect.Iterables;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -20,51 +21,41 @@ public abstract class DesugaredLibraryTypeRewriter {
 
   public abstract void rewriteType(DexType type, DexType rewrittenType);
 
-  public abstract DexType rewrittenType(DexType type, AppView<?> appView);
+  public abstract DexType rewrittenType(DexType type);
 
   public abstract DexType rewrittenContextType(DexType type);
 
-  public boolean hasRewrittenType(DexType type, AppView<?> appView) {
-    return rewrittenType(type, appView) != null;
+  public boolean hasRewrittenType(DexType type) {
+    return rewrittenType(type) != null;
   }
 
-  public boolean hasRewrittenTypeInSignature(DexProto proto, AppView<?> appView) {
-    if (hasRewrittenType(proto.returnType, appView)) {
-      return true;
-    }
-    for (DexType paramType : proto.parameters.values) {
-      if (hasRewrittenType(paramType, appView)) {
-        return true;
-      }
-    }
-    return false;
+  public boolean hasRewrittenTypeInSignature(DexProto proto) {
+    return hasRewrittenType(proto.getReturnType())
+        || Iterables.any(proto.getParameters(), this::hasRewrittenType);
   }
 
   public abstract boolean isRewriting();
 
-  public abstract void forAllRewrittenTypes(Consumer<DexType> consumer);
+  public abstract void forEachRewrittenType(Consumer<DexType> consumer);
 
   public static class MachineTypeRewriter extends DesugaredLibraryTypeRewriter {
 
+    private final DexItemFactory factory;
     private final Map<DexType, DexType> rewriteType;
     private final Map<DexType, DexType> rewriteDerivedTypeOnly;
 
-    public MachineTypeRewriter(MachineDesugaredLibrarySpecification specification) {
+    public MachineTypeRewriter(
+        DexItemFactory factory, MachineDesugaredLibrarySpecification specification) {
+      this.factory = factory;
       this.rewriteType = new ConcurrentHashMap<>(specification.getRewriteType());
-      rewriteDerivedTypeOnly = specification.getRewriteDerivedTypeOnly();
+      this.rewriteDerivedTypeOnly = specification.getRewriteDerivedTypeOnly();
     }
 
     @Override
-    public DexType rewrittenType(DexType type, AppView<?> appView) {
+    public DexType rewrittenType(DexType type) {
       if (type.isArrayType()) {
-        DexType rewrittenBaseType =
-            rewrittenType(type.toBaseType(appView.dexItemFactory()), appView);
-        if (rewrittenBaseType == null) {
-          return null;
-        }
-        return appView
-            .dexItemFactory()
-            .createArrayType(type.getNumberOfLeadingSquareBrackets(), rewrittenBaseType);
+        DexType rewrittenBaseType = rewrittenType(type.toBaseType(factory));
+        return rewrittenBaseType != null ? type.replaceBaseType(rewrittenBaseType, factory) : null;
       }
       return rewriteType.get(type);
     }
@@ -95,7 +86,7 @@ public abstract class DesugaredLibraryTypeRewriter {
     }
 
     @Override
-    public void forAllRewrittenTypes(Consumer<DexType> consumer) {
+    public void forEachRewrittenType(Consumer<DexType> consumer) {
       rewriteType.keySet().forEach(consumer);
     }
   }
@@ -103,7 +94,7 @@ public abstract class DesugaredLibraryTypeRewriter {
   public static class EmptyTypeRewriter extends DesugaredLibraryTypeRewriter {
 
     @Override
-    public DexType rewrittenType(DexType type, AppView<?> appView) {
+    public DexType rewrittenType(DexType type) {
       return null;
     }
 
@@ -121,6 +112,6 @@ public abstract class DesugaredLibraryTypeRewriter {
     }
 
     @Override
-    public void forAllRewrittenTypes(Consumer<DexType> consumer) {}
+    public void forEachRewrittenType(Consumer<DexType> consumer) {}
   }
 }

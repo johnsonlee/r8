@@ -158,7 +158,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       desugarings.add(new OutlineArrayCloneFromInterfaceMethodDesugaring(appView));
     }
     desugaredLibraryAPIConverter =
-        appView.desugaredLibraryTypeRewriter.isRewriting()
+        appView.options().getLibraryDesugaringOptions().hasTypeRewriter()
             ? new DesugaredLibraryAPIConverter(
                 appView,
                 SetUtils.newImmutableSetExcludingNullItems(
