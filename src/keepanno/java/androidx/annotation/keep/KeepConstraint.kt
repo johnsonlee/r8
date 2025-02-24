@@ -18,8 +18,7 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-
-package androidx.annotation.keep;
+package androidx.annotation.keep
 
 /**
  * Usage constraints for how a target is used and what must be kept.
@@ -31,7 +30,7 @@ package androidx.annotation.keep;
  * it is safe to remove the annotations. However, it would not be safe to remove parameters from the
  * method.
  */
-public enum KeepConstraint {
+enum class KeepConstraint {
   /**
    * Indicates that the target item is being looked up reflectively.
    *

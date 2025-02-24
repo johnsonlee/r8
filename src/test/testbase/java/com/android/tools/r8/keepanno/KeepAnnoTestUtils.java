@@ -43,23 +43,25 @@ public class KeepAnnoTestUtils {
       TemporaryFolder temp, KeepAnnotationLibrary keepAnnotationLibrary) throws IOException {
     Path archive = temp.newFolder().toPath().resolve("keepanno.jar");
     ArchiveConsumer consumer = new ArchiveConsumer(archive);
+    // TODO(b/397387189): Find a better way to locate the keep annotation classes in tests.
     for (Path root : ToolHelper.getBuildPropKeepAnnoRuntimePath()) {
       String descriptorPrefix =
           (keepAnnotationLibrary == ANDROIDX ? DESCRIPTOR_PREFIX : DESCRIPTOR_LEGACY_PREFIX);
       Path annoDir = root.resolve(descriptorPrefix.substring(1, descriptorPrefix.length() - 1));
       assertTrue(Files.isDirectory(root));
-      assertTrue(Files.isDirectory(annoDir));
-      try (Stream<Path> paths = Files.list(annoDir)) {
-        paths.forEach(
-            p -> {
-              if (FileUtils.isClassFile(p)) {
-                byte[] data = FileUtils.uncheckedReadAllBytes(p);
-                String fileName = p.getFileName().toString();
-                String className = fileName.substring(0, fileName.lastIndexOf('.'));
-                String desc = descriptorPrefix + className + ";";
-                consumer.accept(ByteDataView.of(data), desc, null);
-              }
-            });
+      if (Files.isDirectory(annoDir)) {
+        try (Stream<Path> paths = Files.list(annoDir)) {
+          paths.forEach(
+              p -> {
+                if (FileUtils.isClassFile(p)) {
+                  byte[] data = FileUtils.uncheckedReadAllBytes(p);
+                  String fileName = p.getFileName().toString();
+                  String className = fileName.substring(0, fileName.lastIndexOf('.'));
+                  String desc = descriptorPrefix + className + ";";
+                  consumer.accept(ByteDataView.of(data), desc, null);
+                }
+              });
+        }
       }
     }
     consumer.finished(null);

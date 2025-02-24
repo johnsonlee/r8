@@ -18,25 +18,34 @@
 // MAINTAINED AND TESTED IN THE R8 REPO. PLEASE MAKE CHANGES THERE AND REPLICATE.
 // ***********************************************************************************
 
-package androidx.annotation.keep;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+package androidx.annotation.keep
 
 /**
- * Mark that an item must be fully removed from the residual program.
+ * Valid matches on field access flags and their negations.
  *
- * <p>Being removed from the program means that the item declaration is not present at all in the
- * residual program. For example, inlined functions are not considered removed. If content of the
- * item is allowed to be in the residual, use {@link CheckOptimizedOut}.
- *
- * <p>A class is removed if all of its members are removed and no references to the class remain.
+ * <p>The negated elements make it easier to express the inverse as we cannot use a "not/negation"
+ * operation syntactically.
  */
-@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR})
-@Retention(RetentionPolicy.CLASS)
-public @interface CheckRemoved {
-
-  String description() default "";
+enum class FieldAccessFlags {
+  // General member flags.
+  PUBLIC,
+  NON_PUBLIC,
+  PRIVATE,
+  NON_PRIVATE,
+  PROTECTED,
+  NON_PROTECTED,
+  PACKAGE_PRIVATE,
+  NON_PACKAGE_PRIVATE,
+  STATIC,
+  NON_STATIC,
+  FINAL,
+  NON_FINAL,
+  SYNTHETIC,
+  NON_SYNTHETIC,
+  // Field specific flags.
+  VOLATILE,
+  NON_VOLATILE,
+  TRANSIENT,
+  NON_TRANSIENT,
+  // ENUM - No PG parser support.
 }

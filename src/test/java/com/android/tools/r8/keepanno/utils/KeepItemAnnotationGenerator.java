@@ -152,11 +152,45 @@ public class KeepItemAnnotationGenerator {
       if (isDeprecated()) {
         generator.println("@Deprecated");
       }
-      if (valueDefault == null) {
-        generator.println(valueType + " " + name + "();");
+      if (generator.generateKotlin()) {
+        if (kotlinValueDefault() == null) {
+          generator.println("val " + name + ": " + kotlinValueType() + ",");
+        } else {
+          generator.println(
+              "val " + name + ": " + kotlinValueType() + " = " + kotlinValueDefault() + ",");
+        }
       } else {
-        generator.println(valueType + " " + name + "() default " + valueDefault + ";");
+        if (valueDefault == null) {
+          generator.println(valueType + " " + name + "();");
+        } else {
+          generator.println(valueType + " " + name + "() default " + valueDefault + ";");
+        }
       }
+    }
+
+    private String kotlinValueType() {
+      if (valueType.equals("Class<?>")) {
+        return "KClass<*>";
+      }
+      if (valueType.equals("boolean")) {
+        return "Boolean";
+      }
+      if (valueType.endsWith("[]")) {
+        return "Array<" + valueType.substring(0, valueType.length() - 2) + ">";
+      }
+      return valueType;
+    }
+
+    private String kotlinValueDefault() {
+      if (valueDefault != null) {
+        if (valueDefault.equals("Object.class")) {
+          return "Object::class";
+        }
+        if (valueDefault.startsWith("{") && valueDefault.endsWith("}")) {
+          return "[" + valueDefault.substring(1, valueDefault.length() - 1) + "]";
+        }
+      }
+      return valueDefault;
     }
 
     public void generateConstants(Generator generator) {
@@ -368,13 +402,19 @@ public class KeepItemAnnotationGenerator {
     final EnumReference FIELD_ACCESS_TRANSIENT;
     final List<EnumReference> FIELD_ACCESS_VALUES;
 
+    final String KOTLIN_DEFAULT_INVALID_STRING_PATTERN;
     final String DEFAULT_INVALID_STRING_PATTERN;
+    final String KOTLIN_DEFAULT_INVALID_TYPE_PATTERN;
     final String DEFAULT_INVALID_TYPE_PATTERN;
+    final String KOTLIN_DEFAULT_INVALID_CLASS_NAME_PATTERN;
     final String DEFAULT_INVALID_CLASS_NAME_PATTERN;
+    final String KOTLIN_DEFAULT_ANY_INSTANCE_OF_PATTERN;
     final String DEFAULT_ANY_INSTANCE_OF_PATTERN;
 
     final List<Class<?>> ANNOTATION_IMPORTS =
         ImmutableList.of(ElementType.class, Retention.class, RetentionPolicy.class, Target.class);
+    final List<Class<?>> KOTLIN_ANNOTATION_IMPORTS =
+        ImmutableList.of(kotlin.annotation.Retention.class, kotlin.annotation.Target.class);
 
     private final PrintStream writer;
     private final String pkg;
@@ -489,10 +529,15 @@ public class KeepItemAnnotationGenerator {
       FIELD_ACCESS_TRANSIENT = enumRef(FIELD_ACCESS_FLAGS, "TRANSIENT");
       FIELD_ACCESS_VALUES = ImmutableList.of(FIELD_ACCESS_VOLATILE, FIELD_ACCESS_TRANSIENT);
 
+      KOTLIN_DEFAULT_INVALID_STRING_PATTERN = getUnqualifiedName(STRING_PATTERN) + "(exact = \"\")";
       DEFAULT_INVALID_STRING_PATTERN = "@" + getUnqualifiedName(STRING_PATTERN) + "(exact = \"\")";
+      KOTLIN_DEFAULT_INVALID_TYPE_PATTERN = getUnqualifiedName(TYPE_PATTERN) + "(name = \"\")";
       DEFAULT_INVALID_TYPE_PATTERN = "@" + getUnqualifiedName(TYPE_PATTERN) + "(name = \"\")";
+      KOTLIN_DEFAULT_INVALID_CLASS_NAME_PATTERN =
+          getUnqualifiedName(CLASS_NAME_PATTERN) + "(unqualifiedName = \"\")";
       DEFAULT_INVALID_CLASS_NAME_PATTERN =
           "@" + getUnqualifiedName(CLASS_NAME_PATTERN) + "(unqualifiedName = \"\")";
+      KOTLIN_DEFAULT_ANY_INSTANCE_OF_PATTERN = getUnqualifiedName(INSTANCE_OF_PATTERN) + "()";
       DEFAULT_ANY_INSTANCE_OF_PATTERN = "@" + getUnqualifiedName(INSTANCE_OF_PATTERN) + "()";
     }
 
@@ -509,6 +554,10 @@ public class KeepItemAnnotationGenerator {
       indent += 2;
       fn.run();
       indent -= 2;
+    }
+
+    private boolean generateKotlin() {
+      return pkg.startsWith("androidx.");
     }
 
     private void println() {
@@ -539,7 +588,7 @@ public class KeepItemAnnotationGenerator {
     }
 
     private void printPackage() {
-      println("package " + this.pkg + ";");
+      println("package " + this.pkg + (generateKotlin() ? "" : ";"));
       println();
     }
 
@@ -549,9 +598,67 @@ public class KeepItemAnnotationGenerator {
 
     private void printImports(List<Class<?>> imports) {
       for (Class<?> clazz : imports) {
-        println("import " + clazz.getCanonicalName() + ";");
+        println("import " + clazz.getCanonicalName() + (generateKotlin() ? "" : ";"));
       }
-      println();
+    }
+
+    private void printAnnotationImports() {
+      printImports(generateKotlin() ? KOTLIN_ANNOTATION_IMPORTS : ANNOTATION_IMPORTS);
+    }
+
+    private void printOpenAnnotationClassTargettingAnnotations(String clazz) {
+      if (generateKotlin()) {
+        println("@Retention(AnnotationRetention.BINARY)");
+        println("@Target(AnnotationTarget.ANNOTATION_CLASS)");
+        println("annotation class " + clazz + "(");
+      } else {
+        println("@Target(ElementType.ANNOTATION_TYPE)");
+        println("@Retention(RetentionPolicy.CLASS)");
+        println("public @interface " + clazz + " {");
+      }
+    }
+
+    private void printOpenAnnotationClassTargettingClassFieldlMethodCtor(String clazz) {
+      if (generateKotlin()) {
+        println("@Retention(AnnotationRetention.BINARY)");
+        println("@Target(");
+        println("  AnnotationTarget.CLASS,");
+        println("  AnnotationTarget.FIELD,");
+        println("  AnnotationTarget.FUNCTION,");
+        println("  AnnotationTarget.CONSTRUCTOR,");
+        println(")");
+        println("annotation class " + clazz + "(");
+      } else {
+        println(
+            "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
+                + " ElementType.CONSTRUCTOR})");
+        println("@Retention(RetentionPolicy.CLASS)");
+        println("public @interface " + clazz + " {");
+      }
+    }
+
+    private void printOpenAnnotationClassTargettingAnnotations(ClassReference clazz) {
+      printOpenAnnotationClassTargettingAnnotations(getUnqualifiedName(clazz));
+    }
+
+    private String defaultInvalidClassNamePattern() {
+      return generateKotlin()
+          ? KOTLIN_DEFAULT_INVALID_CLASS_NAME_PATTERN
+          : DEFAULT_INVALID_CLASS_NAME_PATTERN;
+    }
+
+    private String defaultInvalidStringPattern() {
+      return generateKotlin()
+          ? KOTLIN_DEFAULT_INVALID_STRING_PATTERN
+          : DEFAULT_INVALID_STRING_PATTERN;
+    }
+
+    private String defaultInvalidTypePattern() {
+      return generateKotlin() ? KOTLIN_DEFAULT_INVALID_TYPE_PATTERN : DEFAULT_INVALID_TYPE_PATTERN;
+    }
+
+    private void printCloseAnnotationClass() {
+      println(generateKotlin() ? ")" : "}");
     }
 
     private static String KIND_GROUP = "kind";
@@ -678,7 +785,7 @@ public class KeepItemAnnotationGenerator {
           .addMember(
               new GroupMember("classNamePattern")
                   .setDocTitle("Classes matching the class-name pattern.")
-                  .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN))
+                  .defaultValue(CLASS_NAME_PATTERN, defaultInvalidClassNamePattern()))
           .addMember(instanceOfPattern());
       // TODO(b/248408342): Add more injections on type pattern variants.
       // /** Exact type name as a string to match any array with that type as member. */
@@ -716,7 +823,7 @@ public class KeepItemAnnotationGenerator {
           .addMember(
               new GroupMember("classNamePattern")
                   .setDocTitle("Instances of classes matching the class-name pattern.")
-                  .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN));
+                  .defaultValue(CLASS_NAME_PATTERN, defaultInvalidClassNamePattern()));
     }
 
     private Group classNamePatternFullNameGroup() {
@@ -755,7 +862,7 @@ public class KeepItemAnnotationGenerator {
                   .setDocTitle("Define the unqualified class-name pattern by a string pattern.")
                   .setDocReturn("The string pattern of the unqualified class name.")
                   .addParagraph("The default matches any unqualified name.")
-                  .defaultValue(STRING_PATTERN, DEFAULT_INVALID_STRING_PATTERN));
+                  .defaultValue(STRING_PATTERN, defaultInvalidStringPattern()));
     }
 
     private Group classNamePatternPackageGroup() {
@@ -890,7 +997,7 @@ public class KeepItemAnnotationGenerator {
                   + ANNOTATION_NAME_GROUP
                   + " pattern by reference to a class-name pattern.")
           .setDocReturn("The class-name pattern that defines the annotation.")
-          .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN);
+          .defaultValue(CLASS_NAME_PATTERN, defaultInvalidClassNamePattern());
     }
 
     private static GroupMember annotationRetention() {
@@ -944,7 +1051,7 @@ public class KeepItemAnnotationGenerator {
           .setDocTitle(
               "Define the " + CLASS_NAME_GROUP + " pattern by reference to a class-name pattern.")
           .setDocReturn("The class-name pattern that defines the class.")
-          .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN);
+          .defaultValue(CLASS_NAME_PATTERN, defaultInvalidClassNamePattern());
     }
 
     private Group createClassNamePatternGroup() {
@@ -1007,7 +1114,11 @@ public class KeepItemAnnotationGenerator {
       return new GroupMember("instanceOfPattern")
           .setDocTitle("Define the " + INSTANCE_OF_GROUP + " with a pattern.")
           .setDocReturn("The pattern that defines what instance-of the class must be.")
-          .defaultValue(INSTANCE_OF_PATTERN, DEFAULT_ANY_INSTANCE_OF_PATTERN);
+          .defaultValue(
+              INSTANCE_OF_PATTERN,
+              generateKotlin()
+                  ? KOTLIN_DEFAULT_ANY_INSTANCE_OF_PATTERN
+                  : DEFAULT_ANY_INSTANCE_OF_PATTERN);
     }
 
     private Group createClassInstanceOfPatternGroup() {
@@ -1048,7 +1159,7 @@ public class KeepItemAnnotationGenerator {
                   .setDocTitle(
                       "Define the " + groupName + " pattern by reference to a class-name pattern.")
                   .setDocReturn("The class-name pattern that defines the annotation.")
-                  .defaultValue(CLASS_NAME_PATTERN, DEFAULT_INVALID_CLASS_NAME_PATTERN));
+                  .defaultValue(CLASS_NAME_PATTERN, defaultInvalidClassNamePattern()));
     }
 
     private Group createClassAnnotatedByPatternGroup() {
@@ -1146,7 +1257,7 @@ public class KeepItemAnnotationGenerator {
                   .addParagraph(getMutuallyExclusiveForMethodProperties())
                   .addParagraph(getMethodDefaultDoc("any method name"))
                   .setDocReturn("The string pattern of the method name.")
-                  .defaultValue(STRING_PATTERN, DEFAULT_INVALID_STRING_PATTERN));
+                  .defaultValue(STRING_PATTERN, defaultInvalidStringPattern()));
     }
 
     private Group createMethodReturnTypeGroup() {
@@ -1172,7 +1283,7 @@ public class KeepItemAnnotationGenerator {
                   .addParagraph(getMutuallyExclusiveForMethodProperties())
                   .addParagraph(getMethodDefaultDoc("any return type"))
                   .setDocReturn("The pattern of the method return type.")
-                  .defaultValue(TYPE_PATTERN, DEFAULT_INVALID_TYPE_PATTERN));
+                  .defaultValue(TYPE_PATTERN, defaultInvalidTypePattern()));
     }
 
     private Group createMethodParametersGroup() {
@@ -1192,7 +1303,7 @@ public class KeepItemAnnotationGenerator {
                   .addParagraph(getMutuallyExclusiveForMethodProperties())
                   .addParagraph(getMethodDefaultDoc("any parameters"))
                   .setDocReturn("The list of type patterns for the method parameters.")
-                  .defaultArrayValue(TYPE_PATTERN, DEFAULT_INVALID_TYPE_PATTERN));
+                  .defaultArrayValue(TYPE_PATTERN, defaultInvalidTypePattern()));
     }
 
     private Group createFieldAnnotatedByGroup() {
@@ -1228,7 +1339,7 @@ public class KeepItemAnnotationGenerator {
                   .addParagraph(getMutuallyExclusiveForFieldProperties())
                   .addParagraph(getFieldDefaultDoc("any field name"))
                   .setDocReturn("The string pattern of the field name.")
-                  .defaultValue(STRING_PATTERN, DEFAULT_INVALID_STRING_PATTERN));
+                  .defaultValue(STRING_PATTERN, defaultInvalidStringPattern()));
     }
 
     private Group createFieldTypeGroup() {
@@ -1253,7 +1364,7 @@ public class KeepItemAnnotationGenerator {
                   .addParagraph(getMutuallyExclusiveForFieldProperties())
                   .addParagraph(getFieldDefaultDoc("any type"))
                   .setDocReturn("The type pattern for the field type.")
-                  .defaultValue(TYPE_PATTERN, DEFAULT_INVALID_TYPE_PATTERN));
+                  .defaultValue(TYPE_PATTERN, defaultInvalidTypePattern()));
     }
 
     private void generateClassAndMemberPropertiesWithClassAndMemberBinding() {
@@ -1339,14 +1450,12 @@ public class KeepItemAnnotationGenerator {
     private void generateStringPattern() {
       printCopyRight(2024);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching strings.")
           .addParagraph("If no properties are set, the default pattern matches any string.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + getUnqualifiedName(STRING_PATTERN) + " {");
+      printOpenAnnotationClassTargettingAnnotations(STRING_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1360,41 +1469,41 @@ public class KeepItemAnnotationGenerator {
             println();
             suffixGroup.generate(this);
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateTypePattern() {
       printCopyRight(2023);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching types.")
           .addParagraph("If no properties are set, the default pattern matches any type.")
           .addParagraph("All properties on this annotation are mutually exclusive.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + getUnqualifiedName(TYPE_PATTERN) + " {");
+      printOpenAnnotationClassTargettingAnnotations(TYPE_PATTERN);
       println();
       withIndent(() -> typePatternGroup().generate(this));
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateClassNamePattern() {
       printCopyRight(2023);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching names of classes and interfaces.")
           .addParagraph(
               "If no properties are set, the default pattern matches any name of a class or"
                   + " interface.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + getUnqualifiedName(CLASS_NAME_PATTERN) + " {");
+      printOpenAnnotationClassTargettingAnnotations(CLASS_NAME_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1409,21 +1518,18 @@ public class KeepItemAnnotationGenerator {
             println();
             packageGroup.generate(this);
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateInstanceOfPattern() {
       printCopyRight(2024);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching instances of classes and interfaces.")
           .addParagraph("If no properties are set, the default pattern matches any instance.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + getUnqualifiedName(INSTANCE_OF_PATTERN) + " {");
+      printOpenAnnotationClassTargettingAnnotations(INSTANCE_OF_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1431,23 +1537,24 @@ public class KeepItemAnnotationGenerator {
             println();
             instanceOfPatternClassNamePattern().generate(this);
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateAnnotationPattern() {
       printCopyRight(2024);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printImports(RetentionPolicy.class);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("A pattern structure for matching annotations.")
           .addParagraph(
               "If no properties are set, the default pattern matches any annotation",
               "with a runtime retention policy.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + getUnqualifiedName(ANNOTATION_PATTERN) + " {");
+      printOpenAnnotationClassTargettingAnnotations(ANNOTATION_PATTERN);
       println();
       withIndent(
           () -> {
@@ -1455,14 +1562,16 @@ public class KeepItemAnnotationGenerator {
             println();
             annotationRetention().generate(this);
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateKeepBinding() {
       printCopyRight(2022);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("A binding of a keep item.")
           .addParagraph(
@@ -1473,9 +1582,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface KeepBinding {");
+      printOpenAnnotationClassTargettingAnnotations("KeepBinding");
       println();
       withIndent(
           () -> {
@@ -1485,14 +1592,16 @@ public class KeepItemAnnotationGenerator {
             println();
             generateClassAndMemberPropertiesWithClassBinding();
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateKeepTarget() {
       printCopyRight(2022);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("A target for a keep edge.")
           .addParagraph(
@@ -1500,9 +1609,7 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface KeepTarget {");
+      printOpenAnnotationClassTargettingAnnotations("KeepTarget");
       println();
       withIndent(
           () -> {
@@ -1515,14 +1622,16 @@ public class KeepItemAnnotationGenerator {
                 });
             generateClassAndMemberPropertiesWithClassAndMemberBinding();
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateKeepCondition() {
       printCopyRight(2022);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("A condition for a keep edge.")
           .addParagraph(
@@ -1530,22 +1639,22 @@ public class KeepItemAnnotationGenerator {
           .addUnorderedList(
               "a pattern on classes;", "a pattern on methods; or", "a pattern on fields.")
           .printDoc(this::println);
-      println("@Target(ElementType.ANNOTATION_TYPE)");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface KeepCondition {");
+      printOpenAnnotationClassTargettingAnnotations("KeepCondition");
       println();
       withIndent(
           () -> {
             generateClassAndMemberPropertiesWithClassAndMemberBinding();
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateKeepForApi() {
       printCopyRight(2023);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle(
               "Annotation to mark a class, field or method as part of a library API surface.")
@@ -1557,11 +1666,7 @@ public class KeepItemAnnotationGenerator {
               "When a member is annotated, the member patterns cannot be used as the annotated"
                   + " member itself fully defines the item to be kept (i.e., itself).")
           .printDoc(this::println);
-      println(
-          "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
-              + " ElementType.CONSTRUCTOR})");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface KeepForApi {");
+      printOpenAnnotationClassTargettingClassFieldlMethodCtor("KeepForApi");
       println();
       withIndent(
           () -> {
@@ -1592,14 +1697,13 @@ public class KeepItemAnnotationGenerator {
             println();
             generateMemberPropertiesNoBinding();
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateUsesReflection() {
       printCopyRight(2022);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
       DocPrinter.printer()
           .setDocTitle(
               "Annotation to declare the reflective usages made by a class, method or field.")
@@ -1651,11 +1755,7 @@ public class KeepItemAnnotationGenerator {
               "    // unreachable",
               "  }")
           .printDoc(this::println);
-      println(
-          "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
-              + " ElementType.CONSTRUCTOR})");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + getUnqualifiedName(USES_REFLECTION) + " {");
+      printOpenAnnotationClassTargettingClassFieldlMethodCtor(getUnqualifiedName(USES_REFLECTION));
       println();
       withIndent(
           () -> {
@@ -1665,13 +1765,16 @@ public class KeepItemAnnotationGenerator {
             println();
             createAdditionalPreconditionsGroup().generate(this);
           });
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private void generateUsedByX(String annotationClassName, String doc) {
       printCopyRight(2023);
       printPackage();
-      printImports(ANNOTATION_IMPORTS);
+      printAnnotationImports();
+      if (generateKotlin()) {
+        println("import kotlin.reflect.KClass");
+      }
       DocPrinter.printer()
           .setDocTitle("Annotation to mark a class, field or method as being " + doc + ".")
           .addParagraph(
@@ -1694,11 +1797,7 @@ public class KeepItemAnnotationGenerator {
               "When a member is annotated, the member patterns cannot be used as the annotated"
                   + " member itself fully defines the item to be kept (i.e., itself).")
           .printDoc(this::println);
-      println(
-          "@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD,"
-              + " ElementType.CONSTRUCTOR})");
-      println("@Retention(RetentionPolicy.CLASS)");
-      println("public @interface " + annotationClassName + " {");
+      printOpenAnnotationClassTargettingClassFieldlMethodCtor(annotationClassName);
       println();
       withIndent(
           () -> {
@@ -1738,8 +1837,7 @@ public class KeepItemAnnotationGenerator {
                 });
             generateMemberPropertiesNoBinding();
           });
-      println();
-      println("}");
+      printCloseAnnotationClass();
     }
 
     private static String annoUnqualifiedName(ClassReference clazz) {
@@ -2190,56 +2288,7 @@ public class KeepItemAnnotationGenerator {
       println();
     }
 
-    private static void writeFile(Path file, Consumer<Generator> fn, BiConsumer<Path, String> write)
-        throws IOException {
-      ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteStream);
-      Generator generator = new Generator(printStream, R8_ANNO_PKG);
-      fn.accept(generator);
-      String formatted = byteStream.toString();
-      if (file.toString().endsWith(".java")) {
-        formatted = CodeGenerationBase.javaFormatRawOutput(formatted);
-      }
-      Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
-      write.accept(resolved, formatted);
-    }
-
-    private static void writeFile(
-        String pkg,
-        Function<Generator, ClassReference> f,
-        Consumer<Generator> fn,
-        BiConsumer<Path, String> write)
-        throws IOException {
-      ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteStream);
-      Generator generator = new Generator(printStream, pkg);
-      fn.accept(generator);
-      String formatted = byteStream.toString();
-      Path file = source(f.apply(generator));
-      if (file.toString().endsWith(".java")) {
-        formatted = CodeGenerationBase.javaFormatRawOutput(formatted);
-      }
-      Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
-      write.accept(resolved, formatted);
-    }
-
-    public static Path source(ClassReference clazz) {
-      return Paths.get("src", "keepanno", "java").resolve(clazz.getBinaryName() + ".java");
-    }
-
-    public static void run(BiConsumer<Path, String> write) throws IOException {
-      Path projectRoot = Paths.get(ToolHelper.getProjectRoot());
-      writeFile(
-          Paths.get("doc/keepanno-guide.md"),
-          generator -> KeepAnnoMarkdownGenerator.generateMarkdownDoc(generator, projectRoot),
-          write);
-
-      writeFile(
-          ANDROIDX_ANNO_PKG,
-          generator -> generator.ANNOTATION_CONSTANTS,
-          Generator::generateConstants,
-          write);
-      // Create a copy of the non-generated classes in the androidx namespace.
+    private static void copyNonGeneratedMethods() throws IOException {
       String[] nonGeneratedClasses =
           new String[] {
             "CheckOptimizedOut",
@@ -2270,6 +2319,70 @@ public class KeepItemAnnotationGenerator {
                 .collect(Collectors.toList()));
         FileUtils.writeTextFile(toResolved, out);
       }
+    }
+
+    private static void writeFile(Path file, Consumer<Generator> fn, BiConsumer<Path, String> write)
+        throws IOException {
+      ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+      PrintStream printStream = new PrintStream(byteStream);
+      Generator generator = new Generator(printStream, R8_ANNO_PKG);
+      fn.accept(generator);
+      String formatted = byteStream.toString();
+      if (file.toString().endsWith(".kt")) {
+        formatted = CodeGenerationBase.kotlinFormatRawOutput(formatted);
+      } else if (file.toString().endsWith(".java")) {
+        formatted = CodeGenerationBase.javaFormatRawOutput(formatted);
+      }
+      Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
+      write.accept(resolved, formatted);
+    }
+
+    private static void writeFile(
+        String pkg,
+        Function<Generator, ClassReference> f,
+        Consumer<Generator> fn,
+        BiConsumer<Path, String> write)
+        throws IOException {
+      ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+      PrintStream printStream = new PrintStream(byteStream);
+      Generator generator = new Generator(printStream, pkg);
+      fn.accept(generator);
+      String formatted = byteStream.toString();
+      Path file = source(f.apply(generator));
+      if (file.toString().endsWith(".kt")) {
+        formatted = CodeGenerationBase.kotlinFormatRawOutput(formatted);
+      } else if (file.toString().endsWith(".java")) {
+        formatted = CodeGenerationBase.javaFormatRawOutput(formatted);
+      }
+      Path resolved = Paths.get(ToolHelper.getProjectRoot()).resolve(file);
+      write.accept(resolved, formatted);
+    }
+
+    public static Path source(ClassReference clazz) {
+      Path keepAnnoSourcePath = Paths.get("src", "keepanno", "java");
+      if (clazz.getBinaryName().startsWith("androidx/")) {
+        return keepAnnoSourcePath.resolve(clazz.getBinaryName() + ".kt");
+      } else {
+        return keepAnnoSourcePath.resolve(clazz.getBinaryName() + ".java");
+      }
+    }
+
+    public static void run(BiConsumer<Path, String> write) throws IOException {
+      Path projectRoot = Paths.get(ToolHelper.getProjectRoot());
+      writeFile(
+          Paths.get("doc/keepanno-guide.md"),
+          generator -> KeepAnnoMarkdownGenerator.generateMarkdownDoc(generator, projectRoot),
+          write);
+
+      writeFile(
+          ANDROIDX_ANNO_PKG,
+          generator -> generator.ANNOTATION_CONSTANTS,
+          Generator::generateConstants,
+          write);
+      // Create a copy of the non-generated classes in the androidx namespace.
+      // This is currently disabled. Will potentially be re-introduced by converting these classes
+      // to Kotlin in the R8 keep anno namespace.
+      // copyNonGeneratedMethods();
       for (String pkg : new String[] {R8_ANNO_PKG, ANDROIDX_ANNO_PKG}) {
         writeFile(
             pkg, generator -> generator.STRING_PATTERN, Generator::generateStringPattern, write);

@@ -22,6 +22,7 @@ java {
 dependencies { }
 
 val keepAnnoCompileTask = projectTask("keepanno", "compileJava")
+val keepAnnoCompileKotlinTask = projectTask("keepanno", "compileKotlin")
 val keepAnnoSourcesTask = projectTask("keepanno", "sourcesJar")
 val assistantJarTask = projectTask("assistant", "jar")
 val mainDepsJarTask = projectTask("main", "depsJar")
@@ -431,7 +432,10 @@ tasks {
 
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
-      keepAnnoCompileTask.getOutputs().getFiles().getAsPath().split(File.pathSeparator)[0])
+      extractClassesPaths(
+        "keepanno/",
+        keepAnnoCompileTask.outputs.files.asPath,
+        keepAnnoCompileKotlinTask.outputs.files.asPath))
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
             getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
     systemProperty("BUILD_PROP_R8_RUNTIME_PATH", r8LibJar)

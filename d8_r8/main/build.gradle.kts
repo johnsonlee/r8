@@ -3,9 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import java.net.URI
-import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.exists
 import java.nio.file.Files.readString
 import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.api.artifacts.ModuleVersionIdentifier
@@ -89,8 +87,8 @@ spdxSbom {
   }
 }
 
-val keepAnnoJarTask = projectTask("keepanno", "jar")
 val assistantJarTask = projectTask("assistant", "jar")
+val keepAnnoJarTask = projectTask("keepanno", "jar")
 val resourceShrinkerJarTask = projectTask("resourceshrinker", "jar")
 val resourceShrinkerDepsTask = projectTask("resourceshrinker", "depsJar")
 
@@ -292,8 +290,8 @@ val swissArmyKnifeWithoutLicense by registering(Zip::class) {
 val r8WithRelocatedDeps by registering(Exec::class) {
     dependsOn(depsJar)
     dependsOn(swissArmyKnifeWithoutLicense)
-    val swissArmy = swissArmyKnifeWithoutLicense.get().outputs.getFiles().getSingleFile()
-    val deps = depsJar.get().outputs.files.getSingleFile()
+    val swissArmy = swissArmyKnifeWithoutLicense.get().outputs.files.singleFile
+    val deps = depsJar.get().outputs.files.singleFile
     inputs.files(listOf(swissArmy, deps))
     val output = getRoot().resolveAll("build", "libs", "r8.jar")
     outputs.file(output)
