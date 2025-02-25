@@ -76,7 +76,7 @@ def prepare_release(args):
                     if result:
                         break
                 if not result or not result.group(1):
-                    print('Failed to find version label matching %s(\d+)-dev'\
+                    print(r'Failed to find version label matching %s(\d+)-dev'\
                           % R8_DEV_BRANCH)
                     sys.exit(1)
                 try:
@@ -294,7 +294,7 @@ def find_r8_version_hash(branch, version):
         'log',
         '--pretty=format:%H\t%s',
         '--grep',
-        '^Version [[:digit:]]\+.[[:digit:]]\+.[[:digit:]]\+\(\|-dev\)$',
+        r'^Version [[:digit:]]\+.[[:digit:]]\+.[[:digit:]]\+\(\|-dev\)$',
         branch]).decode('utf-8')
     for l in output.split('\n'):
         (hash, subject) = l.split('\t')
@@ -636,7 +636,7 @@ def extract_version_from_pom(pom_file):
 
 
 GMAVEN_PUBLISH_STAGE_RELEASE_ID_PATTERN = re.compile(
-    'Release ID = ([0-9a-f\-]+)')
+    r'Release ID = ([0-9a-f\-]+)')
 
 
 def gmaven_publisher_stage(args, gfiles):
