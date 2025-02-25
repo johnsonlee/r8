@@ -173,13 +173,10 @@ public abstract class DexApplication implements DexDefinitionSupplier {
     final Timing timing;
     DexApplicationReadFlags flags;
 
-    private final Collection<DexProgramClass> synthesizedClasses;
-
     public Builder(InternalOptions options, Timing timing) {
       this.options = options;
       this.dexItemFactory = options.itemFactory;
       this.timing = timing;
-      this.synthesizedClasses = new ArrayList<>();
     }
 
     abstract T self();
@@ -192,7 +189,6 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       timing = application.timing;
       options = application.options;
       dexItemFactory = application.dexItemFactory;
-      synthesizedClasses = new ArrayList<>();
     }
 
     public boolean isDirect() {
@@ -261,19 +257,8 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       return self();
     }
 
-    public synchronized T addSynthesizedClass(DexProgramClass synthesizedClass) {
-      assert synthesizedClass.isProgramClass() : "All synthesized classes must be program classes";
-      addProgramClass(synthesizedClass);
-      synthesizedClasses.add(synthesizedClass);
-      return self();
-    }
-
     public List<DexProgramClass> getProgramClasses() {
       return programClasses;
-    }
-
-    public Collection<DexProgramClass> getSynthesizedClasses() {
-      return synthesizedClasses;
     }
 
     public abstract DexApplication build();
