@@ -868,7 +868,26 @@ public class KeepEdgeReader implements Opcodes {
       // Currently there is no way of changing constraints on KeepForApi.
       // Default constraints should retain the expected meta-data, such as signatures, annotations
       // exception-throws etc.
-      KeepConstraints defaultForApiConstraints = KeepConstraints.all();
+      KeepConstraints apiConstraints = KeepConstraints.all();
+
+      // TODO(b/399021897): Remove temporary system property when @KeepForApi supports not retaining
+      //  runtime invisible annotations.
+      String unkeepInvisibleAnnotationsInKeepForApi =
+          System.getProperty(
+              "com.android.tools.r8.keepanno.unkeepInvisibleAnnotationsInKeepForApi");
+      if (unkeepInvisibleAnnotationsInKeepForApi != null) {
+        KeepConstraints.Builder constraintsBuilder = KeepConstraints.builder();
+        for (KeepConstraint constraint : apiConstraints.getConstraints()) {
+          if (constraint == KeepConstraint.annotationsAll()) {
+            constraintsBuilder.add(KeepConstraint.annotationsAllWithRuntimeRetention());
+          } else {
+            assert constraint != KeepConstraint.annotationsAllWithClassRetention();
+            constraintsBuilder.add(constraint);
+          }
+        }
+        apiConstraints = constraintsBuilder.build();
+      }
+
       Collection<KeepBindingReference> items = getItems();
       for (KeepBindingReference bindingReference : items) {
         KeepItemPattern item = bindingsHelper.getItem(bindingReference);
@@ -892,7 +911,7 @@ public class KeepEdgeReader implements Opcodes {
         consequences.addTarget(
             KeepTarget.builder()
                 .setItemReference(bindingReference)
-                .setConstraints(defaultForApiConstraints)
+                .setConstraints(apiConstraints)
                 .build());
       }
       parent.accept(

@@ -103,7 +103,7 @@ public abstract class KeepConstraints {
     }
   }
 
-  abstract Set<KeepConstraint> getConstraints();
+  public abstract Set<KeepConstraint> getConstraints();
 
   private Set<KeepConstraint> getConstraintsMatching(Predicate<KeepConstraint> predicate) {
     ImmutableSet.Builder<KeepConstraint> builder = ImmutableSet.builder();
@@ -153,7 +153,7 @@ public abstract class KeepConstraints {
             KeepConstraint.annotationsAll());
 
     @Override
-    Set<KeepConstraint> getConstraints() {
+    public Set<KeepConstraint> getConstraints() {
       return constraints;
     }
 
@@ -203,7 +203,7 @@ public abstract class KeepConstraints {
     }
 
     @Override
-    Set<KeepConstraint> getConstraints() {
+    public Set<KeepConstraint> getConstraints() {
       return constraints;
     }
 
@@ -240,7 +240,7 @@ public abstract class KeepConstraints {
     }
 
     @Override
-    Set<KeepConstraint> getConstraints() {
+    public Set<KeepConstraint> getConstraints() {
       return ImmutableSet.<KeepConstraint>builder()
           .addAll(Defaults.INSTANCE.getConstraints())
           .addAll(additions.getConstraints())
