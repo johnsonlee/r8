@@ -141,7 +141,7 @@ tasks {
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
       extractClassesPaths(
-        "keepanno/",
+        "keepanno" + File.separator,
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
     // This path is set when compiling examples jar task in DependenciesPlugin.

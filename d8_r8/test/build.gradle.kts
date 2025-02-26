@@ -433,7 +433,7 @@ tasks {
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
       extractClassesPaths(
-        "keepanno/",
+        "keepanno" + File.separator,
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
     systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
