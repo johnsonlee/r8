@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static com.android.tools.r8.TestBase.descriptor;
 import static com.android.tools.r8.TestBase.testForD8;
+import static com.android.tools.r8.TestBase.writeClassesToJar;
 
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
@@ -13,7 +15,10 @@ import com.android.tools.r8.utils.InternalOptions;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -27,6 +32,8 @@ public class AssistantTestBuilder
 
   private final D8TestBuilder initialCompileBuilder;
   private Path output;
+  private String customReflectiveOperationReceiver = null;
+  private List<Class<?>> customReflectiveOperationInputClasses = new ArrayList<>();
 
   private AssistantTestBuilder(TestState state) {
     super(state, R8AssistantCommand.builder(state.getDiagnosticsHandler()), Backend.DEX);
@@ -52,6 +59,11 @@ public class AssistantTestBuilder
     throw new Unimplemented("No classpath for assistant");
   }
 
+  public AssistantTestBuilder addInstrumentationClasses(Class<?>... classes) {
+    Collections.addAll(customReflectiveOperationInputClasses, classes);
+    return self();
+  }
+
   @Override
   public AssistantTestBuilder addProgramFiles(Collection<Path> files) {
     initialCompileBuilder.addProgramFiles(files);
@@ -71,19 +83,40 @@ public class AssistantTestBuilder
       if (output == null) {
         output = getState().getNewTempFile("assistant_output.jar");
       }
+      if (!customReflectiveOperationInputClasses.isEmpty()) {
+        builder.addReflectiveOperationReceiverInput(
+            ArchiveProgramResourceProvider.fromArchive(
+                writeClassesToJar(customReflectiveOperationInputClasses)));
+      }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+
     builder
         .addProgramFiles(initialCompilation)
         .setOutput(output, OutputMode.DexIndexed)
         .setMinApiLevel(getMinApiLevel());
 
+    if (customReflectiveOperationReceiver != null) {
+      builder.setReflectiveReceiverClassDescriptor(customReflectiveOperationReceiver);
+    }
     R8Assistant.run(builder.build());
     return new AssistantTestCompileResult(
         initialCompilation,
         getState(),
         AndroidApp.builder().addProgramFiles(output).build(),
         getMinApiLevel());
+  }
+
+  public AssistantTestBuilder setCustomReflectiveOperationReceiver(
+      String customReflectiveOperationReceiver) {
+    this.customReflectiveOperationReceiver = customReflectiveOperationReceiver;
+    return self();
+  }
+
+  public AssistantTestBuilder setCustomReflectiveOperationReceiver(
+      Class<?> customReflectiveOperationReceiver) {
+    this.customReflectiveOperationReceiver = descriptor(customReflectiveOperationReceiver);
+    return self();
   }
 }

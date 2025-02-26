@@ -16,6 +16,7 @@ import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.SynthesizedOrigin;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.DumpInputFlags;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.DesugarState;
@@ -30,12 +31,15 @@ import java.util.Collections;
 @KeepForApi
 public class R8AssistantCommand extends BaseCompilerCommand {
 
+  private final String reflectiveReceiverDescriptor;
+
   public R8AssistantCommand(
       AndroidApp app,
       CompilationMode mode,
       ProgramConsumer programConsumer,
       int minApiLevel,
-      Reporter reporter) {
+      Reporter reporter,
+      String reflectiveReceiverDescriptor) {
     super(
         app,
         mode,
@@ -58,6 +62,7 @@ public class R8AssistantCommand extends BaseCompilerCommand {
         Collections.emptyList(),
         null,
         null);
+    this.reflectiveReceiverDescriptor = reflectiveReceiverDescriptor;
   }
 
   public static Builder builder(DiagnosticsHandler reporter) {
@@ -83,12 +88,18 @@ public class R8AssistantCommand extends BaseCompilerCommand {
     return options;
   }
 
+  public String getReflectiveReceiverDescriptor() {
+    return reflectiveReceiverDescriptor;
+  }
+
   /**
    * This is an experimental API for injecting reflective identification callbacks into dex code.
    * This API is subject to change.
    */
   @KeepForApi
   public static class Builder extends BaseCompilerCommand.Builder<R8AssistantCommand, Builder> {
+
+    private String reflectiveReceiverDescriptor;
 
     private Builder() {
       this(new DiagnosticsHandler() {});
@@ -102,6 +113,20 @@ public class R8AssistantCommand extends BaseCompilerCommand {
       if (!hasNativeMultidex()) {
         getReporter().error("R8 assistant requires min api >= 21");
       }
+    }
+
+    public Builder addReflectiveOperationReceiverInput(ProgramResourceProvider provider) {
+      // This code is simply added to the program input, will be called by the ReflectiveOracle.
+      addProgramResourceProvider(provider);
+      return self();
+    }
+
+    public Builder setReflectiveReceiverClassDescriptor(String descriptor) {
+      if (!DescriptorUtils.isClassDescriptor(descriptor)) {
+        getReporter().error("Not a valid descriptor " + descriptor);
+      }
+      this.reflectiveReceiverDescriptor = descriptor;
+      return self();
     }
 
     @Override
@@ -138,7 +163,8 @@ public class R8AssistantCommand extends BaseCompilerCommand {
           getMode(),
           getProgramConsumer(),
           getMinApiLevel(),
-          getReporter());
+          getReporter(),
+          reflectiveReceiverDescriptor);
     }
   }
 }

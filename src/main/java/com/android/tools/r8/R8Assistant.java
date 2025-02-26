@@ -65,6 +65,10 @@ public class R8Assistant {
       reflectiveInstrumentation.instrumentClasses();
       // Convert cf classes
       converter.convert(appView, executorService);
+      if (command.getReflectiveReceiverDescriptor() != null) {
+        reflectiveInstrumentation.updateReflectiveReceiver(
+            command.getReflectiveReceiverDescriptor());
+      }
       SyntheticFinalization.finalize(appView, timing, executorService);
       ApplicationWriter writer = ApplicationWriter.create(appView, options.getMarker());
       writer.write(executorService);

@@ -17,11 +17,17 @@ public class ReflectiveOracle {
       // TODO(b/393249304): Support injecting alternative receiver.
       synchronized (instanceLock) {
         if (INSTANCE == null) {
-          INSTANCE = new ReflectiveOperationLogger();
+          INSTANCE = getReceiver();
         }
       }
     }
     return INSTANCE;
+  }
+
+  // Might be rewritten to call new instance on a custom receiver.
+  private static ReflectiveOperationReceiver getReceiver() {
+    // Default, might be replaced, don't change this without changing the instrumentation
+    return new ReflectiveOperationLogger();
   }
 
   @KeepForApi

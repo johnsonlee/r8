@@ -3,22 +3,26 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.assistant;
 
-import com.android.tools.r8.assistant.runtime.ReflectiveOracle;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.IRCodeInstructionListIterator;
 import com.android.tools.r8.ir.code.Instruction;
+import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
+import com.android.tools.r8.ir.code.NewInstance;
+import com.android.tools.r8.ir.code.Return;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.PrimaryD8L8IRConverter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,16 +33,41 @@ public class ReflectiveInstrumentation {
   private final PrimaryD8L8IRConverter converter;
   private final DexItemFactory dexItemFactory;
   private final Timing timing;
-  private final DexType reflectiveOracleType;
+  private final ReflectiveReferences reflectiveReferences;
 
   public ReflectiveInstrumentation(
       AppView<AppInfo> appView, PrimaryD8L8IRConverter converter, Timing timing) {
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
+    this.reflectiveReferences = new ReflectiveReferences(dexItemFactory);
     this.converter = converter;
     this.timing = timing;
-    this.reflectiveOracleType =
-        dexItemFactory.createType(DescriptorUtils.javaClassToDescriptor(ReflectiveOracle.class));
+  }
+
+  public void updateReflectiveReceiver(String customReflectiveReceiverDescriptor) {
+    ProgramMethod getReceiver =
+        appView.definitionFor(reflectiveReferences.getReceiverMethod).asProgramMethod();
+    IRCode code = getReceiver.buildIR(appView);
+    assert code.streamInstructions().count() == 3;
+    DexType replacementType = dexItemFactory.createType(customReflectiveReceiverDescriptor);
+    IRCodeInstructionListIterator instructionListIterator = code.instructionListIterator();
+    instructionListIterator.next();
+    NewInstance newInstanceReplacement =
+        NewInstance.builder()
+            .setType(replacementType)
+            .setFreshOutValue(code, replacementType.toNonNullTypeElement(appView))
+            .build();
+    Value newInstanceOutValue = newInstanceReplacement.outValue();
+    instructionListIterator.replaceCurrentInstruction(newInstanceReplacement);
+    instructionListIterator.next();
+    DexMethod method = dexItemFactory.createInstanceInitializer(replacementType);
+    InvokeDirect invokeDirect =
+        InvokeDirect.builder().setMethod(method).setArguments(newInstanceOutValue).build();
+    instructionListIterator.replaceCurrentInstruction(invokeDirect);
+    instructionListIterator.next();
+    Return newReturn = Return.builder().setReturnValue(newInstanceOutValue).build();
+    instructionListIterator.replaceCurrentInstruction(newReturn);
+    converter.removeDeadCodeAndFinalizeIR(code, OptimizationFeedback.getIgnoreFeedback(), timing);
   }
 
   // TODO(b/394013779): Do this in parallel.
@@ -93,14 +122,14 @@ public class ReflectiveInstrumentation {
 
   private DexMethod getMethodReferenceWithClassParameter(String name) {
     return dexItemFactory.createMethod(
-        reflectiveOracleType,
+        reflectiveReferences.reflectiveOracleType,
         dexItemFactory.createProto(dexItemFactory.voidType, dexItemFactory.classType),
         name);
   }
 
   private DexMethod getMethodReferenceWithClassMethodNameAndParameters(String name) {
     return dexItemFactory.createMethod(
-        reflectiveOracleType,
+        reflectiveReferences.reflectiveOracleType,
         dexItemFactory.createProto(
             dexItemFactory.voidType,
             dexItemFactory.classType,

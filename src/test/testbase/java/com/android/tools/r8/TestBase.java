@@ -1429,9 +1429,15 @@ public class TestBase {
     consumer.finished(null);
   }
 
+
   protected static Path writeClassesToJar(Class<?>... classes) throws IOException {
+    List<Class<?>> classesCollection = Arrays.asList(classes);
+    return writeClassesToJar(classesCollection);
+  }
+
+  protected static Path writeClassesToJar(List<Class<?>> classesCollection) throws IOException {
     Path jar = staticTemp.newFolder().toPath().resolve("classes.jar");
-    writeClassesToJar(jar, Arrays.asList(classes));
+    writeClassesToJar(jar, classesCollection);
     return jar;
   }
 
