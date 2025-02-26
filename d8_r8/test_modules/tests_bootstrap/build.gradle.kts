@@ -82,7 +82,7 @@ tasks {
     systemProperty(
       "BUILD_PROP_KEEPANNO_RUNTIME_PATH",
       extractClassesPaths(
-        "keepanno" + File.separator,,
+        "keepanno" + File.separator,
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
     systemProperty("R8_WITH_RELOCATED_DEPS", mainR8RelocatedTask.outputs.files.singleFile)
