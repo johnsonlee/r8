@@ -508,7 +508,11 @@ public class R8 {
       appView.setGraphLens(
           MemberRebindingIdentityLensFactory.create(appViewWithLiveness, executorService));
 
-      new MemberRebindingAnalysis(appViewWithLiveness).run(executorService);
+      if (options.getTestingOptions().enableMemberRebindingAnalysis) {
+        new MemberRebindingAnalysis(appViewWithLiveness).run(executorService);
+      } else {
+        appViewWithLiveness.appInfo().getFieldAccessInfoCollection().flattenAccessContexts();
+      }
       appViewWithLiveness.appInfo().notifyMemberRebindingFinished(appViewWithLiveness);
 
       assert ArtProfileCompletenessChecker.verify(appView);

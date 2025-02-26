@@ -9,6 +9,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
@@ -35,10 +36,11 @@ public class MultiCallerInlinerInvokeRegistry extends InvokeExtractor<MultiCalle
 
   @Override
   protected void processInvokeWithDynamicDispatch(
-      InvokeType type, DexClassAndMethod resolutionResult, ProgramMethod context) {
+      InvokeType type, SingleResolutionResult<?> resolutionResult, ProgramMethod context) {
     // Skip calls that dispatch to library methods or library method overrides.
-    if (resolutionResult.isProgramMethod()
-        && resolutionResult.getDefinition().isLibraryMethodOverride().isPossiblyFalse()) {
+    DexClassAndMethod resolvedMethod = resolutionResult.getResolutionPair();
+    if (resolvedMethod.isProgramMethod()
+        && resolvedMethod.getDefinition().isLibraryMethodOverride().isPossiblyFalse()) {
       super.processInvokeWithDynamicDispatch(type, resolutionResult, context);
     }
   }

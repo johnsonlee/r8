@@ -1,7 +1,6 @@
 // Copyright (c) 2019, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.ir.conversion.callgraph;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
@@ -14,6 +13,7 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.LookupResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
+import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.ir.code.InvokeType;
@@ -86,7 +86,7 @@ public class InvokeExtractor<N extends NodeBase<N>> extends DefaultUseRegistry<P
     }
     if (type.isInterface() || type.isVirtual()) {
       // For virtual and interface calls add all potential targets that could be called.
-      processInvokeWithDynamicDispatch(type, resolutionResult.getResolutionPair(), context);
+      processInvokeWithDynamicDispatch(type, resolutionResult.asSingleResolution(), context);
     } else {
       ProgramMethod singleTarget =
           asProgramMethodOrNull(
@@ -113,9 +113,10 @@ public class InvokeExtractor<N extends NodeBase<N>> extends DefaultUseRegistry<P
   }
 
   protected void processInvokeWithDynamicDispatch(
-      InvokeType type, DexClassAndMethod encodedTarget, ProgramMethod context) {
-    DexMethod target = encodedTarget.getReference();
-    DexClass clazz = encodedTarget.getHolder();
+      InvokeType type, SingleResolutionResult<?> resolutionResult, ProgramMethod context) {
+    DexClassAndMethod resolvedMethod = resolutionResult.getResolutionPair();
+    DexMethod target = resolvedMethod.getReference();
+    DexClass clazz = resolvedMethod.getHolder();
     if (!appViewWithLiveness.options().testing.addCallEdgesForLibraryInvokes) {
       if (clazz.isLibraryClass()) {
         // Likely to have many possible targets.
@@ -123,16 +124,13 @@ public class InvokeExtractor<N extends NodeBase<N>> extends DefaultUseRegistry<P
       }
     }
 
-    boolean isInterface = type == InvokeType.INTERFACE;
     ProgramMethodSet possibleProgramTargets =
         possibleProgramTargetsCache.computeIfAbsent(
             target,
             method -> {
-              MethodResolutionResult resolution =
-                  appViewWithLiveness.appInfo().resolveMethodLegacy(method, isInterface);
-              if (resolution.isVirtualTarget()) {
+              if (resolvedMethod.getDefinition().isVirtualMethod()) {
                 LookupResult lookupResult =
-                    resolution.lookupVirtualDispatchTargets(
+                    resolutionResult.lookupVirtualDispatchTargets(
                         context.getHolder(), appViewWithLiveness);
                 if (lookupResult.isLookupResultSuccess()) {
                   ProgramMethodSet targets = ProgramMethodSet.create();

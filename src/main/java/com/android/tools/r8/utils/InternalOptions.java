@@ -2333,6 +2333,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableInvokeSuperToInvokeVirtualRewriting = true;
     public boolean enableLegacyClassDefOrdering =
         System.getProperty("com.android.tools.r8.enableLegacyClassDefOrdering") != null;
+    public boolean enableMemberRebindingAnalysis = true;
     public boolean enableMultiANewArrayDesugaringForClassFiles = false;
     public boolean enableStrictFrameVerification = false;
     public boolean enableSyntheticSharing = true;
