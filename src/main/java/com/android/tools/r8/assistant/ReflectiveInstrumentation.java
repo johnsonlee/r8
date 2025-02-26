@@ -16,8 +16,8 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.IRCodeInstructionListIterator;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
-import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Return;
 import com.android.tools.r8.ir.code.Value;
@@ -87,19 +87,16 @@ public class ReflectiveInstrumentation {
                   blockIterator.next().listIterator();
               while (instructionIterator.hasNext()) {
                 Instruction instruction = instructionIterator.next();
-                if (!instruction.isInvokeVirtual()) {
+                if (!instruction.isInvokeVirtual() && !instruction.isInvokeStatic()) {
                   continue;
                 }
-                InvokeVirtual invokeVirtual = instruction.asInvokeVirtual();
-                DexMethod invokedMethod = invokeVirtual.getInvokedMethod();
+                InvokeMethod invoke = instruction.asInvokeMethod();
+                DexMethod invokedMethod = invoke.getInvokedMethod();
+
                 DexMethod toInstrumentCallTo = instrumentedMethodsAndTargets.get(invokedMethod);
                 if (toInstrumentCallTo != null) {
                   insertCallToMethod(
-                      toInstrumentCallTo,
-                      irCode,
-                      blockIterator,
-                      instructionIterator,
-                      invokeVirtual);
+                      toInstrumentCallTo, irCode, blockIterator, instructionIterator, invoke);
                   changed = true;
                 }
               }
@@ -117,13 +114,23 @@ public class ReflectiveInstrumentation {
         dexItemFactory.classMethods.newInstance,
         getMethodReferenceWithClassParameter("onClassNewInstance"),
         dexItemFactory.classMethods.getDeclaredMethod,
-        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"));
+        getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"),
+        dexItemFactory.classMethods.forName,
+        getMethodReferenceWithStringParameter("onClassForName"));
   }
 
   private DexMethod getMethodReferenceWithClassParameter(String name) {
+    return getMethodReferenceWithSingleParameter(name, dexItemFactory.classType);
+  }
+
+  private DexMethod getMethodReferenceWithStringParameter(String name) {
+    return getMethodReferenceWithSingleParameter(name, dexItemFactory.stringType);
+  }
+
+  private DexMethod getMethodReferenceWithSingleParameter(String name, DexType type) {
     return dexItemFactory.createMethod(
         reflectiveReferences.reflectiveOracleType,
-        dexItemFactory.createProto(dexItemFactory.voidType, dexItemFactory.classType),
+        dexItemFactory.createProto(dexItemFactory.voidType, type),
         name);
   }
 
@@ -143,13 +150,13 @@ public class ReflectiveInstrumentation {
       IRCode code,
       BasicBlockIterator blockIterator,
       BasicBlockInstructionListIterator instructionIterator,
-      InvokeVirtual invoke) {
+      InvokeMethod invoke) {
     InvokeStatic invokeStatic =
         InvokeStatic.builder()
             .setMethod(method)
             .setArguments(invoke.inValues())
             // Same position so that the stack trace has the correct line number.
-            .setPosition(invoke)
+            .setPosition(invoke.getPosition())
             .build();
     instructionIterator.previous();
     instructionIterator.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(

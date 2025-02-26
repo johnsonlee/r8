@@ -13,6 +13,8 @@ public interface ReflectiveOperationReceiver {
     return false;
   }
 
+  void onClassForName(Stack stack, String className);
+
   void onClassNewInstance(Stack stack, Class<?> clazz);
 
   void onClassGetDeclaredMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters);

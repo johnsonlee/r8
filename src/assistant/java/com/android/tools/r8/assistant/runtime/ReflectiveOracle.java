@@ -72,6 +72,10 @@ public class ReflectiveOracle {
     getInstance().onClassGetDeclaredMethod(Stack.createStack(), clazz, name, parameters);
   }
 
+  public static void onClassForName(String className) {
+    getInstance().onClassForName(Stack.createStack(), className);
+  }
+
   @KeepForApi
   public static class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
     @Override
@@ -83,6 +87,11 @@ public class ReflectiveOracle {
     public void onClassGetDeclaredMethod(
         Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
       System.out.println("Reflectively got declared method " + method + " on " + clazz.getName());
+    }
+
+    @Override
+    public void onClassForName(Stack stack, String className) {
+      System.out.println("Reflectively called Class.forName on " + className);
     }
 
     @Override
