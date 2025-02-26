@@ -128,8 +128,11 @@ def trigger_smali_builder(version):
 
 
 def trigger_cl(builders, cl_url):
+    # Fixup internal urls to make bb happy.
+    fixed_url = cl_url.replace('r8-review.git.corp.google.com',
+                               'r8-review.googlesource.com')
     for builder in builders:
-        cmd = ['bb', 'add', 'r8/ci/%s' % builder, '-cl', cl_url]
+        cmd = ['bb', 'add', 'r8/ci/%s' % builder, '-cl', fixed_url]
         subprocess.check_call(cmd)
 
 
