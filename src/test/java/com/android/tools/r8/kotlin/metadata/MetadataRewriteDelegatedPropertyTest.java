@@ -126,7 +126,7 @@ public class MetadataRewriteDelegatedPropertyTest extends KotlinMetadataTestBase
             .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .compile()
             .writeToZip();
-    if (kotlinc.getCompilerVersion().isGreaterThan(KOTLINC_2_1_0_BETA1)) {
+    if (kotlinc.getCompilerVersion().isEqualTo(KOTLINC_2_1_0_BETA1)) {
       Path main =
           kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
               .addClasspathFiles(outputJar)
