@@ -14,7 +14,6 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -29,7 +28,11 @@ public class StringSwitchRegress382880986Test extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK23)
+        .withDexRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("1", "2", "3");
@@ -46,10 +49,7 @@ public class StringSwitchRegress382880986Test extends TestBase {
     testForJvm(parameters)
         .addInnerClasses(getClass())
         .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
-        .applyIf(
-            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23),
-            r -> r.assertSuccessWithOutput(EXPECTED_OUTPUT),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
@@ -64,10 +64,7 @@ public class StringSwitchRegress382880986Test extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    Assume.assumeTrue(
-        parameters.isDexRuntime()
-            || (parameters.isCfRuntime()
-                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23)));
+    parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .applyIf(

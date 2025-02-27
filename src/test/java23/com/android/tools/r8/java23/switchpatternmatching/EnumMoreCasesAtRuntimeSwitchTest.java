@@ -19,7 +19,6 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -36,7 +35,11 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK23)
+        .withDexRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .build();
   }
 
   public static String EXPECTED_OUTPUT =
@@ -88,12 +91,8 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
     testForJvm(parameters)
         .apply(this::addModifiedProgramClasses)
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23),
-            r ->
-                r.assertSuccessWithOutput(
-                    String.format(EXPECTED_OUTPUT, matchException(), matchException())),
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .assertSuccessWithOutput(
+            String.format(EXPECTED_OUTPUT, matchException(), matchException()));
   }
 
   private <T extends TestBuilder<?, T>> void addModifiedProgramClasses(
@@ -139,10 +138,6 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    Assume.assumeTrue(
-        parameters.isDexRuntime()
-            || (parameters.isCfRuntime()
-                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23)));
     testForR8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .applyIf(

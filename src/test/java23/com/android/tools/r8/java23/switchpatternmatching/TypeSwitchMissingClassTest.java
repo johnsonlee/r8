@@ -17,7 +17,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,7 +38,11 @@ public class TypeSwitchMissingClassTest extends TestBase {
   @Parameters(name = "{0}, {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withCfRuntimesStartingFromIncluding(CfVm.JDK23)
+            .withDexRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .build(),
         List.of(new ClassHolder(C.class), new ClassHolder(Color.class)));
   }
 
@@ -71,10 +74,7 @@ public class TypeSwitchMissingClassTest extends TestBase {
     testForJvm(parameters)
         .apply(this::addModifiedProgramClasses)
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23),
-            this::assertResult,
-            r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+        .apply(this::assertResult);
   }
 
   private void assertResult(TestRunResult<?> r) {
@@ -104,10 +104,6 @@ public class TypeSwitchMissingClassTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    Assume.assumeTrue(
-        parameters.isDexRuntime()
-            || (parameters.isCfRuntime()
-                && parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK23)));
     testForR8(parameters.getBackend())
         .apply(this::addModifiedProgramClasses)
         .applyIf(
