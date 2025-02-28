@@ -310,7 +310,11 @@ public class Timing implements AutoCloseable {
     private Node slowest = new Node("<zero>", false);
 
     private TimingMerger(String title, int numberOfThreads, Timing timing) {
-      parent = timing.stack.peek();
+      Deque<Timing.Node> stack =
+          timing instanceof TimingDelegateBase
+              ? ((TimingDelegateBase) timing).timing.stack
+              : timing.stack;
+      parent = stack.peek();
       merged =
           new Node(title, timing.trackMemory) {
             @Override
@@ -378,7 +382,11 @@ public class Timing implements AutoCloseable {
         if (timing == empty()) {
           continue;
         }
-        assert timing.stack.isEmpty() : "Expected sub-timing to have completed prior to merge";
+        Deque<Timing.Node> stack =
+            timing instanceof TimingDelegateBase
+                ? ((TimingDelegateBase) timing).timing.stack
+                : timing.stack;
+        assert stack.isEmpty() : "Expected sub-timing to have completed prior to merge";
         ++taskCount;
         merged.duration += timing.top.duration;
         if (slowest != null && timing.top.duration > slowest.duration) {
