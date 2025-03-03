@@ -91,6 +91,7 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethodTest extends TestBase {
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
+        .addKeepEnumsRule()
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }

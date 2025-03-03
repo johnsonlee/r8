@@ -308,7 +308,12 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
     for (DexValue bootstrapArg : callSite.bootstrapArgs) {
       if (bootstrapArg.isDexValueType()) {
         registerTypeReference(bootstrapArg.asDexValueType().value);
-      } else if (bootstrapArg.isDexValueConstDynamic()) {
+      } else if (bootstrapArg.isDexValueConstDynamic()
+          && bootstrapArg
+              .asDexValueConstDynamic()
+              .getValue()
+              .getType()
+              .isIdenticalTo(appView.dexItemFactory().enumDescType)) {
         DexField enumField =
             extractEnumField(bootstrapArg.asDexValueConstDynamic(), getContext(), appView);
         if (enumField != null) {

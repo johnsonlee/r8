@@ -6,24 +6,33 @@ package com.android.tools.r8.cfmethodgeneration;
 
 public class TypeSwitchMethods {
 
-  public static int typeSwitch(Object obj, int restart, Object[] tests) {
-    if (obj == null) {
-      return -1;
-    }
-    for (int i = restart; i < tests.length; i++) {
-      Object test = tests[i];
-      if (test instanceof Class<?>) {
-        if (((Class<?>) test).isInstance(obj)) {
-          return i;
+  public static boolean switchEnumEq(
+      Object value, Object[] cache, int index, String enumClass, String name) {
+    if (cache[index] == null) {
+      Object resolved = null;
+      try {
+        Class<?> clazz = Class.forName(enumClass);
+        if (clazz.isEnum()) {
+          Class<? extends Enum> enumClazz = (Class<? extends Enum>) clazz;
+          resolved = Enum.valueOf(enumClazz, name);
         }
-      } else {
-        // This is an integer, a string or an enum instance.
-        if (obj.equals(test)) {
-          return i;
-        }
+      } catch (Throwable t) {
       }
+      // R8 sets a sentinel if resolution has failed.
+      cache[index] = resolved == null ? new Object() : resolved;
     }
-    // Default case.
-    return -2;
+    return value == cache[index];
+  }
+
+  public static boolean switchIntEq(Object value, int constant) {
+    if (value instanceof Number) {
+      Number num = (Number) value;
+      return constant == num.intValue();
+    }
+    if (value instanceof Character) {
+      Character ch = (Character) value;
+      return constant == ch.charValue();
+    }
+    return false;
   }
 }

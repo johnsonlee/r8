@@ -81,6 +81,7 @@ public class StringSwitchTest extends TestBase {
   }
 
   static class Main {
+
     static void stringSwitch(String string) {
       switch (string) {
         case null -> {

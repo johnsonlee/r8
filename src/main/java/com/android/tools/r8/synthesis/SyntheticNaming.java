@@ -54,7 +54,7 @@ public class SyntheticNaming {
   // Locally generated synthetic classes.
   public final SyntheticKind LAMBDA = generator.forInstanceClass("Lambda");
   public final SyntheticKind THREAD_LOCAL = generator.forInstanceClass("ThreadLocal");
-  public final SyntheticKind TYPE_SWITCH_CLASS = generator.forInstanceClass("TypeSwitch");
+  public final SyntheticKind TYPE_SWITCH_CLASS = generator.forInstanceClass("TypeSwitchClass");
 
   // Merging not permitted since this could defeat the purpose of the synthetic class.
   public final SyntheticKind SHARED_SUPER_CLASS =
@@ -71,7 +71,7 @@ public class SyntheticNaming {
   public final SyntheticKind AUTOCLOSEABLE_FORWARDER =
       generator.forSingleMethodWithGlobalMerging("AutoCloseableForwarder");
   public final SyntheticKind TYPE_SWITCH_HELPER =
-      generator.forSingleMethodWithGlobalMerging("TypeSwitch");
+      generator.forSingleMethodWithGlobalMerging("TypeSwitchHelper");
   public final SyntheticKind ENUM_UNBOXING_CHECK_NOT_ZERO_METHOD =
       generator.forSingleMethodWithGlobalMerging("CheckNotZero");
   public final SyntheticKind RECORD_HELPER = generator.forSingleMethodWithGlobalMerging("Record");

@@ -16,7 +16,6 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -37,7 +36,10 @@ public class DexNumberValueSwitchTest extends TestBase {
         .build();
   }
 
-  public static String EXPECTED_OUTPUT = StringUtils.lines("TODO");
+  public static String EXPECTED_OUTPUT =
+      StringUtils.lines(
+          "null", "42", "positif", "negatif", "null", "42", "positif", "negatif", "null", "42",
+          "positif", "negatif", "null", "true", "false");
 
   @Test
   public void testJvm() throws Exception {
@@ -47,13 +49,12 @@ public class DexNumberValueSwitchTest extends TestBase {
         hasJdk21TypeSwitch(inspector.clazz(Main.class).uniqueMethodWithOriginalName("longSwitch")));
     parameters.assumeJvmTestParameters();
     testForJvm(parameters)
+        .enablePreview()
         .addInnerClassesAndStrippedOuter(getClass())
         .run(parameters.getRuntime(), Main.class)
-        // This is successful with the jvm with --enable-preview flag only.
-        .assertFailureWithErrorThatThrows(BootstrapMethodError.class);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  @Ignore("Fixed in next CL")
   @Test
   public void testD8() throws Exception {
     testForD8(parameters.getBackend())
@@ -63,7 +64,6 @@ public class DexNumberValueSwitchTest extends TestBase {
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  @Ignore("Fixed in next CL")
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
@@ -74,6 +74,8 @@ public class DexNumberValueSwitchTest extends TestBase {
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
+        .compile()
+        .applyIf(parameters.isCfRuntime(), b -> b.addVmArguments("--enable-preview"))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
