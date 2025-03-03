@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.info;
 
+import static com.android.tools.r8.graph.lens.GraphLens.getIdentityLens;
 import static com.android.tools.r8.ir.code.DominatorTree.Assumption.MAY_HAVE_UNREACHABLE_BLOCKS;
 import static com.android.tools.r8.ir.code.Opcodes.ADD;
 import static com.android.tools.r8.ir.code.Opcodes.AND;
@@ -756,7 +757,19 @@ public class MethodOptimizationInfoCollector {
       ComputationTreeUnopUpdateChangedFlagsNode node =
           new ComputationTreeUnopUpdateChangedFlagsNode(methodParameter);
       feedback.setAbstractFunction(code.context().getDefinition(), node);
+    } else {
+      assert verifyIsNotUpdateChangedFlags(code);
     }
+  }
+
+  private boolean verifyIsNotUpdateChangedFlags(IRCode code) {
+    DexMethod originalMethod =
+        appView
+            .graphLens()
+            .getOriginalMethodSignature(code.context().getReference(), getIdentityLens());
+    DexMethod updatedChangedFlagsMethod = appView.getComposeReferences().updatedChangedFlagsMethod;
+    assert originalMethod.isNotIdenticalTo(updatedChangedFlagsMethod);
+    return true;
   }
 
   private void computeClassInlinerMethodConstraint(
