@@ -6,7 +6,6 @@ package com.android.tools.r8.kotlin.metadata;
 
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_4_20;
 import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_1_8_0;
-import static com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion.KOTLINC_2_1_0_BETA1;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -126,36 +125,20 @@ public class MetadataRewriteDelegatedPropertyTest extends KotlinMetadataTestBase
             .addProgramFiles(libJars.getForConfiguration(kotlinParameters))
             .compile()
             .writeToZip();
-    if (kotlinc.getCompilerVersion().isEqualTo(KOTLINC_2_1_0_BETA1)) {
-      Path main =
-          kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
-              .addClasspathFiles(outputJar)
-              .addSourceFiles(
-                  getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
-              .setOutputPath(temp.newFolder().toPath())
-              .compile();
-      testForJvm(parameters)
-          .addRunClasspathFiles(
-              kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinReflectJar(), outputJar)
-          .addClasspath(main)
-          .run(parameters.getRuntime(), PKG_APP + ".MainKt")
-          .assertSuccessWithOutput(EXPECTED_NO_KOTLIN_REFLECT);
-    } else {
-      ProcessResult compileResult =
-          kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
-              .addClasspathFiles(outputJar)
-              .addSourceFiles(
-                  getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
-              .setOutputPath(temp.newFolder().toPath())
-              .compileRaw();
-      Assert.assertEquals(1, compileResult.exitCode);
-      assertThat(
-          compileResult.stderr,
-          containsString(
-              kotlinParameters.isNewerThan(KOTLINC_1_8_0)
-                  ? "references to synthetic java properties"
-                  : "reference to the synthetic extension property"));
-    }
+    ProcessResult compileResult =
+        kotlinc(parameters.getRuntime().asCf(), kotlinc, targetVersion, lambdaGeneration)
+            .addClasspathFiles(outputJar)
+            .addSourceFiles(
+                getKotlinFileInTest(DescriptorUtils.getBinaryNameFromJavaType(PKG_APP), "main"))
+            .setOutputPath(temp.newFolder().toPath())
+            .compileRaw();
+    Assert.assertEquals(1, compileResult.exitCode);
+    assertThat(
+        compileResult.stderr,
+        containsString(
+            kotlinParameters.isNewerThan(KOTLINC_1_8_0)
+                ? "references to synthetic java properties"
+                : "reference to the synthetic extension property"));
   }
 
   private void inspectMetadata(CodeInspector inspector) {
