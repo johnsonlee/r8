@@ -1968,6 +1968,7 @@ public class DexItemFactory {
   public class ClassMethods {
 
     public final DexMethod desiredAssertionStatus;
+    public final DexMethod isEnum = createMethod(classType, createProto(booleanType), "isEnum");
     public final DexMethod forName;
     public final DexMethod forName3;
     public final DexMethod getClassLoader =
