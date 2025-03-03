@@ -18,7 +18,7 @@ public class LibraryDesugaringOptions {
   private MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification =
       MachineDesugaredLibrarySpecification.empty();
   private String synthesizedClassPrefix = "";
-  private DesugaredLibraryTypeRewriter typeRewriter;
+  private volatile DesugaredLibraryTypeRewriter typeRewriter;
 
   private final InternalOptions options;
 
