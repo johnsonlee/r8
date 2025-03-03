@@ -6,16 +6,20 @@ package com.android.tools.r8.keepanno.utils;
 
 import static org.junit.Assert.assertEquals;
 
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.keepanno.utils.KeepItemAnnotationGenerator.Generator;
 import com.android.tools.r8.utils.FileUtils;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import org.junit.Assume;
 import org.junit.Test;
 
 public class KeepItemGeneratedFilesTest {
 
   @Test
   public void checkUpToDate() throws IOException {
+    // TODO(b/400293687): Fix this on Windows.
+    Assume.assumeTrue(!ToolHelper.isWindows());
     Generator.run(
         (file, content) -> {
           try {
