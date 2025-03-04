@@ -82,7 +82,7 @@ public class IterateTest extends DesugaredLibraryTestBase {
 
   private Collection<Path> getOtherProgramClasses() throws IOException {
     Collection<Path> files = ToolHelper.getClassFilesForInnerClasses(getClass());
-    files.removeIf(p -> p.toString().endsWith("Main.class"));
+    files.removeIf(p -> !p.toString().endsWith("StreamStub.class"));
     return files;
   }
 

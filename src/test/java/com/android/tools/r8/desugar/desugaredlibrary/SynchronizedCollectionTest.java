@@ -7,11 +7,13 @@ package com.android.tools.r8.desugar.desugaredlibrary;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 
+import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,7 +60,13 @@ public class SynchronizedCollectionTest extends DesugaredLibraryTestBase {
   @Test
   public void testExecution() throws Throwable {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .applyOnBuilder(
+            builder ->
+                builder.addProgramResourceProviders(
+                    ArchiveProgramResourceProvider.fromArchive(
+                        INPUT_JAR,
+                        name ->
+                            name.contains(DescriptorUtils.getBinaryNameFromJavaType(MAIN_CLASS)))))
         .addKeepMainRule(MAIN_CLASS)
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);

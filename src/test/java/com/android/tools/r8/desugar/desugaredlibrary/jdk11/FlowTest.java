@@ -30,7 +30,9 @@ public class FlowTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flow.jar");
+  private static final Path FLOW_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flow.jar");
+  private static final Path FLOWLIB_JAR =
+      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flowlib.jar");
   private static final String EXPECTED_OUTPUT = StringUtils.lines("true");
   private static final String MAIN_CLASS = "flow.FlowExample";
 
@@ -58,7 +60,7 @@ public class FlowTest extends DesugaredLibraryTestBase {
   @Test
   public void test() throws Exception {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addProgramFiles(FLOW_JAR, FLOWLIB_JAR)
         .addKeepMainRule(MAIN_CLASS)
         .compile()
         .withArt6Plus64BitsLib()
