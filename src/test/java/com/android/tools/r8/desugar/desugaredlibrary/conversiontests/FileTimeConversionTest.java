@@ -6,16 +6,22 @@ package com.android.tools.r8.desugar.desugaredlibrary.conversiontests;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
-import static org.junit.Assert.assertTrue;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CustomLibrarySpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
+import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
@@ -64,22 +70,18 @@ public class FileTimeConversionTest extends DesugaredLibraryTestBase {
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
-  private void assertCallsToConversion(CodeInspector codeInspector) {
-    if (compilationSpecification.isProgramShrink()) {
-      return;
+  private void assertCallsToConversion(CodeInspector inspector) {
+    ClassSubject apiConversionClass =
+        inspector.clazz(SyntheticItemsTestUtils.syntheticApiConversionClass(Executor.class, 0));
+    assertThat(apiConversionClass, isPresent());
+    if (compilationSpecification.isProgramShrink()
+        || compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK) {
+      assertThat(apiConversionClass, isPresentAndRenamed());
     }
-    assertTrue(
-        codeInspector
-            .clazz(Executor.class)
-            .uniqueMethodWithFinalName("main")
-            .streamInstructions()
-            .anyMatch(
-                i ->
-                    i.isInvokeStatic()
-                        && i.getMethod()
-                            .getHolderType()
-                            .toString()
-                            .contains("ExternalSyntheticAPIConversion")));
+
+    MethodSubject apiConversionMethod = apiConversionClass.uniqueMethodWithOriginalName("m");
+    assertThat(apiConversionMethod, isPresent());
+    assertThat(inspector.clazz(Executor.class).mainMethod(), invokesMethod(apiConversionMethod));
   }
 
   static class Executor {

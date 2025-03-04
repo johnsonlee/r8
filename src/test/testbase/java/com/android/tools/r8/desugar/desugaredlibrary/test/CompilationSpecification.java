@@ -14,9 +14,11 @@ import java.util.Set;
 public enum CompilationSpecification {
   D8_L8DEBUG(false, false, false, DEBUG),
   D8_L8SHRINK(false, true, false, RELEASE),
+  R8_PARTIAL_EXCLUDE_L8SHRINK(false, true, false, RELEASE),
   // In theory no build system uses R8_L8DEBUG, for local debugging only.
   R8_L8DEBUG(true, false, false, RELEASE),
   R8_L8SHRINK(true, true, false, RELEASE),
+  R8_PARTIAL_INCLUDE_L8SHRINK(true, true, false, RELEASE),
   // The D8CFTOCF specifications can run either in CF or be dexed afterwards.
   D8CF2CF_L8DEBUG(false, false, true, DEBUG),
   D8CF2CF_L8SHRINK(false, true, true, RELEASE);

@@ -112,6 +112,10 @@ public class SyntheticItemsTestUtils {
     return syntheticClass(clazz, naming.LAMBDA, id);
   }
 
+  public static ClassReference syntheticApiConversionClass(Class<?> clazz, int id) {
+    return syntheticClass(clazz, naming.API_CONVERSION, id);
+  }
+
   public static ClassReference syntheticApiOutlineClass(Class<?> clazz, int id) {
     return syntheticClass(clazz, naming.API_MODEL_OUTLINE, id);
   }
