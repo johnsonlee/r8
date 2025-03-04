@@ -16,7 +16,7 @@ public class LibraryDesugaringOptions {
 
   // Contains flags describing library desugaring.
   private MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification =
-      MachineDesugaredLibrarySpecification.empty();
+      DesugaredLibrarySpecification.empty();
   private String synthesizedClassPrefix = "";
   private volatile DesugaredLibraryTypeRewriter typeRewriter;
 
@@ -76,7 +76,7 @@ public class LibraryDesugaringOptions {
 
   public void resetDesugaredLibrarySpecificationForTesting() {
     loadMachineDesugaredLibrarySpecification = null;
-    machineDesugaredLibrarySpecification = MachineDesugaredLibrarySpecification.empty();
+    machineDesugaredLibrarySpecification = DesugaredLibrarySpecification.empty();
     typeRewriter = null;
   }
 

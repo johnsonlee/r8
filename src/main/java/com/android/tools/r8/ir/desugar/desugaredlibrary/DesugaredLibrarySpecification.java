@@ -14,6 +14,10 @@ import java.util.Set;
 
 public interface DesugaredLibrarySpecification {
 
+  static MachineDesugaredLibrarySpecification empty() {
+    return EmptyDesugaredLibrarySpecification.getInstance();
+  }
+
   default boolean isHuman() {
     return false;
   }

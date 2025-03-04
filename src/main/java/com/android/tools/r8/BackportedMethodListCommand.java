@@ -6,7 +6,6 @@ package com.android.tools.r8;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.humanspecification.HumanDesugaredLibrarySpecification;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -262,7 +261,7 @@ public class BackportedMethodListCommand {
 
     DesugaredLibrarySpecification getDesugaredLibraryConfiguration(DexItemFactory factory) {
       if (desugaredLibrarySpecificationResources.isEmpty()) {
-        return HumanDesugaredLibrarySpecification.empty();
+        return DesugaredLibrarySpecification.empty();
       }
       if (desugaredLibrarySpecificationResources.size() > 1) {
         reporter.fatalError("Only one desugared library configuration is supported.");

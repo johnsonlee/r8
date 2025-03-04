@@ -34,16 +34,6 @@ public class MachineDesugaredLibrarySpecification implements DesugaredLibrarySpe
 
   private int leadingVersionNumberCache = -1;
 
-  public static MachineDesugaredLibrarySpecification empty() {
-    return new MachineDesugaredLibrarySpecification(
-        false, MachineTopLevelFlags.empty(), MachineRewritingFlags.builder().build()) {
-      @Override
-      public boolean isSupported(DexReference reference) {
-        return false;
-      }
-    };
-  }
-
   public static MachineDesugaredLibrarySpecification withOnlyRewriteTypeForTesting(
       Map<DexType, DexType> rewriteTypeForTesting) {
     MachineRewritingFlags.Builder builder = MachineRewritingFlags.builder();

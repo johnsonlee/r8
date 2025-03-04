@@ -480,7 +480,7 @@ public class SupportedClassesGenerator {
   private MachineDesugaredLibrarySpecification getMachineSpecification(
       AndroidApiLevel api, StringResource specification) throws IOException {
     if (specification == null) {
-      return MachineDesugaredLibrarySpecification.empty();
+      return DesugaredLibrarySpecification.empty();
     }
     DesugaredLibrarySpecification librarySpecification =
         DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecification(

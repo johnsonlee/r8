@@ -10,7 +10,6 @@ import com.android.tools.r8.StringResource;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
@@ -53,7 +52,7 @@ public abstract class AbstractGenerateFiles {
 
   private DesugaredLibrarySpecification readDesugaredLibrarySpecification() {
     if (desugaredLibrarySpecificationResource == null) {
-      return MachineDesugaredLibrarySpecification.empty();
+      return DesugaredLibrarySpecification.empty();
     }
     return DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecification(
         desugaredLibrarySpecificationResource,
