@@ -18,11 +18,13 @@ import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.google.common.collect.ImmutableList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,6 +139,11 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
     if (hasTwrCloseResourceApiOutlines()) {
       expectedClassCount += 4;
     }
+    InternalOptions options = inspector.getApplication().options;
+    options.setMinApiLevel(parameters.getApiLevel());
+    if (options.shouldDesugarAutoCloseable()) {
+      expectedClassCount += 12;
+    }
     inspector
         .allClasses()
         .forEach(c -> System.out.println(c.getDexProgramClass().toSourceString()));
@@ -240,6 +247,52 @@ public class TwrCloseResourceDuplicationProfileRewritingTest
                       syntheticTwrCloseResourceClassSubject5.uniqueMethod()));
     }
 
+    profileInspector.applyIf(
+        options.shouldDesugarAutoCloseable(),
+        i ->
+            i.assertContainsClassRules(getCloseDispatcherSyntheticClasses(inspector))
+                .assertContainsMethodRules(
+                    Arrays.stream(getCloseDispatcherSyntheticClasses(inspector))
+                        .map(ClassSubject::uniqueMethod)
+                        .toArray(MethodSubject[]::new)));
+
     profileInspector.assertContainsNoOtherRules();
+  }
+
+  private static ClassSubject[] getCloseDispatcherSyntheticClasses(CodeInspector inspector) {
+    return new ClassSubject[] {
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
+              Reference.classFromTypeName(FOO), 0)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
+              Reference.classFromTypeName(FOO), 1)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
+              Reference.classFromTypeName(BAR), 0)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableDispatcherClass(
+              Reference.classFromTypeName(BAR), 1)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
+              Reference.classFromTypeName(FOO), 2)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
+              Reference.classFromTypeName(FOO), 3)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
+              Reference.classFromTypeName(BAR), 2)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticAutoCloseableForwarderClass(
+              Reference.classFromTypeName(BAR), 3)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(FOO), 4)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(FOO), 5)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(BAR), 4)),
+      inspector.clazz(
+          SyntheticItemsTestUtils.syntheticThrowIAEClass(Reference.classFromTypeName(BAR), 5))
+    };
   }
 }

@@ -30,6 +30,7 @@ public class ExecutorServiceBackportTest extends AbstractBackportTest {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK21)
         .withDexRuntimesStartingFromExcluding(Version.V4_4_4)
         .withAllApiLevelsAlsoForCf()
+        .withApiLevel(AndroidApiLevel.K)
         .build();
   }
 
@@ -58,11 +59,6 @@ public class ExecutorServiceBackportTest extends AbstractBackportTest {
     } else {
       builder.addRunClasspathClassFileData(getAutoCloseableAndroidClassData(parameters));
     }
-  }
-
-  @Override
-  public void testD8Cf() throws Exception {
-    super.testD8Cf();
   }
 
   public static class Main {

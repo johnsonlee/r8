@@ -24,8 +24,10 @@ import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 // The rewrite of virtual calls requires to go through emulate dispatch. This class is responsible
@@ -50,23 +52,32 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
       ExecutorService executorService,
       Timing timing) {
     try (Timing t0 = timing.begin("Auto closeable retargeter post processor")) {
-      ensureInterfacesAndForwardingMethodsSynthesized(programClasses, eventConsumer);
-    }
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private void ensureInterfacesAndForwardingMethodsSynthesized(
-      Collection<DexProgramClass> programClasses,
-      AutoCloseableRetargeterPostProcessingEventConsumer eventConsumer) {
-    ProcessorContext processorContext = appView.createProcessorContext();
-    MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
-    for (DexProgramClass clazz : programClasses) {
-      if (clazz.superType == null) {
-        assert clazz.type == appView.dexItemFactory().objectType : clazz.type.toSourceString();
-        continue;
+      ProcessorContext processorContext = appView.createProcessorContext();
+      MainThreadContext mainThreadContext = processorContext.createMainThreadContext();
+      List<ProgramMethod> bridges = new ArrayList<>();
+      for (DexProgramClass clazz : programClasses) {
+        if (clazz.superType == null) {
+          assert clazz.type.isIdenticalTo(appView.dexItemFactory().objectType)
+              : clazz.type.toSourceString();
+          continue;
+        }
+        if (clazz.isInterface() && appView.options().isInterfaceMethodDesugaringEnabled()) {
+          // We cannot add default methods on interfaces if interface method desugaring is enabled.
+          continue;
+        }
+        if (implementsAutoCloseableAtLibraryBoundary(clazz)) {
+          ProgramMethod bridge =
+              ensureInterfacesAndForwardingMethodsSynthesized(
+                  eventConsumer, clazz, mainThreadContext);
+          if (bridge != null) {
+            bridges.add(bridge);
+          }
+        }
       }
-      if (implementsAutoCloseableAtLibraryBoundary(clazz)) {
-        ensureInterfacesAndForwardingMethodsSynthesized(eventConsumer, clazz, mainThreadContext);
+      // We add the bridges in the end so they don't interfer with lookups in between.
+      for (ProgramMethod bridge : bridges) {
+        bridge.getHolder().addVirtualMethod(bridge.getDefinition());
+        eventConsumer.acceptAutoCloseableForwardingMethod(bridge, bridge.getHolder());
       }
     }
   }
@@ -75,46 +86,53 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     if (clazz.interfaces.contains(appView.dexItemFactory().autoCloseableType)) {
       return true;
     }
-    WorkList<DexType> workList = collectLibrarySuperTypeAndInterfaces(clazz);
+    WorkList<DexClass> workList = collectLibrarySuperTypeAndInterfaces(clazz);
     return libraryTypesImplementsAutoCloseable(workList, clazz);
   }
 
-  private WorkList<DexType> collectLibrarySuperTypeAndInterfaces(DexProgramClass clazz) {
-    WorkList<DexType> workList = WorkList.newIdentityWorkList();
+  private WorkList<DexClass> collectLibrarySuperTypeAndInterfaces(DexProgramClass clazz) {
+    WorkList<DexClass> workList = WorkList.newIdentityWorkList();
     DexClass superclass = appView.definitionFor(clazz.superType);
-    // Only performs computation if superclass is a library class, but not object to filter out
-    // the most common case.
-    if (superclass != null
-        && superclass.isLibraryClass()
-        && !superclass.type.isIdenticalTo(appView.dexItemFactory().objectType)) {
-      workList.addIfNotSeen(superclass.type);
+    // R8 only performs the computation if the superclass is a library class.
+    if (superclass != null && superclass.isLibraryClass()) {
+      workList.addIfNotSeen(superclass);
     }
     for (DexType itf : clazz.interfaces) {
       DexClass superItf = appView.definitionFor(itf);
       if (superItf != null) {
-        workList.addIfNotSeen(superItf.type);
+        // R8 only performs the computation if the super interface is a library class. If interface
+        // method desugaring is enabled, we need to go through all interfaces to insert the bridges
+        // on the classes and not the interfaces.
+        if (appView.options().isInterfaceMethodDesugaringEnabled() || superItf.isLibraryClass()) {
+          workList.addIfNotSeen(superItf);
+        }
       }
     }
     return workList;
   }
 
   private boolean libraryTypesImplementsAutoCloseable(
-      WorkList<DexType> workList, DexProgramClass clazz) {
+      WorkList<DexClass> workList, DexProgramClass clazz) {
     while (workList.hasNext()) {
-      DexType current = workList.next();
-      if (current.isIdenticalTo(appView.dexItemFactory().objectType)) {
+      DexClass current = workList.next();
+      if (current.getType().isIdenticalTo(appView.dexItemFactory().objectType)) {
         continue;
       }
-      DexClass currentClass = appView.definitionFor(current);
-      if (currentClass == null) {
-        reportInvalidSupertype(current, clazz);
-        continue;
-      }
-      if (currentClass.interfaces.contains(appView.dexItemFactory().autoCloseableType)) {
+      if (current.interfaces.contains(appView.dexItemFactory().autoCloseableType)) {
         return true;
       }
-      workList.addIfNotSeen(currentClass.superType);
-      workList.addIfNotSeen(currentClass.interfaces);
+      DexClass superClass = appView.definitionFor(current.superType);
+      if (superClass == null) {
+        reportInvalidSupertype(current.superType, clazz);
+      } else {
+        workList.addIfNotSeen(superClass);
+      }
+      for (DexType itf : current.interfaces) {
+        DexClass superItf = appView.definitionFor(itf);
+        if (superItf != null) {
+          workList.addIfNotSeen(superItf);
+        }
+      }
     }
     return false;
   }
@@ -130,7 +148,7 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
             ImmutableSet.of(getClose(origin.type)));
   }
 
-  private void ensureInterfacesAndForwardingMethodsSynthesized(
+  private ProgramMethod ensureInterfacesAndForwardingMethodsSynthesized(
       AutoCloseableRetargeterPostProcessingEventConsumer eventConsumer,
       DexProgramClass clazz,
       MainThreadContext mainThreadContext) {
@@ -139,8 +157,9 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     // We cannot use the ClassProcessor since this applies up to 26, while the ClassProcessor
     // applies up to 24.
     if (appView.isAlreadyLibraryDesugared(clazz)) {
-      return;
+      return null;
     }
+    ProgramMethod bridge = null;
     DexMethod close = getClose(clazz.type);
     if (clazz.lookupVirtualMethod(close) == null) {
       DexEncodedMethod newMethod =
@@ -148,20 +167,20 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
       if (newMethod == null) {
         // We don't support desugaring on all subtypes, in which case there is not need to inject
         // the interface.
-        return;
+        return bridge;
       }
-      clazz.addVirtualMethod(newMethod);
-      eventConsumer.acceptAutoCloseableForwardingMethod(new ProgramMethod(clazz, newMethod), clazz);
+      bridge = new ProgramMethod(clazz, newMethod);
     }
     DexType autoCloseableType = appView.dexItemFactory().autoCloseableType;
     if (clazz.interfaces.contains(autoCloseableType)) {
-      return;
+      return bridge;
     }
     clazz.addExtraInterfaces(
         Collections.singletonList(new ClassTypeSignature(autoCloseableType)),
         appView.dexItemFactory());
     eventConsumer.acceptAutoCloseableInterfaceInjection(
         clazz, appView.definitionFor(autoCloseableType));
+    return bridge;
   }
 
   @SuppressWarnings("ReferenceEquality")

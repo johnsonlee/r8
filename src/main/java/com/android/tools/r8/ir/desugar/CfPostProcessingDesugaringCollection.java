@@ -4,6 +4,7 @@
 package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPICallbackSynthesizer;
@@ -12,9 +13,11 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseable
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterPostProcessor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
+import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -67,7 +70,7 @@ public abstract class CfPostProcessingDesugaringCollection {
           && !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
         desugarings.add(new DesugaredLibraryRetargeterPostProcessor(appView));
       }
-      if (appView.options().testing.enableAutoCloseableDesugaring) {
+      if (appView.options().shouldDesugarAutoCloseable()) {
         desugarings.add(new AutoCloseableRetargeterPostProcessor(appView));
       }
       if (interfaceMethodProcessorFacade != null) {
@@ -104,8 +107,11 @@ public abstract class CfPostProcessingDesugaringCollection {
         ExecutorService executorService,
         Timing timing)
         throws ExecutionException {
+      Collection<DexProgramClass> sortedProgramClasses =
+          CollectionUtils.sort(programClasses, Comparator.comparing(DexClass::getType));
       for (CfPostProcessingDesugaring desugaring : desugarings) {
-        desugaring.postProcessingDesugaring(programClasses, eventConsumer, executorService, timing);
+        desugaring.postProcessingDesugaring(
+            sortedProgramClasses, eventConsumer, executorService, timing);
       }
     }
   }
