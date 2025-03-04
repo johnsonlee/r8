@@ -2176,7 +2176,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean neverReuseCfLocalRegisters = false;
     public boolean checkReceiverAlwaysNullInCallSiteOptimization = true;
-    public boolean forceInlineAPIConversions = false;
+    public boolean forceInlineApiConversions = false;
     public boolean ignoreValueNumbering = false;
     private boolean hasReadCheckDeterminism = false;
     private DeterminismChecker determinismChecker = null;
@@ -2362,8 +2362,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean dontReportFailingCheckDiscarded =
         System.getProperty("com.android.tools.r8.testing.dontReportFailingCheckDiscarded") != null;
     public boolean disableRecordApplicationReaderMap = false;
-    public boolean trackDesugaredAPIConversions =
-        System.getProperty("com.android.tools.r8.trackDesugaredAPIConversions") != null;
+    public boolean trackDesugaredApiConversions = false;
     public boolean enumUnboxingRewriteJavaCGeneratedMethod = false;
     // TODO(b/154793333): Enable assertions always when resolved.
     public boolean assertConsistentRenamingOfSignature = false;

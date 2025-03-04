@@ -77,10 +77,10 @@ public class ConversionIntroduceInterfaceMethodTest extends DesugaredLibraryTest
         .addProgramClasses(MyCollectionInterface.class, MyCollection.class, Executor.class)
         .setCustomLibrarySpecification(
             new CustomLibrarySpecification(CustomLibClass.class, MIN_SUPPORTED))
-        .addOptionsModification(opt -> opt.testing.trackDesugaredAPIConversions = true)
         .supportAllCallbacksFromLibrary(supportAllCallbacksFromLibrary)
         .addKeepMainRule(Executor.class)
         .allowDiagnosticWarningMessages()
+        .setTrackDesugaredApiConversions()
         .compile()
         .inspect(this::assertDoubleForEach)
         .inspect(this::assertWrapperMethodsPresent)

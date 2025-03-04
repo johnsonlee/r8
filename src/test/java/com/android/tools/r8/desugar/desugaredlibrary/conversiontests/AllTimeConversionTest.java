@@ -72,8 +72,8 @@ public class AllTimeConversionTest extends DesugaredLibraryTestBase {
         .setCustomLibrarySpecification(
             new CustomLibrarySpecification(CustomLibClass.class, MIN_SUPPORTED))
         .addKeepMainRule(Executor.class)
-        .addOptionsModification(options -> options.testing.trackDesugaredAPIConversions = true)
         .allowDiagnosticWarningMessages()
+        .setTrackDesugaredApiConversions()
         .compile()
         .inspectDiagnosticMessages(this::assertTrackedAPIS)
         .run(parameters.getRuntime(), Executor.class)

@@ -31,7 +31,7 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
   private final TestParameters parameters;
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
-  private final boolean forceInlineAPIConversions;
+  private final boolean forceInlineApiConversions;
 
   private static final AndroidApiLevel MIN_SUPPORTED = AndroidApiLevel.O;
   private static final String EXPECTED_RESULT = StringUtils.lines("--01-16", "--01-02");
@@ -49,11 +49,11 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
       TestParameters parameters,
       LibraryDesugaringSpecification libraryDesugaringSpecification,
       CompilationSpecification compilationSpecification,
-      boolean forceInlineAPIConversions) {
+      boolean forceInlineApiConversions) {
     this.parameters = parameters;
     this.libraryDesugaringSpecification = libraryDesugaringSpecification;
     this.compilationSpecification = compilationSpecification;
-    this.forceInlineAPIConversions = forceInlineAPIConversions;
+    this.forceInlineApiConversions = forceInlineApiConversions;
   }
 
   @Test
@@ -63,10 +63,9 @@ public class BasicLongDoubleConversionTest extends DesugaredLibraryTestBase {
         .setCustomLibrarySpecification(
             new CustomLibrarySpecification(CustomLibClass.class, MIN_SUPPORTED))
         .addKeepMainRule(Executor.class)
-        .addOptionsModification(options -> options.testing.trackDesugaredAPIConversions = true)
-        .addOptionsModification(
-            options -> options.testing.forceInlineAPIConversions = forceInlineAPIConversions)
         .allowDiagnosticWarningMessages()
+        .setForceInlineApiConversions(forceInlineApiConversions)
+        .setTrackDesugaredApiConversions()
         .compile()
         .run(parameters.getRuntime(), Executor.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);

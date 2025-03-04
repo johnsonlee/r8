@@ -12,6 +12,7 @@ import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.L8TestBuilder;
 import com.android.tools.r8.L8TestCompileResult;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
+import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.StringResource;
@@ -110,6 +111,17 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public DesugaredLibraryTestBuilder<?> setForceInlineApiConversions(
+      boolean forceInlineApiConversions) {
+    return addLibraryDesugaringOptionsModification(
+        options -> options.testing.forceInlineApiConversions = forceInlineApiConversions);
+  }
+
+  public DesugaredLibraryTestBuilder<?> setTrackDesugaredApiConversions() {
+    return addLibraryDesugaringOptionsModification(
+        options -> options.testing.trackDesugaredApiConversions = true);
+  }
+
   public DesugaredLibraryTestBuilder<T> addL8OptionsModification(
       Consumer<InternalOptions> optionModifier) {
     l8OptionModifier = l8OptionModifier.andThen(optionModifier);
@@ -120,6 +132,13 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       Consumer<InternalOptions> optionModifier) {
     builder.addOptionsModification(optionModifier);
     return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addLibraryDesugaringOptionsModification(
+      Consumer<InternalOptions> optionModifier) {
+    return applyIfR8PartialTestBuilder(
+        builder -> builder.addR8PartialR8OptionsModification(optionModifier),
+        builder -> builder.addOptionsModification(optionModifier));
   }
 
   public DesugaredLibraryTestBuilder<T> addProgramClassesAndInnerClasses(Class<?>... clazz)
@@ -231,6 +250,13 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     }
   }
 
+  private <E extends Throwable> void withR8PartialTestBuilder(
+      ThrowingConsumer<R8PartialTestBuilder, E> consumer) throws E {
+    if (builder.isR8PartialTestBuilder()) {
+      consumer.accept((R8PartialTestBuilder) builder);
+    }
+  }
+
   public DesugaredLibraryTestBuilder<T> allowUnusedDontWarnPatterns() {
     withR8TestBuilder(R8TestBuilder::allowUnusedDontWarnPatterns);
     return this;
@@ -259,6 +285,19 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   public <E extends Throwable> DesugaredLibraryTestBuilder<T> applyIfR8TestBuilder(
       ThrowingConsumer<R8TestBuilder<?, ?, ?>, E> consumer) throws E {
     withR8TestBuilder(consumer);
+    return this;
+  }
+
+  public <E1 extends Throwable, E2 extends Throwable>
+      DesugaredLibraryTestBuilder<T> applyIfR8PartialTestBuilder(
+          ThrowingConsumer<R8PartialTestBuilder, E1> thenConsumer,
+          ThrowingConsumer<DesugaredLibraryTestBuilder<T>, E2> elseConsumer)
+          throws E1, E2 {
+    if (builder.isR8PartialTestBuilder()) {
+      withR8PartialTestBuilder(thenConsumer);
+    } else {
+      elseConsumer.accept(this);
+    }
     return this;
   }
 

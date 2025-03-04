@@ -131,8 +131,8 @@ public class HelloWorldCompiledOnArtTest extends DesugaredLibraryTestBase {
             options -> {
               options.testing.enableD8ResourcesPassThrough = true;
               options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-              options.testing.trackDesugaredAPIConversions = true;
             })
+        .setTrackDesugaredApiConversions()
         .compile()
         .inspectDiagnosticMessages(
             diagnosticMessages -> {

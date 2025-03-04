@@ -310,8 +310,8 @@ public abstract class Jdk11StreamAbstractTests extends DesugaredLibraryTestBase 
               "-keepclassmembers class j$.util.stream.LoggingTestCase {",
               "  protected void setContext(java.lang.String, java.lang.Object);",
               "}")
-          .addOptionsModification(opt -> opt.testing.trackDesugaredAPIConversions = true)
           .disableL8AnnotationRemoval()
+          .setTrackDesugaredApiConversions()
           .compile()
           .withArt6Plus64BitsLib();
     } finally {

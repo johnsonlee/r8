@@ -45,7 +45,7 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
     this.factory = appView.dexItemFactory();
     this.isLiveMethod = isLiveMethod;
     this.wrapperSynthesizor = new DesugaredLibraryWrapperSynthesizer(appView);
-    if (appView.options().testing.trackDesugaredAPIConversions) {
+    if (appView.options().testing.trackDesugaredApiConversions) {
       trackedCallBackAPIs = SetUtils.newConcurrentHashSet();
     } else {
       trackedCallBackAPIs = null;

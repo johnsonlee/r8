@@ -67,7 +67,7 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
     this.precedingDesugarings = precedingDesugarings;
     this.emulatedMethods = emulatedMethods;
     this.wrapperSynthesizor = new DesugaredLibraryWrapperSynthesizer(appView);
-    if (appView.options().testing.trackDesugaredAPIConversions) {
+    if (appView.options().testing.trackDesugaredApiConversions) {
       trackedAPIs = SetUtils.newConcurrentHashSet();
     } else {
       trackedAPIs = null;
@@ -234,7 +234,7 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
 
   static void generateTrackDesugaredAPIWarnings(
       Set<DexMethod> tracked, String inner, AppView<?> appView) {
-    if (!appView.options().testing.trackDesugaredAPIConversions) {
+    if (!appView.options().testing.trackDesugaredApiConversions) {
       return;
     }
     StringBuilder sb = new StringBuilder();
@@ -299,7 +299,7 @@ public class DesugaredLibraryAPIConverter implements CfInstructionDesugaring {
   // of soft verification failures. We cannot outline API conversions through super invokes, to
   // instance initializers and to non public methods.
   private boolean shouldOutlineAPIConversion(CfInvoke invoke, ProgramMethod context) {
-    if (appView.options().testing.forceInlineAPIConversions) {
+    if (appView.options().testing.forceInlineApiConversions) {
       return false;
     }
     if (invoke.isInvokeSuper(context.getHolderType())) {
