@@ -102,6 +102,10 @@ public class MethodParameter implements BaseInFlow, ComputationTreeNode {
     return this;
   }
 
+  public boolean isThis() {
+    return index == 0 && !isMethodStatic;
+  }
+
   @Override
   @SuppressWarnings("EqualsGetClass")
   public boolean equals(Object obj) {

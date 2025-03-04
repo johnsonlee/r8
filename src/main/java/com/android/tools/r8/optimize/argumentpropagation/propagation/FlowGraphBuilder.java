@@ -232,11 +232,16 @@ public class FlowGraphBuilder {
 
     assert enclosingMethodState.isMonomorphic() || enclosingMethodState.isUnknown();
 
-    if (enclosingMethodState.isUnknown() && inFlow.getType().isIdenticalTo(node.getStaticType())) {
-      // The current node depends on a parameter for which we don't know anything.
-      node.clearPredecessors();
-      node.setStateToUnknown();
-      return TraversalContinuation.doBreak();
+    if (enclosingMethodState.isUnknown()) {
+      boolean hasNarrowing =
+          inFlow.getType().isNotIdenticalTo(node.getStaticType())
+              || (inFlow.isThis() && transferFunction.isIdentity());
+      if (!hasNarrowing) {
+        // The current node depends on a parameter for which we don't know anything.
+        node.clearPredecessors();
+        node.setStateToUnknown();
+        return TraversalContinuation.breakIf(node.isUnknown());
+      }
     }
 
     FlowGraphParameterNode predecessor =

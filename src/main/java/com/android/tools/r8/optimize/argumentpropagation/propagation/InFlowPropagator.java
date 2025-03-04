@@ -34,6 +34,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
+import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -198,7 +199,8 @@ public class InFlowPropagator {
       Deque<FlowGraphNode> worklist) {
     assert node.isUnknown();
     assert !successorNode.isUnknown();
-    NonEmptyValueState stateToPropagate = narrowUnknownState(node, successorNode);
+    NonEmptyValueState stateToPropagate =
+        narrowUnknownState(node, successorNode, transferFunctions);
     if (stateToPropagate.isUnknown()) {
       assert InFlowPropagatorDebugUtils.logPropagateUnknown(node, successorNode);
       successorNode.clearPredecessors(node);
@@ -221,22 +223,23 @@ public class InFlowPropagator {
     }
   }
 
-  private NonEmptyValueState narrowUnknownState(FlowGraphNode node, FlowGraphNode successorNode) {
+  private NonEmptyValueState narrowUnknownState(
+      FlowGraphNode node, FlowGraphNode successorNode, Set<AbstractFunction> transferFunctions) {
     assert node.isUnknown();
-    boolean applyNarrowing =
+    boolean narrowNullability =
+        node.isReceiverNode() && Iterables.all(transferFunctions, AbstractFunction::isIdentity);
+    boolean narrowType =
         node.getStaticType().isReferenceType()
             && node.getStaticType().isNotIdenticalTo(successorNode.getStaticType());
-    if (!applyNarrowing) {
+    if (!narrowNullability && !narrowType) {
       return ValueState.unknown();
     }
-    Nullability nullabilityToPropagate = node.isReceiverNode() ? definitelyNotNull() : maybeNull();
+    Nullability narrowedNullability = narrowNullability ? definitelyNotNull() : maybeNull();
     if (node.getStaticType().isArrayType()) {
-      return ConcreteArrayTypeValueState.create(nullabilityToPropagate);
+      return ConcreteArrayTypeValueState.create(narrowedNullability);
     } else {
-      TypeElement typeToPropagate =
-          node.getStaticType().toTypeElement(appView, nullabilityToPropagate);
-      DynamicType dynamicTypeToPropagate = DynamicType.create(appView, typeToPropagate);
-      return ConcreteClassTypeValueState.create(AbstractValue.unknown(), dynamicTypeToPropagate);
+      DynamicType narrowedType = node.getStaticType().toDynamicType(appView, narrowedNullability);
+      return ConcreteClassTypeValueState.create(AbstractValue.unknown(), narrowedType);
     }
   }
 
@@ -301,20 +304,20 @@ public class InFlowPropagator {
 
   private ConcreteValueState narrowConcreteState(
       FlowGraphNode node, FlowGraphNode successorNode, ConcreteValueState state) {
-    boolean applyNarrowing =
-        node.getStaticType().isReferenceType()
-            && node.getStaticType().isNotIdenticalTo(successorNode.getStaticType());
-    if (!applyNarrowing) {
+    // We don't track the dynamic type of array types and primitive types.
+    if (state.isArrayState() || state.isPrimitiveState()) {
       return state;
     }
-    if (state.isArrayState()) {
-      // We don't track the dynamic type of array types, currently.
+
+    TypeElement defaultType = successorNode.getStaticType().toTypeElement(appView);
+    Nullability narrowedNullability =
+        node.isReceiverNode() ? definitelyNotNull() : state.asReferenceState().getNullability();
+    TypeElement narrowedType = node.getStaticType().toTypeElement(appView, narrowedNullability);
+    if (!defaultType.equals(narrowedType)) {
       return state;
     }
-    Nullability nullabilityToPropagate = state.asReferenceState().getNullability();
-    TypeElement typeToPropagate =
-        node.getStaticType().toTypeElement(appView, nullabilityToPropagate);
-    DynamicType dynamicTypeToPropagate = DynamicType.create(appView, typeToPropagate);
+
+    DynamicType dynamicTypeToPropagate = DynamicType.create(appView, narrowedType);
     if (state.isClassState()) {
       return state.asClassState().withDynamicType(dynamicTypeToPropagate);
     } else {
