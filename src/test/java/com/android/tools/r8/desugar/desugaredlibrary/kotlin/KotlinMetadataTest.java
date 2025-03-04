@@ -20,6 +20,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
+import com.android.tools.r8.desugar.desugaredlibrary.test.DesugaredLibraryTestBuilder;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.kotlin.KotlinMetadataWriter;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
@@ -88,17 +89,13 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
         .applyIf(
             compilationSpecification.isProgramShrink(),
             builder -> builder.addProgramFiles(kotlinc.getKotlinAnnotationJar()))
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
         .addKeepMainRule(PKG + ".MainKt")
         .addKeepAllClassesRule()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .allowDiagnosticMessages()
-        .allowUnusedDontWarnKotlinReflectJvmInternal(
-            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72))
+        .applyIf(
+            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
+            DesugaredLibraryTestBuilder::allowUnusedDontWarnPatterns)
         .compile()
         .inspect(
             i -> {

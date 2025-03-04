@@ -246,11 +246,6 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> allowUnusedDontWarnKotlinReflectJvmInternal(boolean allow) {
-    withR8TestBuilder(b -> b.allowUnusedDontWarnKotlinReflectJvmInternal(allow));
-    return this;
-  }
-
   public DesugaredLibraryTestBuilder<T> allowDiagnosticInfoMessages() {
     withR8TestBuilder(R8TestBuilder::allowDiagnosticInfoMessages);
     return this;

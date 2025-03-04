@@ -16,6 +16,7 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
+import com.android.tools.r8.desugar.desugaredlibrary.test.DesugaredLibraryTestBuilder;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -90,17 +91,13 @@ public class KotlinBlogTest extends DesugaredLibraryTestBase {
         .applyIf(
             compilationSpecification.isProgramShrink(),
             builder -> builder.addProgramFiles(kotlinc.getKotlinAnnotationJar()))
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
         .addKeepMainRule(PKG + ".BlogKt")
         .addKeepAllClassesRule()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .allowDiagnosticMessages()
-        .allowUnusedDontWarnKotlinReflectJvmInternal(
-            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72))
+        .applyIf(
+            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
+            DesugaredLibraryTestBuilder::allowUnusedDontWarnPatterns)
         .compile()
         .withArt6Plus64BitsLib()
         .run(parameters.getRuntime(), PKG + ".BlogKt")
