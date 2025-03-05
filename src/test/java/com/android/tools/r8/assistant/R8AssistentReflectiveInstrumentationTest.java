@@ -66,11 +66,12 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .inspectOriginalDex(inspector -> inspectStaticCallsInReflectOn(1, inspector))
-        .inspect(inspector -> inspectStaticCallsInReflectOn(4, inspector))
+        .inspect(inspector -> inspectStaticCallsInReflectOn(5, inspector))
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines(
             "Reflectively created new instance of " + Bar.class.getName(),
             "Reflectively got declared method callMe on " + Bar.class.getName(),
+            "Reflectively got name on " + Bar.class.getName() + "(NAME)",
             "Reflectively called Class.forName on " + Bar.class.getName());
   }
 
@@ -83,7 +84,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .inspectOriginalDex(inspector -> inspectStaticCallsInReflectOn(1, inspector))
-        .inspect(inspector -> inspectStaticCallsInReflectOn(4, inspector))
+        .inspect(inspector -> inspectStaticCallsInReflectOn(5, inspector))
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines(
             "Custom receiver " + Bar.class.getName(),
@@ -101,7 +102,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .inspectOriginalDex(inspector -> inspectStaticCallsInReflectOn(1, inspector))
-        .inspect(inspector -> inspectStaticCallsInReflectOn(4, inspector))
+        .inspect(inspector -> inspectStaticCallsInReflectOn(5, inspector))
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines("correct", "correct", "correct");
   }
@@ -168,6 +169,16 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
       ensureCorrectStack(stack);
     }
 
+    // TODO(b/400878112): remove + below
+    @Override
+    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
+
+    @Override
+    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
+
+    @Override
+    public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {}
+
     @Override
     public boolean requiresStackInformation() {
       return true;
@@ -187,6 +198,11 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
   public static class InstrumentationClass implements ReflectiveOperationReceiver {
 
     @Override
+    public boolean requiresStackInformation() {
+      return true;
+    }
+
+    @Override
     public void onClassForName(Stack stack, String className) {
       System.out.println("Custom receiver classForName " + className);
     }
@@ -201,6 +217,16 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
         Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
       System.out.println("Custom receiver method " + method);
     }
+
+    // TODO(b/400878112): remove + below
+    @Override
+    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
+
+    @Override
+    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
+
+    @Override
+    public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {}
   }
 
   static class TestClass {

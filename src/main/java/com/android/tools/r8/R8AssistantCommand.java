@@ -145,19 +145,12 @@ public class R8AssistantCommand extends BaseCompilerCommand {
 
     @Override
     R8AssistantCommand makeCommand() {
-      ClassInjectionHelper injectionHelper = new ClassInjectionHelper(getReporter());
-      String reason = "Reflective instrumentation";
-      addClassProgramData(
-          injectionHelper.getClassBytes(ReflectiveOracle.class),
-          new SynthesizedOrigin(reason, ReflectiveOracle.class));
-      addClassProgramData(
-          injectionHelper.getClassBytes(Stack.class), new SynthesizedOrigin(reason, Stack.class));
-      addClassProgramData(
-          injectionHelper.getClassBytes(ReflectiveOperationReceiver.class),
-          new SynthesizedOrigin(reason, ReflectiveOperationReceiver.class));
-      addClassProgramData(
-          injectionHelper.getClassBytes(ReflectiveOperationLogger.class),
-          new SynthesizedOrigin(reason, ReflectiveOperationLogger.class));
+      injectClasses(
+          ReflectiveOperationLogger.class,
+          ReflectiveOperationReceiver.NameLookupType.class,
+          ReflectiveOperationReceiver.class,
+          ReflectiveOracle.class,
+          Stack.class);
       return new R8AssistantCommand(
           getAppBuilder().build(),
           getMode(),
@@ -165,6 +158,15 @@ public class R8AssistantCommand extends BaseCompilerCommand {
           getMinApiLevel(),
           getReporter(),
           reflectiveReceiverDescriptor);
+    }
+
+    private void injectClasses(Class<?>... classes) {
+      ClassInjectionHelper injectionHelper = new ClassInjectionHelper(getReporter());
+      String reason = "Reflective instrumentation";
+      for (Class<?> clazz : classes) {
+        addClassProgramData(
+            injectionHelper.getClassBytes(clazz), new SynthesizedOrigin(reason, clazz));
+      }
     }
   }
 }

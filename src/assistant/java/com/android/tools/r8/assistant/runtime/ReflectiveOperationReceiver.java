@@ -18,4 +18,18 @@ public interface ReflectiveOperationReceiver {
   void onClassNewInstance(Stack stack, Class<?> clazz);
 
   void onClassGetDeclaredMethod(Stack stack, Class<?> clazz, String method, Class<?>... parameters);
+
+  void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName);
+
+  void onClassGetDeclaredMethods(Stack stack, Class<?> clazz);
+
+  void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType);
+
+  @KeepForApi
+  enum NameLookupType {
+    NAME,
+    SIMPLE_NAME,
+    CANONICAL_NAME,
+    TYPE_NAME
+  }
 }

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.assistant.runtime;
 
+import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver.NameLookupType;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import java.util.Arrays;
 
@@ -72,8 +73,32 @@ public class ReflectiveOracle {
     getInstance().onClassGetDeclaredMethod(Stack.createStack(), clazz, name, parameters);
   }
 
+  public static void onClassGetDeclaredMethods(Class<?> clazz) {
+    getInstance().onClassGetDeclaredMethods(Stack.createStack(), clazz);
+  }
+
   public static void onClassForName(String className) {
     getInstance().onClassForName(Stack.createStack(), className);
+  }
+
+  public static void onClassGetDeclaredField(Class<?> clazz, String fieldName) {
+    getInstance().onClassGetDeclaredField(Stack.createStack(), clazz, fieldName);
+  }
+
+  public static void onClassGetName(Class<?> clazz) {
+    getInstance().onClassGetName(Stack.createStack(), clazz, NameLookupType.NAME);
+  }
+
+  public static void onClassGetSimpleName(Class<?> clazz) {
+    getInstance().onClassGetName(Stack.createStack(), clazz, NameLookupType.SIMPLE_NAME);
+  }
+
+  public static void onClassGetCanonicalName(Class<?> clazz) {
+    getInstance().onClassGetName(Stack.createStack(), clazz, NameLookupType.CANONICAL_NAME);
+  }
+
+  public static void onClassGetTypeName(Class<?> clazz) {
+    getInstance().onClassGetName(Stack.createStack(), clazz, NameLookupType.TYPE_NAME);
   }
 
   @KeepForApi
@@ -87,6 +112,22 @@ public class ReflectiveOracle {
     public void onClassGetDeclaredMethod(
         Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
       System.out.println("Reflectively got declared method " + method + " on " + clazz.getName());
+    }
+
+    @Override
+    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {
+      System.out.println("Reflectively got declared field " + fieldName + " on " + clazz.getName());
+    }
+
+    @Override
+    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {
+      System.out.println("Reflectively got declared methods on " + clazz.getName());
+    }
+
+    @Override
+    public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {
+      System.out.println(
+          "Reflectively got name on " + clazz.getName() + "(" + lookupType.toString() + ")");
     }
 
     @Override

@@ -116,21 +116,42 @@ public class ReflectiveInstrumentation {
         dexItemFactory.classMethods.getDeclaredMethod,
         getMethodReferenceWithClassMethodNameAndParameters("onClassGetDeclaredMethod"),
         dexItemFactory.classMethods.forName,
-        getMethodReferenceWithStringParameter("onClassForName"));
+        getMethodReferenceWithStringParameter("onClassForName"),
+        dexItemFactory.classMethods.getDeclaredField,
+        getMethodReferenceWithClassAndStringParameter("onClassGetDeclaredField"),
+        dexItemFactory.createMethod(
+            dexItemFactory.classType,
+            dexItemFactory.createProto(
+                dexItemFactory.createArrayType(1, dexItemFactory.methodType)),
+            "getDeclaredMethods"),
+        getMethodReferenceWithClassParameter("onClassGetDeclaredMethods"),
+        dexItemFactory.classMethods.getName,
+        getMethodReferenceWithClassParameter("onClassGetName"),
+        dexItemFactory.classMethods.getCanonicalName,
+        getMethodReferenceWithClassParameter("onClassGetCanonicalName"),
+        dexItemFactory.classMethods.getSimpleName,
+        getMethodReferenceWithClassParameter("onClassGetSimpleName"),
+        dexItemFactory.classMethods.getTypeName,
+        getMethodReferenceWithClassParameter("onClassGetTypeName"));
   }
 
   private DexMethod getMethodReferenceWithClassParameter(String name) {
-    return getMethodReferenceWithSingleParameter(name, dexItemFactory.classType);
+    return getMethodReferenceWithParameterTypes(name, dexItemFactory.classType);
+  }
+
+  private DexMethod getMethodReferenceWithClassAndStringParameter(String name) {
+    return getMethodReferenceWithParameterTypes(
+        name, dexItemFactory.classType, dexItemFactory.stringType);
   }
 
   private DexMethod getMethodReferenceWithStringParameter(String name) {
-    return getMethodReferenceWithSingleParameter(name, dexItemFactory.stringType);
+    return getMethodReferenceWithParameterTypes(name, dexItemFactory.stringType);
   }
 
-  private DexMethod getMethodReferenceWithSingleParameter(String name, DexType type) {
+  private DexMethod getMethodReferenceWithParameterTypes(String name, DexType... dexTypes) {
     return dexItemFactory.createMethod(
         reflectiveReferences.reflectiveOracleType,
-        dexItemFactory.createProto(dexItemFactory.voidType, type),
+        dexItemFactory.createProto(dexItemFactory.voidType, dexTypes),
         name);
   }
 
