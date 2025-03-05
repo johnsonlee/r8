@@ -258,15 +258,18 @@ public class RootSetUtils {
       useCollector.run(executorService);
 
       // Trace resources.
-      R8PartialResourceUseCollector resourceUseCollector =
-          new R8PartialResourceUseCollector(appView) {
+      // TODO(b/400935182): Extend R8PartialResourceUseCollector to support LIR.
+      if (options.isOptimizedResourceShrinking()) {
+        R8PartialResourceUseCollector resourceUseCollector =
+            new R8PartialResourceUseCollector(appView) {
 
-            @Override
-            protected void keep(int resourceId) {
-              resourceRootIds.add(resourceId);
-            }
-          };
-      resourceUseCollector.run();
+              @Override
+              protected void keep(int resourceId) {
+                resourceRootIds.add(resourceId);
+              }
+            };
+        resourceUseCollector.run();
+      }
       return this;
     }
 
