@@ -7,7 +7,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.assistant.JavaLangClassTestClass.Foo;
-import com.android.tools.r8.assistant.runtime.ReflectiveOracle.ReflectiveOperationLogger;
+import com.android.tools.r8.assistant.runtime.EmptyReflectiveOperationReceiver;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +38,7 @@ public class JavaLangClassTest extends TestBase {
         .assertSuccessWithOutputLines("5", "1", "2", "3", "3", "4", "5", "6", "7", "8");
   }
 
-  public static class Instrumentation extends ReflectiveOperationLogger {
+  public static class Instrumentation extends EmptyReflectiveOperationReceiver {
 
     private void printNumIfTrue(boolean correct, int num) {
       if (correct) {

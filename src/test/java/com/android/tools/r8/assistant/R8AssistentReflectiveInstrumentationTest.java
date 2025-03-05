@@ -13,7 +13,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.assistant.runtime.ReflectiveOperationReceiver;
+import com.android.tools.r8.assistant.runtime.EmptyReflectiveOperationReceiver;
 import com.android.tools.r8.assistant.runtime.ReflectiveOracle.Stack;
 import com.android.tools.r8.utils.ZipUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -109,7 +109,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
 
   // Injected into the app by the R8Assistant.
   public static class TestReflectiveOperationReceiverStackHandler
-      implements ReflectiveOperationReceiver {
+      extends EmptyReflectiveOperationReceiver {
 
     int lineNumberOfNewInstance = -1;
 
@@ -169,16 +169,6 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
       ensureCorrectStack(stack);
     }
 
-    // TODO(b/400878112): remove + below
-    @Override
-    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
-
-    @Override
-    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
-
-    @Override
-    public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {}
-
     @Override
     public boolean requiresStackInformation() {
       return true;
@@ -195,13 +185,7 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
     assertEquals(count, codeCount);
   }
 
-  public static class InstrumentationClass implements ReflectiveOperationReceiver {
-
-    @Override
-    public boolean requiresStackInformation() {
-      return true;
-    }
-
+  public static class InstrumentationClass extends EmptyReflectiveOperationReceiver {
     @Override
     public void onClassForName(Stack stack, String className) {
       System.out.println("Custom receiver classForName " + className);
@@ -217,16 +201,6 @@ public class R8AssistentReflectiveInstrumentationTest extends TestBase {
         Stack stack, Class<?> clazz, String method, Class<?>... parameters) {
       System.out.println("Custom receiver method " + method);
     }
-
-    // TODO(b/400878112): remove + below
-    @Override
-    public void onClassGetDeclaredField(Stack stack, Class<?> clazz, String fieldName) {}
-
-    @Override
-    public void onClassGetDeclaredMethods(Stack stack, Class<?> clazz) {}
-
-    @Override
-    public void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType) {}
   }
 
   static class TestClass {
