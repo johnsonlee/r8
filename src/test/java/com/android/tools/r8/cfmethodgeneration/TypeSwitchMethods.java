@@ -6,6 +6,7 @@ package com.android.tools.r8.cfmethodgeneration;
 
 public class TypeSwitchMethods {
 
+  // By design this is lock-free so the JVM may compute several times the same value.
   public static boolean switchEnumEq(
       Object value, Object[] cache, int index, String enumClass, String name) {
     if (cache[index] == null) {
