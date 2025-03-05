@@ -99,7 +99,6 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
 
       // Call basic block.
       instructions.add(new CfLoad(ValueType.fromDexType(receiverType), 0));
-      instructions.add(new CfCheckCast(dispatch.getKey()));
       forwardCall(instructions, dispatch.getValue());
       addReturn(instructions);
     }
@@ -116,6 +115,7 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
   private void forwardCall(List<CfInstruction> instructions, DexMethod method) {
     if (dispatchType == ALL_STATIC
         || appView.getSyntheticItems().isSynthetic(method.getHolderType())) {
+      instructions.add(new CfCheckCast(method.getParameter(0)));
       loadExtraParameters(instructions);
       instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method, false));
       return;
