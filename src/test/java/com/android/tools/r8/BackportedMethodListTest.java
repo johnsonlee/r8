@@ -75,6 +75,11 @@ public class BackportedMethodListTest extends TestBase {
         apiLevel < AndroidApiLevel.O.getLevel(),
         backports.contains("java/lang/Short#toUnsignedLong(S)J"));
 
+    // ExecutorService#close up to api level V.
+    assertEquals(
+        apiLevel <= AndroidApiLevel.V.getLevel(),
+        backports.contains("java/util/concurrent/ExecutorService#close()V"));
+
     // Java 9, 10 and 11 Optional methods added at API level T
     // They require Android N or library desugaring to be backported.
     // The methods are not backported in desugared library JDK 11 (already present).

@@ -284,4 +284,16 @@ public class AutoCloseableRetargeterHelper {
         .appInfoForDesugaring()
         .lookupMaximallySpecificMethod(context.getContextClass(), target);
   }
+
+  public void visit(Consumer<DexMethod> methods) {
+    if (minApiLevel.isLessThan(AndroidApiLevel.K)) {
+      return;
+    }
+    forEachAutoCloseableMissingSubimplementation(
+        type -> {
+          if (!isFinalClassImplementingAutoCloseable(type)) {
+            methods.accept(createCloseMethod(type));
+          }
+        });
+  }
 }
