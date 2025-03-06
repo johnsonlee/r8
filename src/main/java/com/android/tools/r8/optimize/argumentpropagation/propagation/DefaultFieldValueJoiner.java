@@ -32,11 +32,13 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.FieldStateC
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.NonEmptyValueState;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.ValueState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramFieldSet;
+import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanOpenHashMap;
 import java.util.ArrayDeque;
@@ -64,6 +66,7 @@ public class DefaultFieldValueJoiner {
   private final FieldStateCollection fieldStates;
   private final List<FlowGraph> flowGraphs;
   private final ImmediateProgramSubtypingInfo immediateSubtypingInfo;
+  private final InternalOptions options;
 
   public DefaultFieldValueJoiner(
       AppView<AppInfoWithLiveness> appView,
@@ -77,6 +80,7 @@ public class DefaultFieldValueJoiner {
     this.fieldStates = fieldStates;
     this.flowGraphs = flowGraphs;
     this.immediateSubtypingInfo = immediateSubtypingInfo;
+    this.options = appView.options();
   }
 
   public Map<FlowGraph, Deque<FlowGraphNode>> joinDefaultFieldValuesForFieldsWithReadBeforeWrite(
@@ -178,7 +182,7 @@ public class DefaultFieldValueJoiner {
   }
 
   private boolean isKeptDirectly(DexProgramClass clazz) {
-    return appView.getKeepInfo(clazz).isPinned(appView.options());
+    return appView.getKeepInfo(clazz).isPinned(options);
   }
 
   private Map<DexProgramClass, List<ProgramField>> getFieldsOfInterest() {
@@ -213,7 +217,7 @@ public class DefaultFieldValueJoiner {
       Map<DexProgramClass, List<ProgramField>> fieldsSubjectToInitializerAnalysis) {
     // When there is no constructor inlining, we can always analyze the initializers.
     Map<DexType, ProgramFieldSet> fieldsNotSubjectToInitializerAnalysis = new ConcurrentHashMap<>();
-    if (!appView.options().canInitNewInstanceUsingSuperclassConstructor()) {
+    if (!options.canInitNewInstanceUsingSuperclassConstructor()) {
       return fieldsNotSubjectToInitializerAnalysis;
     }
     if (classesWithSingleCallerInlinedInstanceInitializers != null
@@ -265,7 +269,7 @@ public class DefaultFieldValueJoiner {
           analyzeInstanceInitializerAssignments(
               clazz, instanceFieldsWithLiveDefaultValue, concurrentLiveDefaultValueConsumer);
         },
-        appView.options().getThreadingModule(),
+        options.getThreadingModule(),
         executorService);
   }
 
@@ -338,8 +342,17 @@ public class DefaultFieldValueJoiner {
           DexProgramClass holder = fields.iterator().next().getHolder();
           // If the class is kept it could be instantiated directly, in which case all default field
           // values could be live.
-          if (appView.getKeepInfo(holder).isPinned(appView.options())
-              || serviceImplementations.contains(holder.getType())) {
+          if (isKeptDirectly(holder) || serviceImplementations.contains(holder.getType())) {
+            fields.forEach(liveDefaultValueConsumer);
+            return true;
+          }
+          // If we are compiling to class files and there is a T::new lambda method handle, then
+          // abort, since the analysis performed by this method assumes that the given classes are
+          // only instantiated via new-instance instructions.
+          if (options.isGeneratingClassFiles()
+              && Iterables.any(
+                  holder.programInstanceInitializers(),
+                  method -> !appView.getKeepInfo(method).isClosedWorldReasoningAllowed(options))) {
             fields.forEach(liveDefaultValueConsumer);
             return true;
           }

@@ -42,10 +42,7 @@ public class DefaultFieldValueJoinerWithLambdaAllocationTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.isCfRuntime(),
-            rr -> rr.assertSuccessWithOutputLines("1", "1", "2", "2"),
-            rr -> rr.assertSuccessWithOutputLines("0", "1", "0", "2"));
+        .assertSuccessWithOutputLines("0", "1", "0", "2");
   }
 
   public interface A {
