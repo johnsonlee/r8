@@ -195,8 +195,7 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
     assert clazz.lookupVirtualMethod(target) == null;
     DexClassAndMethod superMethod = lookupSuperIncludingInterfaces(appView, target, clazz);
-    if (superMethod == null
-        || !data.superTargetsToRewrite().contains(superMethod.getHolderType())) {
+    if (superMethod == null || !data.isSuperTargetToRewrite(superMethod.getHolderType())) {
       return null;
     }
     DexMethod forwardMethod =

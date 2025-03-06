@@ -52,14 +52,16 @@ public class AutoCloseableDesugaringClassesPresentAtKitKatTest extends TestBase 
         AppInfo.createInitialAppInfo(libHolder, GlobalSyntheticsStrategy.forNonSynthesizing());
     AppView<AppInfo> appView = AppView.createForD8(initialAppInfo, Timing.empty());
 
-    AutoCloseableRetargeterHelper data =
-        new AutoCloseableRetargeterHelper(AndroidApiLevel.B, appView.dexItemFactory());
     Set<DexType> missing = Sets.newIdentityHashSet();
-    for (DexType dexType : data.superTargetsToRewrite()) {
-      if (appView.definitionFor(dexType) == null) {
-        missing.add(dexType);
-      }
-    }
+    AutoCloseableRetargeterHelper.forEachAutoCloseableMissingSubimplementation(
+        type -> {
+          if (appView.definitionFor(type) == null) {
+            missing.add(type);
+          }
+        },
+        AndroidApiLevel.B,
+        appView.dexItemFactory(),
+        false);
     assertEquals(1, missing.size());
     // ForkJoinPool is missing at Android Api level 19 but that's ok since it implements
     // ExecutorService.close in a more optimized way. We rely on ExecutorService for the

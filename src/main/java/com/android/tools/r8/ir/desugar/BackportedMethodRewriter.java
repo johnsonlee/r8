@@ -1873,7 +1873,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       if (!appView.options().shouldDesugarAutoCloseable()) {
         // void java.util.concurrent.ExecutorService.close()
         type = factory.createType("Ljava/util/concurrent/ExecutorService;");
-        name = factory.createString("close");
+        name = factory.closeMethodName;
         proto = factory.createProto(factory.voidType);
         method = factory.createMethod(type, proto, name);
         addProvider(

@@ -234,6 +234,7 @@ public class DexItemFactory {
   public final DexString finalizeMethodName = createString("finalize");
   public final DexString ordinalMethodName = createString("ordinal");
   public final DexString nameMethodName = createString("name");
+  public final DexString closeMethodName = createString("close");
   public final DexString desiredAssertionStatusMethodName = createString("desiredAssertionStatus");
   public final DexString forNameMethodName = createString("forName");
   public final DexString getNameName = createString("getName");
@@ -1297,7 +1298,7 @@ public class DexItemFactory {
     public final DexMethod recycle =
         createMethod(androidContentResTypedArrayType, createProto(voidType), "recycle");
     public final DexMethod close =
-        createMethod(androidContentResTypedArrayType, createProto(voidType), "close");
+        createMethod(androidContentResTypedArrayType, createProto(voidType), closeMethodName);
   }
 
   // android.content.ContentProviderClient
@@ -1305,7 +1306,8 @@ public class DexItemFactory {
     public final DexMethod release =
         createMethod(androidContentContentProviderClientType, createProto(booleanType), "release");
     public final DexMethod close =
-        createMethod(androidContentContentProviderClientType, createProto(voidType), "close");
+        createMethod(
+            androidContentContentProviderClientType, createProto(voidType), closeMethodName);
   }
 
   // android.drm.DrmManagerClient
@@ -1313,7 +1315,7 @@ public class DexItemFactory {
     public final DexMethod release =
         createMethod(androidDrmDrmManagerClientType, createProto(voidType), "release");
     public final DexMethod close =
-        createMethod(androidDrmDrmManagerClientType, createProto(voidType), "close");
+        createMethod(androidDrmDrmManagerClientType, createProto(voidType), closeMethodName);
   }
 
   // android.media.MediaDrm
@@ -1321,7 +1323,7 @@ public class DexItemFactory {
     public final DexMethod release =
         createMethod(androidMediaMediaDrmType, createProto(voidType), "release");
     public final DexMethod close =
-        createMethod(androidMediaMediaDrmType, createProto(voidType), "close");
+        createMethod(androidMediaMediaDrmType, createProto(voidType), closeMethodName);
   }
 
   // android.media.MediaMetadataRetriever
@@ -1329,7 +1331,8 @@ public class DexItemFactory {
     public final DexMethod release =
         createMethod(androidMediaMediaMetadataRetrieverType, createProto(voidType), "release");
     public final DexMethod close =
-        createMethod(androidMediaMediaMetadataRetrieverType, createProto(voidType), "close");
+        createMethod(
+            androidMediaMediaMetadataRetrieverType, createProto(voidType), closeMethodName);
   }
 
   public class BooleanMembers extends BoxedPrimitiveMembers {
