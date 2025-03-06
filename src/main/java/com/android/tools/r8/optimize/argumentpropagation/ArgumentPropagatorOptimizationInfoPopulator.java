@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
@@ -37,7 +36,6 @@ import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.OptionalBool;
-import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -77,18 +75,18 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
    * Computes an over-approximation of each parameter's value and type and stores the result in
    * {@link com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo}.
    */
-  PrunedItems populateOptimizationInfo(ExecutorService executorService, Timing timing)
+  ProgramMethodSet populateOptimizationInfo(ExecutorService executorService, Timing timing)
       throws ExecutionException {
     // The information stored on each method is now sound, and can be used as optimization info.
     timing.begin("Set optimization info");
-    PrunedItems prunedItems = setOptimizationInfo(executorService);
+    ProgramMethodSet prunedMethods = setOptimizationInfo(executorService);
     timing.end();
 
     assert methodStates.isEmpty();
-    return prunedItems;
+    return prunedMethods;
   }
 
-  private PrunedItems setOptimizationInfo(ExecutorService executorService)
+  private ProgramMethodSet setOptimizationInfo(ExecutorService executorService)
       throws ExecutionException {
     ProgramMethodSet prunedMethods = ProgramMethodSet.createConcurrent();
     ThreadUtils.processItems(
@@ -96,23 +94,13 @@ public class ArgumentPropagatorOptimizationInfoPopulator {
         clazz -> prunedMethods.addAll(setOptimizationInfo(clazz)),
         appView.options().getThreadingModule(),
         executorService);
-    for (ProgramMethod prunedMethod : prunedMethods) {
-      converter.onMethodPruned(prunedMethod);
-      postMethodProcessorBuilder.remove(prunedMethod, appView.graphLens());
-    }
-    converter.pruneItems(executorService);
-    converter.waveDone(ProgramMethodSet.empty(), executorService);
-    return PrunedItems.builder()
-        .setPrunedApp(appView.app())
-        .setRemovedMethods(prunedMethods.toReferenceSet(SetUtils::newIdentityHashSet))
-        .build();
+    return prunedMethods;
   }
 
   private ProgramMethodSet setOptimizationInfo(DexProgramClass clazz) {
     ProgramMethodSet prunedMethods = ProgramMethodSet.create();
     clazz.forEachProgramField(this::setOptimizationInfo);
     clazz.forEachProgramMethod(method -> setOptimizationInfo(method, prunedMethods));
-    clazz.getMethodCollection().removeMethods(prunedMethods.toDefinitionSet());
     return prunedMethods;
   }
 

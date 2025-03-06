@@ -10,7 +10,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.analysis.path.state.ConcretePathConstraintAnalysisState;
 import com.android.tools.r8.ir.analysis.path.state.PathConstraintKind;
@@ -147,11 +146,11 @@ public class EffectivelyUnusedArgumentsAnalysis {
     new Analyzer(method, code, pathConstraintSupplier).analyze();
   }
 
-  public void computeEffectivelyUnusedArguments(PrunedItems prunedItems) {
+  public void computeEffectivelyUnusedArguments(ProgramMethodSet prunedMethods) {
     // Build a graph where nodes are method parameters and there is an edge from method parameter p0
     // to method parameter p1 if the removal of p0 depends on the removal of p1.
     EffectivelyUnusedArgumentsGraph dependenceGraph =
-        EffectivelyUnusedArgumentsGraph.create(appView, conditions, constraints, prunedItems);
+        EffectivelyUnusedArgumentsGraph.create(appView, conditions, constraints, prunedMethods);
 
     // Remove all unoptimizable method parameters from the graph, as well as all nodes that depend
     // on a node that is unoptimable.

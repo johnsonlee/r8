@@ -4,12 +4,13 @@
 
 package com.android.tools.r8.optimize.argumentpropagation;
 
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
+
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethodSignature;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ImmediateProgramSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.path.PathConstraintSupplier;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.IRCode;
@@ -30,6 +31,7 @@ import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.collections.DexMethodSignatureSet;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -209,19 +211,20 @@ public class ArgumentPropagator {
     // Set the optimization info on each method.
     Map<Set<DexProgramClass>, DexMethodSignatureSet> interfaceDispatchOutsideProgram =
         new IdentityHashMap<>();
-    populateParameterOptimizationInfo(
-        converter,
-        immediateSubtypingInfo,
-        stronglyConnectedProgramComponents,
-        (stronglyConnectedProgramComponent, signature) -> {
-          interfaceDispatchOutsideProgram
-              .computeIfAbsent(
-                  stronglyConnectedProgramComponent, (unused) -> DexMethodSignatureSet.create())
-              .add(signature);
-        },
-        postMethodProcessorBuilder,
-        executorService,
-        timing);
+    ProgramMethodSet prunedMethods =
+        populateParameterOptimizationInfo(
+            converter,
+            immediateSubtypingInfo,
+            stronglyConnectedProgramComponents,
+            (stronglyConnectedProgramComponent, signature) -> {
+              interfaceDispatchOutsideProgram
+                  .computeIfAbsent(
+                      stronglyConnectedProgramComponent, (unused) -> DexMethodSignatureSet.create())
+                  .add(signature);
+            },
+            postMethodProcessorBuilder,
+            executorService,
+            timing);
 
     // Using the computed optimization info, build a graph lens that describes the mapping from
     // methods with constant parameters to methods with the constant parameters removed.
@@ -232,10 +235,13 @@ public class ArgumentPropagator {
             .run(stronglyConnectedProgramComponents, affectedClasses::add, executorService, timing);
 
     // Find all the code objects that need reprocessing.
-    new ArgumentPropagatorMethodReprocessingEnqueuer(appView, reprocessingCriteriaCollection)
+    new ArgumentPropagatorMethodReprocessingEnqueuer(
+            appView, prunedMethods, reprocessingCriteriaCollection)
         .enqueueAndPrepareMethodsForReprocessing(
             graphLens, postMethodProcessorBuilder, executorService, timing);
     reprocessingCriteriaCollection = null;
+
+    removePrunedMethods(converter, postMethodProcessorBuilder, prunedMethods, executorService);
 
     // Finally, apply the graph lens to the program (i.e., remove constant parameters from method
     // definitions).
@@ -254,7 +260,7 @@ public class ArgumentPropagator {
    * Called by {@link IRConverter} *after* the primary optimization pass to populate the parameter
    * optimization info.
    */
-  private void populateParameterOptimizationInfo(
+  private ProgramMethodSet populateParameterOptimizationInfo(
       PrimaryR8IRConverter converter,
       ImmediateProgramSubtypingInfo immediateSubtypingInfo,
       List<Set<DexProgramClass>> stronglyConnectedProgramComponents,
@@ -287,16 +293,40 @@ public class ArgumentPropagator {
             classesWithSingleCallerInlinedInstanceInitializers, executorService, timing);
     classesWithSingleCallerInlinedInstanceInitializers = null;
 
-    PrunedItems prunedItems =
+    ProgramMethodSet prunedMethods =
         new ArgumentPropagatorOptimizationInfoPopulator(
                 appView, converter, fieldStates, methodStates, postMethodProcessorBuilder)
             .populateOptimizationInfo(executorService, timing);
     timing.end();
 
     timing.begin("Compute unused arguments");
-    effectivelyUnusedArgumentsAnalysis.computeEffectivelyUnusedArguments(prunedItems);
+    effectivelyUnusedArgumentsAnalysis.computeEffectivelyUnusedArguments(prunedMethods);
     effectivelyUnusedArgumentsAnalysis = null;
     timing.end();
+
+    return prunedMethods;
+  }
+
+  private void removePrunedMethods(
+      PrimaryR8IRConverter converter,
+      PostMethodProcessor.Builder postMethodProcessorBuilder,
+      ProgramMethodSet prunedMethods,
+      ExecutorService executorService)
+      throws ExecutionException {
+    Map<DexProgramClass, ProgramMethodSet> prunedMethodsPerClass = new IdentityHashMap<>();
+    prunedMethods.forEach(
+        prunedMethod ->
+            prunedMethodsPerClass
+                .computeIfAbsent(prunedMethod.getHolder(), ignoreKey(ProgramMethodSet::create))
+                .add(prunedMethod));
+    prunedMethodsPerClass.forEach(
+        (clazz, prunedMethodsInClass) ->
+            clazz.getMethodCollection().removeMethods(prunedMethodsInClass.toDefinitionSet()));
+    for (ProgramMethod prunedMethod : prunedMethods) {
+      converter.onMethodPruned(prunedMethod);
+      postMethodProcessorBuilder.remove(prunedMethod, appView.graphLens());
+    }
+    converter.pruneItems(executorService);
   }
 
   /**
@@ -316,9 +346,9 @@ public class ArgumentPropagator {
           || method.getDefinition().belongsToDirectPool()
           || method.getAccessFlags().wasPrivate();
     }
-
-    assert effectivelyUnusedArgumentsAnalysis != null;
-    effectivelyUnusedArgumentsAnalysis.onMethodPruned(method);
+    if (effectivelyUnusedArgumentsAnalysis != null) {
+      effectivelyUnusedArgumentsAnalysis.onMethodPruned(method);
+    }
   }
 
   public void onMethodCodePruned(ProgramMethod method) {

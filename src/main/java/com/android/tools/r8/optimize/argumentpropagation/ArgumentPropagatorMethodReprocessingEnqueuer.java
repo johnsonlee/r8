@@ -24,7 +24,9 @@ import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
+import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.conversion.IRConverter;
 import com.android.tools.r8.ir.conversion.IRToLirFinalizer;
 import com.android.tools.r8.ir.conversion.PostMethodProcessor;
@@ -41,6 +43,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,12 +56,15 @@ import java.util.concurrent.ExecutorService;
 public class ArgumentPropagatorMethodReprocessingEnqueuer {
 
   private final AppView<AppInfoWithLiveness> appView;
+  private final ProgramMethodSet prunedMethods;
   private final ArgumentPropagatorReprocessingCriteriaCollection reprocessingCriteriaCollection;
 
   public ArgumentPropagatorMethodReprocessingEnqueuer(
       AppView<AppInfoWithLiveness> appView,
+      ProgramMethodSet prunedMethods,
       ArgumentPropagatorReprocessingCriteriaCollection reprocessingCriteriaCollection) {
     this.appView = appView;
+    this.prunedMethods = prunedMethods;
     this.reprocessingCriteriaCollection = reprocessingCriteriaCollection;
   }
 
@@ -91,7 +97,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
     timing.end();
 
     timing.begin("Eliminate dead field accesses");
-    eliminateDeadFieldAccesses(executorService);
+    eliminateDeadFieldAndMethodAccesses(executorService);
     timing.end();
 
     timing.end();
@@ -170,36 +176,35 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
             postMethodProcessorBuilder.addAll(methodsToReprocessInClass, currentGraphLens));
   }
 
-  private void eliminateDeadFieldAccesses(ExecutorService executorService)
+  private void eliminateDeadFieldAndMethodAccesses(ExecutorService executorService)
       throws ExecutionException {
     ThreadUtils.processItems(
         appView.appInfo().classes(),
-        clazz -> {
-          clazz.forEachProgramMethodMatching(
-              m -> m.hasCode() && !m.getCode().isSharedCodeObject(),
-              this::eliminateDeadFieldAccesses);
-        },
+        clazz ->
+            clazz.forEachProgramMethodMatching(
+                m -> m.hasCode() && !m.getCode().isSharedCodeObject(),
+                this::eliminateDeadFieldAndMethodAccesses),
         appView.options().getThreadingModule(),
         executorService);
   }
 
-  private void eliminateDeadFieldAccesses(ProgramMethod method) {
+  private void eliminateDeadFieldAndMethodAccesses(ProgramMethod method) {
     Code code = method.getDefinition().getCode();
     if (!code.isLirCode()) {
       assert appView.isCfByteCodePassThrough(method);
       return;
     }
     LirCode<Integer> lirCode = code.asLirCode();
-    LirCode<Integer> rewrittenLirCode = eliminateDeadFieldAccesses(method, lirCode);
+    LirCode<Integer> rewrittenLirCode = eliminateDeadFieldAndMethodAccesses(method, lirCode);
     if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
       method.setCode(rewrittenLirCode, appView);
     }
   }
 
-  private LirCode<Integer> eliminateDeadFieldAccesses(
+  private LirCode<Integer> eliminateDeadFieldAndMethodAccesses(
       ProgramMethod method, LirCode<Integer> lirCode) {
     if (ArrayUtils.none(
-        lirCode.getConstantPool(), constant -> isDeadFieldAccess(constant, method))) {
+        lirCode.getConstantPool(), constant -> isDeadFieldOrMethodAccess(constant, method))) {
       return lirCode;
     }
     IRCode irCode = lirCode.buildIR(method, appView);
@@ -213,22 +218,34 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
       }
       InstructionListIterator instructionIterator = block.listIterator();
       while (instructionIterator.hasNext()) {
-        FieldInstruction fieldInstruction = instructionIterator.next().asFieldInstruction();
-        if (fieldInstruction == null) {
-          continue;
-        }
-        ProgramField resolvedField =
-            fieldInstruction.resolveField(appView, method).getProgramField();
-        if (resolvedField == null || !isDeadFieldAccess(resolvedField)) {
-          continue;
-        }
-        if (fieldInstruction.isStaticFieldInstruction()
-            != resolvedField.getAccessFlags().isStatic()) {
-          // Preserve the ICCE.
-          instructionIterator.next();
-          instructionIterator.replaceCurrentInstructionWithThrowNull(
-              appView, irCode, blocks, blocksToRemove, affectedValues);
-        } else {
+        Instruction instruction = instructionIterator.next();
+        if (instruction.isFieldInstruction()) {
+          FieldInstruction fieldInstruction = instruction.asFieldInstruction();
+          if (fieldInstruction == null) {
+            continue;
+          }
+          ProgramField resolvedField =
+              fieldInstruction.resolveField(appView, method).getProgramField();
+          if (resolvedField == null || !isDeadFieldAccess(resolvedField)) {
+            continue;
+          }
+          if (fieldInstruction.isStaticFieldInstruction()
+              != resolvedField.getAccessFlags().isStatic()) {
+            // Preserve the ICCE.
+            instructionIterator.next();
+            instructionIterator.replaceCurrentInstructionWithThrowNull(
+                appView, irCode, blocks, blocksToRemove, affectedValues);
+          } else {
+            instructionIterator.replaceCurrentInstructionWithThrowNull(
+                appView, irCode, blocks, blocksToRemove, affectedValues);
+          }
+        } else if (instruction.isInvokeMethod()) {
+          InvokeMethod invoke = instruction.asInvokeMethod();
+          ProgramMethod resolvedMethod =
+              invoke.resolveMethod(appView, method).getResolvedProgramMethod();
+          if (resolvedMethod == null || !isDeadMethodAccess(resolvedMethod)) {
+            continue;
+          }
           instructionIterator.replaceCurrentInstructionWithThrowNull(
               appView, irCode, blocks, blocksToRemove, affectedValues);
         }
@@ -241,12 +258,15 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
         .finalizeCode(irCode, BytecodeMetadataProvider.empty(), Timing.empty());
   }
 
-  private boolean isDeadFieldAccess(LirConstant constant, ProgramMethod context) {
-    if (!(constant instanceof DexField)) {
-      return false;
+  private boolean isDeadFieldOrMethodAccess(LirConstant constant, ProgramMethod context) {
+    if (constant instanceof DexField) {
+      DexField fieldReference = (DexField) constant;
+      return isDeadFieldAccess(fieldReference, context);
+    } else if (constant instanceof DexMethod) {
+      DexMethod methodReference = (DexMethod) constant;
+      return isDeadMethodAccess(methodReference);
     }
-    DexField fieldReference = (DexField) constant;
-    return isDeadFieldAccess(fieldReference, context);
+    return false;
   }
 
   private boolean isDeadFieldAccess(DexField fieldReference, ProgramMethod context) {
@@ -256,6 +276,19 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
 
   private boolean isDeadFieldAccess(ProgramField field) {
     return field.getOptimizationInfo().getAbstractValue().isBottom();
+  }
+
+  private boolean isDeadMethodAccess(DexMethod methodReference) {
+    ProgramMethod resolvedMethod =
+        appView
+            .appInfo()
+            .unsafeResolveMethodDueToDexFormat(methodReference)
+            .getResolvedProgramMethod();
+    return resolvedMethod != null && isDeadMethodAccess(resolvedMethod);
+  }
+
+  private boolean isDeadMethodAccess(ProgramMethod method) {
+    return prunedMethods.contains(method);
   }
 
   static class AffectedMethodUseRegistry

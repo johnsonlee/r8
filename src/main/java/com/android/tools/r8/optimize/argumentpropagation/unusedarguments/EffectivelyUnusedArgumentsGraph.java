@@ -8,7 +8,6 @@ import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.FlowGraphStateProvider;
@@ -16,6 +15,7 @@ import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodParam
 import com.android.tools.r8.optimize.argumentpropagation.computation.ComputationTreeNode;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.WorkList;
+import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.dfs.DFSStack;
 import com.android.tools.r8.utils.dfs.DFSWorklistItem;
 import com.android.tools.r8.utils.dfs.DFSWorklistItem.NewlyVisitedDFSWorklistItem;
@@ -43,10 +43,13 @@ class EffectivelyUnusedArgumentsGraph {
       AppView<AppInfoWithLiveness> appView,
       Map<MethodParameter, ComputationTreeNode> conditions,
       Map<MethodParameter, Set<MethodParameter>> constraints,
-      PrunedItems prunedItems) {
+      ProgramMethodSet prunedMethods) {
     EffectivelyUnusedArgumentsGraph graph = new EffectivelyUnusedArgumentsGraph(appView);
     conditions.forEach(
         (methodParameter, condition) -> {
+          if (prunedMethods.contains(methodParameter.getMethod())) {
+            return;
+          }
           ProgramMethod method =
               asProgramMethodOrNull(appView.definitionFor(methodParameter.getMethod()));
           if (method == null) {
@@ -71,9 +74,12 @@ class EffectivelyUnusedArgumentsGraph {
         });
     constraints.forEach(
         (methodParameter, constraintsForMethodParameter) -> {
+          if (prunedMethods.contains(methodParameter.getMethod())) {
+            return;
+          }
           EffectivelyUnusedArgumentsGraphNode node = graph.getOrCreateNode(methodParameter);
           for (MethodParameter constraint : constraintsForMethodParameter) {
-            graph.addConstraintEdge(node, constraint, constraints, prunedItems);
+            graph.addConstraintEdge(node, constraint, constraints, prunedMethods);
           }
         });
     return graph;
@@ -83,8 +89,8 @@ class EffectivelyUnusedArgumentsGraph {
       EffectivelyUnusedArgumentsGraphNode node,
       MethodParameter constraint,
       Map<MethodParameter, Set<MethodParameter>> constraints,
-      PrunedItems prunedItems) {
-    if (prunedItems.isRemoved(constraint.getMethod())) {
+      ProgramMethodSet prunedMethods) {
+    if (prunedMethods.contains(constraint.getMethod())) {
       // The current parameter node is an argument to a method that has been removed by argument
       // propagation. Therefore, this usage constraint is no longer blocking the removal of the
       // parameter.
