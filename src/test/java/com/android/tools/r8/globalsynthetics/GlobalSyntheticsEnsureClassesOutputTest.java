@@ -58,7 +58,7 @@ public class GlobalSyntheticsEnsureClassesOutputTest extends TestBase {
         .setMinApi(AndroidApiLevel.K)
         .compile()
         .inspect(
-            inspector -> assertEquals(backend.isDex() ? 1115 : 4, inspector.allClasses().size()));
+            inspector -> assertEquals(backend.isDex() ? 1147 : 4, inspector.allClasses().size()));
   }
 
   @Test

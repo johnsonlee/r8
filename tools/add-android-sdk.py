@@ -100,7 +100,8 @@ def main():
           (os.path.dirname(destination), os.path.basename(destination)))
     print('Update d8_r8/commonBuildSrc/src/main/kotlin/DependenciesPlugin.kt'
           ' if this is a new dependency.')
-
+    print('Run main method in AndroidApiHashingDatabaseBuilderGeneratorTest'
+        ' to generate the API database.')
 
 if __name__ == '__main__':
     sys.exit(main())

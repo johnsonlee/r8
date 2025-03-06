@@ -126,9 +126,9 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
                   methodReferences.forEach(field -> numberOfMethods.increment())));
         });
     // These numbers will change when updating api-versions.xml
-    assertEquals(6084, parsedApiClasses.size());
-    assertEquals(30817, numberOfFields.get());
-    assertEquals(47289, numberOfMethods.get());
+    assertEquals(6222, parsedApiClasses.size());
+    assertEquals(31430, numberOfFields.get());
+    assertEquals(48025, numberOfMethods.get());
   }
 
   private static String sampleVersion4ApiVersionsXml =
@@ -313,6 +313,9 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
             if (method.getAccessFlags().isPublic()
                 && !notModeledMethods.contains(method.toSourceString())) {
               assertTrue(
+                  method.toSourceString()
+                      + " not found in API database. Did you forget to run main method in this"
+                      + " class to regenerate it?",
                   apiLevelCompute
                       .computeApiLevelForLibraryReference(method.getReference())
                       .isKnownApiLevel());
