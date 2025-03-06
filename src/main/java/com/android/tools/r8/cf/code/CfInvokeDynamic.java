@@ -6,6 +6,7 @@ package com.android.tools.r8.cf.code;
 import com.android.tools.r8.cf.CfPrinter;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.CfCodeDiagnostics;
 import com.android.tools.r8.graph.CfCompareHelper;
 import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -14,6 +15,7 @@ import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
+import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.UseRegistry;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -27,6 +29,7 @@ import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicReference;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.optimize.interfaces.analysis.CfAnalysisConfig;
 import com.android.tools.r8.optimize.interfaces.analysis.CfFrameState;
+import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.structural.CompareToVisitor;
 import com.android.tools.r8.utils.structural.HashingVisitor;
 import java.util.ArrayList;
@@ -88,7 +91,7 @@ public class CfInvokeDynamic extends CfInstruction {
     List<DexValue> bootstrapArgs = rewrittenCallSite.bootstrapArgs;
     Object[] bsmArgs = new Object[bootstrapArgs.size()];
     for (int i = 0; i < bootstrapArgs.size(); i++) {
-      bsmArgs[i] = decodeBootstrapArgument(bootstrapArgs.get(i), namingLens, dexItemFactory);
+      bsmArgs[i] = decodeBootstrapArgument(bootstrapArgs.get(i), namingLens, appView, context);
     }
     Handle bsmHandle = bootstrapMethod.toAsmHandle(namingLens);
     DexString methodName = namingLens.lookupMethodName(rewrittenCallSite, appView);
@@ -105,7 +108,7 @@ public class CfInvokeDynamic extends CfInstruction {
   }
 
   public static Object decodeBootstrapArgument(
-      DexValue value, NamingLens lens, DexItemFactory factory) {
+      DexValue value, NamingLens lens, AppView<?> appView, ProgramMethod context) {
     switch (value.getValueKind()) {
       case DOUBLE:
         return value.asDexValueDouble().getValue();
@@ -128,8 +131,11 @@ public class CfInvokeDynamic extends CfInstruction {
         ConstantDynamicReference ref = value.asDexValueConstDynamic().getValue();
         List<DexValue> bootstrapArgs = ref.getBootstrapMethodArguments();
         Object[] bsmArgs = new Object[bootstrapArgs.size()];
-        for (int i = 0; i < bootstrapArgs.size(); i++) {
-          bsmArgs[i] = CfInvokeDynamic.decodeBootstrapArgument(bootstrapArgs.get(i), lens, factory);
+        DexItemFactory factory = appView.dexItemFactory();
+        if (ref.getType().isIdenticalTo(factory.classDescType)) {
+          decodeClassDescBootstrapArgs(lens, bootstrapArgs, bsmArgs, appView, context);
+        } else {
+          decodeBootstrapArgs(lens, bootstrapArgs, bsmArgs, appView, context);
         }
         return new ConstantDynamic(
             ref.getName().toString(),
@@ -140,6 +146,49 @@ public class CfInvokeDynamic extends CfInstruction {
         throw new Unreachable(
             "Unsupported bootstrap argument of type " + value.getClass().getSimpleName());
     }
+  }
+
+  private static void decodeBootstrapArgs(
+      NamingLens lens,
+      List<DexValue> bootstrapArgs,
+      Object[] bsmArgs,
+      AppView<?> appView,
+      ProgramMethod context) {
+    for (int i = 0; i < bootstrapArgs.size(); i++) {
+      bsmArgs[i] =
+          CfInvokeDynamic.decodeBootstrapArgument(bootstrapArgs.get(i), lens, appView, context);
+    }
+  }
+
+  private static void decodeClassDescBootstrapArgs(
+      NamingLens lens,
+      List<DexValue> bootstrapArgs,
+      Object[] bsmArgs,
+      AppView<?> appView,
+      ProgramMethod context) {
+    if (bootstrapArgs.size() != 2 || !bootstrapArgs.get(1).isDexValueString()) {
+      appView
+          .reporter()
+          .warning(
+              new CfCodeDiagnostics(
+                  context, "Unexpected ClassDesc bootstrap arguments " + bootstrapArgs));
+      decodeBootstrapArgs(lens, bootstrapArgs, bsmArgs, appView, context);
+      return;
+    }
+    bsmArgs[0] =
+        CfInvokeDynamic.decodeBootstrapArgument(bootstrapArgs.get(0), lens, appView, context);
+    DexValueString className = bootstrapArgs.get(1).asDexValueString();
+    DexItemFactory factory = appView.dexItemFactory();
+    DexType rewrittenType =
+        lens.lookupType(
+            factory.createType(
+                DescriptorUtils.javaTypeToDescriptor(className.getValue().toString())),
+            factory);
+    DexString rewrittenValue =
+        factory.createString(
+            DescriptorUtils.descriptorToJavaType(rewrittenType.getDescriptor().toString()));
+    assert rewrittenValue != null;
+    bsmArgs[1] = rewrittenValue.toString();
   }
 
   @Override

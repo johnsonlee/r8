@@ -190,8 +190,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
       if (dexValue.isDexValueType()) {
         dexTypeConsumer.accept(dexValue.asDexValueType().getValue());
       } else if (dexValue.isDexValueString()) {
-        enumConsumer.accept(
-            factory.createString(enumType.getTypeName()), dexValue.asDexValueString().getValue());
+        enumConsumer.accept(enumType, dexValue.asDexValueString().getValue());
       } else {
         throw new CompilationError(
             "Invalid bootstrap arg for enum switch " + dexValue, context.getOrigin());
@@ -227,7 +226,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
           dispatchBooleanField(context, dexValue, booleanConsumer, constDynamic);
         } else {
           assert constDynamic.getType().isIdenticalTo(factory.enumDescType);
-          dispatchEnumField(enumConsumer, constDynamic, context, appView);
+          dispatchEnumField(enumConsumer, constDynamic, context, appView.dexItemFactory());
         }
       } else if (dexValue.isDexValueNumber()) {
         assert dexValue.isDexValueDouble()

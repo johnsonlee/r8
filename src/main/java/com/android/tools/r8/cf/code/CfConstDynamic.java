@@ -150,7 +150,7 @@ public class CfConstDynamic extends CfInstruction implements CfTypeInstruction {
     for (int i = 0; i < rewrittenArguments.size(); i++) {
       bsmArgs[i] =
           CfInvokeDynamic.decodeBootstrapArgument(
-              rewrittenArguments.get(i), namingLens, dexItemFactory);
+              rewrittenArguments.get(i), namingLens, appView, context);
     }
     ConstantDynamic constantDynamic =
         new ConstantDynamic(

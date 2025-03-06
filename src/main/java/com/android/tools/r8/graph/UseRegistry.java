@@ -269,12 +269,13 @@ public abstract class UseRegistry<T extends Definition> {
               .getValue()
               .getType()
               .isIdenticalTo(appView.dexItemFactory().enumDescType)) {
-            DexField enumField =
-                TypeSwitchDesugaringHelper.extractEnumField(
-                    arg.asDexValueConstDynamic(), getMethodContext(), appView);
-            if (enumField != null) {
-              registerStaticFieldRead(enumField);
-            }
+            TypeSwitchDesugaringHelper.dispatchEnumField(
+                (type, fieldName) -> {
+                  registerTypeReference(type);
+                },
+                arg.asDexValueConstDynamic().getValue(),
+                context,
+                dexItemFactory());
           }
           break;
         default:

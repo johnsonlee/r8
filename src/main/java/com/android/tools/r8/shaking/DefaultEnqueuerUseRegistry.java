@@ -5,8 +5,6 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.isInvokeDynamicOnRecord;
-import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.extractEnumField;
-import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.getEnumField;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isEnumSwitchCallSite;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
@@ -16,6 +14,7 @@ import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexCallSite;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
@@ -23,13 +22,13 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
+import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
 import java.util.ListIterator;
@@ -213,11 +212,6 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
     enqueuer.traceStaticFieldReadFromMethodHandle(field, getContext());
   }
 
-  private void registerStaticFieldReadFromSwitchMethodHandle(DexField field) {
-    super.registerStaticFieldReadFromMethodHandle(field);
-    enqueuer.traceStaticFieldReadFromSwitchMethodHandle(field, getContext());
-  }
-
   @Override
   public void registerStaticFieldWrite(DexField field) {
     super.registerStaticFieldWrite(field);
@@ -290,7 +284,16 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
     enqueuer.traceCallSite(callSite, getContext(), this);
   }
 
-  private void registerEnumMethods(DexType enumType) {
+  private void registerEnumReferencedInTypeSwitchBootstrapArguments(DexType enumType) {
+    DexClass dexClass = appView.definitionFor(enumType);
+    if (dexClass == null || dexClass.isNotProgramClass()) {
+      return;
+    }
+    // The enum class cannot be unboxed or class merged. It can however be renamed.
+    enqueuer
+        .getKeepInfo()
+        .joinClass(
+            dexClass.asProgramClass(), joiner -> joiner.disallowOptimization().disallowShrinking());
     DexItemFactory factory = dexItemFactory();
     DexMethod values =
         factory.createMethod(
@@ -314,12 +317,13 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
               .getValue()
               .getType()
               .isIdenticalTo(appView.dexItemFactory().enumDescType)) {
-        DexField enumField =
-            extractEnumField(bootstrapArg.asDexValueConstDynamic(), getContext(), appView);
-        if (enumField != null) {
-          registerStaticFieldReadFromSwitchMethodHandle(enumField);
-          registerEnumMethods(enumField.getHolderType());
-        }
+        TypeSwitchDesugaringHelper.dispatchEnumField(
+            (type, fieldName) -> {
+              registerEnumReferencedInTypeSwitchBootstrapArguments(type);
+            },
+            bootstrapArg.asDexValueConstDynamic().getValue(),
+            getContext(),
+            dexItemFactory());
       }
     }
   }
@@ -330,12 +334,7 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
       if (bootstrapArg.isDexValueType()) {
         registerTypeReference(bootstrapArg.asDexValueType().value);
       } else if (bootstrapArg.isDexValueString()) {
-        DexString fieldName = bootstrapArg.asDexValueString().value;
-        DexField enumField = getEnumField(fieldName, enumType, appView);
-        if (enumField != null) {
-          registerStaticFieldReadFromSwitchMethodHandle(enumField);
-          registerEnumMethods(enumType);
-        }
+        registerEnumReferencedInTypeSwitchBootstrapArguments(enumType);
       }
     }
   }

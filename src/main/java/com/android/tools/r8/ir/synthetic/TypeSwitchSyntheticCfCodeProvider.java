@@ -63,7 +63,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
         Consumer<DexType> dexTypeConsumer,
         IntConsumer intValueConsumer,
         Consumer<DexString> dexStringConsumer,
-        BiConsumer<DexString, DexString> enumConsumer,
+        BiConsumer<DexType, DexString> enumConsumer,
         Consumer<Boolean> booleanConsumer,
         Consumer<DexValueNumber> numberConsumer);
   }
@@ -186,7 +186,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                   instructions.add(new CfConstNumber(index.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfReturn(ValueType.INT));
                 },
-                (enumClass, enumField) -> {
+                (type, enumField) -> {
                   instructions.add(cfLabels.get(index.get()));
                   instructions.add(frame);
                   // TODO(b/399808482): In R8 release, we can analyze at compile-time program enum
@@ -197,15 +197,15 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                   instructions.add(new CfStaticFieldRead(enumFieldCache));
                   instructions.add(new CfConstNumber(enumIndex.getAndIncrement(), ValueType.INT));
                   if (appView.enableWholeProgramOptimizations()) {
-                    DexType type =
-                        factory.createType(
-                            DescriptorUtils.javaTypeToDescriptor(enumClass.toString()));
                     instructions.add(
                         new CfDexItemBasedConstString(
                             type,
                             ClassNameComputationInfo.create(NAME, type.getArrayTypeDimensions())));
                   } else {
-                    instructions.add(new CfConstString(enumClass));
+                    DexString typeString =
+                        factory.createString(
+                            DescriptorUtils.descriptorToJavaType(type.toDescriptorString()));
+                    instructions.add(new CfConstString(typeString));
                   }
                   instructions.add(new CfConstString(enumField));
                   assert enumEq != null;
