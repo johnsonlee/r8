@@ -66,7 +66,9 @@ public class DexClasspathClass extends DexClass
         annotations,
         origin,
         skipNameValidationForTesting);
-    assert kind == Kind.CF : "Invalid kind " + kind + " for class-path class " + type;
+    // Allow moving synthetic classes to the classpath (R8 partial only).
+    assert kind == null || kind == Kind.CF
+        : "Invalid kind " + kind + " for class-path class " + type;
   }
 
   public static DexClasspathClass toClasspathClass(DexProgramClass programClass) {

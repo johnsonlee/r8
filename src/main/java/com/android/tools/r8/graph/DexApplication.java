@@ -257,6 +257,8 @@ public abstract class DexApplication implements DexDefinitionSupplier {
       return self();
     }
 
+    public abstract T addClasspathClass(DexClasspathClass clazz);
+
     public List<DexProgramClass> getProgramClasses() {
       return programClasses;
     }

@@ -260,8 +260,14 @@ public class DirectMappedDexApplication extends DexApplication {
       return this;
     }
 
+    @Override
     public Builder addClasspathClass(DexClasspathClass clazz) {
       pendingClasspathClasses.add(clazz);
+      return self();
+    }
+
+    public Builder addClasspathClasses(Collection<DexClasspathClass> classes) {
+      pendingClasspathClasses.addAll(classes);
       return self();
     }
 

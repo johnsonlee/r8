@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.utils;
 
+import static com.google.common.base.Predicates.alwaysTrue;
+
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.ClassKind;
@@ -19,6 +21,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -148,15 +151,17 @@ public abstract class ClassMap<T extends DexClass> {
   }
 
   public ImmutableMap<DexType, T> getAllClassesInMap() {
+    ImmutableMap.Builder<DexType, T> builder = ImmutableMap.builder();
+    // This is fully loaded, so the class map will no longer change.
+    forEach(builder::put);
+    return builder.build();
+  }
+
+  public void forEach(BiConsumer<DexType, T> consumer) {
     if (classProvider.get() != null) {
       throw new Unreachable("Getting all classes from not fully loaded collection.");
     }
-    ImmutableMap.Builder<DexType, T> builder = ImmutableMap.builder();
-    // This is fully loaded, so the class map will no longer change.
-    for (Map.Entry<DexType, Supplier<T>> entry : classes.entrySet()) {
-      builder.put(entry.getKey(), entry.getValue().get());
-    }
-    return builder.build();
+    classes.forEach((type, supplier) -> consumer.accept(type, supplier.get()));
   }
 
   public Iterable<DexType> getAllTypes() {
@@ -172,6 +177,10 @@ public abstract class ClassMap<T extends DexClass> {
         "Cannot access all types since the classProvider is no longer available");
   }
 
+  public ClassMap<T> forceLoad() {
+    return forceLoad(alwaysTrue());
+  }
+
   /**
    * Forces loading of all the classes satisfying the criteria specified.
    *
@@ -180,13 +189,13 @@ public abstract class ClassMap<T extends DexClass> {
    * these classes will never be loaded.
    */
   @SuppressWarnings("ReferenceEquality")
-  public void forceLoad(Predicate<DexType> load) {
+  public ClassMap<T> forceLoad(Predicate<DexType> load) {
     Set<DexType> knownClasses;
     ClassProvider<T> classProvider;
 
     // Cache value of class provider, as it might change concurrently.
     if (isFullyLoaded()) {
-      return;
+      return this;
     }
     classProvider = this.classProvider.get();
 
@@ -213,7 +222,7 @@ public abstract class ClassMap<T extends DexClass> {
     // only one thread proceeds to rewriting the map.
     synchronized (this) {
       if (this.classProvider.get() == null) {
-        return; // Has been force-loaded concurrently.
+        return this; // Has been force-loaded concurrently.
       }
 
       // We avoid calling get() on a class supplier unless we know it was loaded.
@@ -244,6 +253,8 @@ public abstract class ClassMap<T extends DexClass> {
       // classes by blocking on 'this' and hence wait for the loading operation to finish.
       this.classProvider.set(null);
     }
+
+    return this;
   }
 
   public boolean isFullyLoaded() {

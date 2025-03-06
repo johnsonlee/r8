@@ -1203,9 +1203,9 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
             } else {
               appBuilder.addProgramClass(definition.asProgramDefinition().getHolder());
             }
-          } else if (appBuilder.isDirect()) {
+          } else {
             assert definition.isClasspathDefinition();
-            appBuilder.asDirect().addClasspathClass(definition.asClasspathDefinition().getHolder());
+            appBuilder.addClasspathClass(definition.asClasspathDefinition().getHolder());
           }
           builder.addItem(definition);
         }
