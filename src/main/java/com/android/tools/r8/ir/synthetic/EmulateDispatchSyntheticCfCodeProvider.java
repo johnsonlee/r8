@@ -99,7 +99,7 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
 
       // Call basic block.
       instructions.add(new CfLoad(ValueType.fromDexType(receiverType), 0));
-      forwardCall(instructions, dispatch.getValue());
+      forwardCall(instructions, dispatch.getValue(), dispatch.getKey());
       addReturn(instructions);
     }
 
@@ -107,22 +107,23 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
     instructions.add(labels[nextLabel]);
     instructions.add(frame.clone());
     instructions.add(new CfLoad(ValueType.fromDexType(receiverType), 0));
-    forwardCall(instructions, forwardingMethod);
+    forwardCall(instructions, forwardingMethod, null);
     addReturn(instructions);
     return standardCfCodeFromInstructions(instructions);
   }
 
-  private void forwardCall(List<CfInstruction> instructions, DexMethod method) {
+  private void forwardCall(
+      List<CfInstruction> instructions, DexMethod method, DexType checkCastType) {
+    if (checkCastType != null) {
+      instructions.add(new CfCheckCast(checkCastType));
+    }
+    loadExtraParameters(instructions);
     if (dispatchType == ALL_STATIC
         || appView.getSyntheticItems().isSynthetic(method.getHolderType())) {
-      instructions.add(new CfCheckCast(method.getParameter(0)));
-      loadExtraParameters(instructions);
       instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method, false));
       return;
     }
     assert dispatchType == AUTO_CLOSEABLE;
-    instructions.add(new CfCheckCast(method.holder));
-    loadExtraParameters(instructions);
     // The type method.getHolderType() may not resolve if compiled without android library, for
     // example, with the jdk as android.jar.
     if (method
