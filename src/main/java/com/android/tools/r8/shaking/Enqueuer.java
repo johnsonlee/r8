@@ -1295,7 +1295,9 @@ public class Enqueuer {
         traceInvokeDirectFromLambda(method, context, registry);
         break;
       case INVOKE_CONSTRUCTOR:
+        assert appView.dexItemFactory().isConstructor(method);
         traceNewInstanceFromLambda(method.holder, context);
+        traceInvokeDirectFromLambda(method, context, registry);
         break;
       default:
         throw new Unreachable();

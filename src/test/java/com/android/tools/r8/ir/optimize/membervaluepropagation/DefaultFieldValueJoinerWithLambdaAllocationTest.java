@@ -44,7 +44,7 @@ public class DefaultFieldValueJoinerWithLambdaAllocationTest extends TestBase {
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.isCfRuntime(),
-            rr -> rr.assertFailureWithErrorThatThrows(BootstrapMethodError.class),
+            rr -> rr.assertSuccessWithOutputLines("1", "1", "2", "2"),
             rr -> rr.assertSuccessWithOutputLines("0", "1", "0", "2"));
   }
 

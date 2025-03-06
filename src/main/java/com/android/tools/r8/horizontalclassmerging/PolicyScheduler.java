@@ -34,6 +34,7 @@ import com.android.tools.r8.horizontalclassmerging.policies.NoInstanceFieldAnnot
 import com.android.tools.r8.horizontalclassmerging.policies.NoInterfaces;
 import com.android.tools.r8.horizontalclassmerging.policies.NoKeepRules;
 import com.android.tools.r8.horizontalclassmerging.policies.NoKotlinMetadata;
+import com.android.tools.r8.horizontalclassmerging.policies.NoMethodHandleFromLambda;
 import com.android.tools.r8.horizontalclassmerging.policies.NoNativeMethods;
 import com.android.tools.r8.horizontalclassmerging.policies.NoRecords;
 import com.android.tools.r8.horizontalclassmerging.policies.NoResourceClasses;
@@ -138,6 +139,9 @@ public class PolicyScheduler {
         new NoCheckDiscard(appView),
         new NoKeepRules(appView),
         new NoClassInitializerWithObservableSideEffects());
+    if (appView.hasLiveness() && appView.options().isGeneratingClassFiles()) {
+      builder.add(new NoMethodHandleFromLambda(appView.withLiveness()));
+    }
   }
 
   private static void addSingleClassPoliciesForMergingNonSyntheticClasses(
