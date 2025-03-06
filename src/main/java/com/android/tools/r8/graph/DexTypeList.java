@@ -60,6 +60,10 @@ public class DexTypeList extends DexItem implements Iterable<DexType>, Structura
     return values[index];
   }
 
+  public DexType getLast() {
+    return get(size() - 1);
+  }
+
   public DexType[] getBacking() {
     return values;
   }

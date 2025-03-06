@@ -46,6 +46,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredL
 import com.android.tools.r8.ir.synthetic.apiconverter.APIConversionCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.apiconverter.EqualsCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.apiconverter.HashCodeCfCodeProvider;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -291,20 +292,17 @@ public class DesugaredLibraryConversionCfProvider {
             context,
             methodProcessingContext::createUniqueContext);
 
-    int parameterSize = invokedMethod.getParameters().size();
     ArrayList<CfInstruction> cfInstructions = new ArrayList<>();
-    if (parameterSize != 0) {
+    if (!invokedMethod.getParameters().isEmpty()) {
       // If only the last 2 parameters require conversion, we do everything inlined.
       // If other parameters require conversion, we outline the parameter conversion but keep the
-      // API
-      // call inlined. The returned value is always converted inlined.
+      // API call inlined. The returned value is always converted inlined.
       boolean requireOutlinedParameterConversion = false;
       for (int i = 0; i < parameterConversions.length - 2; i++) {
         requireOutlinedParameterConversion |= parameterConversions[i] != null;
       }
       // We cannot use the swap instruction if the last parameter is wide.
-      requireOutlinedParameterConversion |=
-          invokedMethod.getParameters().get(parameterSize - 1).isWideType();
+      requireOutlinedParameterConversion |= invokedMethod.getParameters().getLast().isWideType();
 
       if (requireOutlinedParameterConversion) {
         addOutlineParameterConversionInstructions(
@@ -437,18 +435,14 @@ public class DesugaredLibraryConversionCfProvider {
       DexMethod[] parameterConversions,
       ArrayList<CfInstruction> cfInstructions,
       DexMethod invokedMethod) {
-    if (parameterConversions.length > 0
-        && parameterConversions[parameterConversions.length - 1] != null) {
+    if (ArrayUtils.lastOrDefault(parameterConversions, null) != null) {
       cfInstructions.add(
           new CfInvoke(
               Opcodes.INVOKESTATIC, parameterConversions[parameterConversions.length - 1], false));
     }
     if (parameterConversions.length > 1
         && parameterConversions[parameterConversions.length - 2] != null) {
-      assert !invokedMethod
-          .getParameters()
-          .get(invokedMethod.getParameters().size() - 1)
-          .isWideType();
+      assert !invokedMethod.getParameters().getLast().isWideType();
       cfInstructions.add(new CfStackInstruction(Opcode.Swap));
       cfInstructions.add(
           new CfInvoke(
