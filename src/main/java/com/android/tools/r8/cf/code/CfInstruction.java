@@ -218,6 +218,14 @@ public abstract class CfInstruction implements CfOrDexInstruction {
     return false;
   }
 
+  public final boolean isInstanceFieldInstruction() {
+    return isInstanceFieldGet() || isInstanceFieldPut();
+  }
+
+  public final boolean isStaticFieldInstruction() {
+    return isStaticFieldGet() || isStaticFieldPut();
+  }
+
   public boolean isFieldGet() {
     return false;
   }

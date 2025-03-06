@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar.icce;
 
 import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
+import com.android.tools.r8.cf.code.CfFieldInstruction;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfOpcodeUtils;
@@ -13,9 +14,12 @@ import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
+import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -42,12 +46,20 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
 
   @Override
   public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
+    CfOpcodeUtils.acceptCfFieldInstructionOpcodes(consumer);
     CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
   }
 
   @Override
   public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    if (instruction.isInvoke()) {
+    if (instruction.isFieldInstruction()) {
+      CfFieldInstruction fieldInstruction = instruction.asFieldInstruction();
+      DexField field = fieldInstruction.getField();
+      FieldResolutionResult resolutionResult = appView.appInfo().resolveField(field, context);
+      if (shouldRewriteFieldAccessToThrow(fieldInstruction, resolutionResult)) {
+        return computeFieldInstructionAsThrowRewrite(appView, fieldInstruction, resolutionResult);
+      }
+    } else if (instruction.isInvoke()) {
       CfInvoke invoke = instruction.asInvoke();
       DexMethod invokedMethod = invoke.getMethod();
       MethodResolutionResult resolutionResult =
@@ -57,6 +69,46 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
       }
     }
     return DesugarDescription.nothing();
+  }
+
+  private boolean shouldRewriteFieldAccessToThrow(
+      CfFieldInstruction fieldInstruction, FieldResolutionResult resolutionResult) {
+    DexEncodedField resolvedField = resolutionResult.getResolvedField();
+    return resolvedField != null
+        && resolvedField.isStatic() != fieldInstruction.isStaticFieldInstruction();
+  }
+
+  public static DesugarDescription computeFieldInstructionAsThrowRewrite(
+      AppView<?> appView,
+      CfFieldInstruction fieldInstruction,
+      FieldResolutionResult resolutionResult) {
+    return DesugarDescription.builder()
+        .setDesugarRewrite(
+            (position,
+                freshLocalProvider,
+                localStackAllocator,
+                desugaringInfo,
+                eventConsumer,
+                context,
+                methodProcessingContext,
+                desugaringCollection,
+                dexItemFactory) ->
+                getThrowInstructions(
+                    appView,
+                    fieldInstruction,
+                    localStackAllocator,
+                    eventConsumer,
+                    methodProcessingContext,
+                    getMethodSynthesizerForThrowing(fieldInstruction, resolutionResult)))
+        .build();
+  }
+
+  private static MethodSynthesizerConsumer getMethodSynthesizerForThrowing(
+      CfFieldInstruction fieldInstruction, FieldResolutionResult resolutionResult) {
+    assert resolutionResult.isSingleFieldResolutionResult();
+    assert resolutionResult.getResolvedField().isStatic()
+        != fieldInstruction.isStaticFieldInstruction();
+    return UtilityMethodsForCodeOptimizations::synthesizeThrowIncompatibleClassChangeErrorMethod;
   }
 
   private boolean shouldRewriteInvokeToThrow(
@@ -125,7 +177,7 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
 
   private static Collection<CfInstruction> getThrowInstructions(
       AppView<?> appView,
-      CfInvoke invoke,
+      CfInstruction instruction,
       LocalStackAllocator localStackAllocator,
       CfInstructionDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext,
@@ -135,7 +187,48 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
       return null;
     }
 
-    // Replace the entire effect of the invoke by by call to the throwing helper:
+    UtilityMethodForCodeOptimizations throwMethod =
+        methodSynthesizerConsumer.synthesizeMethod(appView, eventConsumer, methodProcessingContext);
+    ProgramMethod throwProgramMethod = throwMethod.uncheckedGetMethod();
+
+    if (instruction.isFieldInstruction()) {
+      CfFieldInstruction fieldInstruction = instruction.asFieldInstruction();
+      DexType fieldType = fieldInstruction.getField().getType();
+      // Replace the field access by a call to the throwing helper.
+      ArrayList<CfInstruction> replacement = new ArrayList<>();
+      // Pop value.
+      if (fieldInstruction.isFieldPut()) {
+        replacement.add(
+            new CfStackInstruction(
+                fieldType.isWideType()
+                    ? CfStackInstruction.Opcode.Pop2
+                    : CfStackInstruction.Opcode.Pop));
+      }
+      // Pop receiver.
+      if (fieldInstruction.isInstanceFieldInstruction()) {
+        replacement.add(new CfStackInstruction(CfStackInstruction.Opcode.Pop));
+      }
+      // Call throw method and pop exception.
+      CfInvoke throwInvoke =
+          new CfInvoke(
+              org.objectweb.asm.Opcodes.INVOKESTATIC, throwProgramMethod.getReference(), false);
+      assert throwInvoke.getMethod().getReturnType().isClassType();
+      replacement.add(throwInvoke);
+      replacement.add(new CfStackInstruction(CfStackInstruction.Opcode.Pop));
+      // Push default field read value.
+      if (fieldInstruction.isFieldGet()) {
+        replacement.add(
+            fieldType.isPrimitiveType()
+                ? new CfConstNumber(0, ValueType.fromDexType(fieldType))
+                : new CfConstNull());
+      }
+      return replacement;
+    }
+
+    assert instruction.isInvoke();
+    CfInvoke invoke = instruction.asInvoke();
+
+    // Replace the entire effect of the invoke by a call to the throwing helper:
     //   ...
     //   invoke <method> [receiver] args*
     // =>
@@ -145,10 +238,6 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
     //   invoke <throwing-method>
     //   pop exception result
     //   [push fake result for <method>]
-    UtilityMethodForCodeOptimizations throwMethod =
-        methodSynthesizerConsumer.synthesizeMethod(appView, eventConsumer, methodProcessingContext);
-    ProgramMethod throwProgramMethod = throwMethod.uncheckedGetMethod();
-
     ArrayList<CfInstruction> replacement = new ArrayList<>();
     DexTypeList parameters = invoke.getMethod().getParameters();
     for (int i = parameters.values.length - 1; i >= 0; i--) {

@@ -66,7 +66,7 @@ public class ApiModelFieldSuperTypeTest extends TestBase {
   /* Only here to get the test to compile */
   public static class AccessibilityService {
 
-    int START_CONTINUATION_MASK = 42;
+    public static int START_CONTINUATION_MASK = 42;
   }
 
   public static class Main {
@@ -75,7 +75,7 @@ public class ApiModelFieldSuperTypeTest extends TestBase {
       // START_CONTINUATION_MASK is inherited from android/app/Service which was introduced at
       // AndroidApiLevel.E.
       System.out.println(
-          new /* android.accessibilityservice */ AccessibilityService().START_CONTINUATION_MASK);
+          /* android.accessibilityservice */ AccessibilityService.START_CONTINUATION_MASK);
     }
   }
 }

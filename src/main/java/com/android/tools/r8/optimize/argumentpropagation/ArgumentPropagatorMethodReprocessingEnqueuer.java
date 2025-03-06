@@ -229,16 +229,10 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
           if (resolvedField == null || !isDeadFieldAccess(resolvedField)) {
             continue;
           }
-          if (fieldInstruction.isStaticFieldInstruction()
-              != resolvedField.getAccessFlags().isStatic()) {
-            // Preserve the ICCE.
-            instructionIterator.next();
-            instructionIterator.replaceCurrentInstructionWithThrowNull(
-                appView, irCode, blocks, blocksToRemove, affectedValues);
-          } else {
-            instructionIterator.replaceCurrentInstructionWithThrowNull(
-                appView, irCode, blocks, blocksToRemove, affectedValues);
-          }
+          assert fieldInstruction.isStaticFieldInstruction()
+              == resolvedField.getAccessFlags().isStatic();
+          instructionIterator.replaceCurrentInstructionWithThrowNull(
+              appView, irCode, blocks, blocksToRemove, affectedValues);
         } else if (instruction.isInvokeMethod()) {
           InvokeMethod invoke = instruction.asInvokeMethod();
           ProgramMethod resolvedMethod =
@@ -246,6 +240,7 @@ public class ArgumentPropagatorMethodReprocessingEnqueuer {
           if (resolvedMethod == null || !isDeadMethodAccess(resolvedMethod)) {
             continue;
           }
+          assert invoke.isInvokeStatic() == resolvedMethod.getAccessFlags().isStatic();
           instructionIterator.replaceCurrentInstructionWithThrowNull(
               appView, irCode, blocks, blocksToRemove, affectedValues);
         }
