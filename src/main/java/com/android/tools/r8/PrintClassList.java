@@ -41,8 +41,9 @@ public class PrintClassList {
     builder.addProgramFiles(ListUtils.map(dexFiles, Paths::get));
 
     ExecutorService executorService = Executors.newCachedThreadPool();
+    InternalOptions options = new InternalOptions();
     DexApplication application =
-        new ApplicationReader(builder.build(), new InternalOptions(), new Timing("PrintClassList"))
+        new ApplicationReader(builder.build(), options, Timing.create("PrintClassList", options))
             .read(
                 proguardMapFile == null ? null : StringResource.fromFile(proguardMapFile),
                 executorService);

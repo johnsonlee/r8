@@ -36,7 +36,7 @@ import java.util.concurrent.Executors;
 public class Bisect {
 
   private final BisectOptions options;
-  private final Timing timing = new Timing("bisect");
+  private final Timing timing;
 
   public interface Command {
 
@@ -69,6 +69,7 @@ public class Bisect {
 
   public Bisect(BisectOptions options) {
     this.options = options;
+    this.timing = Timing.create("bisect", new InternalOptions());
   }
 
   public static DexProgramClass run(BisectState state, Command command, Path output,

@@ -160,7 +160,7 @@ public class Timing implements AutoCloseable {
   private final boolean trackMemory;
 
   @Deprecated
-  public Timing(String title) {
+  private Timing(String title) {
     this(title, false);
   }
 

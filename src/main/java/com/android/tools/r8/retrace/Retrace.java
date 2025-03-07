@@ -18,6 +18,7 @@ import com.android.tools.r8.retrace.internal.RetraceBase;
 import com.android.tools.r8.retrace.internal.StackTraceElementStringProxy;
 import com.android.tools.r8.retrace.internal.StackTraceRegularExpressionParser;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.OptionsParsing;
 import com.android.tools.r8.utils.OptionsParsing.ParseContext;
 import com.android.tools.r8.utils.PartitionMapZipContainer;
@@ -266,7 +267,9 @@ public class Retrace<T, ST extends StackTraceElementProxy<T, ST>> extends Retrac
    */
   public static void run(RetraceCommand command) {
     try {
-      Timing timing = Timing.create("R8 retrace", command.printMemory());
+      InternalOptions internalOptions = new InternalOptions();
+      internalOptions.printMemory = command.printMemory();
+      Timing timing = Timing.create("R8 retrace", internalOptions);
       RetraceOptions options = command.getOptions();
       MappingSupplier<?> mappingSupplier = options.getMappingSupplier();
       if (command.getOptions().isVerifyMappingFileHash()) {

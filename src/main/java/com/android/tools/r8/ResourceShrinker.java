@@ -485,7 +485,7 @@ final public class ResourceShrinker {
   public static void runForTesting(
       AndroidApp inputApp, InternalOptions options, ReferenceChecker callback)
       throws IOException, ExecutionException {
-    Timing timing = new Timing("resource shrinker analyzer");
+    Timing timing = Timing.create("resource shrinker analyzer", options);
     DexApplication dexApplication = new ApplicationReader(inputApp, options, timing).read();
     runForTesting(dexApplication.classes(), callback);
   }

@@ -38,10 +38,11 @@ import java.util.concurrent.ExecutorService;
 
 @KeepForApi
 public class GenerateMainDexList {
-  private final Timing timing = new Timing("maindex");
+  private final Timing timing;
   private final InternalOptions options;
 
   public GenerateMainDexList(InternalOptions options) {
+    timing = Timing.create("maindex", options);
     this.options = options;
   }
 
