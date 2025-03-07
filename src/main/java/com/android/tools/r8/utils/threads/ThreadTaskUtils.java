@@ -23,7 +23,13 @@ public class ThreadTaskUtils {
       ThreadTask... tasks)
       throws ExecutionException {
     assert tasks.length > 0;
-    TaskCollection<?> taskCollection = new TaskCollection<>(options, executorService, tasks.length);
+    int tasksToRun = 0;
+    for (ThreadTask task : tasks) {
+      if (task.shouldRun()) {
+        tasksToRun++;
+      }
+    }
+    TaskCollection<?> taskCollection = new TaskCollection<>(options, executorService, tasksToRun);
     if (timingMerger.isEmpty()) {
       for (ThreadTask task : tasks) {
         if (task.shouldRun()) {
@@ -33,13 +39,14 @@ public class ThreadTaskUtils {
       taskCollection.await();
     } else {
       List<Timing> timings =
-          Arrays.asList(ArrayUtils.filled(new Timing[tasks.length], Timing.empty()));
+          Arrays.asList(ArrayUtils.filled(new Timing[tasksToRun], Timing.empty()));
       int taskIndex = 0;
       for (ThreadTask task : tasks) {
         if (task.shouldRun()) {
           processTaskWithTiming(options, task, taskIndex++, taskCollection, timings);
         }
       }
+      assert tasksToRun == taskIndex;
       taskCollection.await();
       timingMerger.add(timings);
       timingMerger.end();
