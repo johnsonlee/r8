@@ -141,7 +141,7 @@ public class AndroidOsBuildVersionCodesFullBackportTest extends AbstractBackport
         {"TIRAMISU", 3300_000},
         {"UPSIDE_DOWN_CAKE", 3400_000},
         {"VANILLA_ICE_CREAM", 3500_000},
-        {"BAKLAVA", 1_000_000_000},
+        {"BAKLAVA", 3600_000},
       };
       for (Object[] versionCodeFull : versionCodesFull) {
         Assert.assertEquals(
@@ -238,7 +238,7 @@ public class AndroidOsBuildVersionCodesFullBackportTest extends AbstractBackport
       assertEquals(3300_000, VERSION_CODES_FULL.TIRAMISU);
       assertEquals(3400_000, VERSION_CODES_FULL.UPSIDE_DOWN_CAKE);
       assertEquals(3500_000, VERSION_CODES_FULL.VANILLA_ICE_CREAM);
-      assertEquals(1_000_000_000, VERSION_CODES_FULL.BAKLAVA);
+      assertEquals(3600_000, VERSION_CODES_FULL.BAKLAVA);
     }
   }
 }

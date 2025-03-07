@@ -1859,7 +1859,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         {"TIRAMISU", 3300_000},
         {"UPSIDE_DOWN_CAKE", 3400_000},
         {"VANILLA_ICE_CREAM", 3500_000},
-        {"BAKLAVA", 1_000_000_000},
+        {"BAKLAVA", 3600_000},
       };
       type = factory.createType("Landroid/os/Build$VERSION_CODES_FULL;");
       for (Object[] versionCodeFull : versionCodesFull) {
