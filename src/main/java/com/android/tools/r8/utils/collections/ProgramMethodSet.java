@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.ForEachable;
+import com.android.tools.r8.utils.collections.SortedProgramMethodSet.ConcurrentSortedProgramMethodSet;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,8 +64,12 @@ public abstract class ProgramMethodSet extends DexClassAndMethodSetBase<ProgramM
     return newMethodSet;
   }
 
-  public static ProgramMethodSet createConcurrent() {
+  public static ConcurrentProgramMethodSet createConcurrent() {
     return new ConcurrentProgramMethodSet();
+  }
+
+  public static ConcurrentSortedProgramMethodSet createConcurrentSorted() {
+    return new ConcurrentSortedProgramMethodSet();
   }
 
   public static LinkedProgramMethodSet createLinked() {
@@ -139,7 +144,7 @@ public abstract class ProgramMethodSet extends DexClassAndMethodSetBase<ProgramM
     return this;
   }
 
-  private static class ConcurrentProgramMethodSet extends ProgramMethodSet {
+  public static class ConcurrentProgramMethodSet extends ProgramMethodSet {
 
     @Override
     Map<DexMethod, ProgramMethod> createBacking() {

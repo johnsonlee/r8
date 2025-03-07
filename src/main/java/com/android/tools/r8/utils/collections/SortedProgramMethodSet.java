@@ -42,10 +42,6 @@ public abstract class SortedProgramMethodSet extends ProgramMethodSet {
     return result;
   }
 
-  public static SortedProgramMethodSet createConcurrent() {
-    return new ConcurrentSortedProgramMethodSet();
-  }
-
   public static SortedProgramMethodSet empty() {
     return EMPTY;
   }
@@ -74,7 +70,7 @@ public abstract class SortedProgramMethodSet extends ProgramMethodSet {
     return definitions;
   }
 
-  private static class ConcurrentSortedProgramMethodSet extends SortedProgramMethodSet {
+  public static class ConcurrentSortedProgramMethodSet extends SortedProgramMethodSet {
 
     @Override
     Map<DexMethod, ProgramMethod> createBacking() {
