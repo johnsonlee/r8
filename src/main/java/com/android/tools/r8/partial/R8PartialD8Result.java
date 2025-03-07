@@ -4,10 +4,14 @@
 package com.android.tools.r8.partial;
 
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
+import com.android.tools.r8.graph.DexClasspathClass;
+import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import java.util.Collection;
+import java.util.List;
 
 public class R8PartialD8Result {
 
@@ -15,6 +19,9 @@ public class R8PartialD8Result {
   private final ClassToFeatureSplitMap classToFeatureSplitMap;
   private final Collection<DexProgramClass> dexedClasses;
   private final Collection<DexProgramClass> desugaredClasses;
+  private final List<KeepDeclaration> keepDeclarations;
+  private final Collection<DexClasspathClass> outputClasspathClasses;
+  private final Collection<DexLibraryClass> outputLibraryClasses;
   private final StartupProfile startupProfile;
 
   public R8PartialD8Result(
@@ -22,11 +29,17 @@ public class R8PartialD8Result {
       ClassToFeatureSplitMap classToFeatureSplitMap,
       Collection<DexProgramClass> dexedClasses,
       Collection<DexProgramClass> desugaredClasses,
+      List<KeepDeclaration> keepDeclarations,
+      Collection<DexClasspathClass> outputClasspathClasses,
+      Collection<DexLibraryClass> outputLibraryClasses,
       StartupProfile startupProfile) {
     this.artProfiles = artProfiles;
     this.classToFeatureSplitMap = classToFeatureSplitMap;
     this.dexedClasses = dexedClasses;
     this.desugaredClasses = desugaredClasses;
+    this.keepDeclarations = keepDeclarations;
+    this.outputClasspathClasses = outputClasspathClasses;
+    this.outputLibraryClasses = outputLibraryClasses;
     this.startupProfile = startupProfile;
   }
 
@@ -44,6 +57,18 @@ public class R8PartialD8Result {
 
   public Collection<DexProgramClass> getDesugaredClasses() {
     return desugaredClasses;
+  }
+
+  public List<KeepDeclaration> getKeepDeclarations() {
+    return keepDeclarations;
+  }
+
+  public Collection<DexClasspathClass> getOutputClasspathClasses() {
+    return outputClasspathClasses;
+  }
+
+  public Collection<DexLibraryClass> getOutputLibraryClasses() {
+    return outputLibraryClasses;
   }
 
   public StartupProfile getStartupProfile() {

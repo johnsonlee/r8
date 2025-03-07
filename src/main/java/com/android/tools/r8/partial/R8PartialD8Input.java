@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class R8PartialInput {
+public class R8PartialD8Input {
 
   private final Collection<DexProgramClass> d8Classes;
   private final Collection<DexProgramClass> r8Classes;
@@ -31,7 +31,7 @@ public class R8PartialInput {
   private final Map<DexType, DexLibraryClass> libraryClasses;
   private final List<KeepDeclaration> keepDeclarations;
 
-  public R8PartialInput(
+  public R8PartialD8Input(
       Collection<DexProgramClass> d8Classes,
       Collection<DexProgramClass> r8Classes,
       Collection<DexClasspathClass> classpathClasses,

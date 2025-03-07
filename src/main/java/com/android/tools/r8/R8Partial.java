@@ -7,11 +7,12 @@ import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.diagnostic.R8VersionDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.features.FeatureSplitConfiguration;
+import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
+import com.android.tools.r8.partial.R8PartialD8Input;
 import com.android.tools.r8.partial.R8PartialD8Result;
-import com.android.tools.r8.partial.R8PartialInput;
 import com.android.tools.r8.partial.R8PartialProgramPartioning;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
@@ -21,6 +22,7 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ExceptionUtils;
 import com.android.tools.r8.utils.FeatureSplitConsumers;
 import com.android.tools.r8.utils.ForwardingDiagnosticsHandler;
+import com.android.tools.r8.utils.InternalClasspathOrLibraryClassProvider;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ListUtils;
@@ -67,7 +69,7 @@ class R8Partial {
         getAndClearFeatureSplitConsumers();
 
     timing.begin("Process input");
-    R8PartialInput input = runProcessInputStep(app, executor);
+    R8PartialD8Input input = runProcessInputStep(app, executor);
 
     timing.end().begin("Run D8");
     R8PartialD8Result d8Result = runD8Step(input, executor);
@@ -77,7 +79,7 @@ class R8Partial {
     lockFeatureSplitProgramResourceProviders();
 
     timing.begin("Run R8");
-    runR8Step(app, input, d8Result, executor);
+    runR8Step(app, d8Result, executor);
     timing.end();
 
     if (options.isPrintTimesReportingEnabled()) {
@@ -85,14 +87,14 @@ class R8Partial {
     }
   }
 
-  private R8PartialInput runProcessInputStep(AndroidApp androidApp, ExecutorService executor)
+  private R8PartialD8Input runProcessInputStep(AndroidApp androidApp, ExecutorService executor)
       throws IOException {
     LazyLoadedDexApplication lazyApp =
         new ApplicationReader(androidApp, options, timing).read(executor);
     List<KeepDeclaration> keepDeclarations = lazyApp.getKeepDeclarations();
     DirectMappedDexApplication app = lazyApp.toDirect();
     R8PartialProgramPartioning partioning = R8PartialProgramPartioning.create(app);
-    return new R8PartialInput(
+    return new R8PartialD8Input(
         partioning.getD8Classes(),
         partioning.getR8Classes(),
         app.classpathClasses(),
@@ -100,7 +102,7 @@ class R8Partial {
         keepDeclarations);
   }
 
-  private R8PartialD8Result runD8Step(R8PartialInput input, ExecutorService executor)
+  private R8PartialD8Result runD8Step(R8PartialD8Input input, ExecutorService executor)
       throws IOException {
     // TODO(b/389039057): This will desugar the entire R8 part. For build speed, look into if some
     //  desugarings can be postponed to the R8 compilation, since we do not desugar dead code in R8.
@@ -130,11 +132,13 @@ class R8Partial {
         subCompilationConfiguration.getClassToFeatureSplitMap(),
         subCompilationConfiguration.getDexedOutputClasses(),
         subCompilationConfiguration.getDesugaredOutputClasses(),
+        input.getKeepDeclarations(),
+        subCompilationConfiguration.getOutputClasspathClasses(),
+        subCompilationConfiguration.getOutputLibraryClasses(),
         subCompilationConfiguration.getStartupProfile());
   }
 
-  private void runR8Step(
-      AndroidApp app, R8PartialInput input, R8PartialD8Result d8Result, ExecutorService executor)
+  private void runR8Step(AndroidApp app, R8PartialD8Result d8Result, ExecutorService executor)
       throws IOException {
     // Compile R8 input with R8 using the keep rules from trace references.
     DiagnosticsHandler r8DiagnosticsHandler =
@@ -154,6 +158,13 @@ class R8Partial {
         R8Command.builder(r8DiagnosticsHandler)
             .addProgramResourceProvider(
                 new InternalProgramClassProvider(d8Result.getDesugaredClasses()))
+            .addClasspathResourceProvider(
+                new InternalClasspathOrLibraryClassProvider<>(
+                    DexClasspathClass.toClasspathClasses(d8Result.getDexedClasses())))
+            .addClasspathResourceProvider(
+                new InternalClasspathOrLibraryClassProvider<>(d8Result.getOutputClasspathClasses()))
+            .addLibraryResourceProvider(
+                new InternalClasspathOrLibraryClassProvider<>(d8Result.getOutputLibraryClasses()))
             .enableLegacyFullModeForKeepRules(true)
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
@@ -185,7 +196,6 @@ class R8Partial {
             });
       }
     }
-    input.configure(r8Builder);
     r8Builder.validate();
     // TODO(b/391572031): Configure library desugaring.
     R8Command r8Command =
@@ -198,7 +208,7 @@ class R8Partial {
             d8Result.getArtProfiles(),
             d8Result.getClassToFeatureSplitMap(),
             d8Result.getDexedClasses(),
-            input.getKeepDeclarations(),
+            d8Result.getKeepDeclarations(),
             d8Result.getStartupProfile(),
             timing);
     r8Options.setArtProfileOptions(

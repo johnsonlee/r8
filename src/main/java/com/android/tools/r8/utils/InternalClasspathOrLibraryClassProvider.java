@@ -9,6 +9,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexType;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,6 +17,10 @@ public class InternalClasspathOrLibraryClassProvider<T extends DexClass>
     implements ClassFileResourceProvider {
 
   private final Map<DexType, T> classes;
+
+  public InternalClasspathOrLibraryClassProvider(Collection<T> classes) {
+    this(MapUtils.transform(classes, IdentityHashMap::new, DexClass::getType));
+  }
 
   public InternalClasspathOrLibraryClassProvider(Map<DexType, T> classes) {
     this.classes = classes;

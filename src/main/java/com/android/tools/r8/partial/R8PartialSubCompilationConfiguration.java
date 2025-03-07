@@ -8,6 +8,8 @@ import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClasspathClass;
+import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
@@ -68,6 +70,8 @@ public abstract class R8PartialSubCompilationConfiguration {
     private ClassToFeatureSplitMap classToFeatureSplitMap;
     private Collection<DexProgramClass> dexedOutputClasses;
     private Collection<DexProgramClass> desugaredOutputClasses;
+    private Collection<DexClasspathClass> outputClasspathClasses;
+    private Collection<DexLibraryClass> outputLibraryClasses;
     private StartupProfile startupProfile;
 
     public R8PartialD8SubCompilationConfiguration(
@@ -94,6 +98,16 @@ public abstract class R8PartialSubCompilationConfiguration {
     public Collection<DexProgramClass> getDesugaredOutputClasses() {
       assert desugaredOutputClasses != null;
       return desugaredOutputClasses;
+    }
+
+    public Collection<DexClasspathClass> getOutputClasspathClasses() {
+      assert outputClasspathClasses != null;
+      return outputClasspathClasses;
+    }
+
+    public Collection<DexLibraryClass> getOutputLibraryClasses() {
+      assert outputLibraryClasses != null;
+      return outputLibraryClasses;
     }
 
     public StartupProfile getStartupProfile() {
@@ -147,6 +161,9 @@ public abstract class R8PartialSubCompilationConfiguration {
           desugaredOutputClasses.add(clazz);
         }
       }
+      DirectMappedDexApplication app = appView.app().toDirect();
+      outputClasspathClasses = app.classpathClasses();
+      outputLibraryClasses = app.libraryClasses();
       startupProfile = appView.getStartupProfile();
     }
   }
