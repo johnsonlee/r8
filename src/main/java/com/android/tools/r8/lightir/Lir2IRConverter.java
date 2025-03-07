@@ -228,7 +228,7 @@ public class Lir2IRConverter {
           CatchHandlers<Integer> handlers = tryCatchTable.getHandlersForBlock(nextInstructionIndex);
           if (handlers != null) {
             List<BasicBlock> targets = ListUtils.map(handlers.getAllTargets(), this::getBasicBlock);
-            targets.forEach(currentBlock::link);
+            handlers.getUniqueTargets().forEach(target -> currentBlock.link(getBasicBlock(target)));
             currentBlock.linkCatchSuccessors(handlers.getGuards(), targets);
           }
         }
