@@ -32,19 +32,18 @@ public class NonEmptyDontWarnConfiguration extends DontWarnConfiguration {
   public boolean matches(DexType type) {
     for (ProguardClassNameList dontWarnPattern : dontWarnPatterns) {
       if (dontWarnPattern.matches(type)) {
-        recordMatch(dontWarnPattern, type);
+        assert recordMatch(dontWarnPattern, type);
         return true;
       }
     }
     return false;
   }
 
-  private void recordMatch(ProguardClassNameList dontWarnPattern, DexType type) {
-    if (InternalOptions.assertionsEnabled()) {
-      matchedDontWarnPatterns
-          .computeIfAbsent(dontWarnPattern, ignore -> Sets.newIdentityHashSet())
-          .add(type);
-    }
+  private synchronized boolean recordMatch(ProguardClassNameList dontWarnPattern, DexType type) {
+    matchedDontWarnPatterns
+        .computeIfAbsent(dontWarnPattern, ignore -> Sets.newIdentityHashSet())
+        .add(type);
+    return true;
   }
 
   @Override
