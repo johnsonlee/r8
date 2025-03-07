@@ -85,6 +85,7 @@ public class SyntheticNaming {
       generator.forSingleMethodWithGlobalMerging("ToStringIfNotNull");
   public final SyntheticKind THROW_CCE_IF_NOT_NULL =
       generator.forSingleMethodWithGlobalMerging("ThrowCCEIfNotNull");
+  public final SyntheticKind NON_NULL = generator.forSingleMethodWithGlobalMerging("NonNull");
   public final SyntheticKind THROW_IAE = generator.forSingleMethodWithGlobalMerging("ThrowIAE");
   public final SyntheticKind THROW_ICCE = generator.forSingleMethodWithGlobalMerging("ThrowICCE");
   public final SyntheticKind THROW_NSME = generator.forSingleMethodWithGlobalMerging("ThrowNSME");

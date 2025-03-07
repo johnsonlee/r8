@@ -8,12 +8,15 @@
 
 package com.android.tools.r8.ir.optimize.templates;
 
+import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfFrame;
+import com.android.tools.r8.cf.code.CfGoto;
 import com.android.tools.r8.cf.code.CfIf;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfNew;
+import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfStackInstruction;
 import com.android.tools.r8.cf.code.CfThrow;
@@ -25,6 +28,8 @@ import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectAVLTreeMap;
+import java.util.ArrayDeque;
+import java.util.Arrays;
 
 public final class CfUtilityMethodsForCodeOptimizations {
 
@@ -34,6 +39,40 @@ public final class CfUtilityMethodsForCodeOptimizations {
     factory.createSynthesizedType("Ljava/lang/IncompatibleClassChangeError;");
     factory.createSynthesizedType("Ljava/lang/NoSuchMethodError;");
     factory.createSynthesizedType("Ljava/lang/RuntimeException;");
+  }
+
+  public static CfCode CfUtilityMethodsForCodeOptimizationsTemplates_isNonNull(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        1,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfIf(IfType.EQ, ValueType.OBJECT, label1),
+            new CfConstNumber(1, ValueType.INT),
+            new CfGoto(label2),
+            label1,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {FrameType.initializedNonNullReference(factory.objectType)})),
+            new CfConstNumber(0, ValueType.INT),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {FrameType.initializedNonNullReference(factory.objectType)}),
+                new ArrayDeque<>(Arrays.asList(FrameType.intType()))),
+            new CfReturn(ValueType.INT),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
   }
 
   public static CfCode

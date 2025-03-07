@@ -94,6 +94,38 @@ public class UtilityMethodsForCodeOptimizations {
             dexItemFactory, method);
   }
 
+  public static UtilityMethodForCodeOptimizations synthesizeNonNullMethod(
+      AppView<?> appView,
+      UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,
+      MethodProcessingContext methodProcessingContext) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexProto proto =
+        dexItemFactory.createProto(dexItemFactory.booleanType, dexItemFactory.objectType);
+    SyntheticItems syntheticItems = appView.getSyntheticItems();
+    UniqueContext positionContext = methodProcessingContext.createUniqueContext();
+    ProgramMethod syntheticMethod =
+        syntheticItems.createMethod(
+            kinds -> kinds.NON_NULL,
+            positionContext,
+            appView,
+            builder ->
+                builder
+                    .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                    .setClassFileVersion(CfVersion.V1_8)
+                    .setApiLevelForDefinition(appView.computedMinApiLevel())
+                    .setApiLevelForCode(appView.computedMinApiLevel())
+                    .setCode(method -> getNonNullCodeTemplate(method, dexItemFactory))
+                    .setProto(proto));
+    eventConsumer.acceptUtilityThrowClassCastExceptionIfNotNullMethod(
+        syntheticMethod, methodProcessingContext.getMethodContext());
+    return new UtilityMethodForCodeOptimizations(syntheticMethod);
+  }
+
+  private static CfCode getNonNullCodeTemplate(DexMethod method, DexItemFactory dexItemFactory) {
+    return CfUtilityMethodsForCodeOptimizations
+        .CfUtilityMethodsForCodeOptimizationsTemplates_isNonNull(dexItemFactory, method);
+  }
+
   public static UtilityMethodForCodeOptimizations synthesizeThrowIllegalAccessErrorMethod(
       AppView<?> appView,
       UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,

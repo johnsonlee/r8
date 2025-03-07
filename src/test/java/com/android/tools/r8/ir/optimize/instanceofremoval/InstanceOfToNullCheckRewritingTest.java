@@ -11,7 +11,6 @@ import com.android.tools.r8.NoVerticalClassMerging;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -39,11 +38,7 @@ public class InstanceOfToNullCheckRewritingTest extends TestBase {
         .compile()
         .inspect(
             inspector ->
-                assertThat(
-                    inspector.clazz(I.class),
-                    isPresentIf(
-                        parameters.isCfRuntime()
-                            || parameters.getApiLevel().isLessThan(AndroidApiLevel.N))))
+                assertThat(inspector.clazz(I.class), isPresentIf(parameters.isCfRuntime())))
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("true", "false");
   }

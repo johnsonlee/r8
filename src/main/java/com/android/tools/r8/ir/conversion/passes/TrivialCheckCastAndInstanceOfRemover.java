@@ -121,7 +121,12 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
         } else if (current.isInstanceOf()) {
           boolean hasPhiUsers = current.outValue().hasPhiUsers();
           if (removeInstanceOfInstructionIfTrivial(
-              appViewWithLiveness, current.asInstanceOf(), it, code)) {
+              appViewWithLiveness,
+              current.asInstanceOf(),
+              it,
+              code,
+              methodProcessor,
+              methodProcessingContext)) {
             hasChanged = true;
             needToRemoveTrivialPhis |= hasPhiUsers;
           }
@@ -298,7 +303,9 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
       AppView<AppInfoWithLiveness> appViewWithLiveness,
       InstanceOf instanceOf,
       InstructionListIterator it,
-      IRCode code) {
+      IRCode code,
+      MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext) {
     ProgramMethod context = code.context();
 
     // If the instance-of type is not accessible in the current context, we should not remove the
@@ -338,8 +345,9 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
       if (inType.isDefinitelyNotNull()) {
         return replaceInstanceOfByTrue(code, it);
       }
-      if (options.canUseJavaUtilObjectsNonNull()) {
-        return replaceInstanceOfByNonNull(it, instanceOf);
+      if (replaceInstanceOfWithNonNull(
+          instanceOf, it, methodProcessor, methodProcessingContext, inValue)) {
+        return true;
       }
     }
     if (aliasValue.isDefinedByInstructionSatisfying(Instruction::isCreatingInstanceOrArray)
@@ -376,10 +384,42 @@ public class TrivialCheckCastAndInstanceOfRemover extends CodeRewriterPass<AppIn
           && dynamicType
               .asDynamicTypeWithUpperBound()
               .getDynamicUpperBoundType()
-              .lessThanOrEqual(instanceOfType, appView)
-          && (!inType.isNullable() || dynamicType.getNullability().isDefinitelyNotNull())) {
-        return replaceInstanceOfByTrue(code, it);
+              .lessThanOrEqual(instanceOfType, appView)) {
+        if (!inType.isNullable() || dynamicType.getNullability().isDefinitelyNotNull()) {
+          return replaceInstanceOfByTrue(code, it);
+        } else {
+          return replaceInstanceOfWithNonNull(
+              instanceOf, it, methodProcessor, methodProcessingContext, inValue);
+        }
       }
+    }
+    return false;
+  }
+
+  private boolean replaceInstanceOfWithNonNull(
+      InstanceOf instanceOf,
+      InstructionListIterator it,
+      MethodProcessor methodProcessor,
+      MethodProcessingContext methodProcessingContext,
+      Value inValue) {
+    if (options.canUseJavaUtilObjectsNonNull()) {
+      return replaceInstanceOfByNonNull(it, instanceOf);
+    } else if (options.isGeneratingDex()) {
+      // We don't have Objects.nonNull - but this replacement is required to not trip up the
+      // art verifier - see b/401137827.
+      UtilityMethodForCodeOptimizations nonNullMethod =
+          UtilityMethodsForCodeOptimizations.synthesizeNonNullMethod(
+              appView, methodProcessor.getEventConsumer(), methodProcessingContext);
+      nonNullMethod.optimize(methodProcessor);
+      InvokeStatic replacement =
+          InvokeStatic.builder()
+              .setMethod(nonNullMethod.getMethod())
+              .setSingleArgument(inValue)
+              .setPosition(instanceOf.getPosition())
+              .setOutValue(instanceOf.outValue())
+              .build();
+      it.replaceCurrentInstruction(replacement);
+      return true;
     }
     return false;
   }

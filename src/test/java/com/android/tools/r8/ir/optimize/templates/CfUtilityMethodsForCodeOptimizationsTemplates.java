@@ -6,6 +6,10 @@ package com.android.tools.r8.ir.optimize.templates;
 
 public class CfUtilityMethodsForCodeOptimizationsTemplates {
 
+  public static boolean isNonNull(Object o) {
+    return o != null;
+  }
+
   public static void toStringIfNotNull(Object o) {
     if (o != null) {
       o.toString();
