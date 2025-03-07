@@ -142,7 +142,7 @@ public class LirConverter {
         clazz ->
             clazz.forEachProgramMethodMatching(
                 m -> m.hasCode() && m.getCode().isLirCode(),
-                m -> rewriteLirMethodWithLens(m, appView, rewriterUtils)),
+                m -> rewriteLirMethodWithLens(m, appView, appView.graphLens(), rewriterUtils)),
         appView.options().getThreadingModule(),
         executorService);
 
@@ -151,9 +151,13 @@ public class LirConverter {
   }
 
   public static void rewriteLirMethodWithLens(
-      ProgramMethod method, AppView<?> appView, LensCodeRewriterUtils rewriterUtils) {
+      ProgramMethod method,
+      AppView<?> appView,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriterUtils) {
     LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
-    LirCode<Integer> rewrittenLirCode = lirCode.rewriteWithLens(method, appView, rewriterUtils);
+    LirCode<Integer> rewrittenLirCode =
+        lirCode.rewriteWithLens(method, appView, graphLens, rewriterUtils);
     if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
       method.setCode(rewrittenLirCode, appView);
     }

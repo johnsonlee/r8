@@ -79,7 +79,8 @@ public class R8PartialApplicationWriter {
     } else if (code.isDexCode()) {
       rewriteDexCodeWithLens(code.asDexCode(), method);
     } else {
-      LirConverter.rewriteLirMethodWithLens(method, appView, LensCodeRewriterUtils.empty());
+      LirConverter.rewriteLirMethodWithLens(
+          method, appView, appView.graphLens(), LensCodeRewriterUtils.empty());
     }
   }
 

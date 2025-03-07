@@ -189,7 +189,17 @@ public class LensCodeRewriter {
 
   /** Replace type appearances, invoke targets and field accesses with actual definitions. */
   public void rewrite(IRCode code, ProgramMethod method, MethodProcessor methodProcessor) {
-    Deque<GraphLensInterval> unappliedLenses = getUnappliedLenses(method);
+    GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
+    rewrite(code, method, methodProcessor, appView.graphLens(), codeLens);
+  }
+
+  public void rewrite(
+      IRCode code,
+      ProgramMethod method,
+      MethodProcessor methodProcessor,
+      GraphLens graphLens,
+      GraphLens codeLens) {
+    Deque<GraphLensInterval> unappliedLenses = getUnappliedLenses(method, graphLens, codeLens);
     DexMethod originalMethodReference =
         appView.graphLens().getOriginalMethodSignature(method.getReference());
     while (!unappliedLenses.isEmpty()) {
@@ -227,7 +237,9 @@ public class LensCodeRewriter {
     rewriteArguments(
         code, originalMethodReference, prototypeChanges, affectedPhis, unusedArguments);
     if (graphLens.hasCustomLensCodeRewriter()) {
-      assert graphLens.getPrevious() == codeLens;
+      assert graphLens.getPrevious() == codeLens
+          || (graphLens.getPrevious().isMemberRebindingIdentityLens()
+              && graphLens.getPrevious().asMemberRebindingIdentityLens().getPrevious() == codeLens);
       CustomLensCodeRewriter customLensCodeRewriter = graphLens.getCustomLensCodeRewriter();
       affectedPhis.addAll(
           customLensCodeRewriter.rewriteCode(code, methodProcessor, prototypeChanges, graphLens));
@@ -1103,17 +1115,18 @@ public class LensCodeRewriter {
     affectedValues.narrowingWithAssumeRemoval(appView, code);
   }
 
-  private Deque<GraphLensInterval> getUnappliedLenses(ProgramMethod method) {
+  private Deque<GraphLensInterval> getUnappliedLenses(
+      ProgramMethod method, GraphLens graphLens, GraphLens codeLens) {
     Deque<GraphLensInterval> unappliedLenses = new ArrayDeque<>(8);
-    GraphLens codeLens = method.getDefinition().getCode().getCodeLens(appView);
-    GraphLens currentLens = appView.graphLens();
+    GraphLens currentLens = graphLens;
     DexMethod currentMethod = method.getReference();
     while (currentLens != codeLens) {
       assert currentLens.isNonIdentityLens();
       NonIdentityGraphLens currentNonIdentityLens = currentLens.asNonIdentityLens();
       NonIdentityGraphLens fromInclusiveLens = currentNonIdentityLens;
-      if (!currentNonIdentityLens.hasCustomLensCodeRewriter()) {
-        GraphLens fromInclusiveLensPredecessor = fromInclusiveLens.getPrevious();
+      GraphLens fromInclusiveLensPredecessor = fromInclusiveLens.getPrevious();
+      if (!currentNonIdentityLens.hasCustomLensCodeRewriter()
+          || fromInclusiveLensPredecessor.isMemberRebindingIdentityLens()) {
         while (fromInclusiveLensPredecessor.isNonIdentityLens()
             && !fromInclusiveLensPredecessor.hasCustomLensCodeRewriter()
             && fromInclusiveLensPredecessor != codeLens) {

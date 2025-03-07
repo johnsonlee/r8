@@ -833,15 +833,17 @@ public class LirCode<EV> extends Code
   }
 
   public LirCode<EV> rewriteWithLens(
-      ProgramMethod context, AppView<?> appView, LensCodeRewriterUtils rewriterUtils) {
-    GraphLens graphLens = appView.graphLens();
+      ProgramMethod context,
+      AppView<?> appView,
+      GraphLens graphLens,
+      LensCodeRewriterUtils rewriterUtils) {
     assert graphLens.isNonIdentityLens();
     if (graphLens.isMemberRebindingIdentityLens()) {
       return this;
     }
 
     LirLensCodeRewriter<EV> rewriter =
-        new LirLensCodeRewriter<>(appView, this, context, rewriterUtils);
+        new LirLensCodeRewriter<>(appView, this, context, graphLens, rewriterUtils);
     return rewriter.rewrite();
   }
 

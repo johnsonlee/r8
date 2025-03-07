@@ -71,12 +71,16 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   private boolean hasNonTrivialRewritings = false;
 
   public LirLensCodeRewriter(
-      AppView<?> appView, LirCode<EV> code, ProgramMethod context, LensCodeRewriterUtils helper) {
+      AppView<?> appView,
+      LirCode<EV> code,
+      ProgramMethod context,
+      GraphLens graphLens,
+      LensCodeRewriterUtils helper) {
     super(code);
     this.appView = appView;
     this.context = context;
     this.contextReference = context.getReference();
-    this.graphLens = appView.graphLens();
+    this.graphLens = graphLens;
     this.codeLens = context.getDefinition().getCode().getCodeLens(appView);
     this.helper = helper;
     NonIdentityGraphLens nonStartupInStartupOutlinerLens =
@@ -451,7 +455,8 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
                 .setFinalizeAfterLensCodeRewriter());
     // MethodProcessor argument is only used by unboxing lenses.
     MethodProcessor methodProcessor = null;
-    new LensCodeRewriter(appViewWithClassHierarchy).rewrite(code, context, methodProcessor);
+    new LensCodeRewriter(appViewWithClassHierarchy)
+        .rewrite(code, context, methodProcessor, graphLens, codeLens);
     IRToLirFinalizer finalizer = new IRToLirFinalizer(appView);
     LirCode<?> rewritten =
         finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());
