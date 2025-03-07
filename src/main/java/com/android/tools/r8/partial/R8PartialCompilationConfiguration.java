@@ -101,6 +101,11 @@ public class R8PartialCompilationConfiguration {
       return this;
     }
 
+    public Builder excludeAll() {
+      excludePredicates.add(new AllClassesMatcher());
+      return this;
+    }
+
     public Builder addJavaTypeIncludePattern(String pattern) {
       includePredicates.add(
           createPredicate("L" + DescriptorUtils.getBinaryNameFromJavaType(pattern)));

@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -25,13 +27,13 @@ import com.android.tools.r8.TestRuntime;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecificationParser;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration.Builder;
 import com.android.tools.r8.profile.art.ArtProfileConsumer;
 import com.android.tools.r8.profile.art.ArtProfileForRewriting;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.profile.art.utils.ArtProfileTestingUtils;
 import com.android.tools.r8.tracereferences.TraceReferences;
-import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
@@ -47,7 +49,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
-import org.junit.Assume;
 
 public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
@@ -56,13 +57,13 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
   private final TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> builder;
-  private List<ArtProfileForRewriting> l8ArtProfilesForRewriting = new ArrayList<>();
-  private List<String> l8ExtraKeepRules = new ArrayList<>();
-  private Consumer<InternalOptions> l8OptionModifier = ConsumerUtils.emptyConsumer();
+  private final List<ArtProfileForRewriting> l8ArtProfilesForRewriting = new ArrayList<>();
+  private final List<String> l8ExtraKeepRules = new ArrayList<>();
+  private Consumer<InternalOptions> l8OptionModifier = emptyConsumer();
   private boolean l8FinalPrefixVerification = true;
   private boolean overrideDefaultLibrary = false;
   private CustomLibrarySpecification customLibrarySpecification = null;
-  private List<ExternalArtProfile> l8ResidualArtProfiles = new ArrayList<>();
+  private final List<ExternalArtProfile> l8ResidualArtProfiles = new ArrayList<>();
   private boolean managedPostPrefix = false;
 
   public DesugaredLibraryTestBuilder(
@@ -92,16 +93,29 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       assert !compilationSpecification.isProgramShrink();
       if (compilationSpecification.isL8Shrink()) {
         // L8 with Cf backend and shrinking is not a supported pipeline.
-        Assume.assumeTrue(parameters.getBackend().isDex());
+        parameters.assumeDexRuntime();
       }
       return test.testForD8(Backend.CF);
     }
     // Cf back-end is only allowed in Cf to cf compilations.
-    Assume.assumeTrue(parameters.getBackend().isDex());
+    parameters.assumeDexRuntime();
     if (compilationSpecification.isProgramShrink()) {
-      return test.testForR8(parameters.getBackend());
+      if (compilationSpecification == CompilationSpecification.R8_PARTIAL_INCLUDE_L8SHRINK) {
+        parameters.assumeR8PartialTestParameters();
+        return test.testForR8Partial(parameters.getBackend())
+            .setR8PartialConfiguration(Builder::includeAll);
+      } else {
+        return test.testForR8(parameters.getBackend());
+      }
+    } else {
+      if (compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK) {
+        parameters.assumeR8PartialTestParameters();
+        return test.testForR8Partial(parameters.getBackend())
+            .setR8PartialConfiguration(Builder::excludeAll);
+      } else {
+        return test.testForD8(parameters.getBackend());
+      }
     }
-    return test.testForD8(Backend.DEX);
   }
 
   public DesugaredLibraryTestBuilder<T> setCustomLibrarySpecification(
@@ -132,6 +146,14 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       Consumer<InternalOptions> optionModifier) {
     builder.addOptionsModification(optionModifier);
     return this;
+  }
+
+  public DesugaredLibraryTestBuilder<T> addR8OptionsModification(
+      Consumer<InternalOptions> optionModifier) {
+    return applyIfR8PartialTestBuilder(
+        builder -> builder.addR8PartialR8OptionsModification(optionModifier),
+        builder.isR8TestBuilder(),
+        builder -> builder.addOptionsModification(optionModifier));
   }
 
   public DesugaredLibraryTestBuilder<T> addLibraryDesugaringOptionsModification(
@@ -301,6 +323,20 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
+  public <E1 extends Throwable, E2 extends Throwable>
+      DesugaredLibraryTestBuilder<T> applyIfR8PartialTestBuilder(
+          ThrowingConsumer<R8PartialTestBuilder, E1> thenConsumer,
+          boolean elseCondition,
+          ThrowingConsumer<DesugaredLibraryTestBuilder<T>, E2> elseConsumer)
+          throws E1, E2 {
+    if (builder.isR8PartialTestBuilder()) {
+      withR8PartialTestBuilder(thenConsumer);
+    } else if (elseCondition) {
+      elseConsumer.accept(this);
+    }
+    return this;
+  }
+
   public DesugaredLibraryTestBuilder<T> allowDiagnosticWarningMessages() {
     withR8TestBuilder(R8TestBuilder::allowDiagnosticWarningMessages);
     return this;
@@ -312,7 +348,9 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepRules(String keepRules) {
-    withR8TestBuilder(b -> b.addKeepRules(keepRules));
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(b -> b.addKeepRules(keepRules));
+    }
     return this;
   }
 
@@ -324,37 +362,51 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepClassAndMembersRules(Class<?>... clazz) {
-    withR8TestBuilder(b -> b.addKeepClassAndMembersRules(clazz));
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(b -> b.addKeepClassAndMembersRules(clazz));
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepAttributes(String... attributes) {
-    withR8TestBuilder(b -> b.addKeepAttributes(attributes));
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(b -> b.addKeepAttributes(attributes));
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepAllClassesRuleWithAllowObfuscation() {
-    withR8TestBuilder(TestShrinkerBuilder::addKeepAllClassesRuleWithAllowObfuscation);
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(TestShrinkerBuilder::addKeepAllClassesRuleWithAllowObfuscation);
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepAllClassesRule() {
-    withR8TestBuilder(TestShrinkerBuilder::addKeepAllClassesRule);
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(TestShrinkerBuilder::addKeepAllClassesRule);
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepMainRule(Class<?> clazz) {
-    withR8TestBuilder(b -> b.addKeepMainRule(clazz));
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(b -> b.addKeepMainRule(clazz));
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepMainRule(String mainClass) {
-    withR8TestBuilder(b -> b.addKeepMainRule(mainClass));
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(b -> b.addKeepMainRule(mainClass));
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> addKeepRuleFiles(Path... files) {
-    withR8TestBuilder(b -> b.addKeepRuleFiles(files));
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(b -> b.addKeepRuleFiles(files));
+    }
     return this;
   }
 
@@ -364,17 +416,29 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   public DesugaredLibraryTestBuilder<T> enableNeverClassInliningAnnotations() {
-    withR8TestBuilder(R8TestBuilder::enableNeverClassInliningAnnotations);
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(R8TestBuilder::enableNeverClassInliningAnnotations);
+    } else {
+      withR8TestBuilder(R8TestBuilder::addNeverClassInliningAnnotations);
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> enableInliningAnnotations() {
-    withR8TestBuilder(R8TestBuilder::enableInliningAnnotations);
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(R8TestBuilder::enableInliningAnnotations);
+    } else {
+      withR8TestBuilder(R8TestBuilder::addInliningAnnotations);
+    }
     return this;
   }
 
   public DesugaredLibraryTestBuilder<T> enableNoVerticalClassMergingAnnotations() {
-    withR8TestBuilder(R8TestBuilder::enableNoVerticalClassMergingAnnotations);
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(R8TestBuilder::enableNoVerticalClassMergingAnnotations);
+    } else {
+      withR8TestBuilder(R8TestBuilder::addNoVerticalClassMergingAnnotations);
+    }
     return this;
   }
 
@@ -390,7 +454,11 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   public DesugaredLibraryTestBuilder<T> enableConstantArgumentAnnotations() {
-    withR8TestBuilder(R8TestBuilder::enableConstantArgumentAnnotations);
+    if (compilationSpecification.isProgramShrink()) {
+      withR8TestBuilder(R8TestBuilder::enableConstantArgumentAnnotations);
+    } else {
+      withR8TestBuilder(R8TestBuilder::addConstantArgumentAnnotations);
+    }
     return this;
   }
 
@@ -406,9 +474,18 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
   }
 
   public DesugaredLibraryTestBuilder<T> applyIf(
-      boolean apply, Consumer<DesugaredLibraryTestBuilder<T>> consumer) {
-    if (apply) {
-      return apply(consumer);
+      boolean condition, Consumer<DesugaredLibraryTestBuilder<T>> consumer) {
+    return applyIf(condition, consumer, emptyConsumer());
+  }
+
+  public DesugaredLibraryTestBuilder<T> applyIf(
+      boolean condition,
+      Consumer<DesugaredLibraryTestBuilder<T>> thenConsumer,
+      Consumer<DesugaredLibraryTestBuilder<T>> elseConsumer) {
+    if (condition) {
+      thenConsumer.accept(this);
+    } else {
+      elseConsumer.accept(this);
     }
     return this;
   }
@@ -556,10 +633,10 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public DesugaredLibraryTestBuilder<T> supportAllCallbacksFromLibrary(
       boolean supportAllCallbacksFromLibrary) {
-    addL8OptionsModification(supportLibraryCallbackConsumer(supportAllCallbacksFromLibrary, true));
-    builder.addOptionsModification(
-        supportLibraryCallbackConsumer(supportAllCallbacksFromLibrary, false));
-    return this;
+    return addL8OptionsModification(
+            supportLibraryCallbackConsumer(supportAllCallbacksFromLibrary, true))
+        .addLibraryDesugaringOptionsModification(
+            supportLibraryCallbackConsumer(supportAllCallbacksFromLibrary, false));
   }
 
   private Consumer<InternalOptions> supportLibraryCallbackConsumer(
