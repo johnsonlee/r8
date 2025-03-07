@@ -14,7 +14,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecific
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.specificationconversion.LegacyToHumanSpecificationConverter;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.List;

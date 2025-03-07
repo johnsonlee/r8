@@ -12,7 +12,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.naming.NamingLens;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.Collection;

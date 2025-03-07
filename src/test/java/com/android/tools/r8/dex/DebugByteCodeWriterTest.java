@@ -22,7 +22,7 @@ import com.android.tools.r8.profile.startup.profile.StartupProfile;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Collections;
 import org.junit.Assert;
 import org.junit.Test;

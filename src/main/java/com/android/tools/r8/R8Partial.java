@@ -27,7 +27,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalProgramClassProvider;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;

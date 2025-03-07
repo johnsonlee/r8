@@ -8,7 +8,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.Set;
 

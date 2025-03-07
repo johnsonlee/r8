@@ -7,10 +7,10 @@ package com.android.tools.r8.ir.analysis.framework.intraprocedural;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.FailedDataflowAnalysisResult;
 import com.android.tools.r8.ir.analysis.framework.intraprocedural.DataflowAnalysisResult.SuccessfulDataflowAnalysisResult;
-import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.TraversalUtils;
 import com.android.tools.r8.utils.WorkList;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.IdentityHashMap;
 import java.util.Map;
 

@@ -17,7 +17,7 @@ import com.android.tools.r8.optimize.argumentpropagation.propagation.InterfaceMe
 import com.android.tools.r8.optimize.argumentpropagation.propagation.VirtualDispatchMethodArgumentPropagator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;

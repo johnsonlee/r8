@@ -5,7 +5,6 @@ package com.android.tools.r8.utils.timing;
 
 import com.android.tools.r8.utils.CancelCompilationException;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Timing;
 
 public class TimingWithCancellation extends TimingDelegate {
 

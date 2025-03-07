@@ -10,7 +10,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.lightir.IR2LirConverter;
 import com.android.tools.r8.lightir.LirCode;
 import com.android.tools.r8.lightir.LirStrategy;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 
 public class IRToLirFinalizer extends IRFinalizer<LirCode<Integer>> {
 

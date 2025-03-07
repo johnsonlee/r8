@@ -7,7 +7,7 @@ package com.android.tools.r8.optimize.interfaces.collection;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 
 /** Default oracle for that answers "maybe open" for each interface. */
 public class DefaultOpenClosedInterfacesCollection extends OpenClosedInterfacesCollection {

@@ -40,7 +40,7 @@ import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.ThrowingAction;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.verticalclassmerging.IncompleteVerticalClassMergerBridgeCode;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;

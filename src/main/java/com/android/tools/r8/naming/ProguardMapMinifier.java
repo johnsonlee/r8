@@ -40,7 +40,7 @@ import com.android.tools.r8.naming.Minifier.MinificationClassNamingStrategy;
 import com.android.tools.r8.naming.Minifier.MinifierMemberNamingStrategy;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;

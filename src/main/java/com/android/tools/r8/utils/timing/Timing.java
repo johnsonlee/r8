@@ -1,12 +1,12 @@
 // Copyright (c) 2016, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.utils;
+package com.android.tools.r8.utils.timing;
 
-import com.android.tools.r8.utils.timing.TimingEmpty;
-import com.android.tools.r8.utils.timing.TimingImpl;
-import com.android.tools.r8.utils.timing.TimingWithCancellation;
-import java.util.Collection;
+import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ThreadUtils;
+import com.android.tools.r8.utils.ThrowingAction;
+import com.android.tools.r8.utils.ThrowingSupplier;
 import java.util.concurrent.ExecutorService;
 
 public abstract class Timing implements AutoCloseable {
@@ -54,14 +54,4 @@ public abstract class Timing implements AutoCloseable {
   // Remove throws from close() in AutoClosable to allow try with resources without explicit catch.
   @Override
   public abstract void close();
-
-  public interface TimingMerger {
-    void add(Collection<Timing> timings);
-
-    void end();
-
-    boolean isEmpty();
-
-    TimingMerger disableSlowestReporting();
-  }
 }

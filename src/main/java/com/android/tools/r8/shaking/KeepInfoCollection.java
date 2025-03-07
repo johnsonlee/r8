@@ -34,7 +34,7 @@ import com.android.tools.r8.shaking.rules.MaterializedRules;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Streams;
 import java.io.IOException;
 import java.nio.file.Files;

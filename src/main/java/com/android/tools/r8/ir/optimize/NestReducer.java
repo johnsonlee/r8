@@ -14,7 +14,7 @@ import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;

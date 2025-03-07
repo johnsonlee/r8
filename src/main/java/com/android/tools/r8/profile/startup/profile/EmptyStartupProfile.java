@@ -11,7 +11,7 @@ import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.ThrowingConsumer;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 
 public class EmptyStartupProfile extends StartupProfile {
 

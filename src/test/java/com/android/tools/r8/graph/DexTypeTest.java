@@ -13,7 +13,7 @@ import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.ir.analysis.type.InterfaceCollection;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.BeforeClass;

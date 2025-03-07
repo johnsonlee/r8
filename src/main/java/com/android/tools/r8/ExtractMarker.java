@@ -18,7 +18,7 @@ import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MarkerInfoConsumerDataImpl;
 import com.android.tools.r8.utils.MarkerInfoImpl;
 import com.android.tools.r8.utils.Reporter;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;

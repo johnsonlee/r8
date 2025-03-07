@@ -107,7 +107,7 @@ import com.android.tools.r8.optimize.compose.ComputationTreeUnopUpdateChangedFla
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.BitSet;

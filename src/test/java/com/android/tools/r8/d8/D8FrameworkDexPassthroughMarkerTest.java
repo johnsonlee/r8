@@ -14,7 +14,7 @@ import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;

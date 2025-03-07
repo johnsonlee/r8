@@ -6,7 +6,7 @@ package com.android.tools.r8.ir.conversion.callgraph;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;

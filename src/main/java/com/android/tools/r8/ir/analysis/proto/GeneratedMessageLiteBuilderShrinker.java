@@ -54,7 +54,7 @@ import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.PredicateSet;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;

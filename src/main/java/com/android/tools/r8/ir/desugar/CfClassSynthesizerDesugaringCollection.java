@@ -12,7 +12,7 @@ import com.android.tools.r8.ir.desugar.itf.ProgramEmulatedInterfaceSynthesizer;
 import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;

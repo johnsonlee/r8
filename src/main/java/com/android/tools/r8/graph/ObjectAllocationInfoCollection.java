@@ -6,8 +6,8 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
-import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.TraversalContinuation;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;

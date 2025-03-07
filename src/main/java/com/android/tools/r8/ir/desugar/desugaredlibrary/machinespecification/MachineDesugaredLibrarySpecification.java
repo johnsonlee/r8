@@ -19,7 +19,7 @@ import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.SemanticVersion;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;

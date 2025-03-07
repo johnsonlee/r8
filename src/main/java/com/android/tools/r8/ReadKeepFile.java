@@ -6,7 +6,7 @@ package com.android.tools.r8;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.ProguardConfigurationParser;
 import com.android.tools.r8.utils.Reporter;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.nio.file.Paths;
 
 /**

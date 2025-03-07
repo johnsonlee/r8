@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.classmerging;
 
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.concurrent.ExecutionException;

@@ -21,7 +21,7 @@ import com.android.tools.r8.smali.SmaliBuilder.MethodSignature;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.Test;

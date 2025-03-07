@@ -7,7 +7,6 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SystemPropertyUtils;
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.ThrowingSupplier;
-import com.android.tools.r8.utils.Timing;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -28,7 +27,7 @@ public class TimingImpl extends Timing {
   private final Deque<Node> stack;
   private final boolean trackMemory;
 
-  public TimingImpl(String title, InternalOptions options) {
+  TimingImpl(String title, InternalOptions options) {
     this.trackMemory = options.printMemory;
     stack = new ArrayDeque<>();
     top = new Node(title, trackMemory);

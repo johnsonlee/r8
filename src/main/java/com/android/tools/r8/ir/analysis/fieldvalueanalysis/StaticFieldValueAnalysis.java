@@ -40,7 +40,7 @@ import com.android.tools.r8.ir.optimize.ClassInitializerDefaultsOptimization.Cla
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.ArrayUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;

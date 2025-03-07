@@ -54,7 +54,7 @@ import com.android.tools.r8.utils.ReachabilitySensitiveValue;
 import com.android.tools.r8.utils.SelfRetraceTest;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.Collections;

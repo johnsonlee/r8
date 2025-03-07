@@ -4,7 +4,7 @@
 package com.android.tools.r8;
 
 import com.android.tools.r8.naming.ClassNameMapper;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;

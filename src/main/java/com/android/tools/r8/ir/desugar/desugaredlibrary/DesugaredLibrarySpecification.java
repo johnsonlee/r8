@@ -7,7 +7,7 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;

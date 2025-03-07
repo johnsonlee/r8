@@ -9,7 +9,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.PrunedItems;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.utils.SetUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Set;
 
 public class NonEmptyOpenClosedInterfacesCollection extends OpenClosedInterfacesCollection {

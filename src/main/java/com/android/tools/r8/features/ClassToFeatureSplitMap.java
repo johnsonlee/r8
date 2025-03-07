@@ -22,7 +22,7 @@ import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8Parti
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.Reporter;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
 import java.util.Map;

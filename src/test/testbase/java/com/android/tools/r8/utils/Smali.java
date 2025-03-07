@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
+import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder;
 import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;

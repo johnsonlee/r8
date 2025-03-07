@@ -5,13 +5,12 @@ package com.android.tools.r8.utils.timing;
 
 import com.android.tools.r8.utils.ThrowingAction;
 import com.android.tools.r8.utils.ThrowingSupplier;
-import com.android.tools.r8.utils.Timing;
 import java.util.Collection;
 
-public class TimingEmpty extends Timing {
+class TimingEmpty extends Timing {
   private static TimingEmpty INSTANCE = new TimingEmpty();
 
-  public static Timing getEmpty() {
+  static Timing getEmpty() {
     return INSTANCE;
   }
 

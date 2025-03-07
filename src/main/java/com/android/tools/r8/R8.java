@@ -119,7 +119,7 @@ import com.android.tools.r8.utils.ResourceShrinkerUtils;
 import com.android.tools.r8.utils.SelfRetraceTest;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ThreadUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.verticalclassmerging.VerticalClassMerger;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;

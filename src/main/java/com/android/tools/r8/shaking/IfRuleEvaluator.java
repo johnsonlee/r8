@@ -20,9 +20,9 @@ import com.android.tools.r8.shaking.ifrules.MaterializedSubsequentRulesOptimizer
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.Pair;
-import com.android.tools.r8.utils.Timing;
 import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.base.Equivalence.Wrapper;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;

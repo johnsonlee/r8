@@ -12,7 +12,7 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.AndroidApp;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.nio.file.Path;

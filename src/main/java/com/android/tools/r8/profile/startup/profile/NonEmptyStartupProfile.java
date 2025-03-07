@@ -16,7 +16,7 @@ import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.MapUtils;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.ThrowingConsumer;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;

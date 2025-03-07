@@ -7,7 +7,7 @@ package com.android.tools.r8.graph.lens;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Map;
 
 public class FinalInitClassLens extends InitClassLens {

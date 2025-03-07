@@ -12,7 +12,7 @@ import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.optimize.classinliner.constraint.ClassInlinerMethodConstraint;
 import com.android.tools.r8.ir.optimize.classinliner.constraint.ConditionalClassInlinerMethodConstraint;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 
 public class ClassInlinerMethodConstraintAnalysis {
 

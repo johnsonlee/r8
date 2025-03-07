@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.utils.threads;
 
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 
 public interface ThreadTask {
 

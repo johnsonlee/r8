@@ -13,7 +13,7 @@ import com.android.tools.r8.synthesis.SyntheticItems.ContextsForGlobalSynthetics
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.SetUtils;
-import com.android.tools.r8.utils.Timing;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
