@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.diagnostic.DefinitionContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
@@ -13,6 +11,7 @@ import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
@@ -48,7 +47,7 @@ public abstract class R8PartialUseCollector extends UseCollector {
 
   public static Predicate<DexType> getTargetPredicate(
       AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return type -> asProgramClassOrNull(appView.definitionFor(type)) != null;
+    return type -> appView.definitionFor(type) != null;
   }
 
   public void run(ExecutorService executorService) throws ExecutionException {
@@ -93,6 +92,12 @@ public abstract class R8PartialUseCollector extends UseCollector {
 
   @Override
   protected void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
+    notifyPresentItem(method);
+  }
+
+  @Override
+  protected void notifyPresentMethod(
+      DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
     notifyPresentItem(method);
   }
 

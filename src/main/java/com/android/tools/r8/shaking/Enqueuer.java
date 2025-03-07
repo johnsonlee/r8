@@ -4462,6 +4462,7 @@ public class Enqueuer {
     appView
         .dexItemFactory()
         .forEachPossiblyCompilerSynthesizedType(this::recordCompilerSynthesizedTypeReference);
+    appView.rootSet().rootLibraryTypes.forEach(this::recordCompilerSynthesizedTypeReference);
     timing.end();
 
     // Rebuild a new app only containing referenced types.
