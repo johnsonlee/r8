@@ -22,6 +22,8 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -44,6 +46,9 @@ public class R8PartialApplicationWriter {
 
   public void write(ExecutorService executorService) throws ExecutionException {
     assert appView.getNamingLens().isIdentityLens();
+    // We need to rewrite the code with the lenses here, since the D8 lenses are normally applied
+    // during writing, which we bypass. The D8 lenses may arise from synthetic finalization and
+    // horizontal class merging of synthetics.
     rewriteCodeWithLens(executorService);
     subCompilationConfiguration.writeApplication(appView);
   }
@@ -74,7 +79,7 @@ public class R8PartialApplicationWriter {
     } else if (code.isDexCode()) {
       rewriteDexCodeWithLens(code.asDexCode(), method);
     } else {
-      assert false;
+      LirConverter.rewriteLirMethodWithLens(method, appView, LensCodeRewriterUtils.empty());
     }
   }
 

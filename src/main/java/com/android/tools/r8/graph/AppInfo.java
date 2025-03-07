@@ -37,8 +37,15 @@ public class AppInfo implements DexDefinitionSupplier {
     return createInitialAppInfo(
         application,
         globalSyntheticsStrategy,
-        ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap(),
-        MainDexInfo.none());
+        ClassToFeatureSplitMap.createEmptyClassToFeatureSplitMap());
+  }
+
+  public static AppInfo createInitialAppInfo(
+      DexApplication application,
+      GlobalSyntheticsStrategy globalSyntheticsStrategy,
+      ClassToFeatureSplitMap classToFeatureSplitMap) {
+    return createInitialAppInfo(
+        application, globalSyntheticsStrategy, classToFeatureSplitMap, MainDexInfo.none());
   }
 
   public static AppInfo createInitialAppInfo(

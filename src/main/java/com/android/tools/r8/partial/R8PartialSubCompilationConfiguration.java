@@ -119,7 +119,7 @@ public abstract class R8PartialSubCompilationConfiguration {
         ProgramDefinition definition, AppView<?> appView) {
       DexType type = definition.getContextType();
       if (d8Types.contains(type)) {
-        return Target.DEX;
+        return Target.LIR;
       } else if (r8Types.contains(type)) {
         return Target.CF;
       } else {
@@ -130,7 +130,7 @@ public abstract class R8PartialSubCompilationConfiguration {
         assert syntheticContexts.size() == 1;
         DexType syntheticContext = syntheticContexts.iterator().next();
         if (d8Types.contains(syntheticContext)) {
-          return Target.DEX;
+          return Target.LIR;
         } else {
           assert r8Types.contains(syntheticContext);
           return Target.CF;
@@ -155,7 +155,7 @@ public abstract class R8PartialSubCompilationConfiguration {
       dexedOutputClasses = new ArrayList<>();
       desugaredOutputClasses = new ArrayList<>();
       for (DexProgramClass clazz : appView.appInfo().classes()) {
-        if (getTargetFor(clazz, appView) == Target.DEX) {
+        if (getTargetFor(clazz, appView) == Target.LIR) {
           dexedOutputClasses.add(clazz);
         } else {
           desugaredOutputClasses.add(clazz);

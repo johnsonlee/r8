@@ -55,7 +55,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   private static final Set<DexMethod> NO_INVOKES_TO_REWRITE = ImmutableSet.of();
 
-  private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final AppView<?> appView;
   private final ProgramMethod context;
   private final DexMethod contextReference;
   private final GraphLens graphLens;
@@ -71,10 +71,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   private boolean hasNonTrivialRewritings = false;
 
   public LirLensCodeRewriter(
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      LirCode<EV> code,
-      ProgramMethod context,
-      LensCodeRewriterUtils helper) {
+      AppView<?> appView, LirCode<EV> code, ProgramMethod context, LensCodeRewriterUtils helper) {
     super(code);
     this.appView = appView;
     this.context = context;
@@ -444,6 +441,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   @SuppressWarnings("unchecked")
   private LirCode<EV> rewriteWithLensCodeRewriter() {
+    assert appView.hasClassHierarchy();
+    AppView<? extends AppInfoWithClassHierarchy> appViewWithClassHierarchy =
+        appView.withClassHierarchy();
     IRCode code =
         context.buildIR(
             appView,
@@ -451,7 +451,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
                 .setFinalizeAfterLensCodeRewriter());
     // MethodProcessor argument is only used by unboxing lenses.
     MethodProcessor methodProcessor = null;
-    new LensCodeRewriter(appView).rewrite(code, context, methodProcessor);
+    new LensCodeRewriter(appViewWithClassHierarchy).rewrite(code, context, methodProcessor);
     IRToLirFinalizer finalizer = new IRToLirFinalizer(appView);
     LirCode<?> rewritten =
         finalizer.finalizeCode(code, BytecodeMetadataProvider.empty(), Timing.empty());

@@ -81,7 +81,6 @@ import com.android.tools.r8.optimize.redundantbridgeremoval.RedundantBridgeRemov
 import com.android.tools.r8.optimize.singlecaller.SingleCallerInliner;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.origin.Origin;
-import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.profile.art.ArtProfileCompletenessChecker;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.repackaging.Repackaging;
@@ -228,11 +227,6 @@ public class R8 {
         new CfApplicationWriter(appView, marker)
             .write(options.getClassFileConsumer(), executorService, inputApp);
       } else {
-        if (options.partialSubCompilationConfiguration != null) {
-          R8PartialR8SubCompilationConfiguration r8SubCompilationConfiguration =
-              options.partialSubCompilationConfiguration.asR8();
-          r8SubCompilationConfiguration.commitDexingOutputClasses(appView.withClassHierarchy());
-        }
         ApplicationWriter.create(appView, marker).write(executorService, inputApp);
       }
     } catch (IOException e) {
@@ -883,6 +877,7 @@ public class R8 {
       timing.end();
 
       LirConverter.finalizeLirToOutputFormat(appView, timing, executorService);
+      LirConverter.finalizeClasspathLirToOutputFormat(appView, timing, executorService);
       assert appView.dexItemFactory().verifyNoCachedTypeElements();
 
       // Generate the resulting application resources.

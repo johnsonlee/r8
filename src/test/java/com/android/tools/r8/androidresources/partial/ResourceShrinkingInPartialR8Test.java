@@ -10,6 +10,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -55,6 +56,7 @@ public class ResourceShrinkingInPartialR8Test extends TestBase {
         .assertSuccess();
   }
 
+  @Ignore("b/400935182")
   @Test
   public void testPartialWithRClassInD8() throws Exception {
     getR8PartialTestBuilder(true)

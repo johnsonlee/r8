@@ -2134,7 +2134,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean printNumberUnboxed = false;
     public boolean roundtripThroughLir = false;
     public boolean canUseLir(AppView<?> appView) {
-      return appView.enableWholeProgramOptimizations();
+      return appView.enableWholeProgramOptimizations()
+          || appView.options().partialSubCompilationConfiguration != null;
     }
 
     // As part of integrating LIR the compiler is split in three phases: pre, supported, and post.

@@ -6,7 +6,6 @@ package com.android.tools.r8.lightir;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ArgumentUse;
 import com.android.tools.r8.graph.ClasspathMethod;
@@ -834,9 +833,7 @@ public class LirCode<EV> extends Code
   }
 
   public LirCode<EV> rewriteWithLens(
-      ProgramMethod context,
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      LensCodeRewriterUtils rewriterUtils) {
+      ProgramMethod context, AppView<?> appView, LensCodeRewriterUtils rewriterUtils) {
     GraphLens graphLens = appView.graphLens();
     assert graphLens.isNonIdentityLens();
     if (graphLens.isMemberRebindingIdentityLens()) {

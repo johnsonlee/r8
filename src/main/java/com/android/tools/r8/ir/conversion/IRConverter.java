@@ -300,11 +300,7 @@ public class IRConverter {
       return true;
     }
     assert method.getDefinition().getCode().isCfCode();
-    if (options.partialSubCompilationConfiguration != null) {
-      assert conversionOptions.isGeneratingClassFiles() || conversionOptions.isGeneratingDex();
-      return conversionOptions.isGeneratingDex();
-    }
-    return !options.isGeneratingClassFiles();
+    return !conversionOptions.isGeneratingClassFiles();
   }
 
   protected void workaroundAbstractMethodOnNonAbstractClassVerificationBug(

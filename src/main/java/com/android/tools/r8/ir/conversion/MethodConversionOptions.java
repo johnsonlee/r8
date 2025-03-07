@@ -21,9 +21,6 @@ public abstract class MethodConversionOptions {
   }
 
   public static MutableMethodConversionOptions forPostLirPhase(AppView<?> appView) {
-    if (!appView.enableWholeProgramOptimizations()) {
-      return forD8(appView);
-    }
     assert appView.testing().isPostLirPhase();
     Target target = appView.options().isGeneratingClassFiles() ? Target.CF : Target.DEX;
     return new MutableMethodConversionOptions(target);
@@ -68,6 +65,11 @@ public abstract class MethodConversionOptions {
   }
 
   private static Target determineTarget(AppView<?> appView, ProgramMethod method) {
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        appView.options().partialSubCompilationConfiguration;
+    if (subCompilationConfiguration != null && subCompilationConfiguration.isD8()) {
+      return subCompilationConfiguration.asD8().getTargetFor(method, appView);
+    }
     if (appView.testing().canUseLir(appView)) {
       return Target.LIR;
     }
@@ -75,11 +77,6 @@ public abstract class MethodConversionOptions {
       return Target.CF;
     }
     assert appView.options().isGeneratingDex();
-    R8PartialSubCompilationConfiguration subCompilationConfiguration =
-        appView.options().partialSubCompilationConfiguration;
-    if (subCompilationConfiguration != null && subCompilationConfiguration.isD8()) {
-      return subCompilationConfiguration.asD8().getTargetFor(method, appView);
-    }
     return Target.DEX;
   }
 

@@ -29,6 +29,8 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
+import com.android.tools.r8.lightir.LirInstructionView;
+import com.android.tools.r8.lightir.LirOpcodeUtils;
 import com.android.tools.r8.synthesis.SyntheticMethodBuilder;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.collections.BidirectionalManyToManyRepresentativeMap;
@@ -236,10 +238,16 @@ public final class InterfaceProcessor {
           return false;
         }
       }
-    } else {
-      assert code.isCfCode();
+    } else if (code.isCfCode()) {
       for (CfInstruction insn : code.asCfCode().getInstructions()) {
         if (insn instanceof CfInvoke && ((CfInvoke) insn).isInvokeSuper(method.getHolderType())) {
+          return false;
+        }
+      }
+    } else {
+      assert code.isLirCode();
+      for (LirInstructionView instruction : code.asLirCode()) {
+        if (LirOpcodeUtils.isInvokeSuper(instruction.getOpcode())) {
           return false;
         }
       }

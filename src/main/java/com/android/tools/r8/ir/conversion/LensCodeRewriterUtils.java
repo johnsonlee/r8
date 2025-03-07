@@ -50,6 +50,10 @@ public class LensCodeRewriterUtils {
     this(appView, appView.graphLens(), appView.codeLens());
   }
 
+  public static LensCodeRewriterUtils empty() {
+    return new EmptyLensCodeRewriterUtils();
+  }
+
   public LensCodeRewriterUtils(AppView<?> appView, boolean enableCallSiteCaching) {
     this.definitions = appView;
     this.graphLens = appView.graphLens();
@@ -245,5 +249,34 @@ public class LensCodeRewriterUtils {
     DexMethodHandle oldHandle = methodHandle.value;
     DexMethodHandle newHandle = rewriteDexMethodHandle(oldHandle, use, context);
     return newHandle != oldHandle ? new DexValueMethodHandle(newHandle) : methodHandle;
+  }
+
+  public static class EmptyLensCodeRewriterUtils extends LensCodeRewriterUtils {
+
+    public EmptyLensCodeRewriterUtils() {
+      super(null, null, null);
+    }
+
+    @Override
+    public DexCallSite rewriteCallSite(DexCallSite callSite, ProgramMethod context) {
+      return callSite;
+    }
+
+    @Override
+    public DexMethodHandle rewriteDexMethodHandle(
+        DexMethodHandle methodHandle, MethodHandleUse use, DexMethod context) {
+      return methodHandle;
+    }
+
+    @Override
+    public List<DexValue> rewriteBootstrapArguments(
+        List<DexValue> bootstrapArgs, MethodHandleUse use, ProgramMethod context) {
+      return bootstrapArgs;
+    }
+
+    @Override
+    public DexProto rewriteProto(DexProto proto) {
+      return proto;
+    }
   }
 }

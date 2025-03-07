@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion;
 
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
@@ -31,7 +32,10 @@ import com.android.tools.r8.lightir.LirStrategy;
 import com.android.tools.r8.naming.IdentifierNameStringMarker;
 import com.android.tools.r8.naming.RecordInvokeDynamicInvokeCustomRewriter;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ObjectUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
@@ -42,6 +46,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 public class LirConverter {
+
+  // Processing is done and no further uses of the meta-data should arise.
+  private static final BytecodeMetadataProvider noMetadata = BytecodeMetadataProvider.empty();
 
   public static void enterLirSupportedPhase(
       AppView<AppInfoWithLiveness> appView, ExecutorService executorService)
@@ -143,10 +150,8 @@ public class LirConverter {
     appView.dexItemFactory().clearTypeElementsCache();
   }
 
-  private static void rewriteLirMethodWithLens(
-      ProgramMethod method,
-      AppView<? extends AppInfoWithClassHierarchy> appView,
-      LensCodeRewriterUtils rewriterUtils) {
+  public static void rewriteLirMethodWithLens(
+      ProgramMethod method, AppView<?> appView, LensCodeRewriterUtils rewriterUtils) {
     LirCode<Integer> lirCode = method.getDefinition().getCode().asLirCode();
     LirCode<Integer> rewrittenLirCode = lirCode.rewriteWithLens(method, appView, rewriterUtils);
     if (ObjectUtils.notIdentical(lirCode, rewrittenLirCode)) {
@@ -220,8 +225,6 @@ public class LirConverter {
           new ConstantCanonicalizer(appView, method, irCode);
       constantCanonicalizer.canonicalize();
     }
-    // Processing is done and no further uses of the meta-data should arise.
-    BytecodeMetadataProvider noMetadata = BytecodeMetadataProvider.empty();
     // During processing optimization info may cause previously live code to become dead.
     // E.g., we may now have knowledge that an invoke does not have side effects.
     // Thus, we re-run the dead-code remover now as it is assumed complete by CF/DEX finalization.
@@ -232,6 +235,67 @@ public class LirConverter {
     IRFinalizer<?> finalizer = conversionOptions.getFinalizer(deadCodeRemover, appView);
     method.setCode(finalizer.finalizeCode(irCode, noMetadata, onThreadTiming, previous), appView);
     IRConverter.printMethod(method, "Finalized output format", appView.options());
+  }
+
+  public static void finalizeClasspathLirToOutputFormat(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Timing timing,
+      ExecutorService executorService)
+      throws ExecutionException {
+    InternalOptions options = appView.options();
+    if (options.partialSubCompilationConfiguration == null) {
+      return;
+    }
+
+    timing.begin("Commit classpath classes to program");
+    R8PartialR8SubCompilationConfiguration subCompilationConfiguration =
+        options.partialSubCompilationConfiguration.asR8();
+    subCompilationConfiguration.commitDexingOutputClasses(appView);
+    timing.end();
+
+    String output = appView.options().isGeneratingClassFiles() ? "CF" : "DEX";
+    timing.begin("LIR->IR->" + output + " (D8)");
+    AppInfo d8AppInfo =
+        AppInfo.createInitialAppInfo(
+            appView.app(),
+            GlobalSyntheticsStrategy.forNonSynthesizing(),
+            appView.appInfo().getClassToFeatureSplitMap());
+    AppView<AppInfo> d8AppView = AppView.createForD8(d8AppInfo);
+    DeadCodeRemover deadCodeRemover = new DeadCodeRemover(d8AppView);
+    CodeRewriterPassCollection codeRewriterPassCollection =
+        new CodeRewriterPassCollection(
+            new StringSwitchRemover(d8AppView), new FilledNewArrayRewriter(d8AppView));
+    ThreadUtils.processItems(
+        subCompilationConfiguration.getDexingOutputClasses(),
+        clazz ->
+            clazz.forEachProgramMethod(
+                m ->
+                    finalizeClasspathLirMethodToOutputFormat(
+                        m, d8AppView, deadCodeRemover, codeRewriterPassCollection)),
+        options.getThreadingModule(),
+        executorService);
+    timing.end();
+
+    // Clear the reference type cache after conversion to reduce memory pressure.
+    appView.dexItemFactory().clearTypeElementsCache();
+  }
+
+  private static void finalizeClasspathLirMethodToOutputFormat(
+      ProgramMethod method,
+      AppView<AppInfo> appView,
+      DeadCodeRemover deadCodeRemover,
+      CodeRewriterPassCollection codeRewriterPassCollection) {
+    Code code = method.getDefinition().getCode();
+    if (!(code instanceof LirCode)) {
+      return;
+    }
+    IRCode irCode = method.buildIR(appView, MethodConversionOptions.forPostLirPhase(appView));
+    MethodConversionOptions conversionOptions = irCode.getConversionOptions();
+    assert conversionOptions.isGeneratingDex();
+    codeRewriterPassCollection.run(irCode, null, null, Timing.empty(), null, appView.options());
+    deadCodeRemover.run(irCode, Timing.empty());
+    IRFinalizer<?> finalizer = conversionOptions.getFinalizer(deadCodeRemover, appView);
+    method.setCode(finalizer.finalizeCode(irCode, noMetadata, Timing.empty()), appView);
   }
 
   public static boolean verifyLirOnly(AppView<? extends AppInfoWithClassHierarchy> appView) {

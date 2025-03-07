@@ -182,17 +182,18 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         NewArrayFilled newArrayFilled,
         CodeRewriterResult result,
         BooleanBox pendingRewrites) {
-      if (canUseNewArrayFilled(newArrayFilled)) {
+      if (canUseNewArrayFilled(code, newArrayFilled)) {
         return result;
       }
       if (newArrayFilled.hasUnusedOutValue()) {
         instructionIterator.removeOrReplaceByDebugLocalRead();
-      } else if (canUseNewArrayFilledData(newArrayFilled)) {
+      } else if (canUseNewArrayFilledData(code, newArrayFilled)) {
         rewriteToNewArrayFilledData(code, blockIterator, instructionIterator, newArrayFilled);
       } else if (newArrayFilled.outValue().hasSingleUniqueUser()
           && newArrayFilled.outValue().singleUniqueUser().isNewArrayFilled()
           && isNewArrayFilledOfConstants(newArrayFilled)) {
-        if (canUseNewArrayFilled(newArrayFilled.outValue().singleUniqueUser().asNewArrayFilled())) {
+        if (canUseNewArrayFilled(
+            code, newArrayFilled.outValue().singleUniqueUser().asNewArrayFilled())) {
           // The NewArrayFilled user is supported, so rewrite here.
           rewriteToArrayPuts(code, blockIterator, instructionIterator, newArrayFilled);
         } else {
@@ -242,8 +243,8 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       return CodeRewriterResult.HAS_CHANGED;
     }
 
-    private boolean canUseNewArrayFilled(NewArrayFilled newArrayFilled) {
-      if (!options.isGeneratingDex()) {
+    private boolean canUseNewArrayFilled(IRCode code, NewArrayFilled newArrayFilled) {
+      if (code.getConversionOptions().isGeneratingClassFiles()) {
         return false;
       }
       int size = newArrayFilled.size();
@@ -258,7 +259,7 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
         if (size > rewriteArrayOptions.maxSizeForFilledNewArrayOfInts) {
           return false;
         }
-        if (canUseNewArrayFilledData(newArrayFilled)
+        if (canUseNewArrayFilledData(code, newArrayFilled)
             && size
                 > rewriteArrayOptions
                     .maxSizeForFilledNewArrayOfIntsWhenNewArrayFilledDataApplicable) {
@@ -331,9 +332,9 @@ public class FilledNewArrayRewriter extends CodeRewriterPass<AppInfo> {
       return valueType.isClassType(elementType);
     }
 
-    private boolean canUseNewArrayFilledData(NewArrayFilled newArrayFilled) {
+    private boolean canUseNewArrayFilledData(IRCode code, NewArrayFilled newArrayFilled) {
       // Only convert into NewArrayFilledData when compiling to DEX.
-      if (!appView.options().isGeneratingDex()) {
+      if (code.getConversionOptions().isGeneratingClassFiles()) {
         return false;
       }
       // If there is only one element it is typically smaller to generate the array put instruction
