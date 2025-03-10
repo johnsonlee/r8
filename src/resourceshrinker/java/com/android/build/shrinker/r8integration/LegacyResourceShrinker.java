@@ -37,7 +37,6 @@ import java.io.StringReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -211,12 +210,13 @@ public class LegacyResourceShrinker {
     // Finds unused resources in provided resources collection.
     // Marks all used resources as 'reachable' in original collection.
     List<Resource> unusedResources =
-        ResourcesUtil.findUnusedResources(
-            model.getResourceStore().getResources(),
-            roots -> {
-              debugReporter.debug(() -> "The root reachable resources are:");
-              roots.forEach(root -> debugReporter.debug(() -> " " + root));
-            });
+        new ArrayList<>(
+            ResourcesUtil.findUnusedResources(
+                model.getResourceStore().getResources(),
+                roots -> {
+                  debugReporter.debug(() -> "The root reachable resources are:");
+                  roots.forEach(root -> debugReporter.debug(() -> " " + root));
+                }));
     ImmutableSet.Builder<String> resEntriesToKeepBuilder = new ImmutableSet.Builder<>();
     for (PathAndBytes xmlInput : Iterables.concat(xmlInputs, resFolderInputs)) {
       if (ResourceShrinkerImplKt.isJarPathReachable(resourceStore, xmlInput.path.toString())) {

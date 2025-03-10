@@ -3,10 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
-
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -14,7 +10,6 @@ import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.androidresources.DuplicatedEntriesEmptyUnusedTest.FeatureSplit.FeatureSplitMain;
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.io.IOException;
 import java.util.List;
@@ -64,47 +59,31 @@ public class DuplicatedEntriesEmptyUnusedTest extends TestBase {
   public void testR8() throws Exception {
     TemporaryFolder featureSplitTemp = ToolHelper.getTemporaryFolderForTest();
     featureSplitTemp.create();
-    R8FullTestBuilder testBuilder =
-        testForR8(parameters.getBackend())
-            .setMinApi(parameters)
-            .addProgramClasses(Base.class)
-            .addFeatureSplit(FeatureSplitMain.class)
-            .addAndroidResources(getTestResources(temp))
-            .addFeatureSplitAndroidResources(
-                getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
-            .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
-            .addKeepMainRule(Base.class)
-            .addKeepMainRule(FeatureSplitMain.class);
-    if (optimized) {
-      testBuilder
-          .compile()
-          .inspectShrunkenResources(
-              resourceTableInspector -> {
-                resourceTableInspector.assertContainsResourceWithName("xml", "duplicated_xml");
-                resourceTableInspector.assertContainsResourceWithName(
-                    "string", "duplicated_string");
-              })
-          .inspectShrunkenResourcesForFeature(
-              resourceTableInspector -> {
-                resourceTableInspector.assertContainsResourceWithName("xml", "duplicated_xml");
-                resourceTableInspector.assertContainsResourceWithName(
-                    "string", "duplicated_string");
-              },
-              FeatureSplit.class.getName())
-          .run(parameters.getRuntime(), Base.class)
-          .assertSuccess();
-    } else {
-      // TODO(b/401546693): This should compile without failure (and keep all resources)
-      try {
-        testBuilder.compile();
-      } catch (CompilationFailedException e) {
-        assertThat(
-            e.getCause().getMessage(),
-            containsString("Operation is not supported for read-only collection"));
-        return;
-      }
-      throw new Unreachable("Problem fixed?");
-    }
+
+    testForR8(parameters.getBackend())
+        .setMinApi(parameters)
+        .addProgramClasses(Base.class)
+        .addFeatureSplit(FeatureSplitMain.class)
+        .addAndroidResources(getTestResources(temp))
+        .addFeatureSplitAndroidResources(
+            getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
+        .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
+        .addKeepMainRule(Base.class)
+        .addKeepMainRule(FeatureSplitMain.class)
+        .compile()
+        .inspectShrunkenResources(
+            resourceTableInspector -> {
+              resourceTableInspector.assertContainsResourceWithName("xml", "duplicated_xml");
+              resourceTableInspector.assertContainsResourceWithName("string", "duplicated_string");
+            })
+        .inspectShrunkenResourcesForFeature(
+            resourceTableInspector -> {
+              resourceTableInspector.assertContainsResourceWithName("xml", "duplicated_xml");
+              resourceTableInspector.assertContainsResourceWithName("string", "duplicated_string");
+            },
+            FeatureSplit.class.getName())
+        .run(parameters.getRuntime(), Base.class)
+        .assertSuccess();
   }
 
   public static class Base {
