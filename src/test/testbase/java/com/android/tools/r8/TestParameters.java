@@ -22,21 +22,29 @@ public class TestParameters {
 
   private final TestRuntime runtime;
   private final AndroidApiLevel apiLevel;
+  private final PartialCompilationTestParameters partialCompilationTestParameters;
   private final boolean representativeApiLevelForRuntime;
 
   public TestParameters(TestRuntime runtime) {
-    this(runtime, null);
-  }
-
-  public TestParameters(TestRuntime runtime, AndroidApiLevel apiLevel) {
-    this(runtime, apiLevel, true);
+    this(runtime, null, PartialCompilationTestParameters.NONE);
   }
 
   public TestParameters(
-      TestRuntime runtime, AndroidApiLevel apiLevel, boolean representativeApiLevelForRuntime) {
+      TestRuntime runtime,
+      AndroidApiLevel apiLevel,
+      PartialCompilationTestParameters partialCompilationTestParameters) {
+    this(runtime, apiLevel, partialCompilationTestParameters, true);
+  }
+
+  public TestParameters(
+      TestRuntime runtime,
+      AndroidApiLevel apiLevel,
+      PartialCompilationTestParameters partialCompilationTestParameters,
+      boolean representativeApiLevelForRuntime) {
     assert runtime != null;
     this.runtime = runtime;
     this.apiLevel = apiLevel;
+    this.partialCompilationTestParameters = partialCompilationTestParameters;
     this.representativeApiLevelForRuntime = representativeApiLevelForRuntime;
   }
 
@@ -205,6 +213,10 @@ public class TestParameters {
     return runtime.asCf();
   }
 
+  public PartialCompilationTestParameters getPartialCompilationTestParameters() {
+    return partialCompilationTestParameters;
+  }
+
   // Access to underlying runtime/wrapper.
   public TestRuntime getRuntime() {
     return runtime;
@@ -222,10 +234,14 @@ public class TestParameters {
 
   @Override
   public String toString() {
+    StringBuilder builder = new StringBuilder(runtime.toString());
     if (apiLevel != null) {
-      return runtime.toString() + ", api:" + apiLevel.getLevel();
+      builder.append(", api:").append(apiLevel.getLevel());
     }
-    return runtime.toString();
+    if (partialCompilationTestParameters.isSome()) {
+      builder.append(", partial:").append(partialCompilationTestParameters);
+    }
+    return builder.toString();
   }
 
   public void assertCfRuntime() {
@@ -307,5 +323,12 @@ public class TestParameters {
   public DexVm.Version getDexRuntimeVersion() {
     assertTrue(isDexRuntime());
     return getRuntime().asDex().getVm().getVersion();
+  }
+
+  TestParameters withPartialCompilationTestParameters(
+      PartialCompilationTestParameters partialCompilationTestParameters) {
+    assert getPartialCompilationTestParameters().isNone();
+    return new TestParameters(
+        runtime, apiLevel, partialCompilationTestParameters, representativeApiLevelForRuntime);
   }
 }

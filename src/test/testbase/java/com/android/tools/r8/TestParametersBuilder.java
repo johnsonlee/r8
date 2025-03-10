@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static com.google.common.base.Predicates.alwaysFalse;
+
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.TestRuntime.DexRuntime;
@@ -25,10 +27,9 @@ public class TestParametersBuilder {
 
   // Predicate describing which test parameters are applicable to the test.
   // Built via the methods found below. Defaults to no applicable parameters, i.e., the emtpy set.
-  private Predicate<TestParameters> filter = param -> false;
+  private Predicate<TestParameters> filter = alwaysFalse();
+  private Predicate<TestParameters> partialFilter = alwaysFalse();
   private boolean hasDexRuntimeFilter = false;
-  // TODO(b/245066448): Enable bot with testing new art master.
-  private boolean allowMaster = System.getProperty("com.android.tools.r8.artmaster") != null;
 
   TestParametersBuilder() {}
 
@@ -46,8 +47,15 @@ public class TestParametersBuilder {
     return withFilter(
         p ->
             p.isDexRuntime()
-                && (allowMaster || p.getDexRuntimeVersion().isOlderThan(DexVm.Version.MASTER))
+                && p.getDexRuntimeVersion().isOlderThan(DexVm.Version.MASTER)
                 && predicate.test(p.getDexRuntimeVersion()));
+  }
+
+  private TestParametersBuilder withPartialCompilationFilter(
+      Predicate<PartialCompilationTestParameters> predicate) {
+    enablePartialCompilation = true;
+    partialFilter = partialFilter.or(p -> predicate.test(p.getPartialCompilationTestParameters()));
+    return this;
   }
 
   public TestParametersBuilder withNoneRuntime() {
@@ -120,30 +128,9 @@ public class TestParametersBuilder {
     return withCfRuntimeFilter(startInclusive::lessThanOrEqual);
   }
 
-  /** Add all available CF runtimes starting from and excluding {@param startExcluding}. */
-  public TestParametersBuilder withCfRuntimesStartingFromExcluding(CfVm startExcluding) {
-    return withCfRuntimeFilter(startExcluding::lessThan);
-  }
-
-  /** Add all available CF runtimes ending at and including {@param endInclusive}. */
-  public TestParametersBuilder withCfRuntimesEndingAtIncluding(CfVm endInclusive) {
-    return withCfRuntimeFilter(vm -> vm.lessThanOrEqual(endInclusive));
-  }
-
   /** Add all available CF runtimes ending at and excluding {@param endExclusive}. */
   public TestParametersBuilder withCfRuntimesEndingAtExcluding(CfVm endExclusive) {
     return withCfRuntimeFilter(vm -> vm.lessThan(endExclusive));
-  }
-
-  /** Add all available DEX runtimes including master. */
-  public TestParametersBuilder withDexRuntimesIncludingMaster() {
-    this.allowMaster = true;
-    return withDexRuntimes();
-  }
-
-  public TestParametersBuilder allowMaster() {
-    this.allowMaster = true;
-    return this;
   }
 
   /** Add all available DEX runtimes except master. */
@@ -165,11 +152,6 @@ public class TestParametersBuilder {
     return withDexRuntimesStartingFromIncluding(DexVm.Version.V5_1_1);
   }
 
-  /** Add all available DEX runtimes that do not support native multidex. */
-  public TestParametersBuilder withMainDexRuntimes() {
-    return withDexRuntimesEndingAtExcluding(DexVm.Version.V5_1_1);
-  }
-
   /** Add all available DEX runtimes starting from and including {@param startInclusive}. */
   public TestParametersBuilder withDexRuntimesStartingFromIncluding(DexVm.Version startInclusive) {
     return withDexRuntimeFilter(startInclusive::isOlderThanOrEqual);
@@ -181,14 +163,22 @@ public class TestParametersBuilder {
         vm -> vm != startExcluding && startExcluding.isOlderThanOrEqual(vm));
   }
 
-  /** Add all available DEX runtimes ending at and including {@param endInclusive}. */
-  public TestParametersBuilder withDexRuntimesEndingAtIncluding(DexVm.Version endInclusive) {
-    return withDexRuntimeFilter(vm -> vm.isOlderThanOrEqual(endInclusive));
+  public TestParametersBuilder withPartialCompilation() {
+    return withIncludeAllPartialCompilation()
+        .withExcludeAllPartialCompilation()
+        .withRandomPartialCompilation();
   }
 
-  /** Add all available DEX runtimes ending at and excluding {@param endExclusive}. */
-  public TestParametersBuilder withDexRuntimesEndingAtExcluding(DexVm.Version endExclusive) {
-    return withDexRuntimeFilter(vm -> vm != endExclusive && vm.isOlderThanOrEqual(endExclusive));
+  public TestParametersBuilder withIncludeAllPartialCompilation() {
+    return withPartialCompilationFilter(PartialCompilationTestParameters::isIncludeAll);
+  }
+
+  public TestParametersBuilder withExcludeAllPartialCompilation() {
+    return withPartialCompilationFilter(PartialCompilationTestParameters::isExcludeAll);
+  }
+
+  public TestParametersBuilder withRandomPartialCompilation() {
+    return withPartialCompilationFilter(PartialCompilationTestParameters::isRandom);
   }
 
   /**
@@ -202,10 +192,10 @@ public class TestParametersBuilder {
 
   private boolean enableApiLevels = false;
   private boolean enableApiLevelsForCf = false;
+  private boolean enablePartialCompilation = false;
 
   private BiPredicate<AndroidApiLevel, TestRuntime> apiLevelFilter = (api, runtime) -> false;
-  private List<AndroidApiLevel> explicitApiLevels = new ArrayList<>();
-  private List<TestRuntime> customRuntimes = new ArrayList<>();
+  private final List<AndroidApiLevel> explicitApiLevels = new ArrayList<>();
 
   private TestParametersBuilder withApiFilter(BiPredicate<AndroidApiLevel, TestRuntime> filter) {
     enableApiLevels = true;
@@ -243,10 +233,6 @@ public class TestParametersBuilder {
     return withApiFilter((api, runtime) -> startInclusive.getLevel() <= api.getLevel());
   }
 
-  public TestParametersBuilder withApiLevelsStartingAtExcluding(AndroidApiLevel startExclusive) {
-    return withApiFilter((api, runtime) -> startExclusive.getLevel() < api.getLevel());
-  }
-
   public TestParametersBuilder withApiLevelsEndingAtIncluding(AndroidApiLevel endInclusive) {
     return withApiFilter((api, runtime) -> api.getLevel() <= endInclusive.getLevel());
   }
@@ -255,34 +241,52 @@ public class TestParametersBuilder {
     return withApiFilter((api, runtime) -> api.getLevel() < endExclusive.getLevel());
   }
 
-  public TestParametersBuilder withApiLevelsWithoutNativeMultiDex() {
-    return withApiLevelsEndingAtExcluding(AndroidApiLevel.L);
-  }
-
   public TestParametersBuilder apiLevelWithDefaultMethodsSupport() {
     return withApiLevelsStartingAtIncluding(TestBase.apiLevelWithDefaultInterfaceMethodsSupport());
-  }
-
-  public TestParametersBuilder withCustomRuntime(TestRuntime runtime) {
-    assert getUnfilteredAvailableRuntimes().noneMatch(r -> r == runtime);
-    customRuntimes.add(runtime);
-    return this;
   }
 
   public TestParametersCollection build() {
     assert !enableApiLevels || enableApiLevelsForCf || hasDexRuntimeFilter;
     List<TestParameters> availableParameters =
         getAvailableRuntimes()
-            .flatMap(this::createParameters)
+            .flatMap(this::createTestParameters)
             .filter(filter)
             .collect(Collectors.toList());
-    List<TestParameters> customParameters =
-        customRuntimes.stream().flatMap(this::createParameters).collect(Collectors.toList());
-    availableParameters.addAll(customParameters);
     return new TestParametersCollection(availableParameters);
   }
 
-  public Stream<TestParameters> createParameters(TestRuntime runtime) {
+  private Stream<TestParameters> createTestParameters(TestRuntime runtime) {
+    Stream<TestParameters> parameters = createBasicTestParametersForRuntime(runtime);
+    if (enablePartialCompilation) {
+      parameters = createPartialCompilationTestParameters(parameters);
+    }
+    return parameters;
+  }
+
+  private Stream<TestParameters> createPartialCompilationTestParameters(
+      Stream<TestParameters> parameters) {
+    return parameters.flatMap(this::createPartialCompilationTestParameters);
+  }
+
+  private Stream<TestParameters> createPartialCompilationTestParameters(TestParameters parameters) {
+    if (!parameters.isR8PartialTestParameters()) {
+      return Stream.of(parameters);
+    }
+    assert parameters.getPartialCompilationTestParameters().isNone();
+    Stream.Builder<TestParameters> builder = Stream.builder();
+    builder.add(parameters);
+    for (PartialCompilationTestParameters partialCompilationTestParameters :
+        PartialCompilationTestParameters.values()) {
+      TestParameters newParameters =
+          parameters.withPartialCompilationTestParameters(partialCompilationTestParameters);
+      if (partialFilter.test(newParameters)) {
+        builder.add(newParameters);
+      }
+    }
+    return builder.build();
+  }
+
+  private Stream<TestParameters> createBasicTestParametersForRuntime(TestRuntime runtime) {
     if (!enableApiLevels) {
       return Stream.of(new TestParameters(runtime));
     }
@@ -319,14 +323,19 @@ public class TestParametersBuilder {
               .map(
                   api -> {
                     TestParameters parameters =
-                        new TestParameters(runtime, api, representativeApiLevelForRuntime.get());
+                        new TestParameters(
+                            runtime,
+                            api,
+                            PartialCompilationTestParameters.NONE,
+                            representativeApiLevelForRuntime.get());
                     representativeApiLevelForRuntime.unset();
                     return parameters;
                   });
         }
       }
     }
-    return Stream.of(new TestParameters(runtime, lowestApplicable));
+    return Stream.of(
+        new TestParameters(runtime, lowestApplicable, PartialCompilationTestParameters.NONE, true));
   }
 
   // Public method to check that the CF runtime coincides with the system runtime.
@@ -370,19 +379,5 @@ public class TestParametersBuilder {
                   Arrays.stream(runtimeFilters).anyMatch(filter -> runtime.name().equals(filter)));
     }
     return getUnfilteredAvailableRuntimes();
-  }
-
-  public static List<CfVm> getAvailableCfVms() {
-    return getAvailableRuntimes()
-        .filter(TestRuntime::isCf)
-        .map(runtime -> runtime.asCf().getVm())
-        .collect(Collectors.toList());
-  }
-
-  public static List<DexVm> getAvailableDexVms() {
-    return getAvailableRuntimes()
-        .filter(TestRuntime::isDex)
-        .map(runtime -> runtime.asDex().getVm())
-        .collect(Collectors.toList());
   }
 }

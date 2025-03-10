@@ -41,7 +41,7 @@ public class MapMultiTest extends DesugaredLibraryTestBase {
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimesIncludingMaster().withAllApiLevels().build(),
+        getTestParameters().withDexRuntimesAndAllApiLevels().build(),
         // Note that JDK8 is completely broken here.
         ImmutableList.of(JDK11, JDK11_PATH),
         DEFAULT_SPECIFICATIONS);
