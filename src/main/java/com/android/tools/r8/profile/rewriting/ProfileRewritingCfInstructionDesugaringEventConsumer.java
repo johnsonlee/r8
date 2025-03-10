@@ -360,6 +360,8 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
 
   @Override
   public void acceptRecordClassContext(DexProgramClass recordTagClass, ProgramMethod context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(
+        recordTagClass.getProgramDefaultInitializer(), context);
     parent.acceptRecordClassContext(recordTagClass, context);
   }
 
