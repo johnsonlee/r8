@@ -19,6 +19,7 @@ import com.android.tools.r8.keepanno.KeepAnnoTestUtils;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.profile.art.ArtProfileConsumer;
 import com.android.tools.r8.profile.art.ArtProfileProvider;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
@@ -190,7 +191,7 @@ public abstract class R8TestBuilder<
         compileResult.assertOnlyInfos();
         break;
       case NONE:
-        if (allowUnusedProguardConfigurationRules) {
+        if (allowUnusedProguardConfigurationRules || !checkNoUnusedProguardConfigurationRules()) {
           compileResult
               .assertAllInfosMatch(Matchers.proguardConfigurationRuleDoesNotMatch())
               .assertNoErrorMessages()
@@ -207,10 +208,22 @@ public abstract class R8TestBuilder<
     }
     if (allowUnusedProguardConfigurationRules) {
       compileResult.assertInfoThatMatches(Matchers.proguardConfigurationRuleDoesNotMatch());
-    } else {
+    } else if (checkNoUnusedProguardConfigurationRules()) {
       compileResult.assertNoInfoThatMatches(Matchers.proguardConfigurationRuleDoesNotMatch());
     }
     return compileResult;
+  }
+
+  private boolean checkNoUnusedProguardConfigurationRules() {
+    // Allow unused Proguard configuration rules in R8 partial when using a random partitioning.
+    if (isR8PartialTestBuilder()) {
+      R8PartialCompilationConfiguration configuration =
+          asR8PartialTestBuilder().getR8PartialConfiguration();
+      if (configuration != null && configuration.isRandomizeForTestingEnabled()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static StringBuilder wrapProguardMapConsumer(Builder builder) {

@@ -13,6 +13,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.DataResourceProvider.Visitor;
@@ -107,6 +108,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -207,7 +209,47 @@ public class TestBase {
   }
 
   public R8FullTestBuilder testForR8(Backend backend) {
+    assert verifyNoPartialCompilationTestParameters();
     return testForR8(temp, backend);
+  }
+
+  private boolean verifyNoPartialCompilationTestParameters() {
+    try {
+      Class<?> testClass = getClass();
+      for (Field field : testClass.getDeclaredFields()) {
+        if (field.getType() == TestParameters.class) {
+          field.setAccessible(true);
+          TestParameters parameters = (TestParameters) field.get(this);
+          assertTrue(parameters.getPartialCompilationTestParameters().isNone());
+        }
+      }
+    } catch (IllegalAccessException t) {
+      throw new RuntimeException(t);
+    }
+    return true;
+  }
+
+  public R8TestBuilder<?, ?, ?> testForR8(TestParameters parameters) {
+    return testForR8(parameters.getBackend(), parameters.getPartialCompilationTestParameters())
+        .setMinApi(parameters);
+  }
+
+  public R8TestBuilder<?, ?, ?> testForR8(
+      Backend backend, PartialCompilationTestParameters parameters) {
+    if (parameters.isNone()) {
+      return testForR8(backend);
+    }
+    assumeTrue(parameters.isIncludeAll() || parameters.isRandom());
+    return testForR8Partial(backend)
+        .setR8PartialConfiguration(
+            builder -> {
+              if (parameters.isIncludeAll()) {
+                builder.includeAll();
+              } else {
+                assert parameters.isRandom();
+                builder.randomizeForTesting();
+              }
+            });
   }
 
   public R8PartialTestBuilder testForR8Partial(Backend backend) {
@@ -236,6 +278,20 @@ public class TestBase {
 
   public D8TestBuilder testForD8(Backend backend) {
     return testForD8(temp, backend);
+  }
+
+  public TestCompilerBuilder<?, ?, ?, ?, ?> testForD8(TestParameters parameters) {
+    return testForD8(parameters.getBackend(), parameters.getPartialCompilationTestParameters())
+        .setMinApi(parameters);
+  }
+
+  public TestCompilerBuilder<?, ?, ?, ?, ?> testForD8(
+      Backend backend, PartialCompilationTestParameters partialCompilationTestParameters) {
+    if (partialCompilationTestParameters.isNone()) {
+      return testForD8(backend);
+    }
+    assumeTrue(partialCompilationTestParameters.isExcludeAll());
+    return testForR8Partial(backend).setR8PartialConfiguration(builder -> builder.excludeAll());
   }
 
   public AssistantTestBuilder testForAssistant() {

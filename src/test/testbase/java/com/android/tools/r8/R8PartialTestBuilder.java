@@ -67,6 +67,10 @@ public class R8PartialTestBuilder
     return this;
   }
 
+  R8PartialCompilationConfiguration getR8PartialConfiguration() {
+    return r8PartialConfiguration;
+  }
+
   public R8PartialTestBuilder setR8PartialConfiguration(
       Consumer<R8PartialCompilationConfiguration.Builder> consumer) {
     assert r8PartialConfiguration.equals(R8PartialCompilationConfiguration.disabledConfiguration())

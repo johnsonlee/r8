@@ -18,6 +18,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.google.common.base.Splitter;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Random;
 import java.util.function.Consumer;
 
 public class R8PartialCompilationConfiguration {
@@ -25,22 +26,25 @@ public class R8PartialCompilationConfiguration {
   private final boolean enabled;
   private final R8PartialPredicateCollection includePredicates;
   private final R8PartialPredicateCollection excludePredicates;
+  private final Random randomizeForTesting;
 
   public Consumer<InternalOptions> d8DexOptionsConsumer = ConsumerUtils.emptyConsumer();
   public Consumer<InternalOptions> r8OptionsConsumer = ConsumerUtils.emptyConsumer();
 
   private static final R8PartialCompilationConfiguration disabledConfiguration =
-      new R8PartialCompilationConfiguration(false, null, null);
+      new R8PartialCompilationConfiguration(false, null, null, null);
 
   private R8PartialCompilationConfiguration(
       boolean enabled,
       R8PartialPredicateCollection includePredicates,
-      R8PartialPredicateCollection excludePredicates) {
+      R8PartialPredicateCollection excludePredicates,
+      Random randomizeForTesting) {
     assert !enabled || !includePredicates.isEmpty();
     assert !enabled || excludePredicates != null;
     this.enabled = enabled;
     this.includePredicates = includePredicates;
     this.excludePredicates = excludePredicates;
+    this.randomizeForTesting = randomizeForTesting;
   }
 
   public R8PartialPredicateCollection getIncludePredicates() {
@@ -52,6 +56,9 @@ public class R8PartialCompilationConfiguration {
   }
 
   public boolean test(DexProgramClass clazz) {
+    if (randomizeForTesting != null) {
+      return randomizeForTesting.nextBoolean();
+    }
     return includePredicates.test(clazz) && !excludePredicates.test(clazz);
   }
 
@@ -83,17 +90,22 @@ public class R8PartialCompilationConfiguration {
     return enabled;
   }
 
+  public boolean isRandomizeForTestingEnabled() {
+    return randomizeForTesting != null;
+  }
+
   public static class Builder {
     private final R8PartialPredicateCollection includePredicates =
         new R8PartialPredicateCollection();
     private final R8PartialPredicateCollection excludePredicates =
         new R8PartialPredicateCollection();
+    private Random randomizeForTesting;
 
     private Builder() {}
 
     public R8PartialCompilationConfiguration build() {
       return new R8PartialCompilationConfiguration(
-          !includePredicates.isEmpty(), includePredicates, excludePredicates);
+          !includePredicates.isEmpty(), includePredicates, excludePredicates, randomizeForTesting);
     }
 
     public Builder includeAll() {
@@ -103,6 +115,14 @@ public class R8PartialCompilationConfiguration {
 
     public Builder excludeAll() {
       excludePredicates.add(new AllClassesMatcher());
+      return this;
+    }
+
+    public Builder randomizeForTesting() {
+      randomizeForTesting = new Random();
+      long seed = System.currentTimeMillis();
+      randomizeForTesting.setSeed(seed);
+      System.out.println("Partial compilation seed: " + seed);
       return this;
     }
 
