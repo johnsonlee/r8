@@ -53,14 +53,17 @@ def branch_version_less_than(b1, b2):
         return True
     return False
 
-
 # Find all release branches between OLDEST_BRANCH and DEV_BRANCH
 def get_release_branches():
     # Release branches are assumed to be of the form 'origin/X.Y'
     out = run_cmd(['git', 'branch', '-r', '-l'])
-    pattern = re.compile('origin/(\d+).(\d+)')
+    natsort = lambda s: [int(t) if t.isdigit() else t.lower()
+                         for t in re.split(r'(\d+)', s)]
+    lines = sorted(out.split('\n'), key=natsort)
+    pattern = re.compile(r'origin/(\d+).(\d+)')
     releases = []
-    for line in out.split('\n'):
+
+    for line in lines:
         m = pattern.search(line.strip())
         if m:
             major = m.group(1)
