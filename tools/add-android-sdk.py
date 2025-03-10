@@ -64,15 +64,23 @@ def main():
         print('Path %s does not exist' % source)
         sys.exit(1)
 
-    api_level = -1
+    api_level = args.api_level if args.api_level else args.sdk_name
+    api_level_major = -1
+    api_level_minor = 0
     try:
-        api_level = int(args.api_level if args.api_level else args.sdk_name)
-    except:
-        print('API level "%s" must be an integer'
-            % (args.api_level if args.api_level else args.sdk_name))
-        sys.exit(1)
+        api_level_parts = api_level.split('.')
+        if len(api_level_parts) > 2:
+            print('API level "%s" must be minor[.major]' % api_level)
+            return -1
 
-    destination = utils.get_android_jar_dir(api_level)
+        api_level_major = int(api_level_parts[0])
+        if len(api_level_parts) == 2:
+            api_level_minor = int(api_level_parts[1])
+    except:
+        print('API level "%s" must be minor[.major]' % api_level)
+        return -1
+
+    destination = utils.get_android_jar_dir(api_level_major, api_level_minor)
 
     # Remove existing if present.
     shutil.rmtree(destination, ignore_errors=True)
@@ -102,6 +110,7 @@ def main():
           ' if this is a new dependency.')
     print('Run main method in AndroidApiHashingDatabaseBuilderGeneratorTest'
         ' to generate the API database.')
+
 
 if __name__ == '__main__':
     sys.exit(main())

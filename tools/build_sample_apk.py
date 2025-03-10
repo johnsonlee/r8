@@ -134,7 +134,7 @@ def run_aapt_pack(aapt, api, app):
     with utils.ChangedWorkingDirectory(get_sample_dir(app)):
         args = [
             'package', '-v', '-f', '-I',
-            utils.get_android_jar(api), '-M', 'AndroidManifest.xml', '-A',
+            utils.get_android_jar(api, 0), '-M', 'AndroidManifest.xml', '-A',
             'assets', '-S', 'res', '-m', '-J',
             get_gen_path(app), '-F',
             os.path.join(get_bin_path(app), 'resources.ap_'), '-G',
@@ -147,7 +147,7 @@ def run_aapt_split_pack(aapt, api, app):
     with utils.ChangedWorkingDirectory(get_sample_dir(app)):
         args = [
             'package', '-v', '-f', '-I',
-            utils.get_android_jar(api), '-M',
+            utils.get_android_jar(api, 0), '-M',
             'split_manifest/AndroidManifest.xml', '-S', 'res', '-F',
             os.path.join(get_bin_path(app), 'split_resources.ap_')
         ]
@@ -157,7 +157,7 @@ def run_aapt_split_pack(aapt, api, app):
 def compile_with_javac(api, app):
     with utils.ChangedWorkingDirectory(get_sample_dir(app)):
         files = glob.glob(SRC_LOCATION.format(app=app))
-        classpath = '%s:%s' % (utils.get_android_jar(api), get_guava_jar())
+        classpath = '%s:%s' % (utils.get_android_jar(api, 0), get_guava_jar())
         command = [
             DEFAULT_JAVAC, '-classpath', classpath, '-sourcepath',
             '%s:%s:%s' %
@@ -177,7 +177,7 @@ def dex(app, api):
     command = [
         DEFAULT_D8, '--', '--output',
         get_bin_path(app), '--classpath',
-        utils.get_android_jar(api), '--min-api',
+        utils.get_android_jar(api, 0), '--min-api',
         str(api)
     ]
     command.extend(files)

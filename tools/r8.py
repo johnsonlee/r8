@@ -56,7 +56,7 @@ def main(argv):
     (options, args) = ParseOptions(sys.argv)
     r8_args = args[1:]
     if options.lib_android:
-        r8_args.extend(['--lib', utils.get_android_jar(options.lib_android)])
+        r8_args.extend(['--lib', utils.get_android_jar(options.lib_android, 0)])
     if options.lib_rt:
         r8_args.extend(['--lib', utils.RT_JAR])
     time_consumer = lambda duration: print_duration(duration, options)

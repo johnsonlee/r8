@@ -724,13 +724,22 @@ def check_java_version():
     if m is not None:
         raise Exception("Do not use google JVM for benchmarking: " + version)
 
+def api_str(api_level_major, api_level_minor):
+    api = str(api_level_major)
+    if api_level_minor > 0:
+        api = api + '.' + str(api_level_minor)
+    return api
 
-def get_android_jar_dir(api):
-    return os.path.join(REPO_ROOT, ANDROID_JAR_DIR.format(api=api))
+def get_android_jar_dir(api_level_major, api_level_minor):
+    return os.path.join(
+        REPO_ROOT,
+        ANDROID_JAR_DIR.format(api=api_str(api_level_major, api_level_minor)))
 
 
-def get_android_jar(api):
-    return os.path.join(REPO_ROOT, ANDROID_JAR.format(api=api))
+def get_android_jar(api_level_major, api_level_minor):
+    return os.path.join(
+        REPO_ROOT,
+        ANDROID_JAR.format(api=api_str(api_level_major, api_level_minor)))
 
 
 def is_bot():

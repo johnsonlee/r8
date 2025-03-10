@@ -12,7 +12,7 @@ V20180926_BASE = os.path.join(BASE, 'nest_20180926_7c6cfb')
 
 # NOTE: we always use android.jar for SDK v25, later we might want to revise it
 #       to use proper android.jar version for each of nest version separately.
-ANDROID_JAR = utils.get_android_jar(25)
+ANDROID_JAR = utils.get_android_jar(25, 0)
 
 VERSIONS = {
     '20180926': {

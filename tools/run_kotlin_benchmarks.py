@@ -95,7 +95,7 @@ def Main():
         benchmark_jar = get_jar_for_benchmark(options.benchmark)
         r8_args = [
             '--lib',
-            utils.get_android_jar(26),  # Only works with api 26
+            utils.get_android_jar(26, 0),  # Only works with api 26
             '--output',
             dex_path,
             '--pg-conf',
