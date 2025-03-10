@@ -303,12 +303,12 @@ public class TestParameters {
     return (isDexRuntime() || representativeApiLevelForRuntime) && !isNoneRuntime();
   }
 
-  public TestParameters assumeR8PartialTestParameters() {
-    assumeTrue(isR8PartialTestParameters());
+  public TestParameters assumeCanUseR8Partial() {
+    assumeTrue(canUseR8Partial());
     return this;
   }
 
-  public boolean isR8PartialTestParameters() {
+  public boolean canUseR8Partial() {
     return isDexRuntime() && apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L);
   }
 

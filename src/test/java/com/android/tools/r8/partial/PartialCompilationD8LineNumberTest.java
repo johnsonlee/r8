@@ -57,7 +57,7 @@ public class PartialCompilationD8LineNumberTest extends TestBase {
 
   @Test
   public void test() throws Throwable {
-    parameters.assumeR8PartialTestParameters();
+    parameters.assumeCanUseR8Partial();
     R8PartialTestCompileResult compileResult =
         testForR8Partial(parameters.getBackend())
             .addR8IncludedClasses(IncludedClass.class)

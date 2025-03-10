@@ -30,7 +30,7 @@ public class PartialCompilationKeepAllowObfuscationBoundaryTest extends TestBase
 
   @Test
   public void test() throws Exception {
-    parameters.assumeR8PartialTestParameters();
+    parameters.assumeCanUseR8Partial();
     testForR8Partial(parameters.getBackend())
         .addR8IncludedClasses(IncludedClass.class)
         .addR8ExcludedClasses(Main.class)

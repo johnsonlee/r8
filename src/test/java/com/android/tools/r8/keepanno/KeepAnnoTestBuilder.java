@@ -57,7 +57,7 @@ public abstract class KeepAnnoTestBuilder {
       case R8_PARTIAL_DIRECT:
       case R8_PARTIAL_NORMALIZED:
       case R8_PARTIAL_RULES:
-        params.parameters().assumeR8PartialTestParameters();
+        params.parameters().assumeCanUseR8Partial();
         return new R8PartialNativeBuilder(params, keepAnnotationLibrary, temp);
       case R8_LEGACY:
         return new R8LegacyBuilder(params, keepAnnotationLibrary, temp);

@@ -88,7 +88,7 @@ public class CompilerDumpTest extends CompilationTestBase {
 
   @Test
   public void testR8Partial() throws Exception {
-    parameters.assumeR8PartialTestParameters();
+    parameters.assumeCanUseR8Partial();
     // Create an R8 partial dump.
     Path dumpDirectory = temp.newFolder().toPath();
     DumpInputFlags dumpInputFlags = DumpInputFlags.dumpToDirectory(dumpDirectory);

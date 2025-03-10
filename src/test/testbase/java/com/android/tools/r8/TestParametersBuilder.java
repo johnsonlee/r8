@@ -269,7 +269,7 @@ public class TestParametersBuilder {
   }
 
   private Stream<TestParameters> createPartialCompilationTestParameters(TestParameters parameters) {
-    if (!parameters.isR8PartialTestParameters()) {
+    if (!parameters.canUseR8Partial()) {
       return Stream.of(parameters);
     }
     assert parameters.getPartialCompilationTestParameters().isNone();

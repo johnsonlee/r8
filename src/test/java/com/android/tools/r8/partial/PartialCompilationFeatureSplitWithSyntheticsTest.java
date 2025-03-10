@@ -30,7 +30,7 @@ public class PartialCompilationFeatureSplitWithSyntheticsTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    parameters.assumeR8PartialTestParameters();
+    parameters.assumeCanUseR8Partial();
     testForR8Partial(parameters.getBackend())
         .addProgramClasses(Main.class, IncludedBaseClass.class, ExcludedBaseClass.class)
         .addKeepRules("-keepclassmembers class * { java.lang.Runnable createRunnable(); }")

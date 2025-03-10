@@ -137,7 +137,7 @@ public class SourceFileTemplateTest extends TestBase {
       String template, ThrowingConsumer<CodeInspector, E> inspection) throws Exception {
     R8TestBuilder<?, ?, ?> builder;
     if (enablePartialCompilation) {
-      parameters.assumeR8PartialTestParameters();
+      parameters.assumeCanUseR8Partial();
       builder = testForR8Partial(parameters.getBackend()).addR8IncludedClasses(TestClass.class);
     } else {
       builder = testForR8(parameters.getBackend()).addProgramClasses(TestClass.class);

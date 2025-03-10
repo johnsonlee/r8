@@ -25,7 +25,7 @@ public class PartialCompilationIfD8ClassPresentTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    parameters.assumeR8PartialTestParameters();
+    parameters.assumeCanUseR8Partial();
     testForR8Partial(parameters.getBackend())
         .addR8IncludedClasses(Main.class)
         .addR8ExcludedClasses(ExcludedClass.class)

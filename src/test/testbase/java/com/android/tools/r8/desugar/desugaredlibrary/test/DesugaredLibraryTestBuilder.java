@@ -101,7 +101,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     parameters.assumeDexRuntime();
     if (compilationSpecification.isProgramShrink()) {
       if (compilationSpecification == CompilationSpecification.R8_PARTIAL_INCLUDE_L8SHRINK) {
-        parameters.assumeR8PartialTestParameters();
+        parameters.assumeCanUseR8Partial();
         return test.testForR8Partial(parameters.getBackend())
             .setR8PartialConfiguration(Builder::includeAll);
       } else {
@@ -109,7 +109,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       }
     } else {
       if (compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK) {
-        parameters.assumeR8PartialTestParameters();
+        parameters.assumeCanUseR8Partial();
         return test.testForR8Partial(parameters.getBackend())
             .setR8PartialConfiguration(Builder::excludeAll);
       } else {
