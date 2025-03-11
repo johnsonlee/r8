@@ -132,8 +132,9 @@ public class ConstantCanonicalizer {
         // cant split the block and copy the catch handlers, since the canonicalized constant would
         // then not be defined on the exceptional edge.
         Value object = instanceGet.object();
-        if (!object.isDefinedByInstructionSatisfying(Instruction::instructionTypeCanThrow)
-            && object.getBlock().hasCatchHandlers()) {
+        if (!object.hasBlock()
+            || (!object.isDefinedByInstructionSatisfying(Instruction::instructionTypeCanThrow)
+                && object.getBlock().hasCatchHandlers())) {
           ineligibleInstanceGetInstructions.add(instanceGet);
         }
       }
