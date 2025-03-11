@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package timeunit;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
@@ -16,9 +16,10 @@ import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpeci
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -31,10 +32,8 @@ public class TimeUnitTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA11_JAR_DIR + "timeunit.jar");
   private static final String EXPECTED_OUTPUT = StringUtils.lines("Nanos", "0");
-  private static final String MAIN_CLASS = "timeunit.Example";
+  private static final Class<?> MAIN_CLASS = Example.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -56,10 +55,19 @@ public class TimeUnitTest extends DesugaredLibraryTestBase {
   @Test
   public void test() throws Exception {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClassesAndStrippedOuter(getClass())
         .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .addKeepMainRule(MAIN_CLASS)
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  public static class Example {
+
+    public static void main(String[] args) {
+      TimeUnit timeUnit = TimeUnit.of(ChronoUnit.NANOS);
+      System.out.println(timeUnit.toChronoUnit());
+      System.out.println(timeUnit.convert(Duration.ZERO));
+    }
   }
 }
