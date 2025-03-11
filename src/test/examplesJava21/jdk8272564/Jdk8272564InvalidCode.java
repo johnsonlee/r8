@@ -2,13 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.jdk8272564;
+package jdk8272564;
 
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
+import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -25,7 +26,7 @@ public class Jdk8272564InvalidCode extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
-        .withCfRuntimes()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK21)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
         .build();
@@ -52,6 +53,7 @@ public class Jdk8272564InvalidCode extends TestBase {
   public void testDesugaring() throws Exception {
     assumeTrue(parameters.isDexRuntime() || isDefaultCfParameters());
     testForDesugaring(parameters)
+        .addStrippedOuter(getClass())
         .addProgramClasses(I.class)
         .addProgramClassFileData(getTransformedClass())
         .run(parameters.getRuntime(), A.class)
@@ -67,6 +69,7 @@ public class Jdk8272564InvalidCode extends TestBase {
     parameters.assumeR8TestParameters();
     // The R8 lens code rewriter rewrites to the code prior to fixing JDK-8272564.
     testForR8(parameters.getBackend())
+        .addStrippedOuter(getClass())
         .addProgramClasses(I.class)
         .addProgramClassFileData(getTransformedClass())
         .setMinApi(parameters)

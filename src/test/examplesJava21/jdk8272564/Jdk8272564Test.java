@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.jdk8272564;
+package jdk8272564;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -12,10 +12,13 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
-import com.android.tools.r8.examples.jdk18.jdk8272564.Jdk8272564;
+import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -41,13 +44,13 @@ public class Jdk8272564Test extends TestBase {
   private void assertJdk8272564FixedCode(CodeInspector inspector) {
     assertTrue(
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("f")
             .streamInstructions()
             .noneMatch(InstructionSubject::isInvokeVirtual));
     assertTrue(
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("g")
             .streamInstructions()
             .noneMatch(InstructionSubject::isInvokeVirtual));
@@ -59,7 +62,7 @@ public class Jdk8272564Test extends TestBase {
     assertEquals(
         1,
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("f")
             .streamInstructions()
             .filter(InstructionSubject::isInvokeInterface)
@@ -67,7 +70,7 @@ public class Jdk8272564Test extends TestBase {
     assertEquals(
         2,
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("f")
             .streamInstructions()
             .filter(InstructionSubject::isInvokeVirtual)
@@ -75,7 +78,7 @@ public class Jdk8272564Test extends TestBase {
     assertEquals(
         2,
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("g")
             .streamInstructions()
             .filter(InstructionSubject::isInvokeInterface)
@@ -83,7 +86,7 @@ public class Jdk8272564Test extends TestBase {
     assertEquals(
         2,
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("g")
             .streamInstructions()
             .filter(InstructionSubject::isInvokeInterface)
@@ -91,7 +94,7 @@ public class Jdk8272564Test extends TestBase {
     assertEquals(
         invokeVirtualCount,
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("g")
             .streamInstructions()
             .filter(InstructionSubject::isInvokeVirtual)
@@ -99,7 +102,7 @@ public class Jdk8272564Test extends TestBase {
     assertEquals(
         getClassCount,
         inspector
-            .clazz(Jdk8272564.Main.typeName())
+            .clazz(Main.class)
             .uniqueMethodWithOriginalName("g")
             .streamInstructions()
             .filter(InstructionSubject::isInvoke)
@@ -123,24 +126,32 @@ public class Jdk8272564Test extends TestBase {
   // See https://bugs.openjdk.java.net/browse/JDK-8272564.
   public void testJdk8272564Compiler() throws Exception {
     assumeTrue(isDefaultCfParameters());
+    AndroidApp build =
+        AndroidApp.builder()
+            .addProgramFiles(ToolHelper.getClassFileForTestClass(Main.class))
+            .build();
     // Ensure that the test is running with CF input from fixing JDK-8272564.
-    assertJdk8272564FixedCode(new CodeInspector(Jdk8272564.jar()));
+    assertJdk8272564FixedCode(new CodeInspector(build));
+  }
+
+  private static List<Class<?>> getInput() {
+    return ImmutableList.of(A.class, B.class, C.class, I.class, J.class, K.class, Main.class);
   }
 
   @Test
   public void testJvm() throws Exception {
     assumeTrue(isDefaultCfParameters());
     testForJvm(parameters)
-        .addRunClasspathFiles(Jdk8272564.jar())
-        .run(parameters.getRuntime(), Jdk8272564.Main.typeName())
+        .addProgramClasses(getInput())
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccess();
   }
 
   @Test
   public void testD8() throws Exception {
     testForDesugaring(parameters)
-        .addProgramFiles(Jdk8272564.jar())
-        .run(parameters.getRuntime(), Jdk8272564.Main.typeName())
+        .addProgramClasses(getInput())
+        .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.isDexRuntime() && parameters.getApiLevel().isLessThan(AndroidApiLevel.U),
             b -> b.inspect(this::assertJdk8272564NotFixedCode),
@@ -153,11 +164,11 @@ public class Jdk8272564Test extends TestBase {
     parameters.assumeR8TestParameters();
     // The R8 lens code rewriter rewrites to the code prior to fixing JDK-8272564.
     testForR8(parameters.getBackend())
-        .addProgramFiles(Jdk8272564.jar())
+        .addProgramClasses(getInput())
         .setMinApi(parameters)
         .addDontShrink()
-        .addKeepClassAndMembersRules(Jdk8272564.Main.typeName())
-        .run(parameters.getRuntime(), Jdk8272564.Main.typeName())
+        .addKeepClassAndMembersRules(Main.class)
+        .run(parameters.getRuntime(), Main.class)
         .inspect(this::assertJdk8272564NotFixedCodeR8)
         .assertSuccess();
   }
