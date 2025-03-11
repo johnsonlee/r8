@@ -2,14 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package file;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
@@ -19,8 +18,11 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,9 +36,8 @@ public class FilesJava11Test extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA11_JAR_DIR + "file.jar");
   private static final String EXPECTED_OUTPUT = StringUtils.lines("content:this", "content:this");
-  private static final String MAIN_CLASS = "file.FilesMain";
+  private static final Class<?> MAIN_CLASS = FilesMain.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -62,7 +63,7 @@ public class FilesJava11Test extends DesugaredLibraryTestBase {
   @Test
   public void test() throws Exception {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(MAIN_CLASS)
         .compile()
         .withArt6Plus64BitsLib()
@@ -91,5 +92,17 @@ public class FilesJava11Test extends DesugaredLibraryTestBase {
                 }
               }
             });
+  }
+
+  public static class FilesMain {
+
+    public static void main(String[] args) throws IOException {
+      Path temp = Files.createTempFile("temp", ".txt");
+      Files.writeString(temp, "content:", StandardOpenOption.WRITE);
+      Files.writeString(temp, "this", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+      System.out.println(Files.readString(temp));
+      System.out.println(Files.readString(temp, StandardCharsets.UTF_8));
+      Files.deleteIfExists(temp);
+    }
   }
 }
