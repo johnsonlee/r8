@@ -17,6 +17,8 @@ import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfLoad;
 import com.android.tools.r8.cf.code.CfReturn;
 import com.android.tools.r8.cf.code.CfReturnVoid;
+import com.android.tools.r8.cf.code.CfStackInstruction;
+import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -121,21 +123,25 @@ public class EmulateDispatchSyntheticCfCodeProvider extends SyntheticCfCodeProvi
     if (dispatchType == ALL_STATIC
         || appView.getSyntheticItems().isSynthetic(method.getHolderType())) {
       instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, method, false));
-      return;
-    }
-    assert dispatchType == AUTO_CLOSEABLE;
-    // The type method.getHolderType() may not resolve if compiled without android library, for
-    // example, with the jdk as android.jar.
-    if (method
-        .getHolderType()
-        .isIdenticalTo(appView.dexItemFactory().javaUtilConcurrentExecutorServiceType)) {
-      assert appView.definitionFor(method.getHolderType()) == null
-          || appView.definitionFor(method.getHolderType()).isInterface();
-      instructions.add(new CfInvoke(Opcodes.INVOKEINTERFACE, method, true));
     } else {
-      assert appView.definitionFor(method.getHolderType()) == null
-          || !appView.definitionFor(method.getHolderType()).isInterface();
-      instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, method, false));
+      assert dispatchType == AUTO_CLOSEABLE;
+      // The type method.getHolderType() may not resolve if compiled without android library, for
+      // example, with the jdk as android.jar.
+      if (method
+          .getHolderType()
+          .isIdenticalTo(appView.dexItemFactory().javaUtilConcurrentExecutorServiceType)) {
+        assert appView.definitionFor(method.getHolderType()) == null
+            || appView.definitionFor(method.getHolderType()).isInterface();
+        instructions.add(new CfInvoke(Opcodes.INVOKEINTERFACE, method, true));
+      } else {
+        assert appView.definitionFor(method.getHolderType()) == null
+            || !appView.definitionFor(method.getHolderType()).isInterface();
+        instructions.add(new CfInvoke(Opcodes.INVOKEVIRTUAL, method, false));
+      }
+    }
+    if (interfaceMethod.getReturnType().isVoidType() && !method.getReturnType().isVoidType()) {
+      Opcode opcode = method.getReturnType().isWideType() ? Opcode.Pop2 : Opcode.Pop;
+      instructions.add(new CfStackInstruction(opcode));
     }
   }
 
