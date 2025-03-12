@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package backport;
+package com.android.tools.r8.jdk10.backport;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -10,13 +10,13 @@ import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.backports.AbstractBackportTest;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import java.util.NoSuchElementException;
-import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public final class OptionalDoubleBackportJava10Test extends AbstractBackportTest {
+public final class OptionalLongBackportJava10Test extends AbstractBackportTest {
   @Parameters(name = "{0}")
   public static Iterable<?> data() {
     return getTestParameters()
@@ -27,30 +27,30 @@ public final class OptionalDoubleBackportJava10Test extends AbstractBackportTest
         .build();
   }
 
-  public OptionalDoubleBackportJava10Test(TestParameters parameters) {
-    super(parameters, OptionalDouble.class, OptionalDoubleBackportJava10Main.class);
+  public OptionalLongBackportJava10Test(TestParameters parameters) {
+    super(parameters, OptionalLong.class, OptionalLongBackportJava10Main.class);
     // Note: The methods in this test exist in android.jar from Android T. When R8 builds targeting
     // Java 11 move these tests to OptionalBackportTest (out of examplesJava10).
 
     // Available since N.
     ignoreInvokes("empty");
-    ignoreInvokes("getAsDouble");
+    ignoreInvokes("getAsLong");
     ignoreInvokes("of");
 
     registerTarget(AndroidApiLevel.T, 2);
   }
 
-  public static class OptionalDoubleBackportJava10Main {
+  public static class OptionalLongBackportJava10Main {
 
     public static void main(String[] args) {
       testOrElseThrow();
     }
 
     private static void testOrElseThrow() {
-      OptionalDouble present = OptionalDouble.of(2d);
-      assertEquals(2d, present.orElseThrow());
+      OptionalLong present = OptionalLong.of(2L);
+      assertEquals(2L, present.orElseThrow());
 
-      OptionalDouble absent = OptionalDouble.empty();
+      OptionalLong absent = OptionalLong.empty();
       try {
         throw new AssertionError(absent.orElseThrow());
       } catch (NoSuchElementException expected) {

@@ -58,7 +58,6 @@ tasks {
     dependsOn(gradle.includedBuild("tests_bootstrap").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_8").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_9").task(":clean"))
-    dependsOn(gradle.includedBuild("tests_java_10").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_11").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_17").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_21").task(":clean"))

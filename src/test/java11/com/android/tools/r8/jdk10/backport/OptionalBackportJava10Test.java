@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package backport;
+package com.android.tools.r8.jdk10.backport;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -10,13 +10,13 @@ import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.backports.AbstractBackportTest;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import java.util.NoSuchElementException;
-import java.util.OptionalInt;
+import java.util.Optional;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public final class OptionalIntBackportJava10Test extends AbstractBackportTest {
+public final class OptionalBackportJava10Test extends AbstractBackportTest {
   @Parameters(name = "{0}")
   public static Iterable<?> data() {
     return getTestParameters()
@@ -27,30 +27,30 @@ public final class OptionalIntBackportJava10Test extends AbstractBackportTest {
         .build();
   }
 
-  public OptionalIntBackportJava10Test(TestParameters parameters) {
-    super(parameters, OptionalInt.class, OptionalIntBackportJava10Main.class);
+  public OptionalBackportJava10Test(TestParameters parameters) {
+    super(parameters, Optional.class, OptionalBackportJava10Main.class);
     // Note: The methods in this test exist in android.jar from Android T. When R8 builds targeting
     // Java 11 move these tests to OptionalBackportTest (out of examplesJava10).
 
     // Available since N.
     ignoreInvokes("empty");
-    ignoreInvokes("getAsInt");
+    ignoreInvokes("get");
     ignoreInvokes("of");
 
     registerTarget(AndroidApiLevel.T, 2);
   }
 
-  public static class OptionalIntBackportJava10Main {
+  public static class OptionalBackportJava10Main {
 
     public static void main(String[] args) {
       testOrElseThrow();
     }
 
     private static void testOrElseThrow() {
-      OptionalInt present = OptionalInt.of(2);
-      assertEquals(2, present.orElseThrow());
+      Optional<String> present = Optional.of("hey");
+      assertEquals("hey", present.orElseThrow());
 
-      OptionalInt absent = OptionalInt.empty();
+      Optional<String> absent = Optional.empty();
       try {
         throw new AssertionError(absent.orElseThrow());
       } catch (NoSuchElementException expected) {

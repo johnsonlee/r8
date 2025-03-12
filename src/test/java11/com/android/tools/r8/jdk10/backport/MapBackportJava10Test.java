@@ -2,20 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package backport;
+package com.android.tools.r8.jdk10.backport;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.desugar.backports.AbstractBackportTest;
 import com.android.tools.r8.utils.AndroidApiLevel;
-import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class ListBackportJava10Test extends AbstractBackportTest {
+public class MapBackportJava10Test extends AbstractBackportTest {
   @Parameters(name = "{0}")
   public static Iterable<?> data() {
     return getTestParameters()
@@ -25,64 +25,79 @@ public class ListBackportJava10Test extends AbstractBackportTest {
         .build();
   }
 
-  public ListBackportJava10Test(TestParameters parameters) {
-    super(parameters, List.class, ListBackportJava10Main.class);
+  public MapBackportJava10Test(TestParameters parameters) {
+    super(parameters, Map.class, MapBackportJava10Main.class);
     // Note: None of the methods in this test exist in the latest android.jar. If/when they ship in
-    // an actual API level, migrate these tests to ListBackportTest.
+    // an actual API level, migrate these tests to MapBackportTest.
 
-    // Available since API 1 and used to test created lists.
-    ignoreInvokes("add");
+    // Available since API 1 and used to test created maps.
+    ignoreInvokes("entrySet");
     ignoreInvokes("get");
-    ignoreInvokes("set");
+    ignoreInvokes("put");
     ignoreInvokes("size");
 
-    // List.copyOf added in API 31.
-    registerTarget(AndroidApiLevel.S, 3);
+    // Map.copyOf added in API 31.
+    registerTarget(AndroidApiLevel.S, 4);
   }
 
-  public static class ListBackportJava10Main {
+  public static class MapBackportJava10Main {
 
     public static void main(String[] args) {
       testCopyOf();
     }
 
     private static void testCopyOf() {
-      Object anObject0 = new Object();
-      Object anObject1 = new Object();
-      List<Object> original = Arrays.asList(anObject0, anObject1);
-      List<Object> copy = List.copyOf(original);
+      Object key0 = new Object();
+      Object value0 = new Object();
+      Object key1 = new Object();
+      Object value1 = new Object();
+      Map<Object, Object> original = new HashMap<>();
+      original.put(key0, value0);
+      original.put(key1, value1);
+      Map<Object, Object> copy = Map.copyOf(original);
       assertEquals(2, copy.size());
       assertEquals(original, copy);
-      assertSame(anObject0, copy.get(0));
-      assertSame(anObject1, copy.get(1));
+      assertSame(value0, copy.get(key0));
+      assertSame(value1, copy.get(key1));
       assertMutationNotAllowed(copy);
 
       // Mutate the original backing collection and ensure it's not reflected in copy.
-      original.set(0, new Object());
-      assertSame(anObject0, copy.get(0));
+      original.put(key0, new Object());
+      assertSame(value0, copy.get(key0));
 
       try {
-        List.copyOf(null);
+        Map.copyOf(null);
         throw new AssertionError();
       } catch (NullPointerException expected) {
       }
       try {
-        List.copyOf(Arrays.asList(1, null, 2));
+        Map<Object, Object> map = new HashMap<>();
+        map.put(null, new Object());
+        Map.copyOf(map);
+        throw new AssertionError();
+      } catch (NullPointerException expected) {
+      }
+      try {
+        Map<Object, Object> map = new HashMap<>();
+        map.put(new Object(), null);
+        Map.copyOf(map);
         throw new AssertionError();
       } catch (NullPointerException expected) {
       }
     }
 
-    private static void assertMutationNotAllowed(List<Object> ofObject) {
+    private static void assertMutationNotAllowed(Map<Object, Object> ofObject) {
       try {
-        ofObject.add(new Object());
+        ofObject.put(new Object(), new Object());
         throw new AssertionError();
       } catch (UnsupportedOperationException expected) {
       }
-      try {
-        ofObject.set(0, new Object());
-        throw new AssertionError();
-      } catch (UnsupportedOperationException expected) {
+      for (Map.Entry<Object, Object> entry : ofObject.entrySet()) {
+        try {
+          entry.setValue(new Object());
+          throw new AssertionError();
+        } catch (UnsupportedOperationException expected) {
+        }
       }
     }
 
