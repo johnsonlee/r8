@@ -9,6 +9,7 @@ import os
 
 import create_maven_release
 import gradle
+from timing import Timing
 
 try:
     import resource
@@ -112,14 +113,42 @@ def GetMavenUrl(is_main):
 
 
 def SetRLimitToMax():
+    if not utils.is_bot() or utils.IsWindows():
+        return
     (soft, hard) = resource.getrlimit(resource.RLIMIT_NOFILE)
     resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 
 def PrintResourceInfo():
+    if utils.IsWindows():
+        return
     (soft, hard) = resource.getrlimit(resource.RLIMIT_NOFILE)
     print('INFO: Open files soft limit: %s' % soft)
     print('INFO: Open files hard limit: %s' % hard)
+
+
+# Ensure all archived artifacts has been built before archiving.
+# The target tasks postfixed by 'lib' depend on the actual target task so
+# building it invokes the original task first.
+# The '-Pno_internal' flag is important because we generate the lib based on uses in tests.
+def RunGradleBuild(options, timing):
+    if options.skip_gradle_build:
+        return
+    timing.begin("Run gradle build")
+    gradle.RunGradle([
+        utils.GRADLE_TASK_CONSOLIDATED_LICENSE,
+        utils.GRADLE_TASK_KEEP_ANNO_JAR,
+        utils.GRADLE_TASK_KEEP_ANNO_DOC,
+        utils.GRADLE_TASK_KEEP_ANNO_LEGACY_JAR,
+        utils.GRADLE_TASK_KEEP_ANNO_ANDROIDX_JAR,
+        utils.GRADLE_TASK_R8,
+        utils.GRADLE_TASK_R8LIB, utils.GRADLE_TASK_R8LIB_NO_DEPS,
+        utils.GRADLE_TASK_THREADING_MODULE_BLOCKING,
+        utils.GRADLE_TASK_THREADING_MODULE_SINGLE_THREADED,
+        utils.GRADLE_TASK_SOURCE_JAR,
+        utils.GRADLE_TASK_SWISS_ARMY_KNIFE, '-Pno_internal'
+    ])
+    timing.end()
 
 
 def RSyncDir(src_dir, version_or_path, dst_dir, is_main, options):
@@ -165,41 +194,24 @@ def Run(options):
          not os.path.isdir(options.dry_run_output))):
         raise Exception(options.dry_run_output +
                         ' does not exist or is not a directory')
-    if (options.skip_gradle_build and not options.dry_run):
+    if options.skip_gradle_build and not options.dry_run:
         raise Exception(
             'Using --skip-gradle-build only supported with --dry-run')
 
-    if utils.is_bot() and not utils.IsWindows():
-        SetRLimitToMax()
-    if not utils.IsWindows():
-        PrintResourceInfo()
+    timing = Timing()
+    SetRLimitToMax()
+    PrintResourceInfo()
+    RunGradleBuild(options, timing)
+
+    version = GetVersion()
+    is_main = IsMain(version)
+    if is_main:
+        # On main we use the git hash to archive with
+        print('On main, using git hash for archiving')
+        version = GetGitHash()
 
     with utils.TempDir() as temp:
-        # Ensure all archived artifacts has been built before archiving.
-        # The target tasks postfixed by 'lib' depend on the actual target task so
-        # building it invokes the original task first.
-        # The '-Pno_internal' flag is important because we generate the lib based on uses in tests.
-        if (not options.skip_gradle_build):
-            gradle.RunGradle([
-                utils.GRADLE_TASK_CONSOLIDATED_LICENSE,
-                utils.GRADLE_TASK_KEEP_ANNO_JAR,
-                utils.GRADLE_TASK_KEEP_ANNO_DOC,
-                utils.GRADLE_TASK_KEEP_ANNO_LEGACY_JAR,
-                utils.GRADLE_TASK_KEEP_ANNO_ANDROIDX_JAR,
-                utils.GRADLE_TASK_R8,
-                utils.GRADLE_TASK_R8LIB, utils.GRADLE_TASK_R8LIB_NO_DEPS,
-                utils.GRADLE_TASK_THREADING_MODULE_BLOCKING,
-                utils.GRADLE_TASK_THREADING_MODULE_SINGLE_THREADED,
-                utils.GRADLE_TASK_SOURCE_JAR,
-                utils.GRADLE_TASK_SWISS_ARMY_KNIFE, '-Pno_internal'
-            ])
-        version = GetVersion()
-        is_main = IsMain(version)
-        if is_main:
-            # On main we use the git hash to archive with
-            print('On main, using git hash for archiving')
-            version = GetGitHash()
-
+        timing.begin("Generate r8 maven zip")
         version_file = os.path.join(temp, 'r8-version.properties')
         with open(version_file, 'w') as version_writer:
             version_writer.write('version.sha=' + GetGitHash() + '\n')
@@ -218,9 +230,11 @@ def Run(options):
             utils.MAVEN_ZIP_LIB,
             version_file=version_file,
             skip_gradle_build=options.skip_gradle_build)
+        timing.end()
 
-        # Create maven release of the desuage_jdk_libs configuration. This require
+        # Create maven release of the desugar_jdk_libs configuration. This requires
         # an r8.jar with dependencies to have been built.
+        timing.begin("Generate desugar configuration maven zip")
         create_maven_release.generate_desugar_configuration_maven_zip(
             utils.DESUGAR_CONFIGURATION_MAVEN_ZIP, utils.DESUGAR_CONFIGURATION,
             utils.DESUGAR_IMPLEMENTATION,
@@ -246,6 +260,7 @@ def Run(options):
             utils.DESUGAR_CONFIGURATION_JDK11_NIO,
             utils.DESUGAR_IMPLEMENTATION_JDK11,
             utils.LIBRARY_DESUGAR_CONVERSIONS_ZIP)
+        timing.end()
 
 
         destination = GetVersionDestination('gs://', version, is_main)
@@ -254,6 +269,7 @@ def Run(options):
                             destination)
 
         # Create pom file for our maven repository that we build for testing.
+        timing.begin("Create pom file")
         default_pom_file = os.path.join(temp, 'r8.pom')
         create_maven_release.write_default_r8_pom_file(default_pom_file,
                                                        version)
@@ -262,21 +278,27 @@ def Run(options):
             '-PspdxVersion=' + version,
             '-PspdxRevision=' + GetGitHash()
         ])
+        time.end()
 
         # Upload keep-anno javadoc to a fixed "docs" location.
+        timing.begin("Uploade keep-anno Javadoc")
         if is_main:
             version_or_path = 'docs'
             dst_dir = 'keepanno/javadoc'
             RSyncDir(utils.KEEPANNO_ANNOTATIONS_DOC, version_or_path, dst_dir, is_main, options)
+        timing.end()
 
         # Upload directories.
+        timing.begin("Upload directories")
         dirs_for_archiving = [
             (utils.KEEPANNO_ANNOTATIONS_DOC, 'keepanno/javadoc'),
         ]
         for (src_dir, dst_dir) in dirs_for_archiving:
             UploadDir(src_dir, version, dst_dir, is_main, options)
+        timing.end()
 
         # Upload files.
+        timing.begin("Upload files")
         for_archiving = [
             utils.R8_JAR, utils.R8LIB_JAR, utils.R8LIB_JAR + '.map',
             utils.R8LIB_JAR + '_map.zip', utils.R8_FULL_EXCLUDE_DEPS_JAR,
@@ -421,6 +443,9 @@ def Run(options):
                             version, jar_basename, is_main)
                         utils.upload_file_to_cloud_storage(
                             desugar_jdk_libs_configuration_jar, jar_destination)
+
+        timing.end()
+        timing.report()
 
 
 if __name__ == '__main__':
