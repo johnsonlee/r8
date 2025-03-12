@@ -26,7 +26,7 @@ class Timing:
 
     def report(self):
         assert self.active_timing is None
-        total_duration_ns = self.time_ns() - self.created_ns
+        total_duration_ns = time.time_ns() - self.created_ns
         timed_duration_ns = 0
         for timing in self.committed:
             print(f'{timing.title}: {timing.duration_ns // 1_000_000}ms')
