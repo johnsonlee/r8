@@ -14,7 +14,7 @@ val root = getRoot()
 
 java {
   sourceSets.test.configure {
-    java.srcDir(root.resolveAll("src", "test", "examplesJava11"))
+    java.srcDir(root.resolveAll("src", "test", "java11"))
   }
   sourceCompatibility = JavaVersion.VERSION_11
   targetCompatibility = JavaVersion.VERSION_11
@@ -30,9 +30,6 @@ dependencies {
   implementation(mainCompileTask.outputs.files)
   implementation(projectTask("main", "processResources").outputs.files)
 }
-
-// We just need to register the examples jars for it to be referenced by other modules.
-val buildExampleJars = buildExampleJars("examplesJava11")
 
 tasks {
   withType<JavaCompile> {
@@ -51,7 +48,7 @@ tasks {
       // This should be
       //   layout.buildDirectory.dir("classes/java/test").get().toString()
       // once the use of 'buildExampleJars' above is removed.
-                   getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
+                   getRoot().resolveAll("build", "test", "java11", "classes"))
     systemProperty("TESTBASE_DATA_LOCATION",
                    testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
   }

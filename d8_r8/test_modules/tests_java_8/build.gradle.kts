@@ -60,8 +60,6 @@ dependencies {
 
 val sourceSetDependenciesTasks = arrayOf(
   projectTask("tests_java_9", getExampleJarsTaskName("examplesJava9")),
-  projectTask("tests_java_10", getExampleJarsTaskName("examplesJava10")),
-  projectTask("tests_java_11", getExampleJarsTaskName("examplesJava11")),
   projectTask("tests_java_17", getExampleJarsTaskName("examplesJava17")),
 )
 
@@ -144,8 +142,6 @@ tasks {
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
     // This path is set when compiling examples jar task in DependenciesPlugin.
-    systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
-                    getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
     systemProperty(
       "BUILD_PROP_R8_RUNTIME_PATH",
       mainCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0] +

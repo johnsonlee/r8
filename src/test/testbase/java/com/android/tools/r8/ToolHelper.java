@@ -138,11 +138,6 @@ public class ToolHelper {
     return getBuildPropPaths("BUILD_PROP_KEEPANNO_RUNTIME_PATH");
   }
 
-  public static String getExamplesJava11BuildDir() {
-    assert System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR") != null;
-    return System.getProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR");
-  }
-
   public enum TestDataSourceSet {
     LEGACY(null),
     TESTS_JAVA_8("tests_java_8/build/classes/java/test"),
@@ -212,8 +207,6 @@ public class ToolHelper {
   public static final String EXAMPLES_ANDROID_P_BUILD_DIR = THIRD_PARTY_DIR + "examplesAndroidP/";
   public static final String TESTS_BUILD_DIR = BUILD_DIR + "test/";
   public static final String EXAMPLES_JAVA9_BUILD_DIR = TESTS_BUILD_DIR + "examplesJava9/";
-  public static final String EXAMPLES_JAVA10_BUILD_DIR = TESTS_BUILD_DIR + "examplesJava10/";
-  public static final String EXAMPLES_JAVA11_JAR_DIR = TESTS_BUILD_DIR + "examplesJava11/";
   public static final String SMALI_BUILD_DIR = THIRD_PARTY_DIR + "smali/";
 
   public static final Path CHECKED_IN_R8_17_WITH_DEPS =

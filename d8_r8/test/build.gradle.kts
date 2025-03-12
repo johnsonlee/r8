@@ -436,8 +436,6 @@ tasks {
         "keepanno" + File.separator,
         keepAnnoCompileTask.outputs.files.asPath,
         keepAnnoCompileKotlinTask.outputs.files.asPath))
-    systemProperty("EXAMPLES_JAVA_11_JAVAC_BUILD_DIR",
-            getRoot().resolveAll("build", "test", "examplesJava11", "classes"))
     systemProperty("BUILD_PROP_R8_RUNTIME_PATH", r8LibJar)
     systemProperty("R8_DEPS", mainDepsJarTask.getSingleOutputFile())
     systemProperty("com.android.tools.r8.artprofilerewritingcompletenesscheck", "true")
