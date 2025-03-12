@@ -670,7 +670,11 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
             .anyMatch(
                 (itf, isKnown) -> {
                   assert !mergedClasses.isMergeSource(itf)
-                      : "Expected " + itf + " to not be a merge source";
+                      : "Expected "
+                          + itf
+                          + " to not be a merge source (context is "
+                          + method.toSourceString()
+                          + ")";
                   return false;
                 });
       }
