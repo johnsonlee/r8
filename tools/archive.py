@@ -278,7 +278,7 @@ def Run(options):
             '-PspdxVersion=' + version,
             '-PspdxRevision=' + GetGitHash()
         ])
-        time.end()
+        timing.end()
 
         # Upload keep-anno javadoc to a fixed "docs" location.
         timing.begin("Uploade keep-anno Javadoc")
