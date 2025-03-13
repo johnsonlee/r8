@@ -76,7 +76,7 @@ public class ResourceAdapter {
   public DataDirectoryResource adaptIfNeeded(DataDirectoryResource directory) {
     // First check if this directory should even be in the output.
     if (options.getProguardConfiguration() == null) {
-      assert options.testing.enableD8ResourcesPassThrough;
+      assert options.testing.enableD8MetaInfServicesPassThrough;
       return null;
     }
     if (!options.getProguardConfiguration().getKeepDirectories().matches(directory.getName())) {
@@ -91,7 +91,7 @@ public class ResourceAdapter {
       Function<ProguardConfiguration, ProguardPathFilter> getFilter) {
     final ProguardConfiguration proguardConfiguration = options.getProguardConfiguration();
     if (proguardConfiguration == null) {
-      assert options.testing.enableD8ResourcesPassThrough;
+      assert options.testing.enableD8MetaInfServicesPassThrough;
       return false;
     }
     ProguardPathFilter filter = getFilter.apply(proguardConfiguration);

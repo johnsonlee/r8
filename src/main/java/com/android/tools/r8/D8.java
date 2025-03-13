@@ -239,7 +239,7 @@ public final class D8 {
             executor);
       }
 
-      if (options.testing.enableD8ResourcesPassThrough) {
+      if (options.testing.enableD8MetaInfServicesPassThrough) {
         appView.setAppServices(AppServices.builder(appView).build());
       }
       timing.end();

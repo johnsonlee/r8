@@ -41,6 +41,7 @@ public class D8TestBuilder
   private List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
   private Box<D8BuildMetadata> buildMetadata;
   private boolean androidPlatformBuild = false;
+  private boolean serviceLoaderSupport = false;
 
   @Override
   public boolean isD8TestBuilder() {
@@ -97,6 +98,14 @@ public class D8TestBuilder
       builder.setBuildMetadataConsumer(buildMetadata::set);
     }
     builder.setEnableExperimentalMissingLibraryApiModeling(enableMissingLibraryApiModeling);
+    if (serviceLoaderSupport) {
+      optionsConsumer =
+          optionsConsumer.andThen(
+              options -> {
+                options.testing.enableD8MetaInfServicesPassThrough = true;
+                options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
+              });
+    }
     ToolHelper.runAndBenchmarkD8(builder, optionsConsumer, benchmarkResults);
     return new D8TestCompileResult(
         getState(),
@@ -190,6 +199,11 @@ public class D8TestBuilder
 
   public D8TestBuilder setAndroidPlatformBuild() {
     androidPlatformBuild = true;
+    return self();
+  }
+
+  public D8TestBuilder enableServiceLoader() {
+    serviceLoaderSupport = true;
     return self();
   }
 }

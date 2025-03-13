@@ -80,11 +80,7 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .setMinApi(parameters)
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
+        .enableServiceLoader()
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }

@@ -127,11 +127,7 @@ public class HelloWorldCompiledOnArtTest extends DesugaredLibraryTestBase {
     return testForDesugaredLibrary(
             parameters, libraryDesugaringSpecification, compilationSpecification)
         .addProgramFiles(ToolHelper.getR8WithRelocatedDeps())
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
+        .enableServiceLoader()
         .setTrackDesugaredApiConversions()
         .compile()
         .inspectDiagnosticMessages(

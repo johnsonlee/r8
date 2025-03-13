@@ -90,11 +90,7 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .setMinApi(parameters)
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
+        .enableServiceLoader()
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
@@ -121,11 +117,6 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .allowUnusedDontWarnPatterns()
         .allowDiagnosticMessages()
         .setMinApi(parameters)
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
         .compile()
         .inspect(this::verifyRewrittenExtension)
         .run(parameters.getRuntime(), MAIN)
@@ -186,11 +177,6 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .allowUnusedDontWarnPatterns()
         .allowDiagnosticMessages()
         .setMinApi(parameters)
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
         .compile()
         .run(parameters.getRuntime(), MAIN)
         .assertSuccessWithOutputLines(EXPECTED_FALSE_OUTPUT);

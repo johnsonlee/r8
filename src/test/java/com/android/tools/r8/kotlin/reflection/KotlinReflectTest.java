@@ -77,11 +77,7 @@ public class KotlinReflectTest extends KotlinTestBase {
         .addProgramFiles(kotlinc.getKotlinReflectJar())
         .setProgramConsumer(new ArchiveConsumer(output.toPath(), true))
         .setMinApi(parameters)
-        .addOptionsModification(
-            options -> {
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
+        .enableServiceLoader()
         .run(parameters.getRuntime(), PKG + ".SimpleReflectKt")
         .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }

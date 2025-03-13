@@ -2387,9 +2387,10 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean testEnableTestAssertions = false;
     public boolean keepMetadataInR8IfNotRewritten = true;
 
-    // Flag to allow processing of resources in D8. A data resource consumer still needs to be
-    // specified.
-    public boolean enableD8ResourcesPassThrough = false;
+    // Flag to pass through the resources in META-INF/services in D8. A data resource consumer
+    // still needs to be specified as well. Please consider using enableServiceLoader() on the
+    // TestBuilder if possible.
+    public boolean enableD8MetaInfServicesPassThrough = false;
 
     public boolean verifyKeptGraphInfo = false;
 

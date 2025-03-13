@@ -681,4 +681,9 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
         new ArtProfileForRewriting(artProfileProvider, residualArtProfileConsumer));
     return this;
   }
+
+  public DesugaredLibraryTestBuilder<T> enableServiceLoader() {
+    withD8TestBuilder(D8TestBuilder::enableServiceLoader);
+    return this;
+  }
 }

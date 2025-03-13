@@ -134,12 +134,7 @@ public class MetadataRewriteInnerClassTest extends KotlinMetadataTestBase {
         .addProgramFiles(kotlinc.getKotlinStdlibJar(), kotlinc.getKotlinReflectJar(), jar)
         .setMinApi(parameters)
         .setProgramConsumer(programConsumer)
-        .addOptionsModification(
-            options -> {
-              // Needed for passing kotlin_builtin files to output.
-              options.testing.enableD8ResourcesPassThrough = true;
-              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
-            })
+        .enableServiceLoader()
         .run(parameters.getRuntime(), PKG_NESTED_REFLECT + ".MainKt")
         .assertSuccessWithOutput(expected);
   }
