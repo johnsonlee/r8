@@ -1,8 +1,7 @@
-// Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+package sealed; // Copyright (c) 2020, the R8 project authors. Please see the AUTHORS file
+
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
-package com.android.tools.r8.desugar.sealed;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static junit.framework.Assert.assertEquals;
@@ -14,7 +13,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.TestShrinkerBuilder;
-import com.android.tools.r8.examples.jdk17.Sealed;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -51,8 +49,8 @@ public class SealedClassesJdk17CompiledTest extends TestBase {
     assumeTrue(keepPermittedSubclassesAttribute);
     assumeTrue(parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     testForJvm(parameters)
-        .addRunClasspathFiles(Sealed.jar())
-        .run(parameters.getRuntime(), Sealed.Main.typeName())
+        .addProgramClassesAndInnerClasses(Helper.getSealedClasses())
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED);
   }
 
@@ -60,8 +58,8 @@ public class SealedClassesJdk17CompiledTest extends TestBase {
   public void testDesugaring() throws Exception {
     assumeTrue(keepPermittedSubclassesAttribute);
     testForDesugaring(parameters)
-        .addProgramFiles(Sealed.jar())
-        .run(parameters.getRuntime(), Sealed.Main.typeName())
+        .addProgramClassesAndInnerClasses(Helper.getSealedClasses())
+        .run(parameters.getRuntime(), Main.class)
         .applyIf(
             c ->
                 DesugarTestConfiguration.isNotJavac(c)
@@ -71,10 +69,10 @@ public class SealedClassesJdk17CompiledTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
-    ClassSubject clazz = inspector.clazz(Sealed.Compiler.typeName());
+    ClassSubject clazz = inspector.clazz(Compiler.class);
     assertThat(clazz, isPresentAndRenamed());
-    ClassSubject sub1 = inspector.clazz(Sealed.R8Compiler.typeName());
-    ClassSubject sub2 = inspector.clazz(Sealed.D8Compiler.typeName());
+    ClassSubject sub1 = inspector.clazz(R8Compiler.class);
+    ClassSubject sub2 = inspector.clazz(D8Compiler.class);
     assertThat(sub1, isPresentAndRenamed());
     assertThat(sub2, isPresentAndRenamed());
     assertEquals(
@@ -88,17 +86,17 @@ public class SealedClassesJdk17CompiledTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addProgramFiles(Sealed.jar())
+        .addProgramClassesAndInnerClasses(Helper.getSealedClasses())
         .setMinApi(parameters)
         .applyIf(
             keepPermittedSubclassesAttribute,
             TestShrinkerBuilder::addKeepAttributePermittedSubclasses)
-        .addKeepPermittedSubclasses(Sealed.Compiler.typeName())
-        .addKeepRules("-keep,allowobfuscation class * extends " + Sealed.Compiler.typeName())
-        .addKeepMainRule(Sealed.Main.typeName())
+        .addKeepPermittedSubclasses(Compiler.class)
+        .addKeepRules("-keep,allowobfuscation class * extends sealed.Compiler")
+        .addKeepMainRule(Main.class)
         .compile()
         .inspect(this::inspect)
-        .run(parameters.getRuntime(), Sealed.Main.typeName())
+        .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
             r -> r.assertSuccessWithOutput(EXPECTED),
