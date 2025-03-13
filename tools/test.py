@@ -16,7 +16,7 @@ import time
 import uuid
 
 import archive_desugar_jdk_libs
-import download_kotlin_dev
+import download_kotlin
 import gradle
 import notify
 import testing_state
@@ -447,7 +447,7 @@ def test(options, args):
         gradle_args.append('-Pkotlin_compiler_old')
     if options.kotlin_compiler_dev:
         gradle_args.append('-Pkotlin_compiler_dev')
-        download_kotlin_dev.download_newest()
+        download_kotlin.download_newest()
     if os.name == 'nt':
         gradle_args.append('-Pno_internal')
     if options.test_dir:

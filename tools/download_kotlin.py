@@ -3,25 +3,59 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
+import argparse
 import utils
-if utils.is_python3():
-    from html.parser import HTMLParser
-    import urllib.request
-    url_request = urllib.request
-else:
-    from HTMLParser import HTMLParser
-    import urllib
-    url_request = urllib
+from html.parser import HTMLParser
+import urllib.request
 import os
+import subprocess
 import sys
 import xml.etree.ElementTree
 
 
+JETBRAINS_KOTLIN_STABLE_URL = "https://github.com/JetBrains/kotlin/releases/download"
 JETBRAINS_KOTLIN_MAVEN_URL = "https://maven.pkg.jetbrains.space/kotlin/p/" \
                              "kotlin/bootstrap/org/jetbrains/kotlin/"
 KOTLIN_RELEASE_URL = JETBRAINS_KOTLIN_MAVEN_URL + "kotlin-compiler/"
 KOTLINC_LIB = os.path.join(utils.THIRD_PARTY, "kotlin",
                    "kotlin-compiler-dev", "kotlinc", "lib")
+
+def ParseOptions(args):
+    parser = argparse.ArgumentParser(description='Update third_party Kotlin')
+    parser.add_argument(
+        '--version',
+        required=True,
+        help="The Kotlin version, use 'dev' for the latest dev compiler")
+    return parser.parse_args()
+
+def download_stable(version):
+    with utils.TempDir() as temp:
+        unzip_dir = os.path.join(
+            utils.THIRD_PARTY,
+            'kotlin',
+            'kotlin-compiler-{version}'.format(version=version))
+        if os.path.exists(unzip_dir):
+            print('Destination dir {dir} exists. Please remove and retry.'.format(dir=unzip_dir))
+            sys.exit(-1)
+        url = (
+            '{download_url_base}/v{version}/kotlin-compiler-{version}.zip'
+                .format(download_url_base=JETBRAINS_KOTLIN_STABLE_URL, version=version))
+        kotlin_compiler_download_zip = os.path.join(temp, 'kotlin-compiler.zip')
+        download_and_save(url, kotlin_compiler_download_zip)
+        cmd = ['unzip', '-q', kotlin_compiler_download_zip, '-d', unzip_dir]
+        subprocess.check_call(cmd)
+        with open(os.path.join(unzip_dir, 'README.google'), 'w') as readme:
+            readme.write('Name: Kotlin\n')
+            readme.write('URL: {url}\n'.format(url=url))
+            readme.write('Version: {version}\n'.format(version=version))
+            readme.write('Revision: NA\n')
+            readme.write('License: Apache License Version 2.0\n')
+    print('If you want to upload this run:')
+    print('  (cd {dir}; upload_to_google_storage.py -a --bucket r8-deps {file})'
+        .format(dir=os.path.dirname(unzip_dir), file=os.path.basename(unzip_dir)))
+
+
+
 
 
 def download_newest():
@@ -133,9 +167,22 @@ def check_pom(top_most_version_and_build):
 
 
 def download_and_save(url, path, name):
-    print('Downloading: ' + url)
-    url_request.urlretrieve(url, os.path.join(path, name))
+    download_and_save(url, dest)
+
+
+def download_and_save(url, dest):
+    print('Downloading: ' + url + ' to: ' + dest)
+    urllib.request.urlretrieve(url, dest)
+
+
+def main(args):
+    options = ParseOptions(args)
+    print(options.version)
+    if options.version == 'dev':
+        download_newest()
+    else:
+        download_stable(options.version)
 
 
 if __name__ == '__main__':
-    sys.exit(download_newest())
+    sys.exit(main(sys.argv[1:]))
