@@ -45,10 +45,7 @@ tasks {
     TestingState.setUpTestingState(this)
     javaLauncher = getJavaLauncher(Jdk.JDK_11)
     systemProperty("TEST_DATA_LOCATION",
-      // This should be
-      //   layout.buildDirectory.dir("classes/java/test").get().toString()
-      // once the use of 'buildExampleJars' above is removed.
-                   getRoot().resolveAll("build", "test", "java11", "classes"))
+                   layout.buildDirectory.dir("classes/java/test").get().toString())
     systemProperty("TESTBASE_DATA_LOCATION",
                    testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
   }
