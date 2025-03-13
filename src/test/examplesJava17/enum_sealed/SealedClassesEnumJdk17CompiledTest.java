@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.sealed;
+package enum_sealed;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRenamed;
 import static junit.framework.Assert.assertEquals;
@@ -14,7 +14,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.TestShrinkerBuilder;
-import com.android.tools.r8.examples.jdk17.EnumSealed;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -51,8 +50,8 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
     assumeTrue(keepPermittedSubclassesAttribute);
     assumeTrue(parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     testForJvm(parameters)
-        .addRunClasspathFiles(EnumSealed.jar())
-        .run(parameters.getRuntime(), EnumSealed.Main.typeName())
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED);
   }
 
@@ -60,8 +59,8 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
   public void testDesugaring() throws Exception {
     assumeTrue(keepPermittedSubclassesAttribute);
     testForDesugaring(parameters)
-        .addProgramFiles(EnumSealed.jar())
-        .run(parameters.getRuntime(), EnumSealed.Main.typeName())
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), Main.class)
         .applyIf(
             c ->
                 DesugarTestConfiguration.isNotJavac(c)
@@ -71,9 +70,9 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
   }
 
   private void inspect(CodeInspector inspector) {
-    ClassSubject clazz = inspector.clazz(EnumSealed.Enum.typeName());
+    ClassSubject clazz = inspector.clazz(Enum.class);
     assertThat(clazz, isPresentAndRenamed());
-    ClassSubject sub1 = inspector.clazz(EnumSealed.EnumB.typeName());
+    ClassSubject sub1 = inspector.clazz(Enum.B.getClass());
     assertThat(sub1, isPresentAndRenamed());
     assertEquals(
         parameters.isCfRuntime() && keepPermittedSubclassesAttribute
@@ -86,19 +85,37 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     testForR8(parameters.getBackend())
-        .addProgramFiles(EnumSealed.jar())
+        .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)
         .applyIf(
             keepPermittedSubclassesAttribute,
             TestShrinkerBuilder::addKeepAttributePermittedSubclasses)
-        .addKeepMainRule(EnumSealed.Main.typeName())
-        .addKeepClassRulesWithAllowObfuscation(EnumSealed.Enum.typeName())
+        .addKeepMainRule(Main.class)
+        .addKeepClassRulesWithAllowObfuscation(Main.class)
         .compile()
         .inspect(this::inspect)
-        .run(parameters.getRuntime(), EnumSealed.Main.typeName())
+        .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.isDexRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),
             r -> r.assertSuccessWithOutput(EXPECTED),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class));
+  }
+
+  public enum Enum {
+    A,
+    B {
+      @Override
+      public String toString() {
+        return "a B";
+      }
+    }
+  }
+
+  public class Main {
+
+    public static void main(String[] args) {
+      System.out.println(Enum.A);
+      System.out.println(Enum.B);
+    }
   }
 }
