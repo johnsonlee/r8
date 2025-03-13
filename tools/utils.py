@@ -44,6 +44,7 @@ REPO_SOURCE = 'https://r8.googlesource.com/r8'
 
 GRADLE_TASK_CLEAN_TEST = ':test:cleanTest'
 GRADLE_TASK_CONSOLIDATED_LICENSE = ':main:consolidatedLicense'
+GRADLE_TASK_DOWNLOAD_DEPS = ':shared:downloadDeps'
 GRADLE_TASK_KEEP_ANNO_JAR = ':keepanno:keepAnnoAnnotationsJar'
 GRADLE_TASK_KEEP_ANNO_LEGACY_JAR = ':keepanno:keepAnnoLegacyAnnotationsJar'
 GRADLE_TASK_KEEP_ANNO_ANDROIDX_JAR = ':keepanno:keepAnnoAndroidXAnnotationsJar'

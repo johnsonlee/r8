@@ -134,20 +134,36 @@ def PrintResourceInfo():
 def RunGradleBuild(options, timing):
     if options.skip_gradle_build:
         return
-    timing.begin("Run gradle build")
+    timing.begin("Download deps")
+    gradle.RunGradle([utils.GRADLE_TASK_DOWNLOAD_DEPS, '-Pno_internal'])
+    timing.end()
+    timing.begin("Build consolidated license")
+    gradle.RunGradle([utils.GRADLE_TASK_CONSOLIDATED_LICENSE, '-Pno_internal'])
+    timing.end()
+    timing.begin("Build keep anno")
     gradle.RunGradle([
-        utils.GRADLE_TASK_CONSOLIDATED_LICENSE,
         utils.GRADLE_TASK_KEEP_ANNO_JAR,
         utils.GRADLE_TASK_KEEP_ANNO_DOC,
         utils.GRADLE_TASK_KEEP_ANNO_LEGACY_JAR,
         utils.GRADLE_TASK_KEEP_ANNO_ANDROIDX_JAR,
+        '-Pno_internal',
+    ])
+    timing.end()
+    timing.begin("Build R8")
+    gradle.RunGradle([
         utils.GRADLE_TASK_R8,
-        utils.GRADLE_TASK_R8LIB, utils.GRADLE_TASK_R8LIB_NO_DEPS,
+        utils.GRADLE_TASK_R8LIB,
+        utils.GRADLE_TASK_R8LIB_NO_DEPS,
         utils.GRADLE_TASK_THREADING_MODULE_BLOCKING,
         utils.GRADLE_TASK_THREADING_MODULE_SINGLE_THREADED,
-        utils.GRADLE_TASK_SOURCE_JAR,
-        utils.GRADLE_TASK_SWISS_ARMY_KNIFE, '-Pno_internal'
+        '-Pno_internal',
     ])
+    timing.end()
+    timing.begin("Build source jar")
+    gradle.RunGradle([utils.GRADLE_TASK_SOURCE_JAR, '-Pno_internal'])
+    timing.end()
+    timing.begin("Build swiss army knife")
+    gradle.RunGradle([utils.GRADLE_TASK_SWISS_ARMY_KNIFE, '-Pno_internal'])
     timing.end()
 
 
