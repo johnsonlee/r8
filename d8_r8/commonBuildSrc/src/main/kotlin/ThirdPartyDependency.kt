@@ -13,5 +13,6 @@ data class ThirdPartyDependency(
   val packageName: String,
   val path: File,
   val sha1File: File,
+  val testOnly: Boolean = false,
   val type: DependencyType = DependencyType.GOOGLE_STORAGE,
 )

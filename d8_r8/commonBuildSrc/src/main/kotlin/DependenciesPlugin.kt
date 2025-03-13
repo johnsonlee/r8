@@ -497,14 +497,16 @@ object ThirdPartyDeps {
       "clank",
       Paths.get("third_party", "chrome", "clank_google3_prebuilt").toFile(),
       Paths.get("third_party", "chrome", "clank_google3_prebuilt.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val chrome =
     ThirdPartyDependency(
       "chrome",
       Paths.get("third_party", "chrome", "chrome_200430").toFile(),
       Paths.get("third_party", "chrome", "chrome_200430.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val chromeBenchmark =
     ThirdPartyDependency(
@@ -717,7 +719,8 @@ object ThirdPartyDeps {
       "framework",
       Paths.get("third_party", "framework").toFile(),
       Paths.get("third_party", "framework.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val googleJavaFormat =
     ThirdPartyDependency(
@@ -830,7 +833,8 @@ object ThirdPartyDeps {
       "nest",
       Paths.get("third_party", "nest", "nest_20180926_7c6cfb").toFile(),
       Paths.get("third_party", "nest", "nest_20180926_7c6cfb.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val nowinandroid =
     ThirdPartyDependency(
@@ -844,7 +848,8 @@ object ThirdPartyDeps {
       "proguardsettings",
       Paths.get("third_party", "proguardsettings").toFile(),
       Paths.get("third_party", "proguardsettings.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val protoc =
     ThirdPartyDependency(
@@ -857,35 +862,40 @@ object ThirdPartyDeps {
       "protoRuntimeEdition2023",
       Paths.get("third_party", "proto", "runtime", "edition2023").toFile(),
       Paths.get("third_party", "proto", "runtime", "edition2023.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val protoRuntimeLegacy =
     ThirdPartyDependency(
       "protoRuntimeLegacy",
       Paths.get("third_party", "proto", "runtime", "legacy").toFile(),
       Paths.get("third_party", "proto", "runtime", "legacy.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val protoTestEdition2023 =
     ThirdPartyDependency(
       "protoTestEdition2023",
       Paths.get("third_party", "proto", "test", "edition2023").toFile(),
       Paths.get("third_party", "proto", "test", "edition2023.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val protoTestProto2 =
     ThirdPartyDependency(
       "protoTestProto2",
       Paths.get("third_party", "proto", "test", "proto2").toFile(),
       Paths.get("third_party", "proto", "test", "proto2.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val protoTestProto3 =
     ThirdPartyDependency(
       "protoTestProto3",
       Paths.get("third_party", "proto", "test", "proto3").toFile(),
       Paths.get("third_party", "proto", "test", "proto3.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val r8 =
     ThirdPartyDependency(
@@ -940,7 +950,8 @@ object ThirdPartyDeps {
       "retrace-internal",
       Paths.get("third_party", "retrace_internal").toFile(),
       Paths.get("third_party", "retrace_internal.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val rhino =
     ThirdPartyDependency(
@@ -965,7 +976,8 @@ object ThirdPartyDeps {
       "systemUI",
       Paths.get("third_party", "closedsource-apps", "systemui").toFile(),
       Paths.get("third_party", "closedsource-apps", "systemui.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   val tivi =
     ThirdPartyDependency(
@@ -978,7 +990,8 @@ object ThirdPartyDeps {
       "youtube-17.19",
       Paths.get("third_party", "youtube", "youtube.android_17.19").toFile(),
       Paths.get("third_party", "youtube", "youtube.android_17.19.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
 }
 
@@ -1116,7 +1129,8 @@ fun getInternalIssues(): List<ThirdPartyDependency> {
       "internal-$it",
       Paths.get("third_party", "internal", it).toFile(),
       Paths.get("third_party", "internal", "${it}.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   }
 }
@@ -1127,7 +1141,8 @@ fun getGmsCoreVersions(): List<ThirdPartyDependency> {
       "gmscore-version-$it",
       Paths.get("third_party", "gmscore", it).toFile(),
       Paths.get("third_party", "gmscore", "${it}.tar.gz.sha1").toFile(),
-      DependencyType.X20,
+      testOnly = true,
+      type = DependencyType.X20,
     )
   }
 }
@@ -1146,11 +1161,19 @@ private fun Project.allDependencies(): List<ThirdPartyDependency> {
 }
 
 fun Project.allPublicDependencies(): List<ThirdPartyDependency> {
-  return allDependencies().filter { x -> x.type == DependencyType.GOOGLE_STORAGE }
+  return allDependencies().filter { x -> !x.testOnly && x.type == DependencyType.GOOGLE_STORAGE }
+}
+
+fun Project.allPublicTestDependencies(): List<ThirdPartyDependency> {
+  return allDependencies().filter { x -> x.testOnly && x.type == DependencyType.GOOGLE_STORAGE }
 }
 
 fun Project.allInternalDependencies(): List<ThirdPartyDependency> {
-  return allDependencies().filter { x -> x.type == DependencyType.X20 }
+  return allDependencies().filter { x -> !x.testOnly && x.type == DependencyType.X20 }
+}
+
+fun Project.allInternalTestDependencies(): List<ThirdPartyDependency> {
+  return allDependencies().filter { x -> x.testOnly && x.type == DependencyType.X20 }
 }
 
 fun extractClassesPaths(prefix: String, vararg paths: String): String {

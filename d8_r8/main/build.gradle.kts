@@ -156,6 +156,7 @@ tasks {
 
   val consolidatedLicense by registering {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    dependsOn(gradle.includedBuild("shared").task(":downloadTestDeps"))
     val root = getRoot()
     val r8License = root.resolve("LICENSE")
     val libraryLicense = root.resolve("LIBRARY-LICENSE")

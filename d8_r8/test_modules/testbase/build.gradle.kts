@@ -84,6 +84,7 @@ tasks {
     dependsOn(gradle.includedBuild("main").task(":compileJava"))
     dependsOn(gradle.includedBuild("main").task(":processResources"))
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    dependsOn(gradle.includedBuild("shared").task(":downloadTestDeps"))
   }
 
   withType<JavaExec> {
@@ -108,6 +109,7 @@ tasks {
 
   val depsJar by registering(Jar::class) {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    dependsOn(gradle.includedBuild("shared").task(":downloadTestDeps"))
     dependsOn(gradle.includedBuild("keepanno").task(":jar"))
     dependsOn(gradle.includedBuild("resourceshrinker").task(":jar"))
     dependsOn(gradle.includedBuild("resourceshrinker").task(":depsJar"))

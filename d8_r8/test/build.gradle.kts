@@ -408,11 +408,7 @@ tasks {
             rewriteTestBaseForR8LibWithRelocatedDeps,
             unzipRewrittenTests,
             unzipTests,
-            unzipTestBase,
-            gradle.includedBuild("shared").task(":downloadDeps"))
-    if (!project.hasProperty("no_internal")) {
-      dependsOn(gradle.includedBuild("shared").task(":downloadDepsInternal"))
-    }
+            unzipTestBase)
     val r8LibJar = r8Lib.getSingleOutputFile()
     val r8LibMappingFile = file(r8LibJar.toString() + ".map")
     val r8WithRelocatedDepsJar = r8WithRelocatedDepsTask.getSingleOutputFile()
@@ -467,6 +463,12 @@ tasks {
   }
 
   test {
+    dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
+    dependsOn(gradle.includedBuild("shared").task(":downloadTestDeps"))
+    if (!project.hasProperty("no_internal")) {
+      dependsOn(gradle.includedBuild("shared").task(":downloadDepsInternal"))
+      dependsOn(gradle.includedBuild("shared").task(":downloadTestDepsInternal"))
+    }
     if (project.hasProperty("r8lib")) {
       dependsOn(testR8LibWithRelocatedDeps)
     } else if (project.hasProperty("r8lib_no_deps")) {
