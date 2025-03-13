@@ -66,10 +66,15 @@ public class BasicBlockBehavioralSubsumption {
       }
     }
     if (assumptionUses != null) {
+      Value indirectConditionValue =
+          conditionValue.isDefinedByInstructionSatisfying(Instruction::isInstanceOf)
+              ? conditionValue.getDefinition().asInstanceOf().value()
+              : null;
       while (assumptionUses.hasNext()) {
         Assume next = assumptionUses.next();
         for (Value assumptionArgument : next.inValues()) {
-          if (assumptionArgument == conditionValue) {
+          if (assumptionArgument == conditionValue
+              || assumptionArgument == indirectConditionValue) {
             return true;
           }
           Assume indirectAssumption =
