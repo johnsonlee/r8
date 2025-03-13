@@ -89,6 +89,11 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
         .applyIf(
             compilationSpecification.isProgramShrink(),
             builder -> builder.addProgramFiles(kotlinc.getKotlinAnnotationJar()))
+        .addOptionsModification(
+            options -> {
+              options.testing.enableD8ResourcesPassThrough = true;
+              options.dataResourceConsumer = options.programConsumer.getDataResourceConsumer();
+            })
         .addKeepMainRule(PKG + ".MainKt")
         .addKeepAllClassesRule()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
