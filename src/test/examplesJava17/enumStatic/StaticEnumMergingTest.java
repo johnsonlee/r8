@@ -1,16 +1,11 @@
-// Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
+package enumStatic; // Copyright (c) 2023, the R8 project authors. Please see the AUTHORS file
+
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-package com.android.tools.r8.enumunboxing.enummerging;
-
-import static com.android.tools.r8.utils.FileUtils.JAR_EXTENSION;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.enumunboxing.EnumUnboxingTestBase;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -20,18 +15,14 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class StaticEnumMergingTest extends EnumUnboxingTestBase {
 
-  private static final Path JDK17_JAR =
-      Paths.get(ToolHelper.TESTS_BUILD_DIR, "examplesJava17").resolve("enumStatic" + JAR_EXTENSION);
   private static final String EXPECTED_RESULT = StringUtils.lines("-17");
-  private static final String MAIN = "enumStatic.EnumStaticMain";
-
   private final TestParameters parameters;
   private final boolean enumValueOptimization;
   private final EnumKeepRules enumKeepRules;
 
   @Parameters(name = "{0} valueOpt: {1} keep: {2}")
   public static List<Object[]> data() {
-    return enumUnboxingTestParameters();
+    return EnumUnboxingTestBase.enumUnboxingTestParameters();
   }
 
   public StaticEnumMergingTest(
@@ -44,14 +35,36 @@ public class StaticEnumMergingTest extends EnumUnboxingTestBase {
   @Test
   public void testEnumUnboxing() throws Exception {
     testForR8(parameters.getBackend())
-        .addProgramFiles(JDK17_JAR)
-        .addKeepMainRule(MAIN)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addKeepMainRule(EnumStaticMain.class)
         .addKeepRules(enumKeepRules.getKeepRules())
         .addOptionsModification(opt -> enableEnumOptions(opt, enumValueOptimization))
-        .addOptionsModification(opt -> opt.testing.enableEnumUnboxingDebugLogs = true)
         .setMinApi(parameters)
-        .allowDiagnosticInfoMessages()
-        .run(parameters.getRuntime(), MAIN)
+        .run(parameters.getRuntime(), EnumStaticMain.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
+  }
+
+  public class EnumStaticMain {
+
+    enum EnumStatic {
+      A,
+      B {
+        static int i = 17;
+
+        static void print() {
+          System.out.println("-" + i);
+        }
+
+        public void virtualPrint() {
+          print();
+        }
+      };
+
+      public void virtualPrint() {}
+    }
+
+    public static void main(String[] args) throws Throwable {
+      EnumStatic.B.virtualPrint();
+    }
   }
 }
