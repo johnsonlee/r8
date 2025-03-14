@@ -10,6 +10,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+import com.android.tools.r8.D8;
+import com.android.tools.r8.D8Command;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -17,6 +19,9 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
+import com.android.tools.r8.origin.EmbeddedOrigin;
+import com.android.tools.r8.utils.FileUtils;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,7 +43,7 @@ public class D8BuildMetadataTest extends TestBase {
   }
 
   @Test
-  public void test() throws Exception {
+  public void testApi() throws Exception {
     D8BuildMetadata buildMetadata =
         testForD8(parameters.getBackend())
             .addInnerClasses(getClass())
@@ -51,6 +56,32 @@ public class D8BuildMetadataTest extends TestBase {
             .setMinApi(parameters)
             .compile()
             .getBuildMetadata();
+    inspect(buildMetadata);
+  }
+
+  @Test
+  public void testCli() throws Exception {
+    Path buildMetadataOutputPath = temp.newFile("d8.txt").toPath();
+    String[] args =
+        new String[] {
+          "--build-metadata-output",
+          buildMetadataOutputPath.toString(),
+          "--desugared-lib",
+          LibraryDesugaringSpecification.JDK11.getSpecification().toString(),
+          "--lib",
+          ToolHelper.getMostRecentAndroidJar().toString(),
+          "--min-api",
+          Integer.toString(parameters.getApiLevel().getLevel()),
+          "--release",
+          ToolHelper.getClassFileForTestClass(Main.class).toString()
+        };
+    D8.run(D8Command.parse(args, EmbeddedOrigin.INSTANCE).build());
+    D8BuildMetadata buildMetadata =
+        D8BuildMetadata.fromJson(FileUtils.readTextFile(buildMetadataOutputPath));
+    inspect(buildMetadata);
+  }
+
+  private void inspect(D8BuildMetadata buildMetadata) {
     String json = buildMetadata.toJson();
     System.out.println(json);
     // Inspecting the exact contents is not important here, but it *is* important to test that the

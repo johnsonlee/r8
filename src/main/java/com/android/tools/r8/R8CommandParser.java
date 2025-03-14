@@ -14,6 +14,7 @@ import com.android.tools.r8.profile.art.ArtProfileConsumerUtils;
 import com.android.tools.r8.profile.art.ArtProfileProviderUtils;
 import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.FlagFile;
 import com.android.tools.r8.utils.MapIdTemplateProvider;
 import com.android.tools.r8.utils.SourceFileTemplateProvider;
@@ -22,6 +23,8 @@ import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -59,7 +62,8 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
           "--source-file-template",
           ART_PROFILE_FLAG,
           STARTUP_PROFILE_FLAG,
-          THREAD_COUNT_FLAG);
+          THREAD_COUNT_FLAG,
+          BUILD_METADATA_OUTPUT_FLAG);
 
   // Note: this must be a subset of OPTIONS_WITH_ONE_PARAMETER.
   private static final Set<String> OPTIONS_WITH_TWO_PARAMETERS =
@@ -208,6 +212,7 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
 
   private void parse(
       String[] args, Origin argsOrigin, R8Command.Builder builder, ParseState state) {
+    Path buildMetadataOutputPath = null;
     String[] expandedArgs = FlagFile.expandFlagFiles(args, builder::error);
     FeatureSplitConfigCollector featureSplitConfigCollector = new FeatureSplitConfigCollector();
     for (int i = 0; i < expandedArgs.length; i++) {
@@ -359,6 +364,19 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
         Path startupProfilePath = Paths.get(nextArg);
         builder.addStartupProfileProviders(
             StartupProfileProviderUtils.createFromHumanReadableArtProfile(startupProfilePath));
+      } else if (arg.equals(BUILD_METADATA_OUTPUT_FLAG)) {
+        if (buildMetadataOutputPath != null) {
+          builder.error(
+              new StringDiagnostic(
+                  "Cannot output build metadata to both '"
+                      + buildMetadataOutputPath
+                      + "' and '"
+                      + nextArg
+                      + "'",
+                  argsOrigin));
+          continue;
+        }
+        buildMetadataOutputPath = Paths.get(nextArg);
       } else if (arg.startsWith("--")) {
         if (tryParseAssertionArgument(builder, arg, argsOrigin)) {
           continue;
@@ -382,6 +400,17 @@ public class R8CommandParser extends BaseCompilerCommandParser<R8Command, R8Comm
     }
     addFeatureSplitConfigs(
         builder, featureSplitConfigCollector.getConfigs(), state.includeDataResources);
+    if (buildMetadataOutputPath != null) {
+      final Path finalBuildMetadataOutputPath = buildMetadataOutputPath;
+      builder.setBuildMetadataConsumer(
+          buildMetadata -> {
+            try {
+              FileUtils.writeTextFile(finalBuildMetadataOutputPath, buildMetadata.toJson());
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+          });
+    }
   }
 
   private void addFeatureSplitConfigs(

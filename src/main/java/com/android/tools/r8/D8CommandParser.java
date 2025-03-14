@@ -11,6 +11,7 @@ import com.android.tools.r8.profile.art.ArtProfileConsumerUtils;
 import com.android.tools.r8.profile.art.ArtProfileProviderUtils;
 import com.android.tools.r8.profile.startup.StartupProfileProviderUtils;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.FlagFile;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
@@ -18,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -45,7 +47,8 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
           "--desugared-lib-pg-conf-output",
           THREAD_COUNT_FLAG,
           ART_PROFILE_FLAG,
-          STARTUP_PROFILE_FLAG);
+          STARTUP_PROFILE_FLAG,
+          BUILD_METADATA_OUTPUT_FLAG);
 
   // Note: this must be a subset of OPTIONS_WITH_ONE_PARAMETER.
   private static final Set<String> OPTIONS_WITH_TWO_PARAMETERS = ImmutableSet.of(ART_PROFILE_FLAG);
@@ -213,6 +216,7 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
   }
 
   private D8Command.Builder parse(String[] args, Origin origin, D8Command.Builder builder) {
+    Path buildMetadataOutputPath = null;
     CompilationMode compilationMode = null;
     Path outputPath = null;
     Path globalsOutputPath = null;
@@ -360,6 +364,19 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
         Path startupProfilePath = Paths.get(nextArg);
         builder.addStartupProfileProviders(
             StartupProfileProviderUtils.createFromHumanReadableArtProfile(startupProfilePath));
+      } else if (arg.equals(BUILD_METADATA_OUTPUT_FLAG)) {
+        if (buildMetadataOutputPath != null) {
+          builder.error(
+              new StringDiagnostic(
+                  "Cannot output build metadata to both '"
+                      + buildMetadataOutputPath
+                      + "' and '"
+                      + nextArg
+                      + "'",
+                  origin));
+          continue;
+        }
+        buildMetadataOutputPath = Paths.get(nextArg);
       } else if (arg.startsWith("--")) {
         if (tryParseAssertionArgument(builder, arg, origin)) {
           continue;
@@ -383,6 +400,17 @@ public class D8CommandParser extends BaseCompilerCommandParser<D8Command, D8Comm
     }
     if (!classpathBuilder.isEmpty()) {
       builder.addClasspathResourceProvider(classpathBuilder.build());
+    }
+    if (buildMetadataOutputPath != null) {
+      final Path finalBuildMetadataOutputPath = buildMetadataOutputPath;
+      builder.setBuildMetadataConsumer(
+          buildMetadata -> {
+            try {
+              FileUtils.writeTextFile(finalBuildMetadataOutputPath, buildMetadata.toJson());
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+          });
     }
     if (compilationMode != null) {
       builder.setMode(compilationMode);

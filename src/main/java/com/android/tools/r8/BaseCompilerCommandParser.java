@@ -21,6 +21,7 @@ public class BaseCompilerCommandParser<
     C extends BaseCompilerCommand, B extends BaseCompilerCommand.Builder<C, B>> {
 
   protected static final String ART_PROFILE_FLAG = "--art-profile";
+  protected static final String BUILD_METADATA_OUTPUT_FLAG = "--build-metadata-output";
   protected static final String MIN_API_FLAG = "--min-api";
   protected static final String STARTUP_PROFILE_FLAG = "--startup-profile";
   protected static final String THREAD_COUNT_FLAG = "--thread-count";
