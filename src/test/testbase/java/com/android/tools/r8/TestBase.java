@@ -249,7 +249,8 @@ public class TestBase {
                 assert parameters.isRandom();
                 builder.randomizeForTesting();
               }
-            });
+            })
+        .applyIf(parameters.isRandom(), R8PartialTestBuilder::allowUnusedDontWarnPatterns);
   }
 
   public R8PartialTestBuilder testForR8Partial(Backend backend) {

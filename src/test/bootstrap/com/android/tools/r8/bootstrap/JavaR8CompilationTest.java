@@ -60,6 +60,8 @@ public class JavaR8CompilationTest extends TestBase {
         .setMinApi(parameters)
         .addProgramFiles(r8WithRelocatedDeps)
         .addKeepRuleFiles(KEEP_RULE_FILES)
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules()
         .compile()
         .inspect(this::assertNotEmpty)
         .inspect(JavaR8CompilationTest::assertNoNests);

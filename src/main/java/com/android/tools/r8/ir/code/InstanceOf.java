@@ -8,7 +8,9 @@ import com.android.tools.r8.cf.LoadStoreHelper;
 import com.android.tools.r8.cf.code.CfInstanceOf;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.dex.code.DexInstanceOf;
+import com.android.tools.r8.graph.AccessControl;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -119,6 +121,36 @@ public class InstanceOf extends Instruction {
 
   @Override
   public boolean outTypeKnownToBeBoolean(Set<Phi> seen) {
+    return true;
+  }
+
+  @Override
+  public boolean instructionInstanceCanThrow(
+      AppView<?> appView,
+      ProgramMethod context,
+      AbstractValueSupplier abstractValueSupplier,
+      SideEffectAssumption assumption) {
+    if (appView.options().getTestingOptions().allowTypeErrors
+        && value().isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+      // We conservatively return true here since the object may be uninitialized.
+      // However, in this case the original code is invalid, since it does not verify.
+      return true;
+    }
+    DexType baseType = type.toBaseType(appView.dexItemFactory());
+    if (baseType.isIdenticalTo(context.getHolderType()) || baseType.isPrimitiveType()) {
+      return false;
+    }
+    assert baseType.isClassType();
+    if (!appView.enableWholeProgramOptimizations()) {
+      return true;
+    }
+    DexClass definition = appView.definitionFor(baseType);
+    if (definition != null
+        && definition.isResolvable(appView)
+        && AccessControl.isClassAccessible(definition, context, appView.withClassHierarchy())
+            .isTrue()) {
+      return false;
+    }
     return true;
   }
 
