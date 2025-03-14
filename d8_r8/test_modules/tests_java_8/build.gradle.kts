@@ -60,7 +60,6 @@ dependencies {
 
 val sourceSetDependenciesTasks = arrayOf(
   projectTask("tests_java_9", getExampleJarsTaskName("examplesJava9")),
-  projectTask("tests_java_17", getExampleJarsTaskName("examplesJava17")),
 )
 
 fun testDependencies() : FileCollection {

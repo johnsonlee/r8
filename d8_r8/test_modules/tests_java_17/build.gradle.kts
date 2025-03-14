@@ -17,7 +17,7 @@ java {
   // to tests. Currently both the Test target below and buildExampleJars depend
   // on this.
   sourceSets.test.configure {
-    java.srcDir(root.resolveAll("src", "test", "examplesJava17"))
+    java.srcDir(root.resolveAll("src", "test", "java17"))
   }
   sourceCompatibility = JavaVersion.VERSION_17
   targetCompatibility = JavaVersion.VERSION_17
@@ -35,9 +35,6 @@ dependencies {
   implementation(projectTask("main", "processResources").outputs.files)
 }
 
-// We just need to register the examples jars for it to be referenced by other modules.
-val buildExampleJars = buildExampleJars("examplesJava17")
-
 tasks {
   withType<JavaCompile> {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
@@ -52,10 +49,7 @@ tasks {
     TestingState.setUpTestingState(this)
     javaLauncher = getJavaLauncher(Jdk.JDK_17)
     systemProperty("TEST_DATA_LOCATION",
-                   // This should be
-                   //   layout.buildDirectory.dir("classes/java/test").get().toString()
-                   // once the use of 'buildExampleJars' above is removed.
-                   getRoot().resolveAll("build", "test", "examplesJava17", "classes"))
+                   layout.buildDirectory.dir("classes/java/test").get().toString())
     systemProperty("TESTBASE_DATA_LOCATION",
                    testbaseJavaCompileTask.outputs.files.getAsPath().split(File.pathSeparator)[0])
   }
