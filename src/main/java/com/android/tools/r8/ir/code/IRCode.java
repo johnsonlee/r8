@@ -886,7 +886,7 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
 
   private boolean noRedundantBlocks() {
     for (BasicBlock block : blocks) {
-      assert !isRedundantBlock(block);
+      assert !isBlockWithRedundantSuccessorBlock(block);
     }
     return true;
   }
@@ -1315,7 +1315,30 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
     return true;
   }
 
-  private boolean isRedundantBlock(BasicBlock block) {
+  private boolean isBlockWithRedundantSuccessorBlock(BasicBlock block) {
+    if (options.debug) {
+      return isBlockWithRedundantSuccessorBlockInDebug(block);
+    } else {
+      return isBlockWithRedundantSuccessorBlockInRelease(block);
+    }
+  }
+
+  private boolean isBlockWithRedundantSuccessorBlockInRelease(BasicBlock block) {
+    if (!block.hasUniqueSuccessorWithUniquePredecessor()
+        || !block.exit().isGoto()
+        || !block.exit().getDebugValues().isEmpty()) {
+      return false;
+    }
+    BasicBlock successor = block.getUniqueSuccessor();
+    if (successor.hasCatchHandlers()) {
+      if (block.isEntry() || block.canThrow()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean isBlockWithRedundantSuccessorBlockInDebug(BasicBlock block) {
     return block.hasUniqueSuccessorWithUniquePredecessor()
         && block.getInstructions().size() == 1
         && block.exit().isGoto()
@@ -1324,31 +1347,59 @@ public class IRCode implements IRControlFlowGraph, ValueFactory {
   }
 
   public void removeRedundantBlocks() {
-    List<BasicBlock> blocksToRemove = new ArrayList<>();
-
+    // See b/237567012.
+    assert verifyNoStackInstructions();
+    Set<BasicBlock> blocksToRemove = Sets.newIdentityHashSet();
+    // Run over all blocks while merging successor blocks into the current block.
     for (BasicBlock block : blocks) {
-      // Check that there are no redundant blocks.
-      assert !blocksToRemove.contains(block);
-      if (isRedundantBlock(block)) {
-        assert block.getUniqueSuccessor().getMutablePredecessors().size() == 1;
-        assert block.getUniqueSuccessor().getMutablePredecessors().get(0) == block;
-        assert block.getUniqueSuccessor().getPhis().size() == 0;
-        // Let the successor consume this block.
+      if (blocksToRemove.contains(block)) {
+        continue;
+      }
+      while (isBlockWithRedundantSuccessorBlock(block)) {
+        // Let the current block consume the successor.;
         BasicBlock successor = block.getUniqueSuccessor();
-        successor.getMutablePredecessors().clear();
-        successor.getMutablePredecessors().addAll(block.getPredecessors());
-        successor.getPhis().addAll(block.getPhis());
-        successor.getPhis().forEach(phi -> phi.setBlock(block.getUniqueSuccessor()));
-        block
-            .getPredecessors()
-            .forEach(predecessors -> predecessors.replaceSuccessor(block, successor));
-        block.getMutablePredecessors().clear();
+        assert !successor.hasCatchHandlers() || !block.canThrow();
+        assert !successor.hasPhis();
+        Instruction instruction = successor.entry();
+        while (instruction != null) {
+          Instruction next = instruction.getNext();
+          if (instruction.isJumpInstruction()) {
+            block.replaceLastInstruction(instruction);
+          } else {
+            block.getInstructions().addBefore(instruction, block.exit());
+          }
+          instruction = next;
+        }
+
+        // Unlink successor block.
         block.getMutableSuccessors().clear();
-        block.getPhis().clear();
-        blocksToRemove.add(block);
+        if (successor.hasCatchHandlers()) {
+          block.moveCatchHandlers(successor);
+        }
+        block.getMutableSuccessors().addAll(successor.getSuccessors());
+        block.forEachNormalSuccessor(
+            successorOfSuccessor -> successorOfSuccessor.replacePredecessor(successor, block));
+
+        // Clean successor block and record for removal.
+        successor.getInstructions().clear();
+        successor.getMutablePredecessors().clear();
+        successor.getMutableSuccessors().clear();
+        blocksToRemove.add(successor);
       }
     }
     blocks.removeAll(blocksToRemove);
+    assert noRedundantBlocks();
+  }
+
+  private boolean verifyNoStackInstructions() {
+    for (BasicBlock block : blocks) {
+      for (Instruction instruction : block.getInstructions()) {
+        assert !instruction.isStore();
+        assert !instruction.isPop();
+        assert !instruction.hasOutValue() || !instruction.outValue().isValueOnStack();
+      }
+    }
+    return true;
   }
 
   public boolean removeAllDeadAndTrivialPhis() {

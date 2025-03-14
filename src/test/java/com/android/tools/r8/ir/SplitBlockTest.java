@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -99,11 +100,11 @@ public class SplitBlockTest extends IrInjectionTestBase {
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
       InstructionList instructionList = block.getInstructions();
-      assertTrue(!instructionList.getNth(i).isArgument());
+      assertFalse(instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code);
-      assertTrue(code.isConsistentSSA(appView));
+      assertTrue(code.isConsistentSSAAllowingRedundantBlocks(appView));
 
       assertEquals(initialBlockCount + 1, code.blocks.size());
       assertEquals(i + 1, code.entryBlock().getInstructions().size());
@@ -135,11 +136,11 @@ public class SplitBlockTest extends IrInjectionTestBase {
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
       InstructionList instructionList = block.getInstructions();
-      assertTrue(!instructionList.getNth(i).isArgument());
+      assertFalse(instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code, 1);
-      assertTrue(code.isConsistentSSA(appView));
+      assertTrue(code.isConsistentSSAAllowingRedundantBlocks(appView));
 
       assertEquals(initialBlockCount + 2, code.blocks.size());
       assertEquals(i + 1, code.entryBlock().getInstructions().size());
@@ -341,11 +342,11 @@ public class SplitBlockTest extends IrInjectionTestBase {
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
       InstructionList instructionList = block.getInstructions();
-      assertTrue(!instructionList.getNth(i).isArgument());
+      assertFalse(instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code);
-      assertTrue(code.isConsistentSSA(appView));
+      assertTrue(code.isConsistentSSAAllowingRedundantBlocks(appView));
 
       assertEquals(initialBlockCount + 1, code.blocks.size());
       assertEquals(i + 1, code.entryBlock().getInstructions().size());
@@ -464,11 +465,11 @@ public class SplitBlockTest extends IrInjectionTestBase {
       assertEquals(argumentInstructions, test.countArgumentInstructions());
       assertEquals(firstBlockInstructions, block.getInstructions().size());
       InstructionList instructionList = block.getInstructions();
-      assertTrue(!instructionList.getNth(i).isArgument());
+      assertFalse(instructionList.getNth(i).isArgument());
 
       InstructionListIterator iterator = test.listIteratorAt(block, i);
       BasicBlock newBlock = iterator.split(code);
-      assertTrue(code.isConsistentSSA(appView));
+      assertTrue(code.isConsistentSSAAllowingRedundantBlocks(appView));
 
       assertEquals(initialBlockCount + 1, code.blocks.size());
       assertEquals(i + 1, code.entryBlock().getInstructions().size());

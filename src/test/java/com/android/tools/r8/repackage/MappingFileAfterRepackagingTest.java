@@ -59,14 +59,18 @@ public class MappingFileAfterRepackagingTest extends TestBase {
                               line.contains(
                                   "java.lang.String MappingFileAfterRepackagingTest$A.toString()"))
                       .count();
-              assertEquals(repackage ? 2 : 0, syntheticMatches);
+              assertEquals(
+                  repackage ? 1 + BooleanUtils.intValue(parameters.isDexRuntime()) : 0,
+                  syntheticMatches);
 
               long unqualifiedMatches =
                   StringUtils.splitLines(runResult.proguardMap()).stream()
                       .filter(line -> line.contains("java.lang.String toString()"))
                       .count();
               assertEquals(
-                  (repackage ? 1 : 3) + BooleanUtils.intValue(isPc2pc()), unqualifiedMatches);
+                  (repackage ? 1 : 2 + BooleanUtils.intValue(parameters.isDexRuntime()))
+                      + BooleanUtils.intValue(isPc2pc()),
+                  unqualifiedMatches);
             });
   }
 
@@ -78,7 +82,7 @@ public class MappingFileAfterRepackagingTest extends TestBase {
   static class Main {
 
     public static void main(String[] args) {
-      System.out.println((System.currentTimeMillis() > 0 ? new A() : new B()));
+      System.out.println(System.currentTimeMillis() > 0 ? new A() : new B());
     }
   }
 

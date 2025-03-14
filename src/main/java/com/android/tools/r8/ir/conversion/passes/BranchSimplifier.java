@@ -111,11 +111,11 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
         continue;
       }
       if (block.exit().isIf()) {
-        flipIfBranchesIfNeeded(code, block);
-        if (rewriteIfWithConstZero(code, block)) {
+        flipIfBranchesIfNeeded(block);
+        if (rewriteIfWithConstZero(block)) {
           simplified = true;
         }
-        if (rewriteIfWithObjectsIsNullOrNonNull(code, block)) {
+        if (rewriteIfWithObjectsIsNullOrNonNull(block)) {
           simplified = true;
         }
 
@@ -145,7 +145,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
         if (behavioralSubsumption.isSubsumedBy(
             theIf.inValues().get(0), theIf.getPosition(),
             theIf.getTrueTarget(), theIf.fallthroughBlock())) {
-          simplifyIfWithKnownCondition(code, block, theIf, theIf.fallthroughBlock());
+          simplifyIfWithKnownCondition(block, theIf, theIf.fallthroughBlock());
           simplified = true;
         }
       }
@@ -188,10 +188,6 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       return this;
     }
 
-    public boolean anyAffectedValues() {
-      return anyAffectedValues;
-    }
-
     public boolean anySimplifications() {
       return anySimplifications;
     }
@@ -215,7 +211,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     if (lhsRoot.isConstNumber()) {
       ConstNumber cond = lhsRoot.getConstInstruction().asConstNumber();
       BasicBlock target = theIf.targetFromCondition(cond);
-      simplifyIfWithKnownCondition(code, block, theIf, target);
+      simplifyIfWithKnownCondition(block, theIf, target);
       return true;
     }
 
@@ -223,12 +219,12 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       assert theIf.getType() == IfType.EQ || theIf.getType() == IfType.NE;
 
       if (lhs.isAlwaysNull(appView)) {
-        simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromNullObject());
+        simplifyIfWithKnownCondition(block, theIf, theIf.targetFromNullObject());
         return true;
       }
 
       if (lhs.isNeverNull()) {
-        simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromNonNullObject());
+        simplifyIfWithKnownCondition(block, theIf, theIf.targetFromNonNullObject());
         return true;
       }
     }
@@ -238,7 +234,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       if (lhsAbstractValue.isConstantOrNonConstantNumberValue()
           && !lhsAbstractValue.asConstantOrNonConstantNumberValue().maybeContainsInt(0)) {
         // Value doesn't contain zero at all.
-        simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromCondition(1));
+        simplifyIfWithKnownCondition(block, theIf, theIf.targetFromCondition(1));
         return true;
       }
       if (!lhsRoot.isPhi() && lhsRoot.getDefinition().isXor()) {
@@ -247,7 +243,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
         if (input != null) {
           // ifeqz !a => ifnez a
           // ifnez !a => ifeqz a
-          block.replaceLastInstruction(new If(theIf.getType().inverted(), input), code);
+          block.replaceLastInstruction(new If(theIf.getType().inverted(), input));
           return true;
         }
       }
@@ -258,7 +254,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       if (!interval.containsValue(0)) {
         // Interval doesn't contain zero at all.
         int sign = Long.signum(interval.getMin());
-        simplifyIfWithKnownCondition(code, block, theIf, sign);
+        simplifyIfWithKnownCondition(block, theIf, sign);
         return true;
       }
 
@@ -270,7 +266,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           // [a, b] < 0 is always false if a >= 0.
           // In both cases a zero condition takes the right branch.
           if (interval.getMin() == 0) {
-            simplifyIfWithKnownCondition(code, block, theIf, 0);
+            simplifyIfWithKnownCondition(block, theIf, 0);
             return true;
           }
           break;
@@ -281,7 +277,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           // [a, b] > 0 is always false if b <= 0.
           // In both cases a zero condition takes the right branch.
           if (interval.getMax() == 0) {
-            simplifyIfWithKnownCondition(code, block, theIf, 0);
+            simplifyIfWithKnownCondition(block, theIf, 0);
             return true;
           }
           break;
@@ -317,7 +313,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     Value rhsRoot = rhs.getAliasedValue();
     if (lhsRoot == rhsRoot) {
       // Comparing the same value.
-      simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromCondition(0));
+      simplifyIfWithKnownCondition(block, theIf, theIf.targetFromCondition(0));
       return true;
     }
 
@@ -325,7 +321,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
         && rhsRoot.isDefinedByInstructionSatisfying(Instruction::isCreatingInstanceOrArray)) {
       // Comparing two newly created objects.
       assert theIf.getType() == IfType.EQ || theIf.getType() == IfType.NE;
-      simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromCondition(1));
+      simplifyIfWithKnownCondition(block, theIf, theIf.targetFromCondition(1));
       return true;
     }
 
@@ -334,7 +330,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       ConstNumber left = lhsRoot.getConstInstruction().asConstNumber();
       ConstNumber right = rhsRoot.getConstInstruction().asConstNumber();
       BasicBlock target = theIf.targetFromCondition(left, right);
-      simplifyIfWithKnownCondition(code, block, theIf, target);
+      simplifyIfWithKnownCondition(block, theIf, target);
       return true;
     }
 
@@ -349,7 +345,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
             rhsAbstractValue.asConstantOrNonConstantNumberValue();
         if (!lhsNumberValue.mayOverlapWith(rhsNumberValue)) {
           // No overlap.
-          simplifyIfWithKnownCondition(code, block, theIf, 1);
+          simplifyIfWithKnownCondition(block, theIf, 1);
           return true;
         }
       }
@@ -364,7 +360,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       if (!leftRange.overlapsWith(rightRange)) {
         // No overlap.
         int cond = Long.signum(leftRange.getMin() - rightRange.getMin());
-        simplifyIfWithKnownCondition(code, block, theIf, cond);
+        simplifyIfWithKnownCondition(block, theIf, cond);
         return true;
       }
 
@@ -376,7 +372,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           // [a, b] >= [c, d] is always true when a == d.
           // In both cases 0 condition will choose the right branch.
           if (leftRange.getMin() == rightRange.getMax()) {
-            simplifyIfWithKnownCondition(code, block, theIf, 0);
+            simplifyIfWithKnownCondition(block, theIf, 0);
             return true;
           }
           break;
@@ -386,7 +382,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           // [a, b] <= [c, d] is always true when b == c.
           // In both cases 0 condition will choose the right branch.
           if (leftRange.getMax() == rightRange.getMin()) {
-            simplifyIfWithKnownCondition(code, block, theIf, 0);
+            simplifyIfWithKnownCondition(block, theIf, 0);
             return true;
           }
           break;
@@ -407,7 +403,6 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           SingleConstClassValue otherSingleConstClassValue =
               otherAbstractValue.asSingleConstClassValue();
           simplifyIfWithKnownCondition(
-              code,
               block,
               theIf,
               BooleanUtils.intValue(
@@ -423,7 +418,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           SingleFieldValue singleFieldValue = abstractValue.asSingleFieldValue();
           SingleFieldValue otherSingleFieldValue = otherAbstractValue.asSingleFieldValue();
           if (singleFieldValue.getField() == otherSingleFieldValue.getField()) {
-            simplifyIfWithKnownCondition(code, block, theIf, 0);
+            simplifyIfWithKnownCondition(block, theIf, 0);
             return true;
           }
 
@@ -434,7 +429,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
             DexEncodedField otherField =
                 otherSingleFieldValue.getField().lookupOnClass(otherHolder);
             if (otherField != null && otherField.isEnum()) {
-              simplifyIfWithKnownCondition(code, block, theIf, 1);
+              simplifyIfWithKnownCondition(block, theIf, 1);
               return true;
             }
           }
@@ -445,15 +440,14 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     return false;
   }
 
-  private void simplifyIfWithKnownCondition(
-      IRCode code, BasicBlock block, If theIf, BasicBlock target) {
+  private void simplifyIfWithKnownCondition(BasicBlock block, If theIf, BasicBlock target) {
     BasicBlock deadTarget =
         target == theIf.getTrueTarget() ? theIf.fallthroughBlock() : theIf.getTrueTarget();
-    rewriteIfToGoto(code, block, theIf, target, deadTarget);
+    rewriteIfToGoto(block, theIf, target, deadTarget);
   }
 
-  private void simplifyIfWithKnownCondition(IRCode code, BasicBlock block, If theIf, int cond) {
-    simplifyIfWithKnownCondition(code, block, theIf, theIf.targetFromCondition(cond));
+  private void simplifyIfWithKnownCondition(BasicBlock block, If theIf, int cond) {
+    simplifyIfWithKnownCondition(block, theIf, theIf.targetFromCondition(cond));
   }
 
   /* Identify simple diamond shapes converting boolean true/false to 1/0. We consider the forms:
@@ -547,7 +541,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
           // If all phis were removed, there is no need for the diamond shape anymore
           // and it can be rewritten to a goto to one of the branches.
           if (deadPhis == targetBlock.getPhis().size()) {
-            rewriteIfToGoto(code, block, theIf, trueBlock, falseBlock);
+            rewriteIfToGoto(block, theIf, trueBlock, falseBlock);
             return true;
           }
           return deadPhis > 0;
@@ -594,15 +588,15 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
   }
 
   private void rewriteIfToGoto(
-      IRCode code, BasicBlock block, If theIf, BasicBlock target, BasicBlock deadTarget) {
+      BasicBlock block, If theIf, BasicBlock target, BasicBlock deadTarget) {
     deadTarget.unlinkSinglePredecessorSiblingsAllowed();
     assert theIf == block.exit();
-    block.replaceLastInstruction(new Goto(), code);
+    block.replaceLastInstruction(new Goto());
     assert block.exit().isGoto();
     assert block.exit().asGoto().getTarget() == target;
   }
 
-  private boolean rewriteIfWithConstZero(IRCode code, BasicBlock block) {
+  private boolean rewriteIfWithConstZero(BasicBlock block) {
     If theIf = block.exit().asIf();
     if (theIf.isZeroTest()) {
       return false;
@@ -614,13 +608,13 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       if (leftValue.isConstNumber()) {
         if (leftValue.getConstInstruction().asConstNumber().isZero()) {
           If ifz = new If(theIf.getType().forSwappedOperands(), rightValue);
-          block.replaceLastInstruction(ifz, code);
+          block.replaceLastInstruction(ifz);
           assert block.exit() == ifz;
           return true;
         }
       } else if (rightValue.getConstInstruction().asConstNumber().isZero()) {
         If ifz = new If(theIf.getType(), leftValue);
-        block.replaceLastInstruction(ifz, code);
+        block.replaceLastInstruction(ifz);
         assert block.exit() == ifz;
         return true;
       }
@@ -629,7 +623,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     return false;
   }
 
-  private boolean rewriteIfWithObjectsIsNullOrNonNull(IRCode code, BasicBlock block) {
+  private boolean rewriteIfWithObjectsIsNullOrNonNull(BasicBlock block) {
     If theIf = block.exit().asIf();
     if (!theIf.isZeroTest() || !theIf.getType().isEqualsOrNotEquals()) {
       return false;
@@ -641,18 +635,18 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       DexMethod invokedMethod = invoke.getInvokedMethod();
       if (invokedMethod.isIdenticalTo(dexItemFactory.objectsMethods.isNull)) {
         If ifz = new If(theIf.getType().inverted(), invoke.getFirstArgument());
-        block.replaceLastInstruction(ifz, code);
+        block.replaceLastInstruction(ifz);
         return true;
       } else if (invokedMethod.isIdenticalTo(dexItemFactory.objectsMethods.nonNull)) {
         If ifz = new If(theIf.getType(), invoke.getFirstArgument());
-        block.replaceLastInstruction(ifz, code);
+        block.replaceLastInstruction(ifz);
         return true;
       }
     }
     return false;
   }
 
-  private boolean flipIfBranchesIfNeeded(IRCode code, BasicBlock block) {
+  private boolean flipIfBranchesIfNeeded(BasicBlock block) {
     If theIf = block.exit().asIf();
     BasicBlock trueTarget = theIf.getTrueTarget();
     BasicBlock fallthrough = theIf.fallthroughBlock();
@@ -668,7 +662,7 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     // on older Android versions.
     List<Value> inValues = theIf.inValues();
     If newIf = new If(theIf.getType().inverted(), inValues);
-    block.replaceLastInstruction(newIf, code);
+    block.replaceLastInstruction(newIf);
     block.swapSuccessors(trueTarget, fallthrough);
     return true;
   }

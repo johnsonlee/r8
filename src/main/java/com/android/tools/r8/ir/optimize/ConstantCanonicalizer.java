@@ -617,9 +617,7 @@ public class ConstantCanonicalizer {
     assert insertionPoint.isPhi() || instructionIterator.peekPrevious() == insertionPoint;
     newInstruction.setPosition(
         getPositionForCanonicalizationConstantAtInsertionPoint(insertionPoint, newInstruction));
-    if (newInstruction.instructionTypeCanThrow()
-        && insertionPoint.getBlock().hasCatchHandlers()
-        && insertionPoint.getBlock().canThrow()) {
+    if (newInstruction.instructionTypeCanThrow() && insertionPoint.getBlock().hasCatchHandlers()) {
       // Split the block and rewind the block iterator to the insertion block.
       BasicBlock splitBlock =
           instructionIterator.splitCopyCatchHandlers(
@@ -638,7 +636,6 @@ public class ConstantCanonicalizer {
           assert !splitBlock.canThrow();
           splitBlock.listIterator().add(newInstruction);
         } else {
-          assert splitBlock.canThrow();
           instructionIterator.addBeforeAndPositionBeforeNewInstruction(newInstruction);
         }
         instructionIterator.positionAfterPreviousInstruction(insertionPoint.asInstruction());
