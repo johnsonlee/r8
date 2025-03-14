@@ -38,7 +38,6 @@ import time
 import utils
 import run_on_app
 
-import chrome_data
 import youtube_data
 
 # How often the bot/tester should check state
@@ -58,7 +57,7 @@ STDOUT = 'stdout'
 EXITCODE = 'exitcode'
 TIMED_OUT = 'timed_out'
 
-BENCHMARK_APPS = [chrome_data, youtube_data]
+BENCHMARK_APPS = [youtube_data]
 
 DEPENDENT_PYTHON_FILES = [gradle, utils, run_on_app]
 
@@ -81,8 +80,7 @@ def find_min_xmx_command(app_data):
 
 
 def compile_with_memory_max_command(app_data):
-    # TODO(b/152939233): Remove this special handling when fixed.
-    factor = 1.25 if app_data.GetName() == 'chrome' else 1.15
+    factor = 1.15
     record = app_data.GetMemoryData(app_data.GetLatestVersion())
     return [] if 'skip-find-xmx-max' in record else [
         'tools/run_on_app.py', '--compiler=r8', '--compiler-build=lib',
