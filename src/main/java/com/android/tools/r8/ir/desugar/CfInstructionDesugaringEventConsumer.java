@@ -1113,6 +1113,12 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptUtilityThrowAbstractMethodErrorMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
     public void acceptUtilityThrowIllegalAccessErrorMethod(
         ProgramMethod method, ProgramMethod context) {
       assert false;
