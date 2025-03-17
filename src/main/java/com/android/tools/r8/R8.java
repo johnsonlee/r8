@@ -47,6 +47,7 @@ import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibraryAmender;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.PrefixRewritingNamingLens;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.R8LibraryDesugaring;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordFieldValuesRewriter;
 import com.android.tools.r8.ir.desugar.records.RecordInstructionDesugaring;
@@ -728,6 +729,8 @@ public class R8 {
       appView.setStartupProfile(appView.getStartupProfile().withoutMissingItems(appView));
 
       new NonStartupInStartupOutliner(appView).runIfNecessary(executorService, timing);
+
+      R8LibraryDesugaring.runIfNecessary(appView, executorService, timing);
 
       if (appView.appInfo().hasLiveness()) {
         SyntheticFinalization.finalizeWithLiveness(appView.withLiveness(), executorService, timing);

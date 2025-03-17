@@ -119,6 +119,15 @@ public abstract class CfInstructionDesugaringEventConsumer
         appView, profileCollectionAdditions, eventConsumer);
   }
 
+  public static CfInstructionDesugaringEventConsumer createForR8LirToLirLibraryDesugaring(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ProfileCollectionAdditions profileCollectionAdditions) {
+    CfInstructionDesugaringEventConsumer eventConsumer =
+        new R8LibraryDesugaringCfInstructionDesugaringEventConsumer();
+    return ProfileRewritingCfInstructionDesugaringEventConsumer.attach(
+        appView, profileCollectionAdditions, eventConsumer);
+  }
+
   public abstract List<ProgramMethod> finalizeDesugaring();
 
   public abstract boolean verifyNothingToFinalize();
@@ -849,6 +858,270 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptOutlinedMethod(ProgramMethod outlinedMethod, ProgramMethod context) {
       // Intentionally empty. The method will be hit by tracing if required.
+    }
+  }
+
+  public static class R8LibraryDesugaringCfInstructionDesugaringEventConsumer
+      extends CfInstructionDesugaringEventConsumer {
+
+    private R8LibraryDesugaringCfInstructionDesugaringEventConsumer() {}
+
+    @Override
+    public void acceptAPIConversionOutline(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptClasspathEmulatedInterface(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptCollectionConversion(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptConstantDynamicRewrittenBootstrapMethod(
+        ProgramMethod method, DexMethod oldSignature) {
+      assert false;
+    }
+
+    @Override
+    public void acceptCovariantRetargetMethod(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptEnumConversionClasspathClass(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptGenericApiConversionStub(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public List<ProgramMethod> finalizeDesugaring() {
+      assert false;
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean verifyNothingToFinalize() {
+      assert false;
+      return true;
+    }
+
+    @Override
+    public void acceptOutlinedMethod(ProgramMethod outlinedMethod, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptBackportedMethod(ProgramMethod backportedMethod, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptBackportedClass(DexProgramClass backportedClass, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptConstantDynamicClass(
+        ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptAutoCloseableForwardingMethod(
+        ProgramMethod method, ProgramDefinition context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptDesugaredLibraryBridge(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptInvokeSpecialBridgeInfo(InvokeSpecialBridgeInfo info) {
+      assert false;
+    }
+
+    @Override
+    public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
+      assert false;
+    }
+
+    @Override
+    public void acceptDefaultAsCompanionMethod(
+        ProgramMethod method, ProgramMethod companionMethod) {
+      assert false;
+    }
+
+    @Override
+    public void acceptPrivateAsCompanionMethod(
+        ProgramMethod method, ProgramMethod companionMethod) {
+      assert false;
+    }
+
+    @Override
+    public void acceptStaticAsCompanionMethod(ProgramMethod method, ProgramMethod companionMethod) {
+      assert false;
+    }
+
+    @Override
+    public void acceptInvokeStaticInterfaceOutliningMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptInvokeObjectCloneOutliningMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptNestConstructorBridge(
+        ProgramMethod target,
+        ProgramMethod bridge,
+        DexClass argumentClass,
+        DexClassAndMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptNestFieldGetBridge(
+        ProgramField target, ProgramMethod bridge, DexClassAndMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptNestFieldPutBridge(
+        ProgramField target, ProgramMethod bridge, DexClassAndMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptNestMethodBridge(
+        ProgramMethod target, ProgramMethod bridge, DexClassAndMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptRecordClass(DexProgramClass recordTagClass) {
+      assert false;
+    }
+
+    @Override
+    public void acceptRecordClassContext(DexProgramClass recordTagClass, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptRecordEqualsHelperMethod(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptRecordGetFieldsAsObjectsHelperMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptRecordHashCodeHelperMethod(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptRecordToStringHelperMethod(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptTwrCloseResourceMethod(ProgramMethod closeMethod, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptTypeSwitchClass(DexProgramClass typeSwitchClass, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptVarHandleDesugaringClass(DexProgramClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptVarHandleDesugaringClassContext(
+        DexProgramClass clazz, ProgramDefinition context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptUtilityToStringIfNotNullMethod(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptUtilityThrowClassCastExceptionIfNotNullMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptUtilityThrowIllegalAccessErrorMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptUtilityThrowIncompatibleClassChangeErrorMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptUtilityThrowNoSuchMethodErrorMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptUtilityThrowRuntimeExceptionWithMessageMethod(
+        ProgramMethod method, ProgramMethod context) {
+      assert false;
     }
   }
 }

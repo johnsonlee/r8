@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
@@ -59,6 +60,15 @@ public abstract class CfPostProcessingDesugaringEventConsumer
       BiConsumer<DexProgramClass, DexType> missingClassConsumer) {
     CfPostProcessingDesugaringEventConsumer eventConsumer =
         new R8PostProcessingDesugaringEventConsumer(additions, desugaring, missingClassConsumer);
+    return ProfileRewritingCfPostProcessingDesugaringEventConsumer.attach(
+        appView, profileCollectionAdditions, eventConsumer);
+  }
+
+  public static CfPostProcessingDesugaringEventConsumer createForR8LirToLirLibraryDesugaring(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ProfileCollectionAdditions profileCollectionAdditions) {
+    CfPostProcessingDesugaringEventConsumer eventConsumer =
+        new R8LibraryDesugaringPostProcessingDesugaringEventConsumer();
     return ProfileRewritingCfPostProcessingDesugaringEventConsumer.attach(
         appView, profileCollectionAdditions, eventConsumer);
   }
@@ -307,6 +317,111 @@ public abstract class CfPostProcessingDesugaringEventConsumer
     public void acceptAutoCloseableForwardingMethod(
         ProgramMethod method, ProgramDefinition context) {
       additions.addLiveMethod(method);
+    }
+  }
+
+  public static class R8LibraryDesugaringPostProcessingDesugaringEventConsumer
+      extends CfPostProcessingDesugaringEventConsumer {
+
+    private R8LibraryDesugaringPostProcessingDesugaringEventConsumer() {}
+
+    @Override
+    public void acceptAPIConversionCallback(
+        ProgramMethod callbackMethod, ProgramMethod convertedMethod) {
+      assert false;
+    }
+
+    @Override
+    public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptDesugaredLibraryRetargeterForwardingMethod(
+        ProgramMethod method, EmulatedDispatchMethodDescriptor descriptor) {
+      assert false;
+    }
+
+    @Override
+    public void acceptEmulatedInterfaceMarkerInterface(
+        DexProgramClass clazz, DexClasspathClass newInterface) {
+      assert false;
+    }
+
+    @Override
+    public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
+      assert false;
+    }
+
+    @Override
+    public void acceptInterfaceMethodDesugaringForwardingMethod(
+        ProgramMethod method, DexClassAndMethod baseMethod) {
+      assert false;
+    }
+
+    @Override
+    public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public Set<DexMethod> getNewlyLiveMethods() {
+      assert false;
+      return Collections.emptySet();
+    }
+
+    @Override
+    public void finalizeDesugaring() {
+      assert false;
+    }
+
+    @Override
+    public void warnMissingInterface(
+        DexProgramClass context, DexType missing, InterfaceDesugaringSyntheticHelper helper) {
+      assert false;
+    }
+
+    @Override
+    public void acceptCollectionConversion(ProgramMethod arrayConversion, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptEnumConversionClasspathClass(DexClasspathClass clazz) {
+      assert false;
+    }
+
+    @Override
+    public void acceptGenericApiConversionStub(DexClasspathClass dexClasspathClass) {
+      assert false;
+    }
+
+    @Override
+    public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptAutoCloseableForwardingMethod(
+        ProgramMethod method, ProgramDefinition context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptAutoCloseableInterfaceInjection(
+        DexProgramClass clazz, DexClass newInterface) {
+      assert false;
+    }
+
+    @Override
+    public void acceptCovariantRetargetMethod(ProgramMethod method, ProgramMethod context) {
+      assert false;
+    }
+
+    @Override
+    public void acceptThrowingMethod(
+        ProgramMethod method, DexType errorType, FailedResolutionResult resolutionResult) {
+      assert false;
     }
   }
 }

@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar.itf;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 
+import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -42,6 +43,11 @@ public class InterfaceMethodProcessorFacade implements CfPostProcessingDesugarin
     assert interfaceProcessor != null;
     this.interfaceProcessor = interfaceProcessor;
     this.classProcessor = new ClassProcessor(appView, isLiveMethod, desugaringMode);
+  }
+
+  @SuppressWarnings("DoNotCallSuggester")
+  public static InterfaceMethodProcessorFacade createForR8LirToLirLibraryDesugaring() {
+    throw new Unreachable();
   }
 
   private boolean shouldProcess(DexProgramClass clazz) {

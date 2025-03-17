@@ -248,6 +248,23 @@ public abstract class R8PartialSubCompilationConfiguration {
       assert amendMissingClasses(appView);
     }
 
+    public void uncommitDexingOutputClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
+      List<DexClasspathClass> newClasspathClasses =
+          ListUtils.sort(
+              DexClasspathClass.toClasspathClasses(dexingOutputClasses.values()).values(),
+              Comparator.comparing(DexClass::getType));
+      DirectMappedDexApplication newApp =
+          appView
+              .app()
+              .asDirect()
+              .builder()
+              .removeProgramClasses(clazz -> dexingOutputClasses.containsKey(clazz.getType()))
+              .addClasspathClasses(newClasspathClasses)
+              .build();
+      appView.rebuildAppInfo(newApp);
+      assert amendMissingClasses(appView);
+    }
+
     public boolean hasD8DefinitionFor(DexReference reference) {
       if (reference.isDexType()) {
         return dexingOutputClasses.containsKey(reference.asDexType());

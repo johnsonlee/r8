@@ -32,6 +32,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.R8LibraryDesugaringGraphLens;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
@@ -179,6 +180,13 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
           return true;
         }
       }
+    }
+    if (graphLens instanceof R8LibraryDesugaringGraphLens) {
+      if (result.isNeedsDesugaredLibraryApiConversionSet()) {
+        return true;
+      }
+    } else {
+      assert !result.isNeedsDesugaredLibraryApiConversionSet();
     }
     assert result.getPrototypeChanges().isEmpty();
     return false;

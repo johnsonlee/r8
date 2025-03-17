@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar;
 
+import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -34,6 +36,13 @@ public abstract class CfPostProcessingDesugaringCollection {
           appView, interfaceMethodProcessorFacade, isLiveMethod);
     }
     return empty();
+  }
+
+  @SuppressWarnings("DoNotCallSuggester")
+  public static CfPostProcessingDesugaringCollection createForR8LirToLirLibraryDesugaring(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      InterfaceMethodProcessorFacade interfaceDesugaring) {
+    throw new Unreachable();
   }
 
   static CfPostProcessingDesugaringCollection empty() {
