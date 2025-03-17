@@ -58,12 +58,6 @@ public class InstantiatedLambdasTestRunner extends TestBase {
   }
 
   @Test
-  public void testProguard() throws Exception {
-    assumeTrue(parameters.isCfRuntime());
-    buildAndRunProguard("pg.jar", false);
-  }
-
-  @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(inputJar)
@@ -78,31 +72,5 @@ public class InstantiatedLambdasTestRunner extends TestBase {
             parameters.isDexRuntime(),
             compileResult ->
                 compileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors());
-  }
-
-  private void buildAndRunProguard(String outName, boolean aggressive) throws Exception {
-    Path pgConfig = writeProguardRules(aggressive);
-    Path outPg = temp.getRoot().toPath().resolve(outName);
-    ProcessResult proguardResult =
-        ToolHelper.runProguard6Raw(
-            inputJar, outPg, ToolHelper.getJava8RuntimeJar(), pgConfig, null);
-    System.out.println(proguardResult.stdout);
-    if (proguardResult.exitCode != 0) {
-      System.out.println(proguardResult.stderr);
-    }
-    assertEquals(0, proguardResult.exitCode);
-    ProcessResult runPg = ToolHelper.runJava(outPg, CLASS.getCanonicalName());
-    assertEquals(0, runPg.exitCode);
-  }
-
-  private Path writeProguardRules(boolean aggressive) throws IOException {
-    Path pgConfig = temp.getRoot().toPath().resolve("keep.txt");
-    FileUtils.writeTextFile(
-        pgConfig,
-        "-keep public class " + CLASS.getCanonicalName() + " {",
-        "  public static void main(...);",
-        "}",
-        aggressive ? "-overloadaggressively" : "# Not overloading aggressively");
-    return pgConfig;
   }
 }

@@ -48,8 +48,6 @@ public class IfOnClassTest extends ProguardCompatibilityTestBase {
   @Parameters(name = "shrinker: {0} precondition: {1}")
   public static Collection<Object[]> data() {
     return ImmutableList.of(
-        new Object[] {Shrinker.PROGUARD6, true},
-        new Object[] {Shrinker.PROGUARD6, false},
         new Object[] {Shrinker.R8, true},
         new Object[] {Shrinker.R8, false},
         new Object[] {Shrinker.R8_CF, true},
@@ -78,18 +76,6 @@ public class IfOnClassTest extends ProguardCompatibilityTestBase {
         programClasses, adaptConfiguration(proguardConfig), configure, backend);
   }
 
-  @Override
-  protected CodeInspector inspectProguard5Result(
-      List<Class<?>> programClasses, String proguardConfig) throws Exception {
-    return super.inspectProguard5Result(programClasses, adaptConfiguration(proguardConfig));
-  }
-
-  @Override
-  protected CodeInspector inspectProguard6Result(
-      List<Class<?>> programClasses, String proguardConfig) throws Exception {
-    return super.inspectProguard6Result(programClasses, adaptConfiguration(proguardConfig));
-  }
-
   @Test
   public void ifThenKeep_withoutNthWildcard() throws Exception {
     List<String> config = ImmutableList.of(
@@ -101,10 +87,6 @@ public class IfOnClassTest extends ProguardCompatibilityTestBase {
 
     CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
     if (!keepPrecondition) {
-      // TODO(b/73708139): Proguard6 kept Dependent (w/o any members), which is not necessary.
-      if (shrinker == Shrinker.PROGUARD6) {
-        return;
-      }
       assertEquals(1, codeInspector.allClasses().size());
       return;
     }
@@ -138,10 +120,6 @@ public class IfOnClassTest extends ProguardCompatibilityTestBase {
 
     CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
     if (!keepPrecondition) {
-      // TODO(b/73708139): Proguard6 kept Dependent (w/o any members), which is not necessary.
-      if (shrinker == Shrinker.PROGUARD6) {
-        return;
-      }
       assertEquals(1, codeInspector.allClasses().size());
       return;
     }
@@ -214,10 +192,6 @@ public class IfOnClassTest extends ProguardCompatibilityTestBase {
 
     CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
     if (!keepPrecondition) {
-      // TODO(b/73708139): Proguard6 kept DependentUser (w/o any members), which is not necessary.
-      if (shrinker == Shrinker.PROGUARD6) {
-        return;
-      }
       assertEquals(1, codeInspector.allClasses().size());
       return;
     }
@@ -263,10 +237,6 @@ public class IfOnClassTest extends ProguardCompatibilityTestBase {
 
     CodeInspector codeInspector = inspectAfterShrinking(shrinker, CLASSES, config);
     if (!keepPrecondition) {
-      // TODO(b/73708139): Proguard6 kept DependentUser (w/o any members), which is not necessary.
-      if (shrinker == Shrinker.PROGUARD6) {
-        return;
-      }
       assertEquals(1, codeInspector.allClasses().size());
       return;
     }

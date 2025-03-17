@@ -9,7 +9,6 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPublic;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestShrinkerBuilder;
@@ -42,8 +41,7 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
   @Parameters(name = "{0}, shrinker: {1}")
   public static Collection<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(),
-        ImmutableList.of(Shrinker.PROGUARD6, Shrinker.R8));
+        getTestParameters().withAllRuntimesAndApiLevels().build(), ImmutableList.of(Shrinker.R8));
   }
 
   private TestShrinkerBuilder<?, ?, ?, ?, ?> getTestBuilder() {
@@ -52,9 +50,6 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
 
   private TestShrinkerBuilder<?, ?, ?, ?, ?> getTestBuilder(boolean allowDiagnosticInfoMessages) {
     switch (shrinker) {
-      case PROGUARD6:
-        assertTrue(parameters.isCfRuntime());
-        return testForProguard().addInliningAnnotations().addNeverClassInliningAnnotations();
       case R8:
         return testForR8(parameters.getBackend())
             .allowUnusedProguardConfigurationRules(allowDiagnosticInfoMessages)
@@ -67,8 +62,6 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
 
   @Test
   public void ifOnPublic_noPublicClassForIfRule() throws Exception {
-    assumeFalse(shrinker.isProguard() && parameters.isDexRuntime());
-
     getTestBuilder(shrinker.isR8())
         .addProgramClasses(CLASSES)
         .addKeepRules(
@@ -101,8 +94,6 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
 
   @Test
   public void ifOnNonPublic_keepOnPublic() throws Exception {
-    assumeFalse(shrinker.isProguard() && parameters.isDexRuntime());
-
     getTestBuilder()
         .addProgramClasses(CLASSES)
         .addKeepRules(
@@ -141,8 +132,6 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
 
   @Test
   public void ifOnNonPublic_keepOnNonPublic() throws Exception {
-    assumeFalse(shrinker.isProguard() && parameters.isDexRuntime());
-
     getTestBuilder()
         .addProgramClasses(CLASSES)
         .addKeepRules(
@@ -186,8 +175,6 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
 
   @Test
   public void ifOnPublic_keepOnPublic() throws Exception {
-    assumeFalse(shrinker.isProguard() && parameters.isDexRuntime());
-
     getTestBuilder()
         .addProgramClasses(CLASSES)
         .addKeepRules(
@@ -225,8 +212,6 @@ public class IfOnAccessModifierTest extends ProguardCompatibilityTestBase {
 
   @Test
   public void ifOnPublic_keepOnNonPublic() throws Exception {
-    assumeFalse(shrinker.isProguard() && parameters.isDexRuntime());
-
     getTestBuilder()
         .addProgramClasses(CLASSES)
         .addKeepRules(

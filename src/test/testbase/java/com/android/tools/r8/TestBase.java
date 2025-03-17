@@ -408,7 +408,7 @@ public class TestBase {
   /** @deprecated use {@link #testForProguard(ProguardVersion)} instead. */
   @Deprecated
   public ProguardTestBuilder testForProguard() {
-    return testForProguard(ProguardVersion.V6_0_1);
+    return testForProguard(ProguardVersion.V7_0_0);
   }
 
   public ProguardTestBuilder testForProguard(ProguardVersion version) {

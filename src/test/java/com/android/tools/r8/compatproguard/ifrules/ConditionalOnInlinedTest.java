@@ -6,7 +6,6 @@ package com.android.tools.r8.compatproguard.ifrules;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.ProguardVersion;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
@@ -77,7 +76,7 @@ public class ConditionalOnInlinedTest extends TestBase {
   private TestShrinkerBuilder<?, ?, ?, ?, ?> buildShrinker(Shrinker shrinker) {
     TestShrinkerBuilder<?, ?, ?, ?, ?> builder;
     if (shrinker == Shrinker.Proguard) {
-      builder = testForProguard(ProguardVersion.V6_0_1).addDontWarn(ConditionalOnInlinedTest.class);
+      builder = testForProguard().addDontWarn(ConditionalOnInlinedTest.class);
     } else if (shrinker == Shrinker.R8Compat) {
       builder = testForR8Compat(parameters.getBackend());
     } else {
@@ -112,23 +111,16 @@ public class ConditionalOnInlinedTest extends TestBase {
   public void testConditionalOnClassAndMethod() throws Exception {
     assumeTrue(optionalShrinker.isPresent());
     Shrinker shrinker = optionalShrinker.get();
-    TestRunResult<?> result =
-        buildShrinker(shrinker)
-            .addKeepRules(
-                "-if class "
-                    + A.class.getTypeName()
-                    + " { void method(java.lang.String); }"
-                    + " -keep class "
-                    + B.class.getTypeName()
-                    + " { void <init>(); void method(); }")
-            .compile()
-            .run(parameters.getRuntime(), MAIN_CLASS, B.class.getTypeName());
-    if (shrinker == Shrinker.Proguard) {
-      // In this case PG appears to not actually keep the consequent, but it does remain renamed
-      // in the output.
-      result.assertFailureWithErrorThatThrows(ClassNotFoundException.class);
-    } else {
-      result.assertSuccessWithOutput(EXPECTED);
-    }
+    buildShrinker(shrinker)
+        .addKeepRules(
+            "-if class "
+                + A.class.getTypeName()
+                + " { void method(java.lang.String); }"
+                + " -keep class "
+                + B.class.getTypeName()
+                + " { void <init>(); void method(); }")
+        .compile()
+        .run(parameters.getRuntime(), MAIN_CLASS, B.class.getTypeName())
+        .assertSuccessWithOutput(EXPECTED);
   }
 }

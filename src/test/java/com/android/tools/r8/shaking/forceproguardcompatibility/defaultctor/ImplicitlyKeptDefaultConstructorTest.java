@@ -148,28 +148,11 @@ public class ImplicitlyKeptDefaultConstructorTest extends ProguardCompatibilityT
       Class<?> mainClass,
       List<Class<?>> programClasses,
       String proguardConfiguration,
-      TriConsumer<Class, List<Class<?>>, CodeInspector> r8Checker,
-      TriConsumer<Class, List<Class<?>>, CodeInspector> proguardChecker)
+      TriConsumer<Class, List<Class<?>>, CodeInspector> r8Checker)
       throws Exception {
     CodeInspector inspector =
         inspectR8CompatResult(programClasses, proguardConfiguration, null, parameters.getBackend());
     r8Checker.accept(mainClass, programClasses, inspector);
-
-    if (isRunProguard()) {
-      inspector = inspectProguard6Result(programClasses, proguardConfiguration);
-      proguardChecker.accept(mainClass, programClasses, inspector);
-      inspector = inspectProguard6AndD8Result(programClasses, proguardConfiguration, null);
-      proguardChecker.accept(mainClass, programClasses, inspector);
-    }
-  }
-
-  private void runTest(
-      Class<?> mainClass,
-      List<Class<?>> programClasses,
-      String proguardConfiguration,
-      TriConsumer<Class, List<Class<?>>, CodeInspector> checker)
-      throws Exception {
-    runTest(mainClass, programClasses, proguardConfiguration, checker, checker);
   }
 
   @Test
@@ -293,7 +276,6 @@ public class ImplicitlyKeptDefaultConstructorTest extends ProguardCompatibilityT
         mainClass,
         ImmutableList.of(mainClass, StaticFieldNotInitialized.class),
         keepMainProguardConfiguration(mainClass),
-        this::checkOnlyMainPresent,
         this::checkOnlyMainPresent);
   }
 

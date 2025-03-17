@@ -12,7 +12,6 @@ import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.ProguardTestCompileResult;
-import com.android.tools.r8.ProguardVersion;
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -89,7 +88,7 @@ public class InitMatchingTest extends TestBase {
     ProguardTestCompileResult result;
     try {
       result =
-          testForProguard(ProguardVersion.V6_0_1)
+          testForProguard()
               .addProgramClasses(InitMatchingTestClass.class)
               .addKeepRules(createKeepRule())
               .compile();

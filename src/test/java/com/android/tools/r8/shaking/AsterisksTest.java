@@ -63,7 +63,7 @@ public class AsterisksTest extends ProguardCompatibilityTestBase {
 
   @Parameters(name = "shrinker: {0}")
   public static Collection<Object> data() {
-    return ImmutableList.of(Shrinker.PROGUARD6, Shrinker.R8, Shrinker.R8_CF);
+    return ImmutableList.of(Shrinker.R8, Shrinker.R8_CF);
   }
 
   @Test
@@ -79,10 +79,6 @@ public class AsterisksTest extends ProguardCompatibilityTestBase {
     FieldSubject fieldSubject = classSubject.field(B111974287.class.getTypeName(), "self");
     assertThat(fieldSubject, isPresentAndNotRenamed());
     fieldSubject = classSubject.field(B111974287.class.getTypeName() + "[]", "clones");
-    // TODO(b/111974287): Proguard6 kept and renamed the field with array type.
-    if (shrinker == Shrinker.PROGUARD6) {
-      return;
-    }
     assertThat(fieldSubject, not(isPresent()));
   }
 

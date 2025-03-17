@@ -9,9 +9,6 @@ class Shrinker {
 
   public static final Shrinker R8 = new Shrinker(null);
   public static final Shrinker PG = new Shrinker(ProguardVersion.getLatest());
-  public static final Shrinker PG5 = new Shrinker(ProguardVersion.V5_2_1);
-  public static final Shrinker PG6 = new Shrinker(ProguardVersion.V6_0_1);
-  public static final Shrinker PG7 = new Shrinker(ProguardVersion.V7_0_0);
 
   private final ProguardVersion proguardVersion;
 

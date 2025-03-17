@@ -15,13 +15,9 @@ import utils
 # Internal constants, these should not be used outside this script.
 # Use the friendly utility methods below.
 PG_DIR = os.path.join(utils.THIRD_PARTY, 'proguard')
-DEFAULT = 'pg6'
+DEFAULT = 'pg7'
 DEFAULT_ALIAS = 'pg'
 VERSIONS = {
-    'pg5':
-        os.path.join(PG_DIR, 'proguard5.2.1', 'lib', 'proguard.jar'),
-    'pg6':
-        os.path.join(PG_DIR, 'proguard6.0.1', 'lib', 'proguard.jar'),
     'pg7':
         os.path.join(PG_DIR, 'proguard-7.0.0', 'lib', 'proguard.jar'),
     'pg_internal':

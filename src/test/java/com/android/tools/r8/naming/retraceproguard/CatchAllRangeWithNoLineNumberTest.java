@@ -57,22 +57,6 @@ public class CatchAllRangeWithNoLineNumberTest extends TestBase {
           "foo.bar.Quux -> c:",
           "  void foo():33:33 -> a");
 
-  private final String retraced5_2_1 =
-      StringUtils.lines(
-          "foo.bar.Baz.a(Baz.java)",
-          "foo.bar.Qux.a(Qux.java)",
-          "foo.bar.Quux.a(Quux.java)",
-          "foo.bar.Baz.foo(Baz.java:33)",
-          "foo.bar.Baz.a(Baz.java:0)");
-
-  private final String retraced6_0_1 =
-      StringUtils.lines(
-          "foo.bar.Baz.a(Baz.java)",
-          "foo.bar.Qux.a(Qux.java)",
-          "foo.bar.Quux.a(Quux.java)",
-          "foo.bar.Baz.foo(Baz.java:33)",
-          "foo.bar.Baz.a(Baz.java:0)");
-
   private final String retraced7_0_0 =
       StringUtils.lines(
           "foo.bar.Baz.foo(Baz.java)",
@@ -114,13 +98,6 @@ public class CatchAllRangeWithNoLineNumberTest extends TestBase {
   }
 
   private String getExpected() {
-    switch (proguardVersion) {
-      case V5_2_1:
-        return retraced5_2_1;
-      case V6_0_1:
-        return retraced6_0_1;
-      default:
-        return retraced7_0_0;
-    }
+    return retraced7_0_0;
   }
 }

@@ -59,7 +59,7 @@ public class FieldRenamingTest extends TestBase {
     parameters.assumeCfRuntime();
     Path inJar = temp.newFile("input.jar").toPath().toAbsolutePath();
     writeClassFilesToJar(inJar, CLASSES);
-    testForProguard(ProguardVersion.V6_0_1)
+    testForProguard(ProguardVersion.V7_0_0)
         .addProgramFiles(inJar)
         .addKeepMainRule(MAIN)
         .run(parameters.getRuntime(), MAIN)

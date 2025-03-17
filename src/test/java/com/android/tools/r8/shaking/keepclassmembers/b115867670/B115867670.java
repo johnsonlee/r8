@@ -71,8 +71,7 @@ public class B115867670 extends ProguardCompatibilityTestBase {
 
   @Parameters(name = "shrinker: {0}")
   public static Collection<Object> data() {
-    return ImmutableList.of(
-        Shrinker.PROGUARD6, Shrinker.R8_COMPAT, Shrinker.R8_COMPAT_CF, Shrinker.R8, Shrinker.R8_CF);
+    return ImmutableList.of(Shrinker.R8_COMPAT, Shrinker.R8_COMPAT_CF, Shrinker.R8, Shrinker.R8_CF);
   }
 
   public B115867670(Shrinker shrinker) {

@@ -58,7 +58,6 @@ public class B72391662 extends ProguardCompatibilityTestBase {
         new Shrinker[] {
           Shrinker.R8,
           Shrinker.R8_COMPAT,
-          Shrinker.PROGUARD6_THEN_D8,
           Shrinker.R8_CF,
           Shrinker.R8_COMPAT_CF
         }) {
@@ -71,9 +70,6 @@ public class B72391662 extends ProguardCompatibilityTestBase {
               break;
             case R8_COMPAT:
               repackagePrefix = "rc";
-              break;
-            case PROGUARD6_THEN_D8:
-              repackagePrefix = "pg";
               break;
             case R8_CF:
               repackagePrefix = "r8cf";
@@ -156,12 +152,7 @@ public class B72391662 extends ProguardCompatibilityTestBase {
     staticMethod = testClass.uniqueMethodWithOriginalName("staticMethod");
     assertThat(staticMethod, isPresent());
     assertEquals(minify, staticMethod.isRenamed());
-    boolean publicizeCondition =
-        isForceAccessModifyingPackagePrivateAndProtectedMethods()
-            || (shrinker.isProguard()
-                && minify
-                && repackagePrefix != null
-                && allowAccessModification);
+    boolean publicizeCondition = isForceAccessModifyingPackagePrivateAndProtectedMethods();
     assertEquals(publicizeCondition, staticMethod.getMethod().isPublic());
   }
 
@@ -220,12 +211,7 @@ public class B72391662 extends ProguardCompatibilityTestBase {
     staticMethod = testClass.uniqueMethodWithOriginalName("staticMethod");
     assertThat(staticMethod, isPresent());
     assertEquals(minify, staticMethod.isRenamed());
-    boolean publicizeCondition =
-        isForceAccessModifyingPackagePrivateAndProtectedMethods()
-            || (shrinker.isProguard()
-                && minify
-                && repackagePrefix != null
-                && allowAccessModification);
+    boolean publicizeCondition = isForceAccessModifyingPackagePrivateAndProtectedMethods();
     assertEquals(publicizeCondition, staticMethod.getMethod().isPublic());
   }
 
@@ -287,11 +273,7 @@ public class B72391662 extends ProguardCompatibilityTestBase {
     boolean publicizeCondition =
         (shrinker.isCompatR8() && allowAccessModification)
             || (shrinker.isFullModeR8()
-                && (shrinker.isR8Dex() || allowAccessModification || minify))
-            || (shrinker.isProguard()
-                && minify
-                && repackagePrefix != null
-                && allowAccessModification);
+                && (shrinker.isR8Dex() || allowAccessModification || minify));
     assertEquals(publicizeCondition, staticMethod.getMethod().accessFlags.isPublic());
   }
 }

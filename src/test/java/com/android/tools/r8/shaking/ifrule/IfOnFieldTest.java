@@ -43,7 +43,7 @@ public class IfOnFieldTest extends ProguardCompatibilityTestBase {
 
   @Parameters(name = "shrinker: {0}")
   public static Collection<Object> data() {
-    return ImmutableList.of(Shrinker.PROGUARD6, Shrinker.R8, Shrinker.R8_CF);
+    return ImmutableList.of(Shrinker.R8, Shrinker.R8_CF);
   }
 
   private String adaptConfiguration(String proguardConfig) {
@@ -62,12 +62,6 @@ public class IfOnFieldTest extends ProguardCompatibilityTestBase {
       throws Exception {
     return super.inspectR8Result(
         programClasses, adaptConfiguration(proguardConfig), config, backend);
-  }
-
-  @Override
-  protected CodeInspector inspectProguard6Result(
-      List<Class<?>> programClasses, String proguardConfig) throws Exception {
-    return super.inspectProguard6Result(programClasses, adaptConfiguration(proguardConfig));
   }
 
   @Test

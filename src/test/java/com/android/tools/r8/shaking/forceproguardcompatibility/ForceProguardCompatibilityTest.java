@@ -31,7 +31,6 @@ import com.android.tools.r8.shaking.forceproguardcompatibility.defaultmethods.Te
 import com.android.tools.r8.shaking.forceproguardcompatibility.keepattributes.TestKeepAttributes;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FieldSubject;
@@ -39,8 +38,6 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import com.android.tools.r8.utils.graphinspector.GraphInspector;
 import com.android.tools.r8.utils.graphinspector.GraphInspector.QueryNode;
 import com.google.common.collect.ImmutableList;
-import java.io.File;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -178,15 +175,6 @@ public class ForceProguardCompatibilityTest extends TestBase {
         initNode.assertAbsent();
       }
     }
-
-    if (isRunProguard()) {
-      Path proguardedJar = File.createTempFile("proguarded", ".jar", temp.getRoot()).toPath();
-      Path proguardConfigFile = File.createTempFile("proguard", ".config", temp.getRoot()).toPath();
-      Path proguardMapFile = File.createTempFile("proguard", ".map", temp.getRoot()).toPath();
-      FileUtils.writeTextFile(proguardConfigFile, proguardConfig);
-      ToolHelper.runProguard(jarTestClasses(testClass),
-          proguardedJar, proguardConfigFile, proguardMapFile);
-    }
   }
 
   @Test
@@ -217,18 +205,6 @@ public class ForceProguardCompatibilityTest extends TestBase {
     assertEquals(containsCheckCast, clazz.isPresent());
     if (clazz.isPresent()) {
       assertEquals(forceProguardCompatibility && containsCheckCast, !clazz.isAbstract());
-    }
-
-    if (isRunProguard()) {
-      Path proguardedJar = File.createTempFile("proguarded", ".jar", temp.getRoot()).toPath();
-      Path proguardConfigFile = File.createTempFile("proguard", ".config", temp.getRoot()).toPath();
-      FileUtils.writeTextFile(proguardConfigFile, proguardConfig);
-      ToolHelper.runProguard(jarTestClasses(ImmutableList.of(mainClass, instantiatedClass)),
-          proguardedJar, proguardConfigFile, null);
-      CodeInspector proguardInspector = new CodeInspector(readJar(proguardedJar));
-      assertTrue(proguardInspector.clazz(mainClass).isPresent());
-      assertEquals(
-          containsCheckCast, proguardInspector.clazz(instantiatedClass).isPresent());
     }
   }
 
@@ -272,23 +248,6 @@ public class ForceProguardCompatibilityTest extends TestBase {
           assertTrue(subject.isPresent());
           assertEquals(allowObfuscation, subject.isRenamed());
         });
-
-    if (isRunProguard()) {
-      Path proguardedJar = File.createTempFile("proguarded", ".jar", temp.getRoot()).toPath();
-      Path proguardConfigFile = File.createTempFile("proguard", ".config", temp.getRoot()).toPath();
-      Path proguardMapFile = File.createTempFile("proguard", ".map", temp.getRoot()).toPath();
-      FileUtils.writeTextFile(proguardConfigFile, proguardConfig);
-      ToolHelper.runProguard(jarTestClasses(
-          ImmutableList.of(mainClass, forNameClass1, forNameClass2)),
-          proguardedJar, proguardConfigFile, proguardMapFile);
-      CodeInspector proguardedInspector = new CodeInspector(readJar(proguardedJar), proguardMapFile);
-      assertEquals(3, proguardedInspector.allClasses().size());
-      assertTrue(proguardedInspector.clazz(mainClass).isPresent());
-      for (Class<?> clazz : ImmutableList.of(forNameClass1, forNameClass2)) {
-        assertTrue(proguardedInspector.clazz(clazz).isPresent());
-        assertEquals(allowObfuscation, proguardedInspector.clazz(clazz).isRenamed());
-      }
-    }
   }
 
   @Test
@@ -332,28 +291,6 @@ public class ForceProguardCompatibilityTest extends TestBase {
         classSubject.method("java.lang.String", "bar", ImmutableList.of("java.lang.String"));
     assertTrue(bar.isPresent());
     assertEquals(allowObfuscation, bar.isRenamed());
-
-    if (isRunProguard()) {
-      Path proguardedJar = File.createTempFile("proguarded", ".jar", temp.getRoot()).toPath();
-      Path proguardConfigFile = File.createTempFile("proguard", ".config", temp.getRoot()).toPath();
-      Path proguardMapFile = File.createTempFile("proguard", ".map", temp.getRoot()).toPath();
-      FileUtils.writeTextFile(proguardConfigFile, proguardConfig);
-      ToolHelper.runProguard(jarTestClasses(
-          ImmutableList.of(mainClass, withMemberClass)),
-          proguardedJar, proguardConfigFile, proguardMapFile);
-      CodeInspector proguardedInspector = new CodeInspector(readJar(proguardedJar), proguardMapFile);
-      assertEquals(2, proguardedInspector.allClasses().size());
-      assertTrue(proguardedInspector.clazz(mainClass).isPresent());
-      classSubject = proguardedInspector.clazz(withMemberClass);
-      assertTrue(classSubject.isPresent());
-      assertEquals(allowObfuscation, classSubject.isRenamed());
-      foo = classSubject.field("java.lang.String", "foo");
-      assertTrue(foo.isPresent());
-      assertEquals(allowObfuscation, foo.isRenamed());
-      bar = classSubject.method("java.lang.String", "bar", ImmutableList.of("java.lang.String"));
-      assertTrue(bar.isPresent());
-      assertEquals(allowObfuscation, bar.isRenamed());
-    }
   }
 
   @Test
@@ -399,31 +336,6 @@ public class ForceProguardCompatibilityTest extends TestBase {
     f = classSubject.field("java.lang.Object", "objField");
     assertTrue(f.isPresent());
     assertEquals(allowObfuscation, f.isRenamed());
-
-    if (isRunProguard()) {
-      Path proguardedJar = File.createTempFile("proguarded", ".jar", temp.getRoot()).toPath();
-      Path proguardConfigFile = File.createTempFile("proguard", ".config", temp.getRoot()).toPath();
-      Path proguardMapFile = File.createTempFile("proguard", ".map", temp.getRoot()).toPath();
-      FileUtils.writeTextFile(proguardConfigFile, proguardConfig);
-      ToolHelper.runProguard(jarTestClasses(
-          ImmutableList.of(mainClass, withVolatileFields)),
-          proguardedJar, proguardConfigFile, proguardMapFile);
-      CodeInspector proguardedInspector = new CodeInspector(readJar(proguardedJar), proguardMapFile);
-      assertEquals(2, proguardedInspector.allClasses().size());
-      assertTrue(proguardedInspector.clazz(mainClass).isPresent());
-      classSubject = proguardedInspector.clazz(withVolatileFields);
-      assertTrue(classSubject.isPresent());
-      assertEquals(allowObfuscation, classSubject.isRenamed());
-      f = classSubject.field("int", "intField");
-      assertTrue(f.isPresent());
-      assertEquals(allowObfuscation, f.isRenamed());
-      f = classSubject.field("long", "longField");
-      assertTrue(f.isPresent());
-      assertEquals(allowObfuscation, f.isRenamed());
-      f = classSubject.field("java.lang.Object", "objField");
-      assertTrue(f.isPresent());
-      assertEquals(allowObfuscation, f.isRenamed());
-    }
   }
 
   @Test

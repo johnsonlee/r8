@@ -10,7 +10,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-import com.android.tools.r8.ProguardVersion;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.naming.keeppackagenames.Top;
@@ -82,7 +81,7 @@ public class KeepPackageNamesTest extends TestBase {
 
   @Test
   public void testProguard() throws Exception {
-    testForProguard(ProguardVersion.V6_0_1)
+    testForProguard()
         .addProgramClasses(CLASSES)
         .addKeepAllClassesRuleWithAllowObfuscation()
         .addKeepRules(config.getKeepRule())

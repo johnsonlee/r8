@@ -1848,8 +1848,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     ProguardWildcard backReference = it2.next();
     assertTrue(backReference.isBackReference());
     assertSame(secondWildcardInIf.asPattern(), backReference.asBackReference().reference);
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -1873,8 +1871,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, if0.subsequentRule.getMemberRules().size());
     ProguardMemberRule fieldRule = if0.subsequentRule.getMemberRules().get(0);
     assertEquals("<1>.F<2>", fieldRule.getType().toString());
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -1898,8 +1894,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, if0.subsequentRule.getMemberRules().size());
     ProguardMemberRule fieldRule = if0.subsequentRule.getMemberRules().get(0);
     assertEquals("fld<2>", fieldRule.getName().toString());
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -1923,8 +1917,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, if0.subsequentRule.getMemberRules().size());
     ProguardMemberRule methodRule = if0.subsequentRule.getMemberRules().get(0);
     assertEquals("<1>.M<2>", methodRule.getType().toString());
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -1944,8 +1936,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(
           handler.errors, proguardConfig, 5, 3, "Unexpected character", "method name");
     }
-
-    verifyFailWithProguard6(proguardConfig, "Expecting type and name instead of just '<3>'");
   }
 
   @Test
@@ -1971,8 +1961,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, if0.subsequentRule.getMemberRules().size());
     ProguardMemberRule methodRule = if0.subsequentRule.getMemberRules().get(0);
     assertEquals("<3>_delegate", methodRule.getName().toString());
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -1999,8 +1987,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     ProguardMemberRule methodRule = if0.subsequentRule.getMemberRules().get(0);
     assertEquals("<3>", methodRule.getType().toString());
     assertEquals("<4>", methodRule.getName().toString());
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -2018,7 +2004,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 2, 13,
           "Use of generics not allowed for java type");
     }
-    verifyFailWithProguard6(proguardConfig, "Use of generics not allowed for java type");
   }
 
   @Test
@@ -2036,7 +2021,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 2, 13,
           "Use of generics not allowed for java type");
     }
-    verifyFailWithProguard6(proguardConfig, "Use of generics not allowed for java type");
   }
 
   @Test
@@ -2051,8 +2035,6 @@ public class ProguardConfigurationParserTest extends TestBase {
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
     verifyParserEndsCleanly();
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -2067,8 +2049,6 @@ public class ProguardConfigurationParserTest extends TestBase {
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
     checkDiagnostics(handler.warnings, proguardConfig, 3, 7, "The field name \"id<<*>>\" is");
-
-    verifyWithProguard6(proguardConfig);
   }
 
   @Test
@@ -2088,7 +2068,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 4, 2,
           "Wildcard", "<4>", "invalid");
     }
-    verifyFailWithProguard6(proguardConfig, "Invalid reference to wildcard (4,");
   }
 
   @Test
@@ -2106,7 +2085,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 2, 13,
           "Wildcard", "<0>", "invalid");
     }
-    verifyFailWithProguard6(proguardConfig, "Invalid reference to wildcard (0,");
   }
 
   @Test
@@ -2124,7 +2102,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 3, 1,
           "Wildcard", "<4>", "invalid");
     }
-    verifyFailWithProguard6(proguardConfig, "Invalid reference to wildcard (4,");
   }
 
   @Test
@@ -2142,7 +2119,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 3, 1,
           "Wildcard", "<2>", "invalid");
     }
-    verifyFailWithProguard6(proguardConfig, "Invalid reference to wildcard (2,");
   }
 
   @Test
@@ -2164,7 +2140,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 6, 2,
           "Wildcard", "<3>", "invalid");
     }
-    verifyFailWithProguard6(proguardConfig, "Invalid reference to wildcard (3,");
   }
 
   @Test
@@ -2184,8 +2159,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 5, 1,
           "Wildcard", "<3>", "invalid");
     }
-    verifyFailWithProguard6(
-        proguardConfig, "Use of generics not allowed for java type at '<1>.<3><2>'");
   }
 
   @Test
@@ -2203,7 +2176,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 1, 1,
           "Expecting", "'-keep'", "after", "'-if'");
     }
-    verifyFailWithProguard6(proguardConfig, "Expecting '-keep' option after '-if' option");
   }
 
   @Test
@@ -2220,7 +2192,6 @@ public class ProguardConfigurationParserTest extends TestBase {
       checkDiagnostics(handler.errors, proguardConfig, 1, 1,
           "Expecting", "'-keep'", "after", "'-if'");
     }
-    verifyFailWithProguard6(proguardConfig, "Expecting '-keep' option after '-if' option");
   }
 
   @Test
@@ -2358,7 +2329,6 @@ public class ProguardConfigurationParserTest extends TestBase {
         new ProguardConfigurationParser(new DexItemFactory(), reporter);
     parser.parse(proguardConfig);
     checkDiagnostics(handler.warnings, proguardConfig, 2, 5, "The field name \"<fields>\" is");
-    verifyWithProguard(proguardConfig);
   }
 
   @Test
@@ -2375,8 +2345,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(1, config.getRules().size());
     ProguardKeepRule rule = (ProguardKeepRule) config.getRules().get(0);
     assertEquals(ProguardClassType.ANNOTATION_INTERFACE, rule.getClassType());
-
-    verifyWithProguard(proguardConfig);
   }
 
   @Test
@@ -2395,8 +2363,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     checkDiagnostics(handler.warnings, 1, proguardConfig, 2, 11, "The field name \"methods>\" is");
     checkDiagnostics(handler.warnings, 2, proguardConfig, 3, 3, "The type \"<public\" is");
     checkDiagnostics(handler.warnings, 3, proguardConfig, 3, 11, "The field name \"fields>\" is");
-
-    verifyWithProguard(proguardConfig);
   }
 
   private void checkRulesSourceSnippet(List<String> sourceRules) {
@@ -2739,67 +2705,6 @@ public class ProguardConfigurationParserTest extends TestBase {
     assertEquals(0, handler.errors.size());
   }
 
-  private void verifyWithProguard(Path proguardConfig) throws Exception {
-    if (isRunProguard()) {
-      // Add a keep rule for the test class as Proguard will fail if the resulting output jar is
-      // empty
-      Class classToKeepForTest = EmptyMainClassForProguardTests.class;
-      Path additionalProguardConfig = writeTextToTempFile(
-          "-keep class " + classToKeepForTest.getCanonicalName() + " {",
-          "  public static void main(java.lang.String[]);",
-          "}"
-      );
-      Path proguardedJar =
-          File.createTempFile("proguarded", FileUtils.JAR_EXTENSION, temp.getRoot()).toPath();
-      ProcessResult result = ToolHelper.runProguardRaw(
-          jarTestClasses(ImmutableList.of(classToKeepForTest)),
-          proguardedJar,
-          ImmutableList.of(proguardConfig, additionalProguardConfig),
-          null);
-      assertEquals(0, result.exitCode);
-      CodeInspector proguardInspector = new CodeInspector(readJar(proguardedJar));
-      assertEquals(1, proguardInspector.allClasses().size());
-    }
-  }
-
-  private void verifyWithProguard6(Path proguardConfig) throws Exception {
-    if (isRunProguard()) {
-      // Add a keep rule for the test class as Proguard will fail if the resulting output jar is
-      // empty
-      Class classToKeepForTest = EmptyMainClassForProguardTests.class;
-      Path additionalProguardConfig = writeTextToTempFile(
-          "-keep class " + classToKeepForTest.getCanonicalName() + " {",
-          "  public static void main(java.lang.String[]);",
-          "}"
-      );
-      Path proguardedJar =
-          File.createTempFile("proguarded", FileUtils.JAR_EXTENSION, temp.getRoot()).toPath();
-      ProcessResult result = ToolHelper.runProguard6Raw(
-          jarTestClasses(ImmutableList.of(classToKeepForTest)),
-          proguardedJar,
-          ImmutableList.of(proguardConfig, additionalProguardConfig),
-          null);
-      assertEquals(0, result.exitCode);
-      CodeInspector proguardInspector = new CodeInspector(readJar(proguardedJar));
-      assertEquals(1, proguardInspector.allClasses().size());
-    }
-  }
-
-  private void verifyFailWithProguard6(Path proguardConfig, String expectedMessage)
-      throws Exception{
-    if (isRunProguard()) {
-      // No need for a keep rule for this class, as we are expecting Proguard to fail with the
-      // specified message.
-      Class classForTest = EmptyMainClassForProguardTests.class;
-      Path proguardedJar =
-          File.createTempFile("proguarded", FileUtils.JAR_EXTENSION, temp.getRoot()).toPath();
-      ProcessResult result = ToolHelper.runProguard6Raw(
-          jarTestClasses(ImmutableList.of(classForTest)), proguardedJar, proguardConfig, null);
-      assertNotEquals(0, result.exitCode);
-      assertThat(result.stderr, containsString(expectedMessage));
-    }
-  }
-
   @Test
   public void b124181032() {
     // Test spaces and quotes in class name list.
@@ -2932,8 +2837,6 @@ public class ProguardConfigurationParserTest extends TestBase {
           || initName.contains("void")) {
         continue;
       }
-      verifyFailWithProguard6(
-          proguardConfig, "Expecting type and name instead of just '" + initName + "'");
     }
   }
 

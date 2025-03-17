@@ -5,12 +5,9 @@
 package com.android.tools.r8.proguard.configuration;
 
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestShrinkerBuilder;
 import com.android.tools.r8.utils.ThrowingConsumer;
@@ -162,17 +159,10 @@ public class InheritanceClauseWithDisjunctionTest extends TestBase {
 
   @Test
   public void testImplementsClauseWithProguard() throws Exception {
-    try {
-      runTest(
-          testForProguard(),
-          getKeepRulesForImplementsClauseTests(),
-          InheritanceClauseWithDisjunctionTest::inspectImplementsClauseTests);
-      fail();
-    } catch (CompilationFailedException e) {
-      // Strangely, nothing matches implements I or J (not even InheritanceClauseWithDisjunction-
-      // TestClassIJSub, which implements both I and J!).
-      assertThat(e.getMessage(), containsString("The output jar is empty"));
-    }
+    runTest(
+        testForProguard(),
+        getKeepRulesForImplementsClauseTests(),
+        InheritanceClauseWithDisjunctionTest::inspectImplementsClauseTests);
   }
 
   private static List<String> getKeepRulesForImplementsClauseTests() {
@@ -186,9 +176,7 @@ public class InheritanceClauseWithDisjunctionTest extends TestBase {
   }
 
   private static void inspectImplementsClauseTests(CodeInspector inspector) {
-    // Strangely, nothing matches implements I or J (not even InheritanceClauseWithDisjunctionTest-
-    // ClassIJSub, which implements both I and J!).
-    assertEquals(0, inspector.allClasses().size());
+    assertEquals(3, inspector.allClasses().size());
   }
 
   @Ignore("b/128503974")

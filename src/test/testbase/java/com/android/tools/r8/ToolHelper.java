@@ -242,11 +242,6 @@ public class ToolHelper {
   public static final String JDK_11_TESTS_DIR = OPEN_JDK_DIR + "jdk-11-test/";
   public static final String JDK_11_TIME_TESTS_DIR = JDK_11_TESTS_DIR + "java/time/";
 
-  private static final String PROGUARD5_2_1 =
-      THIRD_PARTY_DIR + "proguard/proguard5.2.1/bin/proguard";
-  private static final String PROGUARD6_0_1 =
-      THIRD_PARTY_DIR + "proguard/proguard6.0.1/bin/proguard";
-  private static final String PROGUARD = PROGUARD5_2_1;
   public static final Path JACOCO_ROOT = Paths.get(THIRD_PARTY_DIR, "jacoco", "0.8.6");
   public static final Path JACOCO_AGENT = JACOCO_ROOT.resolve(Paths.get("lib", "jacocoagent.jar"));
   public static final Path JACOCO_CLI = JACOCO_ROOT.resolve(Paths.get("lib", "jacococli.jar"));
@@ -1172,20 +1167,6 @@ public class ToolHelper {
     }
     fail("Unsupported platform, we currently only support mac and linux: " + getPlatform());
     return ""; //never here
-  }
-
-  public static String getProguard5Script() {
-    if (isWindows()) {
-      return PROGUARD + ".bat";
-    }
-    return PROGUARD + ".sh";
-  }
-
-  public static String getProguard6Script() {
-    if (isWindows()) {
-      return PROGUARD6_0_1 + ".bat";
-    }
-    return PROGUARD6_0_1 + ".sh";
   }
 
   public static Backend[] getBackends() {
@@ -2559,41 +2540,6 @@ public class ToolHelper {
       fail("Proguard failed, exit code " + result.exitCode + ", stderr:\n" + result.stderr);
     }
     return result.stdout;
-  }
-
-  public static ProcessResult runProguardRaw(
-      Path inJar, Path outJar, Path lib, Path config, Path map) throws IOException {
-    return runProguardRaw(getProguard5Script(), inJar, outJar, lib, ImmutableList.of(config), map);
-  }
-
-  public static ProcessResult runProguardRaw(Path inJar, Path outJar, List<Path> config, Path map)
-      throws IOException {
-    return runProguardRaw(getProguard5Script(), inJar, outJar, config, map);
-  }
-
-  public static String runProguard(Path inJar, Path outJar, Path config, Path map)
-      throws IOException {
-    return runProguard(inJar, outJar, ImmutableList.of(config), map);
-  }
-
-  public static String runProguard(Path inJar, Path outJar, List<Path> config, Path map)
-      throws IOException {
-    return runProguard(getProguard5Script(), inJar, outJar, config, map);
-  }
-
-  public static ProcessResult runProguard6Raw(Path inJar, Path outJar, Path config, Path map)
-      throws IOException {
-    return runProguardRaw(getProguard6Script(), inJar, outJar, ImmutableList.of(config), map);
-  }
-
-  public static ProcessResult runProguard6Raw(
-      Path inJar, Path outJar, List<Path> config, Path map) throws IOException {
-    return runProguardRaw(getProguard6Script(), inJar, outJar, config, map);
-  }
-
-  public static ProcessResult runProguard6Raw(
-      Path inJar, Path outJar, Path lib, Path config, Path map) throws IOException {
-    return runProguardRaw(getProguard6Script(), inJar, outJar, lib, ImmutableList.of(config), map);
   }
 
   public static ProcessResult runRetraceRaw(Path retracePath, Path map, Path stackTrace)

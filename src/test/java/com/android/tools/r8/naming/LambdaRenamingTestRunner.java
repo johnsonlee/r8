@@ -62,12 +62,6 @@ public class LambdaRenamingTestRunner extends TestBase {
   }
 
   @Test
-  public void testProguard() throws Exception {
-    assumeTrue(parameters.isCfRuntime());
-    buildAndRunProguard("pg.jar");
-  }
-
-  @Test
   public void testR8() throws Exception {
     testForR8(parameters.getBackend())
         .addProgramFiles(inputJar)
@@ -89,39 +83,5 @@ public class LambdaRenamingTestRunner extends TestBase {
             parameters.isDexRuntime(),
             compileResult ->
                 compileResult.runDex2Oat(parameters.getRuntime()).assertNoVerificationErrors());
-  }
-
-  private void buildAndRunProguard(String outName) throws Exception {
-    Path pgConfig = writeProguardRules();
-    Path outPg = temp.getRoot().toPath().resolve(outName);
-    ProcessResult proguardResult =
-        ToolHelper.runProguard6Raw(
-            inputJar, outPg, ToolHelper.getJava8RuntimeJar(), pgConfig, null);
-    System.out.println(proguardResult.stdout);
-    if (proguardResult.exitCode != 0) {
-      System.out.println(proguardResult.stderr);
-    }
-    assertEquals(0, proguardResult.exitCode);
-    ProcessResult runPg = ToolHelper.runJava(outPg, CLASS.getCanonicalName());
-    // Proguard renames IntegerInterface.inexactMethod() and ObjectInterface.inexactMethod()
-    // to different names, which causes AbstractMethodError.
-    assertNotEquals(-1, runPg.stderr.indexOf("AbstractMethodError"));
-    assertNotEquals(0, runPg.exitCode);
-  }
-
-  private Path writeProguardRules() throws IOException {
-    Path pgConfig = temp.getRoot().toPath().resolve("keep.txt");
-    FileUtils.writeTextFile(
-        pgConfig,
-        "-keep public class " + CLASS.getCanonicalName() + " {",
-        "  public static void main(...);",
-        "}",
-        "-keep interface " + CLASS.getCanonicalName() + "$ReservedNameObjectInterface1 {",
-        "  public java.lang.Object reservedMethod1();",
-        "}",
-        "-keep interface " + CLASS.getCanonicalName() + "$ReservedNameIntegerInterface2 {",
-        "  public java.lang.Integer reservedMethod2();",
-        "}");
-    return pgConfig;
   }
 }

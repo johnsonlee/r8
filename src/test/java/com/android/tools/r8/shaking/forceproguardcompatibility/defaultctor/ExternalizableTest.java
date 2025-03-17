@@ -263,7 +263,6 @@ public class ExternalizableTest extends ProguardCompatibilityTestBase {
   @Parameterized.Parameters(name = "Shrinker: {0}")
   public static Collection<Object> data() {
     return ImmutableList.of(
-        Shrinker.PROGUARD6_THEN_D8, Shrinker.PROGUARD6,
         Shrinker.R8_COMPAT, Shrinker.R8_COMPAT_CF,
         Shrinker.R8, Shrinker.R8_CF);
   }

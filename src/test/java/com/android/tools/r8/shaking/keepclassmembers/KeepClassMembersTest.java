@@ -39,8 +39,7 @@ public class KeepClassMembersTest extends ProguardCompatibilityTestBase {
       CodeInspector inspector,
       Class<?> mainClass,
       Class<?> staticClass,
-      boolean forceProguardCompatibility,
-      boolean fromProguard) {
+      boolean forceProguardCompatibility) {
     assertTrue(inspector.clazz(mainClass).isPresent());
     ClassSubject staticClassSubject = inspector.clazz(staticClass);
     assertThat(staticClassSubject, isPresent());
@@ -55,18 +54,11 @@ public class KeepClassMembersTest extends ProguardCompatibilityTestBase {
     MethodSubject getIMethod = staticClassSubject.method("int", "getI", ImmutableList.of());
     FieldSubject iField = staticClassSubject.field("int", "i");
     if (forceProguardCompatibility) {
-      if (fromProguard) {
-        // Proguard keeps the instance method and it code even though the class does not have a
-        // constructor, and therefore cannot be instantiated.
-        assertThat(getIMethod, isPresent());
-        assertThat(iField, isPresent());
-      } else {
-        // Force Proguard compatibility keeps the instance method, even though the class does
-        // not have a constructor.
-        assertThat(getIMethod, not(isAbstract()));
-        // As the method is abstract the referenced field is not present.
-        assertThat(iField, not(isPresent()));
-      }
+      // Force Proguard compatibility keeps the instance method, even though the class does
+      // not have a constructor.
+      assertThat(getIMethod, not(isAbstract()));
+      // As the method is abstract the referenced field is not present.
+      assertThat(iField, not(isPresent()));
     } else {
       assertThat(getIMethod, not(isPresent()));
       assertThat(iField, not(isPresent()));
@@ -77,8 +69,6 @@ public class KeepClassMembersTest extends ProguardCompatibilityTestBase {
 
   private void runTest(Class<?> mainClass, Class<?> staticClass, boolean forceProguardCompatibility)
       throws Exception {
-    String proguardConfig = String.join("\n", ImmutableList.of(
-    ));
     CodeInspector inspector;
     inspector =
         testForR8Compat(parameters.getBackend(), forceProguardCompatibility)
@@ -94,12 +84,7 @@ public class KeepClassMembersTest extends ProguardCompatibilityTestBase {
             .setMinApi(parameters)
             .compile()
             .inspector();
-    check(inspector, mainClass, staticClass, forceProguardCompatibility, false);
-
-    if (isRunProguard()) {
-      inspector = inspectProguard6Result(ImmutableList.of(mainClass, staticClass), proguardConfig);
-      check(inspector, mainClass, staticClass, true, true);
-    }
+    check(inspector, mainClass, staticClass, forceProguardCompatibility);
   }
 
   @Test

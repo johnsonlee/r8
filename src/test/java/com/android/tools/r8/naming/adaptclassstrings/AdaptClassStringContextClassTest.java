@@ -50,11 +50,7 @@ public class AdaptClassStringContextClassTest extends TestBase {
         .apply(this::setUpTest)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines(
-            "com.android.tools.r8.naming.adaptclassstrings.a",
-            // PG 5 replaces in both contexts despite the filter.
-            proguardVersion == ProguardVersion.V5_2_1
-                ? "com.android.tools.r8.naming.adaptclassstrings.a"
-                : typeName(Foo.class))
+            "com.android.tools.r8.naming.adaptclassstrings.a", typeName(Foo.class))
         .inspect(inspector -> assertThat(inspector.clazz(Foo.class), isPresentAndRenamed()));
   }
 

@@ -163,64 +163,6 @@ public class AdaptResourceFileContentsTest extends ProguardCompatibilityTestBase
   }
 
   @Test
-  public void testProguardBehavior() throws Exception {
-    Path proguardedJar =
-        File.createTempFile("proguarded", FileUtils.JAR_EXTENSION, temp.getRoot()).toPath();
-    runProguard6Raw(
-        proguardedJar,
-        ImmutableList.of(
-            AdaptResourceFileContentsTestClass.class,
-            AdaptResourceFileContentsTestClass.A.class,
-            AdaptResourceFileContentsTestClass.B.class),
-        getProguardConfig(true, null),
-        null,
-        getDataResources().stream()
-            .filter(x -> !StringUtils.toLowerCase(x.getName()).endsWith(FileUtils.CLASS_EXTENSION))
-            .collect(Collectors.toList()));
-
-    // Visit each of the resources in the jar and check that their contents are as expected.
-    Set<String> filenames = new HashSet<>();
-    ArchiveResourceProvider.fromArchive(proguardedJar, true)
-        .accept(
-            new Visitor() {
-              @Override
-              public void visit(DataDirectoryResource directory) {}
-
-              @Override
-              public void visit(DataEntryResource file) {
-                try {
-                  byte[] bytes = ByteStreams.toByteArray(file.getByteStream());
-                  List<String> lines =
-                      Arrays.asList(
-                          new String(bytes, Charset.defaultCharset())
-                              .split(System.lineSeparator()));
-                  if (file.getName().endsWith("resource-all-changed.md")) {
-                    checkAllAreChanged(lines, originalAllChangedResource);
-                  } else if (file.getName().endsWith("resource-all-changed.txt")) {
-                    checkAllAreChanged(lines, originalAllChangedResource);
-                  } else if (file.getName().endsWith("resource-all-present.txt")) {
-                    checkAllArePresent(lines, new CodeInspector(readJar(proguardedJar)));
-                  } else if (file.getName().endsWith("resource-all-unchanged.txt")) {
-                    checkAllAreUnchanged(lines, originalAllUnchangedResource);
-                  }
-                } catch (Exception e) {
-                  throw new RuntimeException(e);
-                }
-
-                // Record that the jar contains a resource with this name.
-                filenames.add(file.getName());
-              }
-            });
-
-    // Check that the jar contains the four expected resources, and nothing else.
-    assertEquals(4, filenames.size());
-    assertTrue(filenames.stream().anyMatch(x -> x.endsWith("resource-all-changed.md")));
-    assertTrue(filenames.stream().anyMatch(x -> x.endsWith("resource-all-changed.txt")));
-    assertTrue(filenames.stream().anyMatch(x -> x.endsWith("resource-all-present.txt")));
-    assertTrue(filenames.stream().anyMatch(x -> x.endsWith("resource-all-unchanged.txt")));
-  }
-
-  @Test
   public void testEnabledWithFilter() throws Exception {
     DataResourceConsumerForTesting dataResourceConsumer = new DataResourceConsumerForTesting();
     compileWithR8(getProguardConfigWithNeverInline(true, "*.md"), dataResourceConsumer);
