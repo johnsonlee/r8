@@ -94,6 +94,12 @@ public abstract class MethodProcessorEventConsumer
     }
 
     @Override
+    public void acceptUtilityThrowAbstractMethodErrorMethod(
+        ProgramMethod method, ProgramMethod context) {
+      // Intentionally empty.
+    }
+
+    @Override
     public void acceptUtilityThrowIllegalAccessErrorMethod(
         ProgramMethod method, ProgramMethod context) {
       // Intentionally empty.

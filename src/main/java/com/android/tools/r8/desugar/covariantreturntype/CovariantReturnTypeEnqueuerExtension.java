@@ -17,6 +17,7 @@ import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
 import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.shaking.EnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.shaking.KeepInfo;
 import com.android.tools.r8.shaking.KeepMethodInfo;
@@ -95,6 +96,16 @@ public class CovariantReturnTypeEnqueuerExtension
           enqueuer.getKeepInfo().registerCompilerSynthesizedMethod(bridge);
           enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(bridge, bridgeKeepInfo);
           enqueuer.getProfileCollectionAdditions().addMethodIfContextIsInProfile(bridge, target);
+
+          // When shrinking is disabled we need to explicitly trace the code.
+          if (!appView.options().isShrinking()) {
+            KeepMethodInfo.Joiner noShrinkingKeepInfo =
+                bridgeKeepInfo.isShrinkingAllowed()
+                    ? KeepMethodInfo.newEmptyJoiner().disallowShrinking()
+                    : bridgeKeepInfo;
+            enqueuer.enqueueMethodDueToNoShrinkingRule(
+                bridge, noShrinkingKeepInfo, EnqueuerEvent.unconditional());
+          }
         },
         executorService);
     errors.forEachValue(appView.reporter()::error);

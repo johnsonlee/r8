@@ -124,6 +124,11 @@ public class LazyCfCode extends Code {
   }
 
   @Override
+  public boolean isLazyCfCode() {
+    return true;
+  }
+
+  @Override
   public boolean isCfWritableCode() {
     return true;
   }
@@ -140,6 +145,15 @@ public class LazyCfCode extends Code {
     }
     assert code != null;
     return code;
+  }
+
+  public void parseCodeConcurrently() {
+    ReparseContext context = this.context;
+    if (context != null) {
+      synchronized (context) {
+        asCfCode();
+      }
+    }
   }
 
   @Override

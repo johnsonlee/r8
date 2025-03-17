@@ -36,6 +36,7 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.utils.BitUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -75,17 +76,17 @@ public class VarHandleDesugaring implements CfInstructionDesugaring, CfClassSynt
   }
 
   @Override
-  @SuppressWarnings("ReferenceEquality")
-  public void scan(
-      ProgramMethod programMethod, CfInstructionDesugaringEventConsumer eventConsumer) {
-    if (programMethod.getHolderType() == factory.varHandleType) {
+  public void prepare(
+      ProgramMethod method,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramAdditions programAdditions) {
+    if (method.getHolderType().isIdenticalTo(factory.varHandleType)) {
       return;
     }
-    CfCode cfCode = programMethod.getDefinition().getCode().asCfCode();
+    CfCode cfCode = method.getDefinition().getCode().asCfCode();
     int synthesizedClasses = 0;
     for (CfInstruction instruction : cfCode.getInstructions()) {
-      synthesizedClasses =
-          scanInstruction(instruction, eventConsumer, programMethod, synthesizedClasses);
+      synthesizedClasses = scanInstruction(instruction, eventConsumer, method, synthesizedClasses);
     }
   }
 

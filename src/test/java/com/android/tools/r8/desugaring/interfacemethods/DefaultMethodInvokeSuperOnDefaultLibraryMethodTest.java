@@ -11,6 +11,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
@@ -31,14 +32,15 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DefaultMethodInvokeSuperOnDefaultLibraryMethodTest extends TestBase {
 
-  @Parameter() public TestParameters parameters;
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("1", "2");
+
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimes().build();
+    return getTestParameters().withDexRuntimes().withPartialCompilation().build();
   }
-
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("1", "2");
 
   private boolean runtimeHasConsumerInterface(TestParameters parameters) {
     // java,util.function.Consumer was introduced at API level 24.
@@ -47,22 +49,11 @@ public class DefaultMethodInvokeSuperOnDefaultLibraryMethodTest extends TestBase
 
   @Test
   public void testD8WithDefaultInterfaceMethodDesugaringWithAPIInLibrary() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .addInnerClasses(getClass())
         .setMinApi(AndroidApiLevel.I_MR1)
-        .compileWithExpectedDiagnostics(
-            diagnostics ->
-                diagnostics
-                    .assertOnlyWarnings()
-                    .assertWarningsMatch(
-                        allOf(
-                            diagnosticType(StringDiagnostic.class),
-                            diagnosticMessage(
-                                containsString(
-                                    "Interface method desugaring has inserted NoSuchMethodError"
-                                        + " replacing a super call in")),
-                            diagnosticMessage(containsString("forEachPrint")))))
+        .compileWithExpectedDiagnostics(this::verifyOnlyNoSuchMethodErrorDiagnostic)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             // If the platform does not have java.util.function.Consumer the lambda instantiation
@@ -75,7 +66,7 @@ public class DefaultMethodInvokeSuperOnDefaultLibraryMethodTest extends TestBase
 
   @Test
   public void testD8WithDefaultInterfaceMethodDesugaringWithoutAPIInLibrary() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.M))
         .addInnerClasses(getClass())
         .setMinApi(AndroidApiLevel.I_MR1)
@@ -99,33 +90,39 @@ public class DefaultMethodInvokeSuperOnDefaultLibraryMethodTest extends TestBase
   public void testD8WithDefaultInterfaceMethodSupport() throws Exception {
     assumeTrue(
         parameters.asDexRuntime().getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N));
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .addInnerClasses(getClass())
         .setMinApi(AndroidApiLevel.N)
+        .compileWithExpectedDiagnostics(TestDiagnosticMessages::assertNoMessages)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testR8WithDefaultInterfaceMethodDesugaringWithAPIInLibrary() throws Exception {
-    testForR8(parameters.getBackend())
+    parameters.assumeNoPartialCompilation("Requires native multi dex");
+    testForR8(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .addInnerClasses(getClass())
         .setMinApi(AndroidApiLevel.I_MR1)
         .addKeepMainRule(TestClass.class)
+        .allowDiagnosticWarningMessages()
+        .compileWithExpectedDiagnostics(this::verifyOnlyNoSuchMethodErrorDiagnostic)
         .run(parameters.getRuntime(), TestClass.class)
         .assertFailureWithErrorThatThrows(NoSuchMethodError.class);
   }
 
   @Test
   public void testR8WithDefaultInterfaceMethodDesugaringWithoutAPIInLibrary() throws Exception {
-    testForR8(parameters.getBackend())
+    parameters.assumeNoPartialCompilation("Requires native multi dex");
+    testForR8(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.M))
         .addInnerClasses(getClass())
         .setMinApi(AndroidApiLevel.I_MR1)
         .addKeepMainRule(TestClass.class)
         .addDontWarn(Consumer.class)
+        .compile()
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             // If the platform does not have java.util.function.Consumer the lambda instantiation
@@ -140,13 +137,27 @@ public class DefaultMethodInvokeSuperOnDefaultLibraryMethodTest extends TestBase
   public void testR8WithDefaultInterfaceMethodSupport() throws Exception {
     assumeTrue(
         parameters.asDexRuntime().getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N));
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .addInnerClasses(getClass())
         .setMinApi(AndroidApiLevel.N)
         .addKeepMainRule(TestClass.class)
+        .compile()
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  private void verifyOnlyNoSuchMethodErrorDiagnostic(TestDiagnosticMessages diagnostics) {
+    diagnostics
+        .assertOnlyWarnings()
+        .assertWarningsMatch(
+            allOf(
+                diagnosticType(StringDiagnostic.class),
+                diagnosticMessage(
+                    containsString(
+                        "Interface method desugaring has inserted NoSuchMethodError"
+                            + " replacing a super call in")),
+                diagnosticMessage(containsString("forEachPrint"))));
   }
 
   interface IntegerIterable extends Iterable<Integer> {

@@ -13,6 +13,8 @@ public interface UtilityMethodsForCodeOptimizationsEventConsumer {
   void acceptUtilityThrowClassCastExceptionIfNotNullMethod(
       ProgramMethod method, ProgramMethod context);
 
+  void acceptUtilityThrowAbstractMethodErrorMethod(ProgramMethod method, ProgramMethod context);
+
   void acceptUtilityThrowIllegalAccessErrorMethod(ProgramMethod method, ProgramMethod context);
 
   void acceptUtilityThrowIncompatibleClassChangeErrorMethod(

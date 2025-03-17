@@ -407,7 +407,11 @@ public class CfPrinter {
 
   public void print(CfInvoke invoke) {
     indent();
-    builder.append(opcodeName(invoke.getOpcode())).append(' ');
+    builder.append(opcodeName(invoke.getOpcode()));
+    if (!invoke.isInvokeInterface() && !invoke.isInvokeVirtual() && invoke.isInterface()) {
+      builder.append("_itf");
+    }
+    builder.append(' ');
     appendMethod(invoke.getMethod());
   }
 

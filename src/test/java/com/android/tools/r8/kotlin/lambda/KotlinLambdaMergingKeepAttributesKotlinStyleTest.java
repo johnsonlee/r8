@@ -9,7 +9,6 @@ import static com.android.tools.r8.shaking.ProguardKeepAttributes.ENCLOSING_METH
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.INNER_CLASSES;
 import static com.android.tools.r8.shaking.ProguardKeepAttributes.SIGNATURE;
 import static junit.framework.TestCase.assertEquals;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 

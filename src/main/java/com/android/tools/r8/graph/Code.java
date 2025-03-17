@@ -87,6 +87,10 @@ public abstract class Code extends CachedHashValueDexItem {
     return false;
   }
 
+  public boolean isLazyCfCode() {
+    return false;
+  }
+
   public boolean isCfWritableCode() {
     return false;
   }
@@ -176,7 +180,7 @@ public abstract class Code extends CachedHashValueDexItem {
   }
 
   public LazyCfCode asLazyCfCode() {
-    throw new Unreachable(getClass().getCanonicalName() + ".asLazyCfCode()");
+    return null;
   }
 
   public DexCode asDexCode() {

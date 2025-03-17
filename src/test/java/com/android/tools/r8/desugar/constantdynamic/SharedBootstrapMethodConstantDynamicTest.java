@@ -164,6 +164,12 @@ public class SharedBootstrapMethodConstantDynamicTest extends TestBase {
         .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
         .setMinApi(parameters)
         .addKeepMainRule(MAIN_CLASS)
+        .setDiagnosticsLevelModifier(
+            (level, diagnostic) ->
+                (diagnostic instanceof ConstantDynamicDesugarDiagnostic
+                        || diagnostic instanceof UnsupportedFeatureDiagnostic)
+                    ? DiagnosticsLevel.WARNING
+                    : level)
         .allowDiagnosticMessages()
         .compileWithExpectedDiagnostics(
             diagnostics -> {

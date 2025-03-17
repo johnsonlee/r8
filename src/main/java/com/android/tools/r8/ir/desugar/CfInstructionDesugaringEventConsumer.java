@@ -360,6 +360,12 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptUtilityThrowAbstractMethodErrorMethod(
+        ProgramMethod method, ProgramMethod context) {
+      acceptUtilityMethod(method, context);
+    }
+
+    @Override
     public void acceptUtilityThrowIllegalAccessErrorMethod(
         ProgramMethod method, ProgramMethod context) {
       acceptUtilityMethod(method, context);
@@ -644,6 +650,12 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptUtilityThrowClassCastExceptionIfNotNullMethod(
+        ProgramMethod method, ProgramMethod context) {
+      acceptUtilityMethod(method, context);
+    }
+
+    @Override
+    public void acceptUtilityThrowAbstractMethodErrorMethod(
         ProgramMethod method, ProgramMethod context) {
       acceptUtilityMethod(method, context);
     }

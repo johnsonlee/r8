@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.utils.Box;
 import java.util.Collection;
@@ -127,7 +128,10 @@ public class ConstantDynamicInstructionDesugaring implements CfInstructionDesuga
   }
 
   @Override
-  public void scan(ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer) {
+  public void prepare(
+      ProgramMethod method,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramAdditions programAdditions) {
     for (CfInstruction instruction :
         method.getDefinition().getCode().asCfCode().getInstructions()) {
       compute(instruction, method).scan();

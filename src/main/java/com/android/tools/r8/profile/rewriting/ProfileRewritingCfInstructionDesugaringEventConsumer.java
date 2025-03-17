@@ -425,6 +425,13 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   }
 
   @Override
+  public void acceptUtilityThrowAbstractMethodErrorMethod(
+      ProgramMethod method, ProgramMethod context) {
+    additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);
+    parent.acceptUtilityThrowAbstractMethodErrorMethod(method, context);
+  }
+
+  @Override
   public void acceptUtilityThrowIllegalAccessErrorMethod(
       ProgramMethod method, ProgramMethod context) {
     additionsCollection.addMethodAndHolderIfContextIsInProfile(method, context);

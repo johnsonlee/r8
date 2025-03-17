@@ -5,6 +5,7 @@
 package com.android.tools.r8.ir.conversion;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -131,10 +132,15 @@ public abstract class ClassConverter {
               .build();
     }
 
+    parseLazyCfCodeConcurrently(executorService);
+
     CfInstructionDesugaringEventConsumer instructionDesugaringEventConsumerForPrepareStep =
         CfInstructionDesugaringEventConsumer.createForD8(
             appView, profileCollectionAdditions, resultBuilder, methodProcessor);
-    converter.prepareDesugaring(instructionDesugaringEventConsumerForPrepareStep, executorService);
+    converter.prepareDesugaring(
+        instructionDesugaringEventConsumerForPrepareStep,
+        executorService,
+        appView.appInfo().classes());
     assert instructionDesugaringEventConsumerForPrepareStep.verifyNothingToFinalize();
 
     // When adding nest members to the wave we must do so deterministically.
@@ -187,6 +193,16 @@ public abstract class ClassConverter {
         // Create a new processor context to ensure unique method processing contexts.
         methodProcessor.newWave();
 
+        CfInstructionDesugaringEventConsumer
+            instructionDesugaringEventConsumerForSyntheticPrepareStep =
+                CfInstructionDesugaringEventConsumer.createForD8(
+                    appView, profileCollectionAdditions, resultBuilder, methodProcessor);
+        converter.prepareDesugaring(
+            instructionDesugaringEventConsumerForSyntheticPrepareStep,
+            executorService,
+            needsProcessing);
+        assert instructionDesugaringEventConsumerForSyntheticPrepareStep.verifyNothingToFinalize();
+
         // Process the methods that require reprocessing. These are all simple bridge methods and
         // should therefore not lead to additional desugaring.
         ThreadUtils.processItems(
@@ -218,6 +234,30 @@ public abstract class ClassConverter {
         break;
       }
     }
+  }
+
+  private void parseLazyCfCodeConcurrently(ExecutorService executorService)
+      throws ExecutionException {
+    ThreadUtils.processItems(
+        appView.appInfo().classes(),
+        clazz ->
+            clazz.forEachProgramMethod(
+                method -> {
+                  Code code = method.getDefinition().getCode();
+                  if (code != null && code.isLazyCfCode()) {
+                    code.asLazyCfCode().parseCodeConcurrently();
+                  }
+                  DexEncodedMethod definition = method.getDefinition();
+                  if (appView.options().isGeneratingClassFiles()
+                      && definition.hasClassFileVersion()) {
+                    definition.downgradeClassFileVersion(
+                        appView
+                            .options()
+                            .classFileVersionAfterDesugaring(definition.getClassFileVersion()));
+                  }
+                }),
+        appView.options().getThreadingModule(),
+        executorService);
   }
 
   private void checkWaveDeterminism(Collection<DexProgramClass> wave) {

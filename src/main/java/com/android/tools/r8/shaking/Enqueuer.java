@@ -71,6 +71,7 @@ import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GenericSignatureEnqueuerAnalysis;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.InvalidCode;
+import com.android.tools.r8.graph.LazyCfCode;
 import com.android.tools.r8.graph.LookupLambdaTarget;
 import com.android.tools.r8.graph.LookupMethodTarget;
 import com.android.tools.r8.graph.LookupResult;
@@ -136,6 +137,7 @@ import com.android.tools.r8.shaking.EnqueuerEvent.InstantiatedClassEnqueuerEvent
 import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.UnconditionalKeepInfoEvent;
 import com.android.tools.r8.shaking.EnqueuerWorklist.EnqueuerAction;
+import com.android.tools.r8.shaking.EnqueuerWorklist.NonPushableEnqueuerWorklist;
 import com.android.tools.r8.shaking.EnqueuerWorklist.TraceInstanceFieldReadAction;
 import com.android.tools.r8.shaking.EnqueuerWorklist.TraceInstanceFieldWriteAction;
 import com.android.tools.r8.shaking.EnqueuerWorklist.TraceStaticFieldReadAction;
@@ -1073,7 +1075,7 @@ public class Enqueuer {
             field.getDefinition()));
   }
 
-  private void enqueueMethodDueToNoShrinkingRule(
+  public void enqueueMethodDueToNoShrinkingRule(
       ProgramMethod method,
       KeepMethodInfo.Joiner minimumKeepInfo,
       EnqueuerEvent preconditionEvent) {
@@ -4221,6 +4223,11 @@ public class Enqueuer {
   }
 
   private boolean addToPendingDesugaring(ProgramMethod method, Timing timing) {
+    // DEX code is not a supported input and can be ignored. Some legacy tests still pass DEX as
+    // input (smali tests).
+    if (!method.getDefinition().hasCode() || method.getDefinition().getCode().isDexCode()) {
+      return false;
+    }
     try (Timing t0 = timing.begin("Analyze needs desugaring")) {
       try (Timing t1 = timing.begin("Analyze interface method desugaring")) {
         if (options.isInterfaceMethodDesugaringEnabled()) {
@@ -4239,16 +4246,16 @@ public class Enqueuer {
             assert !InvalidCode.isInvalidCode(nonMovedMethod.getDefinition().getCode());
             pendingMethodMove.add(nonMovedMethod);
             return true;
+          }
         }
       }
+      if (worklist instanceof NonPushableEnqueuerWorklist) {
+        assert !method.getDefinition().getCode().isLazyCfCode();
+        assert !desugaring.needsDesugaring(method);
+        return false;
       }
-      try (Timing t2 = timing.begin("Analyze instruction desugaring")) {
-        if (desugaring.needsDesugaring(method)) {
-          pendingCodeDesugaring.add(method);
-          return true;
-        }
-      }
-      return false;
+      pendingCodeDesugaring.add(method);
+      return true;
     }
   }
 
@@ -4261,9 +4268,7 @@ public class Enqueuer {
     pendingCodeDesugaring.forEach(additions::addMethodWithDesugaredCodeForTracing);
     // Then amend the desugar set with the move methods that need desugaring.
     for (ProgramMethod method : pendingMethodMove) {
-      if (desugaring.needsDesugaring(method)) {
-        pendingCodeDesugaring.add(method);
-      }
+      pendingCodeDesugaring.add(method);
     }
 
     BiConsumer<LambdaClass, ProgramMethod> lambdaCallback = this::recordLambdaSynthesizingContext;
@@ -4304,11 +4309,28 @@ public class Enqueuer {
               }
             });
 
+    // Concurrently parse code.
+    Set<DexProgramClass> reparseContexts = ConcurrentHashMap.newKeySet();
+    ThreadUtils.processItems(
+        pendingCodeDesugaring,
+        method -> {
+          LazyCfCode lazyCfCode = method.getDefinition().getCode().asLazyCfCode();
+          if (lazyCfCode != null && reparseContexts.add(method.getHolder())) {
+            lazyCfCode.parseCodeConcurrently();
+          }
+        },
+        appView.options().getThreadingModule(),
+        executorService);
+
     // Prepare desugaring by collecting all the synthetic methods required on program classes.
     ProgramAdditions programAdditions = new ProgramAdditions();
     ThreadUtils.processItems(
         pendingCodeDesugaring,
-        method -> desugaring.prepare(method, eventConsumer, programAdditions),
+        method -> {
+          if (method.getDefinition().getCode().isCfCode()) {
+            desugaring.prepare(method, eventConsumer, programAdditions);
+          }
+        },
         appView.options().getThreadingModule(),
         executorService);
     programAdditions.apply(appView.options().getThreadingModule(), executorService);
@@ -4316,7 +4338,11 @@ public class Enqueuer {
     // Then do the actual desugaring.
     ThreadUtils.processItems(
         pendingCodeDesugaring,
-        method -> desugaring.desugar(method, additions.getMethodContext(method), eventConsumer),
+        method -> {
+          if (desugaring.needsDesugaring(method)) {
+            desugaring.desugar(method, additions.getMethodContext(method), eventConsumer);
+          }
+        },
         appView.options().getThreadingModule(),
         executorService);
 

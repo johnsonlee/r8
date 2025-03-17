@@ -102,6 +102,14 @@ public class ProfileRewritingMethodProcessorEventConsumer extends MethodProcesso
   }
 
   @Override
+  public void acceptUtilityThrowAbstractMethodErrorMethod(
+      ProgramMethod method, ProgramMethod context) {
+    additionsCollection.applyIfContextIsInProfile(
+        context, additionsBuilder -> additionsBuilder.addRule(method).addRule(method.getHolder()));
+    parent.acceptUtilityThrowAbstractMethodErrorMethod(method, context);
+  }
+
+  @Override
   public void acceptUtilityThrowIllegalAccessErrorMethod(
       ProgramMethod method, ProgramMethod context) {
     additionsCollection.applyIfContextIsInProfile(

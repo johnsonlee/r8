@@ -96,21 +96,27 @@ public class ConstantDynamicHolderTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeDexRuntime();
-
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getTransformedMain())
         .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .allowDiagnosticWarningMessages()
+        .setDiagnosticsLevelModifier(
+            (level, diagnostic) ->
+                (diagnostic instanceof UnsupportedFeatureDiagnostic
+                        || diagnostic instanceof ConstantDynamicDesugarDiagnostic)
+                    ? DiagnosticsLevel.WARNING
+                    : level)
         .compileWithExpectedDiagnostics(
-            diagnostics -> {
-              if (parameters.isDexRuntime()) {
+            diagnostics ->
                 diagnostics.assertWarningsMatch(
+                    diagnosticType(UnsupportedConstDynamicDiagnostic.class),
                     allOf(
-                        diagnosticType(UnsupportedFeatureDiagnostic.class),
-                        diagnosticMessage(containsString("const-dynamic"))));
-              }
-            })
+                        diagnosticType(ConstantDynamicDesugarDiagnostic.class),
+                        diagnosticMessage(
+                            containsString(
+                                "Unsupported dynamic constant (runtime provided bootstrap"
+                                    + " method)")))))
         .run(parameters.getRuntime(), Main.class)
         .assertFailureWithErrorThatThrows(RuntimeException.class)
         .assertFailureWithErrorThatMatches(containsString("const-dynamic"));

@@ -35,9 +35,11 @@ import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.ExceptionUtils;
+import com.android.tools.r8.utils.ForEachable;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -135,10 +137,6 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       MethodProcessingContext methodProcessingContext,
       Timing timing) {
     DexEncodedMethod definition = method.getDefinition();
-    if (options.isGeneratingClassFiles() && definition.hasClassFileVersion()) {
-      definition.downgradeClassFileVersion(
-          appView.options().classFileVersionAfterDesugaring(definition.getClassFileVersion()));
-    }
     if (definition.getCode() == null) {
       return;
     }
@@ -317,22 +315,46 @@ public class PrimaryD8L8IRConverter extends IRConverter {
   }
 
   void prepareDesugaring(
-      CfInstructionDesugaringEventConsumer desugaringEventConsumer, ExecutorService executorService)
+      CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+      ExecutorService executorService,
+      Collection<DexProgramClass> classes)
+      throws ExecutionException {
+    prepareDesugaring(
+        desugaringEventConsumer,
+        executorService,
+        consumer ->
+            classes.forEach(
+                c ->
+                    c.forEachProgramMethodMatching(
+                        m -> m.hasCode() && m.getCode().isCfCode(), consumer)));
+  }
+
+  void prepareDesugaring(
+      CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+      ExecutorService executorService,
+      List<ProgramMethod> methods)
+      throws ExecutionException {
+    prepareDesugaring(desugaringEventConsumer, executorService, methods::forEach);
+  }
+
+  void prepareDesugaring(
+      CfInstructionDesugaringEventConsumer desugaringEventConsumer,
+      ExecutorService executorService,
+      ForEachable<ProgramMethod> methods)
       throws ExecutionException {
     try (Timing t0 = timing.begin("Prepare desugaring")) {
       // Prepare desugaring by collecting all the synthetic methods required on program classes.
       ProgramAdditions programAdditions = new ProgramAdditions();
       ThreadingModule threadingModule = appView.options().getThreadingModule();
       ThreadUtils.processItems(
-          appView.appInfo().classes(),
-          clazz -> {
-            CfInstructionDesugaringCollection instructionDesugaringForClass =
-                instructionDesugaring.get(clazz);
-            clazz.forEachProgramMethodMatching(
-                method -> method.hasCode() && method.getCode().isCfCode(),
-                method ->
-                    instructionDesugaringForClass.prepare(
-                        method, desugaringEventConsumer, programAdditions));
+          methods,
+          method -> {
+            assert method.getDefinition().hasCode();
+            assert method.getDefinition().getCode().isCfCode();
+            CfInstructionDesugaringCollection instructionDesugaringForMethod =
+                instructionDesugaring.get(method);
+            instructionDesugaringForMethod.prepare(
+                method, desugaringEventConsumer, programAdditions);
           },
           threadingModule,
           executorService);
@@ -398,7 +420,6 @@ public class PrimaryD8L8IRConverter extends IRConverter {
     try (Timing t0 = timing.begin("Desugar code")) {
       CfInstructionDesugaringCollection instructionDesugaringForMethod =
           instructionDesugaring.get(method);
-      instructionDesugaringForMethod.scan(method, desugaringEventConsumer);
       if (instructionDesugaringForMethod.needsDesugaring(method)) {
         instructionDesugaringForMethod.desugar(
             method, methodProcessingContext, desugaringEventConsumer);

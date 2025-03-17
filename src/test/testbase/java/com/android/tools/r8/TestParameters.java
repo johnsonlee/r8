@@ -183,6 +183,10 @@ public class TestParameters {
     testCompilerBuilder.setMinApi(apiLevel);
   }
 
+  public boolean hasApiLevel() {
+    return apiLevel != null;
+  }
+
   // TODO(b/270021825): Tests should not access the underlying API level directly, but may be
   //  allowed to query if the api level satisfies some condition.
   @Deprecated
@@ -271,6 +275,11 @@ public class TestParameters {
     return this;
   }
 
+  public TestParameters assumeNoPartialCompilation(String unusedReason) {
+    assumeTrue(getPartialCompilationTestParameters().isNone());
+    return this;
+  }
+
   public boolean isJvmTestParameters() {
     if (isCfRuntime()) {
       return apiLevel == null || representativeApiLevelForRuntime;
@@ -309,7 +318,8 @@ public class TestParameters {
   }
 
   public boolean canUseR8Partial() {
-    return isDexRuntime() && apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L);
+    return isDexRuntime()
+        && (apiLevel == null || apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L));
   }
 
   public TestParameters assumeRuntimeTestParameters() {

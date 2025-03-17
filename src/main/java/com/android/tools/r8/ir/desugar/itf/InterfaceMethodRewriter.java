@@ -37,6 +37,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
+import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
@@ -235,21 +236,24 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
    * class file version, as well as reporting missing type.
    */
   @Override
-  public void scan(ProgramMethod context, CfInstructionDesugaringEventConsumer eventConsumer) {
+  public void prepare(
+      ProgramMethod method,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramAdditions programAdditions) {
     if (desugaringMode == EMULATED_INTERFACE_ONLY) {
       return;
     }
-    if (isSyntheticMethodThatShouldNotBeDoubleProcessed(context)) {
-      leavingStaticInvokeToInterface(context);
+    if (isSyntheticMethodThatShouldNotBeDoubleProcessed(method)) {
+      leavingStaticInvokeToInterface(method);
       return;
     }
-    CfCode code = context.getDefinition().getCode().asCfCode();
+    CfCode code = method.getDefinition().getCode().asCfCode();
     for (CfInstruction instruction : code.getInstructions()) {
       if (instruction.isInvokeDynamic()
-          && !isAlreadyDesugared(instruction.asInvokeDynamic(), context)) {
-        reportInterfaceMethodHandleCallSite(instruction.asInvokeDynamic().getCallSite(), context);
+          && !isAlreadyDesugared(instruction.asInvokeDynamic(), method)) {
+        reportInterfaceMethodHandleCallSite(instruction.asInvokeDynamic().getCallSite(), method);
       }
-      compute(instruction, context).scan();
+      compute(instruction, method).scan();
     }
   }
 
@@ -778,6 +782,10 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                 })
             .build();
       } else {
+        DexClassAndMethod method = resolutionResult.getResolutionPair();
+        if (method.getAccessFlags().isAbstract()) {
+          return computeInvokeAsThrowRewrite(invoke, resolutionResult, context);
+        }
         return DesugarDescription.builder()
             .setDesugarRewrite(
                 (position,
@@ -789,7 +797,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                     methodProcessingContext,
                     desugaringCollection,
                     dexItemFactory) -> {
-                  DexClassAndMethod method = resolutionResult.getResolutionPair();
                   // TODO(b/199135051): Why do this amend routine. We have done resolution, so would
                   //  that not be the correct target!? I think this is just legacy from before
                   //  resolution was implemented in full.

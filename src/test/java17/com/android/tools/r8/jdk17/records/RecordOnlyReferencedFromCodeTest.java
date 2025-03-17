@@ -7,7 +7,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -46,14 +45,7 @@ public class RecordOnlyReferencedFromCodeTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.V),
-            rr -> rr.assertSuccessWithOutputLines("false"),
-            rr ->
-                rr.assertFailureWithErrorThatThrows(
-                    parameters.getDexRuntimeVersion().isDalvik()
-                        ? NoClassDefFoundError.class
-                        : ClassNotFoundException.class));
+        .assertSuccessWithOutputLines("false");
   }
 
   static class Main {

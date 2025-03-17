@@ -34,6 +34,7 @@ import java.util.Arrays;
 public final class CfUtilityMethodsForCodeOptimizations {
 
   public static void registerSynthesizedCodeReferences(DexItemFactory factory) {
+    factory.createSynthesizedType("Ljava/lang/AbstractMethodError;");
     factory.createSynthesizedType("Ljava/lang/ClassCastException;");
     factory.createSynthesizedType("Ljava/lang/IllegalAccessError;");
     factory.createSynthesizedType("Ljava/lang/IncompatibleClassChangeError;");
@@ -71,6 +72,29 @@ public final class CfUtilityMethodsForCodeOptimizations {
                 new ArrayDeque<>(Arrays.asList(FrameType.intType()))),
             new CfReturn(ValueType.INT),
             label3),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode CfUtilityMethodsForCodeOptimizationsTemplates_throwAbstractMethodError(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        2,
+        0,
+        ImmutableList.of(
+            label0,
+            new CfNew(factory.createType("Ljava/lang/AbstractMethodError;")),
+            new CfStackInstruction(CfStackInstruction.Opcode.Dup),
+            new CfInvoke(
+                183,
+                factory.createMethod(
+                    factory.createType("Ljava/lang/AbstractMethodError;"),
+                    factory.createProto(factory.voidType),
+                    factory.createString("<init>")),
+                false),
+            new CfThrow()),
         ImmutableList.of(),
         ImmutableList.of());
   }

@@ -19,6 +19,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.ProgramAdditions;
 
 public class RecordFullInstructionDesugaring extends RecordInstructionDesugaring {
 
@@ -27,11 +28,14 @@ public class RecordFullInstructionDesugaring extends RecordInstructionDesugaring
   }
 
   @Override
-  public void scan(
-      ProgramMethod programMethod, CfInstructionDesugaringEventConsumer eventConsumer) {
-    CfCode cfCode = programMethod.getDefinition().getCode().asCfCode();
+  public void prepare(
+      ProgramMethod method,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramAdditions programAdditions) {
+    super.prepare(method, eventConsumer, programAdditions);
+    CfCode cfCode = method.getDefinition().getCode().asCfCode();
     for (CfInstruction instruction : cfCode.getInstructions()) {
-      scanInstruction(instruction, eventConsumer, programMethod);
+      scanInstruction(instruction, eventConsumer, method);
     }
   }
 
@@ -43,27 +47,21 @@ public class RecordFullInstructionDesugaring extends RecordInstructionDesugaring
       CfInstruction instruction,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod context) {
-    assert !instruction.isInitClass();
     if (instruction.isInvoke()) {
       CfInvoke cfInvoke = instruction.asInvoke();
       if (refersToRecord(cfInvoke.getMethod(), factory)) {
         ensureRecordClass(eventConsumer, context, appView);
       }
-      return;
-    }
-    if (instruction.isFieldInstruction()) {
+    } else if (instruction.isFieldInstruction()) {
       CfFieldInstruction fieldInstruction = instruction.asFieldInstruction();
       if (refersToRecord(fieldInstruction.getField(), factory)) {
         ensureRecordClass(eventConsumer, context, appView);
       }
-      return;
-    }
-    if (instruction.isTypeInstruction()) {
+    } else if (instruction.isTypeInstruction()) {
       CfTypeInstruction typeInstruction = instruction.asTypeInstruction();
       if (refersToRecord(typeInstruction.getType(), factory)) {
         ensureRecordClass(eventConsumer, context, appView);
       }
-      return;
     }
     // TODO(b/179146128): Analyse MethodHandle and MethodType.
   }

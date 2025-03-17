@@ -135,8 +135,9 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (appView.options().enableTryWithResourcesDesugaring()) {
       desugarings.add(new TwrInstructionDesugaring(appView));
     }
+    TypeSwitchDesugaring typeSwitchDesugaring = null;
     if (appView.options().enableTypeSwitchDesugaring) {
-      desugarings.add(new TypeSwitchDesugaring(appView));
+      desugarings.add(typeSwitchDesugaring = new TypeSwitchDesugaring(appView));
     }
     RecordInstructionDesugaring recordRewriter = RecordInstructionDesugaring.create(appView);
     if (recordRewriter != null) {
@@ -156,7 +157,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
                 autoCloseableRetargeter,
                 desugaredLibraryRetargeter),
             SetUtils.newImmutableSetExcludingNullItems(
-                lambdaDesugaring, stringConcatDesugaring, recordRewriter));
+                lambdaDesugaring, stringConcatDesugaring, recordRewriter, typeSwitchDesugaring));
     if (interfaceMethodRewriter != null) {
       desugarings.add(interfaceMethodRewriter);
     } else if (appView.options().canHaveArtArrayCloneFromInterfaceMethodBug()) {
@@ -267,13 +268,6 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     ensureCfCode(method);
     desugarings.forEach(d -> d.prepare(method, eventConsumer, programAdditions));
     yieldingDesugarings.forEach(d -> d.prepare(method, eventConsumer, programAdditions));
-  }
-
-  @Override
-  public void scan(ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer) {
-    ensureCfCode(method);
-    desugarings.forEach(d -> d.scan(method, eventConsumer));
-    yieldingDesugarings.forEach(d -> d.scan(method, eventConsumer));
   }
 
   @Override

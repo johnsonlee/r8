@@ -54,9 +54,6 @@ public abstract class CfInstructionDesugaringCollection {
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramAdditions programAdditions);
 
-  public abstract void scan(
-      ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer);
-
   /** Desugars the instructions in the given method. */
   public abstract void desugar(
       ProgramMethod method,

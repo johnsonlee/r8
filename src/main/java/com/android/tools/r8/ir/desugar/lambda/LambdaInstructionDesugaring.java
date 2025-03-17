@@ -30,6 +30,7 @@ import com.android.tools.r8.ir.desugar.FreshLocalProvider;
 import com.android.tools.r8.ir.desugar.LambdaClass;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.ir.desugar.LocalStackAllocator;
+import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.utils.Box;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
@@ -61,7 +62,10 @@ public class LambdaInstructionDesugaring implements CfInstructionDesugaring {
   }
 
   @Override
-  public void scan(ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer) {
+  public void prepare(
+      ProgramMethod method,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramAdditions programAdditions) {
     CfCode code = method.getDefinition().getCode().asCfCode();
     for (CfInstruction instruction : code.getInstructions()) {
       if (instruction.isInvokeSpecial()) {

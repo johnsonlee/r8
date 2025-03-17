@@ -22,6 +22,10 @@ public class CfUtilityMethodsForCodeOptimizationsTemplates {
     }
   }
 
+  public static AbstractMethodError throwAbstractMethodError() {
+    throw new AbstractMethodError();
+  }
+
   public static IllegalAccessError throwIllegalAccessError() {
     throw new IllegalAccessError();
   }

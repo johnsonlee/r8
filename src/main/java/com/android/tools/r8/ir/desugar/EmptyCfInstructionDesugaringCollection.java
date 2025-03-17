@@ -40,11 +40,6 @@ public class EmptyCfInstructionDesugaringCollection extends CfInstructionDesugar
   }
 
   @Override
-  public void scan(ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer) {
-    // Intentionally empty.
-  }
-
-  @Override
   public void desugar(
       ProgramMethod method,
       MethodProcessingContext methodProcessingContext,

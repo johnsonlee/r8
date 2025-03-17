@@ -126,6 +126,39 @@ public class UtilityMethodsForCodeOptimizations {
         .CfUtilityMethodsForCodeOptimizationsTemplates_isNonNull(dexItemFactory, method);
   }
 
+  public static UtilityMethodForCodeOptimizations synthesizeThrowAbstractMethodErrorMethod(
+      AppView<?> appView,
+      UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,
+      MethodProcessingContext methodProcessingContext) {
+    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexProto proto = dexItemFactory.createProto(dexItemFactory.abstractMethodErrorType);
+    SyntheticItems syntheticItems = appView.getSyntheticItems();
+    ProgramMethod syntheticMethod =
+        syntheticItems.createMethod(
+            kinds -> kinds.THROW_AME,
+            methodProcessingContext.createUniqueContext(),
+            appView,
+            builder ->
+                builder
+                    .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
+                    .setClassFileVersion(CfVersion.V1_8)
+                    .setApiLevelForDefinition(appView.computedMinApiLevel())
+                    .setApiLevelForCode(appView.computedMinApiLevel())
+                    .setCode(
+                        method -> getThrowAbstractMethodErrorCodeTemplate(method, dexItemFactory))
+                    .setProto(proto));
+    eventConsumer.acceptUtilityThrowAbstractMethodErrorMethod(
+        syntheticMethod, methodProcessingContext.getMethodContext());
+    return new UtilityMethodForCodeOptimizations(syntheticMethod);
+  }
+
+  private static CfCode getThrowAbstractMethodErrorCodeTemplate(
+      DexMethod method, DexItemFactory dexItemFactory) {
+    return CfUtilityMethodsForCodeOptimizations
+        .CfUtilityMethodsForCodeOptimizationsTemplates_throwAbstractMethodError(
+            dexItemFactory, method);
+  }
+
   public static UtilityMethodForCodeOptimizations synthesizeThrowIllegalAccessErrorMethod(
       AppView<?> appView,
       UtilityMethodsForCodeOptimizationsEventConsumer eventConsumer,

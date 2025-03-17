@@ -18,11 +18,6 @@ public interface CfInstructionDesugaring {
 
   default void acceptRelevantCompareToIds(IntConsumer consumer) {}
 
-  // TODO(193004879): Merge the scan and prepare methods.
-  default void scan(ProgramMethod method, CfInstructionDesugaringEventConsumer eventConsumer) {
-    // Default scan is to do nothing.
-  }
-
   /**
    * Prepare step which is called on all classes scheduled for desugaring before the actual
    * instruction level desugaring is preformed. This allows the desugaring to prepare and provide

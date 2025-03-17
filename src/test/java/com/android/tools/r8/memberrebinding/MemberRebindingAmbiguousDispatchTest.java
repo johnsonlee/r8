@@ -1,20 +1,12 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.memberrebinding;
 
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
-
-import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.DiagnosticsMatcher;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
-import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
 import org.junit.Test;
@@ -26,7 +18,8 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class MemberRebindingAmbiguousDispatchTest extends TestBase {
 
-  @Parameter() public TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameter(1)
   public boolean abstractMethodOnSuperClass;
@@ -37,7 +30,7 @@ public class MemberRebindingAmbiguousDispatchTest extends TestBase {
   @Parameters(name = "{0}, abstractMethodOnSuperClass: {1}, interfaceAsSymbolicReference {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimesAndApiLevels().build(),
+        getTestParameters().withAllRuntimesAndApiLevels().withPartialCompilation().build(),
         BooleanUtils.values(),
         BooleanUtils.values());
   }
@@ -56,58 +49,34 @@ public class MemberRebindingAmbiguousDispatchTest extends TestBase {
   }
 
   @Test
-  public void testRuntime() throws Exception {
-    testForRuntime(parameters)
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    testForJvm(parameters)
         .apply(this::setupInput)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
   }
 
-  private boolean desugaringWithoutSupport() {
-    return parameters.isDexRuntime()
-        && interfaceAsSymbolicReference
-        && !parameters.canUseDefaultAndStaticInterfaceMethods();
+  @Test
+  public void testD8() throws Exception {
+    parameters.assumeDexRuntime();
+    testForD8(parameters)
+        .apply(this::setupInput)
+        .run(parameters.getRuntime(), Main.class)
+        .apply(this::checkOutput);
   }
 
   @Test
   public void testR8() throws Exception {
-    assumeFalse(desugaringWithoutSupport());
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::setupInput)
-        .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
         .apply(this::checkOutput);
   }
 
-  @Test
-  public void testR8AssertionError() {
-    assumeTrue(desugaringWithoutSupport());
-    // TODO(b/259227990): We should not fail compilation.
-    assertThrows(
-        CompilationFailedException.class,
-        () ->
-            testForR8(parameters.getBackend())
-                .apply(this::setupInput)
-                .setMinApi(parameters)
-                .addKeepMainRule(Main.class)
-                .compileWithExpectedDiagnostics(
-                    diagnostics ->
-                        diagnostics.assertErrorThatMatches(
-                            DiagnosticsMatcher.diagnosticException(AssertionError.class))));
-  }
-
   private void checkOutput(TestRunResult<?> result) {
-    if (parameters.isDexRuntime()
-        && parameters.getDexRuntimeVersion().isDalvik()
-        && interfaceAsSymbolicReference) {
-      result.assertFailureWithErrorThatThrows(VerifyError.class);
-    } else if (parameters.isDexRuntime()
-        && parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V7_0_0)
-        && interfaceAsSymbolicReference
-        && !parameters.canUseDefaultAndStaticInterfaceMethods()) {
-      result.assertFailureWithErrorThatThrows(ClassNotFoundException.class);
-    } else if (abstractMethodOnSuperClass || interfaceAsSymbolicReference) {
+    if (abstractMethodOnSuperClass || interfaceAsSymbolicReference) {
       result.assertFailureWithErrorThatThrows(AbstractMethodError.class);
     } else {
       result.assertSuccessWithOutputLines("SuperClass::foo");

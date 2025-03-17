@@ -283,6 +283,9 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
       if (resolutionResult.getResolvedMethod().isStatic() != invoke.isInvokeStatic()) {
         return UtilityMethodsForCodeOptimizations
             ::synthesizeThrowIncompatibleClassChangeErrorMethod;
+      } else if (invoke.isInvokeSpecial()
+          && resolutionResult.getResolvedMethod().getAccessFlags().isAbstract()) {
+        return UtilityMethodsForCodeOptimizations::synthesizeThrowAbstractMethodErrorMethod;
       }
     } else if (resolutionResult.isFailedResolution()) {
       FailedResolutionResult failedResolutionResult = resolutionResult.asFailedResolution();
