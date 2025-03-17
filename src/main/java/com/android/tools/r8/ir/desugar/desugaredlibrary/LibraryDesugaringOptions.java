@@ -78,7 +78,11 @@ public class LibraryDesugaringOptions {
     return !synthesizedClassPrefix.isEmpty();
   }
 
-  public boolean isR8LirToLirLibraryDesugaringEnabled() {
+  public boolean isCfToCfLibraryDesugaringEnabled() {
+    return !isLirToLirLibraryDesugaringEnabled();
+  }
+
+  public boolean isLirToLirLibraryDesugaringEnabled() {
     return options.partialSubCompilationConfiguration != null;
   }
 

@@ -7,6 +7,7 @@ import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCESS_INFO;
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.methodWithVivifiedTypeInSignature;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 import static com.android.tools.r8.shaking.KeepInfo.Joiner.asClassJoinerOrNull;
@@ -3128,7 +3129,7 @@ public class Enqueuer {
               .getTypeRewriter()
               .hasRewrittenTypeInSignature(method.getProto())) {
         DexMethod methodToResolve =
-            DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature(
+            methodWithVivifiedTypeInSignature(
                 method.getReference(), method.getHolderType(), appView);
         assert methodToResolve != method.getReference();
         markLibraryOrClasspathOverrideLive(

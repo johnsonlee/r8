@@ -4,7 +4,7 @@
 
 package com.android.tools.r8.dex;
 
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.isVivifiedType;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.isVivifiedType;
 
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;

@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer;
 
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature;
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.vivifiedTypeFor;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.methodWithVivifiedTypeInSignature;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.vivifiedTypeFor;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;

@@ -4,8 +4,8 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion;
 
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.methodWithVivifiedTypeInSignature;
-import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.vivifiedTypeFor;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.methodWithVivifiedTypeInSignature;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.vivifiedTypeFor;
 
 import com.android.tools.r8.cf.code.CfArrayLoad;
 import com.android.tools.r8.cf.code.CfArrayStore;
@@ -34,6 +34,7 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.MemberType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
@@ -227,18 +228,17 @@ public class DesugaredLibraryConversionCfProvider {
   }
 
   public ProgramMethod generateOutlinedAPIConversion(
-      CfInvoke invoke,
+      DexMethod method,
+      InvokeType invokeType,
+      boolean isInterface,
       DesugaredLibraryAPIConverterEventConsumer eventConsumer,
       ProgramMethod context,
       MethodProcessingContext methodProcessingContext) {
-    DexMethod method = invoke.getMethod();
-    DexProto newProto = factory.prependHolderToProtoIf(method, !invoke.isInvokeStatic());
+    DexProto newProto = factory.prependHolderToProtoIf(method, !invokeType.isStatic());
     DexMethod returnConversion =
-        computeReturnConversion(
-            method, false, eventConsumer, context, methodProcessingContext::createUniqueContext);
+        computeReturnConversion(method, false, eventConsumer, context, methodProcessingContext);
     DexMethod[] parameterConversions =
-        computeParameterConversions(
-            method, true, eventConsumer, context, methodProcessingContext::createUniqueContext);
+        computeParameterConversions(method, true, eventConsumer, context, methodProcessingContext);
     ProgramMethod outline =
         appView
             .getSyntheticItems()
@@ -259,10 +259,10 @@ public class DesugaredLibraryConversionCfProvider {
                                         methodSignature.holder,
                                         convertedMethod(
                                             method, true, returnConversion, parameterConversions),
-                                        invoke.isInterface(),
+                                        isInterface,
                                         returnConversion,
                                         parameterConversions,
-                                        invoke.getOpcode())
+                                        invokeType.getCfOpcode())
                                     .generateCfCode()));
     eventConsumer.acceptAPIConversionOutline(outline, context);
     return outline;
@@ -270,49 +270,33 @@ public class DesugaredLibraryConversionCfProvider {
 
   public Collection<CfInstruction> generateInlinedAPIConversion(
       CfInvoke invoke,
+      InvokeType invokeType,
       MethodProcessingContext methodProcessingContext,
       FreshLocalProvider freshLocalProvider,
       LocalStackAllocator localStackAllocator,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod context) {
-
     DexMethod invokedMethod = invoke.getMethod();
     DexMethod returnConversion =
         computeReturnConversion(
-            invokedMethod,
-            false,
-            eventConsumer,
-            context,
-            methodProcessingContext::createUniqueContext);
+            invokedMethod, false, eventConsumer, context, methodProcessingContext);
     DexMethod[] parameterConversions =
         computeParameterConversions(
-            invokedMethod,
-            true,
-            eventConsumer,
-            context,
-            methodProcessingContext::createUniqueContext);
+            invokedMethod, true, eventConsumer, context, methodProcessingContext);
 
     ArrayList<CfInstruction> cfInstructions = new ArrayList<>();
     if (!invokedMethod.getParameters().isEmpty()) {
-      // If only the last 2 parameters require conversion, we do everything inlined.
-      // If other parameters require conversion, we outline the parameter conversion but keep the
-      // API call inlined. The returned value is always converted inlined.
-      boolean requireOutlinedParameterConversion = false;
-      for (int i = 0; i < parameterConversions.length - 2; i++) {
-        requireOutlinedParameterConversion |= parameterConversions[i] != null;
-      }
-      // We cannot use the swap instruction if the last parameter is wide.
-      requireOutlinedParameterConversion |= invokedMethod.getParameters().getLast().isWideType();
-
-      if (requireOutlinedParameterConversion) {
+      DexMethod parameterConversionTarget =
+          getParameterConversionTarget(
+              parameterConversions, invokedMethod, false, eventConsumer, methodProcessingContext);
+      if (parameterConversionTarget != null) {
         addOutlineParameterConversionInstructions(
             parameterConversions,
+            parameterConversionTarget,
             cfInstructions,
-            methodProcessingContext,
             invokedMethod,
             freshLocalProvider,
-            localStackAllocator,
-            eventConsumer);
+            localStackAllocator);
       } else {
         addInlineParameterConversionInstructions(
             parameterConversions, cfInstructions, invokedMethod);
@@ -327,7 +311,7 @@ public class DesugaredLibraryConversionCfProvider {
       assert returnConversion.getArity() == 1 || returnConversion.getArity() == 2;
       if (returnConversion.getArity() == 2) {
         // If there is a second parameter, pass the receiver.
-        if (!invoke.isInvokeSuper(context.getHolderType())) {
+        if (!invokeType.isSuper()) {
           appView
               .reporter()
               .error(
@@ -344,17 +328,27 @@ public class DesugaredLibraryConversionCfProvider {
     return cfInstructions;
   }
 
-  // The parameters are converted and returned in an array of converted parameters. The parameter
-  // array then needs to be unwrapped at the call site.
-  private void addOutlineParameterConversionInstructions(
+  public DexMethod getParameterConversionTarget(
       DexMethod[] parameterConversions,
-      ArrayList<CfInstruction> cfInstructions,
-      MethodProcessingContext methodProcessingContext,
       DexMethod invokedMethod,
-      FreshLocalProvider freshLocalProvider,
-      LocalStackAllocator localStackAllocator,
-      CfInstructionDesugaringEventConsumer eventConsumer) {
-    localStackAllocator.allocateLocalStack(4);
+      boolean canSwapWide,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      MethodProcessingContext methodProcessingContext) {
+    // If only the last 2 parameters require conversion, we do everything inlined.
+    // If other parameters require conversion, we outline the parameter conversion but keep the
+    // API call inlined. The returned value is always converted inlined.
+    boolean requireOutlinedParameterConversion = false;
+    for (int i = 0; i < parameterConversions.length - 2; i++) {
+      requireOutlinedParameterConversion |= parameterConversions[i] != null;
+    }
+    // We cannot use the swap instruction if the last parameter is wide.
+    if (!canSwapWide && invokedMethod.getParameters().getLast().isWideType()) {
+      requireOutlinedParameterConversion = true;
+    }
+    if (!requireOutlinedParameterConversion) {
+      return null;
+    }
+
     DexProto newProto =
         appView
             .dexItemFactory()
@@ -379,8 +373,20 @@ public class DesugaredLibraryConversionCfProvider {
                                     methodSignature.holder, invokedMethod, parameterConversions)));
     eventConsumer.acceptAPIConversionOutline(
         parameterConversion, methodProcessingContext.getMethodContext());
-    cfInstructions.add(
-        new CfInvoke(Opcodes.INVOKESTATIC, parameterConversion.getReference(), false));
+    return parameterConversion.getReference();
+  }
+
+  // The parameters are converted and returned in an array of converted parameters. The parameter
+  // array then needs to be unwrapped at the call site.
+  private void addOutlineParameterConversionInstructions(
+      DexMethod[] parameterConversions,
+      DexMethod parameterConversionTarget,
+      ArrayList<CfInstruction> cfInstructions,
+      DexMethod invokedMethod,
+      FreshLocalProvider freshLocalProvider,
+      LocalStackAllocator localStackAllocator) {
+    localStackAllocator.allocateLocalStack(4);
+    cfInstructions.add(new CfInvoke(Opcodes.INVOKESTATIC, parameterConversionTarget, false));
     int arrayLocal = freshLocalProvider.getFreshLocal(ValueType.OBJECT.requiredRegisters());
     cfInstructions.add(new CfStore(ValueType.OBJECT, arrayLocal));
     for (int i = 0; i < parameterConversions.length; i++) {
@@ -460,6 +466,20 @@ public class DesugaredLibraryConversionCfProvider {
         .getResolvedProgramMethod();
   }
 
+  public DexMethod computeReturnConversion(
+      DexMethod invokedMethod,
+      boolean destIsVivified,
+      DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer,
+      ProgramMethod context,
+      MethodProcessingContext methodProcessingContext) {
+    return computeReturnConversion(
+        invokedMethod,
+        destIsVivified,
+        eventConsumer,
+        context,
+        methodProcessingContext::createUniqueContext);
+  }
+
   private DexMethod computeReturnConversion(
       DexMethod invokedMethod,
       boolean destIsVivified,
@@ -509,6 +529,20 @@ public class DesugaredLibraryConversionCfProvider {
       return methodSupplier.apply(returnType, apiGenericTypesConversion);
     }
     return null;
+  }
+
+  public DexMethod[] computeParameterConversions(
+      DexMethod invokedMethod,
+      boolean destIsVivified,
+      DesugaredLibraryClasspathWrapperSynthesizeEventConsumer eventConsumer,
+      ProgramMethod context,
+      MethodProcessingContext methodProcessingContext) {
+    return computeParameterConversions(
+        invokedMethod,
+        destIsVivified,
+        eventConsumer,
+        context,
+        methodProcessingContext::createUniqueContext);
   }
 
   private DexMethod[] computeParameterConversions(
@@ -584,7 +618,7 @@ public class DesugaredLibraryConversionCfProvider {
     return conversions == null ? null : conversions[parameterIndex];
   }
 
-  private DexMethod convertedMethod(
+  public DexMethod convertedMethod(
       DexMethod method,
       boolean parameterDestIsVivified,
       DexMethod returnConversion,

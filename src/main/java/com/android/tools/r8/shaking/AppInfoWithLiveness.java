@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult.isOverriding;
+import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.isVivifiedType;
 import static com.android.tools.r8.utils.collections.ThrowingSet.isThrowingSet;
 
 import com.android.tools.r8.cf.CfVersion;
@@ -54,7 +55,6 @@ import com.android.tools.r8.ir.analysis.type.TypeAnalysis;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.naming.SeedMapper;
 import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
@@ -527,7 +527,7 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
             || deadProtoTypes.contains(type)
             || getMissingClasses().contains(type)
             // TODO(b/150736225): Not sure how to remove these.
-            || DesugaredLibraryAPIConverter.isVivifiedType(type)
+            || isVivifiedType(type)
         : "Failed lookup of non-missing type: " + type;
     return definition;
   }

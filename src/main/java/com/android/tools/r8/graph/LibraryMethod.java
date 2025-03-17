@@ -11,6 +11,10 @@ public final class LibraryMethod extends DexClassAndMethod
     super(holder, method);
   }
 
+  public static LibraryMethod asLibraryMethodOrNull(DexClassAndMethod method) {
+    return method != null && method.isLibraryMethod() ? method.asLibraryMethod() : null;
+  }
+
   @Override
   public DexLibraryClass getHolder() {
     DexClass holder = super.getHolder();

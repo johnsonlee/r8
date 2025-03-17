@@ -22,11 +22,18 @@ import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
+import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import java.util.Collections;
 import java.util.Set;
 
 public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
+
+  private final LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
+
+  @SuppressWarnings("UnusedVariable")
+  private final InterfaceMethodRewriter interfaceMethodRewriter;
 
   @SuppressWarnings("UnusedVariable")
   private final CfInstructionDesugaringEventConsumer eventConsumer;
@@ -39,10 +46,14 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
   public R8LibraryDesugaringGraphLens(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter,
+      InterfaceMethodRewriter interfaceMethodRewriter,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod method,
       MethodProcessingContext methodProcessingContext) {
     super(appView);
+    this.desugaredLibraryAPIConverter = desugaredLibraryAPIConverter;
+    this.interfaceMethodRewriter = interfaceMethodRewriter;
     this.eventConsumer = eventConsumer;
     this.method = method;
     this.methodProcessingContext = methodProcessingContext;
@@ -69,6 +80,12 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
     // TODO(b/391572031): Implement invoke desugaring.
     assert previous.getPrototypeChanges().isEmpty();
+
+    if (desugaredLibraryAPIConverter != null) {
+      return desugaredLibraryAPIConverter.lookupMethod(
+          previous, method, methodProcessingContext, this);
+    }
+
     return previous;
   }
 

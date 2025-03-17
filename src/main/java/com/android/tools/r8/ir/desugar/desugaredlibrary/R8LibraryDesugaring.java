@@ -18,7 +18,10 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
+import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.InternalOptions;
@@ -48,7 +51,7 @@ public class R8LibraryDesugaring {
     InternalOptions options = appView.options();
     if (options.isDesugaring()
         && options.getLibraryDesugaringOptions().isEnabled()
-        && options.getLibraryDesugaringOptions().isR8LirToLirLibraryDesugaringEnabled()
+        && options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
         && options.isGeneratingDex()) {
       new R8LibraryDesugaring(appView).run(executorService, timing);
     }
@@ -87,10 +90,15 @@ public class R8LibraryDesugaring {
       ConcurrentProgramMethodSet synthesizedMethods,
       ExecutorService executorService)
       throws ExecutionException {
-    ProcessorContext processorContext = appView.createProcessorContext();
     CfInstructionDesugaringEventConsumer eventConsumer =
         CfInstructionDesugaringEventConsumer.createForR8LirToLirLibraryDesugaring(
             appView, profileCollectionAdditions);
+    // TODO(b/391572031): Implement lir-to-lir interface method rewriting.
+    InterfaceMethodRewriter interfaceMethodRewriter = null;
+    LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter =
+        DesugaredLibraryAPIConverter.createForLirToLir(
+            appView, eventConsumer, interfaceMethodRewriter);
+    ProcessorContext processorContext = appView.createProcessorContext();
     LensCodeRewriterUtils emptyRewriterUtils = LensCodeRewriterUtils.empty();
     ThreadUtils.processItems(
         appView.appInfo().classes(),
@@ -102,7 +110,12 @@ public class R8LibraryDesugaring {
                       processorContext.createMethodProcessingContext(method);
                   R8LibraryDesugaringGraphLens libraryDesugaringGraphLens =
                       new R8LibraryDesugaringGraphLens(
-                          appView, eventConsumer, method, methodProcessingContext);
+                          appView,
+                          desugaredLibraryAPIConverter,
+                          interfaceMethodRewriter,
+                          eventConsumer,
+                          method,
+                          methodProcessingContext);
                   LirConverter.rewriteLirMethodWithLens(
                       method, appView, libraryDesugaringGraphLens, emptyRewriterUtils);
                 }),
@@ -114,7 +127,9 @@ public class R8LibraryDesugaring {
     List<ProgramMethod> needsProcessing = eventConsumer.finalizeDesugaring();
     assert needsProcessing.isEmpty();
 
-    // TODO(b/391572031): Generate desugared library API tracking warnings.
+    if (desugaredLibraryAPIConverter != null) {
+      desugaredLibraryAPIConverter.generateTrackingWarnings();
+    }
 
     // Commit pending synthetics.
     appView.rebuildAppInfo();

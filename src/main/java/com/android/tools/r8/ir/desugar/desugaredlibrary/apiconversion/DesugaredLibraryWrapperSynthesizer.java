@@ -415,7 +415,7 @@ public class DesugaredLibraryWrapperSynthesizer implements CfClassSynthesizerDes
   }
 
   private DexType vivifiedTypeFor(DexType type) {
-    return DesugaredLibraryAPIConverter.vivifiedTypeFor(type, appView);
+    return VivifiedTypeUtils.vivifiedTypeFor(type, appView);
   }
 
   static class WrapperConversions {
