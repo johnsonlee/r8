@@ -45,8 +45,8 @@ public class ReturnBlockCanonicalizerRewriter extends CodeRewriterPass<AppInfo> 
     boolean changed = false;
     Map<Value, BasicBlock> returnValueToReturnBlockMap = getReturnValueToReturnBlockMap(code);
     for (BasicBlock returnBlock : code.getBlocks()) {
-      Return theReturn = returnBlock.entry().asReturn();
-      if (theReturn == null || returnBlock.hasPhis()) {
+      Return theReturn = getReturnFromEligibleBlock(returnBlock);
+      if (theReturn == null) {
         continue;
       }
       Value returnValue = theReturn.getReturnValueOrDefault(VOID_RETURN_VALUE_SENTINEL);
@@ -87,13 +87,24 @@ public class ReturnBlockCanonicalizerRewriter extends CodeRewriterPass<AppInfo> 
   private Map<Value, BasicBlock> getReturnValueToReturnBlockMap(IRCode code) {
     Map<Value, BasicBlock> returnValueToReturnBlockMap = new IdentityHashMap<>();
     for (BasicBlock returnBlock : code.getBlocks()) {
-      Return theReturn = returnBlock.entry().asReturn();
-      if (theReturn == null || returnBlock.hasPhis()) {
+      Return theReturn = getReturnFromEligibleBlock(returnBlock);
+      if (theReturn == null) {
         continue;
       }
       Value returnValue = theReturn.getReturnValueOrDefault(VOID_RETURN_VALUE_SENTINEL);
       returnValueToReturnBlockMap.putIfAbsent(returnValue, returnBlock);
     }
     return returnValueToReturnBlockMap;
+  }
+
+  private Return getReturnFromEligibleBlock(BasicBlock block) {
+    Return theReturn = block.entry().asReturn();
+    if (theReturn == null || block.hasPhis()) {
+      return null;
+    }
+    if (block.hasUniquePredecessor() && block.getUniquePredecessor().hasCatchSuccessor(block)) {
+      return null;
+    }
+    return theReturn;
   }
 }
