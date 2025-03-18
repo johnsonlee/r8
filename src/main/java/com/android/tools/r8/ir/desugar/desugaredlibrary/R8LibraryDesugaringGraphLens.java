@@ -7,6 +7,7 @@ import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.DefaultNonIdentityGraphLens;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
@@ -14,18 +15,29 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.graph.lens.NonIdentityGraphLens;
 import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
+import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.code.ArrayGet;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockInstructionListIterator;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
+import com.android.tools.r8.ir.code.CheckCast;
+import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
+import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
+import com.android.tools.r8.ir.code.InvokeStatic;
+import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.Phi;
+import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryConversionCfProvider;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
@@ -125,13 +137,173 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       return Collections.emptySet();
     }
 
-    @SuppressWarnings("UnusedVariable")
     private void rewriteInvoke(
         IRCode code,
         BasicBlockIterator blocks,
         BasicBlockInstructionListIterator instructions,
         InvokeMethod invoke) {
-      // TODO(b/): Implement IR-to-IR invoke desugaring.
+      DexMethod invokedMethod = invoke.getInvokedMethod();
+      DesugaredLibraryConversionCfProvider conversionCfProvider =
+          desugaredLibraryAPIConverter.getConversionCfProvider();
+      DexMethod returnConversion =
+          conversionCfProvider.computeReturnConversion(
+              invokedMethod, false, eventConsumer, method, methodProcessingContext);
+      DexMethod[] parameterConversions =
+          conversionCfProvider.computeParameterConversions(
+              invokedMethod, true, eventConsumer, method, methodProcessingContext);
+
+      List<Instruction> replacementInstructions = new ArrayList<>();
+      List<Value> convertedMethodArguments = new ArrayList<>(invoke.arguments().size());
+      if (invoke.isInvokeMethodWithReceiver()) {
+        convertedMethodArguments.add(invoke.asInvokeMethodWithReceiver().getReceiver());
+      }
+      if (!invokedMethod.getParameters().isEmpty()) {
+        DexMethod parameterConversionTarget =
+            conversionCfProvider.getParameterConversionTarget(
+                parameterConversions, invokedMethod, true, eventConsumer, methodProcessingContext);
+        if (parameterConversionTarget != null) {
+          InvokeStatic parameterConversionInvoke =
+              InvokeStatic.builder()
+                  .setArguments(
+                      invoke.isInvokeMethodWithReceiver()
+                          ? invoke.arguments().subList(1, invoke.arguments().size())
+                          : invoke.arguments())
+                  .setFreshOutValue(code, dexItemFactory().objectArrayType.toTypeElement(appView))
+                  .setMethod(parameterConversionTarget)
+                  .setPosition(invoke)
+                  .build();
+          replacementInstructions.add(parameterConversionInvoke);
+
+          for (int i = 0; i < parameterConversions.length; i++) {
+            DexType parameterType =
+                parameterConversions[i] != null
+                    ? parameterConversions[i].getReturnType()
+                    : invokedMethod.getParameter(i);
+            ConstNumber arrayIndex =
+                ConstNumber.builder()
+                    .setFreshOutValue(code, TypeElement.getInt())
+                    .setPositionForNonThrowingInstruction(invoke.getPosition(), appView.options())
+                    .setValue(i)
+                    .build();
+            replacementInstructions.add(arrayIndex);
+            ArrayGet arrayGet =
+                ArrayGet.builder()
+                    .setArrayValue(parameterConversionInvoke.outValue())
+                    .setIndexValue(arrayIndex.outValue())
+                    .setFreshOutValue(code, dexItemFactory().objectType.toTypeElement(appView))
+                    .setPosition(invoke)
+                    .build();
+            replacementInstructions.add(arrayGet);
+            if (parameterType.isPrimitiveType()) {
+              CheckCast checkCast =
+                  CheckCast.builder()
+                      .setCastType(dexItemFactory().getBoxedForPrimitiveType(parameterType))
+                      .setObject(arrayGet.outValue())
+                      .setFreshOutValue(code, parameterType.toTypeElement(appView))
+                      .setPosition(invoke)
+                      .build();
+              replacementInstructions.add(checkCast);
+              InvokeVirtual unboxInvoke =
+                  InvokeVirtual.builder()
+                      .setFreshOutValue(code, parameterType.toTypeElement(appView))
+                      .setMethod(dexItemFactory().getUnboxPrimitiveMethod(parameterType))
+                      .setSingleArgument(checkCast.outValue())
+                      .setPosition(invoke)
+                      .build();
+              replacementInstructions.add(unboxInvoke);
+              convertedMethodArguments.add(unboxInvoke.outValue());
+            } else {
+              CheckCast checkCast =
+                  CheckCast.builder()
+                      .setCastType(parameterType)
+                      .setObject(arrayGet.outValue())
+                      .setFreshOutValue(code, parameterType.toTypeElement(appView))
+                      .setPosition(invoke)
+                      .build();
+              replacementInstructions.add(checkCast);
+              convertedMethodArguments.add(checkCast.outValue());
+            }
+          }
+        } else {
+          for (int i = 0; i < parameterConversions.length - 2; i++) {
+            convertedMethodArguments.add(invoke.getArgumentForParameter(i));
+          }
+          for (int i = Math.max(0, parameterConversions.length - 2);
+              i < parameterConversions.length;
+              i++) {
+            DexMethod convertArgumentMethod = parameterConversions[i];
+            if (convertArgumentMethod != null) {
+              InvokeStatic convertArgumentInvoke =
+                  InvokeStatic.builder()
+                      .setIsInterface(false)
+                      .setMethod(convertArgumentMethod)
+                      .setSingleArgument(invoke.getArgumentForParameter(i))
+                      .setFreshOutValue(
+                          code, convertArgumentMethod.getReturnType().toTypeElement(appView))
+                      .setPosition(invoke)
+                      .build();
+              replacementInstructions.add(convertArgumentInvoke);
+              convertedMethodArguments.add(convertArgumentInvoke.outValue());
+            } else {
+              convertedMethodArguments.add(invoke.getArgumentForParameter(i));
+            }
+          }
+        }
+      }
+
+      DexMethod convertedMethod =
+          conversionCfProvider.convertedMethod(
+              invokedMethod, true, returnConversion, parameterConversions);
+      InvokeMethod convertedMethodInvoke =
+          invoke
+              .newBuilder()
+              .setArguments(convertedMethodArguments)
+              .setIsInterface(invoke.getInterfaceBit())
+              .setMethod(convertedMethod)
+              .setPosition(invoke)
+              .applyIf(
+                  !convertedMethod.getReturnType().isVoidType(),
+                  b ->
+                      b.setFreshOutValue(
+                          code, convertedMethod.getReturnType().toTypeElement(appView)))
+              .build();
+      replacementInstructions.add(convertedMethodInvoke);
+
+      Value replacementValue;
+      if (returnConversion != null) {
+        assert returnConversion.getArity() == 1 || returnConversion.getArity() == 2;
+        if (returnConversion.getArity() == 2) {
+          // If there is a second parameter, pass the receiver.
+          if (!invoke.isInvokeSuper()) {
+            appView
+                .reporter()
+                .error(
+                    "Cannot generate inlined api conversion for return type for "
+                        + invokedMethod
+                        + " in "
+                        + method.toSourceString());
+          }
+        }
+        InvokeStatic returnConversionCall =
+            InvokeStatic.builder()
+                .setMethod(returnConversion)
+                .setSingleArgument(convertedMethodInvoke.outValue())
+                .setFreshOutValue(code, returnConversion.getReturnType().toTypeElement(appView))
+                .setIsInterface(false)
+                .setPosition(invoke)
+                .build();
+        replacementInstructions.add(returnConversionCall);
+        replacementValue = returnConversionCall.outValue();
+      } else {
+        replacementValue = convertedMethodInvoke.outValue();
+      }
+
+      if (invoke.hasOutValue()) {
+        invoke.outValue().replaceUsers(replacementValue);
+      }
+      instructions.removeOrReplaceByDebugLocalRead();
+      instructions.addPossiblyThrowingInstructionsToPossiblyThrowingBlock(
+          code, blocks, replacementInstructions, appView.options());
     }
   }
 }
