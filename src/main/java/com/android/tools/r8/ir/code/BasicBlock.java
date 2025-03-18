@@ -120,7 +120,7 @@ public class BasicBlock {
     return localsAtEntry;
   }
 
-  public void replaceLastInstruction(Instruction instruction) {
+  public void replaceLastInstruction(Instruction instruction, IRCode code) {
     InstructionListIterator iterator = listIterator(getInstructions().size());
     iterator.previous();
     iterator.replaceCurrentInstruction(instruction);

@@ -171,6 +171,7 @@ public class CfBuilder {
       }
       timing.end();
     }
+    code.removeRedundantBlocks();
     assert code.isConsistentGraph(appView, false);
     previousPrintString =
         IRConverter.printMethodIR(

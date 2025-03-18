@@ -48,7 +48,7 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
     AffectedValues affectedValues = new AffectedValues();
     for (BasicBlock comparisonBlockCandidate : code.blocks) {
       if (isComparisonBlock(comparisonBlockCandidate)) {
-        loopRemoved |= tryRemoveLoop(comparisonBlockCandidate.exit().asIf(), affectedValues);
+        loopRemoved |= tryRemoveLoop(code, comparisonBlockCandidate.exit().asIf(), affectedValues);
       }
     }
     if (loopRemoved) {
@@ -84,7 +84,7 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
     throw new Unreachable();
   }
 
-  private boolean tryRemoveLoop(If comparison, AffectedValues affectedValues) {
+  private boolean tryRemoveLoop(IRCode code, If comparison, AffectedValues affectedValues) {
     Phi loopPhi = computeLoopPhi(comparison);
     if (loopPhi == null) {
       return false;
@@ -117,7 +117,7 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
     NaturalIntLoopWithKnowIterations loop = builder.build();
 
     if (loop.has1Iteration()) {
-      loop.remove1IterationLoop(affectedValues);
+      loop.remove1IterationLoop(code, affectedValues);
       return true;
     }
     return false;
@@ -405,19 +405,19 @@ public class NaturalIntLoopRemover extends CodeRewriterPass<AppInfo> {
           && target(initCounter + counterIncrement) == loopExit;
     }
 
-    private void remove1IterationLoop(AffectedValues affectedValues) {
+    private void remove1IterationLoop(IRCode code, AffectedValues affectedValues) {
       BasicBlock comparisonBlock = comparison.getBlock();
       updatePhis(comparisonBlock, affectedValues);
-      patchControlFlow(comparisonBlock);
+      patchControlFlow(code, comparisonBlock);
     }
 
-    private void patchControlFlow(BasicBlock comparisonBlock) {
+    private void patchControlFlow(IRCode code, BasicBlock comparisonBlock) {
       assert loopExit.getPhis().isEmpty(); // Edges should be split.
-      comparisonBlock.replaceLastInstruction(new Goto());
+      comparisonBlock.replaceLastInstruction(new Goto(), code);
       comparisonBlock.removeSuccessor(loopExit);
 
       backPredecessor.replaceSuccessor(comparisonBlock, loopExit);
-      backPredecessor.replaceLastInstruction(new Goto());
+      backPredecessor.replaceLastInstruction(new Goto(), code);
       comparisonBlock.removePredecessor(backPredecessor);
       loopExit.replacePredecessor(comparisonBlock, backPredecessor);
     }

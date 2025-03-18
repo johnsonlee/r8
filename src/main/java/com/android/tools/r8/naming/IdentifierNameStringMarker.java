@@ -155,9 +155,6 @@ public class IdentifierNameStringMarker extends CodeRewriterPass<AppInfoWithLive
         }
       }
     }
-    if (result.hasChanged().isPossiblyTrue()) {
-      code.removeRedundantBlocks();
-    }
     return result;
   }
 

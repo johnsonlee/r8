@@ -50,7 +50,7 @@ public class IRToDexFinalizer extends IRFinalizer<DexCode> {
   }
 
   private void workaroundBugs(IRCode code, Timing timing) {
-    RuntimeWorkaroundCodeRewriter.workaroundNumberConversionRegisterAllocationBug(appView, code);
+    RuntimeWorkaroundCodeRewriter.workaroundNumberConversionRegisterAllocationBug(code, options);
     RuntimeWorkaroundCodeRewriter.workaroundDex2OatInliningIssue(appView, code);
     if (RuntimeWorkaroundCodeRewriter.workaroundInstanceOfTypeWeakeningInVerifier(appView, code)) {
       deadCodeRemover.run(code, timing);

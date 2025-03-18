@@ -180,7 +180,6 @@ public class CodeRewriter {
         }
       }
     }
-    code.removeRedundantBlocks();
     assert code.isConsistentSSA(appView);
   }
 

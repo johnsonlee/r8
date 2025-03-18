@@ -361,9 +361,7 @@ public class ThrowCatchOptimizer extends CodeRewriterPass<AppInfo> {
     }
     if (hasUnlinkedCatchHandlers) {
       code.removeUnreachableBlocks();
-      code.removeRedundantBlocks();
     }
-    assert code.isConsistentSSA(appView);
   }
 
   private boolean isSingleHandlerTrivial(BasicBlock firstBlock, IRCode code) {

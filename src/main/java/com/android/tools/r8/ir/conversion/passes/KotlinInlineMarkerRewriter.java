@@ -51,9 +51,6 @@ public class KotlinInlineMarkerRewriter extends CodeRewriterPass<AppInfo> {
         }
       }
     }
-    if (changed) {
-      code.removeRedundantBlocks();
-    }
     return CodeRewriterResult.hasChanged(changed);
   }
 }

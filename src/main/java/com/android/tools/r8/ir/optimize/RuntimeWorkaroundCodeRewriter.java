@@ -294,12 +294,12 @@ public class RuntimeWorkaroundCodeRewriter {
 
   // See comment for InternalOptions.canHaveNumberConversionRegisterAllocationBug().
   public static void workaroundNumberConversionRegisterAllocationBug(
-      AppView<?> appView, IRCode code) {
-    if (!appView.options().canHaveNumberConversionRegisterAllocationBug()) {
+      IRCode code, InternalOptions options) {
+    if (!options.canHaveNumberConversionRegisterAllocationBug()) {
       return;
     }
 
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexItemFactory dexItemFactory = options.dexItemFactory();
     ListIterator<BasicBlock> blocks = code.listIterator();
     while (blocks.hasNext()) {
       BasicBlock block = blocks.next();
@@ -345,8 +345,6 @@ public class RuntimeWorkaroundCodeRewriter {
         }
       }
     }
-    code.removeRedundantBlocks();
-    assert code.isConsistentSSA(appView);
   }
 
   private static void ensureInstructionBefore(
