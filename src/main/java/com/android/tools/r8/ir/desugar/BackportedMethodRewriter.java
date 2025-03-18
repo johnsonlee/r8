@@ -67,7 +67,7 @@ import com.android.tools.r8.ir.desugar.backports.SparseArrayMethodRewrites;
 import com.android.tools.r8.ir.desugar.backports.TypedArrayMethodRewrites;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterHelper;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterHelper;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.synthesis.SyntheticNaming;
@@ -220,7 +220,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     BackportedMethodRewriter.RewritableMethods rewritableMethods =
         new BackportedMethodRewriter.RewritableMethods(appView);
     rewritableMethods.visit(methods);
-    new DesugaredLibraryRetargeter(appView).visit(methods);
+    new DesugaredLibraryRetargeterHelper(appView).visit(methods);
     new AutoCloseableRetargeterHelper(options.getMinApiLevel(), options.dexItemFactory())
         .visit(methods);
     rewritableMethods.visitFields(fields);

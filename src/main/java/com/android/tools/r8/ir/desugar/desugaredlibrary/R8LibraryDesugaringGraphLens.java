@@ -34,6 +34,7 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryConversionCfProvider;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryLibRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
   private final LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
   private final LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter;
+  private final LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter;
 
   @SuppressWarnings("UnusedVariable")
   private final InterfaceMethodRewriter interfaceMethodRewriter;
@@ -62,6 +64,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter,
       LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter,
+      LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter,
       InterfaceMethodRewriter interfaceMethodRewriter,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod method,
@@ -69,6 +72,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
     super(appView);
     this.desugaredLibraryAPIConverter = desugaredLibraryAPIConverter;
     this.desugaredLibraryLibRewriter = desugaredLibraryLibRewriter;
+    this.desugaredLibraryRetargeter = desugaredLibraryRetargeter;
     this.interfaceMethodRewriter = interfaceMethodRewriter;
     this.eventConsumer = eventConsumer;
     this.method = method;
@@ -87,7 +91,9 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
   @Override
   protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
-    // TODO(b/391572031): Implement field access desugaring.
+    if (desugaredLibraryRetargeter != null) {
+      return desugaredLibraryRetargeter.lookupField(previous, method, this);
+    }
     return previous;
   }
 
@@ -100,6 +106,14 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
     if (desugaredLibraryLibRewriter != null) {
       MethodLookupResult result =
           desugaredLibraryLibRewriter.lookupMethod(previous, method, methodProcessingContext, this);
+      if (result != previous) {
+        return result;
+      }
+    }
+
+    if (desugaredLibraryRetargeter != null) {
+      MethodLookupResult result =
+          desugaredLibraryRetargeter.lookupMethod(previous, method, methodProcessingContext, this);
       if (result != previous) {
         return result;
       }

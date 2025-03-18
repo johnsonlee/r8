@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredL
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.CfToCfDesugaredLibraryLibRewriter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.CfToCfDesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
@@ -65,7 +66,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   private final List<CfInstructionDesugaring> yieldingDesugarings = new ArrayList<>();
 
   private final NestBasedAccessDesugaring nestBasedAccessDesugaring;
-  private final DesugaredLibraryRetargeter desugaredLibraryRetargeter;
+  private final CfToCfDesugaredLibraryRetargeter desugaredLibraryRetargeter;
   private final InterfaceMethodRewriter interfaceMethodRewriter;
   private final CfToCfDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
   private final DesugaredLibraryDisableDesugarer disableDesugarer;
@@ -112,14 +113,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (desugaredLibRewriter != null) {
       desugarings.add(desugaredLibRewriter);
     }
-    desugaredLibraryRetargeter =
-        appView
-                .options()
-                .getLibraryDesugaringOptions()
-                .getMachineDesugaredLibrarySpecification()
-                .hasRetargeting()
-            ? new DesugaredLibraryRetargeter(appView)
-            : null;
+    desugaredLibraryRetargeter = DesugaredLibraryRetargeter.createCfToCf(appView);
     if (desugaredLibraryRetargeter != null) {
       desugarings.add(desugaredLibraryRetargeter);
     }
