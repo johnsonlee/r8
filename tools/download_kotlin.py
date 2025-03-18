@@ -59,7 +59,7 @@ def download_stable(version):
 
 
 def download_newest():
-    response = url_request.urlopen(KOTLIN_RELEASE_URL)
+    response = urllib.request.urlopen(KOTLIN_RELEASE_URL)
     if response.getcode() != 200:
         raise Exception('Url: %s \n returned %s' %
                         (KOTLIN_RELEASE_URL, response.getcode()))
