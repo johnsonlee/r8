@@ -33,6 +33,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryConversionCfProvider;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.LirToLirDesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
@@ -42,27 +43,25 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+// TODO(b/391572031): Apply type instruction rewriting from CfToCfDesugaredLibraryDisableDesugarer.
 public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
-  private final LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
+  private final LirToLirDesugaredLibraryApiConverter desugaredLibraryApiConverter;
+  private final LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer;
   private final LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter;
   private final LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter;
 
   @SuppressWarnings("UnusedVariable")
   private final InterfaceMethodRewriter interfaceMethodRewriter;
 
-  @SuppressWarnings("UnusedVariable")
   private final CfInstructionDesugaringEventConsumer eventConsumer;
-
-  @SuppressWarnings("UnusedVariable")
   private final ProgramMethod method;
-
-  @SuppressWarnings("UnusedVariable")
   private final MethodProcessingContext methodProcessingContext;
 
   public R8LibraryDesugaringGraphLens(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter,
+      LirToLirDesugaredLibraryApiConverter desugaredLibraryApiConverter,
+      LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer,
       LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter,
       LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter,
       InterfaceMethodRewriter interfaceMethodRewriter,
@@ -70,7 +69,8 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       ProgramMethod method,
       MethodProcessingContext methodProcessingContext) {
     super(appView);
-    this.desugaredLibraryAPIConverter = desugaredLibraryAPIConverter;
+    this.desugaredLibraryApiConverter = desugaredLibraryApiConverter;
+    this.desugaredLibraryDisableDesugarer = desugaredLibraryDisableDesugarer;
     this.desugaredLibraryLibRewriter = desugaredLibraryLibRewriter;
     this.desugaredLibraryRetargeter = desugaredLibraryRetargeter;
     this.interfaceMethodRewriter = interfaceMethodRewriter;
@@ -92,8 +92,20 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
   @Override
   protected FieldLookupResult internalDescribeLookupField(FieldLookupResult previous) {
     if (desugaredLibraryRetargeter != null) {
-      return desugaredLibraryRetargeter.lookupField(previous, method, this);
+      FieldLookupResult result = desugaredLibraryRetargeter.lookupField(previous, method, this);
+      if (result != previous) {
+        return result;
+      }
     }
+
+    if (desugaredLibraryDisableDesugarer != null) {
+      FieldLookupResult result =
+          desugaredLibraryDisableDesugarer.lookupField(previous, method, this);
+      if (result != previous) {
+        return result;
+      }
+    }
+
     return previous;
   }
 
@@ -119,8 +131,16 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       }
     }
 
-    if (desugaredLibraryAPIConverter != null) {
-      return desugaredLibraryAPIConverter.lookupMethod(
+    if (desugaredLibraryDisableDesugarer != null) {
+      MethodLookupResult result =
+          desugaredLibraryDisableDesugarer.lookupMethod(previous, method, this);
+      if (result != previous) {
+        return result;
+      }
+    }
+
+    if (desugaredLibraryApiConverter != null) {
+      return desugaredLibraryApiConverter.lookupMethod(
           previous, method, methodProcessingContext, this);
     }
 
@@ -170,7 +190,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
         InvokeMethod invoke) {
       DexMethod invokedMethod = invoke.getInvokedMethod();
       DesugaredLibraryConversionCfProvider conversionCfProvider =
-          desugaredLibraryAPIConverter.getConversionCfProvider();
+          desugaredLibraryApiConverter.getConversionCfProvider();
       DexMethod returnConversion =
           conversionCfProvider.computeReturnConversion(
               invokedMethod, false, eventConsumer, method, methodProcessingContext);

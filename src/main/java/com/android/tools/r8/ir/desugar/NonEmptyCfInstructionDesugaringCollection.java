@@ -20,6 +20,7 @@ import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring;
 import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.CfToCfDesugaredLibraryApiConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.CfToCfDesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.CfToCfDesugaredLibraryLibRewriter;
@@ -69,7 +70,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   private final CfToCfDesugaredLibraryRetargeter desugaredLibraryRetargeter;
   private final InterfaceMethodRewriter interfaceMethodRewriter;
   private final CfToCfDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
-  private final DesugaredLibraryDisableDesugarer disableDesugarer;
+  private final CfToCfDesugaredLibraryDisableDesugarer disableDesugarer;
 
   private final CfInstructionDesugaring[][] asmOpcodeOrCompareToIdToDesugaringsMap;
 
@@ -124,7 +125,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (autoCloseableRetargeter != null) {
       desugarings.add(autoCloseableRetargeter);
     }
-    disableDesugarer = DesugaredLibraryDisableDesugarer.create(appView);
+    disableDesugarer = DesugaredLibraryDisableDesugarer.createCfToCf(appView);
     if (disableDesugarer != null) {
       desugarings.add(disableDesugarer);
     }

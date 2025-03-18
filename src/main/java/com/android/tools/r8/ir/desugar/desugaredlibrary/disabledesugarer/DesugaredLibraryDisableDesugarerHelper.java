@@ -36,11 +36,10 @@ public class DesugaredLibraryDisableDesugarerHelper {
     return false;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   DexMethod rewriteMethod(DexMethod method, boolean isInterface, ProgramMethod context) {
     DexType newHolder = rewriteType(method.getHolderType());
     DexMethod rewrittenMethod = methodWithVivifiedTypeInSignature(method, newHolder, appView);
-    if (rewrittenMethod == method) {
+    if (method.isIdenticalTo(rewrittenMethod)) {
       return null;
     }
     MethodResolutionResult methodResolutionResult =
@@ -49,7 +48,6 @@ public class DesugaredLibraryDisableDesugarerHelper {
     return rewrittenMethod;
   }
 
-  @SuppressWarnings("ReferenceEquality")
   DexField rewriteField(DexField field, ProgramDefinition context) {
     if (isRewrittenType(field.getHolderType())) {
       // This case never happens within the supported set of classes. We can support it if required.
@@ -59,8 +57,9 @@ public class DesugaredLibraryDisableDesugarerHelper {
           .error("Cannot prevent the desugaring of " + field + " in " + context);
       return null;
     }
-    DexType rewrittenFieldType = rewriteType(field.getType());
-    if (rewrittenFieldType == field.getType()) {
+    DexType fieldType = field.getType();
+    DexType rewrittenFieldType = rewriteType(fieldType);
+    if (fieldType.isIdenticalTo(rewrittenFieldType)) {
       return null;
     }
     FieldResolutionResult fieldResolutionResult =

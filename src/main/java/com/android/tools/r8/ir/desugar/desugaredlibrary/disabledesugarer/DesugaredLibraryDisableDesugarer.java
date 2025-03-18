@@ -4,123 +4,43 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer;
 
-import static com.android.tools.r8.utils.IntConsumerUtils.emptyIntConsumer;
 
-import com.android.tools.r8.cf.code.CfFieldInstruction;
-import com.android.tools.r8.cf.code.CfInstruction;
-import com.android.tools.r8.cf.code.CfInvoke;
-import com.android.tools.r8.cf.code.CfOpcodeUtils;
-import com.android.tools.r8.cf.code.CfTypeInstruction;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
-import com.android.tools.r8.ir.desugar.DesugarDescription;
-import com.google.common.collect.ImmutableList;
-import java.util.function.IntConsumer;
-import org.objectweb.asm.Opcodes;
+import java.util.Set;
 
 /**
  * Disables the rewriting of types in specific classes declared in the desugared library
  * specification, typically classes that are used pre-native multidex.
  */
-public class DesugaredLibraryDisableDesugarer implements CfInstructionDesugaring {
+public class DesugaredLibraryDisableDesugarer {
 
-  private final AppView<?> appView;
-  private final DesugaredLibraryDisableDesugarerHelper helper;
+  final AppView<?> appView;
+  final DesugaredLibraryDisableDesugarerHelper helper;
+  private final Set<DexType> multiDexTypes;
 
-  public DesugaredLibraryDisableDesugarer(AppView<?> appView) {
+  DesugaredLibraryDisableDesugarer(AppView<?> appView) {
     this.appView = appView;
     this.helper = new DesugaredLibraryDisableDesugarerHelper(appView);
+    this.multiDexTypes = appView.dexItemFactory().multiDexTypes;
   }
 
-  public static DesugaredLibraryDisableDesugarer create(AppView<?> appView) {
+  public static CfToCfDesugaredLibraryDisableDesugarer createCfToCf(AppView<?> appView) {
     return DesugaredLibraryDisableDesugarerHelper.shouldCreate(appView)
-        ? new DesugaredLibraryDisableDesugarer(appView)
+            && appView.options().getLibraryDesugaringOptions().isCfToCfLibraryDesugaringEnabled()
+        ? new CfToCfDesugaredLibraryDisableDesugarer(appView)
         : null;
   }
 
-  @Override
-  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
-    CfOpcodeUtils.acceptCfFieldInstructionOpcodes(consumer);
-    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
-    CfOpcodeUtils.acceptCfTypeInstructionOpcodes(
-        opcode -> {
-          // Skip primitive array allocations.
-          if (opcode != Opcodes.NEWARRAY) {
-            consumer.accept(opcode);
-          }
-        },
-        emptyIntConsumer());
-  }
-
-  @Override
-  public void acceptRelevantCompareToIds(IntConsumer consumer) {
-    CfOpcodeUtils.acceptCfTypeInstructionOpcodes(emptyIntConsumer(), consumer);
-  }
-
-  @Override
-  public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    CfInstruction replacement = rewriteInstruction(instruction, context);
-    if (replacement == null) {
-      return DesugarDescription.nothing();
-    }
-    return compute(replacement);
-  }
-
-  private DesugarDescription compute(CfInstruction replacement) {
-    return DesugarDescription.builder()
-        .setDesugarRewrite(
-            (position,
-                freshLocalProvider,
-                localStackAllocator,
-                desugaringInfo,
-                eventConsumer,
-                context,
-                methodProcessingContext,
-                desugaringCollection,
-                dexItemFactory) -> ImmutableList.of(replacement))
-        .build();
-  }
-
-  // TODO(b/261024278): Share this code.
-  private CfInstruction rewriteInstruction(CfInstruction instruction, ProgramMethod context) {
-    if (!appView.dexItemFactory().multiDexTypes.contains(context.getHolderType())) {
-      return null;
-    }
-    if (instruction.isTypeInstruction()) {
-      return rewriteTypeInstruction(instruction.asTypeInstruction());
-    }
-    if (instruction.isFieldInstruction()) {
-      return rewriteFieldInstruction(instruction.asFieldInstruction(), context);
-    }
-    if (instruction.isInvoke()) {
-      return rewriteInvokeInstruction(instruction.asInvoke(), context);
-    }
-    return null;
-  }
-
-  private CfInstruction rewriteInvokeInstruction(CfInvoke invoke, ProgramMethod context) {
-    DexMethod rewrittenMethod =
-        helper.rewriteMethod(invoke.getMethod(), invoke.isInterface(), context);
-    return rewrittenMethod != null
-        ? new CfInvoke(invoke.getOpcode(), rewrittenMethod, invoke.isInterface())
+  public static LirToLirDesugaredLibraryDisableDesugarer createLirToLir(AppView<?> appView) {
+    return DesugaredLibraryDisableDesugarerHelper.shouldCreate(appView)
+            && appView.options().getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
+        ? new LirToLirDesugaredLibraryDisableDesugarer(appView)
         : null;
   }
 
-  private CfFieldInstruction rewriteFieldInstruction(
-      CfFieldInstruction fieldInstruction, ProgramMethod context) {
-    DexField rewrittenField = helper.rewriteField(fieldInstruction.getField(), context);
-    return rewrittenField != null ? fieldInstruction.createWithField(rewrittenField) : null;
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private CfInstruction rewriteTypeInstruction(CfTypeInstruction typeInstruction) {
-    DexType rewrittenType = helper.rewriteType(typeInstruction.getType());
-    return rewrittenType != typeInstruction.getType()
-        ? typeInstruction.withType(rewrittenType)
-        : null;
+  boolean isApplicableToContext(ProgramMethod context) {
+    return multiDexTypes.contains(context.getContextType());
   }
 }

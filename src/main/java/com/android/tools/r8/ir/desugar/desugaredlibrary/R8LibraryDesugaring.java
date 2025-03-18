@@ -20,6 +20,8 @@ import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.LirToLirDesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryRetargeter;
@@ -96,13 +98,15 @@ public class R8LibraryDesugaring {
     CfInstructionDesugaringEventConsumer eventConsumer =
         CfInstructionDesugaringEventConsumer.createForR8LirToLirLibraryDesugaring(
             appView, profileCollectionAdditions);
+    LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer =
+        DesugaredLibraryDisableDesugarer.createLirToLir(appView);
     LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter =
         DesugaredLibraryLibRewriter.createLirToLir(appView, eventConsumer);
     LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter =
         LirToLirDesugaredLibraryRetargeter.createLirToLir(appView, eventConsumer);
     // TODO(b/391572031): Implement lir-to-lir interface method rewriting.
     InterfaceMethodRewriter interfaceMethodRewriter = null;
-    LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter =
+    LirToLirDesugaredLibraryApiConverter desugaredLibraryApiConverter =
         DesugaredLibraryAPIConverter.createForLirToLir(
             appView, eventConsumer, interfaceMethodRewriter);
     ProcessorContext processorContext = appView.createProcessorContext();
@@ -118,7 +122,8 @@ public class R8LibraryDesugaring {
                   R8LibraryDesugaringGraphLens libraryDesugaringGraphLens =
                       new R8LibraryDesugaringGraphLens(
                           appView,
-                          desugaredLibraryAPIConverter,
+                          desugaredLibraryApiConverter,
+                          desugaredLibraryDisableDesugarer,
                           desugaredLibraryLibRewriter,
                           desugaredLibraryRetargeter,
                           interfaceMethodRewriter,
@@ -136,8 +141,8 @@ public class R8LibraryDesugaring {
     List<ProgramMethod> needsProcessing = eventConsumer.finalizeDesugaring();
     assert needsProcessing.isEmpty();
 
-    if (desugaredLibraryAPIConverter != null) {
-      desugaredLibraryAPIConverter.generateTrackingWarnings();
+    if (desugaredLibraryApiConverter != null) {
+      desugaredLibraryApiConverter.generateTrackingWarnings();
     }
 
     // Commit pending synthetics.
