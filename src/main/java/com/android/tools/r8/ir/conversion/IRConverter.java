@@ -809,9 +809,7 @@ public class IRConverter {
     if (assumeInserter != null) {
       timing.begin("Remove assume instructions");
       CodeRewriter.removeAssumeInstructions(appView, code);
-      code.removeRedundantBlocks();
       timing.end();
-      assert code.isConsistentSSA(appView);
       previous = printMethod(code, "IR after removing assume instructions (SSA)", previous);
 
       // TODO(b/214496607): Remove when dynamic types are safe w.r.t. interface assignment rules.

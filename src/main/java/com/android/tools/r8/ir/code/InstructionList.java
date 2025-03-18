@@ -94,7 +94,6 @@ public class InstructionList implements Iterable<Instruction> {
    * end.
    */
   public void addBefore(Instruction newInstruction, Instruction existingInstruction) {
-    assert newInstruction.block == null;
     if (existingInstruction != null) {
       assert linearScanFinds(existingInstruction);
     }

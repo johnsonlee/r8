@@ -128,7 +128,6 @@ public class IrInjectionTestBase extends SmaliTestBase {
     }
 
     public String run() throws IOException {
-      Timing timing = Timing.empty();
       IRConverter converter = new IRConverter(appView);
       code.removeRedundantBlocks();
       converter.replaceCodeForTesting(code);
