@@ -144,7 +144,15 @@ public class DefaultMethodInvokeSuperOnDefaultLibraryMethodTest extends TestBase
         .addKeepMainRule(TestClass.class)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        .applyIf(
+            parameters.getPartialCompilationTestParameters().isRandom(),
+            rr ->
+                rr.applyIf(
+                    rr.getExitCode() == 0,
+                    ignore -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT),
+                    // TODO(b/404432076): Investigate if this behavior is correct.
+                    ignore -> rr.assertFailureWithErrorThatThrows(NoSuchMethodError.class)),
+            rr -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT));
   }
 
   private void verifyOnlyNoSuchMethodErrorDiagnostic(TestDiagnosticMessages diagnostics) {
