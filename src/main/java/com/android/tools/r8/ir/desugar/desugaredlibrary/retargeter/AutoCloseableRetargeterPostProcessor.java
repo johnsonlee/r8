@@ -167,9 +167,14 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
       if (newMethod == null) {
         // We don't support desugaring on all subtypes, in which case there is not need to inject
         // the interface.
-        return bridge;
+        return null;
       }
       bridge = new ProgramMethod(clazz, newMethod);
+    } else {
+      DexClassAndMethod dexClassAndMethod = lookupSuperTargetToRewrite(close, clazz);
+      if (dexClassAndMethod == null) {
+        return null;
+      }
     }
     DexType autoCloseableType = appView.dexItemFactory().autoCloseableType;
     if (clazz.interfaces.contains(autoCloseableType)) {
@@ -183,7 +188,14 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     return bridge;
   }
 
-  @SuppressWarnings("ReferenceEquality")
+  private DexClassAndMethod lookupSuperTargetToRewrite(DexMethod target, DexProgramClass clazz) {
+    DexClassAndMethod superMethod = lookupSuperIncludingInterfaces(appView, target, clazz);
+    if (superMethod == null || !data.isSuperTargetToRewrite(superMethod.getHolderType())) {
+      return null;
+    }
+    return superMethod;
+  }
+
   private DexEncodedMethod createForwardingMethod(
       DexMethod target,
       DexProgramClass clazz,
@@ -192,10 +204,9 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
     // NOTE: Never add a forwarding method to methods of classes unknown or coming from android.jar
     // even if this results in invalid code, these classes are never desugared.
     // In desugared library, emulated interface methods can be overridden by retarget lib members.
-    AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
     assert clazz.lookupVirtualMethod(target) == null;
-    DexClassAndMethod superMethod = lookupSuperIncludingInterfaces(appView, target, clazz);
-    if (superMethod == null || !data.isSuperTargetToRewrite(superMethod.getHolderType())) {
+    DexClassAndMethod superMethod = lookupSuperTargetToRewrite(target, clazz);
+    if (superMethod == null) {
       return null;
     }
     DexMethod forwardMethod =
@@ -205,7 +216,8 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
             clazz,
             eventConsumer,
             () -> mainThreadContext.createUniqueContext(clazz));
-    assert forwardMethod != null && forwardMethod != target;
+    assert forwardMethod != null && !forwardMethod.isIdenticalTo(target);
+    AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
     DexClassAndMethod resolvedMethod =
         appInfoForDesugaring
             .resolveMethodLegacy(target, target.getHolderType().isInterface(appInfoForDesugaring))
