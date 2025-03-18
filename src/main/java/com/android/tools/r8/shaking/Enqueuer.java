@@ -4255,8 +4255,12 @@ public class Enqueuer {
         assert !desugaring.needsDesugaring(method);
         return false;
       }
-      pendingCodeDesugaring.add(method);
-      return true;
+      // TODO(b/402328454): Parallelize parsing of LazyCfcode.
+      if (desugaring.needsDesugaring(method)) {
+        pendingCodeDesugaring.add(method);
+        return true;
+      }
+      return false;
     }
   }
 
