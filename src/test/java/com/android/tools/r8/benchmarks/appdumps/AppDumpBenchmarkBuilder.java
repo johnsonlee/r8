@@ -3,7 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
+import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.LibraryDesugaringTestConfiguration;
 import com.android.tools.r8.R8FullTestBuilder;
@@ -66,6 +68,7 @@ public class AppDumpBenchmarkBuilder {
   private int fromRevision = -1;
   private CompilationMode compilationMode;
   private boolean enableLibraryDesugaring = true;
+  private boolean runtimeOnly = false;
   private final List<String> programPackages = new ArrayList<>();
 
   public void verify() {
@@ -110,6 +113,11 @@ public class AppDumpBenchmarkBuilder {
 
   public AppDumpBenchmarkBuilder setFromRevision(int fromRevision) {
     this.fromRevision = fromRevision;
+    return this;
+  }
+
+  public AppDumpBenchmarkBuilder setRuntimeOnly() {
+    this.runtimeOnly = true;
     return this;
   }
 
@@ -182,25 +190,29 @@ public class AppDumpBenchmarkBuilder {
   public BenchmarkConfig buildR8WithResourceShrinking(
       ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     verify();
-    return BenchmarkConfig.builder()
-        .setName(name)
-        .setTarget(BenchmarkTarget.R8)
-        .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8WithResourceShrinking(this, configuration))
-        .setFromRevision(fromRevision)
-        .addDependency(dumpDependency)
-        // TODO(b/368282141): Also measure resource size.
-        .measureRunTime()
-        .measureCodeSize()
-        .measureInstructionCodeSize()
-        .measureComposableInstructionCodeSize()
-        .measureDexSegmentsCodeSize()
-        .measureDex2OatCodeSize()
-        // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors on
-        //  SystemUI.
-        .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
-        .setTimeout(10, TimeUnit.MINUTES)
-        .build();
+    BenchmarkConfig.Builder builder =
+        BenchmarkConfig.builder()
+            .setName(name)
+            .setTarget(BenchmarkTarget.R8)
+            .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
+            .setMethod(runR8WithResourceShrinking(this, configuration))
+            .setFromRevision(fromRevision)
+            .addDependency(dumpDependency)
+            // TODO(b/368282141): Also measure resource size.
+            .measureRunTime()
+            // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
+            //  on SystemUI.
+            .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
+            .setTimeout(10, TimeUnit.MINUTES);
+    if (!runtimeOnly) {
+      builder
+          .measureCodeSize()
+          .measureInstructionCodeSize()
+          .measureComposableInstructionCodeSize()
+          .measureDexSegmentsCodeSize()
+          .measureDex2OatCodeSize();
+    }
+    return builder.build();
   }
 
   public BenchmarkConfig buildIncrementalD8() {
@@ -380,8 +392,8 @@ public class AppDumpBenchmarkBuilder {
                                   .benchmarkDex2OatCodeSize(
                                       results,
                                       environment.getConfig().isDex2OatVerificationEnabled());
-                            } catch (AbortBenchmarkException e) {
-                              // Ignore.
+                            } catch (CompilationFailedException e) {
+                              assertTrue(e.getCause() instanceof AbortBenchmarkException);
                             }
                           });
                 });

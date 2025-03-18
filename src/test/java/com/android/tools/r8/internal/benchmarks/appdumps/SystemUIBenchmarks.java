@@ -47,6 +47,7 @@ public class SystemUIBenchmarks extends BenchmarkBase {
             .setName("SystemUIAppTreeShaking")
             .setDumpDependencyPath(dir)
             .setFromRevision(16457)
+            .setRuntimeOnly()
             .buildR8WithResourceShrinking(SystemUIBenchmarks::configureTreeShaking));
   }
 
@@ -70,8 +71,11 @@ public class SystemUIBenchmarks extends BenchmarkBase {
                 (appInfo, enqueuerMode) -> {
                   if (appInfo.options().printTimes) {
                     Timing timing = appInfo.app().timing;
-                    timing.end();
-                    timing.report();
+                    timing.end(); // End "Create result"
+                    timing.end(); // End "Trace application"
+                    timing.end(); // End "Enqueuer"
+                    timing.end(); // End "Strip unused code"
+                    timing.report(); // Report "R8 main"
                   }
                   throw new AbortBenchmarkException();
                 });
