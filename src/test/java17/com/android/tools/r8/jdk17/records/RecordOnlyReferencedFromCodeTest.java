@@ -7,6 +7,8 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -45,7 +47,13 @@ public class RecordOnlyReferencedFromCodeTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
-        .assertSuccessWithOutputLines("false");
+        .applyIf(
+            parameters.isDexRuntimeVersion(Version.V14_0_0)
+                && parameters.getApiLevel().equals(AndroidApiLevel.U),
+            // TODO(b/193004879): The Enqueuer should "prepare" all methods, even if they do not
+            //  require desugaring.
+            rr -> rr.assertFailureWithErrorThatThrows(NoClassDefFoundError.class),
+            rr -> rr.assertSuccessWithOutputLines("false"));
   }
 
   static class Main {
