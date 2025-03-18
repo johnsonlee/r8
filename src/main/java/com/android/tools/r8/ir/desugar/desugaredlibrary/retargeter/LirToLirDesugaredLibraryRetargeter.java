@@ -6,15 +6,22 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexField;
+import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.ir.code.InvokeType;
+import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.R8LibraryDesugaringGraphLens;
 
 public class LirToLirDesugaredLibraryRetargeter extends DesugaredLibraryRetargeter {
 
-  LirToLirDesugaredLibraryRetargeter(AppView<?> appView) {
+  private final CfInstructionDesugaringEventConsumer eventConsumer;
+
+  LirToLirDesugaredLibraryRetargeter(
+      AppView<?> appView, CfInstructionDesugaringEventConsumer eventConsumer) {
     super(appView);
+    this.eventConsumer = eventConsumer;
   }
 
   public FieldLookupResult lookupField(
@@ -36,7 +43,24 @@ public class LirToLirDesugaredLibraryRetargeter extends DesugaredLibraryRetarget
       ProgramMethod context,
       MethodProcessingContext methodProcessingContext,
       R8LibraryDesugaringGraphLens lens) {
-    // TODO(b/391572031): Implement.
+    if (isApplicableToContext(context)) {
+      RetargetMethodSupplier retargetMethodSupplier =
+          getRetargetMethodSupplier(
+              previous.getReference(),
+              previous.getType(),
+              previous.isInterface().toBoolean(),
+              context);
+      if (retargetMethodSupplier != null) {
+        DexMethod retargetMethod =
+            retargetMethodSupplier.getRetargetMethod(eventConsumer, methodProcessingContext);
+        return MethodLookupResult.builder(lens, lens.getPrevious())
+            .setReference(retargetMethod)
+            .setReboundReference(retargetMethod)
+            .setIsInterface(false)
+            .setType(InvokeType.STATIC)
+            .build();
+      }
+    }
     return previous;
   }
 }

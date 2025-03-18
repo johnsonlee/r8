@@ -556,8 +556,8 @@ public class DexItemFactory {
           "Landroid/support/multidex/instrumentation/BuildConfig;",
           "Landroid/test/runner/MultiDexTestRunner;");
 
-  private List<DexType> createMultiDexTypes() {
-    ImmutableList.Builder<DexType> builder = ImmutableList.builder();
+  private Set<DexType> createMultiDexTypes() {
+    ImmutableSet.Builder<DexType> builder = ImmutableSet.builder();
     for (String prefix : MULTIDEX_PREFIXES) {
       for (String suffix : MULTIDEX_SUFFIXES) {
         builder.add(createType("L" + prefix + suffix));
@@ -569,7 +569,7 @@ public class DexItemFactory {
     return builder.build();
   }
 
-  public List<DexType> multiDexTypes = createMultiDexTypes();
+  public Set<DexType> multiDexTypes = createMultiDexTypes();
 
   public final DexType doubleConsumer =
       createStaticallyKnownType("Ljava/util/function/DoubleConsumer;");

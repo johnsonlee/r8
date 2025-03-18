@@ -99,7 +99,7 @@ public class R8LibraryDesugaring {
     LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter =
         DesugaredLibraryLibRewriter.createLirToLir(appView, eventConsumer);
     LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter =
-        LirToLirDesugaredLibraryRetargeter.createLirToLir(appView);
+        LirToLirDesugaredLibraryRetargeter.createLirToLir(appView, eventConsumer);
     // TODO(b/391572031): Implement lir-to-lir interface method rewriting.
     InterfaceMethodRewriter interfaceMethodRewriter = null;
     LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter =
