@@ -243,6 +243,9 @@ public class TimingImpl extends Timing {
       final boolean trackMemory = merged.trackMemory;
       Deque<Item> worklist = new ArrayDeque<>();
       for (Timing timing : timings) {
+        if (timing instanceof TimingDelegate) {
+          timing = ((TimingDelegate) timing).getDelegate();
+        }
         if (timing == Timing.empty()) {
           continue;
         }

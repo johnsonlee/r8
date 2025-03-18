@@ -14,6 +14,10 @@ class TimingDelegate extends Timing {
     this.delegate = timing;
   }
 
+  public Timing getDelegate() {
+    return delegate;
+  }
+
   @Override
   public TimingMerger beginMerger(String title, int numberOfThreads) {
     return delegate.beginMerger(title, numberOfThreads);
