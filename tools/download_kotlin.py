@@ -166,11 +166,8 @@ def check_pom(top_most_version_and_build):
             raise Exception('Unexpected dependency: ' + coordinates)
 
 
-def download_and_save(url, path, name):
-    download_and_save(url, dest)
-
-
-def download_and_save(url, dest):
+def download_and_save(url, path, name=None):
+    dest = path if not name else os.path.join(path, name)
     print('Downloading: ' + url + ' to: ' + dest)
     urllib.request.urlretrieve(url, dest)
 
