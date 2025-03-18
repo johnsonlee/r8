@@ -33,6 +33,7 @@ import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryConversionCfProvider;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ import java.util.Set;
 public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
   private final LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
+  private final LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter;
 
   @SuppressWarnings("UnusedVariable")
   private final InterfaceMethodRewriter interfaceMethodRewriter;
@@ -59,12 +61,14 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
   public R8LibraryDesugaringGraphLens(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       LirToLirDesugaredLibraryApiConverter desugaredLibraryAPIConverter,
+      LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter,
       InterfaceMethodRewriter interfaceMethodRewriter,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod method,
       MethodProcessingContext methodProcessingContext) {
     super(appView);
     this.desugaredLibraryAPIConverter = desugaredLibraryAPIConverter;
+    this.desugaredLibraryLibRewriter = desugaredLibraryLibRewriter;
     this.interfaceMethodRewriter = interfaceMethodRewriter;
     this.eventConsumer = eventConsumer;
     this.method = method;
@@ -92,6 +96,14 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
     // TODO(b/391572031): Implement invoke desugaring.
     assert previous.getPrototypeChanges().isEmpty();
+
+    if (desugaredLibraryLibRewriter != null) {
+      MethodLookupResult result =
+          desugaredLibraryLibRewriter.lookupMethod(previous, method, methodProcessingContext, this);
+      if (result != previous) {
+        return result;
+      }
+    }
 
     if (desugaredLibraryAPIConverter != null) {
       return desugaredLibraryAPIConverter.lookupMethod(

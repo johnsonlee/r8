@@ -22,6 +22,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.CfToCfDesu
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeter;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.CfToCfDesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
@@ -106,7 +107,8 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     }
     this.nestBasedAccessDesugaring = NestBasedAccessDesugaring.create(appView);
     BackportedMethodRewriter backportedMethodRewriter = new BackportedMethodRewriter(appView);
-    DesugaredLibraryLibRewriter desugaredLibRewriter = DesugaredLibraryLibRewriter.create(appView);
+    CfToCfDesugaredLibraryLibRewriter desugaredLibRewriter =
+        DesugaredLibraryLibRewriter.createCfToCf(appView);
     if (desugaredLibRewriter != null) {
       desugarings.add(desugaredLibRewriter);
     }

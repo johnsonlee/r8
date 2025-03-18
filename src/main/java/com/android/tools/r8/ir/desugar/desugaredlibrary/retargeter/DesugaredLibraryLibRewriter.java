@@ -4,60 +4,70 @@
 
 package com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter;
 
-import com.android.tools.r8.cf.code.CfInstruction;
-import com.android.tools.r8.cf.code.CfInvoke;
-import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
-import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexProto;
-import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.DesugarDescription;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
+import com.android.tools.r8.synthesis.SyntheticItems;
 import com.google.common.collect.ImmutableMap;
-import java.util.Collections;
 import java.util.Map;
 import java.util.function.BiFunction;
-import java.util.function.IntConsumer;
-import org.objectweb.asm.Opcodes;
 
 /**
  * This holds specific rewritings when using desugared library and specific libraries such as
  * androidx.
  */
-public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
+public abstract class DesugaredLibraryLibRewriter {
 
-  private final AppView<?> appView;
-  private final Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings;
+  final AppView<?> appView;
+  final Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings;
 
-  private DesugaredLibraryLibRewriter(
+  DesugaredLibraryLibRewriter(
       AppView<?> appView,
       Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings) {
     this.appView = appView;
     this.rewritings = rewritings;
   }
 
-  public static DesugaredLibraryLibRewriter create(AppView<?> appView) {
-    if (appView
-        .options()
-        .getLibraryDesugaringOptions()
-        .getMachineDesugaredLibrarySpecification()
-        .getRewriteType()
-        .isEmpty()) {
+  public static CfToCfDesugaredLibraryLibRewriter createCfToCf(AppView<?> appView) {
+    LibraryDesugaringOptions libraryDesugaringOptions =
+        appView.options().getLibraryDesugaringOptions();
+    if (libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled()
+        || libraryDesugaringOptions
+            .getMachineDesugaredLibrarySpecification()
+            .getRewriteType()
+            .isEmpty()) {
       return null;
     }
     Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings = computeMap(appView);
     if (rewritings.isEmpty()) {
       return null;
     }
-    return new DesugaredLibraryLibRewriter(appView, rewritings);
+    return new CfToCfDesugaredLibraryLibRewriter(appView, rewritings);
+  }
+
+  public static LirToLirDesugaredLibraryLibRewriter createLirToLir(
+      AppView<?> appView, CfInstructionDesugaringEventConsumer eventConsumer) {
+    LibraryDesugaringOptions libraryDesugaringOptions =
+        appView.options().getLibraryDesugaringOptions();
+    if (libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled()
+        || libraryDesugaringOptions
+            .getMachineDesugaredLibrarySpecification()
+            .getRewriteType()
+            .isEmpty()) {
+      return null;
+    }
+    Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings = computeMap(appView);
+    if (rewritings.isEmpty()) {
+      return null;
+    }
+    return new LirToLirDesugaredLibraryLibRewriter(appView, eventConsumer, rewritings);
   }
 
   public static Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> computeMap(
@@ -67,17 +77,14 @@ public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
     if (!appView.appInfo().hasDefinitionForWithoutExistenceAssert(navType)) {
       return ImmutableMap.of();
     }
-    ImmutableMap.Builder<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> builder =
-        ImmutableMap.builder();
-    DexType navTypeCompanion = factory.createType("Landroidx/navigation/NavType$Companion;");
-    DexProto fromProto = factory.createProto(navType, factory.stringType, factory.stringType);
-    DexString name = factory.createString("fromArgType");
-    DexMethod from = factory.createMethod(navTypeCompanion, fromProto, name);
-    DexClassAndMethod dexClassAndMethod = appView.definitionFor(from);
-    if (dexClassAndMethod == null) {
+    DexMethod from =
+        factory.createMethod(
+            factory.createType("Landroidx/navigation/NavType$Companion;"),
+            factory.createProto(navType, factory.stringType, factory.stringType),
+            "fromArgType");
+    if (!appView.appInfo().hasDefinitionFor(from)) {
       appView
-          .options()
-          .reporter
+          .reporter()
           .warning(
               "The class "
                   + navType
@@ -91,56 +98,25 @@ public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
     }
     BiFunction<DexItemFactory, DexMethod, CfCode> cfCodeProvider =
         DesugaredLibraryCfMethods::DesugaredLibraryBridge_fromArgType;
-    builder.put(from, cfCodeProvider);
-    return builder.build();
+    return ImmutableMap.of(from, cfCodeProvider);
   }
 
-  @Override
-  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
-    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
+  boolean isApplicableToContext(ProgramMethod context) {
+    SyntheticItems syntheticItems = appView.getSyntheticItems();
+    return !syntheticItems.isSyntheticOfKind(
+        context.getHolderType(), kinds -> kinds.DESUGARED_LIBRARY_BRIDGE);
   }
 
-  @Override
-  public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    if (appView
-        .getSyntheticItems()
-        .isSyntheticOfKind(context.getHolderType(), kinds -> kinds.DESUGARED_LIBRARY_BRIDGE)) {
-      return DesugarDescription.nothing();
-    }
-    if (instruction.isInvoke() && rewritings.containsKey(instruction.asInvoke().getMethod())) {
-      return DesugarDescription.builder()
-          .setDesugarRewrite(
-              (position,
-                  freshLocalProvider,
-                  localStackAllocator,
-                  desugaringInfo,
-                  eventConsumer,
-                  localContext,
-                  methodProcessingContext,
-                  desugarings,
-                  dexItemFactory) -> {
-                DexMethod newInvokeTarget =
-                    ensureBridge(
-                        instruction.asInvoke().getMethod(),
-                        eventConsumer,
-                        methodProcessingContext,
-                        localContext);
-                assert appView.definitionFor(newInvokeTarget.getHolderType()) != null;
-                assert !appView.definitionFor(newInvokeTarget.getHolderType()).isInterface();
-                return Collections.singletonList(
-                    new CfInvoke(Opcodes.INVOKESTATIC, newInvokeTarget, false));
-              })
-          .build();
-    }
-    return DesugarDescription.nothing();
-  }
-
-  private DexMethod ensureBridge(
+  DexMethod getRetargetMethod(
       DexMethod source,
       CfInstructionDesugaringEventConsumer eventConsumer,
-      MethodProcessingContext methodProcessingContext,
-      ProgramMethod localContext) {
+      ProgramMethod context,
+      MethodProcessingContext methodProcessingContext) {
+    assert isApplicableToContext(context);
     BiFunction<DexItemFactory, DexMethod, CfCode> target = rewritings.get(source);
+    if (target == null) {
+      return null;
+    }
     ProgramMethod newMethod =
         appView
             .getSyntheticItems()
@@ -154,7 +130,7 @@ public class DesugaredLibraryLibRewriter implements CfInstructionDesugaring {
                         .setProto(appView.dexItemFactory().prependHolderToProto(source))
                         .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
                         .setCode(methodSig -> target.apply(appView.dexItemFactory(), methodSig)));
-    eventConsumer.acceptDesugaredLibraryBridge(newMethod, localContext);
+    eventConsumer.acceptDesugaredLibraryBridge(newMethod, context);
     return newMethod.getReference();
   }
 }
