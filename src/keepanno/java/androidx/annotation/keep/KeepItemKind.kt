@@ -21,12 +21,12 @@
 package androidx.annotation.keep
 
 public enum class KeepItemKind {
-  ONLY_CLASS,
-  ONLY_MEMBERS,
-  ONLY_METHODS,
-  ONLY_FIELDS,
-  CLASS_AND_MEMBERS,
-  CLASS_AND_METHODS,
-  CLASS_AND_FIELDS,
-  DEFAULT,
+    ONLY_CLASS,
+    ONLY_MEMBERS,
+    ONLY_METHODS,
+    ONLY_FIELDS,
+    CLASS_AND_MEMBERS,
+    CLASS_AND_METHODS,
+    CLASS_AND_FIELDS,
+    DEFAULT,
 }

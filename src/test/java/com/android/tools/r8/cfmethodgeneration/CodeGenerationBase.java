@@ -29,12 +29,17 @@ public abstract class CodeGenerationBase extends TestBase {
   private static final Path GOOGLE_JAVA_FORMAT_JAR =
       GOOGLE_JAVA_FORMAT_DIR.resolve("google-java-format-1.24.0-all-deps.jar");
 
+  private enum KOTLIN_FORMAT_STYLE {
+    GOOGLE,
+    KOTLINLANG
+  }
+
   protected final DexItemFactory factory = new DexItemFactory();
 
   public static String kotlinFormatRawOutput(String rawOutput) throws IOException {
     Path temporaryFile = File.createTempFile("output-", ".kt").toPath();
     Files.write(temporaryFile, rawOutput.getBytes());
-    kotlinFormatRawOutput(temporaryFile);
+    kotlinFormatRawOutput(temporaryFile, KOTLIN_FORMAT_STYLE.KOTLINLANG);
     String result = FileUtils.readTextFile(temporaryFile);
     temporaryFile.toFile().deleteOnExit();
     return result;
@@ -48,30 +53,24 @@ public abstract class CodeGenerationBase extends TestBase {
     return result;
   }
 
-  public static String kotlinFormatRawOutput(Path tempFile) throws IOException {
-    // Apply google format.
+  public static void kotlinFormatRawOutput(Path tempFile, KOTLIN_FORMAT_STYLE formatStyle)
+      throws IOException {
     ProcessBuilder builder =
         new ProcessBuilder(
             ImmutableList.of(
                 getJavaExecutable(),
                 "-jar",
                 GOOGLE_KOTLIN_FORMAT_JAR.toString(),
-                "--google-style",
+                formatStyle == KOTLIN_FORMAT_STYLE.GOOGLE ? "--google-style" : "--kotlinlang-style",
                 tempFile.toAbsolutePath().toString()));
     String commandString = String.join(" ", builder.command());
     System.out.println(commandString);
     Process process = builder.start();
     ProcessResult result = ToolHelper.drainProcessOutputStreams(process, commandString);
-    // Kotlin formatter will write "Done formatting..." to stderr.
+    // Kotlin formatter formats file directly and writes "Done formatting..." to stderr.
     if (result.exitCode != 0) {
       throw new IllegalStateException(result.toString());
     }
-    // Fix line separators.
-    String content = result.stdout;
-    if (!StringUtils.LINE_SEPARATOR.equals("\n")) {
-      return content.replace(StringUtils.LINE_SEPARATOR, "\n");
-    }
-    return content;
   }
 
   public static String javaFormatRawOutput(Path tempFile) throws IOException {

@@ -34,9 +34,9 @@ import kotlin.annotation.Target
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(
-  AnnotationTarget.TYPE,
-  AnnotationTarget.FIELD,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.CONSTRUCTOR,
+    AnnotationTarget.TYPE,
+    AnnotationTarget.FIELD,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.CONSTRUCTOR,
 )
 public annotation class CheckRemoved(val description: String = "")

@@ -21,9 +21,9 @@
 package androidx.annotation.keep
 
 public enum class KeepOption {
-  SHRINKING,
-  OPTIMIZATION,
-  OBFUSCATION,
-  ACCESS_MODIFICATION,
-  ANNOTATION_REMOVAL,
+    SHRINKING,
+    OPTIMIZATION,
+    OBFUSCATION,
+    ACCESS_MODIFICATION,
+    ANNOTATION_REMOVAL,
 }

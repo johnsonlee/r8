@@ -41,63 +41,63 @@ import kotlin.reflect.KClass
 @Target(AnnotationTarget.ANNOTATION_CLASS)
 public annotation class TypePattern(
 
-  /**
-   * Exact type name as a string.
-   *
-   * <p>
-   * For example, {@code "long"} or {@code "java.lang.String"}.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining type-pattern:
-   * <ul>
-   * <li>constant
-   * <li>classNamePattern
-   * <li>instanceOfPattern
-   * </ul>
-   */
-  val name: String = "",
+    /**
+     * Exact type name as a string.
+     *
+     * <p>
+     * For example, {@code "long"} or {@code "java.lang.String"}.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining type-pattern:
+     * <ul>
+     * <li>constant
+     * <li>classNamePattern
+     * <li>instanceOfPattern
+     * </ul>
+     */
+    val name: String = "",
 
-  /**
-   * Exact type from a class constant.
-   *
-   * <p>
-   * For example, {@code String.class}.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining type-pattern:
-   * <ul>
-   * <li>name
-   * <li>classNamePattern
-   * <li>instanceOfPattern
-   * </ul>
-   */
-  val constant: KClass<*> = Object::class,
+    /**
+     * Exact type from a class constant.
+     *
+     * <p>
+     * For example, {@code String.class}.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining type-pattern:
+     * <ul>
+     * <li>name
+     * <li>classNamePattern
+     * <li>instanceOfPattern
+     * </ul>
+     */
+    val constant: KClass<*> = Object::class,
 
-  /**
-   * Classes matching the class-name pattern.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining type-pattern:
-   * <ul>
-   * <li>name
-   * <li>constant
-   * <li>instanceOfPattern
-   * </ul>
-   */
-  val classNamePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
+    /**
+     * Classes matching the class-name pattern.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining type-pattern:
+     * <ul>
+     * <li>name
+     * <li>constant
+     * <li>instanceOfPattern
+     * </ul>
+     */
+    val classNamePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
 
-  /**
-   * Define the instance-of with a pattern.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining type-pattern:
-   * <ul>
-   * <li>name
-   * <li>constant
-   * <li>classNamePattern
-   * </ul>
-   *
-   * @return The pattern that defines what instance-of the class must be.
-   */
-  val instanceOfPattern: InstanceOfPattern = InstanceOfPattern(),
+    /**
+     * Define the instance-of with a pattern.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining type-pattern:
+     * <ul>
+     * <li>name
+     * <li>constant
+     * <li>classNamePattern
+     * </ul>
+     *
+     * @return The pattern that defines what instance-of the class must be.
+     */
+    val instanceOfPattern: InstanceOfPattern = InstanceOfPattern(),
 )

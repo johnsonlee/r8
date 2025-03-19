@@ -27,31 +27,31 @@ package androidx.annotation.keep
  * operation syntactically.
  */
 public enum class MethodAccessFlags {
-  // General member flags.
-  PUBLIC,
-  NON_PUBLIC,
-  PRIVATE,
-  NON_PRIVATE,
-  PROTECTED,
-  NON_PROTECTED,
-  PACKAGE_PRIVATE,
-  NON_PACKAGE_PRIVATE,
-  STATIC,
-  NON_STATIC,
-  FINAL,
-  NON_FINAL,
-  SYNTHETIC,
-  NON_SYNTHETIC,
-  // Method specific flags.
-  SYNCHRONIZED,
-  NON_SYNCHRONIZED,
-  BRIDGE,
-  NON_BRIDGE,
-  // VARARGS - No PG parser support
-  NATIVE,
-  NON_NATIVE,
-  ABSTRACT,
-  NON_ABSTRACT,
-  STRICT_FP,
-  NON_STRICT_FP,
+    // General member flags.
+    PUBLIC,
+    NON_PUBLIC,
+    PRIVATE,
+    NON_PRIVATE,
+    PROTECTED,
+    NON_PROTECTED,
+    PACKAGE_PRIVATE,
+    NON_PACKAGE_PRIVATE,
+    STATIC,
+    NON_STATIC,
+    FINAL,
+    NON_FINAL,
+    SYNTHETIC,
+    NON_SYNTHETIC,
+    // Method specific flags.
+    SYNCHRONIZED,
+    NON_SYNCHRONIZED,
+    BRIDGE,
+    NON_BRIDGE,
+    // VARARGS - No PG parser support
+    NATIVE,
+    NON_NATIVE,
+    ABSTRACT,
+    NON_ABSTRACT,
+    STRICT_FP,
+    NON_STRICT_FP,
 }

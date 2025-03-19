@@ -95,26 +95,37 @@ def CheckFormatting(input_api, output_api, branch):
 
 
 def CheckKotlinFormatting(paths, output_api, results):
-  cmd = [GetJavaExecutable(), '-jar', KOTLIN_FMT_JAR, '--google-style', '-n']
-  cmd.extend(paths)
-  result = check_output(cmd)
-  if len(result) > 0:
-    with_format_error = result.splitlines()
-    for path in with_format_error:
-      results.append(
-        output_api.PresubmitError(
-          "File {path} needs formatting".format(path=path.decode('utf-8'))))
-  return len(result) > 0
+  paths_to_format = {
+      '--kotlinlang-style': [path for path in paths if path.startswith('src/keepanno/')],
+      '--google-style': [path for path in paths if not path.startswith('src/keepanno/')]
+  }
+  needs_formatting_count = 0
+  for format in ['--kotlinlang-style', '--google-style']:
+    cmd = [GetJavaExecutable(), '-jar', KOTLIN_FMT_JAR, format, '-n']
+    to_format = paths_to_format[format]
+    if len(to_format) > 0:
+      cmd.extend(to_format)
+      result = check_output(cmd)
+      if len(result) > 0:
+        with_format_error = result.splitlines()
+        for path in with_format_error:
+          results.append(
+            output_api.PresubmitError(
+              "File {path} needs formatting".format(path=path.decode('utf-8'))))
+    needs_formatting_count += len(result)
+  return needs_formatting_count > 0
 
 
 def KotlinFormatPresubmitMessage():
   return """Please fix the Kotlin formatting by running:
 
-  git diff $(git cl upstream) --name-only "*.kt" | xargs {java} -jar {fmt_jar} --google-style
+  git diff $(git cl upstream) --name-only "*.kt" | grep -v "^src/keepanno/" | xargs {java} -jar {fmt_jar} --google-style
+  git diff $(git cl upstream) --name-only "*.kt" | grep "^src/keepanno/" | xargs {java} -jar {fmt_jar} --kotlinlang-style
 
 or fix formatting, commit and upload:
 
-  git diff $(git cl upstream) --name-only "*.kt" | xargs {java} -jar {fmt_jar} --google-style && git commit -a --amend --no-edit && git cl upload
+  git diff $(git cl upstream) --name-only "*.kt" | grep -v "^src/keepanno/" | xargs {java} -jar {fmt_jar} --google-style && git commit -a --amend --no-edit && git cl upload
+  git diff $(git cl upstream) --name-only "*.kt" | grep "^src/keepanno/" | xargs {java} -jar {fmt_jar} --kotlinlang-style && git commit -a --amend --no-edit && git cl upload
 
 or bypass the checks with:
 

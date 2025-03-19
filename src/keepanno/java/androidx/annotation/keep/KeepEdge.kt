@@ -25,16 +25,16 @@ import kotlin.annotation.Target
 
 @Retention(AnnotationRetention.BINARY)
 @Target(
-  AnnotationTarget.TYPE,
-  AnnotationTarget.FIELD,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.CONSTRUCTOR,
+    AnnotationTarget.TYPE,
+    AnnotationTarget.FIELD,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.CONSTRUCTOR,
 )
 public annotation class KeepEdge(
-  val description: String = "",
+    val description: String = "",
 
-  //   val retention : Array<RetentionPolicy> = [RetentionPolicy.RUNTIME]
-  val bindings: Array<KeepBinding> = [],
-  val preconditions: Array<KeepCondition> = [],
-  val consequences: Array<KeepTarget> = [],
+    //   val retention : Array<RetentionPolicy> = [RetentionPolicy.RUNTIME]
+    val bindings: Array<KeepBinding> = [],
+    val preconditions: Array<KeepCondition> = [],
+    val consequences: Array<KeepTarget> = [],
 )

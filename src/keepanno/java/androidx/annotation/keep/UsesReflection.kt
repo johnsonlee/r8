@@ -77,31 +77,31 @@ import kotlin.annotation.Target
  */
 @Retention(AnnotationRetention.BINARY)
 @Target(
-  AnnotationTarget.CLASS,
-  AnnotationTarget.FIELD,
-  AnnotationTarget.FUNCTION,
-  AnnotationTarget.CONSTRUCTOR,
+    AnnotationTarget.CLASS,
+    AnnotationTarget.FIELD,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.CONSTRUCTOR,
 )
 public annotation class UsesReflection(
 
-  /**
-   * Optional description to document the reason for this annotation.
-   *
-   * @return The descriptive message. Defaults to no description.
-   */
-  val description: String = "",
+    /**
+     * Optional description to document the reason for this annotation.
+     *
+     * @return The descriptive message. Defaults to no description.
+     */
+    val description: String = "",
 
-  /**
-   * Consequences that must be kept if the annotation is in effect.
-   *
-   * @return The list of target consequences.
-   */
-  val value: Array<KeepTarget>,
+    /**
+     * Consequences that must be kept if the annotation is in effect.
+     *
+     * @return The list of target consequences.
+     */
+    val value: Array<KeepTarget>,
 
-  /**
-   * Additional preconditions for the annotation to be in effect.
-   *
-   * @return The list of additional preconditions. Defaults to no additional preconditions.
-   */
-  val additionalPreconditions: Array<KeepCondition> = [],
+    /**
+     * Additional preconditions for the annotation to be in effect.
+     *
+     * @return The list of additional preconditions. Defaults to no additional preconditions.
+     */
+    val additionalPreconditions: Array<KeepCondition> = [],
 )

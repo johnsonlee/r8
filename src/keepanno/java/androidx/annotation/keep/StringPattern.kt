@@ -37,40 +37,40 @@ import kotlin.annotation.Target
 @Target(AnnotationTarget.ANNOTATION_CLASS)
 public annotation class StringPattern(
 
-  /**
-   * Exact string content.
-   *
-   * <p>
-   * For example, {@code "foo"} or {@code "java.lang.String"}.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining string-exact-pattern:
-   * <ul>
-   * <li>startsWith
-   * <li>endsWith
-   * </ul>
-   */
-  val exact: String = "",
+    /**
+     * Exact string content.
+     *
+     * <p>
+     * For example, {@code "foo"} or {@code "java.lang.String"}.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining string-exact-pattern:
+     * <ul>
+     * <li>startsWith
+     * <li>endsWith
+     * </ul>
+     */
+    val exact: String = "",
 
-  /**
-   * Matches strings beginning with the given prefix.
-   *
-   * <p>
-   * For example, {@code "get"} to match strings such as {@code "getMyValue"}.
-   *
-   * <p>
-   * Mutually exclusive with the property `exact` also defining string-prefix-pattern.
-   */
-  val startsWith: String = "",
+    /**
+     * Matches strings beginning with the given prefix.
+     *
+     * <p>
+     * For example, {@code "get"} to match strings such as {@code "getMyValue"}.
+     *
+     * <p>
+     * Mutually exclusive with the property `exact` also defining string-prefix-pattern.
+     */
+    val startsWith: String = "",
 
-  /**
-   * Matches strings ending with the given suffix.
-   *
-   * <p>
-   * For example, {@code "Setter"} to match strings such as {@code "myValueSetter"}.
-   *
-   * <p>
-   * Mutually exclusive with the property `exact` also defining string-suffix-pattern.
-   */
-  val endsWith: String = "",
+    /**
+     * Matches strings ending with the given suffix.
+     *
+     * <p>
+     * For example, {@code "Setter"} to match strings such as {@code "myValueSetter"}.
+     *
+     * <p>
+     * Mutually exclusive with the property `exact` also defining string-suffix-pattern.
+     */
+    val endsWith: String = "",
 )

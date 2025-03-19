@@ -37,15 +37,15 @@ import kotlin.annotation.Target
 @Target(AnnotationTarget.ANNOTATION_CLASS)
 public annotation class InstanceOfPattern(
 
-  /**
-   * True if the pattern should include the directly matched classes.
-   *
-   * <p>
-   * If false, the pattern is exclusive and only matches classes that are strict subclasses of the
-   * pattern.
-   */
-  val isInclusive: Boolean = true,
+    /**
+     * True if the pattern should include the directly matched classes.
+     *
+     * <p>
+     * If false, the pattern is exclusive and only matches classes that are strict subclasses of the
+     * pattern.
+     */
+    val isInclusive: Boolean = true,
 
-  /** Instances of classes matching the class-name pattern. */
-  val classNamePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
+    /** Instances of classes matching the class-name pattern. */
+    val classNamePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
 )

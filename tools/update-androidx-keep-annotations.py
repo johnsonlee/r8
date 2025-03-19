@@ -11,9 +11,6 @@ import utils
 
 
 KOTLIN_EXTENSION = '.kt'
-# Extension used by androidx KMP libraries for Kotlin files with code
-# targeting the JVM.
-JVM_KOTLIN_EXTENSION = '.jvm.kt'
 
 
 def parse_options():
@@ -43,7 +40,7 @@ def main():
         'annotation',
         'annotation-keep',
         'src',
-        'jvmMain',
+        'commonMain',
         'kotlin',
         'androidx',
         'annotation',
@@ -61,11 +58,10 @@ def main():
                 print('Unexpected non Kotlin file {filename}.'
                     .format(filename=os.path.join(root, filename)))
                 sys.exit(1)
-            new_filename = filename[0:len(filename) - len(KOTLIN_EXTENSION)] + JVM_KOTLIN_EXTENSION
 
             shutil.copyfile(
                 os.path.join(root, filename),
-                os.path.join(dest_dir, new_filename))
+                os.path.join(dest_dir, filename))
 
 
 if __name__ == '__main__':

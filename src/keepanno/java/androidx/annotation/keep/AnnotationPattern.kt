@@ -40,64 +40,64 @@ import kotlin.reflect.KClass
 @Target(AnnotationTarget.ANNOTATION_CLASS)
 public annotation class AnnotationPattern(
 
-  /**
-   * Define the annotation-name pattern by fully qualified class name.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining annotation-name:
-   * <ul>
-   * <li>constant
-   * <li>namePattern
-   * </ul>
-   *
-   * <p>
-   * If none are specified the default is to match any annotation name.
-   *
-   * @return The qualified class name that defines the annotation.
-   */
-  val name: String = "",
+    /**
+     * Define the annotation-name pattern by fully qualified class name.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining annotation-name:
+     * <ul>
+     * <li>constant
+     * <li>namePattern
+     * </ul>
+     *
+     * <p>
+     * If none are specified the default is to match any annotation name.
+     *
+     * @return The qualified class name that defines the annotation.
+     */
+    val name: String = "",
 
-  /**
-   * Define the annotation-name pattern by reference to a {@code Class} constant.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining annotation-name:
-   * <ul>
-   * <li>name
-   * <li>namePattern
-   * </ul>
-   *
-   * <p>
-   * If none are specified the default is to match any annotation name.
-   *
-   * @return The Class constant that defines the annotation.
-   */
-  val constant: KClass<*> = Object::class,
+    /**
+     * Define the annotation-name pattern by reference to a {@code Class} constant.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining annotation-name:
+     * <ul>
+     * <li>name
+     * <li>namePattern
+     * </ul>
+     *
+     * <p>
+     * If none are specified the default is to match any annotation name.
+     *
+     * @return The Class constant that defines the annotation.
+     */
+    val constant: KClass<*> = Object::class,
 
-  /**
-   * Define the annotation-name pattern by reference to a class-name pattern.
-   *
-   * <p>
-   * Mutually exclusive with the following other properties defining annotation-name:
-   * <ul>
-   * <li>name
-   * <li>constant
-   * </ul>
-   *
-   * <p>
-   * If none are specified the default is to match any annotation name.
-   *
-   * @return The class-name pattern that defines the annotation.
-   */
-  val namePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
+    /**
+     * Define the annotation-name pattern by reference to a class-name pattern.
+     *
+     * <p>
+     * Mutually exclusive with the following other properties defining annotation-name:
+     * <ul>
+     * <li>name
+     * <li>constant
+     * </ul>
+     *
+     * <p>
+     * If none are specified the default is to match any annotation name.
+     *
+     * @return The class-name pattern that defines the annotation.
+     */
+    val namePattern: ClassNamePattern = ClassNamePattern(unqualifiedName = ""),
 
-  /**
-   * Specify which retention policies must be set for the annotations.
-   *
-   * <p>
-   * Matches annotations with matching retention policies
-   *
-   * @return Retention policies. By default {@code RetentionPolicy.RUNTIME}.
-   */
-  val retention: Array<RetentionPolicy> = [RetentionPolicy.RUNTIME],
+    /**
+     * Specify which retention policies must be set for the annotations.
+     *
+     * <p>
+     * Matches annotations with matching retention policies
+     *
+     * @return Retention policies. By default {@code RetentionPolicy.RUNTIME}.
+     */
+    val retention: Array<RetentionPolicy> = [RetentionPolicy.RUNTIME],
 )
