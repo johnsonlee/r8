@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.zip.ZipFile;
 import org.junit.rules.TemporaryFolder;
 
@@ -101,9 +102,13 @@ public class Jdk11TestLibraryDesugaringSpecification {
         .compile();
     assert new ZipFile(output.toFile()).size() > 0;
 
+    // Atomic move does not work if the files are on different drives, first move to a random file
+    // next to EXTENSION_PATH file (see b/403415240).
+    Path tmpOnSameDrive = Paths.get(EXTENSION_PATH.toString() + ".tmp." + UUID.randomUUID());
+    Files.move(output, tmpOnSameDrive);
     // Move the result into the build/libs folder.
     Files.move(
-        output,
+        tmpOnSameDrive,
         EXTENSION_PATH,
         StandardCopyOption.REPLACE_EXISTING,
         StandardCopyOption.ATOMIC_MOVE);
