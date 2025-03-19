@@ -23,11 +23,11 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
-import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedback;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
+import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.utils.AssertionConfigurationWithDefault;
@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.Opcodes;
 
 public class ClassInitializerAssertionEnablingAnalysis
-    implements TraceFieldAccessEnqueuerAnalysis, NewlyLiveMethodEnqueuerAnalysis {
+    implements TraceFieldAccessEnqueuerAnalysis, NewlyLiveCodeEnqueuerAnalysis {
   private final DexItemFactory dexItemFactory;
   private final OptimizationFeedback feedback;
   private final DexString kotlinAssertionsEnabled;
@@ -65,7 +65,7 @@ public class ClassInitializerAssertionEnablingAnalysis
       ClassInitializerAssertionEnablingAnalysis analysis =
           new ClassInitializerAssertionEnablingAnalysis(
               appView, OptimizationFeedbackSimple.getInstance());
-      builder.addTraceFieldAccessAnalysis(analysis).addNewlyLiveMethodAnalysis(analysis);
+      builder.addTraceFieldAccessAnalysis(analysis).addNewlyLiveCodeAnalysis(analysis);
     }
   }
 
@@ -94,11 +94,8 @@ public class ClassInitializerAssertionEnablingAnalysis
   }
 
   @Override
-  public void processNewlyLiveMethod(
-      ProgramMethod method,
-      ProgramDefinition context,
-      Enqueuer enqueuer,
-      EnqueuerWorklist worklist) {
+  public void processNewlyLiveCode(
+      ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
     DexEncodedMethod definition = method.getDefinition();
     if (!definition.hasCode() || !definition.getCode().isCfCode()) {
       return;

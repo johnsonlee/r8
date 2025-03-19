@@ -460,7 +460,7 @@ public class Enqueuer {
   private final GraphReporter graphReporter;
 
   private final CfInstructionDesugaringCollection desugaring;
-  private final ProgramMethodSet pendingCodeDesugaring = ProgramMethodSet.create();
+  private final ProgramMethodSet pendingCodeDesugaring = ProgramMethodSet.createConcurrent();
 
   // Collections for tracing progress on interface method desugaring.
 
@@ -521,7 +521,8 @@ public class Enqueuer {
     this.options = options;
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.useRegistryFactory = createUseRegistryFactory();
-    this.worklist = EnqueuerWorklist.createWorklist(this);
+    this.worklist =
+        EnqueuerWorklist.createWorklist(this, executorService, options.getThreadingModule());
     this.proguardCompatibilityActionsBuilder =
         mode.isInitialTreeShaking() && options.forceProguardCompatibility
             ? ProguardCompatibilityActions.builder()
@@ -4229,6 +4230,9 @@ public class Enqueuer {
     if (!method.getDefinition().hasCode() || method.getDefinition().getCode().isDexCode()) {
       return false;
     }
+    // TODO(b/294886627): This no longer includes the time to parse and check needs desugaring.
+    //  Consider timing this on the thread and merging it into the main timing when awaiting
+    //  futures.
     try (Timing t0 = timing.begin("Analyze needs desugaring")) {
       try (Timing t1 = timing.begin("Analyze interface method desugaring")) {
         if (options.isInterfaceMethodDesugaringEnabled()) {
@@ -4255,16 +4259,26 @@ public class Enqueuer {
         assert !desugaring.needsDesugaring(method);
         return false;
       }
-      // TODO(b/402328454): Parallelize parsing of LazyCfcode.
-      if (desugaring.needsDesugaring(method)) {
-        pendingCodeDesugaring.add(method);
-        return true;
-      }
-      return false;
+      worklist.enqueueFuture(() -> parseCodeAndCheckNeedsDesugaring(method));
+      return true;
+    }
+  }
+
+  private void parseCodeAndCheckNeedsDesugaring(ProgramMethod method) {
+    LazyCfCode code = method.getDefinition().getCode().asLazyCfCode();
+    if (code != null) {
+      code.parseCodeConcurrently();
+    }
+    if (desugaring.needsDesugaring(method)) {
+      pendingCodeDesugaring.add(method);
+    } else {
+      worklist.enqueueTraceCodeAction(method);
     }
   }
 
   private void desugar(SyntheticAdditions additions) throws ExecutionException {
+    assert worklist.verifyNotProcessing();
+
     if (pendingCodeDesugaring.isEmpty() && pendingMethodMove.isEmpty()) {
       return;
     }
@@ -4714,10 +4728,7 @@ public class Enqueuer {
         long numberOfLiveItems = getNumberOfLiveItems();
 
         timing.begin("Process worklist");
-        while (worklist.hasNext()) {
-          EnqueuerAction action = worklist.poll();
-          action.run(this, timing);
-        }
+        worklist.process(timing);
         timing.end();
 
         // Continue fix-point processing if -if rules are enabled by items that newly became live.
@@ -4813,6 +4824,8 @@ public class Enqueuer {
     } finally {
       timing.end();
     }
+
+    assert worklist.verifyNoPendingFutures();
   }
 
   private void postProcessingDesugaring(Timing timing) throws ExecutionException {
@@ -4857,12 +4870,10 @@ public class Enqueuer {
 
     syntheticAdditions.enqueueWorkItems(this);
 
+    timing.begin("Process worklist");
     worklist = worklist.nonPushable();
-
-    while (worklist.hasNext()) {
-      EnqueuerAction action = worklist.poll();
-      action.run(this, Timing.empty());
-    }
+    worklist.process(timing);
+    timing.end();
   }
 
   public long getNumberOfLiveItems() {

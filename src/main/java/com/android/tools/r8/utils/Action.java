@@ -4,13 +4,21 @@
 
 package com.android.tools.r8.utils;
 
+import java.util.concurrent.Callable;
+
 @FunctionalInterface
-public interface Action {
+public interface Action extends Callable<Void> {
 
   Action EMPTY = () -> {};
 
   static Action empty() {
     return EMPTY;
+  }
+
+  @Override
+  default Void call() throws Exception {
+    execute();
+    return null;
   }
 
   void execute();

@@ -18,13 +18,20 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessMetadata;
 import com.android.tools.r8.shaking.GraphReporter.KeepReasonWitness;
+import com.android.tools.r8.threading.ThreadingModule;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.UncheckedExecutionException;
 import com.android.tools.r8.utils.timing.Timing;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 public abstract class EnqueuerWorklist {
 
@@ -561,15 +568,48 @@ public abstract class EnqueuerWorklist {
   }
 
   final Enqueuer enqueuer;
+  final List<Future<Void>> futures = new ArrayList<>();
   final Queue<EnqueuerAction> queue;
+  final ThreadingModule threadingModule;
 
-  public static EnqueuerWorklist createWorklist(Enqueuer enqueuer) {
-    return new PushableEnqueuerWorkList(enqueuer);
+  boolean processing;
+
+  public static EnqueuerWorklist createWorklist(
+      Enqueuer enqueuer, ExecutorService executorService, ThreadingModule threadingModule) {
+    return new PushableEnqueuerWorkList(enqueuer, executorService, threadingModule);
   }
 
-  private EnqueuerWorklist(Enqueuer enqueuer, Queue<EnqueuerAction> queue) {
+  private EnqueuerWorklist(
+      Enqueuer enqueuer, Queue<EnqueuerAction> queue, ThreadingModule threadingModule) {
     this.enqueuer = enqueuer;
     this.queue = queue;
+    this.threadingModule = threadingModule;
+  }
+
+  void process(Timing timing) throws ExecutionException {
+    processing = true;
+    while (hasNext()) {
+      while (hasNext()) {
+        EnqueuerAction action = poll();
+        action.run(enqueuer, timing);
+      }
+      timing.begin("Await futures");
+      threadingModule.awaitFutures(futures);
+      futures.clear();
+      timing.end();
+    }
+    processing = false;
+    assert verifyNoPendingFutures();
+  }
+
+  boolean verifyNoPendingFutures() {
+    assert futures.isEmpty();
+    return true;
+  }
+
+  boolean verifyNotProcessing() {
+    assert !processing;
+    return true;
   }
 
   public boolean hasNext() {
@@ -581,6 +621,7 @@ public abstract class EnqueuerWorklist {
   }
 
   public EnqueuerAction poll() {
+    assert processing;
     return queue.poll();
   }
 
@@ -593,6 +634,8 @@ public abstract class EnqueuerWorklist {
   abstract void enqueue(EnqueuerAction action);
 
   abstract boolean enqueueAssertAction(Action assertion);
+
+  abstract void enqueueFuture(Action action);
 
   abstract void enqueueMarkReachableDirectAction(
       DexMethod method, ProgramDefinition context, KeepReason reason);
@@ -654,8 +697,12 @@ public abstract class EnqueuerWorklist {
 
   static class PushableEnqueuerWorkList extends EnqueuerWorklist {
 
-    PushableEnqueuerWorkList(Enqueuer enqueuer) {
-      super(enqueuer, new ConcurrentLinkedQueue<>());
+    private final ExecutorService executorService;
+
+    PushableEnqueuerWorkList(
+        Enqueuer enqueuer, ExecutorService executorService, ThreadingModule threadingModule) {
+      super(enqueuer, new ConcurrentLinkedQueue<>(), threadingModule);
+      this.executorService = executorService;
     }
 
     @Override
@@ -674,6 +721,17 @@ public abstract class EnqueuerWorklist {
         queue.add(new AssertAction(assertion));
       }
       return true;
+    }
+
+    @Override
+    void enqueueFuture(Action action) {
+      // We currently only enqueue single threaded and thus do not need synchronization here.
+      assert processing;
+      try {
+        futures.add(threadingModule.submit(action, executorService));
+      } catch (ExecutionException e) {
+        throw new UncheckedExecutionException(e);
+      }
     }
 
     @Override
@@ -833,7 +891,7 @@ public abstract class EnqueuerWorklist {
   public static class NonPushableEnqueuerWorklist extends EnqueuerWorklist {
 
     private NonPushableEnqueuerWorklist(PushableEnqueuerWorkList workList) {
-      super(workList.enqueuer, workList.queue);
+      super(workList.enqueuer, workList.queue, workList.threadingModule);
     }
 
     @Override
@@ -855,6 +913,11 @@ public abstract class EnqueuerWorklist {
     boolean enqueueAssertAction(Action assertion) {
       assertion.execute();
       return true;
+    }
+
+    @Override
+    void enqueueFuture(Action action) {
+      throw new Unreachable("Attempt to enqueue a future in a non pushable enqueuer work list");
     }
 
     @Override
