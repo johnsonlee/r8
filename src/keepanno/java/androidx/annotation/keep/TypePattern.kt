@@ -71,7 +71,7 @@ public annotation class TypePattern(
      * <li>instanceOfPattern
      * </ul>
      */
-    val constant: KClass<*> = Object::class,
+    val constant: KClass<*> = Any::class,
 
     /**
      * Classes matching the class-name pattern.

@@ -225,7 +225,7 @@ public annotation class UsedByReflection(
      *
      * @return The class-constant that defines the annotation.
      */
-    val memberAnnotatedByClassConstant: KClass<*> = Object::class,
+    val memberAnnotatedByClassConstant: KClass<*> = Any::class,
 
     /**
      * Define the member-annotated-by pattern by reference to a class-name pattern.
@@ -301,7 +301,7 @@ public annotation class UsedByReflection(
      *
      * @return The class-constant that defines the annotation.
      */
-    val methodAnnotatedByClassConstant: KClass<*> = Object::class,
+    val methodAnnotatedByClassConstant: KClass<*> = Any::class,
 
     /**
      * Define the method-annotated-by pattern by reference to a class-name pattern.
@@ -413,7 +413,7 @@ public annotation class UsedByReflection(
      *
      * @return A class constant denoting the type of the method return type.
      */
-    val methodReturnTypeConstant: KClass<*> = Object::class,
+    val methodReturnTypeConstant: KClass<*> = Any::class,
 
     /**
      * Define the method return-type pattern by a type pattern.
@@ -510,7 +510,7 @@ public annotation class UsedByReflection(
      *
      * @return The class-constant that defines the annotation.
      */
-    val fieldAnnotatedByClassConstant: KClass<*> = Object::class,
+    val fieldAnnotatedByClassConstant: KClass<*> = Any::class,
 
     /**
      * Define the field-annotated-by pattern by reference to a class-name pattern.
@@ -619,7 +619,7 @@ public annotation class UsedByReflection(
      *
      * @return The class constant for the field type.
      */
-    val fieldTypeConstant: KClass<*> = Object::class,
+    val fieldTypeConstant: KClass<*> = Any::class,
 
     /**
      * Define the field-type pattern by a pattern on types.

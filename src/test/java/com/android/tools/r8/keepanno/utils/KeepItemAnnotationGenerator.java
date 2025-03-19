@@ -190,7 +190,7 @@ public class KeepItemAnnotationGenerator {
     private String kotlinValueDefault() {
       if (valueDefault != null) {
         if (valueDefault.equals("Object.class")) {
-          return "Object::class";
+          return "Any::class";
         }
         if (valueDefault.startsWith("{") && valueDefault.endsWith("}")) {
           return "[" + valueDefault.substring(1, valueDefault.length() - 1) + "]";

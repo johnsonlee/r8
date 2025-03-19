@@ -72,7 +72,7 @@ public annotation class AnnotationPattern(
      *
      * @return The Class constant that defines the annotation.
      */
-    val constant: KClass<*> = Object::class,
+    val constant: KClass<*> = Any::class,
 
     /**
      * Define the annotation-name pattern by reference to a class-name pattern.

@@ -68,7 +68,7 @@ public annotation class ClassNamePattern(
      *
      * @return The class-constant that defines the class.
      */
-    val constant: KClass<*> = Object::class,
+    val constant: KClass<*> = Any::class,
 
     /**
      * Exact and unqualified name of the class or interface.
