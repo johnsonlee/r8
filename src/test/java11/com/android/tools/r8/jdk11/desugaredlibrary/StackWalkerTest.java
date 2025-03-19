@@ -2,12 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package com.android.tools.r8.jdk11.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
-import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_MINIMAL;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
 
 import com.android.tools.r8.TestParameters;
@@ -19,9 +18,10 @@ import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpeci
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.lang.StackWalker.StackFrame;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,22 +35,18 @@ public class StackWalkerTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "stackwalker.jar");
   private static final String EXPECTED_OUTPUT =
-      StringUtils.lines("[main]", "[frame2, frame1, main]");
-  private static final String EXPECTED_OUTPUT_R8 = StringUtils.lines("[main]", "[main]");
-  private static final String MAIN_CLASS = "stackwalker.Example";
+      StringUtils.lines("[main]", "[frame2, frame1, main]", "frameFirst");
+  private static final String EXPECTED_OUTPUT_R8 = StringUtils.lines("[main]", "[main]", "main");
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters()
-            .withDexRuntime(Version.MASTER)
-            .withApiLevel(AndroidApiLevel.B)
-            .withApiLevel(AndroidApiLevel.T)
+            .withDexRuntimesStartingFromExcluding(Version.V13_0_0)
+            .withAllApiLevels()
             .build(),
-        ImmutableList.of(JDK11_MINIMAL, JDK11, JDK11_PATH),
+        ImmutableList.of(JDK11, JDK11_PATH),
         DEFAULT_SPECIFICATIONS);
   }
 
@@ -71,21 +67,48 @@ public class StackWalkerTest extends DesugaredLibraryTestBase {
     // No desugared library, this should work.
     testForD8()
         .setMinApi(parameters)
-        .addProgramFiles(INPUT_JAR)
-        .run(parameters.getRuntime(), MAIN_CLASS)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .run(parameters.getRuntime(), Example.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   @Test
   public void testDesugaredLibrary() throws Throwable {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
-        .addKeepMainRule(MAIN_CLASS)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addKeepMainRule(Example.class)
         .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.MAIN))
         // Missing class java.lang.StackWalker$StackFrame.
         .addOptionsModification(opt -> opt.ignoreMissingClasses = true)
-        .run(parameters.getRuntime(), MAIN_CLASS)
+        .run(parameters.getRuntime(), Example.class)
         .assertSuccessWithOutput(
             compilationSpecification.isProgramShrink() ? EXPECTED_OUTPUT_R8 : EXPECTED_OUTPUT);
+  }
+
+  public static class Example {
+    public static void main(String[] args) {
+      List<String> OneFrameStack =
+          StackWalker.getInstance()
+              .walk(s -> s.limit(7).map(StackFrame::getMethodName).collect(Collectors.toList()));
+      System.out.println(OneFrameStack);
+      frame1();
+      frameFirst();
+    }
+
+    public static void frame1() {
+      frame2();
+    }
+
+    public static void frame2() {
+      List<String> ThreeFrameStack =
+          StackWalker.getInstance()
+              .walk(s -> s.limit(7).map(StackFrame::getMethodName).collect(Collectors.toList()));
+      System.out.println(ThreeFrameStack);
+    }
+
+    public static void frameFirst() {
+      Optional<StackFrame> walk = StackWalker.getInstance().walk(s -> s.findFirst());
+      walk.ifPresent(f -> System.out.println(f.getMethodName()));
+    }
   }
 }
