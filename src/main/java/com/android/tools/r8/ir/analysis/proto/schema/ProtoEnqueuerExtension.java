@@ -16,13 +16,12 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldResolutionResult;
-import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.NewlyLiveClassEnqueuerAnalysis;
-import com.android.tools.r8.graph.analysis.NewlyLiveMethodEnqueuerAnalysis;
+import com.android.tools.r8.graph.analysis.NewlyLiveCodeEnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
@@ -40,6 +39,7 @@ import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.optimize.info.FieldOptimizationInfo;
+import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
 import com.android.tools.r8.shaking.InstantiationReason;
@@ -69,11 +69,12 @@ import java.util.function.Predicate;
 //  keep fields that could reach extensions to be conservative.
 public class ProtoEnqueuerExtension
     implements NewlyLiveClassEnqueuerAnalysis,
-        NewlyLiveMethodEnqueuerAnalysis,
+        NewlyLiveCodeEnqueuerAnalysis,
         FixpointEnqueuerAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final RawMessageInfoDecoder decoder;
+  private final Enqueuer enqueuer;
   private final ProtoFieldTypeFactory factory;
   private final ProtoReferences references;
 
@@ -101,22 +102,25 @@ public class ProtoEnqueuerExtension
   // Mapping from extension container types to the extensions for that type.
   private final Map<DexType, Set<DexType>> extensionGraph = new IdentityHashMap<>();
 
-  public ProtoEnqueuerExtension(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public ProtoEnqueuerExtension(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     ProtoShrinker protoShrinker = appView.protoShrinker();
     this.appView = appView;
     this.decoder = protoShrinker.decoder;
+    this.enqueuer = enqueuer;
     this.factory = protoShrinker.factory;
     this.references = protoShrinker.references;
   }
 
   public static void register(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      Enqueuer enqueuer,
       EnqueuerAnalysisCollection.Builder builder) {
     if (appView.options().protoShrinking().enableGeneratedMessageLiteShrinking) {
-      ProtoEnqueuerExtension analysis = new ProtoEnqueuerExtension(appView);
+      ProtoEnqueuerExtension analysis = new ProtoEnqueuerExtension(appView, enqueuer);
       builder
           .addNewlyLiveClassAnalysis(analysis)
-          .addNewlyLiveMethodAnalysis(analysis)
+          .addNewlyLiveCodeAnalysis(analysis)
           .addFixpointAnalysis(analysis);
     }
   }
@@ -155,11 +159,8 @@ public class ProtoEnqueuerExtension
    * ProtoMessageInfo} object, and create a mapping from the holder to it.
    */
   @Override
-  public void processNewlyLiveMethod(
-      ProgramMethod method,
-      ProgramDefinition context,
-      Enqueuer enqueuer,
-      EnqueuerWorklist worklist) {
+  public void processNewlyLiveCode(
+      ProgramMethod method, DefaultEnqueuerUseRegistry registry, EnqueuerWorklist worklist) {
     if (references.isFindLiteExtensionByNumberMethod(method.getReference())) {
       enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
           method, KeepMethodInfo.newEmptyJoiner().disallowParameterReordering());

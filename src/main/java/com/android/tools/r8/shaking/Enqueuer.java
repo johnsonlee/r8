@@ -551,7 +551,7 @@ public class Enqueuer {
       IsolatedFeatureSplitsChecker.register(appView, analysesBuilder);
       KotlinMetadataEnqueuerExtension.register(
           appView, enqueuerDefinitionSupplier, initialPrunedTypes, analysesBuilder);
-      ProtoEnqueuerExtension.register(appView, analysesBuilder);
+      ProtoEnqueuerExtension.register(appView, this, analysesBuilder);
       ResourceAccessAnalysis.register(appView, this, analysesBuilder);
       RuntimeTypeCheckInfo.register(runtimeTypeCheckInfoBuilder, analysesBuilder);
       EnqueuerMockitoAnalysis.register(appView, this, analysesBuilder);
