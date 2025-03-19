@@ -18,6 +18,7 @@ import com.android.tools.r8.ir.optimize.Inliner.InlineResult;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.Map;
 
 final class ForcedInliningOracle implements InliningOracle {
@@ -69,6 +70,7 @@ final class ForcedInliningOracle implements InliningOracle {
       ProgramMethod context,
       ClassInitializationAnalysis classInitializationAnalysis,
       InliningIRProvider inliningIRProvider,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     Inliner.InliningInfo info = invokesToInline.get(invoke);
     if (info == null) {

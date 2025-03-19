@@ -25,6 +25,7 @@ import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.lightir.LirBuilder;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.List;
 
 public class InvokePolymorphic extends InvokeMethod {
@@ -155,6 +156,7 @@ public class InvokePolymorphic extends InvokeMethod {
       ProgramMethod singleTarget,
       DefaultInliningOracle decider,
       ClassInitializationAnalysis classInitializationAnalysis,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     throw new Unreachable();
   }

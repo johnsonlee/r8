@@ -26,6 +26,7 @@ import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.lightir.LirBuilder;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.timing.Timing;
 import java.util.List;
 
 public class InvokeStatic extends InvokeMethod {
@@ -127,9 +128,10 @@ public class InvokeStatic extends InvokeMethod {
       ProgramMethod singleTarget,
       DefaultInliningOracle decider,
       ClassInitializationAnalysis classInitializationAnalysis,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     return decider.computeForInvokeStatic(
-        this, singleTarget, classInitializationAnalysis, whyAreYouNotInliningReporter);
+        this, singleTarget, classInitializationAnalysis, timing, whyAreYouNotInliningReporter);
   }
 
   @Override

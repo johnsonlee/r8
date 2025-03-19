@@ -38,6 +38,7 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.StaticPut;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -68,7 +69,7 @@ public class ClassInitializationAnalysis {
 
         @Override
         public boolean isClassDefinitelyLoadedBeforeInstruction(
-            DexType type, Instruction instruction) {
+            DexType type, Instruction instruction, Timing timing) {
           return false;
         }
       };
@@ -94,47 +95,54 @@ public class ClassInitializationAnalysis {
     return TRIVIAL;
   }
 
-  public boolean isClassDefinitelyLoadedBeforeInstruction(DexType type, Instruction instruction) {
+  public boolean isClassDefinitelyLoadedBeforeInstruction(
+      DexType type, Instruction instruction, Timing timing) {
     ProgramMethod context = code.context();
     BasicBlock block = instruction.getBlock();
 
     // Visit the instructions in `block` prior to `instruction`.
-    for (Instruction previous : block.getInstructions()) {
-      if (previous == instruction) {
-        break;
-      }
-      if (previous.definitelyTriggersClassInitialization(
-          type,
-          context,
-          appView,
-          Query.DIRECTLY_OR_INDIRECTLY,
-          // The given instruction is only reached if none of the instructions in the same
-          // basic block throws, so we can safely assume that they will not.
-          AnalysisAssumption.INSTRUCTION_DOES_NOT_THROW)) {
-        return true;
+    try (Timing t0 = timing.begin("Visit predecessor instructions")) {
+      for (Instruction previous : block.getInstructions()) {
+        if (previous == instruction) {
+          break;
+        }
+        if (previous.definitelyTriggersClassInitialization(
+            type,
+            context,
+            appView,
+            Query.DIRECTLY_OR_INDIRECTLY,
+            // The given instruction is only reached if none of the instructions in the same
+            // basic block throws, so we can safely assume that they will not.
+            AnalysisAssumption.INSTRUCTION_DOES_NOT_THROW)) {
+          return true;
+        }
       }
     }
 
-    if (dominatorTree == null) {
-      dominatorTree = new DominatorTree(code, Assumption.MAY_HAVE_UNREACHABLE_BLOCKS);
+    try (Timing t0 = timing.begin("Compute dominator tree")) {
+      if (dominatorTree == null) {
+        dominatorTree = new DominatorTree(code, Assumption.MAY_HAVE_UNREACHABLE_BLOCKS);
+      }
     }
 
     // Visit all the instructions in all the blocks that dominate `block`.
-    for (BasicBlock dominator : dominatorTree.dominatorBlocks(block, Inclusive.NO)) {
-      AnalysisAssumption assumption = getAssumptionForDominator(dominator, block);
-      InstructionIterator instructionIterator = dominator.iterator();
-      while (instructionIterator.hasNext()) {
-        Instruction previous = instructionIterator.next();
-        if (previous.definitelyTriggersClassInitialization(
-            type, context, appView, Query.DIRECTLY_OR_INDIRECTLY, assumption)) {
-          return true;
-        }
-        if (dominator.hasCatchHandlers() && previous.instructionTypeCanThrow()) {
-          // All of the instructions that follow the first instruction that may throw are
-          // guaranteed to be non-throwing. Hence they cannot cause any class initializations.
-          assert Streams.stream(instructionIterator)
-              .noneMatch(Instruction::instructionTypeCanThrow);
-          break;
+    try (Timing t0 = timing.begin("Visit dominator blocks")) {
+      for (BasicBlock dominator : dominatorTree.dominatorBlocks(block, Inclusive.NO)) {
+        AnalysisAssumption assumption = getAssumptionForDominator(dominator, block);
+        InstructionIterator instructionIterator = dominator.iterator();
+        while (instructionIterator.hasNext()) {
+          Instruction previous = instructionIterator.next();
+          if (previous.definitelyTriggersClassInitialization(
+              type, context, appView, Query.DIRECTLY_OR_INDIRECTLY, assumption)) {
+            return true;
+          }
+          if (dominator.hasCatchHandlers() && previous.instructionTypeCanThrow()) {
+            // All of the instructions that follow the first instruction that may throw are
+            // guaranteed to be non-throwing. Hence they cannot cause any class initializations.
+            assert Streams.stream(instructionIterator)
+                .noneMatch(Instruction::instructionTypeCanThrow);
+            break;
+          }
         }
       }
     }

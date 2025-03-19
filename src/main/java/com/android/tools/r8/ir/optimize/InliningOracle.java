@@ -21,6 +21,7 @@ import com.android.tools.r8.ir.optimize.Inliner.InlineResult;
 import com.android.tools.r8.ir.optimize.inliner.InliningIRProvider;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.timing.Timing;
 
 /**
  * The InliningOracle contains information needed for when inlining other methods into @method.
@@ -45,6 +46,7 @@ public interface InliningOracle {
       ProgramMethod context,
       ClassInitializationAnalysis classInitializationAnalysis,
       InliningIRProvider inliningIRProvider,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter);
 
   default DexProgramClass getDowncastTypeIfNeeded(InvokeMethod invoke, ProgramMethod target) {

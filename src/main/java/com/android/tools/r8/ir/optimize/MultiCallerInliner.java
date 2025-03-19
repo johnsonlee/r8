@@ -114,6 +114,7 @@ public class MultiCallerInliner {
                   method,
                   ClassInitializationAnalysis.trivial(),
                   InliningIRProvider.getThrowingInstance(),
+                  Timing.empty(),
                   NopWhyAreYouNotInliningReporter.getInstance());
       if (inlineResult == null || inlineResult.isRetryAction()) {
         stopTrackingCallSitesForMethod(singleTarget);

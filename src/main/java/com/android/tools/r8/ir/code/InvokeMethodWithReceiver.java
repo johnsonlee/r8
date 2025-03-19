@@ -25,6 +25,7 @@ import com.android.tools.r8.ir.optimize.info.MethodOptimizationInfo;
 import com.android.tools.r8.ir.optimize.info.initializer.InstanceInitializerInfo;
 import com.android.tools.r8.ir.optimize.inliner.WhyAreYouNotInliningReporter;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Iterables;
 import java.util.List;
 
@@ -58,6 +59,7 @@ public abstract class InvokeMethodWithReceiver extends InvokeMethod {
       ProgramMethod singleTarget,
       DefaultInliningOracle decider,
       ClassInitializationAnalysis classInitializationAnalysis,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     return decider.computeForInvokeWithReceiver(this, singleTarget, whyAreYouNotInliningReporter);
   }

@@ -270,6 +270,7 @@ public class SingleCallerInliner {
             ProgramMethod context,
             ClassInitializationAnalysis classInitializationAnalysis,
             InliningIRProvider inliningIRProvider,
+            Timing timing,
             WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
           if (!singleCallerMethods.containsKey(singleTarget)) {
             return null;
@@ -282,6 +283,7 @@ public class SingleCallerInliner {
               context,
               classInitializationAnalysis,
               inliningIRProvider,
+              timing,
               whyAreYouNotInliningReporter);
         }
       };

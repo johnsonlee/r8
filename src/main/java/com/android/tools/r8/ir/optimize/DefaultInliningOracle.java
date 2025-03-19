@@ -56,6 +56,7 @@ import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -409,6 +410,7 @@ public class DefaultInliningOracle implements InliningOracle {
       ProgramMethod context,
       ClassInitializationAnalysis classInitializationAnalysis,
       InliningIRProvider inliningIRProvider,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     if (isSingleTargetInvalid(invoke, singleTarget, whyAreYouNotInliningReporter)) {
       return null;
@@ -436,6 +438,9 @@ public class DefaultInliningOracle implements InliningOracle {
             methodProcessor,
             whyAreYouNotInliningReporter);
     if (reason == Reason.NEVER) {
+      return null;
+    } else if (reason != Reason.ALWAYS
+        && !stillHasBudgetForNonForceInlining(whyAreYouNotInliningReporter)) {
       return null;
     }
 
@@ -471,7 +476,7 @@ public class DefaultInliningOracle implements InliningOracle {
 
     InlineAction.Builder actionBuilder =
         invoke.computeInlining(
-            singleTarget, this, classInitializationAnalysis, whyAreYouNotInliningReporter);
+            singleTarget, this, classInitializationAnalysis, timing, whyAreYouNotInliningReporter);
     if (actionBuilder == null) {
       return null;
     }
@@ -571,11 +576,15 @@ public class DefaultInliningOracle implements InliningOracle {
       InvokeStatic invoke,
       ProgramMethod singleTarget,
       ClassInitializationAnalysis classInitializationAnalysis,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
     InlineAction.Builder actionBuilder =
         InlineAction.builder().setInvoke(invoke).setTarget(singleTarget);
-    if (isTargetClassInitialized(invoke, method, singleTarget, classInitializationAnalysis)) {
-      return actionBuilder;
+    try (Timing t0 = timing.begin("Is target class initialized")) {
+      if (isTargetClassInitialized(
+          invoke, method, singleTarget, classInitializationAnalysis, timing)) {
+        return actionBuilder;
+      }
     }
     if (appView.canUseInitClass()
         && inlinerOptions.enableInliningOfInvokesWithClassInitializationSideEffects) {
@@ -589,28 +598,35 @@ public class DefaultInliningOracle implements InliningOracle {
       InvokeStatic invoke,
       ProgramMethod context,
       ProgramMethod target,
-      ClassInitializationAnalysis classInitializationAnalysis) {
+      ClassInitializationAnalysis classInitializationAnalysis,
+      Timing timing) {
     // Only proceed with inlining a static invoke if:
     // - the holder for the target is a subtype of the holder for the method,
     // - the current method has already triggered the holder for the target method to be
     //   initialized, or
     // - there is no non-trivial class initializer.
-    if (appView.appInfo().isSubtype(context.getHolderType(), target.getHolderType())) {
-      return true;
-    }
-    if (!context.getDefinition().isStatic()) {
-      boolean targetIsGuaranteedToBeInitialized =
-          appView.withInitializedClassesInInstanceMethods(
-              analysis ->
-                  analysis.isClassDefinitelyLoadedInInstanceMethod(target.getHolder(), context),
-              false);
-      if (targetIsGuaranteedToBeInitialized) {
+    try (Timing t0 = timing.begin("Subtype")) {
+      if (appView.appInfo().isSubtype(context.getHolderType(), target.getHolderType())) {
         return true;
       }
     }
-    if (classInitializationAnalysis.isClassDefinitelyLoadedBeforeInstruction(
-        target.getHolderType(), invoke)) {
-      return true;
+    try (Timing t0 = timing.begin("Initialized classes in instance methods")) {
+      if (!context.getDefinition().isStatic()) {
+        boolean targetIsGuaranteedToBeInitialized =
+            appView.withInitializedClassesInInstanceMethods(
+                analysis ->
+                    analysis.isClassDefinitelyLoadedInInstanceMethod(target.getHolder(), context),
+                false);
+        if (targetIsGuaranteedToBeInitialized) {
+          return true;
+        }
+      }
+    }
+    try (Timing t0 = timing.begin("Class init analysis")) {
+      if (classInitializationAnalysis.isClassDefinitelyLoadedBeforeInstruction(
+          target.getHolderType(), invoke, timing)) {
+        return true;
+      }
     }
     // Check for class initializer side effects when loading this class, as inlining might remove
     // the load operation.
@@ -619,8 +635,10 @@ public class DefaultInliningOracle implements InliningOracle {
     //
     // For simplicity, we are conservative and consider all interfaces, not only the ones with
     // default methods.
-    if (!target.getHolder().classInitializationMayHaveSideEffectsInContext(appView, context)) {
-      return true;
+    try (Timing t0 = timing.begin("Clinit may have side effects")) {
+      if (!target.getHolder().classInitializationMayHaveSideEffectsInContext(appView, context)) {
+        return true;
+      }
     }
 
     boolean bypassClinitForInlining =
@@ -806,11 +824,16 @@ public class DefaultInliningOracle implements InliningOracle {
     if (action.mustBeInlined()) {
       return true;
     }
-    boolean stillHasBudget = instructionAllowance > 0;
-    if (!stillHasBudget) {
+    return stillHasBudgetForNonForceInlining(whyAreYouNotInliningReporter);
+  }
+
+  private boolean stillHasBudgetForNonForceInlining(
+      WhyAreYouNotInliningReporter whyAreYouNotInliningReporter) {
+    if (instructionAllowance <= 0) {
       whyAreYouNotInliningReporter.reportInstructionBudgetIsExceeded();
+      return false;
     }
-    return stillHasBudget;
+    return true;
   }
 
   @Override

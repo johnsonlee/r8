@@ -1122,6 +1122,7 @@ public class Inliner {
               singleTargetOracle.isForcedInliningOracle()
                   ? NopWhyAreYouNotInliningReporter.getInstance()
                   : createWhyAreYouNotInliningReporter(singleTarget, context);
+          timing.begin("Compute inlining");
           InlineResult inlineResult =
               singleTargetOracle.computeInlining(
                   code,
@@ -1131,7 +1132,9 @@ public class Inliner {
                   context,
                   classInitializationAnalysis,
                   inliningIRProvider,
+                  timing,
                   whyAreYouNotInliningReporter);
+          timing.end();
           if (inlineResult == null) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
             continue;
@@ -1153,7 +1156,9 @@ public class Inliner {
             continue;
           }
 
+          timing.begin("Build inlinee");
           IRCode inlinee = action.buildInliningIR(appView, invoke, context, inliningIRProvider);
+          timing.end();
           if (singleTargetOracle.willExceedBudget(
               action, code, inlinee, invoke, block, whyAreYouNotInliningReporter)) {
             assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
@@ -1173,8 +1178,10 @@ public class Inliner {
           // instruction allowance on the default inlining oracle when force inlining methods.
           oracle.markInlined(inlinee);
 
+          timing.begin("Inline invoke");
           iterator.inlineInvoke(
               appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
+          timing.end();
 
           if (action.shouldEnsureStoreStoreFenceCauses != null) {
             assert !action.shouldEnsureStoreStoreFenceCauses.isEmpty();
@@ -1201,9 +1208,11 @@ public class Inliner {
 
           methodProcessor.getCallSiteInformation().notifyMethodInlined(context, singleTarget);
 
+          timing.begin("Post process inlinee");
           classInitializationAnalysis.notifyCodeHasChanged();
           postProcessInlineeBlocks(
               code, blockIterator, block, affectedValues, blocksToRemove, timing);
+          timing.end();
 
           // The synthetic and bridge flags are maintained only if the inlinee has also these flags.
           if (context.getAccessFlags().isBridge() && !singleTarget.getAccessFlags().isBridge()) {

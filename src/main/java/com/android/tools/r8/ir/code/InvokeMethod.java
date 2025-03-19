@@ -40,6 +40,7 @@ import com.android.tools.r8.ir.regalloc.RegisterAllocator;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -240,6 +241,7 @@ public abstract class InvokeMethod extends Invoke {
       ProgramMethod singleTarget,
       DefaultInliningOracle decider,
       ClassInitializationAnalysis classInitializationAnalysis,
+      Timing timing,
       WhyAreYouNotInliningReporter whyAreYouNotInliningReporter);
 
   @Override
