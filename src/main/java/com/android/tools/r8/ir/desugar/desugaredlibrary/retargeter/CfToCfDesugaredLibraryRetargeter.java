@@ -77,7 +77,7 @@ public class CfToCfDesugaredLibraryRetargeter extends DesugaredLibraryRetargeter
               })
           .build();
     }
-    return null;
+    return DesugarDescription.nothing();
   }
 
   private DesugarDescription computeStaticFieldGetDescription(
