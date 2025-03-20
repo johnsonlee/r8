@@ -66,7 +66,6 @@ import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.MainDexInfo;
 import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.InternalOptions.InlinerOptions;
 import com.android.tools.r8.utils.IteratorUtils;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.collections.LongLivedProgramMethodSetBuilder;
@@ -79,7 +78,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -88,6 +90,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -1010,8 +1013,44 @@ public class Inliner {
       MethodProcessor methodProcessor,
       Timing timing) {
     ForcedInliningOracle oracle = new ForcedInliningOracle(appView, invokesToInline);
+    Map<BasicBlock, List<InvokeMethod>> blockToInvokes = new IdentityHashMap<>();
+    for (InvokeMethod invoke : invokesToInline.keySet()) {
+      blockToInvokes.computeIfAbsent(invoke.getBlock(), ignoreKey(ArrayList::new)).add(invoke);
+    }
+    InvokeSupplier invokeSupplier =
+        (block, consumer) -> {
+          List<InvokeMethod> invokes = blockToInvokes.getOrDefault(block, Collections.emptyList());
+          if (invokes.isEmpty()) {
+            return;
+          }
+          // Sort the invokes according to their order in the block.
+          int instructionIndex = 0;
+          for (Instruction instruction = block.entry();
+              instruction != null;
+              instruction = instruction.getNext(), instructionIndex++) {
+            instruction.setNumber(instructionIndex);
+          }
+          ListUtils.destructiveSort(invokes, Comparator.comparingInt(Instruction::getNumber));
+          // Pass the invokes to the consumer, accounting for the fact that invokes may have been
+          // moved to another block as a result of inlining.
+          for (InvokeMethod invoke : invokes) {
+            BasicBlock invokeBlock = invoke.getBlock();
+            if (invokeBlock == block) {
+              consumer.accept(invoke, block.iterator(invoke.getNext()));
+            } else {
+              blockToInvokes.computeIfAbsent(invokeBlock, ignoreKey(ArrayList::new)).add(invoke);
+            }
+          }
+        };
     performInliningImpl(
-        oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
+        oracle,
+        method,
+        code,
+        invokeSupplier,
+        feedback,
+        inliningIRProvider,
+        methodProcessor,
+        timing);
   }
 
   public void performInlining(
@@ -1041,8 +1080,27 @@ public class Inliner {
     InliningIRProvider inliningIRProvider =
         new InliningIRProvider(appView, method, code, lensCodeRewriter, methodProcessor);
     assert inliningIRProvider.verifyIRCacheIsEmpty();
+    InvokeSupplier invokeSupplier =
+        (block, consumer) -> {
+          InstructionListIterator iterator = block.listIterator();
+          while (iterator.hasNext()) {
+            Instruction current = iterator.next();
+            if (current.isInvokeMethod()) {
+              consumer.accept(current.asInvokeMethod(), iterator);
+            }
+          }
+        };
     performInliningImpl(
-        oracle, method, code, feedback, inliningIRProvider, methodProcessor, timing);
+        oracle,
+        method,
+        code,
+        invokeSupplier,
+        feedback,
+        inliningIRProvider,
+        methodProcessor,
+        timing);
+    code.removeRedundantBlocks();
+    assert code.isConsistentSSA(appView);
   }
 
   public InliningReasonStrategy createDefaultInliningReasonStrategy(
@@ -1067,6 +1125,7 @@ public class Inliner {
       InliningOracle oracle,
       ProgramMethod context,
       IRCode code,
+      InvokeSupplier invokeSupplier,
       OptimizationFeedback feedback,
       InliningIRProvider inliningIRProvider,
       MethodProcessor methodProcessor,
@@ -1077,7 +1136,6 @@ public class Inliner {
     ClassInitializationAnalysis classInitializationAnalysis =
         new ClassInitializationAnalysis(appView, code);
     Deque<BasicBlock> inlineeStack = new ArrayDeque<>();
-    InlinerOptions options = appView.options().inlinerOptions();
     while (blockIterator.hasNext()) {
       BasicBlock block = blockIterator.next();
       if (!inlineeStack.isEmpty() && inlineeStack.peekFirst() == block) {
@@ -1086,166 +1144,194 @@ public class Inliner {
       if (blocksToRemove.contains(block)) {
         continue;
       }
-      InstructionListIterator iterator = block.listIterator();
-      while (iterator.hasNext()) {
-        Instruction current = iterator.next();
-        if (current.isInvokeMethod()) {
-          InvokeMethod invoke = current.asInvokeMethod();
-          // TODO(b/142116551): This should be equivalent to invoke.lookupSingleTarget()!
-          DexMethod invokedMethod = invoke.getInvokedMethod();
-          SingleResolutionResult<?> resolutionResult =
-              appView
-                  .appInfo()
-                  .resolveMethodLegacy(invokedMethod, invoke.getInterfaceBit())
-                  .asSingleResolution();
-          if (resolutionResult == null
-              || resolutionResult.isAccessibleFrom(context, appView).isPossiblyFalse()) {
-            continue;
-          }
-
-          if (tryInlineMethodWithoutSideEffects(
-              code, iterator, invoke, resolutionResult.getResolutionPair())) {
-            continue;
-          }
-
-          // TODO(b/156853206): Should not duplicate resolution.
-          ProgramMethod singleTarget = oracle.lookupSingleTarget(invoke, context);
-          if (singleTarget == null) {
-            WhyAreYouNotInliningReporter.handleInvokeWithUnknownTarget(
-                this, invoke, appView, context);
-            continue;
-          }
-
-          InliningOracle singleTargetOracle = getSingleTargetOracle(invoke, singleTarget, oracle);
-          DexEncodedMethod singleTargetMethod = singleTarget.getDefinition();
-          WhyAreYouNotInliningReporter whyAreYouNotInliningReporter =
-              singleTargetOracle.isForcedInliningOracle()
-                  ? NopWhyAreYouNotInliningReporter.getInstance()
-                  : createWhyAreYouNotInliningReporter(singleTarget, context);
-          timing.begin("Compute inlining");
-          InlineResult inlineResult =
-              singleTargetOracle.computeInlining(
-                  code,
-                  invoke,
-                  resolutionResult,
-                  singleTarget,
+      invokeSupplier.forEachInvoke(
+          block,
+          (invoke, iterator) ->
+              inlineInvoke(
+                  oracle,
                   context,
-                  classInitializationAnalysis,
+                  code,
+                  feedback,
                   inliningIRProvider,
+                  methodProcessor,
                   timing,
-                  whyAreYouNotInliningReporter);
-          timing.end();
-          if (inlineResult == null) {
-            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
-            continue;
-          }
-
-          if (inlineResult.isRetryAction()) {
-            enqueueMethodForReprocessing(context);
-            continue;
-          }
-
-          InlineAction action = inlineResult.asInlineAction();
-          if (action.reason == Reason.MULTI_CALLER_CANDIDATE) {
-            assert methodProcessor.isPrimaryMethodProcessor();
-            continue;
-          }
-
-          if (!singleTargetOracle.stillHasBudget(action, whyAreYouNotInliningReporter)) {
-            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
-            continue;
-          }
-
-          timing.begin("Build inlinee");
-          IRCode inlinee = action.buildInliningIR(appView, invoke, context, inliningIRProvider);
-          timing.end();
-          if (singleTargetOracle.willExceedBudget(
-              action, code, inlinee, invoke, block, whyAreYouNotInliningReporter)) {
-            assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
-            continue;
-          }
-
-          // Verify this code went through the full pipeline.
-          assert singleTarget.getDefinition().isProcessed();
-
-          boolean inlineeMayHaveInvokeMethod = inlinee.metadata().mayHaveInvokeMethod();
-
-          // Inline the inlinee code in place of the invoke instruction
-          // Back up before the invoke instruction.
-          iterator.previous();
-
-          // Intentionally not using singleTargetOracle here, so that we decrease the inlining
-          // instruction allowance on the default inlining oracle when force inlining methods.
-          oracle.markInlined(inlinee);
-
-          timing.begin("Inline invoke");
-          iterator.inlineInvoke(
-              appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
-          timing.end();
-
-          if (action.shouldEnsureStoreStoreFenceCauses != null) {
-            assert !action.shouldEnsureStoreStoreFenceCauses.isEmpty();
-            assert converter.isInWave();
-            inlinedFinalFieldsInWave.addAll(action.shouldEnsureStoreStoreFenceCauses);
-            scheduleWaveDone();
-          }
-
-          if (methodProcessor.getCallSiteInformation().hasSingleCallSite(singleTarget, context)) {
-            feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
-            appView.withArgumentPropagator(
-                argumentPropagator ->
-                    argumentPropagator.notifyMethodSingleCallerInlined(
-                        singleTarget, context, methodProcessor));
-            if (!(methodProcessor instanceof OneTimeMethodProcessor)) {
-              assert converter.isInWave();
-              scheduleWaveDone();
-              singleCallerInlinedMethodsInWave
-                  .computeIfAbsent(
-                      singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
-                  .put(singleTarget, context);
-            }
-          }
-
-          methodProcessor.getCallSiteInformation().notifyMethodInlined(context, singleTarget);
-
-          timing.begin("Post process inlinee");
-          classInitializationAnalysis.notifyCodeHasChanged();
-          postProcessInlineeBlocks(
-              code, blockIterator, block, affectedValues, blocksToRemove, timing);
-          timing.end();
-
-          // The synthetic and bridge flags are maintained only if the inlinee has also these flags.
-          if (context.getAccessFlags().isBridge() && !singleTarget.getAccessFlags().isBridge()) {
-            context.getAccessFlags().demoteFromBridge();
-          }
-          if (context.getAccessFlags().isSynthetic()
-              && !singleTarget.getAccessFlags().isSynthetic()) {
-            context.getAccessFlags().demoteFromSynthetic();
-          }
-
-          context.getDefinition().copyMetadata(appView, singleTargetMethod);
-
-          if (inlineeMayHaveInvokeMethod) {
-            int inliningDepth = inlineeStack.size() + 1;
-            if (options.shouldApplyInliningToInlinee(appView, singleTarget, inliningDepth)) {
-              // Record that we will be inside the inlinee until the next block.
-              BasicBlock inlineeEnd = IteratorUtils.peekNext(blockIterator);
-              inlineeStack.push(inlineeEnd);
-              // Move the cursor back to where the first inlinee block was added.
-              IteratorUtils.previousUntil(blockIterator, previous -> previous == block);
-              blockIterator.next();
-            }
-          }
-        }
-      }
+                  blockIterator,
+                  iterator,
+                  invoke,
+                  affectedValues,
+                  blocksToRemove,
+                  classInitializationAnalysis,
+                  inlineeStack));
     }
     assert inlineeStack.isEmpty();
     code.removeBlocks(blocksToRemove);
     classInitializationAnalysis.finish();
     code.removeAllDeadAndTrivialPhis(affectedValues);
     affectedValues.narrowingWithAssumeRemoval(appView, code);
-    code.removeRedundantBlocks();
-    assert code.isConsistentSSA(appView);
+    assert code.isConsistentSSAAllowingRedundantBlocks(appView);
+  }
+
+  private void inlineInvoke(
+      InliningOracle oracle,
+      ProgramMethod context,
+      IRCode code,
+      OptimizationFeedback feedback,
+      InliningIRProvider inliningIRProvider,
+      MethodProcessor methodProcessor,
+      Timing timing,
+      BasicBlockIterator blockIterator,
+      InstructionListIterator iterator,
+      InvokeMethod invoke,
+      AffectedValues affectedValues,
+      Set<BasicBlock> blocksToRemove,
+      ClassInitializationAnalysis classInitializationAnalysis,
+      Deque<BasicBlock> inlineeStack) {
+    // TODO(b/142116551): This should be equivalent to invoke.lookupSingleTarget()!
+    BasicBlock block = invoke.getBlock();
+    DexMethod invokedMethod = invoke.getInvokedMethod();
+    SingleResolutionResult<?> resolutionResult =
+        appView
+            .appInfo()
+            .resolveMethodLegacy(invokedMethod, invoke.getInterfaceBit())
+            .asSingleResolution();
+    if (resolutionResult == null
+        || resolutionResult.isAccessibleFrom(context, appView).isPossiblyFalse()) {
+      return;
+    }
+
+    if (tryInlineMethodWithoutSideEffects(
+        code, iterator, invoke, resolutionResult.getResolutionPair())) {
+      return;
+    }
+
+    // TODO(b/156853206): Should not duplicate resolution.
+    ProgramMethod singleTarget = oracle.lookupSingleTarget(invoke, context);
+    if (singleTarget == null) {
+      WhyAreYouNotInliningReporter.handleInvokeWithUnknownTarget(this, invoke, appView, context);
+      return;
+    }
+
+    InliningOracle singleTargetOracle = getSingleTargetOracle(invoke, singleTarget, oracle);
+    DexEncodedMethod singleTargetMethod = singleTarget.getDefinition();
+    WhyAreYouNotInliningReporter whyAreYouNotInliningReporter =
+        singleTargetOracle.isForcedInliningOracle()
+            ? NopWhyAreYouNotInliningReporter.getInstance()
+            : createWhyAreYouNotInliningReporter(singleTarget, context);
+    timing.begin("Compute inlining");
+    InlineResult inlineResult =
+        singleTargetOracle.computeInlining(
+            code,
+            invoke,
+            resolutionResult,
+            singleTarget,
+            context,
+            classInitializationAnalysis,
+            inliningIRProvider,
+            timing,
+            whyAreYouNotInliningReporter);
+    timing.end();
+    if (inlineResult == null) {
+      assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
+      return;
+    }
+
+    if (inlineResult.isRetryAction()) {
+      enqueueMethodForReprocessing(context);
+      return;
+    }
+
+    InlineAction action = inlineResult.asInlineAction();
+    if (action.reason == Reason.MULTI_CALLER_CANDIDATE) {
+      assert methodProcessor.isPrimaryMethodProcessor();
+      return;
+    }
+
+    if (!singleTargetOracle.stillHasBudget(action, whyAreYouNotInliningReporter)) {
+      assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
+      return;
+    }
+
+    timing.begin("Build inlinee");
+    IRCode inlinee = action.buildInliningIR(appView, invoke, context, inliningIRProvider);
+    timing.end();
+    if (singleTargetOracle.willExceedBudget(
+        action, code, inlinee, invoke, block, whyAreYouNotInliningReporter)) {
+      assert whyAreYouNotInliningReporter.unsetReasonHasBeenReportedFlag();
+      return;
+    }
+
+    // Verify this code went through the full pipeline.
+    assert singleTarget.getDefinition().isProcessed();
+
+    boolean inlineeMayHaveInvokeMethod = inlinee.metadata().mayHaveInvokeMethod();
+
+    // Inline the inlinee code in place of the invoke instruction
+    // Back up before the invoke instruction.
+    iterator.previous();
+
+    // Intentionally not using singleTargetOracle here, so that we decrease the inlining
+    // instruction allowance on the default inlining oracle when force inlining methods.
+    oracle.markInlined(inlinee);
+
+    timing.begin("Inline invoke");
+    iterator.inlineInvoke(
+        appView, code, inlinee, blockIterator, blocksToRemove, action.getDowncastClass());
+    timing.end();
+
+    if (action.shouldEnsureStoreStoreFenceCauses != null) {
+      assert !action.shouldEnsureStoreStoreFenceCauses.isEmpty();
+      assert converter.isInWave();
+      inlinedFinalFieldsInWave.addAll(action.shouldEnsureStoreStoreFenceCauses);
+      scheduleWaveDone();
+    }
+
+    if (methodProcessor.getCallSiteInformation().hasSingleCallSite(singleTarget, context)) {
+      feedback.markInlinedIntoSingleCallSite(singleTargetMethod);
+      appView.withArgumentPropagator(
+          argumentPropagator ->
+              argumentPropagator.notifyMethodSingleCallerInlined(
+                  singleTarget, context, methodProcessor));
+      if (!(methodProcessor instanceof OneTimeMethodProcessor)) {
+        assert converter.isInWave();
+        scheduleWaveDone();
+        singleCallerInlinedMethodsInWave
+            .computeIfAbsent(
+                singleTarget.getHolder(), ignoreKey(ProgramMethodMap::createConcurrent))
+            .put(singleTarget, context);
+      }
+    }
+
+    methodProcessor.getCallSiteInformation().notifyMethodInlined(context, singleTarget);
+
+    timing.begin("Post process inlinee");
+    classInitializationAnalysis.notifyCodeHasChanged();
+    postProcessInlineeBlocks(code, blockIterator, block, affectedValues, blocksToRemove, timing);
+    timing.end();
+
+    // The synthetic and bridge flags are maintained only if the inlinee has also these flags.
+    if (context.getAccessFlags().isBridge() && !singleTarget.getAccessFlags().isBridge()) {
+      context.getAccessFlags().demoteFromBridge();
+    }
+    if (context.getAccessFlags().isSynthetic() && !singleTarget.getAccessFlags().isSynthetic()) {
+      context.getAccessFlags().demoteFromSynthetic();
+    }
+
+    context.getDefinition().copyMetadata(appView, singleTargetMethod);
+
+    if (inlineeMayHaveInvokeMethod) {
+      int inliningDepth = inlineeStack.size() + 1;
+      if (appView
+          .options()
+          .inlinerOptions()
+          .shouldApplyInliningToInlinee(appView, singleTarget, inliningDepth)) {
+        // Record that we will be inside the inlinee until the next block.
+        BasicBlock inlineeEnd = IteratorUtils.peekNext(blockIterator);
+        inlineeStack.push(inlineeEnd);
+        // Move the cursor back to where the first inlinee block was added.
+        IteratorUtils.previousUntil(blockIterator, previous -> previous == block);
+        blockIterator.next();
+      }
+    }
   }
 
   private InliningOracle getSingleTargetOracle(
@@ -1482,5 +1568,11 @@ public class Inliner {
       }
     }
     return true;
+  }
+
+  private interface InvokeSupplier {
+
+    void forEachInvoke(
+        BasicBlock block, BiConsumer<InvokeMethod, InstructionListIterator> consumer);
   }
 }

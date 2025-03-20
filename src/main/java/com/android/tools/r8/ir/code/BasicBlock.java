@@ -1782,7 +1782,7 @@ public class BasicBlock {
     return instructions.iterator();
   }
 
-  public InstructionIterator iterator(Instruction instruction) {
+  public BasicBlockInstructionListIterator iterator(Instruction instruction) {
     return instructions.iterator(instruction);
   }
 
