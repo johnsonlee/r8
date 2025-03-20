@@ -375,43 +375,52 @@ final class InlineCandidateProcessor {
       IRCode code,
       AffectedValues affectedValues,
       OptimizationFeedback feedback,
-      InliningIRProvider inliningIRProvider)
+      InliningIRProvider inliningIRProvider,
+      Timing timing)
       throws IllegalClassInlinerStateException {
     // Verify that `eligibleInstance` is not aliased.
     assert eligibleInstance == eligibleInstance.getAliasedValue();
 
-    boolean anyInlinedMethods =
-        forceInlineDirectMethodInvocations(code, feedback, inliningIRProvider);
-    anyInlinedMethods |= forceInlineIndirectMethodInvocations(code, feedback, inliningIRProvider);
+    boolean anyInlinedMethods;
+    try (Timing t0 = timing.begin("Force inline direct methods")) {
+      anyInlinedMethods =
+          forceInlineDirectMethodInvocations(code, feedback, inliningIRProvider, timing);
+    }
+    try (Timing t0 = timing.begin("Force inline indirect methods")) {
+      anyInlinedMethods |=
+          forceInlineIndirectMethodInvocations(code, feedback, inliningIRProvider, timing);
+    }
 
-    rebindIndirectEligibleInstanceUsersFromPhis();
-    removeMiscUsages(code, affectedValues);
-    removeFieldReads(code, affectedValues);
-    removeFieldWrites();
-    removeInstruction(root);
+    try (Timing t0 = timing.begin("Process users")) {
+      rebindIndirectEligibleInstanceUsersFromPhis();
+      removeMiscUsages(code, affectedValues);
+      removeFieldReads(code, affectedValues);
+      removeFieldWrites();
+      removeInstruction(root);
+    }
     return anyInlinedMethods;
   }
 
   @SuppressWarnings("ReferenceEquality")
   private boolean forceInlineDirectMethodInvocations(
-      IRCode code, OptimizationFeedback feedback, InliningIRProvider inliningIRProvider)
+      IRCode code,
+      OptimizationFeedback feedback,
+      InliningIRProvider inliningIRProvider,
+      Timing timing)
       throws IllegalClassInlinerStateException {
     if (directMethodCalls.isEmpty()) {
       return false;
     }
 
+    timing.begin("Inline initial");
     inliner.performForcedInlining(
-        method,
-        code,
-        directMethodCalls,
-        feedback,
-        inliningIRProvider,
-        methodProcessor,
-        Timing.empty());
+        method, code, directMethodCalls, feedback, inliningIRProvider, methodProcessor, timing);
+    timing.end();
 
     // In case we are class inlining an object allocation that does not inherit directly from
     // java.lang.Object, we need keep force inlining the constructor until we reach
     // java.lang.Object.<init>().
+    timing.begin("Inline constructors");
     if (root.isNewInstance()) {
       do {
         directMethodCalls.clear();
@@ -460,17 +469,21 @@ final class InlineCandidateProcessor {
               feedback,
               inliningIRProvider,
               methodProcessor,
-              Timing.empty());
+              timing);
         }
       } while (!directMethodCalls.isEmpty());
     }
+    timing.end();
 
     return true;
   }
 
   @SuppressWarnings("ReferenceEquality")
   private boolean forceInlineIndirectMethodInvocations(
-      IRCode code, OptimizationFeedback feedback, InliningIRProvider inliningIRProvider)
+      IRCode code,
+      OptimizationFeedback feedback,
+      InliningIRProvider inliningIRProvider,
+      Timing timing)
       throws IllegalClassInlinerStateException {
     if (indirectMethodCallsOnInstance.isEmpty()) {
       return false;
@@ -548,7 +561,7 @@ final class InlineCandidateProcessor {
           feedback,
           inliningIRProvider,
           methodProcessor,
-          Timing.empty());
+          timing);
     } else {
       // TODO(b/315284776): Diagnose if this should be removed or reenabled.
       /*assert indirectMethodCallsOnInstance.stream()

@@ -134,7 +134,8 @@ public final class ClassInliner {
       IRCode code,
       OptimizationFeedback feedback,
       MethodProcessor methodProcessor,
-      MethodProcessingContext methodProcessingContext) {
+      MethodProcessingContext methodProcessingContext,
+      Timing timing) {
     LazyBox<InliningOracle> defaultOracle =
         new LazyBox<>(
             () ->
@@ -146,14 +147,17 @@ public final class ClassInliner {
                     code));
 
     // Collect all the new-instance and static-get instructions in the code before inlining.
+    timing.begin("Compute roots");
     List<Instruction> roots =
         Lists.newArrayList(code.instructions(insn -> insn.isNewInstance() || insn.isStaticGet()));
+    timing.end();
 
     // We loop inlining iterations until there was no inlining, but still use same set
     // of roots to avoid infinite inlining. Looping makes possible for some roots to
     // become eligible after other roots are inlined.
     boolean anyInlinedGeneratedMessageLiteBuilders = false;
     boolean anyInlinedMethods = false;
+    boolean changed = false;
     boolean repeat;
     do {
       repeat = false;
@@ -165,40 +169,46 @@ public final class ClassInliner {
             new InlineCandidateProcessor(appView, code, inliner, methodProcessor, method, root);
 
         // Assess eligibility of instance and class.
-        EligibilityStatus status = processor.isInstanceEligible();
-        if (status != EligibilityStatus.ELIGIBLE) {
-          // This root will never be inlined.
-          rootsIterator.remove();
-          continue;
-        }
-        status = isClassEligible(processor.getEligibleClass());
-        if (status != EligibilityStatus.ELIGIBLE) {
-          // This root will never be inlined.
-          rootsIterator.remove();
-          continue;
+        try (Timing t0 = timing.begin("Compute instance eligibility")) {
+          EligibilityStatus status = processor.isInstanceEligible();
+          if (status != EligibilityStatus.ELIGIBLE) {
+            // This root will never be inlined.
+            rootsIterator.remove();
+            continue;
+          }
+          status = isClassEligible(processor.getEligibleClass());
+          if (status != EligibilityStatus.ELIGIBLE) {
+            // This root will never be inlined.
+            rootsIterator.remove();
+            continue;
+          }
         }
 
         // Assess users eligibility and compute inlining of direct calls and extra methods needed.
-        InstructionOrPhi ineligibleUser = processor.areInstanceUsersEligible(defaultOracle);
-        if (ineligibleUser != null) {
-          // This root may succeed if users change in future.
-          continue;
+        try (Timing t0 = timing.begin("Compute users eligibility")) {
+          InstructionOrPhi ineligibleUser = processor.areInstanceUsersEligible(defaultOracle);
+          if (ineligibleUser != null) {
+            // This root may succeed if users change in future.
+            continue;
+          }
         }
 
         // Is inlining allowed.
         InliningIRProvider inliningIRProvider =
             new InliningIRProvider(
                 appView, method, code, inliner.getLensCodeRewriter(), methodProcessor);
-        ClassInlinerCostAnalysis costAnalysis =
-            new ClassInlinerCostAnalysis(appView, inliningIRProvider, processor.getReceivers());
-        if (costAnalysis.willExceedInstructionBudget(
-            code,
-            processor.getEligibleClass(),
-            processor.getDirectInlinees(),
-            processor.getIndirectInlinees())) {
-          // This root is unlikely to be inlined in the future.
-          rootsIterator.remove();
-          continue;
+        try (Timing t0 = timing.begin("Analyze cost")) {
+          ClassInlinerCostAnalysis costAnalysis =
+              new ClassInlinerCostAnalysis(appView, inliningIRProvider, processor.getReceivers());
+          if (costAnalysis.willExceedInstructionBudget(
+              code,
+              processor.getEligibleClass(),
+              processor.getDirectInlinees(),
+              processor.getIndirectInlinees())) {
+            // This root is unlikely to be inlined in the future.
+            rootsIterator.remove();
+            continue;
+          }
         }
 
         if (appView.protoShrinker() != null && root.isNewInstance()) {
@@ -212,28 +222,33 @@ public final class ClassInliner {
 
         // Inline the class instance.
         AffectedValues affectedValues = new AffectedValues();
-        try {
-          anyInlinedMethods |=
-              processor.processInlining(code, affectedValues, feedback, inliningIRProvider);
-        } catch (IllegalClassInlinerStateException e) {
-          // We introduced a user that we cannot handle in the class inliner as a result of force
-          // inlining. Abort gracefully from class inlining without removing the instance.
-          //
-          // Alternatively we would need to collect additional information about the behavior of
-          // methods (which is bad for memory), or we would need to analyze the called methods
-          // before inlining them. The latter could be good solution, since we are going to build IR
-          // for the methods that need to be inlined anyway.
-          assert false;
-          anyInlinedMethods = true;
+        try (Timing t0 = timing.begin("Perform inlining")) {
+          try {
+            anyInlinedMethods |=
+                processor.processInlining(
+                    code, affectedValues, feedback, inliningIRProvider, timing);
+          } catch (IllegalClassInlinerStateException e) {
+            // We introduced a user that we cannot handle in the class inliner as a result of force
+            // inlining. Abort gracefully from class inlining without removing the instance.
+            //
+            // Alternatively we would need to collect additional information about the behavior of
+            // methods (which is bad for memory), or we would need to analyze the called methods
+            // before inlining them. The latter could be good solution, since we are going to build
+            // IR for the methods that need to be inlined anyway.
+            assert false;
+            anyInlinedMethods = true;
+          }
         }
+        changed = true;
 
         // Restore normality.
-        code.removeAllDeadAndTrivialPhis(affectedValues);
-        affectedValues.narrowingWithAssumeRemoval(appView, code);
-        code.removeRedundantBlocks();
-        assert code.isConsistentSSA(appView);
-        rootsIterator.remove();
-        repeat = true;
+        try (Timing t0 = timing.begin("Restore consistent SSA")) {
+          code.removeAllDeadAndTrivialPhis(affectedValues);
+          affectedValues.narrowingWithAssumeRemoval(appView, code);
+          assert code.isConsistentSSAAllowingRedundantBlocks(appView);
+          rootsIterator.remove();
+          repeat = true;
+        }
       }
     } while (repeat);
 
@@ -243,6 +258,11 @@ public final class ClassInliner {
           shrinker ->
               shrinker.inlineCallsToDynamicMethod(
                   method, code, feedback, methodProcessor, methodProcessingContext, inliner));
+    }
+
+    if (changed) {
+      // Ensure no redundant blocks.
+      code.removeRedundantBlocks();
     }
 
     if (anyInlinedMethods) {
@@ -259,6 +279,8 @@ public final class ClassInliner {
           .libraryMethodOptimizer()
           .optimize(code, feedback, methodProcessor, methodProcessingContext);
     }
+
+    assert code.isConsistentSSA(appView);
   }
 
   private EligibilityStatus isClassEligible(DexProgramClass clazz) {

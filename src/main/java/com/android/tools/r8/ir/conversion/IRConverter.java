@@ -729,7 +729,7 @@ public class IRConverter {
       // Class inliner should work before lambda merger, so if it inlines the
       // lambda, it does not get collected by merger.
       classInliner.processMethodCode(
-          context, code, feedback, methodProcessor, methodProcessingContext);
+          context, code, feedback, methodProcessor, methodProcessingContext, timing);
       timing.end();
       code.removeRedundantBlocks();
       assert code.isConsistentSSA(appView);
