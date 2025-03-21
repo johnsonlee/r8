@@ -362,6 +362,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         return true;
       }
     }
+    if (graphLens instanceof R8LibraryDesugaringGraphLens) {
+      return LirOpcodeUtils.isInvokeMethod(opcode);
+    }
     return false;
   }
 
