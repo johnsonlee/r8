@@ -24,7 +24,6 @@
 
 package androidx.annotation.keep
 
-import java.lang.annotation.RetentionPolicy
 import kotlin.annotation.Retention
 import kotlin.annotation.Target
 import kotlin.reflect.KClass
@@ -97,7 +96,7 @@ public annotation class AnnotationPattern(
      * <p>
      * Matches annotations with matching retention policies
      *
-     * @return Retention policies. By default {@code RetentionPolicy.RUNTIME}.
+     * @return Retention policies. By default {@code AnnotationRetention.RUNTIME}.
      */
-    val retention: Array<RetentionPolicy> = [RetentionPolicy.RUNTIME],
+    val retention: Array<AnnotationRetention> = [AnnotationRetention.RUNTIME],
 )

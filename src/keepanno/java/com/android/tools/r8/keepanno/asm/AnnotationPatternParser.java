@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import java.util.function.Consumer;
+import kotlin.annotation.AnnotationRetention;
 import org.objectweb.asm.AnnotationVisitor;
 
 public class AnnotationPatternParser
@@ -58,7 +59,11 @@ public class AnnotationPatternParser
   private static class RetentionParser
       extends PropertyParserBase<RetentionPolicy, RetentionProperty> {
 
+    // Standard Java RetentionPolicy.
     private static final String RETENTION_POLICY_DESC = "Ljava/lang/annotation/RetentionPolicy;";
+    // Kotlin version of Java RetentionPolicy.
+    private static final String ANNOTATION_RETENTION_DESC =
+        "Lkotlin/annotation/AnnotationRetention;";
 
     public RetentionParser(ParsingContext parsingContext) {
       super(parsingContext);
@@ -75,6 +80,17 @@ public class AnnotationPatternParser
       if (RETENTION_POLICY_DESC.equals(descriptor)) {
         setValue.accept(RetentionPolicy.valueOf(value));
         return true;
+      }
+      if (ANNOTATION_RETENTION_DESC.equals(descriptor)) {
+        AnnotationRetention annotationRetention = AnnotationRetention.valueOf(value);
+        switch (annotationRetention) {
+          case BINARY:
+            setValue.accept(RetentionPolicy.CLASS);
+            return true;
+          case RUNTIME:
+            setValue.accept(RetentionPolicy.RUNTIME);
+            return true;
+        }
       }
       return super.tryPropertyEnum(property, name, descriptor, value, setValue);
     }

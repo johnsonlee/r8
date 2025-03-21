@@ -9,6 +9,7 @@ import com.google.common.html.HtmlEscapers;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 public abstract class DocPrinterBase<T> {
 
@@ -21,6 +22,10 @@ public abstract class DocPrinterBase<T> {
 
   private boolean isEmptyOrJustTitle() {
     return returnDesc == null && deprecatedDesc == null && additionalLines.isEmpty();
+  }
+
+  public T applyIf(boolean condition, Function<T, T> onTrue, Function<T, T> onFalse) {
+    return condition ? onTrue.apply(self()) : onFalse.apply(self());
   }
 
   public T clearDocLines() {

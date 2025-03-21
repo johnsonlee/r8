@@ -38,6 +38,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import kotlin.annotation.AnnotationRetention;
 
 public class KeepItemAnnotationGenerator {
 
@@ -104,6 +105,8 @@ public class KeepItemAnnotationGenerator {
 
   private static final ClassReference JAVA_STRING = classFromClass(String.class);
   private static final ClassReference JAVA_RETENTION_POLICY = classFromClass(RetentionPolicy.class);
+  private static final ClassReference KOTLIN_ANNOTATION_RETENTION =
+      classFromClass(AnnotationRetention.class);
 
   private static final String AST_PKG = "com.android.tools.r8.keepanno.ast";
   private static final String R8_ANNO_PKG = "com.android.tools.r8.keepanno.annotations";
@@ -1006,12 +1009,21 @@ public class KeepItemAnnotationGenerator {
           .defaultValue(CLASS_NAME_PATTERN, defaultInvalidClassNamePattern());
     }
 
-    private static GroupMember annotationRetention() {
+    private static GroupMember annotationRetention(boolean generateKotlin) {
       return new GroupMember("retention")
           .setDocTitle("Specify which retention policies must be set for the annotations.")
           .addParagraph("Matches annotations with matching retention policies")
-          .setDocReturn("Retention policies. By default {@code RetentionPolicy.RUNTIME}.")
-          .defaultArrayValue(JAVA_RETENTION_POLICY, "RetentionPolicy.RUNTIME");
+          .setDocReturn("Retention policies. By default {@code AnnotationRetention.RUNTIME}.")
+          .applyIf(
+              generateKotlin,
+              gm ->
+                  gm.setDocReturn(
+                          "Retention policies. By default {@code AnnotationRetention.RUNTIME}.")
+                      .defaultArrayValue(
+                          KOTLIN_ANNOTATION_RETENTION, "AnnotationRetention.RUNTIME"),
+              gm ->
+                  gm.setDocReturn("Retention policies. By default {@code RetentionPolicy.RUNTIME}.")
+                      .defaultArrayValue(JAVA_RETENTION_POLICY, "RetentionPolicy.RUNTIME"));
     }
 
     private GroupMember bindingName() {
@@ -1566,7 +1578,7 @@ public class KeepItemAnnotationGenerator {
           () -> {
             annotationNameGroup().generate(this);
             println();
-            annotationRetention().generate(this);
+            annotationRetention(generateKotlin()).generate(this);
           });
       printCloseAnnotationClass();
     }
@@ -2280,7 +2292,8 @@ public class KeepItemAnnotationGenerator {
 
     List<Group> getAnnotationPatternGroups() {
       return ImmutableList.of(
-          annotationNameGroup(), new Group("retention").addMember(annotationRetention()));
+          annotationNameGroup(),
+          new Group("retention").addMember(annotationRetention(generateKotlin())));
     }
 
     private void generateAnnotationPatternConstants() {
