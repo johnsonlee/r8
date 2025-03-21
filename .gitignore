@@ -24,6 +24,7 @@ gradle/*
 gradlew
 gradlew.bat
 d8_r8/gradle*
+d8_r8/test/hs_err_pid*.log
 local.properties
 r8.ipr
 r8.iws
