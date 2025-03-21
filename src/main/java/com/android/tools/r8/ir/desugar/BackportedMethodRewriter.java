@@ -1,7 +1,6 @@
 // Copyright (c) 2018, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.ir.desugar;
 
 import com.android.tools.r8.androidapi.ComputedApiLevel;
@@ -94,11 +93,13 @@ import org.objectweb.asm.Opcodes;
 public final class BackportedMethodRewriter implements CfInstructionDesugaring {
 
   private final AppView<?> appView;
+  private final LibraryDesugaringOptions libraryDesugaringOptions;
   private final RewritableMethods rewritableMethods;
 
   public BackportedMethodRewriter(AppView<?> appView) {
     assert appView.options().desugarState.isOn();
     this.appView = appView;
+    this.libraryDesugaringOptions = appView.options().getSubCompilationLibraryDesugaringOptions();
     this.rewritableMethods = new RewritableMethods(appView);
   }
 
@@ -217,8 +218,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     AppInfo appInfo =
         AppInfo.createInitialAppInfo(app, GlobalSyntheticsStrategy.forNonSynthesizing());
     AppView<?> appView = AppView.createForD8(appInfo, Timing.empty());
-    BackportedMethodRewriter.RewritableMethods rewritableMethods =
-        new BackportedMethodRewriter.RewritableMethods(appView);
+    RewritableMethods rewritableMethods = new RewritableMethods(appView);
     rewritableMethods.visit(methods);
     new DesugaredLibraryRetargeterHelper(appView).visit(methods);
     new AutoCloseableRetargeterHelper(options.getMinApiLevel(), options.dexItemFactory())
@@ -241,13 +241,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     // maintained for legacy only, recent desugared library should not be shipped with
     // pre-desugared code.
     Map<DexType, DexType> legacyBackport =
-        appView
-            .options()
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
-            .getLegacyBackport();
+        libraryDesugaringOptions.getMachineDesugaredLibrarySpecification().getLegacyBackport();
     if (provider == null
-        && appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
+        && libraryDesugaringOptions.isDesugaredLibraryCompilation()
         && legacyBackport.containsKey(method.holder)) {
       DexType newHolder = legacyBackport.get(method.holder);
       DexMethod backportedMethod =
@@ -277,8 +273,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
   }
 
   private MethodProvider<DexField> getProviderOrNull(DexField field) {
-    MethodProvider<DexField> provider = rewritableMethods.getProvider(field);
-    return provider;
+    return rewritableMethods.getProvider(field);
   }
 
   private static final class RewritableMethods {
@@ -286,6 +281,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     private final Map<DexType, AndroidApiLevel> typeMinApi;
 
     private final AppView<?> appView;
+    private final LibraryDesugaringOptions libraryDesugaringOptions;
 
     // Map backported field or method to a provider for creating the actual target method
     // (with code).
@@ -298,6 +294,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       InternalOptions options = appView.options();
       DexItemFactory factory = options.dexItemFactory();
       this.appView = appView;
+      this.libraryDesugaringOptions = options.getSubCompilationLibraryDesugaringOptions();
       this.typeMinApi = initializeTypeMinApi(factory);
       if (!options.enableBackportedMethodRewriting()) {
         return;
@@ -410,8 +407,6 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     }
 
     private boolean typeIsInDesugaredLibrary(DexType type) {
-      LibraryDesugaringOptions libraryDesugaringOptions =
-          appView.options().getLibraryDesugaringOptions();
       return libraryDesugaringOptions.getTypeRewriter().hasRewrittenType(type)
           || libraryDesugaringOptions
               .getMachineDesugaredLibrarySpecification()
@@ -436,9 +431,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
       if (typeIsInDesugaredLibrary(type)) {
         // Desugared library is enabled, the methods are present if desugared library specifies it.
         return methodsMinAPI.isGreaterThan(AndroidApiLevel.N)
-            && !appView
-                .options()
-                .getLibraryDesugaringOptions()
+            && !libraryDesugaringOptions
                 .getMachineDesugaredLibrarySpecification()
                 .includesJDK11Methods();
       }
@@ -2224,8 +2217,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         BackportedMethodDesugaringEventConsumer eventConsumer,
         MethodProcessingContext methodProcessingContext,
         LocalStackAllocator localStackAllocator) {
-      return rewriter.rewrite(
-          instruction.asStaticFieldGet(), appView.dexItemFactory(), localStackAllocator);
+      return rewriter.rewrite(instruction.asStaticFieldGet(), appView.dexItemFactory());
     }
   }
 
@@ -2530,10 +2522,7 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
     CfInstruction rewriteSingle(CfStaticFieldRead staticGet, DexItemFactory factory);
 
     // Convenience wrapper since most rewrites are to a single instruction.
-    default Collection<CfInstruction> rewrite(
-        CfStaticFieldRead staticGet,
-        DexItemFactory factory,
-        LocalStackAllocator localStackAllocator) {
+    default Collection<CfInstruction> rewrite(CfStaticFieldRead staticGet, DexItemFactory factory) {
       return ImmutableList.of(rewriteSingle(staticGet, factory));
     }
   }

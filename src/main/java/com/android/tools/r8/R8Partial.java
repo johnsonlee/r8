@@ -120,7 +120,8 @@ class R8Partial {
     InternalOptions d8Options = d8Command.getInternalOptions();
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
     R8PartialD8SubCompilationConfiguration subCompilationConfiguration =
-        new R8PartialD8SubCompilationConfiguration(input.getD8Types(), input.getR8Types(), timing);
+        new R8PartialD8SubCompilationConfiguration(
+            input.getD8Types(), input.getR8Types(), options.getLibraryDesugaringOptions(), timing);
     d8Options.setArtProfileOptions(
         new ArtProfileOptions(d8Options, options.getArtProfileOptions()));
     d8Options.setFeatureSplitConfiguration(options.getFeatureSplitConfiguration());

@@ -1082,6 +1082,18 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     return libraryDesugaringOptions;
   }
 
+  /**
+   * Similar to {@link #getLibraryDesugaringOptions()}, except for the D8 compilation in R8 partial,
+   * where this deliberately returns the library desugaring options of the outer R8 partial
+   * compilation.
+   */
+  public LibraryDesugaringOptions getSubCompilationLibraryDesugaringOptions() {
+    if (partialSubCompilationConfiguration != null && partialSubCompilationConfiguration.isD8()) {
+      return partialSubCompilationConfiguration.asD8().getLibraryDesugaringOptions();
+    }
+    return getLibraryDesugaringOptions();
+  }
+
   public SingleCallerInlinerOptions getSingleCallerInlinerOptions() {
     return singleCallerInlinerOptions;
   }

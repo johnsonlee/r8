@@ -18,6 +18,7 @@ import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions.Target;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.profile.art.ArtProfile;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
@@ -65,6 +66,7 @@ public abstract class R8PartialSubCompilationConfiguration {
 
     private final Set<DexType> d8Types;
     private final Set<DexType> r8Types;
+    private final LibraryDesugaringOptions libraryDesugaringOptions;
 
     private ArtProfileCollection artProfiles;
     private ClassToFeatureSplitMap classToFeatureSplitMap;
@@ -75,10 +77,14 @@ public abstract class R8PartialSubCompilationConfiguration {
     private StartupProfile startupProfile;
 
     public R8PartialD8SubCompilationConfiguration(
-        Set<DexType> d8Types, Set<DexType> r8Types, Timing timing) {
+        Set<DexType> d8Types,
+        Set<DexType> r8Types,
+        LibraryDesugaringOptions libraryDesugaringOptions,
+        Timing timing) {
       super(timing);
       this.d8Types = d8Types;
       this.r8Types = r8Types;
+      this.libraryDesugaringOptions = libraryDesugaringOptions;
     }
 
     public ArtProfileCollection getArtProfiles() {
@@ -98,6 +104,10 @@ public abstract class R8PartialSubCompilationConfiguration {
     public Collection<DexProgramClass> getDesugaredOutputClasses() {
       assert desugaredOutputClasses != null;
       return desugaredOutputClasses;
+    }
+
+    public LibraryDesugaringOptions getLibraryDesugaringOptions() {
+      return libraryDesugaringOptions;
     }
 
     public Collection<DexClasspathClass> getOutputClasspathClasses() {
