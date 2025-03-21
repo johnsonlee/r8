@@ -40,6 +40,7 @@ val java21TestJarTask = projectTask("tests_java_21", "testJar")
 val bootstrapTestsDepsJarTask = projectTask("tests_bootstrap", "depsJar")
 val bootstrapTestJarTask = projectTask("tests_bootstrap", "testJar")
 val testsJava8SourceSetDependenciesTask = projectTask("tests_java_8", "sourceSetDependencyTask")
+val keepAnnoAndroidXAnnotationsJar = projectTask("keepanno", "keepAnnoAndroidXAnnotationsJar")
 
 tasks {
   withType<Exec> {
@@ -83,9 +84,10 @@ tasks {
   }
 
   val packageTestDeps by registering(Jar::class) {
-    dependsOn(bootstrapTestsDepsJarTask, javaTestBaseDepsJar)
+    dependsOn(bootstrapTestsDepsJarTask, javaTestBaseDepsJar, keepAnnoAndroidXAnnotationsJar)
     from(bootstrapTestsDepsJarTask.outputs.getFiles().map(::zipTree))
     from(javaTestBaseDepsJar.outputs.getFiles().map(::zipTree))
+    from(keepAnnoAndroidXAnnotationsJar.outputs.getFiles().map(::zipTree))
     exclude("META-INF/*.kotlin_module", "**/*.kotlin_metadata")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     destinationDirectory.set(getRoot().resolveAll("build", "libs"))
