@@ -262,17 +262,13 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     if (isSyntheticMethodThatShouldNotBeDoubleProcessed(context)) {
       return DesugarDescription.nothing();
     }
-    // Interface desugaring is only interested in invokes.
+    // Interface desugaring is only interested in invokes that are not desugared by preceeding
+    // desugarings.
     CfInvoke invoke = instruction.asInvoke();
-    if (invoke == null) {
-      return DesugarDescription.nothing();
-    }
-    // Don't desugar if the invoke is to be desugared by preceeding desugar tasks.
-    if (isAlreadyDesugared(invoke, context)) {
-      return DesugarDescription.nothing();
-    }
-    // There should never be any calls to interface initializers.
-    if (invoke.isInvokeSpecial() && invoke.isInvokeConstructor(factory)) {
+    if (invoke == null
+        || invoke.getMethod().getHolderType().isArrayType()
+        || invoke.isInvokeConstructor(factory)
+        || isAlreadyDesugared(invoke, context)) {
       return DesugarDescription.nothing();
     }
     if (desugaringMode == EMULATED_INTERFACE_ONLY) {
@@ -286,11 +282,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
     // If the target holder does not resolve we may want to issue diagnostics.
     DexClass holder = appView.definitionForHolder(invoke.getMethod(), context);
+    // Continue with invoke type logic.
+    if (invoke.isInvokeInterface() || invoke.isInvokeVirtual()) {
+      return computeInvokeVirtualDispatch(holder, invoke, context);
+    }
     if (holder == null) {
-      if (invoke.isInvokeVirtual() || invoke.isInvokeInterface()) {
-        // For virtual targets we should not report anything as any virtual dispatch just remains.
-        return DesugarDescription.nothing();
-      }
       // For static, private and special invokes, they may require desugaring and should warn.
       return DesugarDescription.builder()
           .addScanEffect(
@@ -301,42 +297,29 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
                 warnMissingType(context, invoke.getMethod().getHolderType());
               })
           .build();
-    }
-    // Continue with invoke type logic.
-    if (invoke.isInvokeVirtual() || invoke.isInvokeInterface()) {
-      return computeInvokeVirtualDispatch(holder, invoke, context);
-    }
-    if (invoke.isInvokeStatic()) {
+    } else if (invoke.isInvokeStatic()) {
       return computeInvokeStatic(holder, invoke, context);
-    }
-    if (invoke.isInvokeSpecial()) {
+    } else {
+      assert invoke.isInvokeSpecial();
       return computeInvokeSpecial(holder, invoke, context);
     }
-    return DesugarDescription.nothing();
   }
 
   private DesugarDescription computeInvokeForEmulatedInterfaceOnly(
       CfInvoke invoke, ProgramMethod context) {
-    if (!invoke.getMethod().getHolderType().isClassType()) {
-      return DesugarDescription.nothing();
-    }
     DexClass holder = appView.definitionForHolder(invoke.getMethod(), context);
     if (holder == null) {
       return DesugarDescription.nothing();
-    }
-
-    if (!invoke.isInterface()) {
-      if (invoke.isInvokeSpecial()) {
-        return computeEmulatedInterfaceInvokeSpecial(holder, invoke.getMethod(), context);
-      }
-      if (invoke.isInvokeVirtual() || invoke.isInvokeInterface()) {
-        DesugarDescription description = computeEmulatedInterfaceVirtualDispatchOrNull(invoke);
-        return description == null ? DesugarDescription.nothing() : description;
-      }
+    } else if (invoke.isInvokeInterface()) {
+      return computeEmulatedInterfaceVirtualDispatch(invoke);
+    } else if (invoke.isInvokeSpecial()) {
+      return computeEmulatedInterfaceInvokeSpecial(holder, invoke.getMethod(), context);
+    } else if (invoke.isInvokeStatic()) {
+      // Note: We do not rewrite invoke-static to emulated interfaces above api 24 and there is
+      // no way to encode it, but we could add the support here.
       return DesugarDescription.nothing();
-    }
-
-    if (invoke.isInvokeVirtual() || invoke.isInvokeInterface()) {
+    } else {
+      assert invoke.isInvokeVirtual();
       AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
       SingleResolutionResult<?> resolution =
           appInfoForDesugaring
@@ -350,14 +333,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       if (resolution != null && resolution.getResolvedMethod().isStatic()) {
         return DesugarDescription.nothing();
       }
-      DesugarDescription description = computeEmulatedInterfaceVirtualDispatchOrNull(invoke);
-      return description != null ? description : DesugarDescription.nothing();
+      return computeEmulatedInterfaceVirtualDispatch(invoke);
     }
-
-    // Note: We do not rewrite invoke-static to emulated interfaces above api 24 and there is
-    // no way to encode it, but we could add the support here.
-
-    return DesugarDescription.nothing();
   }
 
   private DesugarDescription computeNonInterfaceInvoke(CfInvoke invoke, ProgramMethod context) {
@@ -373,8 +350,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     if (!invoke.isInvokeVirtual() && !invoke.isInvokeInterface()) {
       return DesugarDescription.nothing();
     }
-    DesugarDescription description = computeEmulatedInterfaceVirtualDispatchOrNull(invoke);
-    if (description != null) {
+    DesugarDescription description = computeEmulatedInterfaceVirtualDispatch(invoke);
+    if (description != DesugarDescription.nothing()) {
       return description;
     }
     // It may be the case that a virtual invoke resolves to a static method. In such a case, if
@@ -515,6 +492,10 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   private DesugarDescription computeInvokeVirtualDispatch(
       DexClass holder, CfInvoke invoke, ProgramMethod context) {
+    if (holder == null) {
+      // For virtual targets we should not report anything as any virtual dispatch just remains.
+      return DesugarDescription.nothing();
+    }
     AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
     SingleResolutionResult<?> resolution =
         appInfoForDesugaring
@@ -529,11 +510,10 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     if (resolution != null && resolution.getResolvedMethod().isStatic()) {
       return computeInvokeAsThrowRewrite(invoke, resolution, context);
     }
-    DesugarDescription description = computeEmulatedInterfaceVirtualDispatchOrNull(invoke);
-    return description != null ? description : DesugarDescription.nothing();
+    return computeEmulatedInterfaceVirtualDispatch(invoke);
   }
 
-  private DesugarDescription computeEmulatedInterfaceVirtualDispatchOrNull(CfInvoke invoke) {
+  private DesugarDescription computeEmulatedInterfaceVirtualDispatch(CfInvoke invoke) {
     MethodResolutionResult resolutionResult =
         appView
             .appInfoForDesugaring()
@@ -541,7 +521,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     DerivedMethod emulatedDispatchMethod =
         helper.computeEmulatedInterfaceDispatchMethod(resolutionResult);
     if (emulatedDispatchMethod == null) {
-      return null;
+      return DesugarDescription.nothing();
     }
     return DesugarDescription.builder()
         .setDesugarRewrite(

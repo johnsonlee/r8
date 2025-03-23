@@ -40,15 +40,6 @@ public class CollectionToArrayTest extends DesugaredLibraryTestBase {
   @Parameter(2)
   public CompilationSpecification compilationSpecification;
 
-  private static final String DESUGAR_N_PLUS_OUTPUT =
-      StringUtils.lines(
-          "[one, two]",
-          "Override",
-          "[three, four]",
-          "Override",
-          "NoSuchMethodError",
-          "[seven, eight]");
-
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines(
           "[one, two]", "Override", "[three, four]", "Override", "[five, six]", "[seven, eight]");
@@ -82,10 +73,7 @@ public class CollectionToArrayTest extends DesugaredLibraryTestBase {
         .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
-        .applyIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(),
-            rr -> rr.assertSuccessWithOutput(DESUGAR_N_PLUS_OUTPUT),
-            rr -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT));
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   public static class Main {
