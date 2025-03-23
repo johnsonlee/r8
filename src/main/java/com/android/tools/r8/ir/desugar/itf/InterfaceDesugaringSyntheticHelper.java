@@ -33,7 +33,6 @@ import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.GenericSignature.MethodTypeSignature;
 import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.MethodAccessFlags;
-import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowNullCode;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
@@ -268,13 +267,6 @@ public class InterfaceDesugaringSyntheticHelper {
             .containsKey(method.getReference());
   }
 
-  DerivedMethod computeEmulatedInterfaceDispatchMethod(MethodResolutionResult resolutionResult) {
-    EmulatedDispatchMethodDescriptor descriptor =
-        getEmulatedDispatchDescriptor(
-            resolutionResult.getInitialResolutionHolder(), resolutionResult.getResolutionPair());
-    return descriptor == null ? null : descriptor.getEmulatedDispatchMethod();
-  }
-
   DerivedMethod computeEmulatedInterfaceForwardingMethod(
       DexClass initialResolutionHolder, DexClassAndMethod method) {
     if (method == null) {
@@ -337,8 +329,10 @@ public class InterfaceDesugaringSyntheticHelper {
   }
 
   DexClassAndMethod ensureEmulatedInterfaceDispatchMethod(
-      DerivedMethod emulatedDispatchMethod,
+      EmulatedDispatchMethodDescriptor emulatedDispatchMethodDescriptor,
       ClasspathEmulatedInterfaceSynthesizerEventConsumer eventConsumer) {
+    DerivedMethod emulatedDispatchMethod =
+        emulatedDispatchMethodDescriptor.getEmulatedDispatchMethod();
     assert verifyKind(emulatedDispatchMethod, kinds -> kinds.EMULATED_INTERFACE_CLASS);
     DexClassAndMethod method =
         appView
