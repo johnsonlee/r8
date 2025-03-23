@@ -263,15 +263,11 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
         || isAlreadyDesugared(invoke, context)) {
       return DesugarDescription.nothing();
     }
-    // If the target holder does not resolve we may want to issue diagnostics.
-    DexClass holder = appView.definitionForHolder(invoke.getMethod(), context);
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
-      return computeInvokeForEmulatedInterfaceOnly(holder, invoke, context);
-    }
     // Continue with invoke type logic. If the invoke is not an interface invoke, then there should
     // generally not be any desugaring. However, there are some cases where the insertion of
     // forwarding methods can change behavior so we need to identify them at the various call sites
     // here.
+    DexClass holder = appView.definitionForHolder(invoke.getMethod(), context);
     if (invoke.isInvokeInterface()) {
       return computeInvokeInterface(holder, invoke, context);
     } else if (invoke.isInvokeSpecial()) {
@@ -284,40 +280,10 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
   }
 
-  private DesugarDescription computeInvokeForEmulatedInterfaceOnly(
-      DexClass holder, CfInvoke invoke, ProgramMethod context) {
-    if (holder == null) {
-      return DesugarDescription.nothing();
-    } else if (invoke.isInvokeInterface()) {
-      return computeEmulatedInterfaceVirtualDispatch(invoke);
-    } else if (invoke.isInvokeSpecial()) {
-      return computeEmulatedInterfaceInvokeSpecial(holder, invoke.getMethod(), context);
-    } else if (invoke.isInvokeStatic()) {
-      // Note: We do not rewrite invoke-static to emulated interfaces above api 24 and there is
-      // no way to encode it, but we could add the support here.
-      return DesugarDescription.nothing();
-    } else {
-      assert invoke.isInvokeVirtual();
-      AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
-      SingleResolutionResult<?> resolution =
-          appInfoForDesugaring
-              .resolveMethodLegacy(invoke.getMethod(), invoke.isInterface())
-              .asSingleResolution();
-      if (resolution != null
-          && resolution.getResolvedMethod().isPrivate()
-          && resolution.isAccessibleFrom(context, appView, appInfoForDesugaring).isTrue()) {
-        return DesugarDescription.nothing();
-      }
-      if (resolution != null && resolution.getResolvedMethod().isStatic()) {
-        return DesugarDescription.nothing();
-      }
-      return computeEmulatedInterfaceVirtualDispatch(invoke);
-    }
-  }
-
   private DesugarDescription computeInvokeSpecial(
       DexClass holder, CfInvoke invoke, ProgramMethod context) {
-    if (!invoke.isInterface()) {
+    assert invoke.isInvokeSpecial();
+    if (desugaringMode == EMULATED_INTERFACE_ONLY || !invoke.isInterface()) {
       return computeEmulatedInterfaceInvokeSpecial(holder, invoke.getMethod(), context);
     }
     if (holder == null) {
@@ -334,7 +300,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   private DesugarDescription computeInvokeStatic(
       DexClass holder, CfInvoke invoke, ProgramMethod context) {
-    if (!invoke.isInterface()) {
+    assert invoke.isInvokeStatic();
+    if (desugaringMode == EMULATED_INTERFACE_ONLY || !invoke.isInterface()) {
       return DesugarDescription.nothing();
     }
     if (holder == null) {
@@ -456,6 +423,9 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       // For virtual targets we should not report anything as any virtual dispatch just remains.
       return DesugarDescription.nothing();
     }
+    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+      return computeEmulatedInterfaceVirtualDispatch(invoke);
+    }
     AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
     SingleResolutionResult<?> resolution =
         appInfoForDesugaring
@@ -476,6 +446,26 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   private DesugarDescription computeInvokeVirtual(
       DexClass holder, CfInvoke invoke, ProgramMethod context) {
     assert invoke.isInvokeVirtual();
+    if (holder == null) {
+      // For virtual targets we should not report anything as any virtual dispatch just remains.
+      return DesugarDescription.nothing();
+    }
+    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+      AppInfoWithClassHierarchy appInfoForDesugaring = appView.appInfoForDesugaring();
+      SingleResolutionResult<?> resolution =
+          appInfoForDesugaring
+              .resolveMethodLegacy(invoke.getMethod(), invoke.isInterface())
+              .asSingleResolution();
+      if (resolution != null
+          && resolution.getResolvedMethod().isPrivate()
+          && resolution.isAccessibleFrom(context, appView, appInfoForDesugaring).isTrue()) {
+        return DesugarDescription.nothing();
+      }
+      if (resolution != null && resolution.getResolvedMethod().isStatic()) {
+        return DesugarDescription.nothing();
+      }
+      return computeEmulatedInterfaceVirtualDispatch(invoke);
+    }
     DesugarDescription description = computeEmulatedInterfaceVirtualDispatch(invoke);
     if (description != DesugarDescription.nothing()) {
       return description;
@@ -484,17 +474,15 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     // a default method could give rise to a forwarding method in the resolution path, the program
     // would change behavior from throwing ICCE to dispatching to the companion class method.
     AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
-    MethodResolutionResult resolution =
-        appInfo.resolveMethodLegacy(invoke.getMethod(), invoke.isInterface());
-    if (!resolution.isSingleResolution()
-        || !resolution.asSingleResolution().getResolvedMethod().isStatic()) {
-      return DesugarDescription.nothing();
-    }
-    DexClassAndMethod target = appInfo.lookupMaximallySpecificMethod(holder, invoke.getMethod());
-    if (target != null && target.isDefaultMethod()) {
-      // Rewrite the invoke to a throw ICCE as the default method forward would otherwise hide the
-      // static / virtual mismatch.
-      return computeInvokeAsThrowRewrite(invoke, resolution.asSingleResolution(), context);
+    SingleResolutionResult<?> resolution =
+        appInfo.resolveMethodLegacy(invoke.getMethod(), invoke.isInterface()).asSingleResolution();
+    if (resolution != null && resolution.getResolvedMethod().isStatic()) {
+      DexClassAndMethod target = appInfo.lookupMaximallySpecificMethod(holder, invoke.getMethod());
+      if (target != null && target.isDefaultMethod()) {
+        // Rewrite the invoke to a throw ICCE as the default method forward would otherwise hide the
+        // static / virtual mismatch.
+        return computeInvokeAsThrowRewrite(invoke, resolution.asSingleResolution(), context);
+      }
     }
     return DesugarDescription.nothing();
   }
