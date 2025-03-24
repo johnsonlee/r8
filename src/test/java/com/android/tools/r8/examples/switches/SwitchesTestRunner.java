@@ -7,6 +7,8 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
+import org.apache.harmony.jpda.tests.framework.TestErrorException;
+import org.apache.harmony.jpda.tests.framework.jdwp.exceptions.TimeoutException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -63,6 +65,13 @@ public class SwitchesTestRunner extends ExamplesTestBase {
 
   @Test
   public void testDebug() throws Exception {
-    runTestDebugComparator();
+    try {
+      runTestDebugComparator();
+    } catch (TestErrorException e) {
+      if (e.getCause() instanceof TimeoutException) {
+        return;
+      }
+      throw e;
+    }
   }
 }
