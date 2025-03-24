@@ -4,6 +4,7 @@
 package com.android.tools.r8.partial;
 
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.partial.predicate.AllClassesMatcher;
 import com.android.tools.r8.partial.predicate.ClassNameMatcher;
 import com.android.tools.r8.partial.predicate.ClassPrefixMatcher;
@@ -55,7 +56,22 @@ public class R8PartialCompilationConfiguration {
     return excludePredicates;
   }
 
-  public boolean test(DexProgramClass clazz) {
+  public void partition(
+      DirectMappedDexApplication app,
+      Consumer<DexProgramClass> d8ClassConsumer,
+      Consumer<DexProgramClass> r8ClassConsumer) {
+    Collection<DexProgramClass> classes =
+        randomizeForTesting != null ? app.classesWithDeterministicOrder() : app.classes();
+    for (DexProgramClass clazz : classes) {
+      if (test(clazz)) {
+        r8ClassConsumer.accept(clazz);
+      } else {
+        d8ClassConsumer.accept(clazz);
+      }
+    }
+  }
+
+  private boolean test(DexProgramClass clazz) {
     if (randomizeForTesting != null) {
       return randomizeForTesting.nextBoolean();
     }
@@ -119,8 +135,11 @@ public class R8PartialCompilationConfiguration {
     }
 
     public Builder randomizeForTesting() {
+      return randomizeForTesting(System.currentTimeMillis());
+    }
+
+    public Builder randomizeForTesting(long seed) {
       randomizeForTesting = new Random();
-      long seed = System.currentTimeMillis();
       randomizeForTesting.setSeed(seed);
       System.out.println("Partial compilation seed: " + seed);
       return this;

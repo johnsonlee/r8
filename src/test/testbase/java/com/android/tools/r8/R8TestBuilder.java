@@ -1111,4 +1111,9 @@ public abstract class R8TestBuilder<
     androidPlatformBuild = true;
     return self();
   }
+
+  public T setPartialCompilationSeed(TestParameters parameters, long seed) {
+    // Intentionally empty. Implemented In R8PartialTestBuilder.
+    return self();
+  }
 }

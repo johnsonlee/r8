@@ -222,4 +222,13 @@ public class R8PartialTestBuilder
             o -> o.getTestingOptions().enableEmbeddedKeepAnnotations = true)
         .addKeepAnnoLibToClasspath(keepAnnotationLibrary);
   }
+
+  @Override
+  public R8PartialTestBuilder setPartialCompilationSeed(TestParameters parameters, long seed) {
+    if (parameters.getPartialCompilationTestParameters().isRandom()) {
+      r8PartialConfiguration =
+          R8PartialCompilationConfiguration.builder().randomizeForTesting(seed).build();
+    }
+    return this;
+  }
 }

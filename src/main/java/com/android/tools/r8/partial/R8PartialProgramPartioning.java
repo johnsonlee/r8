@@ -19,16 +19,11 @@ public class R8PartialProgramPartioning {
   private R8PartialProgramPartioning() {}
 
   public static R8PartialProgramPartioning create(DirectMappedDexApplication app) {
-    R8PartialProgramPartioning partioning = new R8PartialProgramPartioning();
     R8PartialCompilationConfiguration partialCompilationConfiguration =
         app.options.partialCompilationConfiguration;
-    for (DexProgramClass clazz : app.classes()) {
-      if (partialCompilationConfiguration.test(clazz)) {
-        partioning.r8Classes.add(clazz);
-      } else {
-        partioning.d8Classes.add(clazz);
-      }
-    }
+    R8PartialProgramPartioning partioning = new R8PartialProgramPartioning();
+    partialCompilationConfiguration.partition(
+        app, partioning.d8Classes::add, partioning.r8Classes::add);
     // Collect all transitive superclasses of all D8 classes and treat these as D8 classes.
     WorkList<DexClass> worklist = WorkList.newIdentityWorkList(partioning.d8Classes);
     worklist.process(
