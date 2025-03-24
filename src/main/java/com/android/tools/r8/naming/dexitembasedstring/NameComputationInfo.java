@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.naming.dexitembasedstring;
 
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexReference;
@@ -23,8 +22,7 @@ public abstract class NameComputationInfo<T extends DexReference> {
     RECORD_MISMATCH
   }
 
-  public final DexString computeNameFor(
-      DexReference reference, AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public final DexString computeNameFor(DexReference reference, AppView<?> appView) {
     return computeNameFor(reference, appView, appView.getNamingLens());
   }
 

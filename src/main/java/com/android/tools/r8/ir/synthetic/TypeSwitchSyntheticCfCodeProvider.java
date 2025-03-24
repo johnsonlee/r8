@@ -196,7 +196,8 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                   assert enumFieldCache != null;
                   instructions.add(new CfStaticFieldRead(enumFieldCache));
                   instructions.add(new CfConstNumber(enumIndex.getAndIncrement(), ValueType.INT));
-                  if (appView.enableWholeProgramOptimizations()) {
+                  if (appView.enableWholeProgramOptimizations()
+                      || appView.options().partialSubCompilationConfiguration != null) {
                     instructions.add(
                         new CfDexItemBasedConstString(
                             type,

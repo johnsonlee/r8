@@ -265,10 +265,14 @@ public class LirConverter {
             GlobalSyntheticsStrategy.forNonSynthesizing(),
             appView.appInfo().getClassToFeatureSplitMap());
     AppView<AppInfo> d8AppView = AppView.createForD8(d8AppInfo);
+    d8AppView.setNamingLens(appView.getNamingLens());
     DeadCodeRemover deadCodeRemover = new DeadCodeRemover(d8AppView);
     CodeRewriterPassCollection codeRewriterPassCollection =
         new CodeRewriterPassCollection(
-            new StringSwitchRemover(d8AppView), new FilledNewArrayRewriter(d8AppView));
+            // Must run before DexItemBasedConstStringRemover.
+            new StringSwitchRemover(d8AppView),
+            new DexItemBasedConstStringRemover(d8AppView),
+            new FilledNewArrayRewriter(d8AppView));
     ThreadUtils.processItems(
         subCompilationConfiguration.getDexingOutputClasses(),
         clazz ->

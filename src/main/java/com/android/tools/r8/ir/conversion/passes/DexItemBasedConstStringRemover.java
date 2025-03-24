@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.conversion.passes;
 
-import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.ir.code.DexItemBasedConstString;
@@ -12,9 +12,9 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 
-public class DexItemBasedConstStringRemover extends CodeRewriterPass<AppInfoWithClassHierarchy> {
+public class DexItemBasedConstStringRemover extends CodeRewriterPass<AppInfo> {
 
-  public DexItemBasedConstStringRemover(AppView<? extends AppInfoWithClassHierarchy> appView) {
+  public DexItemBasedConstStringRemover(AppView<?> appView) {
     super(appView);
   }
 

@@ -26,8 +26,7 @@ public class EnumSwitchOldSyntaxTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK23)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
-        // TODO(b/405902452(: Enable partial compilation.
-        //  .withPartialCompilation()
+        .withPartialCompilation()
         .build();
   }
 
