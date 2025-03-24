@@ -280,6 +280,7 @@ public class TestBase {
   }
 
   public D8TestBuilder testForD8(Backend backend) {
+    assert verifyNoPartialCompilationTestParameters();
     return testForD8(temp, backend);
   }
 
