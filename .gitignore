@@ -25,6 +25,8 @@ gradlew
 gradlew.bat
 d8_r8/gradle*
 d8_r8/test/hs_err_pid*.log
+d8_r8/test_modules/tests_java_8/DeleteInterference*/
+d8_r8/test_modules/tests_java_8/prefix*.json
 local.properties
 r8.ipr
 r8.iws
