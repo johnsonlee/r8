@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;

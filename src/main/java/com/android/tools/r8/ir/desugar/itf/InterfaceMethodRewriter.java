@@ -4,10 +4,7 @@
 
 package com.android.tools.r8.ir.desugar.itf;
 
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.ALL;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.EMULATED_INTERFACE_ONLY;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.NONE;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.getInterfaceMethodDesugaringMode;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_N_PLUS;
 
 import com.android.tools.r8.cf.CfVersion;
 import com.android.tools.r8.cf.code.CfInstruction;
@@ -43,7 +40,6 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.Der
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.ir.synthetic.ForwardMethodBuilder;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.MethodPosition;
@@ -109,38 +105,51 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   private final Set<CfInstructionDesugaring> precedingDesugaringsForInvoke;
   private final Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic;
 
-  public static InterfaceMethodRewriter create(
-      AppView<?> appView,
-      Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
-      Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
-    InterfaceMethodDesugaringMode desugaringMode =
-        getInterfaceMethodDesugaringMode(appView.options());
-    if (desugaringMode == NONE) {
-      return null;
-    }
-    return new InterfaceMethodRewriter(
-        appView,
-        precedingDesugaringsForInvoke,
-        precedingDesugaringsForInvokeDynamic,
-        desugaringMode);
-  }
-
   private InterfaceMethodRewriter(
       AppView<?> appView,
+      InterfaceMethodDesugaringMode desugaringMode,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
-      Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic,
-      InterfaceMethodDesugaringMode desugaringMode) {
+      Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
+    assert desugaringMode.isSome();
+    assert desugaringMode == LIBRARY_DESUGARING_N_PLUS
+        || appView.options().isInterfaceMethodDesugaringEnabled();
     this.appView = appView;
+    this.desugaringMode = desugaringMode;
     this.precedingDesugaringsForInvoke = precedingDesugaringsForInvoke;
     this.precedingDesugaringsForInvokeDynamic = precedingDesugaringsForInvokeDynamic;
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
-    assert desugaringMode == EMULATED_INTERFACE_ONLY || desugaringMode == ALL;
-    this.desugaringMode = desugaringMode;
-    assert desugaringMode == EMULATED_INTERFACE_ONLY
-        || appView.options().isInterfaceMethodDesugaringEnabled();
     this.helper = new InterfaceDesugaringSyntheticHelper(appView);
-    initializeEmulatedInterfaceVariables();
+    if (desugaringMode.isLibraryDesugaring()) {
+      initializeEmulatedInterfaceVariables();
+    }
+  }
+
+  public static InterfaceMethodRewriter createCfToCf(
+      AppView<?> appView,
+      Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
+      Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
+    InterfaceMethodDesugaringMode desugaringMode =
+        InterfaceMethodDesugaringMode.createCfToCf(appView.options());
+    return create(
+        appView,
+        desugaringMode,
+        precedingDesugaringsForInvoke,
+        precedingDesugaringsForInvokeDynamic);
+  }
+
+  private static InterfaceMethodRewriter create(
+      AppView<?> appView,
+      InterfaceMethodDesugaringMode desugaringMode,
+      Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
+      Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
+    return desugaringMode.isSome()
+        ? new InterfaceMethodRewriter(
+            appView,
+            desugaringMode,
+            precedingDesugaringsForInvoke,
+            precedingDesugaringsForInvokeDynamic)
+        : null;
   }
 
   public static void checkForAssumedLibraryTypes(AppInfo appInfo, InternalOptions options) {
@@ -234,7 +243,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       ProgramMethod method,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramAdditions programAdditions) {
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       return;
     }
     if (isSyntheticMethodThatShouldNotBeDoubleProcessed(method)) {
@@ -299,7 +308,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       boolean isInterface,
       ProgramMethod context) {
     assert invokeType.isDirectOrSuper();
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       return computeInvokeSpecialEmulatedInterfaceForwardingMethod(holder, invokedMethod, context);
     }
     if (!isInterface) {
@@ -327,7 +336,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       boolean isInterface,
       ProgramMethod context) {
     assert invokeType.isStatic();
-    if (desugaringMode == EMULATED_INTERFACE_ONLY || !isInterface) {
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS || !isInterface) {
       return DesugarDescription.nothing();
     }
     if (holder == null) {
@@ -459,7 +468,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     if (resolutionResult == null) {
       return DesugarDescription.nothing();
     }
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       return computeEmulatedInterfaceVirtualDispatch(resolutionResult);
     }
     if (resolutionResult.getResolvedMethod().isPrivate()
@@ -490,7 +499,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     if (resolutionResult == null) {
       return DesugarDescription.nothing();
     }
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       if (resolutionResult.getResolvedMethod().isPrivate()
           && resolutionResult.isAccessibleFrom(context, appView, appInfo).isTrue()) {
         return DesugarDescription.nothing();
@@ -814,7 +823,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   private DesugarDescription computeEmulatedInterfaceInvokeSpecial(
       DexClass clazz, DexMethod invokedMethod, ProgramMethod context) {
-    assert desugaringMode != EMULATED_INTERFACE_ONLY;
+    assert desugaringMode != LIBRARY_DESUGARING_N_PLUS;
     if (clazz == null) {
       return DesugarDescription.nothing();
     }

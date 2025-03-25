@@ -63,7 +63,7 @@ public class PrimaryD8L8IRConverter extends IRConverter {
         ProfileCollectionAdditions.create(appView);
     D8MethodProcessor methodProcessor =
         new D8MethodProcessor(profileCollectionAdditions, this, executorService);
-    InterfaceProcessor interfaceProcessor = InterfaceProcessor.create(appView);
+    InterfaceProcessor interfaceProcessor = InterfaceProcessor.createCfToCf(appView);
 
     timing.begin("IR conversion");
 

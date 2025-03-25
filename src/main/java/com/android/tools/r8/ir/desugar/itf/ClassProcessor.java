@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.itf;
 
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.EMULATED_INTERFACE_ONLY;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.NONE;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_N_PLUS;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfNew;
@@ -34,7 +34,6 @@ import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.NoSuchMethodResult;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.position.MethodPosition;
 import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -457,10 +456,10 @@ final class ClassProcessor {
       AppView<?> appView,
       Predicate<ProgramMethod> isLiveMethod,
       InterfaceMethodDesugaringMode desugaringMode) {
+    assert desugaringMode.isSome();
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
     this.helper = new InterfaceDesugaringSyntheticHelper(appView);
-    assert desugaringMode != NONE;
     needsLibraryInfo =
         !appView
             .options()
@@ -541,18 +540,17 @@ final class ClassProcessor {
         });
   }
 
-  @SuppressWarnings("ReferenceEquality")
   // Computes the set of method signatures that may need forwarding methods on derived classes.
   private SignaturesInfo computeInterfaceInfo(DexClass iface, SignaturesInfo interfaceInfo) {
     assert iface.isInterface();
-    assert iface.superType == dexItemFactory.objectType;
-    assert !helper.isEmulatedInterface(iface.type);
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+    assert dexItemFactory.objectType.isIdenticalTo(iface.getSuperType());
+    assert !helper.isEmulatedInterface(iface.getType());
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       return SignaturesInfo.EMPTY;
     }
     // Add non-library default methods as well as those for desugared library classes.
     if (!iface.isLibraryClass() || (needsLibraryInfo() && helper.isInDesugaredLibrary(iface))) {
-      MethodSignatures signatures = getDefaultMethodsMatching(iface, m -> true);
+      MethodSignatures signatures = getDefaultMethodsMatching(iface, alwaysTrue());
       interfaceInfo = interfaceInfo.withSignatures(signatures);
     }
     return interfaceInfo;

@@ -146,7 +146,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     LambdaInstructionDesugaring lambdaDesugaring = new LambdaInstructionDesugaring(appView);
     desugarings.add(lambdaDesugaring);
     interfaceMethodRewriter =
-        InterfaceMethodRewriter.create(
+        InterfaceMethodRewriter.createCfToCf(
             appView,
             SetUtils.newImmutableSetExcludingNullItems(
                 alwaysThrowingInstructionDesugaring,

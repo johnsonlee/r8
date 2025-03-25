@@ -576,7 +576,7 @@ public class Enqueuer {
     liveFields = new LiveFieldsSet(graphReporter::registerField);
     if (mode.isInitialTreeShaking()) {
       desugaring = CfInstructionDesugaringCollection.create(appView);
-      interfaceProcessor = InterfaceProcessor.create(appView);
+      interfaceProcessor = InterfaceProcessor.createCfToCf(appView);
     } else {
       desugaring = CfInstructionDesugaringCollection.empty();
       interfaceProcessor = null;

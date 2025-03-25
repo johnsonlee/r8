@@ -4,9 +4,7 @@
 
 package com.android.tools.r8.ir.desugar.itf;
 
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.EMULATED_INTERFACE_ONLY;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode.NONE;
-import static com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.getInterfaceMethodDesugaringMode;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_N_PLUS;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
@@ -28,7 +26,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.NestedGraphLens;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
-import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.lightir.LirInstructionView;
 import com.android.tools.r8.lightir.LirOpcodeUtils;
 import com.android.tools.r8.synthesis.SyntheticMethodBuilder;
@@ -64,13 +61,21 @@ public final class InterfaceProcessor {
       new ConcurrentHashMap<>();
   private final InterfaceMethodDesugaringMode desugaringMode;
 
-  public static InterfaceProcessor create(AppView<?> appView) {
+  public static InterfaceProcessor createCfToCf(AppView<?> appView) {
     InterfaceMethodDesugaringMode desugaringMode =
-        getInterfaceMethodDesugaringMode(appView.options());
-    if (desugaringMode == NONE) {
-      return null;
-    }
-    return new InterfaceProcessor(appView, desugaringMode);
+        InterfaceMethodDesugaringMode.createCfToCf(appView.options());
+    return create(appView, desugaringMode);
+  }
+
+  public static InterfaceProcessor createLirToLir(AppView<?> appView) {
+    InterfaceMethodDesugaringMode desugaringMode =
+        InterfaceMethodDesugaringMode.createLirToLir(appView.options());
+    return create(appView, desugaringMode);
+  }
+
+  private static InterfaceProcessor create(
+      AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
+    return desugaringMode.isSome() ? new InterfaceProcessor(appView, desugaringMode) : null;
   }
 
   public InterfaceProcessor(AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
@@ -89,7 +94,7 @@ public final class InterfaceProcessor {
     if (!method.getHolder().isInterface()) {
       return;
     }
-    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       processEmulatedInterfaceOnly(method, eventConsumer);
       return;
     }
