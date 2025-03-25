@@ -29,6 +29,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibr
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.icce.AlwaysThrowingInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.invokespecial.InvokeSpecialToSelfDesugaring;
+import com.android.tools.r8.ir.desugar.itf.CfToCfInterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
@@ -68,7 +69,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
 
   private final NestBasedAccessDesugaring nestBasedAccessDesugaring;
   private final CfToCfDesugaredLibraryRetargeter desugaredLibraryRetargeter;
-  private final InterfaceMethodRewriter interfaceMethodRewriter;
+  private final CfToCfInterfaceMethodRewriter interfaceMethodRewriter;
   private final CfToCfDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
   private final CfToCfDesugaredLibraryDisableDesugarer disableDesugarer;
 

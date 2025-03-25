@@ -36,7 +36,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDe
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.LirToLirDesugaredLibraryDisableDesugarer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryLibRewriter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryRetargeter;
-import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
+import com.android.tools.r8.ir.desugar.itf.LirToLirInterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,9 +50,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
   private final LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer;
   private final LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter;
   private final LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter;
-
-  @SuppressWarnings("UnusedVariable")
-  private final InterfaceMethodRewriter interfaceMethodRewriter;
+  private final LirToLirInterfaceMethodRewriter interfaceMethodRewriter;
 
   private final CfInstructionDesugaringEventConsumer eventConsumer;
   private final ProgramMethod method;
@@ -64,7 +62,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer,
       LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter,
       LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter,
-      InterfaceMethodRewriter interfaceMethodRewriter,
+      LirToLirInterfaceMethodRewriter interfaceMethodRewriter,
       CfInstructionDesugaringEventConsumer eventConsumer,
       ProgramMethod method,
       MethodProcessingContext methodProcessingContext) {
@@ -112,7 +110,6 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
   @Override
   protected MethodLookupResult internalDescribeLookupMethod(
       MethodLookupResult previous, DexMethod context, GraphLens codeLens) {
-    // TODO(b/391572031): Implement invoke desugaring.
     assert previous.getPrototypeChanges().isEmpty();
 
     if (desugaredLibraryLibRewriter != null) {
@@ -134,6 +131,14 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
     if (desugaredLibraryDisableDesugarer != null) {
       MethodLookupResult result =
           desugaredLibraryDisableDesugarer.lookupMethod(previous, method, this);
+      if (result != previous) {
+        return result;
+      }
+    }
+
+    if (interfaceMethodRewriter != null) {
+      MethodLookupResult result =
+          interfaceMethodRewriter.lookupMethod(previous, method, methodProcessingContext, this);
       if (result != previous) {
         return result;
       }

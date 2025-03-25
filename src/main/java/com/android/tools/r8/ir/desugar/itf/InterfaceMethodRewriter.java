@@ -7,27 +7,19 @@ package com.android.tools.r8.ir.desugar.itf;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_N_PLUS;
 
 import com.android.tools.r8.cf.CfVersion;
-import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
-import com.android.tools.r8.cf.code.CfInvokeDynamic;
-import com.android.tools.r8.cf.code.CfOpcodeUtils;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.CfCode;
-import com.android.tools.r8.graph.DexCallSite;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
-import com.android.tools.r8.graph.DexMethodHandle;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
@@ -37,7 +29,6 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.DesugarDescription;
 import com.android.tools.r8.ir.desugar.DesugarDescription.ScanCallback;
-import com.android.tools.r8.ir.desugar.ProgramAdditions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
@@ -49,13 +40,11 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.structural.Ordered;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 
 //
@@ -84,14 +73,14 @@ import java.util.function.Predicate;
 //       set of default interface methods missing and add them, the created methods
 //       forward the call to an appropriate method in interface companion class.
 //
-public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
+public abstract class InterfaceMethodRewriter {
 
-  private final AppView<?> appView;
+  final AppView<?> appView;
   private final InternalOptions options;
   final DexItemFactory factory;
   // If this is true, this will desugar only default methods from emulated interfaces present in
   // the emulated interface descriptor.
-  private final InterfaceMethodDesugaringMode desugaringMode;
+  final InterfaceMethodDesugaringMode desugaringMode;
   private final InterfaceDesugaringSyntheticHelper helper;
   // The emulatedMethod set is there to avoid doing the emulated look-up too often.
   private final Set<DexString> emulatedMethods = Sets.newIdentityHashSet();
@@ -102,22 +91,12 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
   // Caches default interface method info for already processed interfaces.
   private final Map<DexType, DefaultMethodsHelper.Collection> cache = new ConcurrentHashMap<>();
 
-  // This is used to filter out double desugaring.
-  private final Set<CfInstructionDesugaring> precedingDesugaringsForInvoke;
-  private final Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic;
-
-  private InterfaceMethodRewriter(
-      AppView<?> appView,
-      InterfaceMethodDesugaringMode desugaringMode,
-      Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
-      Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
+  InterfaceMethodRewriter(AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
     assert desugaringMode.isSome();
     assert desugaringMode == LIBRARY_DESUGARING_N_PLUS
         || appView.options().isInterfaceMethodDesugaringEnabled();
     this.appView = appView;
     this.desugaringMode = desugaringMode;
-    this.precedingDesugaringsForInvoke = precedingDesugaringsForInvoke;
-    this.precedingDesugaringsForInvokeDynamic = precedingDesugaringsForInvokeDynamic;
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
     this.helper = new InterfaceDesugaringSyntheticHelper(appView);
@@ -126,7 +105,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
   }
 
-  public static InterfaceMethodRewriter createCfToCf(
+  public static CfToCfInterfaceMethodRewriter createCfToCf(
       AppView<?> appView,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
@@ -139,13 +118,22 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
         precedingDesugaringsForInvokeDynamic);
   }
 
-  private static InterfaceMethodRewriter create(
+  public static LirToLirInterfaceMethodRewriter createLirToLir(
+      AppView<?> appView, CfInstructionDesugaringEventConsumer eventConsumer) {
+    InterfaceMethodDesugaringMode desugaringMode =
+        InterfaceMethodDesugaringMode.createLirToLir(appView.options());
+    return desugaringMode.isSome()
+        ? new LirToLirInterfaceMethodRewriter(appView, desugaringMode, eventConsumer)
+        : null;
+  }
+
+  private static CfToCfInterfaceMethodRewriter create(
       AppView<?> appView,
       InterfaceMethodDesugaringMode desugaringMode,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
     return desugaringMode.isSome()
-        ? new InterfaceMethodRewriter(
+        ? new CfToCfInterfaceMethodRewriter(
             appView,
             desugaringMode,
             precedingDesugaringsForInvoke,
@@ -213,80 +201,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
   }
 
-  private boolean isAlreadyDesugared(CfInvoke invoke, ProgramMethod context) {
-    return Iterables.any(
-        precedingDesugaringsForInvoke,
-        desugaring -> desugaring.compute(invoke, context).needsDesugaring());
-  }
-
-  private boolean isAlreadyDesugared(CfInvokeDynamic invoke, ProgramMethod context) {
-    return Iterables.any(
-        precedingDesugaringsForInvokeDynamic,
-        desugaring -> desugaring.compute(invoke, context).needsDesugaring());
-  }
-
-  @Override
-  public void acceptRelevantAsmOpcodes(IntConsumer consumer) {
-    CfOpcodeUtils.acceptCfInvokeOpcodes(consumer);
-  }
-
-  @Override
-  public boolean hasPreciseNeedsDesugaring() {
-    return false;
-  }
-
-  /**
-   * If the method is not required to be desugared, scanning is used to upgrade when required the
-   * class file version, as well as reporting missing type.
-   */
-  @Override
-  public void prepare(
-      ProgramMethod method,
-      CfInstructionDesugaringEventConsumer eventConsumer,
-      ProgramAdditions programAdditions) {
-    if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
-      return;
-    }
-    if (isSyntheticMethodThatShouldNotBeDoubleProcessed(method)) {
-      leavingStaticInvokeToInterface(method);
-      return;
-    }
-    CfCode code = method.getDefinition().getCode().asCfCode();
-    for (CfInstruction instruction : code.getInstructions()) {
-      if (instruction.isInvokeDynamic()
-          && !isAlreadyDesugared(instruction.asInvokeDynamic(), method)) {
-        reportInterfaceMethodHandleCallSite(instruction.asInvokeDynamic().getCallSite(), method);
-      }
-      compute(instruction, method).scan();
-    }
-  }
-
-  @Override
-  public DesugarDescription compute(CfInstruction instruction, ProgramMethod context) {
-    CfInvoke invoke = instruction.asInvoke();
-    // Interface desugaring is only interested in invokes that are not desugared by preceeding
-    // desugarings.
-    if (invoke != null && !isAlreadyDesugared(invoke, context)) {
-      return compute(
-          invoke.getMethod(),
-          invoke.getInvokeTypePreDesugar(
-              appView, context.getDefinition().getCode().getCodeLens(appView), context),
-          invoke.isInterface(),
-          context);
-    }
-    return DesugarDescription.nothing();
-  }
-
-  private DesugarDescription compute(
-      DexMethod invokedMethod, InvokeType invokeType, boolean isInterface, ProgramMethod context) {
-    RetargetMethodSupplier retargetMethodSupplier =
-        getRetargetMethodSupplier(invokedMethod, invokeType, isInterface, context);
-    return retargetMethodSupplier != RetargetMethodSupplier.none()
-        ? retargetMethodSupplier.toDesugarDescription(context)
-        : DesugarDescription.nothing();
-  }
-
-  private RetargetMethodSupplier getRetargetMethodSupplier(
+  RetargetMethodSupplier getRetargetMethodSupplier(
       DexMethod invokedMethod, InvokeType invokeType, boolean isInterface, ProgramMethod context) {
     if (isSyntheticMethodThatShouldNotBeDoubleProcessed(context)) {
       return RetargetMethodSupplier.none();
@@ -640,7 +555,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     };
   }
 
-  private void leavingStaticInvokeToInterface(ProgramMethod method) {
+  void leavingStaticInvokeToInterface(ProgramMethod method) {
     // When leaving static interface method invokes possibly upgrade the class file
     // version, but don't go above the initial class file version. If the input was
     // 1.7 or below, this will make a VerificationError on the input a VerificationError
@@ -669,19 +584,8 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     }
   }
 
-  private boolean isSyntheticMethodThatShouldNotBeDoubleProcessed(ProgramMethod method) {
+  boolean isSyntheticMethodThatShouldNotBeDoubleProcessed(ProgramMethod method) {
     return appView.getSyntheticItems().isSyntheticMethodThatShouldNotBeDoubleProcessed(method);
-  }
-
-  private void reportInterfaceMethodHandleCallSite(DexCallSite callSite, ProgramMethod context) {
-    // Check that static interface methods are not referenced from invoke-custom instructions via
-    // method handles.
-    reportStaticInterfaceMethodHandle(context, callSite.bootstrapMethod);
-    for (DexValue arg : callSite.bootstrapArgs) {
-      if (arg.isDexValueMethodHandle()) {
-        reportStaticInterfaceMethodHandle(context, arg.asDexValueMethodHandle().value);
-      }
-    }
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -856,22 +760,6 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return clazz.isLibraryClass() && !helper.isInDesugaredLibrary(clazz);
   }
 
-  private void reportStaticInterfaceMethodHandle(ProgramMethod context, DexMethodHandle handle) {
-    if (handle.type.isInvokeStatic()) {
-      DexClass holderClass = appView.definitionFor(handle.asMethod().holder);
-      // NOTE: If the class definition is missing we can't check. Let it be handled as any other
-      // missing call target.
-      if (holderClass == null) {
-        warnMissingType(context, handle.asMethod().holder);
-      } else if (holderClass.isInterface()) {
-        throw new Unimplemented(
-            "Desugaring of static interface method handle in `"
-                + context.toSourceString()
-                + "` is not yet supported.");
-      }
-    }
-  }
-
   // It is possible that referenced method actually points to an interface which does
   // not define this default methods, but inherits it. We are making our best effort
   // to find an appropriate method, but still use the original one in case we fail.
@@ -965,7 +853,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     return helper.wrapInCollection();
   }
 
-  private void warnMissingType(ProgramMethod context, DexType missing) {
+  void warnMissingType(ProgramMethod context, DexType missing) {
     // Companion/Emulated interface/Conversion classes for desugared library won't be missing,
     // they are in the desugared library.
     if (helper.shouldIgnoreFromReports(missing)) {
@@ -977,7 +865,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     options.warningMissingTypeForDesugar(origin, position, missing, method);
   }
 
-  private interface RetargetMethodSupplier {
+  interface RetargetMethodSupplier {
 
     static RetargetMethodSupplier none() {
       return null;
@@ -986,7 +874,7 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
     DesugarDescription toDesugarDescription(ProgramMethod context);
   }
 
-  private abstract static class StaticRetargetMethodSupplier implements RetargetMethodSupplier {
+  abstract static class StaticRetargetMethodSupplier implements RetargetMethodSupplier {
 
     public abstract DexMethod getRetargetMethod(
         CfInstructionDesugaringEventConsumer eventConsumer,

@@ -27,6 +27,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesug
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.LirToLirDesugaredLibraryRetargeter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
+import com.android.tools.r8.ir.desugar.itf.LirToLirInterfaceMethodRewriter;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.utils.InternalOptions;
@@ -104,8 +105,8 @@ public class R8LibraryDesugaring {
         DesugaredLibraryLibRewriter.createLirToLir(appView, eventConsumer);
     LirToLirDesugaredLibraryRetargeter desugaredLibraryRetargeter =
         LirToLirDesugaredLibraryRetargeter.createLirToLir(appView, eventConsumer);
-    // TODO(b/391572031): Implement lir-to-lir interface method rewriting.
-    InterfaceMethodRewriter interfaceMethodRewriter = null;
+    LirToLirInterfaceMethodRewriter interfaceMethodRewriter =
+        InterfaceMethodRewriter.createLirToLir(appView, eventConsumer);
     LirToLirDesugaredLibraryApiConverter desugaredLibraryApiConverter =
         DesugaredLibraryAPIConverter.createForLirToLir(
             appView, eventConsumer, interfaceMethodRewriter);
