@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import com.android.tools.r8.androidresources.DebugConsumerUtils.TestDebugConsumer;
 import com.android.tools.r8.metadata.R8BuildMetadata;
 import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.shaking.CollectingGraphConsumer;
@@ -28,6 +29,7 @@ public class R8TestCompileResult extends R8TestCompileResultBase<R8TestCompileRe
       List<ExternalArtProfile> residualArtProfiles,
       Path resourceShrinkerOutput,
       HashMap<String, Path> resourceShrinkerOutputForFeatures,
+      TestDebugConsumer resourceShrinkerLogConsumer,
       R8BuildMetadata buildMetadata) {
     super(
         state,
@@ -43,6 +45,7 @@ public class R8TestCompileResult extends R8TestCompileResultBase<R8TestCompileRe
         residualArtProfiles,
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
+        resourceShrinkerLogConsumer,
         buildMetadata);
   }
 

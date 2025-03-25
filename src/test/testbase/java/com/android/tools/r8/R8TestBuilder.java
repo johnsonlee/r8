@@ -9,6 +9,7 @@ import com.android.tools.r8.DexIndexedConsumer.ArchiveConsumer;
 import com.android.tools.r8.R8Command.Builder;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
+import com.android.tools.r8.androidresources.DebugConsumerUtils.TestDebugConsumer;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.dexsplitter.SplitterTestBase;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.RunInterface;
@@ -97,6 +98,8 @@ public abstract class R8TestBuilder<
   private boolean enableIsolatedSplits = false;
   private boolean enableMissingLibraryApiModeling = true;
   private boolean enableStartupLayoutOptimization = true;
+  private List<Consumer<ResourceShrinkerConfiguration.Builder>>
+      resourceShrinkerConfigurationConsumers = new ArrayList<>();
   CollectingGraphConsumer graphConsumer = null;
   final List<ExternalArtProfile> residualArtProfiles = new ArrayList<>();
   private final List<String> keepRules = new ArrayList<>();
@@ -104,6 +107,7 @@ public abstract class R8TestBuilder<
   private final List<String> applyMappingMaps = new ArrayList<>();
   final List<Path> features = new ArrayList<>();
   Path resourceShrinkerOutput = null;
+  TestDebugConsumer resourceShrinkerLogConsumer = null;
   HashMap<String, Path> resourceShrinkerOutputForFeatures = new HashMap<>();
   Box<R8BuildMetadata> buildMetadata;
   private boolean androidPlatformBuild = false;
@@ -137,6 +141,14 @@ public abstract class R8TestBuilder<
       throws CompilationFailedException {
     if (!keepRules.isEmpty()) {
       builder.addProguardConfiguration(keepRules, Origin.unknown());
+    }
+    if (!resourceShrinkerConfigurationConsumers.isEmpty()) {
+      builder.setResourceShrinkerConfiguration(
+          configurationBuilder -> {
+            resourceShrinkerConfigurationConsumers.forEach(
+                consumer -> consumer.accept(configurationBuilder));
+            return configurationBuilder.build();
+          });
     }
     builder.addMainDexRulesFiles(mainDexRulesFiles);
     StringBuilder proguardMapBuilder = wrapProguardMapConsumer(builder);
@@ -359,7 +371,15 @@ public abstract class R8TestBuilder<
   }
 
   public T enableOptimizedShrinking() {
-    builder.setResourceShrinkerConfiguration(b -> b.enableOptimizedShrinkingWithR8().build());
+    resourceShrinkerConfigurationConsumers.add(
+        ResourceShrinkerConfiguration.Builder::enableOptimizedShrinkingWithR8);
+    return self();
+  }
+
+  public T addResourceShrinkerLogCapture() {
+    resourceShrinkerLogConsumer = new TestDebugConsumer();
+    resourceShrinkerConfigurationConsumers.add(
+        configurationBuilder -> configurationBuilder.setDebugConsumer(resourceShrinkerLogConsumer));
     return self();
   }
 

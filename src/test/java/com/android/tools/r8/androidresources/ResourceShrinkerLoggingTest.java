@@ -5,11 +5,11 @@ package com.android.tools.r8.androidresources;
 
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
-import com.android.tools.r8.androidresources.DebugConsumerUtils.TestDebugConsumer;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -45,21 +45,11 @@ public class ResourceShrinkerLoggingTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    TestDebugConsumer testDebugConsumer = new TestDebugConsumer();
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(FooBar.class)
-        .apply(
-            b ->
-                b.getBuilder()
-                    .setResourceShrinkerConfiguration(
-                        configurationBuilder -> {
-                          if (optimized) {
-                            configurationBuilder.enableOptimizedShrinkingWithR8();
-                          }
-                          configurationBuilder.setDebugConsumer(testDebugConsumer);
-                          return configurationBuilder.build();
-                        }))
+        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
+        .addResourceShrinkerLogCapture()
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
         .compile()
@@ -73,28 +63,29 @@ public class ResourceShrinkerLoggingTest extends TestBase {
               resourceTableInspector.assertDoesNotContainResourceWithName(
                   "drawable", "unused_drawable");
             })
+        .inspectResourceShrinkerLog(
+            inspector -> {
+              assertTrue(inspector.getFinished());
+              if (!optimized) {
+                // Consistent with the old AGP embedded shrinker
+                // string:bar reachable from code
+                for (String dexReachableString : ImmutableList.of("bar", "foo")) {
+                  inspector.ensureDexReachable("string", dexReachableString);
+                }
+                // The app name is only reachable from the manifest, not dex
+                inspector.ensureResourceRoot("string", "app_name");
+                inspector.ensureUnreachable("drawable", "unused_drawable");
+                inspector.ensureDexReachable("drawable", "foobar");
+              } else {
+                inspector.ensureReachableOptimized("string", "bar");
+                inspector.ensureReachableOptimized("string", "foo");
+                inspector.ensureReachableOptimized("drawable", "foobar");
+
+                inspector.ensureUnreachableOptimized("drawable", "unused_drawable");
+              }
+            })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccess();
-    if (!optimized) {
-      assertTrue(testDebugConsumer.getFinished());
-      // Consistent with the old AGP embedded shrinker
-      List<String> logLines = testDebugConsumer.getLogLines();
-      // string:bar reachable from code
-      for (String dexReachableString : ImmutableList.of("bar", "foo")) {
-        DebugConsumerUtils.ensureDexReachable(logLines, "string", dexReachableString);
-      }
-      // The app name is only reachable from the manifest, not dex
-      DebugConsumerUtils.ensureResourceRoot(logLines, "string", "app_name");
-      DebugConsumerUtils.ensureUnreachable(logLines, "drawable", "unused_drawable");
-      DebugConsumerUtils.ensureDexReachable(logLines, "drawable", "foobar");
-    } else {
-      assertTrue(testDebugConsumer.getFinished());
-      List<String> logLines = testDebugConsumer.getLogLines();
-      DebugConsumerUtils.ensureReachableOptimized(logLines, "string", "bar", true);
-      DebugConsumerUtils.ensureReachableOptimized(logLines, "string", "foo", true);
-      DebugConsumerUtils.ensureReachableOptimized(logLines, "drawable", "foobar", true);
-      DebugConsumerUtils.ensureReachableOptimized(logLines, "drawable", "unused_drawable", false);
-    }
   }
 
   public static class FooBar {

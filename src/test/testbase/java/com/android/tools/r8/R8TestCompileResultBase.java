@@ -14,6 +14,8 @@ import com.android.tools.r8.ToolHelper.DexVm;
 import com.android.tools.r8.ToolHelper.ProcessResult;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.ResourceTableInspector;
+import com.android.tools.r8.androidresources.DebugConsumerUtils.ResourceShrinkerLogInspector;
+import com.android.tools.r8.androidresources.DebugConsumerUtils.TestDebugConsumer;
 import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.benchmarks.InstructionCodeSizeResult;
 import com.android.tools.r8.dexsplitter.SplitterTestBase.SplitRunner;
@@ -58,6 +60,7 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
   private final List<ExternalArtProfile> residualArtProfiles;
   private final Path resourceShrinkerOutput;
   private final Map<String, Path> resourceShrinkerOutputForFeatures;
+  private final TestDebugConsumer resourceShrinkerLogConsumer;
   private final R8BuildMetadata buildMetadata;
 
   R8TestCompileResultBase(
@@ -74,6 +77,7 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
       List<ExternalArtProfile> residualArtProfiles,
       Path resourceShrinkerOutput,
       HashMap<String, Path> resourceShrinkerOutputForFeatures,
+      TestDebugConsumer resourceShrinkerLogConsumer,
       R8BuildMetadata buildMetadata) {
     super(state, app, minApiLevel, outputMode, libraryDesugaringTestConfiguration);
     this.proguardConfiguration = proguardConfiguration;
@@ -84,6 +88,7 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
     this.residualArtProfiles = residualArtProfiles;
     this.resourceShrinkerOutput = resourceShrinkerOutput;
     this.resourceShrinkerOutputForFeatures = resourceShrinkerOutputForFeatures;
+    this.resourceShrinkerLogConsumer = resourceShrinkerLogConsumer;
     this.buildMetadata = buildMetadata;
   }
 
@@ -189,6 +194,12 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
       ThrowingBiConsumer<ArtProfileInspector, CodeInspector, E> consumer) throws E, IOException {
     assertEquals(1, residualArtProfiles.size());
     consumer.accept(new ArtProfileInspector(residualArtProfiles.iterator().next()), inspector());
+    return self();
+  }
+
+  public <E extends Throwable> CR inspectResourceShrinkerLog(
+      Consumer<ResourceShrinkerLogInspector> consumer) throws IOException {
+    consumer.accept(resourceShrinkerLogConsumer);
     return self();
   }
 

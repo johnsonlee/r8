@@ -60,6 +60,7 @@ public class R8FullTestBuilder
         residualArtProfiles,
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
+        resourceShrinkerLogConsumer,
         buildMetadata != null ? buildMetadata.get() : null);
   }
 }

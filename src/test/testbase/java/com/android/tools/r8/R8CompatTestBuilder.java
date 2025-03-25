@@ -62,6 +62,7 @@ public class R8CompatTestBuilder
         residualArtProfiles,
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
+        resourceShrinkerLogConsumer,
         buildMetadata != null ? buildMetadata.get() : null);
   }
 }

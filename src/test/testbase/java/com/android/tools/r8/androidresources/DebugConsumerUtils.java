@@ -14,13 +14,13 @@ import java.util.List;
 
 public class DebugConsumerUtils {
 
-  static void ensureReachableOptimized(
+  private static void ensureReachableOptimized(
       List<String> logStrings, String type, String name, boolean reachable) {
     assertEquals(
-        logStrings.stream().anyMatch(s -> s.startsWith(type + ":" + name + ":")), reachable);
+        reachable, logStrings.stream().anyMatch(s -> s.startsWith(type + ":" + name + ":")));
   }
 
-  static void ensureDexReachableResourcesState(
+  private static void ensureDexReachableResourcesState(
       List<String> logStrings, String type, String name, boolean reachable) {
     // Example line:
     // Marking drawable:foobar:2130771968 reachable: referenced from classes.dex
@@ -33,7 +33,7 @@ public class DebugConsumerUtils {
                         && s.contains("reachable: referenced from")));
   }
 
-  static void ensureResourceReachabilityState(
+  private static void ensureResourceReachabilityState(
       List<String> logStrings, String type, String name, boolean reachable) {
     // Example line:
     // @packagename:string/bar : reachable=true
@@ -42,14 +42,14 @@ public class DebugConsumerUtils {
             .anyMatch(s -> s.contains(type + "/" + name + " : reachable=" + reachable)));
   }
 
-  static void ensureRootResourceState(
+  private static void ensureRootResourceState(
       List<String> logStrings, String type, String name, boolean isRoot) {
-    assertEquals(isInSection(logStrings, type, name, "The root reachable resources are:"), isRoot);
+    assertEquals(isRoot, isInSection(logStrings, type, name, "The root reachable resources are:"));
   }
 
-  static void ensureUnusedState(
+  private static void ensureUnusedState(
       List<String> logStrings, String type, String name, boolean isUnused) {
-    assertEquals(isInSection(logStrings, type, name, "Unused resources are:"), isUnused);
+    assertEquals(isUnused, isInSection(logStrings, type, name, "Unused resources are:"));
   }
 
   private static boolean isInSection(
@@ -75,28 +75,45 @@ public class DebugConsumerUtils {
     return false;
   }
 
-  static void ensureDexReachable(List<String> logLines, String type, String dexReachableString) {
+  private static void ensureDexReachable(
+      List<String> logLines, String type, String dexReachableString) {
     ensureDexReachableResourcesState(logLines, type, dexReachableString, true);
     ensureResourceReachabilityState(logLines, type, dexReachableString, true);
     ensureRootResourceState(logLines, type, dexReachableString, true);
     ensureUnusedState(logLines, type, dexReachableString, false);
   }
 
-  static void ensureUnreachable(List<String> logLines, String type, String unused) {
+  private static void ensureUnreachable(List<String> logLines, String type, String unused) {
     ensureDexReachableResourcesState(logLines, type, unused, false);
     ensureResourceReachabilityState(logLines, type, unused, false);
     ensureRootResourceState(logLines, type, unused, false);
     ensureUnusedState(logLines, type, unused, true);
   }
 
-  static void ensureResourceRoot(List<String> logLines, String type, String name) {
+  private static void ensureResourceRoot(List<String> logLines, String type, String name) {
     ensureDexReachableResourcesState(logLines, type, name, false);
     ensureResourceReachabilityState(logLines, type, name, true);
     ensureRootResourceState(logLines, type, name, true);
     ensureUnusedState(logLines, type, name, false);
   }
 
-  static class TestDebugConsumer implements StringConsumer {
+  public interface ResourceShrinkerLogInspector {
+    List<String> getLogLines();
+
+    boolean getFinished();
+
+    void ensureDexReachable(String type, String dexReachableString);
+
+    void ensureUnreachable(String type, String unused);
+
+    void ensureResourceRoot(String type, String name);
+
+    void ensureReachableOptimized(String type, String name);
+
+    void ensureUnreachableOptimized(String type, String name);
+  }
+
+  public static class TestDebugConsumer implements StringConsumer, ResourceShrinkerLogInspector {
     private boolean finished = false;
     private List<String> logLines = new ArrayList<>();
 
@@ -111,6 +128,30 @@ public class DebugConsumerUtils {
       assert !finished;
       // Includes trailing newline, strip these.
       logLines.add(CharMatcher.whitespace().trimTrailingFrom(string));
+    }
+
+    public void ensureDexReachable(String type, String dexReachableString) {
+      DebugConsumerUtils.ensureDexReachable(getLogLines(), type, dexReachableString);
+    }
+
+    @Override
+    public void ensureUnreachable(String type, String unused) {
+      DebugConsumerUtils.ensureUnreachable(getLogLines(), type, unused);
+    }
+
+    @Override
+    public void ensureResourceRoot(String type, String name) {
+      DebugConsumerUtils.ensureResourceRoot(getLogLines(), type, name);
+    }
+
+    @Override
+    public void ensureReachableOptimized(String type, String name) {
+      DebugConsumerUtils.ensureReachableOptimized(getLogLines(), type, name, true);
+    }
+
+    @Override
+    public void ensureUnreachableOptimized(String type, String name) {
+      DebugConsumerUtils.ensureReachableOptimized(getLogLines(), type, name, false);
     }
 
     public List<String> getLogLines() {

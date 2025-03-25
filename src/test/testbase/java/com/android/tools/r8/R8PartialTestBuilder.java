@@ -154,6 +154,7 @@ public class R8PartialTestBuilder
         residualArtProfiles,
         resourceShrinkerOutput,
         resourceShrinkerOutputForFeatures,
+        resourceShrinkerLogConsumer,
         buildMetadata != null ? buildMetadata.get() : null);
   }
 
