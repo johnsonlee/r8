@@ -79,11 +79,11 @@ public class LibraryDesugaringOptions {
   }
 
   public boolean isCfToCfLibraryDesugaringEnabled() {
-    return !isLirToLirLibraryDesugaringEnabled();
+    return isEnabled() && !isLirToLirLibraryDesugaringEnabled();
   }
 
   public boolean isLirToLirLibraryDesugaringEnabled() {
-    return options.partialSubCompilationConfiguration != null;
+    return isEnabled() && options.partialSubCompilationConfiguration != null;
   }
 
   public void resetDesugaredLibrarySpecificationForTesting() {
