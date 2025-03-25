@@ -23,11 +23,10 @@ public class AndroidApiLevelDatabaseHelper {
     notModeledTypes.add("android.annotation.Nullable");
     notModeledTypes.add("android.annotation.NonNull");
     notModeledTypes.add("android.annotation.FlaggedApi");
-    notModeledTypes.add("android.adservices.customaudience.PartialCustomAudience");
-    notModeledTypes.add("android.adservices.customaudience.PartialCustomAudience$Builder");
     notModeledTypes.add(
-        "android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest$Builder");
-    notModeledTypes.add("android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest");
+        "android.adservices.ondevicepersonalization.FederatedComputeScheduleRequest");
+    notModeledTypes.add(
+        "android.adservices.ondevicepersonalization.FederatedComputeScheduleResponse");
     return notModeledTypes;
   }
 
@@ -36,6 +35,17 @@ public class AndroidApiLevelDatabaseHelper {
     Set<String> notModeledFields = new HashSet<>();
     notModeledFields.add("int android.app.appsearch.AppSearchResult.RESULT_DENIED");
     notModeledFields.add("int android.app.appsearch.AppSearchResult.RESULT_RATE_LIMITED");
+
+    notModeledFields.add(
+        "int android.adservices.adselection.ReportEventRequest.FLAG_REPORTING_DESTINATION_COMPONENT_SELLER");
+    notModeledFields.add(
+        "int android.adservices.ondevicepersonalization.OnDevicePersonalizationManager.FEATURE_DISABLED");
+    notModeledFields.add(
+        "int android.adservices.ondevicepersonalization.OnDevicePersonalizationManager.FEATURE_ENABLED");
+    notModeledFields.add(
+        "int android.adservices.ondevicepersonalization.OnDevicePersonalizationManager.FEATURE_UNSUPPORTED");
+    notModeledFields.add(
+        "int android.adservices.ondevicepersonalization.InferenceInput$Params.MODEL_TYPE_EXECUTORCH");
     return notModeledFields;
   }
 
@@ -46,6 +56,29 @@ public class AndroidApiLevelDatabaseHelper {
         "void android.adservices.customaudience.CustomAudienceManager.scheduleCustomAudienceUpdate(android.adservices.customaudience.ScheduleCustomAudienceUpdateRequest,"
             + " java.util.concurrent.Executor,"
             + " android.adservices.common.AdServicesOutcomeReceiver)");
+    notModelledMethods.add(
+        "android.adservices.ondevicepersonalization.InferenceOutput$Builder"
+            + " android.adservices.ondevicepersonalization.InferenceOutput$Builder.setData(byte[])");
+    notModelledMethods.add(
+        "android.adservices.common.AdTechIdentifier"
+            + " android.adservices.adselection.AdSelectionOutcome.getWinningSeller()");
+    notModelledMethods.add(
+        "void android.adservices.ondevicepersonalization.FederatedComputeScheduler.schedule(android.adservices.ondevicepersonalization.FederatedComputeScheduleRequest,"
+            + " java.util.concurrent.Executor, android.os.OutcomeReceiver)");
+
+    notModelledMethods.add(
+        "byte[] android.adservices.ondevicepersonalization.InferenceOutput.getData()");
+    notModelledMethods.add(
+        "byte[] android.adservices.ondevicepersonalization.InferenceInput.getData()");
+    notModelledMethods.add(
+        "void android.adservices.ondevicepersonalization.OnDevicePersonalizationManager.queryFeatureAvailability(java.lang.String,"
+            + " java.util.concurrent.Executor, android.os.OutcomeReceiver)");
+    notModelledMethods.add(
+        "void android.adservices.ondevicepersonalization.InferenceInput$Builder.<init>(android.adservices.ondevicepersonalization.InferenceInput$Params,"
+            + " byte[])");
+    notModelledMethods.add(
+        "android.adservices.ondevicepersonalization.InferenceInput$Builder"
+            + " android.adservices.ondevicepersonalization.InferenceInput$Builder.setInputData(byte[])");
     return notModelledMethods;
   }
 

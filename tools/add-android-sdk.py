@@ -15,7 +15,8 @@ def parse_options():
     parser.add_argument('--sdk-home',
                         '--sdk_home',
                         metavar=('<SDK_HOME>'),
-                        help='SDK_HOME to use for finding SDK')
+                        help='SDK_HOME to use for finding SDK'
+                             ' (default $SDK_HOME or $HOME/Android/Sdk)')
     parser.add_argument('--sdk-name',
                         '--sdk_name',
                         required=True,
@@ -53,10 +54,14 @@ def main():
     if not args.sdk_home:
         args.sdk_home = os.environ.get('SDK_HOME')
         if not args.sdk_home:
-            print('No SDK_HOME specified')
+            if not os.environ.get('HOME'):
+                print('No SDK_HOME specified')
+                sys.exit(1)
+            args.sdk_home = os.path.join(os.environ.get('HOME'), 'Android', 'Sdk')
+        if not os.path.exists(args.sdk_home):
+            print('SDK_HOME does not exist')
             sys.exit(1)
-        else:
-            print('Using SDK_HOME: %s' % args.sdk_home)
+        print('Using SDK_HOME: %s' % args.sdk_home)
 
     source = os.path.join(args.sdk_home, 'platforms',
                           'android-%s' % args.sdk_name)

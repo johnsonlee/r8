@@ -107,8 +107,7 @@ public class AndroidApiVersionsXmlParser {
     }
     Set<String> removedTypeNames = new HashSet<>();
     if (maxApiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.U)) {
-      if (maxApiLevel.isLessThan(AndroidApiLevel.V)
-          || maxApiLevel.equals(AndroidApiLevel.BAKLAVA)) {
+      if (maxApiLevel.isLessThan(AndroidApiLevel.V)) {
         removedTypeNames.add("com.android.internal.util.Predicate");
       }
       removedTypeNames.add("android.adservices.AdServicesVersion");

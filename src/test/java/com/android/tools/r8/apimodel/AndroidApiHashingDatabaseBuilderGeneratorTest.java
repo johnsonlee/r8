@@ -127,8 +127,8 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
         });
     // These numbers will change when updating api-versions.xml
     assertEquals(6222, parsedApiClasses.size());
-    assertEquals(31430, numberOfFields.get());
-    assertEquals(48025, numberOfMethods.get());
+    assertEquals(31431, numberOfFields.get());
+    assertEquals(48028, numberOfMethods.get());
   }
 
   private static String sampleVersion4ApiVersionsXml =
@@ -290,10 +290,16 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
     Set<String> notModeledFields = notModeledFields();
     Set<String> notModeledMethods = notModeledMethods();
     for (DexLibraryClass clazz : appView.app().asDirect().libraryClasses()) {
-      if (notModeledTypes.contains(clazz.getClassReference().getTypeName())) {
+      String typeName = clazz.getClassReference().getTypeName();
+      if (notModeledTypes.contains(typeName)) {
+        notModeledTypes.remove(typeName);
         continue;
       }
       assertTrue(
+          "Class "
+              + clazz.toSourceString()
+              + " not found in API database. Did you forget to run main method in this"
+              + " class to regenerate it?",
           apiLevelCompute
               .computeApiLevelForLibraryReference(clazz.getReference())
               .isKnownApiLevel());
@@ -303,25 +309,42 @@ public class AndroidApiHashingDatabaseBuilderGeneratorTest extends TestBase {
                 && !field.toSourceString().contains("this$0")
                 && !notModeledFields.contains(field.toSourceString())) {
               assertTrue(
+                  "Field "
+                      + field.toSourceString()
+                      + " not found in API database. Did you forget to run main method in this"
+                      + " class to regenerate it?",
                   apiLevelCompute
                       .computeApiLevelForLibraryReference(field.getReference())
                       .isKnownApiLevel());
             }
+            notModeledFields.remove(field.toSourceString());
           });
       clazz.forEachClassMethod(
           method -> {
             if (method.getAccessFlags().isPublic()
                 && !notModeledMethods.contains(method.toSourceString())) {
               assertTrue(
-                  method.toSourceString()
+                  "Method "
+                      + method.toSourceString()
                       + " not found in API database. Did you forget to run main method in this"
                       + " class to regenerate it?",
                   apiLevelCompute
                       .computeApiLevelForLibraryReference(method.getReference())
                       .isKnownApiLevel());
             }
+            notModeledMethods.remove(method.toSourceString());
           });
     }
+
+    assertTrue(
+        "Not modelled types actually modeled: " + String.join(", ", notModeledTypes),
+        notModeledTypes.isEmpty());
+    assertTrue(
+        "Not modelled fields actually modeled: " + String.join(", ", notModeledFields),
+        notModeledFields.isEmpty());
+    assertTrue(
+        "Not modelled methods actually modeled: " + String.join(", ", notModeledMethods),
+        notModeledMethods.isEmpty());
   }
 
   @Test

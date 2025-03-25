@@ -200,6 +200,32 @@ public class AndroidApiHashingDatabaseBuilderGenerator extends TestBase {
     expectedMissingMembers.add(factory.createType("Landroid/nfc/tech/NfcB;"));
     expectedMissingMembers.add(factory.createType("Landroid/nfc/tech/Ndef;"));
     expectedMissingMembers.add(factory.createType("Landroid/webkit/CookieSyncManager;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/adselection/AdSelectionOutcome;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/adselection/ReportEventRequest;"));
+    expectedMissingMembers.add(
+        factory.createType(
+            "Landroid/adservices/ondevicepersonalization/FederatedComputeScheduleRequest;"));
+    expectedMissingMembers.add(
+        factory.createType(
+            "Landroid/adservices/ondevicepersonalization/FederatedComputeScheduleResponse;"));
+    expectedMissingMembers.add(
+        factory.createType(
+            "Landroid/adservices/ondevicepersonalization/FederatedComputeScheduler;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/ondevicepersonalization/InferenceInput;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/ondevicepersonalization/InferenceInput$Builder;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/ondevicepersonalization/InferenceInput$Params;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/ondevicepersonalization/InferenceOutput;"));
+    expectedMissingMembers.add(
+        factory.createType("Landroid/adservices/ondevicepersonalization/InferenceOutput$Builder;"));
+    expectedMissingMembers.add(
+        factory.createType(
+            "Landroid/adservices/ondevicepersonalization/OnDevicePersonalizationManager;"));
     assertEquals(
         expectedMissingMembers.stream()
                 .map(DexType::toDescriptorString)
