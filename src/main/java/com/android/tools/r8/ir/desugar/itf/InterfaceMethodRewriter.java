@@ -299,7 +299,10 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
       boolean isInterface,
       ProgramMethod context) {
     assert invokeType.isDirectOrSuper();
-    if (desugaringMode == EMULATED_INTERFACE_ONLY || !isInterface) {
+    if (desugaringMode == EMULATED_INTERFACE_ONLY) {
+      return computeInvokeSpecialEmulatedInterfaceForwardingMethod(holder, invokedMethod, context);
+    }
+    if (!isInterface) {
       return computeEmulatedInterfaceInvokeSpecial(holder, invokedMethod, context);
     }
     if (holder == null) {
@@ -811,63 +814,79 @@ public final class InterfaceMethodRewriter implements CfInstructionDesugaring {
 
   private DesugarDescription computeEmulatedInterfaceInvokeSpecial(
       DexClass clazz, DexMethod invokedMethod, ProgramMethod context) {
+    assert desugaringMode != EMULATED_INTERFACE_ONLY;
     if (clazz == null) {
       return DesugarDescription.nothing();
     }
     AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
     DexClassAndMethod superTarget =
-        appView.appInfoForDesugaring().lookupSuperTarget(invokedMethod, context, appView, appInfo);
+        appInfo.lookupSuperTarget(invokedMethod, context, appView, appInfo);
+    if (superTarget == null) {
+      return DesugarDescription.nothing();
+    }
     if (clazz.isInterface()
         && clazz.isLibraryClass()
         && helper.isInDesugaredLibrary(clazz)
-        && !helper.isEmulatedInterface(clazz.type)) {
-      if (superTarget != null && superTarget.getDefinition().isDefaultMethod()) {
-        DexClass holder = superTarget.getHolder();
-        if (holder.isLibraryClass() && holder.isInterface()) {
-          return DesugarDescription.builder()
-              .setDesugarRewrite(
-                  (position,
-                      freshLocalProvider,
-                      localStackAllocator,
-                      desugaringInfo,
-                      eventConsumer,
-                      context13,
-                      methodProcessingContext,
-                      desugaringCollection,
-                      dexItemFactory) -> {
-                    DexClassAndMethod companionTarget =
-                        helper.ensureDefaultAsMethodOfCompanionClassStub(
-                            superTarget, eventConsumer);
-                    return getInvokeStaticInstructions(companionTarget.getReference());
-                  })
-              .build();
-        }
-      }
+        && !helper.isEmulatedInterface(clazz.type)
+        && superTarget.isDefaultMethod()
+        && superTarget.isLibraryMethod()) {
+      return DesugarDescription.builder()
+          .setDesugarRewrite(
+              (position,
+                  freshLocalProvider,
+                  localStackAllocator,
+                  desugaringInfo,
+                  eventConsumer,
+                  context13,
+                  methodProcessingContext,
+                  desugaringCollection,
+                  dexItemFactory) -> {
+                DexClassAndMethod companionTarget =
+                    helper.ensureDefaultAsMethodOfCompanionClassStub(superTarget, eventConsumer);
+                return getInvokeStaticInstructions(companionTarget.getReference());
+              })
+          .build();
+    } else {
+      return computeInvokeSpecialEmulatedInterfaceForwardingMethod(clazz, superTarget);
     }
-    // That invoke super may not resolve since the super method may not be present
-    // since it's in the emulated interface. We need to force resolution. If it resolves
-    // to a library method, then it needs to be rewritten.
-    // If it resolves to a program overrides, the invoke-super can remain.
-    DerivedMethod forwardingMethod =
-        helper.computeEmulatedInterfaceForwardingMethod(clazz, superTarget);
-    if (forwardingMethod == null) {
+  }
+
+  private DesugarDescription computeInvokeSpecialEmulatedInterfaceForwardingMethod(
+      DexClass clazz, DexMethod invokedMethod, ProgramMethod context) {
+    if (clazz == null) {
       return DesugarDescription.nothing();
     }
-    return DesugarDescription.builder()
-        .setDesugarRewrite(
-            (position,
-                freshLocalProvider,
-                localStackAllocator,
-                desugaringInfo,
-                eventConsumer,
-                context14,
-                methodProcessingContext,
-                desugaringCollection,
-                dexItemFactory) ->
-                getInvokeStaticInstructions(
-                    helper.ensureEmulatedInterfaceForwardingMethod(
-                        forwardingMethod, eventConsumer)))
-        .build();
+    AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
+    DexClassAndMethod superTarget =
+        appInfo.lookupSuperTarget(invokedMethod, context, appView, appInfo);
+    return computeInvokeSpecialEmulatedInterfaceForwardingMethod(clazz, superTarget);
+  }
+
+  private DesugarDescription computeInvokeSpecialEmulatedInterfaceForwardingMethod(
+      DexClass clazz, DexClassAndMethod superTarget) {
+    // That invoke super may not resolve since the super method may not be present since it's in the
+    // emulated interface. We need to force resolution. If it resolves to a library method, then it
+    // needs to be rewritten. If it resolves to a program overrides, the invoke-super can remain.
+    DerivedMethod forwardingMethod =
+        helper.computeEmulatedInterfaceForwardingMethod(clazz, superTarget);
+    if (forwardingMethod != null) {
+      return DesugarDescription.builder()
+          .setDesugarRewrite(
+              (position,
+                  freshLocalProvider,
+                  localStackAllocator,
+                  desugaringInfo,
+                  eventConsumer,
+                  context14,
+                  methodProcessingContext,
+                  desugaringCollection,
+                  dexItemFactory) ->
+                  getInvokeStaticInstructions(
+                      helper.ensureEmulatedInterfaceForwardingMethod(
+                          forwardingMethod, eventConsumer)))
+          .build();
+    }
+    return DesugarDescription.nothing();
   }
 
   private boolean shouldRewriteToInvokeToThrow(
