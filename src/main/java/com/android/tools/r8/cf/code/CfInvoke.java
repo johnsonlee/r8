@@ -63,7 +63,12 @@ public class CfInvoke extends CfInstruction {
 
   public InvokeType getInvokeType(
       AppView<?> appView, GraphLens codeLens, DexClassAndMethod context) {
-    return InvokeType.fromCfOpcode(getOpcode(), method, context, appView, codeLens);
+    return InvokeType.fromCfOpcode(getOpcode(), method, context, appView, codeLens, true);
+  }
+
+  public InvokeType getInvokeTypePreDesugar(
+      AppView<?> appView, GraphLens codeLens, DexClassAndMethod context) {
+    return InvokeType.fromCfOpcode(getOpcode(), method, context, appView, codeLens, false);
   }
 
   @Override

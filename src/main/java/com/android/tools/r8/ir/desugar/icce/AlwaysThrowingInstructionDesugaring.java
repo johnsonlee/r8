@@ -23,6 +23,7 @@ import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.FailedResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
@@ -62,10 +63,14 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
     } else if (instruction.isInvoke()) {
       CfInvoke invoke = instruction.asInvoke();
       DexMethod invokedMethod = invoke.getMethod();
+      InvokeType invokeType =
+          invoke.getInvokeTypePreDesugar(
+              appView, context.getDefinition().getCode().getCodeLens(appView), context);
+      boolean isInterface = invoke.isInterface();
       MethodResolutionResult resolutionResult =
-          appView.appInfo().resolveMethodLegacy(invokedMethod, invoke.isInterface());
+          appView.appInfo().resolveMethodLegacy(invokedMethod, isInterface);
       if (shouldRewriteInvokeToThrow(invoke, resolutionResult)) {
-        return computeInvokeAsThrowRewrite(appView, invoke, resolutionResult);
+        return computeInvokeAsThrowRewrite(appView, invokedMethod, invokeType, resolutionResult);
       }
     }
     return DesugarDescription.nothing();
@@ -98,6 +103,7 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
                     fieldInstruction,
                     localStackAllocator,
                     eventConsumer,
+                    context,
                     methodProcessingContext,
                     getMethodSynthesizerForThrowing(fieldInstruction, resolutionResult)))
         .build();
@@ -126,7 +132,10 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
   }
 
   public static DesugarDescription computeInvokeAsThrowRewrite(
-      AppView<?> appView, CfInvoke invoke, MethodResolutionResult resolutionResult) {
+      AppView<?> appView,
+      DexMethod invokedMethod,
+      InvokeType invokeType,
+      MethodResolutionResult resolutionResult) {
     return DesugarDescription.builder()
         .setDesugarRewrite(
             (position,
@@ -138,19 +147,23 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
                 methodProcessingContext,
                 desugaringCollection,
                 dexItemFactory) ->
-                getThrowInstructions(
+                getThrowInstructionsForInvoke(
                     appView,
-                    invoke,
+                    invokedMethod,
+                    invokeType,
                     localStackAllocator,
                     eventConsumer,
                     methodProcessingContext,
-                    getMethodSynthesizerForThrowing(appView, invoke, resolutionResult, context)))
+                    getMethodSynthesizerForThrowing(
+                        appView, invokeType, resolutionResult, context)))
         .build();
   }
 
-  @SuppressWarnings("UnusedVariable")
   public static DesugarDescription computeInvokeAsThrowNSMERewrite(
-      AppView<?> appView, CfInvoke invoke, ScanCallback scanCallback) {
+      AppView<?> appView,
+      DexMethod invokedMethod,
+      InvokeType invokeType,
+      ScanCallback scanCallback) {
     DesugarDescription.Builder builder =
         DesugarDescription.builder()
             .setDesugarRewrite(
@@ -163,9 +176,10 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
                     methodProcessingContext,
                     desugaringCollection,
                     dexItemFactory) ->
-                    getThrowInstructions(
+                    getThrowInstructionsForInvoke(
                         appView,
-                        invoke,
+                        invokedMethod,
+                        invokeType,
                         localStackAllocator,
                         eventConsumer,
                         methodProcessingContext,
@@ -180,6 +194,7 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
       CfInstruction instruction,
       LocalStackAllocator localStackAllocator,
       CfInstructionDesugaringEventConsumer eventConsumer,
+      ProgramMethod method,
       MethodProcessingContext methodProcessingContext,
       MethodSynthesizerConsumer methodSynthesizerConsumer) {
     if (methodSynthesizerConsumer == null) {
@@ -227,7 +242,39 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
 
     assert instruction.isInvoke();
     CfInvoke invoke = instruction.asInvoke();
+    return internalGetThrowInstructionsForInvoke(
+        invoke.getMethod(),
+        invoke.getInvokeTypePreDesugar(
+            appView, method.getDefinition().getCode().getCodeLens(appView), method),
+        localStackAllocator,
+        throwProgramMethod);
+  }
 
+  private static Collection<CfInstruction> getThrowInstructionsForInvoke(
+      AppView<?> appView,
+      DexMethod invokedMethod,
+      InvokeType invokeType,
+      LocalStackAllocator localStackAllocator,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      MethodProcessingContext methodProcessingContext,
+      MethodSynthesizerConsumer methodSynthesizerConsumer) {
+    if (methodSynthesizerConsumer == null) {
+      assert false;
+      return null;
+    }
+
+    UtilityMethodForCodeOptimizations throwMethod =
+        methodSynthesizerConsumer.synthesizeMethod(appView, eventConsumer, methodProcessingContext);
+    ProgramMethod throwProgramMethod = throwMethod.uncheckedGetMethod();
+    return internalGetThrowInstructionsForInvoke(
+        invokedMethod, invokeType, localStackAllocator, throwProgramMethod);
+  }
+
+  private static Collection<CfInstruction> internalGetThrowInstructionsForInvoke(
+      DexMethod invokedMethod,
+      InvokeType invokeType,
+      LocalStackAllocator localStackAllocator,
+      ProgramMethod throwProgramMethod) {
     // Replace the entire effect of the invoke by a call to the throwing helper:
     //   ...
     //   invoke <method> [receiver] args*
@@ -239,7 +286,7 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
     //   pop exception result
     //   [push fake result for <method>]
     ArrayList<CfInstruction> replacement = new ArrayList<>();
-    DexTypeList parameters = invoke.getMethod().getParameters();
+    DexTypeList parameters = invokedMethod.getParameters();
     for (int i = parameters.values.length - 1; i >= 0; i--) {
       replacement.add(
           new CfStackInstruction(
@@ -247,7 +294,7 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
                   ? CfStackInstruction.Opcode.Pop2
                   : CfStackInstruction.Opcode.Pop));
     }
-    if (!invoke.isInvokeStatic()) {
+    if (!invokeType.isStatic()) {
       replacement.add(new CfStackInstruction(CfStackInstruction.Opcode.Pop));
     }
 
@@ -258,7 +305,7 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
     replacement.add(throwInvoke);
     replacement.add(new CfStackInstruction(CfStackInstruction.Opcode.Pop));
 
-    DexType returnType = invoke.getMethod().getReturnType();
+    DexType returnType = invokedMethod.getReturnType();
     if (!returnType.isVoidType()) {
       replacement.add(
           returnType.isPrimitiveType()
@@ -274,16 +321,16 @@ public class AlwaysThrowingInstructionDesugaring implements CfInstructionDesugar
 
   private static MethodSynthesizerConsumer getMethodSynthesizerForThrowing(
       AppView<?> appView,
-      CfInvoke invoke,
+      InvokeType invokeType,
       MethodResolutionResult resolutionResult,
       ProgramMethod context) {
     if (resolutionResult == null) {
       return UtilityMethodsForCodeOptimizations::synthesizeThrowNoSuchMethodErrorMethod;
     } else if (resolutionResult.isSingleResolution()) {
-      if (resolutionResult.getResolvedMethod().isStatic() != invoke.isInvokeStatic()) {
+      if (resolutionResult.getResolvedMethod().isStatic() != invokeType.isStatic()) {
         return UtilityMethodsForCodeOptimizations
             ::synthesizeThrowIncompatibleClassChangeErrorMethod;
-      } else if (invoke.isInvokeSpecial()
+      } else if (invokeType.isDirectOrSuper()
           && resolutionResult.getResolvedMethod().getAccessFlags().isAbstract()) {
         return UtilityMethodsForCodeOptimizations::synthesizeThrowAbstractMethodErrorMethod;
       }

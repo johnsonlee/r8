@@ -55,18 +55,28 @@ public enum InvokeType {
     return fromCfOpcode(opcode, invokedMethod, context, appView, appView.codeLens());
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public static InvokeType fromCfOpcode(
       int opcode,
       DexMethod invokedMethod,
       DexClassAndMethod context,
       AppView<?> appView,
       GraphLens codeLens) {
+    return fromCfOpcode(opcode, invokedMethod, context, appView, codeLens, true);
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  public static InvokeType fromCfOpcode(
+      int opcode,
+      DexMethod invokedMethod,
+      DexClassAndMethod context,
+      AppView<?> appView,
+      GraphLens codeLens,
+      boolean isDesugared) {
     switch (opcode) {
       case org.objectweb.asm.Opcodes.INVOKEINTERFACE:
         return InvokeType.INTERFACE;
       case org.objectweb.asm.Opcodes.INVOKESPECIAL:
-        return fromInvokeSpecial(invokedMethod, context, appView, codeLens);
+        return fromInvokeSpecial(invokedMethod, context, appView, codeLens, isDesugared);
       case org.objectweb.asm.Opcodes.INVOKESTATIC:
         return InvokeType.STATIC;
       case org.objectweb.asm.Opcodes.INVOKEVIRTUAL:
@@ -79,9 +89,18 @@ public enum InvokeType {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   public static InvokeType fromInvokeSpecial(
       DexMethod invokedMethod, DexClassAndMethod context, AppView<?> appView, GraphLens codeLens) {
+    return fromInvokeSpecial(invokedMethod, context, appView, codeLens, true);
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  public static InvokeType fromInvokeSpecial(
+      DexMethod invokedMethod,
+      DexClassAndMethod context,
+      AppView<?> appView,
+      GraphLens codeLens,
+      boolean isDesugared) {
     if (invokedMethod.isInstanceInitializer(appView.dexItemFactory())) {
       return InvokeType.DIRECT;
     }
@@ -150,7 +169,7 @@ public enum InvokeType {
     } else {
       // Due to desugaring of invoke-special instructions that target virtual methods, this should
       // never target a virtual method.
-      assert definition.isPrivate() || lookupResult.getType().isVirtual();
+      assert definition.isPrivate() || lookupResult.getType().isVirtual() || !isDesugared;
     }
 
     return InvokeType.DIRECT;
@@ -208,8 +227,16 @@ public enum InvokeType {
     return this == DIRECT;
   }
 
+  public boolean isDirectOrSuper() {
+    return isDirect() || isSuper();
+  }
+
   public boolean isInterface() {
     return this == INTERFACE;
+  }
+
+  public boolean isPolymorphic() {
+    return this == POLYMORPHIC;
   }
 
   public boolean isStatic() {
