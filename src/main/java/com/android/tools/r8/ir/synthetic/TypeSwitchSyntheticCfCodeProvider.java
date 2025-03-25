@@ -4,11 +4,9 @@
 
 package com.android.tools.r8.ir.synthetic;
 
-import static com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo.ClassNameMapping.NAME;
-
+import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfConstString;
-import com.android.tools.r8.cf.code.CfDexItemBasedConstString;
 import com.android.tools.r8.cf.code.CfFrame;
 import com.android.tools.r8.cf.code.CfIf;
 import com.android.tools.r8.cf.code.CfIfCmp;
@@ -27,6 +25,8 @@ import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
+import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -36,9 +36,7 @@ import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexValueNumber;
 import com.android.tools.r8.ir.code.IfType;
 import com.android.tools.r8.ir.code.ValueType;
-import com.android.tools.r8.naming.dexitembasedstring.ClassNameComputationInfo;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.IntBox;
 import java.util.ArrayList;
 import java.util.List;
@@ -193,26 +191,38 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                   //  and generate a fast check based on the field. But these information are not
                   //  available in Cf instructions.
                   instructions.add(new CfLoad(ValueType.OBJECT, 0));
-                  assert enumFieldCache != null;
-                  instructions.add(new CfStaticFieldRead(enumFieldCache));
-                  instructions.add(new CfConstNumber(enumIndex.getAndIncrement(), ValueType.INT));
-                  if (appView.enableWholeProgramOptimizations()
-                      || appView.options().partialSubCompilationConfiguration != null) {
-                    instructions.add(
-                        new CfDexItemBasedConstString(
-                            type,
-                            ClassNameComputationInfo.create(NAME, type.getArrayTypeDimensions())));
+                  // TODO(b/399808482): Temporary work-around so we can roll to google3.
+                  DexField field = getEnumField(enumField, type, appView);
+                  if (field == null) {
+                    instructions.add(new CfConstNull());
                   } else {
-                    DexString typeString =
-                        factory.createString(
-                            DescriptorUtils.descriptorToJavaType(type.toDescriptorString()));
-                    instructions.add(new CfConstString(typeString));
+                    instructions.add(new CfStaticFieldRead(field));
                   }
-                  instructions.add(new CfConstString(enumField));
-                  assert enumEq != null;
-                  instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, enumEq, false));
                   instructions.add(
-                      new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                      new CfIfCmp(IfType.NE, ValueType.OBJECT, cfLabels.get(index.get() + 1)));
+                  assert enumFieldCache != null;
+                  assert enumEq != null;
+                  enumIndex.getAndIncrement();
+                  // instructions.add(new CfStaticFieldRead(enumFieldCache));
+                  // instructions.add(new CfConstNumber(enumIndex.getAndIncrement(),
+                  // ValueType.INT));
+                  // if (appView.enableWholeProgramOptimizations()
+                  //     || appView.options().partialSubCompilationConfiguration != null) {
+                  //   instructions.add(
+                  //       new CfDexItemBasedConstString(
+                  //           type,
+                  //           ClassNameComputationInfo.create(NAME,
+                  // type.getArrayTypeDimensions())));
+                  // } else {
+                  //   DexString typeString =
+                  //       factory.createString(
+                  //           DescriptorUtils.descriptorToJavaType(type.toDescriptorString()));
+                  //   instructions.add(new CfConstString(typeString));
+                  // }
+                  // instructions.add(new CfConstString(enumField));
+                  // instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, enumEq, false));
+                  // instructions.add(
+                  //     new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
                   instructions.add(new CfConstNumber(index.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfReturn(ValueType.INT));
                 },
@@ -264,6 +274,22 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
     instructions.add(new CfConstNumber(-2, ValueType.INT));
     instructions.add(new CfReturn(ValueType.INT));
     return standardCfCodeFromInstructions(instructions);
+  }
+
+  public static DexField getEnumField(DexString fieldName, DexType enumType, AppView<?> appView) {
+    DexClass enumClass = appView.appInfo().definitionForWithoutExistenceAssert(enumType);
+    if (enumClass == null) {
+      // If the enum class is missing, the case is (interestingly) considered unreachable and
+      // effectively removed from the switch (base on jdk 21 behavior).
+      return null;
+    }
+    DexEncodedField dexEncodedField = enumClass.lookupUniqueStaticFieldWithName(fieldName);
+    if (dexEncodedField == null) {
+      // If the field is missing, but the class is there, the case is considered unreachable and
+      // effectively removed from the switch.
+      return null;
+    }
+    return dexEncodedField.getReference();
   }
 
   public static boolean allowsInlinedIntegerEquality(DexType arg0Type, DexItemFactory factory) {
