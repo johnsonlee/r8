@@ -3,15 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
-import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
+import com.android.tools.r8.androidresources.DebugConsumerUtils.TestDebugConsumer;
 import com.android.tools.r8.androidresources.ResourceShrinkingWithSeveralFeaturesTest.FeatureSplit.FeatureSplitMain;
 import com.android.tools.r8.androidresources.ResourceShrinkingWithSeveralFeaturesTest.FeatureSplit2.FeatureSplit2Main;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
@@ -68,7 +69,7 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
 
     TemporaryFolder featureSplit2Temp = ToolHelper.getTemporaryFolderForTest();
     featureSplit2Temp.create();
-
+    TestDebugConsumer logConsumer = new TestDebugConsumer();
     testForR8(parameters.getBackend())
         .setMinApi(parameters)
         .addProgramClasses(Base.class)
@@ -79,7 +80,17 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
             getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
         .addFeatureSplitAndroidResources(
             getFeatureSplit2TestResources(featureSplit2Temp), FeatureSplit2.class.getName())
-        .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
+        .apply(
+            b ->
+                b.getBuilder()
+                    .setResourceShrinkerConfiguration(
+                        configurationBuilder -> {
+                          if (optimized) {
+                            configurationBuilder.enableOptimizedShrinkingWithR8();
+                          }
+                          configurationBuilder.setDebugConsumer(logConsumer);
+                          return configurationBuilder.build();
+                        }))
         .addKeepMainRule(Base.class)
         .addKeepMainRule(FeatureSplitMain.class)
         .addKeepMainRule(FeatureSplit2Main.class)
@@ -105,7 +116,25 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
             FeatureSplit2.class.getName())
         .run(parameters.getRuntime(), Base.class)
         .assertSuccess();
+
+    List<String> lines = logConsumer.getLogLines();
+    for (String dexReachableString :
+        ImmutableList.of("base_used", "feature_used", "feature2_used")) {
+      if (optimized) {
+        DebugConsumerUtils.ensureReachableOptimized(lines, "string", dexReachableString, true);
+      } else {
+        DebugConsumerUtils.ensureDexReachable(lines, "string", dexReachableString);
+      }
+    }
+    for (String unused : ImmutableList.of("base_unused", "feature_unused", "feature2_unused")) {
+      if (optimized) {
+        DebugConsumerUtils.ensureReachableOptimized(lines, "string", unused, false);
+      } else {
+        DebugConsumerUtils.ensureUnreachable(lines, "string", unused);
+      }
+    }
   }
+
 
   public static class Base {
 
