@@ -153,6 +153,8 @@ public class LazyCfCode extends Code {
       synchronized (context) {
         asCfCode();
       }
+    } else {
+      assert code != null;
     }
   }
 
@@ -173,8 +175,6 @@ public class LazyCfCode extends Code {
     } catch (JsrEncountered e) {
       for (Code code : context.codeList) {
         code.asLazyCfCode().code = null;
-        code.asLazyCfCode().context = context;
-        code.asLazyCfCode().application = application;
       }
       try {
         parseCode(context, true, parsingOptions);
@@ -183,6 +183,11 @@ public class LazyCfCode extends Code {
       }
     } catch (Exception e) {
       throw new CompilationError("Could not parse code", e, origin);
+    }
+    for (Code code : context.codeList) {
+      assert code.asLazyCfCode().code != null;
+      code.asLazyCfCode().application = null;
+      code.asLazyCfCode().context = null;
     }
     assert verifyNoReparseContext(context.owner);
   }
@@ -226,10 +231,9 @@ public class LazyCfCode extends Code {
 
   private void setCode(CfCode code) {
     assert this.code == null;
+    assert this.application != null;
     assert this.context != null;
     this.code = code;
-    this.context = null;
-    this.application = null;
   }
 
   @Override
