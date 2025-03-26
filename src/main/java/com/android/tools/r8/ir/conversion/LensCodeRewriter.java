@@ -1199,8 +1199,11 @@ public class LensCodeRewriter {
               .getArgumentInfo(argumentIndex)
               .asRewrittenTypeInfo();
       if (rewrittenTypeInfo != null && rewrittenTypeInfo.hasCastType()) {
-        iterator.previous();
         Value object = invoke.getArgument(argumentIndex);
+        if (object.getType().isNullType()) {
+          continue;
+        }
+        iterator.previous();
         CheckCast checkCast =
             SafeCheckCast.builder()
                 .setObject(object)

@@ -25,6 +25,7 @@ import com.android.tools.r8.ir.code.ArrayAccess;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
+import com.android.tools.r8.ir.code.CheckCast;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.If;
@@ -181,8 +182,14 @@ public class EnumUnboxingRewriter implements CustomLensCodeRewriter {
           iterator.removeOrReplaceByDebugLocalRead();
           continue;
         }
-
-        if (instruction.isInitClass()) {
+        if (instruction.isCheckCast()) {
+          CheckCast checkCast = instruction.asCheckCast();
+          DexType enumType = getEnumClassTypeOrNull(checkCast.getType());
+          if (enumType != null) {
+            checkCast.outValue().replaceUsers(checkCast.object());
+            iterator.removeOrReplaceByDebugLocalRead();
+          }
+        } else if (instruction.isInitClass()) {
           InitClass initClass = instruction.asInitClass();
           DexType enumType = getEnumClassTypeOrNull(initClass.getClassValue());
           if (enumType != null) {

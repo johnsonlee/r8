@@ -13,6 +13,7 @@ import com.android.tools.r8.shaking.ProguardConfigurationRule;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.codeinspector.EnumUnboxingInspector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -187,6 +188,15 @@ public class R8PartialTestBuilder
 
   public R8PartialTestBuilder addGlobalOptionsModification(Consumer<InternalOptions> consumer) {
     return addR8PartialD8OptionsModification(consumer).addR8PartialR8OptionsModification(consumer);
+  }
+
+  @Override
+  public R8PartialTestBuilder addEnumUnboxingInspector(Consumer<EnumUnboxingInspector> inspector) {
+    return addR8PartialR8OptionsModification(
+        options ->
+            options.testing.unboxedEnumsConsumer =
+                (dexItemFactory, unboxedEnums) ->
+                    inspector.accept(new EnumUnboxingInspector(dexItemFactory, unboxedEnums)));
   }
 
   @Override

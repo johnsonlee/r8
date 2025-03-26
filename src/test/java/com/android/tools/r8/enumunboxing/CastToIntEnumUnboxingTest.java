@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.enumunboxing;
 
-import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
-
 import com.android.tools.r8.NeverInline;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -23,22 +21,24 @@ public class CastToIntEnumUnboxingTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().build();
+    return getTestParameters().withAllRuntimesAndApiLevels().withPartialCompilation().build();
   }
 
   @Test
   public void test() throws Exception {
-    assertFailsCompilation(
-        () ->
-            testForR8(parameters.getBackend())
-                .addInnerClasses(getClass())
-                .addKeepMainRule(Main.class)
-                .addEnumUnboxingInspector(inspector -> inspector.assertUnboxed(MyEnum.class))
-                .enableInliningAnnotations()
-                .setMinApi(parameters)
-                .compile()
-                .run(parameters.getRuntime(), Main.class)
-                .assertSuccessWithOutputLines("B"));
+    testForR8(parameters)
+        .addInnerClasses(getClass())
+        .addKeepMainRule(Main.class)
+        .addEnumUnboxingInspector(
+            inspector -> {
+              if (!parameters.isRandomPartialCompilation()) {
+                inspector.assertUnboxed(MyEnum.class);
+              }
+            })
+        .enableInliningAnnotations()
+        .compile()
+        .run(parameters.getRuntime(), Main.class)
+        .assertSuccessWithOutputLines("B");
   }
 
   static class Main {
