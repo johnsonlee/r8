@@ -22,6 +22,7 @@ import com.android.tools.r8.shaking.DefaultEnqueuerUseRegistry;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.Enqueuer.FieldAccessKind;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
+import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
@@ -54,6 +55,7 @@ public final class EnqueuerAnalysisCollection {
   private final NewlyReachableFieldEnqueuerAnalysis[] newlyReachableFieldAnalyses;
   private final NewlyReferencedFieldEnqueuerAnalysis[] newlyReferencedFieldAnalyses;
   private final NewlyTargetedMethodEnqueuerAnalysis[] newlyTargetedMethodAnalyses;
+  private final MarkFieldAsKeptEnqueuerAnalysis[] markFieldAsKeptEnqueuerAnalyses;
 
   // Tear down events.
   private final FinishedEnqueuerAnalysis[] finishedAnalyses;
@@ -81,6 +83,7 @@ public final class EnqueuerAnalysisCollection {
       NewlyReachableFieldEnqueuerAnalysis[] newlyReachableFieldAnalyses,
       NewlyReferencedFieldEnqueuerAnalysis[] newlyReferencedFieldAnalyses,
       NewlyTargetedMethodEnqueuerAnalysis[] newlyTargetedMethodAnalyses,
+      MarkFieldAsKeptEnqueuerAnalysis[] markFieldAsKeptEnqueuerAnalyses,
       // Tear down events.
       FinishedEnqueuerAnalysis[] finishedAnalyses,
       FixpointEnqueuerAnalysis[] fixpointAnalyses) {
@@ -105,6 +108,7 @@ public final class EnqueuerAnalysisCollection {
     this.newlyReachableFieldAnalyses = newlyReachableFieldAnalyses;
     this.newlyReferencedFieldAnalyses = newlyReferencedFieldAnalyses;
     this.newlyTargetedMethodAnalyses = newlyTargetedMethodAnalyses;
+    this.markFieldAsKeptEnqueuerAnalyses = markFieldAsKeptEnqueuerAnalyses;
     // Tear down events.
     this.finishedAnalyses = finishedAnalyses;
     this.fixpointAnalyses = fixpointAnalyses;
@@ -346,6 +350,13 @@ public final class EnqueuerAnalysisCollection {
     }
   }
 
+  public void processMarkFieldKept(
+      ProgramField field, KeepReason reason, EnqueuerWorklist worklist) {
+    for (MarkFieldAsKeptEnqueuerAnalysis analysis : markFieldAsKeptEnqueuerAnalyses) {
+      analysis.processNewlyKeptField(field, reason, worklist);
+    }
+  }
+
   // Tear down events.
 
   public void done(Enqueuer enqueuer) {
@@ -406,6 +417,7 @@ public final class EnqueuerAnalysisCollection {
         new ArrayList<>();
     private final List<NewlyTargetedMethodEnqueuerAnalysis> newlyTargetedMethodAnalyses =
         new ArrayList<>();
+    private final List<MarkFieldAsKeptEnqueuerAnalysis> markFieldAsKeptAnalyses = new ArrayList<>();
 
     // Tear down events.
     private final List<FinishedEnqueuerAnalysis> finishedAnalyses = new ArrayList<>();
@@ -511,6 +523,11 @@ public final class EnqueuerAnalysisCollection {
       return this;
     }
 
+    public Builder addMarkFieldAsKeptAnalysis(MarkFieldAsKeptEnqueuerAnalysis analysis) {
+      markFieldAsKeptAnalyses.add(analysis);
+      return this;
+    }
+
     // Tear down events.
 
     public Builder addFinishedAnalysis(FinishedEnqueuerAnalysis analysis) {
@@ -547,6 +564,7 @@ public final class EnqueuerAnalysisCollection {
           newlyReachableFieldAnalyses.toArray(NewlyReachableFieldEnqueuerAnalysis[]::new),
           newlyReferencedFieldAnalyses.toArray(NewlyReferencedFieldEnqueuerAnalysis[]::new),
           newlyTargetedMethodAnalyses.toArray(NewlyTargetedMethodEnqueuerAnalysis[]::new),
+          markFieldAsKeptAnalyses.toArray(MarkFieldAsKeptEnqueuerAnalysis[]::new),
           // Tear down events.
           finishedAnalyses.toArray(FinishedEnqueuerAnalysis[]::new),
           fixpointAnalyses.toArray(FixpointEnqueuerAnalysis[]::new));

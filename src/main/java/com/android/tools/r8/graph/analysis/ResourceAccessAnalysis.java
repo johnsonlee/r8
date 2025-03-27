@@ -27,12 +27,14 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.EnqueuerWorklist;
+import com.android.tools.r8.shaking.KeepReason;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis {
+public class ResourceAccessAnalysis
+    implements TraceFieldAccessEnqueuerAnalysis, MarkFieldAsKeptEnqueuerAnalysis {
 
   private final R8ResourceShrinkerState resourceShrinkerState;
   private final Map<DexType, RClassFieldToValueStore> fieldToValueMapping = new IdentityHashMap<>();
@@ -51,7 +53,9 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
       Enqueuer enqueuer,
       EnqueuerAnalysisCollection.Builder builder) {
     if (fieldAccessAnalysisEnabled(appView, enqueuer)) {
-      builder.addTraceFieldAccessAnalysis(new ResourceAccessAnalysis(appView, enqueuer));
+      ResourceAccessAnalysis analysis = new ResourceAccessAnalysis(appView, enqueuer);
+      builder.addTraceFieldAccessAnalysis(analysis);
+      builder.addMarkFieldAsKeptAnalysis(analysis);
     }
     if (liveFieldAnalysisEnabled(appView, enqueuer)) {
       builder.addNewlyLiveFieldAnalysis(
@@ -93,12 +97,21 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
   }
 
   @Override
+  public void processNewlyKeptField(
+      ProgramField field, KeepReason keepReason, EnqueuerWorklist worklist) {
+    processField(field);
+  }
+
+  @Override
   public void traceStaticFieldRead(
       DexField field,
       SingleFieldResolutionResult<?> resolutionResult,
       ProgramMethod context,
       EnqueuerWorklist worklist) {
-    ProgramField resolvedField = resolutionResult.getProgramField();
+    processField(resolutionResult.getProgramField());
+  }
+
+  private void processField(ProgramField resolvedField) {
     if (resolvedField == null) {
       return;
     }
@@ -109,12 +122,12 @@ public class ResourceAccessAnalysis implements TraceFieldAccessEnqueuerAnalysis 
       }
       assert fieldToValueMapping.containsKey(holderType);
       RClassFieldToValueStore rClassFieldToValueStore = fieldToValueMapping.get(holderType);
-      IntList integers = rClassFieldToValueStore.valueMapping.get(field);
+      IntList integers = rClassFieldToValueStore.valueMapping.get(resolvedField.getReference());
       // The R class can have fields injected, e.g., by jacoco, we don't have resource values for
       // these.
       if (integers != null) {
         for (Integer integer : integers) {
-          resourceShrinkerState.trace(integer, field.toString());
+          resourceShrinkerState.trace(integer, resolvedField.getReference().toString());
         }
       }
     }

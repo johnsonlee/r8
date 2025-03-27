@@ -4999,6 +4999,7 @@ public class Enqueuer {
     } else {
       worklist.enqueueMarkFieldAsReachableAction(field, field, reason);
     }
+    analyses.processMarkFieldKept(field, reason, worklist);
   }
 
   private boolean shouldMarkLibraryMethodOverrideAsReachable(LookupTarget override) {

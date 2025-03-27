@@ -71,7 +71,7 @@ public class RClassResourceGeneration extends TestBase {
   public void testResourceRewriting() throws Exception {
     AndroidApp resourceApp =
         AndroidApp.builder()
-            .addClassProgramData(testResource.getRClass().getClassFileData())
+            .addClassProgramData(testResource.getRClass().getClassFileData().values())
             .build();
     CodeInspector inspector = new CodeInspector(resourceApp);
     ClassSubject stringClazz = inspector.clazz(R.string.class);

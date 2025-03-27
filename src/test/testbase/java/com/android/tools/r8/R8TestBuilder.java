@@ -1043,16 +1043,16 @@ public abstract class R8TestBuilder<
 
               return featureSplitGenerator.build();
             });
-    return addProgramClassFileData(testResource.getRClass().getClassFileData());
+    return addProgramClassFileData(testResource.getRClass().getClassFileData().values());
   }
 
   public T addAndroidResources(AndroidTestResource testResource, Path output) throws IOException {
-    List<byte[]> classFileData = testResource.getRClass().getClassFileData();
+    Collection<byte[]> classFileData = testResource.getRClass().getClassFileData().values();
     return addAndroidResources(testResource, output, classFileData);
   }
 
   public T addAndroidResources(
-      AndroidTestResource testResource, Path output, List<byte[]> classFileData) {
+      AndroidTestResource testResource, Path output, Collection<byte[]> classFileData) {
     Path resources = testResource.getResourceZip();
     resourceShrinkerOutput = output;
     ArchiveProtoAndroidResourceProvider provider = getResourceProvider(testResource);
