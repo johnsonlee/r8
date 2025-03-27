@@ -67,6 +67,7 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.StatefulObjectValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
+import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.Argument;
 import com.android.tools.r8.ir.code.AssumeAndCheckCastAliasedValueConfiguration;
@@ -211,7 +212,9 @@ public class MethodOptimizationInfoCollector {
         if (definition.isArgument()) {
           feedback.methodReturnsArgument(method, definition.asArgument().getIndex());
         }
-        AbstractValue abstractReturnValue = definition.getAbstractValue(appView, context);
+        AbstractValue abstractReturnValue =
+            definition.getAbstractValue(
+                appView, context, AbstractValueSupplier.getShallow(appView, context));
         if (abstractReturnValue.isNonTrivial()) {
           feedback.methodReturnsAbstractValue(method, appView, abstractReturnValue);
           if (checkCastAndInstanceOfMethodSpecialization != null) {

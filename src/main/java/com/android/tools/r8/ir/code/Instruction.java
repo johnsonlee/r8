@@ -206,10 +206,6 @@ public abstract class Instruction
     return oldOutValue;
   }
 
-  public final AbstractValue getAbstractValue(AppView<?> appView, ProgramMethod context) {
-    return getAbstractValue(appView, context, AbstractValueSupplier.unknown());
-  }
-
   public AbstractValue getAbstractValue(
       AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
     assert hasOutValue();

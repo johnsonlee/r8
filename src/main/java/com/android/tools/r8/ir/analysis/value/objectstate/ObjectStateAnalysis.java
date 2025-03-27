@@ -33,7 +33,7 @@ public class ObjectStateAnalysis {
 
   private static ObjectState computeNewArrayObjectState(
       Value value, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
-    AbstractValue abstractValue = value.definition.getAbstractValue(appView, context);
+    AbstractValue abstractValue = value.getAbstractValue(appView, context);
     if (abstractValue.isStatefulObjectValue()) {
       // TODO(b/204272377): Avoid wrapping and unwrapping the object state.
       return abstractValue.asStatefulObjectValue().getObjectState();
