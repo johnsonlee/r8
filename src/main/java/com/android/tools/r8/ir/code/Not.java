@@ -46,7 +46,8 @@ public class Not extends Unop {
     if (outValue.hasLocalInfo()) {
       return AbstractValue.unknown();
     }
-    AbstractValue sourceLattice = abstractValueSupplier.getAbstractValue(source());
+    AbstractValue sourceLattice =
+        abstractValueSupplier.getAbstractValue(source(), appView, context);
     if (sourceLattice.isSingleNumberValue()) {
       SingleNumberValue sourceConst = sourceLattice.asSingleNumberValue();
       long newConst;

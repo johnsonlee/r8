@@ -140,7 +140,8 @@ public class Div extends ArithmeticBinop {
     if (!instructionTypeCanThrow()) {
       return false;
     }
-    AbstractValue rightAbstractValue = abstractValueSupplier.getAbstractValue(rightValue());
+    AbstractValue rightAbstractValue =
+        abstractValueSupplier.getAbstractValue(rightValue(), appView, context);
     if (rightAbstractValue.isSingleNumberValue() && !rightAbstractValue.isZero()) {
       return false;
     }
@@ -159,7 +160,8 @@ public class Div extends ArithmeticBinop {
   @Override
   public AbstractValue getAbstractValue(
       AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
-    AbstractValue rightAbstractValue = abstractValueSupplier.getAbstractValue(rightValue());
+    AbstractValue rightAbstractValue =
+        abstractValueSupplier.getAbstractValue(rightValue(), appView, context);
     if (!rightAbstractValue.isZero()) {
       return super.getAbstractValue(appView, context, abstractValueSupplier);
     }

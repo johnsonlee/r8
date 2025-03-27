@@ -641,8 +641,7 @@ public abstract class Instruction
   }
 
   public final boolean instructionMayHaveSideEffects(AppView<?> appView, ProgramMethod context) {
-    return instructionMayHaveSideEffects(
-        appView, context, AbstractValueSupplier.getShallow(appView, context));
+    return instructionMayHaveSideEffects(appView, context, AbstractValueSupplier.shallow());
   }
 
   public final boolean instructionMayHaveSideEffects(
@@ -654,7 +653,7 @@ public abstract class Instruction
   public final boolean instructionMayHaveSideEffects(
       AppView<?> appView, ProgramMethod context, SideEffectAssumption assumption) {
     return instructionMayHaveSideEffects(
-        appView, context, AbstractValueSupplier.getShallow(appView, context), assumption);
+        appView, context, AbstractValueSupplier.shallow(), assumption);
   }
 
   public boolean instructionMayHaveSideEffects(
@@ -673,8 +672,7 @@ public abstract class Instruction
       AppView<?> appView, ProgramMethod context);
 
   public final boolean instructionInstanceCanThrow(AppView<?> appView, ProgramMethod context) {
-    return instructionInstanceCanThrow(
-        appView, context, AbstractValueSupplier.getShallow(appView, context));
+    return instructionInstanceCanThrow(appView, context, AbstractValueSupplier.shallow());
   }
 
   public final boolean instructionInstanceCanThrow(
@@ -686,7 +684,7 @@ public abstract class Instruction
   public final boolean instructionInstanceCanThrow(
       AppView<?> appView, ProgramMethod context, SideEffectAssumption assumption) {
     return instructionInstanceCanThrow(
-        appView, context, AbstractValueSupplier.getShallow(appView, context), assumption);
+        appView, context, AbstractValueSupplier.shallow(), assumption);
   }
 
   public boolean instructionInstanceCanThrow(

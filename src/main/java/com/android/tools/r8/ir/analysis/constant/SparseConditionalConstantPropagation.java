@@ -6,8 +6,10 @@ package com.android.tools.r8.ir.analysis.constant;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexString;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.AbstractValueJoiner.AbstractValueConstantPropagationJoiner;
+import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.ConstNumber;
 import com.android.tools.r8.ir.code.IRCode;
@@ -67,7 +69,7 @@ public class SparseConditionalConstantPropagation extends CodeRewriterPass<AppIn
     return new SparseConditionalConstantPropagationOnCode(code).analyze().run();
   }
 
-  private class SparseConditionalConstantPropagationOnCode {
+  private class SparseConditionalConstantPropagationOnCode implements AbstractValueSupplier {
 
     private final IRCode code;
     private final Map<Value, AbstractValue> mapping = new IdentityHashMap<>();
@@ -170,8 +172,7 @@ public class SparseConditionalConstantPropagation extends CodeRewriterPass<AppIn
                   InstructionListIterator iterator = block.listIterator();
                   iterator.nextUntil(i -> i == definition);
                   if (!definition.isArgument()
-                      && !definition.instructionMayHaveSideEffects(
-                          appView, code.context(), this::getCachedAbstractValue)) {
+                      && !definition.instructionMayHaveSideEffects(appView, code.context(), this)) {
                     ConstNumber replacement =
                         ConstNumber.builder().setOutValue(value).setValue(constValue).build();
                     iterator.replaceCurrentInstruction(replacement, affectedValues);
@@ -245,8 +246,7 @@ public class SparseConditionalConstantPropagation extends CodeRewriterPass<AppIn
               code.context().getOptimizationInfo().getArgumentInfos();
           value = argumentInfos.getAbstractArgumentValue(index);
         } else {
-          value =
-              instruction.getAbstractValue(appView, code.context(), this::getCachedAbstractValue);
+          value = instruction.getAbstractValue(appView, code.context(), this);
         }
         AbstractValue previousValue = getCachedAbstractValue(instruction.outValue());
         assert joiner.lessThanOrEqualTo(previousValue, value, instruction.getOutType());
@@ -358,6 +358,11 @@ public class SparseConditionalConstantPropagation extends CodeRewriterPass<AppIn
         return false;
       }
       return previousExecutable.get(from);
+    }
+
+    @Override
+    public AbstractValue getAbstractValue(Value value, AppView<?> appView, ProgramMethod context) {
+      return getCachedAbstractValue(value);
     }
   }
 }

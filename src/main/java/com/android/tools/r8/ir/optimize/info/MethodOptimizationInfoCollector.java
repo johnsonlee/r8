@@ -213,8 +213,7 @@ public class MethodOptimizationInfoCollector {
           feedback.methodReturnsArgument(method, definition.asArgument().getIndex());
         }
         AbstractValue abstractReturnValue =
-            definition.getAbstractValue(
-                appView, context, AbstractValueSupplier.getShallow(appView, context));
+            definition.getAbstractValue(appView, context, AbstractValueSupplier.shallow());
         if (abstractReturnValue.isNonTrivial()) {
           feedback.methodReturnsAbstractValue(method, appView, abstractReturnValue);
           if (checkCastAndInstanceOfMethodSpecialization != null) {

@@ -369,7 +369,7 @@ public class ArgumentPropagatorCodeScanner {
         return ConcreteArrayTypeValueState.create(nullability);
       }
 
-      AbstractValue abstractValue = abstractValueSupplier.getAbstractValue(value);
+      AbstractValue abstractValue = abstractValueSupplier.getAbstractValue(value, appView, context);
       if (abstractValue.isUnknown()) {
         abstractValue =
             getFallbackAbstractValueForField(
@@ -1006,7 +1006,7 @@ public class ArgumentPropagatorCodeScanner {
         return ConcreteArrayTypeValueState.create(nullability);
       }
 
-      AbstractValue abstractValue = abstractValueSupplier.getAbstractValue(value);
+      AbstractValue abstractValue = abstractValueSupplier.getAbstractValue(value, appView, context);
 
       // For class types, we track both the abstract value and the dynamic type. If both are
       // unknown, then use UnknownParameterState.

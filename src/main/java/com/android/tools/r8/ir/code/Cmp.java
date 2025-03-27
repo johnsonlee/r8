@@ -165,8 +165,10 @@ public class Cmp extends Binop {
     if (outValue.hasLocalInfo()) {
       return AbstractValue.unknown();
     }
-    AbstractValue leftAbstractValue = abstractValueSupplier.getAbstractValue(leftValue());
-    AbstractValue rightAbstractValue = abstractValueSupplier.getAbstractValue(rightValue());
+    AbstractValue leftAbstractValue =
+        abstractValueSupplier.getAbstractValue(leftValue(), appView, context);
+    AbstractValue rightAbstractValue =
+        abstractValueSupplier.getAbstractValue(rightValue(), appView, context);
     if (leftAbstractValue.isSingleNumberValue() && rightAbstractValue.isSingleNumberValue()) {
       SingleNumberValue leftConst = leftAbstractValue.asSingleNumberValue();
       SingleNumberValue rightConst = rightAbstractValue.asSingleNumberValue();

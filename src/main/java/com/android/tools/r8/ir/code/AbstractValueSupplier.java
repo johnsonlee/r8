@@ -10,29 +10,23 @@ import com.android.tools.r8.ir.analysis.value.AbstractValue;
 
 public interface AbstractValueSupplier {
 
-  UnknownAbstractValueSupplier UNKNOWN = new UnknownAbstractValueSupplier();
+  AbstractValueSupplier UNKNOWN = (value, appView, context) -> AbstractValue.unknown();
+  AbstractValueSupplier SHALLOW =
+      (value, appView, context) -> value.getAbstractValue(appView, context, unknown());
 
-  AbstractValue getAbstractValue(Value value);
+  AbstractValue getAbstractValue(Value value, AppView<?> appView, ProgramMethod context);
 
   /**
-   * Returns an {@link AbstractValueSupplier} that supplies a {@link UnknownAbstractValueSupplier}
-   * in the recursive call to {@link Value#getAbstractValue}, so that a shallow value is computed.
-   * This is to prevent that computing the abstract value can end up evaluating large arithmetic
-   * expressions, which should ideally only be done during constant propagation.
+   * Returns an {@link AbstractValueSupplier} that supplies UNKNOWN in the recursive call to {@link
+   * Value#getAbstractValue}, so that a shallow value is computed. This is to prevent that computing
+   * the abstract value can end up evaluating large arithmetic expressions, which should ideally
+   * only be done during constant propagation.
    */
-  static AbstractValueSupplier getShallow(AppView<?> appView, ProgramMethod context) {
-    return value -> value.getAbstractValue(appView, context, unknown());
+  static AbstractValueSupplier shallow() {
+    return SHALLOW;
   }
 
-  static UnknownAbstractValueSupplier unknown() {
+  static AbstractValueSupplier unknown() {
     return UNKNOWN;
-  }
-
-  class UnknownAbstractValueSupplier implements AbstractValueSupplier {
-
-    @Override
-    public AbstractValue getAbstractValue(Value value) {
-      return AbstractValue.unknown();
-    }
   }
 }

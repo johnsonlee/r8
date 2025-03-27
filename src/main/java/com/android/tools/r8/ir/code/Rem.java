@@ -139,7 +139,8 @@ public class Rem extends ArithmeticBinop {
     if (!instructionTypeCanThrow()) {
       return false;
     }
-    AbstractValue rightAbstractValue = abstractValueSupplier.getAbstractValue(rightValue());
+    AbstractValue rightAbstractValue =
+        abstractValueSupplier.getAbstractValue(rightValue(), appView, context);
     if (rightAbstractValue.isSingleNumberValue() && !rightAbstractValue.isZero()) {
       return false;
     }
@@ -161,7 +162,8 @@ public class Rem extends ArithmeticBinop {
     if (outValue.hasLocalInfo()) {
       return AbstractValue.unknown();
     }
-    AbstractValue rightLattice = abstractValueSupplier.getAbstractValue(rightValue());
+    AbstractValue rightLattice =
+        abstractValueSupplier.getAbstractValue(rightValue(), appView, context);
     if (!rightLattice.isZero()) {
       return super.getAbstractValue(appView, context, abstractValueSupplier);
     }

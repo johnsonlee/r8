@@ -131,8 +131,6 @@ public class ArgumentPropagator {
       ProgramMethod method, IRCode code, MethodProcessor methodProcessor, Timing timing) {
     if (codeScanner != null) {
       assert methodProcessor.isPrimaryMethodProcessor();
-      AbstractValueSupplier abstractValueSupplier =
-          value -> value.getAbstractValue(appView, method);
       PathConstraintSupplier pathConstraintSupplier =
           new PathConstraintSupplier(
               appView,
@@ -140,7 +138,12 @@ public class ArgumentPropagator {
               codeScanner.getFieldValueFactory(),
               codeScanner.getMethodParameterFactory());
       codeScanner.scan(
-          method, code, methodProcessor, abstractValueSupplier, pathConstraintSupplier, timing);
+          method,
+          code,
+          methodProcessor,
+          AbstractValueSupplier.shallow(),
+          pathConstraintSupplier,
+          timing);
 
       assert effectivelyUnusedArgumentsAnalysis != null;
       effectivelyUnusedArgumentsAnalysis.scan(method, code, pathConstraintSupplier);
