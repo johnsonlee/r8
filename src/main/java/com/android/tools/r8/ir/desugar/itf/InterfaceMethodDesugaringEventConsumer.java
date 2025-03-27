@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.desugar.itf;
 
+import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface InterfaceMethodDesugaringEventConsumer
@@ -27,6 +28,11 @@ public interface InterfaceMethodDesugaringEventConsumer
 
     @Override
     public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
       // Intentionally empty.
     }
 

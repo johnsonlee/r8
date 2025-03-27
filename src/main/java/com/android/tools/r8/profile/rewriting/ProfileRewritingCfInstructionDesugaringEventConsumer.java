@@ -7,6 +7,7 @@ package com.android.tools.r8.profile.rewriting;
 import static com.android.tools.r8.profile.rewriting.ProfileRewritingVarHandleDesugaringEventConsumerUtils.handleVarHandleDesugaringClassContext;
 
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
@@ -112,6 +113,11 @@ public class ProfileRewritingCfInstructionDesugaringEventConsumer
   public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
     additionsCollection.addMethodAndHolderIfContextIsInProfile(companionMethod, method);
     parent.acceptCompanionClassClinit(method, companionMethod);
+  }
+
+  @Override
+  public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
+    parent.acceptCompanionClasspathMethod(companionMethod);
   }
 
   @Override

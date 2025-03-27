@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.itf;
 
+import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 
 public interface InterfaceMethodDesugaringBaseEventConsumer {
@@ -14,4 +15,6 @@ public interface InterfaceMethodDesugaringBaseEventConsumer {
   void acceptPrivateAsCompanionMethod(ProgramMethod method, ProgramMethod companionMethod);
 
   void acceptStaticAsCompanionMethod(ProgramMethod method, ProgramMethod companionMethod);
+
+  void acceptCompanionClasspathMethod(ClasspathMethod companionMethod);
 }
