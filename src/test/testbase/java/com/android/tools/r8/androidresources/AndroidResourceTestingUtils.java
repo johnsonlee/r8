@@ -11,7 +11,6 @@ import com.android.aapt.Resources.ConfigValue;
 import com.android.aapt.Resources.Item;
 import com.android.aapt.Resources.Package;
 import com.android.aapt.Resources.ResourceTable;
-import com.android.build.shrinker.ResourceTableUtilKt;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestBase.Backend;
 import com.android.tools.r8.TestRuntime.CfRuntime;
@@ -287,7 +286,11 @@ public class AndroidResourceTestingUtils {
 
       public ResourceNameToIdMapping(Resources.Type type, Package aPackage) {
         for (Resources.Entry entry : type.getEntryList()) {
-          mapping.put(entry.getName(), ResourceTableUtilKt.toIdentifier(aPackage, type, entry));
+          int id =
+              aPackage.getPackageId().getId() << 24
+                  | type.getTypeId().getId() << 16
+                  | entry.getEntryId().getId();
+          mapping.put(entry.getName(), id);
         }
       }
 
