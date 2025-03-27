@@ -25,6 +25,8 @@ import com.android.tools.r8.ir.analysis.ClassInitializationAnalysis.Query;
 import com.android.tools.r8.ir.analysis.VerifyTypesHelper;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateNewInstanceAnalysis;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
@@ -242,6 +244,15 @@ public class NewInstance extends Instruction {
     assert type.asClassType().getClassType() == clazz || appView.options().testing.allowTypeErrors;
     assert type.isDefinitelyNotNull();
     return true;
+  }
+
+  @Override
+  public ObjectState computeObjectState(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context,
+      AbstractValueSupplier abstractValueSupplier) {
+    return ObjectStateNewInstanceAnalysis.computeNewInstanceObjectState(
+        this, appView, context, abstractValueSupplier);
   }
 
   @Override

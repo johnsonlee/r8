@@ -21,12 +21,13 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.StatefulObjectValue;
-import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.List;
 
 public class NewArrayFilled extends Invoke {
@@ -152,15 +153,28 @@ public class NewArrayFilled extends Invoke {
     throw new Unreachable("InvokeNewArray (non-empty) not supported when compiling to classfiles.");
   }
 
-  @Override
-  public AbstractValue getAbstractValue(
+  private ObjectState internalComputeObjectState(
       AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
     if (!instructionMayHaveSideEffects(appView, context, abstractValueSupplier)) {
       int size = inValues.size();
-      return StatefulObjectValue.create(
-          appView.abstractValueFactory().createKnownLengthArrayState(size));
+      return appView.abstractValueFactory().createKnownLengthArrayState(size);
     }
-    return UnknownValue.getInstance();
+    return ObjectState.empty();
+  }
+
+  @Override
+  public ObjectState computeObjectState(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context,
+      AbstractValueSupplier abstractValueSupplier) {
+    return internalComputeObjectState(appView, context, abstractValueSupplier);
+  }
+
+  @Override
+  public AbstractValue getAbstractValue(
+      AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
+    return StatefulObjectValue.create(
+        internalComputeObjectState(appView, context, abstractValueSupplier));
   }
 
   @Override

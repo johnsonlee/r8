@@ -14,11 +14,13 @@ import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Set;
 
 public class Assume extends Instruction {
@@ -111,6 +113,14 @@ public class Assume extends Instruction {
 
   public boolean hasNonNullAssumption() {
     return dynamicType.getNullability().isDefinitelyNotNull();
+  }
+
+  @Override
+  public ObjectState computeObjectState(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context,
+      AbstractValueSupplier abstractValueSupplier) {
+    return src().computeObjectState(appView, context, abstractValueSupplier);
   }
 
   @Override
