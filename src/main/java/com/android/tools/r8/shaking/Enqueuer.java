@@ -4866,7 +4866,10 @@ public class Enqueuer {
     // Commit the pending synthetics and recompute subtypes.
     appInfo = appInfo.rebuildWithClassHierarchy(app -> app);
     appView.setAppInfo(appInfo);
-    subtypingInfo = SubtypingInfo.create(appView);
+
+    // Unset the subtyping info since it has been invalidated. We currently never use it after the
+    // the post processing desugaring.
+    subtypingInfo = null;
 
     syntheticAdditions.enqueueWorkItems(this);
 
