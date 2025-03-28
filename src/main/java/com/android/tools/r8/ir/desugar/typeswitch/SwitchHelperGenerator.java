@@ -105,7 +105,7 @@ public class SwitchHelperGenerator {
           () -> {
             DexItemFactory factory = appView.dexItemFactory();
             DexType arg0Type = dexCallSite.methodProto.getParameter(0);
-            if (allowsInlinedIntegerEquality(arg0Type, factory)) {
+            if (arg0Type.isPrimitiveType() || allowsInlinedIntegerEquality(arg0Type, factory)) {
               return;
             }
             intEq = generateIntEqMethod(context, eventConsumer, methodProcessingContext);

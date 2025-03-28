@@ -45,6 +45,25 @@ public class LibraryConstantDynamic {
             constantDynamic.getBootstrapMethodArguments().get(0), methodHandleMethod);
   }
 
+  public static boolean isPrimitiveClassConstantDynamic(
+      ConstantDynamicReference constantDynamic, DexItemFactory factory) {
+    DexMethod bootstrapMethod = factory.constantBootstrapsMembers.primitiveClass;
+    return constantDynamic.getType().isIdenticalTo(factory.classType)
+        && constantDynamic.getBootstrapMethod().asMethod().isIdenticalTo(bootstrapMethod)
+        && constantDynamic.getBootstrapMethodArguments().size() == 0;
+  }
+
+  public static DexType extractPrimitiveClassConstantDynamic(
+      ConstantDynamicReference constantDynamic, DexItemFactory factory, Definition context) {
+    assert isPrimitiveClassConstantDynamic(constantDynamic, factory);
+    String name = constantDynamic.getName().toString();
+    DexType primitiveType = factory.primitiveDescriptorToType.get(name);
+    if (primitiveType == null) {
+      throw throwInvalidLibraryConstantDynamic("Invalid primitive type" + name, context);
+    }
+    return primitiveType;
+  }
+
   public static boolean isBoxedBooleanConstantDynamic(
       ConstantDynamicReference constantDynamic, DexItemFactory factory) {
     DexMethod bootstrapMethod = factory.constantBootstrapsMembers.getStaticFinal;

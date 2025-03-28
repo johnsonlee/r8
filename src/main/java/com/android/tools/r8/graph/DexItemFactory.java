@@ -897,6 +897,17 @@ public class DexItemFactory {
     return syntheticNaming;
   }
 
+  public final Map<String, DexType> primitiveDescriptorToType =
+      ImmutableMap.of(
+          byteDescriptor.toString(), byteType,
+          charDescriptor.toString(), charType,
+          shortDescriptor.toString(), shortType,
+          intDescriptor.toString(), intType,
+          longDescriptor.toString(), longType,
+          floatDescriptor.toString(), floatType,
+          doubleDescriptor.toString(), doubleType,
+          booleanDescriptor.toString(), booleanType);
+
   public final BiMap<DexType, DexType> primitiveToBoxed = HashBiMap.create(
       ImmutableMap.<DexType, DexType>builder()
           .put(booleanType, boxedBooleanType)
@@ -1898,6 +1909,12 @@ public class DexItemFactory {
             constantBootstrapsType,
             createProto(objectType, methodHandlesLookupType, stringType, classType),
             "getStaticFinal");
+
+    public final DexMethod primitiveClass =
+        createMethod(
+            constantBootstrapsType,
+            createProto(classType, methodHandlesLookupType, stringType, classType),
+            "primitiveClass");
   }
 
   public class BufferMembers {

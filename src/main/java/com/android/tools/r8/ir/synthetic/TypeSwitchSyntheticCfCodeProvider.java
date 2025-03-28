@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.synthetic;
 
+import com.android.tools.r8.cf.code.CfCmp;
 import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfConstString;
@@ -34,7 +35,9 @@ import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.DexValue.DexValueNumber;
+import com.android.tools.r8.ir.code.Cmp.Bias;
 import com.android.tools.r8.ir.code.IfType;
+import com.android.tools.r8.ir.code.NumericType;
 import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
@@ -86,19 +89,16 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
 
   @Override
   public CfCode generateCfCode() {
-    // arg 0: Object obj
+    // arg 0: Object|primitive obj
     // arg 1: int restart
+    boolean isPrimitiveSwitch = arg0Type.isPrimitiveType();
     DexItemFactory factory = appView.dexItemFactory();
     List<CfInstruction> instructions = new ArrayList<>();
 
-    CfFrame frame =
-        CfFrame.builder()
-            .appendLocal(FrameType.initialized(arg0Type))
-            .appendLocal(FrameType.intType())
-            .build();
+    CfFrame frame = computeCfFrame();
 
     // Objects.checkIndex(restart, length + 1);
-    instructions.add(new CfLoad(ValueType.INT, 1));
+    instructions.add(loadArg1());
     instructions.add(new CfConstNumber(bootstrapArgs.size() + 1, ValueType.INT));
     DexMethod checkIndex =
         factory.createMethod(
@@ -108,14 +108,16 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
     instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, checkIndex, false));
     instructions.add(new CfStackInstruction(Opcode.Pop));
 
-    // if (obj == null) { return -1; }
-    instructions.add(new CfLoad(ValueType.OBJECT, 0));
-    CfLabel nonNull = new CfLabel();
-    instructions.add(new CfIf(IfType.NE, ValueType.OBJECT, nonNull));
-    instructions.add(new CfConstNumber(-1, ValueType.INT));
-    instructions.add(new CfReturn(ValueType.INT));
-    instructions.add(nonNull);
-    instructions.add(frame);
+    if (!isPrimitiveSwitch) {
+      // if (obj == null) { return -1; }
+      instructions.add(loadArg0());
+      CfLabel nonNull = new CfLabel();
+      instructions.add(new CfIf(IfType.NE, ValueType.OBJECT, nonNull));
+      instructions.add(new CfConstNumber(-1, ValueType.INT));
+      instructions.add(new CfReturn(ValueType.INT));
+      instructions.add(nonNull);
+      instructions.add(frame);
+    }
 
     // If no cases, return 0;
     if (bootstrapArgs.isEmpty()) {
@@ -130,7 +132,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
       cfLabels.add(new CfLabel());
     }
     cfLabels.add(defaultLabel);
-    instructions.add(new CfLoad(ValueType.INT, 1));
+    instructions.add(loadArg1());
     instructions.add(new CfSwitch(Kind.TABLE, defaultLabel, new int[] {0}, cfLabels));
 
     IntBox index = new IntBox(0);
@@ -142,18 +144,27 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                 dexType -> {
                   instructions.add(cfLabels.get(index.get()));
                   instructions.add(frame);
-                  instructions.add(new CfLoad(ValueType.OBJECT, 0));
-                  instructions.add(new CfInstanceOf(dexType));
-                  instructions.add(
-                      new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  if (!isPrimitiveSwitch) {
+                    instructions.add(loadArg0());
+                    instructions.add(new CfInstanceOf(dexType));
+                    instructions.add(
+                        new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  } else {
+                    // TODO(b/399808482): Investigate primitive downcast, i.e., an int being
+                    //  instanceof a byte, short or char.
+                  }
                   instructions.add(new CfConstNumber(index.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfReturn(ValueType.INT));
                 },
                 intValue -> {
                   instructions.add(cfLabels.get(index.get()));
                   instructions.add(frame);
-                  instructions.add(new CfLoad(ValueType.OBJECT, 0));
-                  if (allowsInlinedIntegerEquality(arg0Type, factory)) {
+                  instructions.add(loadArg0());
+                  if (isPrimitiveSwitch) {
+                    instructions.add(new CfConstNumber(intValue, ValueType.INT));
+                    instructions.add(
+                        new CfIfCmp(IfType.NE, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  } else if (allowsInlinedIntegerEquality(arg0Type, factory)) {
                     instructions.add(
                         new CfInvoke(
                             Opcodes.INVOKEVIRTUAL,
@@ -167,7 +178,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                     assert intEq != null;
                     instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, intEq, false));
                     instructions.add(
-                        new CfIf(IfType.NE, ValueType.INT, cfLabels.get(index.get() + 1)));
+                        new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
                   }
                   instructions.add(new CfConstNumber(index.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfReturn(ValueType.INT));
@@ -175,7 +186,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                 dexString -> {
                   instructions.add(cfLabels.get(index.get()));
                   instructions.add(frame);
-                  instructions.add(new CfLoad(ValueType.OBJECT, 0));
+                  instructions.add(loadArg0());
                   instructions.add(new CfConstString(dexString));
                   instructions.add(
                       new CfInvoke(Opcodes.INVOKEVIRTUAL, factory.objectMembers.equals, false));
@@ -190,7 +201,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                   // TODO(b/399808482): In R8 release, we can analyze at compile-time program enum
                   //  and generate a fast check based on the field. But these information are not
                   //  available in Cf instructions.
-                  instructions.add(new CfLoad(ValueType.OBJECT, 0));
+                  instructions.add(loadArg0());
                   // TODO(b/399808482): Temporary work-around so we can roll to google3.
                   DexField field = getEnumField(enumField, type, appView);
                   if (field == null) {
@@ -229,41 +240,63 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                 bool -> {
                   instructions.add(cfLabels.get(index.get()));
                   instructions.add(frame);
-                  instructions.add(new CfLoad(ValueType.OBJECT, 0));
-                  instructions.add(new CfConstNumber(BooleanUtils.intValue(bool), ValueType.INT));
-                  instructions.add(
-                      new CfInvoke(Opcodes.INVOKESTATIC, factory.booleanMembers.valueOf, false));
-                  instructions.add(
-                      new CfInvoke(Opcodes.INVOKEVIRTUAL, factory.objectMembers.equals, false));
-                  instructions.add(
-                      new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  instructions.add(loadArg0());
+                  if (isPrimitiveSwitch) {
+                    instructions.add(
+                        new CfIf(
+                            bool ? IfType.EQ : IfType.NE,
+                            ValueType.INT,
+                            cfLabels.get(index.get() + 1)));
+                  } else {
+                    instructions.add(new CfConstNumber(BooleanUtils.intValue(bool), ValueType.INT));
+                    instructions.add(
+                        new CfInvoke(Opcodes.INVOKESTATIC, factory.booleanMembers.valueOf, false));
+                    instructions.add(
+                        new CfInvoke(Opcodes.INVOKEVIRTUAL, factory.objectMembers.equals, false));
+                    instructions.add(
+                        new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  }
                   instructions.add(new CfConstNumber(index.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfReturn(ValueType.INT));
                 },
                 dexNumber -> {
                   instructions.add(cfLabels.get(index.get()));
                   instructions.add(frame);
-                  instructions.add(new CfLoad(ValueType.OBJECT, 0));
+                  instructions.add(loadArg0());
                   if (dexNumber.isDexValueFloat()) {
                     instructions.add(new CfConstNumber(dexNumber.getRawValue(), ValueType.FLOAT));
-                    instructions.add(
-                        new CfInvoke(Opcodes.INVOKESTATIC, factory.floatMembers.valueOf, false));
                   } else if (dexNumber.isDexValueDouble()) {
                     instructions.add(new CfConstNumber(dexNumber.getRawValue(), ValueType.DOUBLE));
-                    instructions.add(
-                        new CfInvoke(Opcodes.INVOKESTATIC, factory.doubleMembers.valueOf, false));
                   } else if (dexNumber.isDexValueLong()) {
                     instructions.add(new CfConstNumber(dexNumber.getRawValue(), ValueType.LONG));
-                    instructions.add(
-                        new CfInvoke(Opcodes.INVOKESTATIC, factory.longMembers.valueOf, false));
                   } else {
                     throw new CompilationError(
                         "Unexpected dexNumber in type switch desugaring " + dexNumber);
                   }
-                  instructions.add(
-                      new CfInvoke(Opcodes.INVOKEVIRTUAL, factory.objectMembers.equals, false));
-                  instructions.add(
-                      new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  if (isPrimitiveSwitch) {
+                    instructions.add(
+                        new CfCmp(
+                            arg0Type.isLongType() ? Bias.NONE : Bias.GT,
+                            NumericType.fromDexType(arg0Type)));
+                    instructions.add(
+                        new CfIf(IfType.NE, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  } else {
+                    if (dexNumber.isDexValueFloat()) {
+                      instructions.add(
+                          new CfInvoke(Opcodes.INVOKESTATIC, factory.floatMembers.valueOf, false));
+                    } else if (dexNumber.isDexValueDouble()) {
+                      instructions.add(
+                          new CfInvoke(Opcodes.INVOKESTATIC, factory.doubleMembers.valueOf, false));
+                    } else {
+                      assert dexNumber.isDexValueLong();
+                      instructions.add(
+                          new CfInvoke(Opcodes.INVOKESTATIC, factory.longMembers.valueOf, false));
+                    }
+                    instructions.add(
+                        new CfInvoke(Opcodes.INVOKEVIRTUAL, factory.objectMembers.equals, false));
+                    instructions.add(
+                        new CfIf(IfType.EQ, ValueType.INT, cfLabels.get(index.get() + 1)));
+                  }
                   instructions.add(new CfConstNumber(index.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfReturn(ValueType.INT));
                 }));
@@ -290,6 +323,30 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
       return null;
     }
     return dexEncodedField.getReference();
+  }
+
+  private CfLoad loadArg1() {
+    return new CfLoad(ValueType.INT, arg0Type.isWideType() ? 2 : 1);
+  }
+
+  private CfLoad loadArg0() {
+    return new CfLoad(ValueType.fromDexType(arg0Type), 0);
+  }
+
+  private CfFrame computeCfFrame() {
+    DexType frameType =
+        arg0Type.isByteType()
+                || arg0Type.isShortType()
+                || arg0Type.isCharType()
+                || arg0Type.isBooleanType()
+            ? appView.dexItemFactory().intType
+            : arg0Type;
+    CfFrame frame =
+        CfFrame.builder()
+            .appendLocal(FrameType.initialized(frameType))
+            .appendLocal(FrameType.intType())
+            .build();
+    return frame;
   }
 
   public static boolean allowsInlinedIntegerEquality(DexType arg0Type, DexItemFactory factory) {

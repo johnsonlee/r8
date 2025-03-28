@@ -6,8 +6,10 @@ package com.android.tools.r8.ir.desugar.typeswitch;
 
 import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.dispatchEnumDescConstantDynamic;
 import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.extractBoxedBooleanConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.extractPrimitiveClassConstantDynamic;
 import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isBoxedBooleanConstantDynamic;
 import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isEnumDescConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isPrimitiveClassConstantDynamic;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isEnumSwitchCallSite;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
 
@@ -225,9 +227,14 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
         if (isBoxedBooleanConstantDynamic(constDynamic, factory)) {
           booleanConsumer.accept(
               extractBoxedBooleanConstantDynamic(constDynamic, factory, context));
-        } else {
-          assert isEnumDescConstantDynamic(constDynamic, factory);
+        } else if (isEnumDescConstantDynamic(constDynamic, factory)) {
           dispatchEnumDescConstantDynamic(constDynamic, factory, context, enumConsumer);
+        } else if (isPrimitiveClassConstantDynamic(constDynamic, factory)) {
+          dexTypeConsumer.accept(
+              extractPrimitiveClassConstantDynamic(constDynamic, factory, context));
+        } else {
+          throw new CompilationError(
+              "Invalid constant dynamic for type switch" + dexValue, context.getOrigin());
         }
       } else if (dexValue.isDexValueNumber()) {
         assert dexValue.isDexValueDouble()
