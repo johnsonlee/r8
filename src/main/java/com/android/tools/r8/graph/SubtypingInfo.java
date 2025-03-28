@@ -51,7 +51,7 @@ public class SubtypingInfo {
   }
 
   public void extend(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<DexClass> classes) {
+      AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<? extends DexClass> classes) {
     assert typeInfo == null : "Extending typeInfo not implemented";
     WorkList<DexType> worklist = WorkList.newIdentityWorkList();
     for (DexClass clazz : classes) {

@@ -704,7 +704,8 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @SuppressWarnings("UnusedVariable")
     private void acceptUtilityMethod(ProgramMethod method, ProgramMethod context) {
-      // Intentionally empty. The method will be hit by tracing if required.
+      // The method will be hit by tracing if required.
+      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
@@ -713,6 +714,7 @@ public abstract class CfInstructionDesugaringEventConsumer
       // The method will be hit by tracing if required.
       // Pin the synthetic so it is not inlined again.
       additions.addMinimumSyntheticKeepInfo(method, Joiner::disallowInlining);
+      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
@@ -721,6 +723,7 @@ public abstract class CfInstructionDesugaringEventConsumer
       // The method will be hit by tracing if required.
       // Pin the synthetic so it is not inlined again.
       additions.addMinimumSyntheticKeepInfo(method, Joiner::disallowInlining);
+      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override

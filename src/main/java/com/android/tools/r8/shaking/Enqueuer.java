@@ -515,7 +515,7 @@ public class Enqueuer {
     this.profileCollectionAdditions = profileCollectionAdditions;
     this.deferredTracing = EnqueuerDeferredTracing.create(appView, this, mode);
     this.executorService = executorService;
-    this.subtypingInfo = subtypingInfo.unsetTypeInfo();
+    this.subtypingInfo = subtypingInfo;
     this.forceProguardCompatibility = options.forceProguardCompatibility;
     this.graphReporter = new GraphReporter(appView, keptGraphConsumer);
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
