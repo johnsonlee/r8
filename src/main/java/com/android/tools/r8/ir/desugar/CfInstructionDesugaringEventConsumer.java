@@ -610,12 +610,14 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptAutoCloseableForwardingMethod(
         ProgramMethod method, ProgramDefinition context) {
-      // Intentionally empty. The method will be hit by tracing if required.
+      // The method will be hit by tracing if required.
+      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
     public void acceptVarHandleDesugaringClass(DexProgramClass clazz) {
-      // Intentionally empty. The class will be hit by tracing if required.
+      // The class will be hit by tracing if required.
+      additions.addSynthesizedClass(clazz);
     }
 
     @Override
@@ -626,7 +628,8 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCollectionConversion(ProgramMethod arrayConversion, ProgramMethod context) {
-      // Intentionally empty. The method will be hit by tracing if required.
+      // The method will be hit by tracing if required.
+      additions.addSynthesizedClass(arrayConversion.getHolder());
     }
 
     @Override
@@ -657,7 +660,8 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCovariantRetargetMethod(ProgramMethod method, ProgramMethod context) {
-      // Intentionally empty. The method will be hit by tracing if required.
+      // The method will be hit by tracing if required.
+      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
@@ -792,6 +796,7 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptConstantDynamicClass(
         ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
+      additions.addSynthesizedClass(constantDynamicClass.getConstantDynamicProgramClass());
       synchronized (synthesizedConstantDynamicClasses) {
         synthesizedConstantDynamicClasses.add(constantDynamicClass);
       }
