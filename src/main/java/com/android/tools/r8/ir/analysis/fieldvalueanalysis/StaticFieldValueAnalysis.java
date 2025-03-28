@@ -26,7 +26,6 @@ import com.android.tools.r8.ir.analysis.value.SingleFieldValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.EnumValuesObjectState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
-import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
@@ -196,7 +195,7 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
     }
     return appView
         .abstractValueFactory()
-        .createSingleFieldValue(field.getReference(), computeObjectState(value));
+        .createSingleFieldValue(field.getReference(), value.computeObjectState(appView, context));
   }
 
   /**
@@ -352,9 +351,8 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
       // TODO(b/169050248): We could consider analysing these to answer the object state here.
       return false;
     }
-    ObjectState objectState =
-        definition.isNewInstance() ? computeObjectState(definition.outValue()) : null;
-    if (objectState == null || objectState.isEmpty()) {
+    ObjectState objectState = root.computeObjectState(appView, context);
+    if (objectState.isEmpty()) {
       // We need the state of all fields for the analysis to be valuable.
       return false;
     }
@@ -446,12 +444,8 @@ public class StaticFieldValueAnalysis extends FieldValueAnalysis {
 
     return appView
         .abstractValueFactory()
-        .createSingleFieldValue(enumField.getReference(), computeObjectState(value));
-  }
-
-  private ObjectState computeObjectState(Value value) {
-    // TODO(b/204159267): Move this logic into Instruction#getAbstractValue in NewInstance.
-    return ObjectStateAnalysis.computeObjectState(value, appView, context);
+        .createSingleFieldValue(
+            enumField.getReference(), value.computeObjectState(appView, context));
   }
 
   private boolean isEnumValuesArray(Value value) {

@@ -28,6 +28,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.NumberFromIntervalValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.regalloc.LiveIntervals;
 import com.android.tools.r8.position.MethodPosition;
@@ -877,6 +878,18 @@ public class Value implements Comparable<Value>, InstructionOrValue {
 
   public boolean isConstant() {
     return definition.isOutConstant() && !hasLocalInfo();
+  }
+
+  public final ObjectState computeObjectState(
+      AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+    return computeObjectState(appView, context, AbstractValueSupplier.shallow());
+  }
+
+  public ObjectState computeObjectState(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context,
+      AbstractValueSupplier abstractValueSupplier) {
+    return definition.computeObjectState(appView, context, abstractValueSupplier);
   }
 
   public final AbstractValue getAbstractValue(AppView<?> appView, ProgramMethod context) {

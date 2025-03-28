@@ -12,12 +12,13 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.StatefulObjectValue;
-import com.android.tools.r8.ir.analysis.value.UnknownValue;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.optimize.Inliner.ConstraintWithTarget;
 import com.android.tools.r8.ir.optimize.InliningConstraints;
 import com.android.tools.r8.lightir.LirBuilder;
+import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import java.util.Arrays;
 
 public class NewArrayFilledData extends Instruction {
@@ -132,16 +133,29 @@ public class NewArrayFilledData extends Instruction {
     return appView.options().debug || src().getType().isNullable();
   }
 
-  @Override
-  public AbstractValue getAbstractValue(
+  private ObjectState internalComputeObjectState(
       AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
     if (!instructionMayHaveSideEffects(appView, context, abstractValueSupplier)
         && size <= Integer.MAX_VALUE) {
       assert !instructionInstanceCanThrow(appView, context, abstractValueSupplier);
-      return StatefulObjectValue.create(
-          appView.abstractValueFactory().createKnownLengthArrayState((int) size));
+      return appView.abstractValueFactory().createKnownLengthArrayState((int) size);
     }
-    return UnknownValue.getInstance();
+    return ObjectState.empty();
+  }
+
+  @Override
+  public ObjectState computeObjectState(
+      AppView<AppInfoWithLiveness> appView,
+      ProgramMethod context,
+      AbstractValueSupplier abstractValueSupplier) {
+    return internalComputeObjectState(appView, context, abstractValueSupplier);
+  }
+
+  @Override
+  public AbstractValue getAbstractValue(
+      AppView<?> appView, ProgramMethod context, AbstractValueSupplier abstractValueSupplier) {
+    return StatefulObjectValue.create(
+        internalComputeObjectState(appView, context, abstractValueSupplier));
   }
 
   @Override
