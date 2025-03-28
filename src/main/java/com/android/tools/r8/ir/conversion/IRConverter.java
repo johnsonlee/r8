@@ -543,7 +543,11 @@ public class IRConverter {
 
     if (typeChecker != null && !typeChecker.check(code)) {
       assert appView.enableWholeProgramOptimizations();
-      assert options.testing.allowTypeErrors;
+      assert options.testing.allowTypeErrors
+          : "Could not type check code for method "
+              + method.toSourceString()
+              + "\nWith Code:\n"
+              + code;
       StringDiagnostic warning =
           new StringDiagnostic(
               "The method `"
