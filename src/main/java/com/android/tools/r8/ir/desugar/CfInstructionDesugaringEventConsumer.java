@@ -603,7 +603,8 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
-      // Intentionally empty. The method will be hit by tracing if required.
+      // The method will be hit by tracing if required.
+      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
