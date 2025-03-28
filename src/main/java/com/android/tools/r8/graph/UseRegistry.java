@@ -3,18 +3,20 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
-import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
+import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.extractClassDescConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isClassDescConstantDynamic;
 
 import com.android.tools.r8.dex.code.CfOrDexInstanceFieldRead;
 import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.dex.code.CfOrDexStaticFieldRead;
-import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeInstructionMetadata;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper;
+import com.android.tools.r8.ir.desugar.constantdynamic.ConstantDynamicReference;
 import com.android.tools.r8.utils.TraversalContinuation;
+import java.util.List;
 import java.util.ListIterator;
 
 public abstract class UseRegistry<T extends Definition> {
@@ -237,65 +239,68 @@ public abstract class UseRegistry<T extends Definition> {
   }
 
   protected void registerCallSiteBootstrapArgs(DexCallSite callSite, int start, int end) {
-    boolean isLambdaMetaFactory =
-        appView.dexItemFactory().isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod());
-    // Register bootstrap method arguments.
-    // Only Type, MethodHandle, and MethodType need to be registered.
+    MethodHandleUse use =
+        appView.dexItemFactory().isLambdaMetafactoryMethod(callSite.bootstrapMethod.asMethod())
+            ? MethodHandleUse.ARGUMENT_TO_LAMBDA_METAFACTORY
+            : MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
+    registerBootstrapArgs(callSite.bootstrapArgs, start, end, use);
+  }
+
+  protected void registerBootstrapArgs(
+      List<DexValue> bootstrapArgs, int start, int end, MethodHandleUse use) {
     assert start >= 0;
-    assert end <= callSite.bootstrapArgs.size();
+    assert end <= bootstrapArgs.size();
     for (int i = start; i < end; i++) {
-      DexValue arg = callSite.bootstrapArgs.get(i);
-      switch (arg.getValueKind()) {
-        case METHOD_HANDLE:
-          DexMethodHandle handle = arg.asDexValueMethodHandle().value;
-          MethodHandleUse use =
-              isLambdaMetaFactory
-                  ? MethodHandleUse.ARGUMENT_TO_LAMBDA_METAFACTORY
-                  : MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
-          registerMethodHandle(handle, use);
-          break;
-        case METHOD_TYPE:
-          registerProto(arg.asDexValueMethodType().value);
-          break;
-        case TYPE:
-          registerTypeReference(arg.asDexValueType().value);
-          break;
-        case CONST_DYNAMIC:
-          if (!isTypeSwitchCallSite(callSite, appView.dexItemFactory())) {
-            throw new CompilationError(
-                "Unsupported const dynamic in call site " + arg, getContext().getOrigin());
-          }
-          if (arg.asDexValueConstDynamic()
-              .getValue()
-              .getType()
-              .isIdenticalTo(appView.dexItemFactory().enumDescType)) {
-            TypeSwitchDesugaringHelper.dispatchEnumField(
-                (type, fieldName) -> {
-                  registerTypeReference(type);
-                },
-                arg.asDexValueConstDynamic().getValue(),
-                context,
-                dexItemFactory());
-          }
-          break;
-        default:
-          assert arg.isDexValueInt()
-              || arg.isDexValueLong()
-              || arg.isDexValueFloat()
-              || arg.isDexValueDouble()
-              || arg.isDexValueString()
-              || arg.isDexValueResourceNumber();
-          break;
-      }
+      DexValue arg = bootstrapArgs.get(i);
+      registerBoostrapArg(arg, use);
       if (continuation.shouldBreak()) {
         break;
       }
     }
   }
 
+  protected void registerBoostrapArg(DexValue arg, MethodHandleUse use) {
+    switch (arg.getValueKind()) {
+      case METHOD_HANDLE:
+        DexMethodHandle handle = arg.asDexValueMethodHandle().value;
+        registerMethodHandle(handle, use);
+        break;
+      case METHOD_TYPE:
+        registerProto(arg.asDexValueMethodType().value);
+        break;
+      case TYPE:
+        registerTypeReference(arg.asDexValueType().value);
+        break;
+      case CONST_DYNAMIC:
+        ConstantDynamicReference constDynamic = arg.asDexValueConstDynamic().getValue();
+        if (isClassDescConstantDynamic(constDynamic, dexItemFactory())) {
+          registerTypeReference(
+              extractClassDescConstantDynamic(constDynamic, dexItemFactory(), context));
+        } else {
+          registerConstDynamic(constDynamic);
+        }
+        break;
+      default:
+        assert arg.isDexValueInt()
+            || arg.isDexValueLong()
+            || arg.isDexValueFloat()
+            || arg.isDexValueDouble()
+            || arg.isDexValueString()
+            || arg.isDexValueResourceNumber();
+        break;
+    }
+  }
+
   public void registerCallSite(DexCallSite callSite) {
     registerCallSiteExceptBootstrapArgs(callSite);
     registerCallSiteBootstrapArgs(callSite, 0, callSite.bootstrapArgs.size());
+  }
+
+  public void registerConstDynamic(ConstantDynamicReference reference) {
+    registerTypeReference(reference.getType());
+    registerMethodHandle(reference.getBootstrapMethod(), NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
+    List<DexValue> bootArgs = reference.getBootstrapMethodArguments();
+    registerBootstrapArgs(bootArgs, 0, bootArgs.size(), NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
   }
 
   public void registerProto(DexProto proto) {

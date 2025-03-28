@@ -4,6 +4,9 @@
 
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.UseRegistry.MethodHandleUse.NOT_ARGUMENT_TO_LAMBDA_METAFACTORY;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.dispatchEnumDescConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isEnumDescConstantDynamic;
 import static com.android.tools.r8.ir.desugar.records.RecordRewriterHelper.isInvokeDynamicOnRecord;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isEnumSwitchCallSite;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
@@ -28,7 +31,6 @@ import com.android.tools.r8.graph.OriginalFieldWitness;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.code.Position;
-import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper;
 import com.google.common.collect.Sets;
 import java.util.IdentityHashMap;
 import java.util.ListIterator;
@@ -309,21 +311,15 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
 
   private void registerTypeSwitchCallSiteBootstrapArgs(DexCallSite callSite) {
     for (DexValue bootstrapArg : callSite.bootstrapArgs) {
-      if (bootstrapArg.isDexValueType()) {
-        registerTypeReference(bootstrapArg.asDexValueType().value);
-      } else if (bootstrapArg.isDexValueConstDynamic()
-          && bootstrapArg
-              .asDexValueConstDynamic()
-              .getValue()
-              .getType()
-              .isIdenticalTo(appView.dexItemFactory().enumDescType)) {
-        TypeSwitchDesugaringHelper.dispatchEnumField(
-            (type, fieldName) -> {
-              registerEnumReferencedInTypeSwitchBootstrapArguments(type);
-            },
+      registerBoostrapArg(bootstrapArg, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
+      if (bootstrapArg.isDexValueConstDynamic()
+          && isEnumDescConstantDynamic(
+              bootstrapArg.asDexValueConstDynamic().getValue(), dexItemFactory())) {
+        dispatchEnumDescConstantDynamic(
             bootstrapArg.asDexValueConstDynamic().getValue(),
+            dexItemFactory(),
             getContext(),
-            dexItemFactory());
+            (type, name) -> registerEnumReferencedInTypeSwitchBootstrapArguments(type));
       }
     }
   }
@@ -331,9 +327,8 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
   private void registerEnumSwitchCallSiteBootstrapArgs(DexCallSite callSite) {
     DexType enumType = callSite.getMethodProto().getParameter(0);
     for (DexValue bootstrapArg : callSite.bootstrapArgs) {
-      if (bootstrapArg.isDexValueType()) {
-        registerTypeReference(bootstrapArg.asDexValueType().value);
-      } else if (bootstrapArg.isDexValueString()) {
+      registerBoostrapArg(bootstrapArg, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
+      if (bootstrapArg.isDexValueString()) {
         registerEnumReferencedInTypeSwitchBootstrapArguments(enumType);
       }
     }
@@ -344,7 +339,7 @@ public class DefaultEnqueuerUseRegistry extends ComputeApiLevelUseRegistry {
     // The Instance Get method handle in invokeDynamicOnRecord are considered:
     // - a record use if not a constant value,
     // - unused if a constant value.
-    registerCallSiteBootstrapArgs(callSite, 0, 2);
+    registerBootstrapArgs(callSite.getBootstrapArgs(), 0, 2, NOT_ARGUMENT_TO_LAMBDA_METAFACTORY);
     for (int i = 2; i < callSite.getBootstrapArgs().size(); i++) {
       DexField field = callSite.getBootstrapArgs().get(i).asDexValueMethodHandle().value.asField();
       DexEncodedField encodedField =

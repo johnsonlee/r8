@@ -4,10 +4,12 @@
 
 package com.android.tools.r8.ir.desugar.typeswitch;
 
-import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.dispatchEnumField;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.dispatchEnumDescConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.extractBoxedBooleanConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isBoxedBooleanConstantDynamic;
+import static com.android.tools.r8.ir.desugar.constantdynamic.LibraryConstantDynamic.isEnumDescConstantDynamic;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isEnumSwitchCallSite;
 import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.isTypeSwitchCallSite;
-import static com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchDesugaringHelper.methodHandleIsInvokeStaticTo;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
@@ -20,7 +22,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaring;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
@@ -30,7 +31,6 @@ import com.android.tools.r8.ir.desugar.typeswitch.SwitchHelperGenerator.Scanner;
 import com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider.Dispatcher;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import org.objectweb.asm.Opcodes;
 
@@ -222,11 +222,12 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
         dexStringConsumer.accept(dexValue.asDexValueString().getValue());
       } else if (dexValue.isDexValueConstDynamic()) {
         ConstantDynamicReference constDynamic = dexValue.asDexValueConstDynamic().getValue();
-        if (constDynamic.getType().isIdenticalTo(factory.boxedBooleanType)) {
-          dispatchBooleanField(context, dexValue, booleanConsumer, constDynamic);
+        if (isBoxedBooleanConstantDynamic(constDynamic, factory)) {
+          booleanConsumer.accept(
+              extractBoxedBooleanConstantDynamic(constDynamic, factory, context));
         } else {
-          assert constDynamic.getType().isIdenticalTo(factory.enumDescType);
-          dispatchEnumField(enumConsumer, constDynamic, context, appView.dexItemFactory());
+          assert isEnumDescConstantDynamic(constDynamic, factory);
+          dispatchEnumDescConstantDynamic(constDynamic, factory, context, enumConsumer);
         }
       } else if (dexValue.isDexValueNumber()) {
         assert dexValue.isDexValueDouble()
@@ -238,35 +239,6 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
             "Invalid bootstrap arg for type switch " + dexValue, context.getOrigin());
       }
     };
-  }
-
-  private void dispatchBooleanField(
-      ProgramMethod context,
-      DexValue dexValue,
-      Consumer<Boolean> booleanConsumer,
-      ConstantDynamicReference constDynamic) {
-    if (methodHandleIsInvokeStaticTo(
-        constDynamic.getBootstrapMethod(),
-        factory.createMethod(
-            factory.constantBootstrapsType,
-            factory.createProto(
-                factory.objectType,
-                factory.methodHandlesLookupType,
-                factory.stringType,
-                factory.classType),
-            "getStaticFinal"))) {
-      String name = constDynamic.getName().toString();
-      if (name.equals("TRUE")) {
-        booleanConsumer.accept(true);
-        return;
-      }
-      if (name.equals("FALSE")) {
-        booleanConsumer.accept(false);
-        return;
-      }
-    }
-    throw new CompilationError(
-        "Invalid Boolean bootstrap arg for type switch " + dexValue, context.getOrigin());
   }
 
   private Scanner typeScanner() {
