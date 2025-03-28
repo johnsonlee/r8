@@ -25,7 +25,6 @@ import com.android.tools.r8.ir.analysis.framework.intraprocedural.AbstractInstru
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.UnknownValue;
-import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.ir.conversion.CfBuilder;
 import com.android.tools.r8.ir.conversion.DexBuilder;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
@@ -205,13 +204,6 @@ public abstract class Instruction
       oldOutValue.definition = null;
     }
     return oldOutValue;
-  }
-
-  public ObjectState computeObjectState(
-      AppView<AppInfoWithLiveness> appView,
-      ProgramMethod context,
-      AbstractValueSupplier abstractValueSupplier) {
-    return ObjectState.empty();
   }
 
   public AbstractValue getAbstractValue(

@@ -23,6 +23,7 @@ import com.android.tools.r8.ir.analysis.type.Nullability;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.Argument;
@@ -372,7 +373,7 @@ public class ArgumentPropagatorCodeScanner {
       if (abstractValue.isUnknown()) {
         abstractValue =
             getFallbackAbstractValueForField(
-                field, () -> value.computeObjectState(appView, context));
+                field, () -> ObjectStateAnalysis.computeObjectState(value, appView, context));
       }
       if (field.getType().isClassType()) {
         DynamicType dynamicType =

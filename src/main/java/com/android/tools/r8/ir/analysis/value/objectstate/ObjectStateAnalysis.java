@@ -7,7 +7,8 @@ package com.android.tools.r8.ir.analysis.value.objectstate;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.ir.code.AbstractValueSupplier;
+import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeDirect;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Value;
@@ -15,13 +16,34 @@ import com.android.tools.r8.ir.optimize.info.field.InstanceFieldArgumentInitiali
 import com.android.tools.r8.ir.optimize.info.field.InstanceFieldInitializationInfoCollection;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 
-public class ObjectStateNewInstanceAnalysis {
+public class ObjectStateAnalysis {
 
-  public static ObjectState computeNewInstanceObjectState(
-      NewInstance newInstance,
-      AppView<AppInfoWithLiveness> appView,
-      ProgramMethod context,
-      AbstractValueSupplier abstractValueSupplier) {
+  public static ObjectState computeObjectState(
+      Value value, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+    Value valueRoot = value.getAliasedValue();
+    if (valueRoot.isDefinedByInstructionSatisfying(
+        i -> i.isNewArrayEmpty() || i.isNewArrayFilledData() || i.isNewArrayFilled())) {
+      return computeNewArrayObjectState(valueRoot, appView, context);
+    }
+    if (valueRoot.isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+      return computeNewInstanceObjectState(valueRoot, appView, context);
+    }
+    return ObjectState.empty();
+  }
+
+  private static ObjectState computeNewArrayObjectState(
+      Value value, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+    AbstractValue abstractValue = value.getAbstractValue(appView, context);
+    if (abstractValue.isStatefulObjectValue()) {
+      // TODO(b/204272377): Avoid wrapping and unwrapping the object state.
+      return abstractValue.asStatefulObjectValue().getObjectState();
+    }
+    return ObjectState.empty();
+  }
+
+  private static ObjectState computeNewInstanceObjectState(
+      Value value, AppView<AppInfoWithLiveness> appView, ProgramMethod context) {
+    NewInstance newInstance = value.definition.asNewInstance();
     InvokeDirect uniqueConstructorInvoke =
         newInstance.getUniqueConstructorInvoke(appView.dexItemFactory());
     if (uniqueConstructorInvoke == null) {
@@ -62,8 +84,7 @@ public class ObjectStateNewInstanceAnalysis {
                 initializationInfo.asArgumentInitializationInfo();
             Value argument =
                 uniqueConstructorInvoke.getArgument(argumentInitializationInfo.getArgumentIndex());
-            builder.recordFieldHasValue(
-                field, abstractValueSupplier.getAbstractValue(argument, appView, context));
+            builder.recordFieldHasValue(field, argument.getAbstractValue(appView, context));
           } else if (initializationInfo.isSingleValue()) {
             builder.recordFieldHasValue(field, initializationInfo.asSingleValue());
           }

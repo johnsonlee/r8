@@ -66,6 +66,7 @@ import com.android.tools.r8.ir.analysis.type.DynamicTypeWithUpperBound;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.analysis.value.StatefulObjectValue;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
+import com.android.tools.r8.ir.analysis.value.objectstate.ObjectStateAnalysis;
 import com.android.tools.r8.ir.code.AbstractValueSupplier;
 import com.android.tools.r8.ir.code.AliasedValueConfiguration;
 import com.android.tools.r8.ir.code.Argument;
@@ -221,7 +222,9 @@ public class MethodOptimizationInfoCollector {
           }
         } else if (returnValue.getType().isReferenceType()) {
           // TODO(b/204159267): Move this logic into Instruction#getAbstractValue in NewInstance.
-          ObjectState objectState = aliasedValue.computeObjectState(appView, context);
+          ObjectState objectState =
+              ObjectStateAnalysis.computeObjectState(aliasedValue, appView, context);
+          // TODO(b/204272377): Avoid wrapping and unwrapping the object state.
           feedback.methodReturnsAbstractValue(
               method, appView, StatefulObjectValue.create(objectState));
         }
