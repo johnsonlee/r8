@@ -376,8 +376,7 @@ public class InterfaceDesugaringSyntheticHelper {
     ClasspathOrLibraryClass context = method.getHolder().asClasspathOrLibraryClass();
     DexMethod companionMethodReference =
         defaultAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
-    return ensureMethodOfClasspathCompanionClassStub(
-        companionMethodReference, context, appView, eventConsumer);
+    return ensureMethodOfClasspathCompanionClassStub(companionMethodReference, context, appView);
   }
 
   DexClassAndMethod ensureStaticAsMethodOfCompanionClassStub(
@@ -388,8 +387,7 @@ public class InterfaceDesugaringSyntheticHelper {
     } else {
       ClasspathOrLibraryClass context = method.getHolder().asClasspathOrLibraryClass();
       DexMethod companionMethodReference = staticAsMethodOfCompanionClass(method);
-      return ensureMethodOfClasspathCompanionClassStub(
-          companionMethodReference, context, appView, eventConsumer);
+      return ensureMethodOfClasspathCompanionClassStub(companionMethodReference, context, appView);
     }
   }
 
@@ -492,10 +490,7 @@ public class InterfaceDesugaringSyntheticHelper {
   }
 
   private static DexClassAndMethod ensureMethodOfClasspathCompanionClassStub(
-      DexMethod companionMethodReference,
-      ClasspathOrLibraryClass context,
-      AppView<?> appView,
-      InterfaceMethodDesugaringBaseEventConsumer eventConsumer) {
+      DexMethod companionMethodReference, ClasspathOrLibraryClass context, AppView<?> appView) {
     return appView
         .getSyntheticItems()
         .ensureFixedClasspathClassMethod(
@@ -509,8 +504,7 @@ public class InterfaceDesugaringSyntheticHelper {
             methodBuilder ->
                 methodBuilder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
-                    .setCode(ignore -> ThrowNullCode.get()),
-            eventConsumer::acceptCompanionClasspathMethod);
+                    .setCode(ignore -> ThrowNullCode.get()));
   }
 
   ProgramMethod ensureStaticAsMethodOfProgramCompanionClassStub(

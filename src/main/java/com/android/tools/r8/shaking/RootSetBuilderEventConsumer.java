@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.shaking;
 
-import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringBaseEventConsumer;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
@@ -33,11 +32,6 @@ public interface RootSetBuilderEventConsumer extends InterfaceMethodDesugaringBa
 
     @Override
     public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
-      // Intentionally empty.
-    }
-
-    @Override
-    public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
       // Intentionally empty.
     }
 

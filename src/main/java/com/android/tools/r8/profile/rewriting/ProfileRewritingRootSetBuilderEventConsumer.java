@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.profile.rewriting;
 
-import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.RootSetBuilderEventConsumer;
 
@@ -32,11 +31,6 @@ public class ProfileRewritingRootSetBuilderEventConsumer implements RootSetBuild
   public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
     additionsCollection.addMethodAndHolderIfContextIsInProfile(companionMethod, method);
     parent.acceptCompanionClassClinit(method, companionMethod);
-  }
-
-  @Override
-  public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
-    parent.acceptCompanionClasspathMethod(companionMethod);
   }
 
   @Override

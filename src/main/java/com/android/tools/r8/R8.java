@@ -1190,13 +1190,6 @@ public class R8 {
       SubtypingInfo subtypingInfo,
       List<KeepDeclaration> keepDeclarations)
       throws ExecutionException {
-    timing.begin("Update subtyping info");
-    subtypingInfo.unsetTypeInfo();
-    if (appView.getSyntheticItems().hasPendingSyntheticClasses()) {
-      subtypingInfo.extend(appView, appView.getSyntheticItems().getPendingSyntheticClasses());
-    }
-    assert subtypingInfo.verifyUpToDate(appView);
-    timing.end();
     timing.begin("Set up enqueuer");
     Enqueuer enqueuer =
         EnqueuerFactory.createForInitialTreeShaking(

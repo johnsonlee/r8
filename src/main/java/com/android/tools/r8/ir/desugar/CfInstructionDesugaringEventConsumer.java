@@ -10,7 +10,6 @@ import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.ClasspathMethod;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexClasspathClass;
@@ -433,11 +432,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
-    public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
-      // Intentionally empty.
-    }
-
-    @Override
     public List<ProgramMethod> finalizeDesugaring() {
       List<ProgramMethod> needsProcessing = new ArrayList<>();
       finalizeInvokeSpecialDesugaring(needsProcessing::add);
@@ -552,20 +546,17 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptDefaultAsCompanionMethod(
         ProgramMethod method, ProgramMethod companionMethod) {
-      additions.addSynthesizedClass(companionMethod.getHolder());
       onCompanionMethodCallback.accept(method, companionMethod);
     }
 
     @Override
     public void acceptPrivateAsCompanionMethod(
         ProgramMethod method, ProgramMethod companionMethod) {
-      additions.addSynthesizedClass(companionMethod.getHolder());
       onCompanionMethodCallback.accept(method, companionMethod);
     }
 
     @Override
     public void acceptStaticAsCompanionMethod(ProgramMethod method, ProgramMethod companionMethod) {
-      additions.addSynthesizedClass(companionMethod.getHolder());
       onCompanionMethodCallback.accept(method, companionMethod);
     }
 
@@ -581,19 +572,12 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(companionMethod.getHolder());
-    }
-
-    @Override
-    public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
-      additions.addSynthesizedClass(companionMethod.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptRecordClass(DexProgramClass recordClass) {
-      // The class will be hit by tracing if required.
-      additions.addSynthesizedClass(recordClass);
+      // Intentionally empty. The class will be hit by tracing if required.
     }
 
     @Override
@@ -603,21 +587,18 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptAutoCloseableDispatchMethod(ProgramMethod method, ProgramDefinition context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(method.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptAutoCloseableForwardingMethod(
         ProgramMethod method, ProgramDefinition context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(method.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptVarHandleDesugaringClass(DexProgramClass clazz) {
-      // The class will be hit by tracing if required.
-      additions.addSynthesizedClass(clazz);
+      // Intentionally empty. The class will be hit by tracing if required.
     }
 
     @Override
@@ -628,8 +609,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCollectionConversion(ProgramMethod arrayConversion, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(arrayConversion.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
@@ -660,8 +640,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCovariantRetargetMethod(ProgramMethod method, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(method.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
@@ -708,8 +687,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @SuppressWarnings("UnusedVariable")
     private void acceptUtilityMethod(ProgramMethod method, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(method.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
@@ -718,7 +696,6 @@ public abstract class CfInstructionDesugaringEventConsumer
       // The method will be hit by tracing if required.
       // Pin the synthetic so it is not inlined again.
       additions.addMinimumSyntheticKeepInfo(method, Joiner::disallowInlining);
-      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
@@ -727,7 +704,6 @@ public abstract class CfInstructionDesugaringEventConsumer
       // The method will be hit by tracing if required.
       // Pin the synthetic so it is not inlined again.
       additions.addMinimumSyntheticKeepInfo(method, Joiner::disallowInlining);
-      additions.addSynthesizedClass(method.getHolder());
     }
 
     @Override
@@ -747,32 +723,27 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptAPIConversionOutline(ProgramMethod method, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(method.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptBackportedMethod(ProgramMethod backportedMethod, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(backportedMethod.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptBackportedClass(DexProgramClass backportedClass, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(backportedClass);
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptTypeSwitchMethod(ProgramMethod typeSwitchMethod, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(typeSwitchMethod.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
     public void acceptTypeSwitchClass(DexProgramClass typeSwitchClass, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(typeSwitchClass);
+      // Intentionally empty. The method will be hit by tracing if required.
     }
 
     @Override
@@ -784,7 +755,6 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptLambdaClass(LambdaClass lambdaClass, ProgramMethod context) {
-      additions.addSynthesizedClass(lambdaClass.getLambdaProgramClass());
       synchronized (synthesizedLambdaClasses) {
         synthesizedLambdaClasses.put(lambdaClass, context);
       }
@@ -796,7 +766,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public void acceptConstantDynamicClass(
         ConstantDynamicClass constantDynamicClass, ProgramMethod context) {
-      additions.addSynthesizedClass(constantDynamicClass.getConstantDynamicProgramClass());
       synchronized (synthesizedConstantDynamicClasses) {
         synthesizedConstantDynamicClasses.add(constantDynamicClass);
       }
@@ -817,7 +786,7 @@ public abstract class CfInstructionDesugaringEventConsumer
         ProgramMethod bridge,
         DexClass argumentClass,
         DexClassAndMethod context) {
-      additions.addSynthesizedClass(argumentClass);
+      // Intentionally empty.
     }
 
     @Override
@@ -900,8 +869,7 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptOutlinedMethod(ProgramMethod outlinedMethod, ProgramMethod context) {
-      // The method will be hit by tracing if required.
-      additions.addSynthesizedClass(outlinedMethod.getHolder());
+      // Intentionally empty. The method will be hit by tracing if required.
     }
   }
 
@@ -1012,11 +980,6 @@ public abstract class CfInstructionDesugaringEventConsumer
 
     @Override
     public void acceptCompanionClassClinit(ProgramMethod method, ProgramMethod companionMethod) {
-      assert false;
-    }
-
-    @Override
-    public void acceptCompanionClasspathMethod(ClasspathMethod companionMethod) {
       assert false;
     }
 

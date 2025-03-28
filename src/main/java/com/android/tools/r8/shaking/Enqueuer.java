@@ -174,7 +174,6 @@ import com.android.tools.r8.utils.collections.ProgramMethodMap;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
@@ -4118,8 +4117,6 @@ public class Enqueuer {
     private final Map<DexProgramClass, Set<DexClass>> injectedInterfaces =
         new ConcurrentHashMap<>();
 
-    private final Set<DexClass> synthesizedClasses = ConcurrentHashMap.newKeySet();
-
     SyntheticAdditions(ProcessorContext processorContext) {
       this.processorContext = processorContext;
     }
@@ -4134,8 +4131,7 @@ public class Enqueuer {
           desugaredMethods.isEmpty()
               && liveMethods.isEmpty()
               && syntheticClasspathClasses.isEmpty()
-              && injectedInterfaces.isEmpty()
-              && synthesizedClasses.isEmpty();
+              && injectedInterfaces.isEmpty();
       return empty;
     }
 
@@ -4169,10 +4165,6 @@ public class Enqueuer {
       consumer.accept(
           minimumSyntheticKeepInfo.computeIfAbsent(
               method, ignoreKey(KeepMethodInfo::newEmptyJoiner)));
-    }
-
-    public void addSynthesizedClass(DexClass clazz) {
-      synthesizedClasses.add(clazz);
     }
 
     void enqueueWorkItems(Enqueuer enqueuer) {
@@ -4219,11 +4211,7 @@ public class Enqueuer {
     // Commit the pending synthetics and recompute subtypes.
     appInfo = timing.time("Rebuild AppInfo", () -> appInfo.rebuildWithClassHierarchy(app -> app));
     appView.setAppInfo(appInfo);
-    subtypingInfo.extend(
-        appView,
-        Iterables.concat(
-            additions.synthesizedClasses, additions.syntheticClasspathClasses.values()));
-    assert subtypingInfo.verifyUpToDate(appView);
+    subtypingInfo = timing.time("Create SubtypingInfo", () -> SubtypingInfo.create(appView));
 
     // Finally once all synthesized items "exist" it is now safe to continue tracing. The new work
     // items are enqueued and the fixed point will continue once this subroutine returns.

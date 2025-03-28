@@ -981,39 +981,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       Consumer<SyntheticClasspathClassBuilder> classConsumer,
       Consumer<DexClasspathClass> onCreationConsumer,
       Consumer<SyntheticMethodBuilder> buildMethodCallback) {
-    return ensureFixedClasspathMethodFromType(
-        methodName,
-        methodProto,
-        kindSelector,
-        contextType,
-        appView,
-        classConsumer,
-        onCreationConsumer,
-        buildMethodCallback,
-        emptyConsumer());
-  }
-
-  public ClasspathMethod ensureFixedClasspathMethodFromType(
-      DexString methodName,
-      DexProto methodProto,
-      SyntheticKindSelector kindSelector,
-      DexType contextType,
-      AppView<?> appView,
-      Consumer<SyntheticClasspathClassBuilder> classConsumer,
-      Consumer<DexClasspathClass> onCreationConsumer,
-      Consumer<SyntheticMethodBuilder> buildMethodCallback,
-      Consumer<ClasspathMethod> newMethodCallback) {
     DexClasspathClass clazz =
         ensureFixedClasspathClassFromType(
             kindSelector, contextType, appView, classConsumer, onCreationConsumer);
     return internalEnsureFixedClasspathMethod(
-        methodName,
-        methodProto,
-        kindSelector.select(naming),
-        appView,
-        buildMethodCallback,
-        newMethodCallback,
-        clazz);
+        methodName, methodProto, kindSelector.select(naming), appView, buildMethodCallback, clazz);
   }
 
   public ClasspathMethod ensureFixedClasspathClassMethod(
@@ -1025,39 +997,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       Consumer<SyntheticClasspathClassBuilder> buildClassCallback,
       Consumer<DexClasspathClass> onClassCreationCallback,
       Consumer<SyntheticMethodBuilder> buildMethodCallback) {
-    return ensureFixedClasspathClassMethod(
-        methodName,
-        methodProto,
-        kindSelector,
-        context,
-        appView,
-        buildClassCallback,
-        onClassCreationCallback,
-        buildMethodCallback,
-        emptyConsumer());
-  }
-
-  public ClasspathMethod ensureFixedClasspathClassMethod(
-      DexString methodName,
-      DexProto methodProto,
-      SyntheticKindSelector kindSelector,
-      ClasspathOrLibraryClass context,
-      AppView<?> appView,
-      Consumer<SyntheticClasspathClassBuilder> buildClassCallback,
-      Consumer<DexClasspathClass> onClassCreationCallback,
-      Consumer<SyntheticMethodBuilder> buildMethodCallback,
-      Consumer<ClasspathMethod> newMethodCallback) {
     DexClasspathClass clazz =
         ensureFixedClasspathClass(
             kindSelector, context, appView, buildClassCallback, onClassCreationCallback);
     return internalEnsureFixedClasspathMethod(
-        methodName,
-        methodProto,
-        kindSelector.select(naming),
-        appView,
-        buildMethodCallback,
-        newMethodCallback,
-        clazz);
+        methodName, methodProto, kindSelector.select(naming), appView, buildMethodCallback, clazz);
   }
 
   private ClasspathMethod internalEnsureFixedClasspathMethod(
@@ -1066,7 +1010,6 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       SyntheticKind kind,
       AppView<?> appView,
       Consumer<SyntheticMethodBuilder> buildMethodCallback,
-      Consumer<ClasspathMethod> newMethodCallback,
       DexClasspathClass clazz) {
     DexMethod methodReference =
         appView.dexItemFactory().createMethod(clazz.getType(), methodProto, methodName);
@@ -1082,9 +1025,7 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
               buildMethodCallback.accept(methodBuilder.disableAndroidApiLevelCheck());
             },
             emptyConsumer());
-    ClasspathMethod method = new ClasspathMethod(clazz, methodDefinition);
-    newMethodCallback.accept(method);
-    return method;
+    return new ClasspathMethod(clazz, methodDefinition);
   }
 
   @SuppressWarnings("unchecked")
