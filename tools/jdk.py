@@ -17,14 +17,14 @@ def GetJdkHome():
     return GetJdk11Home()
 
 
-def GetJdkRoot():
-    return GetJdk11Root()
+def GetJdkRoot(name):
+    root = os.path.join(JDK_DIR, name)
+    os_root = GetOSPath(root)
+    return os_root if os_root else os.environ['JAVA_HOME']
 
 
 def GetJdk11Root():
-    root = os.path.join(JDK_DIR, 'jdk-11')
-    os_root = GetOSPath(root)
-    return os_root if os_root else os.environ['JAVA_HOME']
+    return GetJdkRoot('jdk-11')
 
 
 def GetOSPath(root):

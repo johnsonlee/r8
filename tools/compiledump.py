@@ -42,6 +42,9 @@ def make_parser():
                         '--compiler',
                         help='Compiler to use',
                         default=None)
+    parser.add_argument('--jdk',
+                        help='JDK to use',
+                        choices=jdk.ALL_JDKS)
     parser.add_argument('--minify',
                         help='Force enable/disable minification'
                         ' (defaults to app proguard config)',
@@ -853,6 +856,7 @@ def summarize_jar(jar):
 
 def run(args, otherargs):
     gradle.EnsureJdk()
+    jdkhome = jdk.GetJdkRoot(args.jdk) if args.jdk else None
     if args.summary:
         summarize_dump_files(otherargs)
     elif args.loop:
@@ -862,10 +866,10 @@ def run(args, otherargs):
             out = args.temp
             if out:
                 out = os.path.join(out, '{:03d}'.format(count))
-            run1(out, args, otherargs)
+            run1(out, args, otherargs, jdkhome=jdkhome)
             count += 1
     else:
-        run1(args.temp, args, otherargs)
+        run1(args.temp, args, otherargs, jdkhome=jdkhome)
 
 
 if __name__ == '__main__':
