@@ -113,7 +113,7 @@ public class OnlyDirectlyConnectedOrUnrelatedInterfaces extends MultiClassPolicy
 
   private Set<DexProgramClass> computeSuperInterfaces(DexProgramClass clazz) {
     return computeStrictTransitiveInterfaces(
-        clazz, i -> immediateSubtypingInfo.getSuperinterfaces(i, appView));
+        clazz, i -> immediateSubtypingInfo.getSuperProgramInterfaces(i, appView));
   }
 
   private Set<DexProgramClass> computeSubInterfaces(DexProgramClass clazz) {
