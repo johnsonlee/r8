@@ -134,7 +134,7 @@ def main():
     cmd.extend(['--pg-conf-output', args.output + '.config'])
     cmd.extend(['--pg-map-output', args.output + '.map'])
     cmd.extend(['--partition-map-output', args.output + '_map.zip'])
-    cmd.extend(['--lib', jdk.GetJdkHome()])
+    cmd.extend(['--lib', jdk.GetDefaultJdkHome()])
     if args.pg_conf:
         for pgconf in args.pg_conf:
             cmd.extend(['--pg-conf', pgconf])
