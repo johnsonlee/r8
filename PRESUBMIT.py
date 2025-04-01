@@ -112,7 +112,7 @@ def CheckKotlinFormatting(paths, output_api, results):
           results.append(
             output_api.PresubmitError(
               "File {path} needs formatting".format(path=path.decode('utf-8'))))
-    needs_formatting_count += len(result)
+      needs_formatting_count += len(result)
   return needs_formatting_count > 0
 
 
