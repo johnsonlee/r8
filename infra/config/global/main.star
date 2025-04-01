@@ -375,8 +375,8 @@ r8_tester_with_default(
     ["--runtimes=jdk21", "--command_cache_dir=/tmp/ccache"],
 )
 r8_tester_with_default(
-    "linux-jdk23",
-    ["--runtimes=jdk23", "--command_cache_dir=/tmp/ccache"],
+    "linux-jdk24",
+    ["--runtimes=jdk24", "--command_cache_dir=/tmp/ccache"],
     release_trigger = ["branch-gitiles-8.5-forward"],
 )
 

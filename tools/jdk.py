@@ -10,7 +10,7 @@ import defines
 
 JDK_DIRS = os.path.join(defines.THIRD_PARTY, 'openjdk')
 
-ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-17', 'jdk-21', 'jdk-23']
+ALL_JDKS = ['openjdk-9.0.4', 'jdk-11', 'jdk-17', 'jdk-21', 'jdk-24']
 
 
 def GetDefaultJdkHome():

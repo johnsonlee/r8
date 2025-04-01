@@ -55,7 +55,7 @@ enum class Jdk(val folder: String, val version: Int) {
   JDK_11("jdk-11", 11),
   JDK_17("jdk-17", 17),
   JDK_21("jdk-21", 21),
-  JDK_23("jdk-23", 23);
+  JDK_24("jdk-24", 24);
 
   fun isJdk8(): Boolean {
     return this == JDK_8

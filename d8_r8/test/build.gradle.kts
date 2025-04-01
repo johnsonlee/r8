@@ -62,7 +62,7 @@ tasks {
     dependsOn(gradle.includedBuild("tests_java_11").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_17").task(":clean"))
     dependsOn(gradle.includedBuild("tests_java_21").task(":clean"))
-    dependsOn(gradle.includedBuild("tests_java_23").task(":clean"))
+    dependsOn(gradle.includedBuild("tests_java_24").task(":clean"))
   }
 
   val packageTests by registering(Jar::class) {
@@ -477,6 +477,7 @@ tasks {
       dependsOn(testR8LibNoDeps)
     } else {
       dependsOn(gradle.includedBuild("tests_java_8").task(":test"))
+      dependsOn(gradle.includedBuild("tests_java_11").task(":test"))
       dependsOn(gradle.includedBuild("tests_java_17").task(":test"))
       dependsOn(gradle.includedBuild("tests_java_21").task(":test"))
       dependsOn(gradle.includedBuild("tests_bootstrap").task(":test"))

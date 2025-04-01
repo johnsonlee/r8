@@ -14,10 +14,10 @@ val root = getRoot()
 
 java {
   sourceSets.test.configure {
-    java.srcDir(root.resolveAll("src", "test", "java23"))
+    java.srcDir(root.resolveAll("src", "test", "java24"))
   }
-  sourceCompatibility = JavaVersion.VERSION_23
-  targetCompatibility = JavaVersion.VERSION_23
+  sourceCompatibility = JavaVersion.VERSION_24
+  targetCompatibility = JavaVersion.VERSION_24
 }
 
 val testbaseJavaCompileTask = projectTask("testbase", "compileJava")
@@ -36,14 +36,14 @@ tasks {
     dependsOn(gradle.includedBuild("shared").task(":downloadDeps"))
     options.setFork(true)
     options.forkOptions.memoryMaximumSize = "3g"
-    options.forkOptions.executable = getCompilerPath(Jdk.JDK_23)
+    options.forkOptions.executable = getCompilerPath(Jdk.JDK_24)
   }
 
   withType<Test> {
     notCompatibleWithConfigurationCache(
       "Failure storing the configuration cache: cannot serialize object of type 'org.gradle.api.internal.project.DefaultProject', a subtype of 'org.gradle.api.Project', as these are not supported with the configuration cache")
     TestingState.setUpTestingState(this)
-    javaLauncher = getJavaLauncher(Jdk.JDK_23)
+    javaLauncher = getJavaLauncher(Jdk.JDK_24)
     systemProperty("TEST_DATA_LOCATION",
                    layout.buildDirectory.dir("classes/java/test").get().toString())
     systemProperty("TESTBASE_DATA_LOCATION",

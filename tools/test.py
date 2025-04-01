@@ -52,7 +52,7 @@ VALID_RUNTIMES = [
     'jdk11',
     'jdk17',
     'jdk21',
-    'jdk23',
+    'jdk24'
 ] + ['dex-%s' % dexvm for dexvm in ALL_ART_VMS]
 
 

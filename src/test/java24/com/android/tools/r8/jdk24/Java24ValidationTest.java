@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.java23;
+package com.android.tools.r8.jdk24;
 
 import static com.android.tools.r8.utils.InternalOptions.ASM_VERSION;
 import static junit.framework.TestCase.assertEquals;
@@ -26,7 +26,7 @@ import org.objectweb.asm.ClassVisitor;
 
 // Test to validate that the tests_java_23 module is built with JDK-23.
 @RunWith(Parameterized.class)
-public class Java23ValidationTest extends TestBase {
+public class Java24ValidationTest extends TestBase {
 
   static final String EXPECTED = StringUtils.lines("Hello, world");
 
@@ -37,7 +37,7 @@ public class Java23ValidationTest extends TestBase {
     return getTestParameters().withCfRuntimes().build();
   }
 
-  public Java23ValidationTest(TestParameters parameters) {
+  public Java24ValidationTest(TestParameters parameters) {
     this.parameters = parameters;
   }
 
@@ -78,7 +78,7 @@ public class Java23ValidationTest extends TestBase {
   @Test
   public void testTestClassClassFileVersion() throws Exception {
     assertEquals(
-        CfVersion.V23,
+        CfVersion.V24,
         extractClassFileVersion(ToolHelper.getClassFileForTestClass(TestClass.class)));
   }
 
@@ -88,7 +88,7 @@ public class Java23ValidationTest extends TestBase {
         .addInnerClasses(getClass())
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
-            parameters.getCfRuntime().isOlderThan(CfVm.JDK23),
+            parameters.getCfRuntime().isOlderThan(CfVm.JDK24),
             r -> r.assertFailureWithErrorThatThrows(UnsupportedClassVersionError.class),
             r -> r.assertSuccessWithOutput(EXPECTED));
   }
