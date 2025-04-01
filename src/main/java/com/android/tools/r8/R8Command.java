@@ -1542,7 +1542,8 @@ public final class R8Command extends BaseCompilerCommand {
   private static class ResourceShrinkerMapStringConsumer implements StringConsumer {
 
     private final InternalOptions internal;
-    private StringBuilder resultBuilder = new StringBuilder();
+    private List<String> mappingStrings = new ArrayList<>();
+    private StringBuilder current = new StringBuilder();
 
     public ResourceShrinkerMapStringConsumer(InternalOptions internal) {
       this.internal = internal;
@@ -1550,13 +1551,30 @@ public final class R8Command extends BaseCompilerCommand {
 
     @Override
     public void accept(String string, DiagnosticsHandler handler) {
-      resultBuilder.append(string);
+      current.append(string);
+      if (string.endsWith("\n")) {
+        addNoneCommentLinesAndReset();
+      }
+    }
+
+    private void addNoneCommentLinesAndReset() {
+      StringUtils.splitLines(
+          current.toString(),
+          false,
+          line -> {
+            if (!line.startsWith("#")) {
+              mappingStrings.add(line);
+            }
+          });
+      current.setLength(0);
     }
 
     @Override
     public void finished(DiagnosticsHandler handler) {
-      internal.androidResourceProguardMapStrings = StringUtils.splitLines(resultBuilder.toString());
-      resultBuilder = null;
+      if (current.length() != 0) {
+        addNoneCommentLinesAndReset();
+      }
+      internal.androidResourceProguardMapStrings = mappingStrings;
     }
   }
 

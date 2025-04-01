@@ -292,7 +292,7 @@ public class StringUtils {
     return list;
   }
 
-  private static void splitLines(
+  public static void splitLines(
       String content, boolean includeTrailingEmptyLine, Consumer<String> consumer) {
     int length = content.length();
     int start = 0;
