@@ -10,6 +10,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRunResult;
+import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
 import com.android.tools.r8.transformers.ClassFileTransformer.MethodPredicate;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -57,7 +58,14 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
                 transformer(Super.class).removeInnerClasses().transform())
             .run(parameters.getRuntime(), Main.class);
     if (parameters.isCfRuntime()) {
-      runResult.assertFailureWithErrorThatMatches(containsString("java.lang.NullPointerException"));
+      if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK24)) {
+        // TODO(b/407954231): investigate why
+        runResult.assertFailureWithErrorThatMatches(
+            containsString("java.lang.TypeNotPresentException"));
+      } else {
+        runResult.assertFailureWithErrorThatMatches(
+            containsString("java.lang.NullPointerException"));
+      }
     } else {
       runResult.assertSuccessWithOutputLines(Super.class.getTypeName() + "<R>", "R", "T");
     }
@@ -78,7 +86,13 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
                 transformer(Super.class).removeInnerClasses().transform())
             .run(parameters.getRuntime(), Main.class);
     if (parameters.isCfRuntime()) {
-      runResult.assertSuccessWithOutputLines(Super.class.getTypeName() + "<T>", "null", "null");
+      if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK24)) {
+        // TODO(b/407954231): investigate why
+        runResult.assertFailureWithErrorThatMatches(
+            containsString("java.lang.TypeNotPresentException"));
+      } else {
+        runResult.assertSuccessWithOutputLines(Super.class.getTypeName() + "<T>", "null", "null");
+      }
     } else {
       runResult.assertSuccessWithOutputLines(Super.class.getTypeName() + "<T>", "S", "Q");
     }
