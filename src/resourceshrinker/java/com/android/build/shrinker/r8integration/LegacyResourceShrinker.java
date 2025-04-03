@@ -16,7 +16,9 @@ import com.android.build.shrinker.ShrinkerDebugReporter;
 import com.android.build.shrinker.graph.ProtoResourcesGraphBuilder;
 import com.android.build.shrinker.obfuscation.ProguardMappingsRecorder;
 import com.android.build.shrinker.r8integration.R8ResourceShrinkerState.R8ResourceShrinkerModel;
+import com.android.build.shrinker.usages.AppCompat;
 import com.android.build.shrinker.usages.DexFileAnalysisCallback;
+import com.android.build.shrinker.usages.DexUsageRecorderKt;
 import com.android.build.shrinker.usages.ProtoAndroidManifestUsageRecorderKt;
 import com.android.build.shrinker.usages.R8ResourceShrinker;
 import com.android.build.shrinker.usages.ToolsAttributeUsageRecorderKt;
@@ -43,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
@@ -161,6 +164,12 @@ public class LegacyResourceShrinker {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public static Predicate<String> classNamesNeededForResourceShrinkingPredicate() {
+    return AppCompat.INSTANCE
+        .getRequiredClassNamesPredicate()
+        .or(DexUsageRecorderKt.getRequiredClassNamesPredicate());
   }
 
   public ShrinkerResult run() throws IOException, ParserConfigurationException, SAXException {

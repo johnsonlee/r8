@@ -25,6 +25,7 @@ import com.android.resources.ResourceType
 import com.android.tools.r8.references.MethodReference
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.function.Predicate
 
 /**
  * Records resource usages, detects usages of WebViews and {@code Resources#getIdentifier},
@@ -54,6 +55,10 @@ class DexUsageRecorder(val root: Path) : ResourceUsageRecorder {
                 )
             }
     }
+}
+
+fun getRequiredClassNamesPredicate(): Predicate<String> {
+    return Predicate { className -> className.contains("R$") }
 }
 
 class DexFileAnalysisCallback(

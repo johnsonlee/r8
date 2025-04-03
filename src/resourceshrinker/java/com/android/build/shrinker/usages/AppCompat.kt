@@ -17,6 +17,7 @@
 package com.android.build.shrinker.usages
 
 import com.android.build.shrinker.obfuscation.ObfuscatedClasses
+import java.util.function.Predicate
 
 internal object AppCompat {
     // Known AppCompat classes which use Resources.getIdentifier but should not trigger mode that
@@ -30,4 +31,10 @@ internal object AppCompat {
 
     internal fun isAppCompatClass(name: String, obfuscation: ObfuscatedClasses): Boolean =
         APP_COMPAT_CLASSES_ALLOWED_FOR_GET_IDENTIFIER.contains(obfuscation.resolveOriginalClass(name))
+
+    fun getRequiredClassNamesPredicate(): Predicate<String> {
+        return Predicate {
+                className -> APP_COMPAT_CLASSES_ALLOWED_FOR_GET_IDENTIFIER.contains(className)
+        }
+    }
 }

@@ -550,6 +550,10 @@ public class ClassNamingForNameMapper implements ClassNaming {
 
   @Override
   public String toString() {
+    return toProguardMapSource();
+  }
+
+  public String toProguardMapSource() {
     StringBuilder builder = new StringBuilder();
     write(ChainableStringConsumer.wrap(builder::append));
     return builder.toString();
