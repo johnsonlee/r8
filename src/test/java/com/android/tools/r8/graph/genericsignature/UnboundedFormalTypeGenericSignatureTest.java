@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.graph.genericsignature;
 
-import static org.hamcrest.CoreMatchers.containsString;
-
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -59,12 +57,19 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
             .run(parameters.getRuntime(), Main.class);
     if (parameters.isCfRuntime()) {
       if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK24)) {
-        // TODO(b/407954231): investigate why
-        runResult.assertFailureWithErrorThatMatches(
-            containsString("java.lang.TypeNotPresentException"));
+        runResult.assertSuccessWithOutputLines(
+            "class java.lang.TypeNotPresentException::Type R not present",
+            "R",
+            "class java.lang.TypeNotPresentException::Type T not present");
+      } else if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK17)) {
+        runResult.assertSuccessWithOutputLines(
+            "class java.lang.NullPointerException::Cannot invoke"
+                + " \"java.lang.reflect.Type.getTypeName()\" because \"t\" is null",
+            "R",
+            "null");
       } else {
-        runResult.assertFailureWithErrorThatMatches(
-            containsString("java.lang.NullPointerException"));
+        runResult.assertSuccessWithOutputLines(
+            "class java.lang.NullPointerException::null", "R", "null");
       }
     } else {
       runResult.assertSuccessWithOutputLines(Super.class.getTypeName() + "<R>", "R", "T");
@@ -87,9 +92,10 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
             .run(parameters.getRuntime(), Main.class);
     if (parameters.isCfRuntime()) {
       if (parameters.getCfRuntime().isNewerThanOrEqual(CfVm.JDK24)) {
-        // TODO(b/407954231): investigate why
-        runResult.assertFailureWithErrorThatMatches(
-            containsString("java.lang.TypeNotPresentException"));
+        runResult.assertSuccessWithOutputLines(
+            Super.class.getTypeName() + "<T>",
+            "class java.lang.TypeNotPresentException::Type S not present",
+            "class java.lang.TypeNotPresentException::Type Q not present");
       } else {
         runResult.assertSuccessWithOutputLines(Super.class.getTypeName() + "<T>", "null", "null");
       }
@@ -151,10 +157,18 @@ public class UnboundedFormalTypeGenericSignatureTest extends TestBase {
 
   public static class Main<T> extends Super<T> {
 
+    private static void guard(Runnable run) {
+      try {
+        run.run();
+      } catch (Throwable t) {
+        System.out.println(t.getClass() + "::" + t.getMessage());
+      }
+    }
+
     public static <R extends Super<R>> void main(String[] args) {
-      System.out.println(Main.class.getGenericSuperclass());
-      testStatic();
-      new Main<>().testVirtual();
+      guard(() -> System.out.println(Main.class.getGenericSuperclass()));
+      guard(Main::testStatic);
+      guard(() -> new Main<>().testVirtual());
     }
 
     private static <R> R testStatic() {
