@@ -2209,6 +2209,8 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
     public boolean forceInvokeRangeForInvokeCustom = false;
 
+    public boolean forceEnqueuerFullProcessingDesugaring = false;
+
     public boolean forceThrowInConvert =
         System.getProperty("com.android.tools.r8.testing.forceThrowInConvert") != null;
 

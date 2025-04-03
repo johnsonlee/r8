@@ -4859,17 +4859,14 @@ public class Enqueuer {
     CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, liveMethods::contains)
         .postProcessingDesugaring(liveTypes.items, eventConsumer, executorService, timing);
 
-    if (syntheticAdditions.isEmpty()) {
+    if (syntheticAdditions.isEmpty() && !options.testing.forceEnqueuerFullProcessingDesugaring) {
       return;
     }
 
     // Commit the pending synthetics and recompute subtypes.
     appInfo = appInfo.rebuildWithClassHierarchy(app -> app);
     appView.setAppInfo(appInfo);
-
-    // Unset the subtyping info since it has been invalidated. We currently never use it after the
-    // the post processing desugaring.
-    subtypingInfo = null;
+    subtypingInfo = timing.time("Create SubtypingInfo", () -> SubtypingInfo.create(appView));
 
     syntheticAdditions.enqueueWorkItems(this);
 
