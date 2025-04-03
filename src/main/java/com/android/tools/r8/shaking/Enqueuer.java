@@ -2748,7 +2748,10 @@ public class Enqueuer {
                   + context.type.toSourceString()
                   + (clazz.isInterface() ? " implements " : " extends ")
                   + "program class "
-                  + type.toSourceString());
+                  + type.toSourceString()
+                  + " (origin: "
+                  + clazz.getOrigin()
+                  + ")");
       if (forceProguardCompatibility
           || options.getTestingOptions().allowLibraryExtendsProgramInFullMode) {
         options.reporter.warning(message);

@@ -165,7 +165,7 @@ public final class R8Command extends BaseCompilerCommand {
 
     private final ProguardConfigurationParserOptions.Builder parserOptionsBuilder =
         ProguardConfigurationParserOptions.builder().readEnvironment();
-    private final boolean allowDexInArchive =
+    private final boolean allowDexInputToR8 =
         System.getProperty("com.android.tools.r8.allowDexInputToR8") != null;
 
     // TODO(zerny): Consider refactoring CompatProguardCommandBuilder to avoid subclassing.
@@ -175,17 +175,17 @@ public final class R8Command extends BaseCompilerCommand {
 
     Builder(DiagnosticsHandler diagnosticsHandler) {
       super(diagnosticsHandler);
-      setIgnoreDexInArchive(!allowDexInArchive);
+      setIgnoreDexInArchive(!allowDexInputToR8);
     }
 
     private Builder(AndroidApp app) {
       super(app);
-      setIgnoreDexInArchive(!allowDexInArchive);
+      setIgnoreDexInArchive(!allowDexInputToR8);
     }
 
     private Builder(AndroidApp app, DiagnosticsHandler diagnosticsHandler) {
       super(app, diagnosticsHandler);
-      setIgnoreDexInArchive(!allowDexInArchive);
+      setIgnoreDexInArchive(!allowDexInputToR8);
     }
 
     // Internal
@@ -754,7 +754,7 @@ public final class R8Command extends BaseCompilerCommand {
       }
 
       for (Path file : programFiles) {
-        if (FileUtils.isDexFile(file)) {
+        if (FileUtils.isDexFile(file) && !allowDexInputToR8) {
           reporter.error(new StringDiagnostic(
               "R8 does not support compiling DEX inputs", new PathOrigin(file)));
         }

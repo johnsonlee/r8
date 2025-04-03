@@ -232,7 +232,7 @@ public class LazyLoadedDexApplication extends DexApplication {
       Function<DexType, DexClass> getExisting,
       InternalOptions options) {
     if (classCollection != null) {
-      Set<DexType> javaLibraryOverride = Sets.newIdentityHashSet();
+      Set<DexClass> javaLibraryOverride = Sets.newIdentityHashSet();
       ImmutableMap.Builder<DexType, T> builder = ImmutableMap.builder();
       classCollection.forEach(
           (type, clazz) -> {
@@ -241,7 +241,7 @@ public class LazyLoadedDexApplication extends DexApplication {
               builder.put(type, clazz);
             } else if (type.getPackageName().startsWith("java.")
                 && (clazz.isLibraryClass() || other.isLibraryClass())) {
-              javaLibraryOverride.add(type);
+              javaLibraryOverride.add(clazz.isLibraryClass() ? other : clazz);
             }
           });
       if (!javaLibraryOverride.isEmpty()) {
@@ -254,17 +254,17 @@ public class LazyLoadedDexApplication extends DexApplication {
   }
 
   private static void warnJavaLibraryOverride(
-      InternalOptions options, Set<DexType> javaLibraryOverride) {
+      InternalOptions options, Set<DexClass> javaLibraryOverride) {
     if (options.ignoreJavaLibraryOverride) {
       return;
     }
     String joined =
         javaLibraryOverride.stream()
             .sorted()
-            .map(DexType::toString)
+            .map(clazz -> clazz.toSourceString() + " (origin: " + clazz.getOrigin() + ")")
             .collect(Collectors.joining(", "));
     String message =
-        "The following library types, prefixed by java.,"
+        "The following library types, prefixed by 'java.',"
             + " are present both as library and non library classes: "
             + joined
             + ". Library classes will be ignored.";

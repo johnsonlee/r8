@@ -399,7 +399,7 @@ public class StringUtils {
   }
 
   public static boolean isTruthy(String string) {
-    return string.equals("1") || StringUtils.toLowerCase(string).equals("true");
+    return string.isEmpty() || string.equals("1") || StringUtils.toLowerCase(string).equals("true");
   }
 
   public static boolean isWhitespace(int codePoint) {
