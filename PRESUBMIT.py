@@ -188,6 +188,16 @@ def CheckForAddedDisassemble(input_api, output_api):
               'Test call to disassemble\n%s:%s %s' % (file.LocalPath(), line_nr, line)))
   return results
 
+def CheckForAddedPartialSeed(input_api, output_api):
+  results = []
+  for (file, line_nr, line) in input_api.RightHandSideLines():
+    if file.LocalPath().endswith('.java') and '.setPartialCompilationSeed(' in line:
+      results.append(
+          output_api.PresubmitError(
+              'Test call to setPartialCompilationSeed\n%s:%s %s' % (
+                file.LocalPath(), line_nr, line)))
+  return results
+
 def CheckForCopyRight(input_api, output_api, branch):
   results = []
   for f in input_api.AffectedSourceFiles(None):
@@ -225,6 +235,7 @@ def CheckChange(input_api, output_api):
   results.extend(
       CheckDeterministicDebuggingChanged(input_api, output_api, branch))
   results.extend(CheckForAddedDisassemble(input_api, output_api))
+  results.extend(CheckForAddedPartialSeed(input_api, output_api))
   results.extend(CheckForCopyRight(input_api, output_api, branch))
   return results
 
