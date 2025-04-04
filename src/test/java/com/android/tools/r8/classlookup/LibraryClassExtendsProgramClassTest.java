@@ -102,7 +102,9 @@ public class LibraryClassExtendsProgramClassTest extends TestBase {
     Builder<String> builder = ImmutableSet.builder();
     for (String libraryClass : libraryClassesExtendingTestCase) {
       builder.add(
-          "Library class " + libraryClass + " extends program class junit.framework.TestCase");
+          "Library class "
+              + libraryClass
+              + " extends program class junit.framework.TestCase (origin: <unknown>)");
     }
     Set<String> expected = builder.build();
     for (Diagnostic diagnostic : diagnostics) {
