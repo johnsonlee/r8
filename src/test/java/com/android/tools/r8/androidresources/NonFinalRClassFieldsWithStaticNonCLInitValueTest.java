@@ -24,7 +24,11 @@ public class NonFinalRClassFieldsWithStaticNonCLInitValueTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -38,8 +42,7 @@ public class NonFinalRClassFieldsWithStaticNonCLInitValueTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
@@ -48,7 +51,9 @@ public class NonFinalRClassFieldsWithStaticNonCLInitValueTest extends TestBase {
         .inspectShrunkenResources(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("drawable", "foo");
-              resourceTableInspector.assertDoesNotContainResourceWithName("drawable", "bar");
+              if (!parameters.getPartialCompilationTestParameters().isRandom()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName("drawable", "bar");
+              }
             });
   }
 

@@ -56,7 +56,6 @@ public class ResourceShrinkingInPartialR8Test extends TestBase {
         .assertSuccess();
   }
 
-  @Ignore("b/400935182")
   @Test
   public void testPartialWithRClassInD8() throws Exception {
     getR8PartialTestBuilder(true)

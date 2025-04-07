@@ -27,7 +27,11 @@ public class DeadCodeEliminatedXmlReferenceTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String VIEW_WITH_CLASS_ATTRIBUTE_REFERENCE =
@@ -48,7 +52,7 @@ public class DeadCodeEliminatedXmlReferenceTest extends TestBase {
   public void testDeadReference() throws Exception {
     String formatedXmlFile =
         String.format(VIEW_WITH_CLASS_ATTRIBUTE_REFERENCE, Bar.class.getTypeName());
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .setMinApi(parameters)
         .addProgramClasses(TestClass.class, Bar.class)
         .addAndroidResources(getTestResources(temp, formatedXmlFile))
@@ -57,14 +61,20 @@ public class DeadCodeEliminatedXmlReferenceTest extends TestBase {
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "xml", "xml_with_bar_reference");
+              // If the TestClass is in the D8 compilation, then we have a reference to
+              // the xml file from X() that is not dead code.
+              if (!parameters.getPartialCompilationTestParameters().isRandom()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "xml", "xml_with_bar_reference");
+              }
             })
         .run(parameters.getRuntime(), TestClass.class)
         .inspect(
             codeInspector -> {
               ClassSubject barClass = codeInspector.clazz(Bar.class);
-              assertThat(barClass, isAbsent());
+              if (!parameters.getPartialCompilationTestParameters().isRandom()) {
+                assertThat(barClass, isAbsent());
+              }
             })
         .assertSuccess();
   }
@@ -76,6 +86,10 @@ public class DeadCodeEliminatedXmlReferenceTest extends TestBase {
       if (i == 43) {
         System.out.println(R.xml.xml_with_bar_reference);
       }
+    }
+
+    public static void x() {
+      System.out.println(R.xml.xml_with_bar_reference);
     }
   }
 

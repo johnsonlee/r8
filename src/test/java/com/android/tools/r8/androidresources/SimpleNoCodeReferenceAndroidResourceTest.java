@@ -35,7 +35,11 @@ public class SimpleNoCodeReferenceAndroidResourceTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withIncludeAllPartialCompilation()
+        .build();
   }
 
   @Test
@@ -52,7 +56,7 @@ public class SimpleNoCodeReferenceAndroidResourceTest extends TestBase {
             .build(temp);
     Path resources = testResource.getResourceZip();
     Path output = temp.newFile("resources_out.zip").toPath();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addAndroidResources(testResource, output)

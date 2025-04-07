@@ -262,11 +262,9 @@ public class RootSetUtils {
       useCollector.run(executorService);
 
       // Trace resources.
-      // TODO(b/400935182): Extend R8PartialResourceUseCollector to support LIR.
-      if (options.isOptimizedResourceShrinking()) {
+      if (options.androidResourceProvider != null) {
         R8PartialResourceUseCollector resourceUseCollector =
             new R8PartialResourceUseCollector(appView) {
-
               @Override
               protected void keep(int resourceId) {
                 resourceRootIds.add(resourceId);
