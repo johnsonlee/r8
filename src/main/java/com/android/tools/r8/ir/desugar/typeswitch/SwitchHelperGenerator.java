@@ -6,6 +6,7 @@ package com.android.tools.r8.ir.desugar.typeswitch;
 
 import static com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider.allowsInlinedIntegerEquality;
 
+import com.android.tools.r8.cf.code.CfConstClass;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfNewArray;
@@ -31,9 +32,13 @@ import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider.Dispatcher;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
+import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public class SwitchHelperGenerator {
@@ -42,9 +47,9 @@ public class SwitchHelperGenerator {
   private final DexCallSite dexCallSite;
   private DexMethod dispatchMethod;
   private DexMethod intEq;
-  private DexMethod enumEq;
   private DexField enumCacheField;
   private int enumCases = 0;
+  private Map<DexType, DexMethod> enumEqMethods = new IdentityHashMap<>();
 
   SwitchHelperGenerator(AppView<?> appView, DexCallSite dexCallSite) {
     this.appView = appView;
@@ -68,7 +73,6 @@ public class SwitchHelperGenerator {
               builder.getType(), factory.objectArrayType, factory.createString("enumCache"));
       synthesizeStaticField(builder);
       clinitMethod = synthesizeClinit(enumCacheField);
-      enumEq = generateEnumEqMethod(context, eventConsumer, methodProcessingContext);
     }
     dispatchMethod =
         factory.createMethod(
@@ -90,7 +94,7 @@ public class SwitchHelperGenerator {
   @FunctionalInterface
   public interface Scanner {
 
-    void scan(DexValue dexValue, Runnable intEqCheck, Runnable enumCase);
+    void scan(DexValue dexValue, Runnable intEqCheck, Consumer<DexType> enumCase);
   }
 
   private void scanArguments(
@@ -110,11 +114,17 @@ public class SwitchHelperGenerator {
             }
             intEq = generateIntEqMethod(context, eventConsumer, methodProcessingContext);
           },
-          () -> enumCases++);
+          type -> {
+            enumCases++;
+            enumEqMethods.computeIfAbsent(
+                type,
+                t -> generateEnumEqMethod(t, context, eventConsumer, methodProcessingContext));
+          });
     }
   }
 
   private DexMethod generateEnumEqMethod(
+      DexType enumType,
       ProgramMethod context,
       TypeSwitchDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
@@ -125,14 +135,20 @@ public class SwitchHelperGenerator {
             factory.objectType,
             factory.objectArrayType,
             factory.intType,
-            factory.stringType,
             factory.stringType);
     return generateMethod(
         context,
         eventConsumer,
         methodProcessingContext,
         proto,
-        methodSig -> TypeSwitchMethods.TypeSwitchMethods_switchEnumEq(factory, methodSig));
+        methodSig -> {
+          CfCode cfCode = TypeSwitchMethods.TypeSwitchMethods_switchEnumEq(factory, methodSig);
+          List<CfInstruction> newInstructions =
+              ListUtils.map(
+                  cfCode.getInstructions(), i -> i.isConstClass() ? new CfConstClass(enumType) : i);
+          cfCode.setInstructions(newInstructions);
+          return cfCode;
+        });
   }
 
   private DexMethod generateIntEqMethod(
@@ -229,7 +245,7 @@ public class SwitchHelperGenerator {
                     dexCallSite.bootstrapArgs,
                     dispatcher,
                     intEq,
-                    enumEq,
+                    enumEqMethods,
                     enumCacheField)
                 .generateCfCode())
         .disableAndroidApiLevelCheck()

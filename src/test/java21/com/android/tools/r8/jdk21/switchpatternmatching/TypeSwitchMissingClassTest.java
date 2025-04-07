@@ -108,12 +108,9 @@ public class TypeSwitchMissingClassTest extends TestBase {
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .applyIf(
-            parameters.isCfRuntime(),
-            b -> b.addOptionsModification(opt -> opt.ignoreMissingClasses = true))
+        .addOptionsModification(opt -> opt.ignoreMissingClasses = true)
         .addIgnoreWarnings(present.clazz.equals(Color.class))
-        .allowDiagnosticWarningMessages(
-            present.clazz.equals(Color.class) || parameters.isCfRuntime())
+        .allowDiagnosticWarningMessages()
         .addKeepMainRule(Main.class)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)

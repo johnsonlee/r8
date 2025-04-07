@@ -11,6 +11,7 @@ package com.android.tools.r8.ir.desugar.typeswitch;
 import com.android.tools.r8.cf.code.CfArrayLoad;
 import com.android.tools.r8.cf.code.CfArrayStore;
 import com.android.tools.r8.cf.code.CfCheckCast;
+import com.android.tools.r8.cf.code.CfConstClass;
 import com.android.tools.r8.cf.code.CfConstNull;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfFrame;
@@ -65,7 +66,7 @@ public final class TypeSwitchMethods {
     return new CfCode(
         method.holder,
         4,
-        8,
+        7,
         ImmutableList.of(
             label0,
             new CfLoad(ValueType.OBJECT, 1),
@@ -74,19 +75,12 @@ public final class TypeSwitchMethods {
             new CfIf(IfType.NE, ValueType.OBJECT, label11),
             label1,
             new CfConstNull(),
-            new CfStore(ValueType.OBJECT, 5),
+            new CfStore(ValueType.OBJECT, 4),
             label2,
-            new CfLoad(ValueType.OBJECT, 3),
-            new CfInvoke(
-                184,
-                factory.createMethod(
-                    factory.classType,
-                    factory.createProto(factory.classType, factory.stringType),
-                    factory.createString("forName")),
-                false),
-            new CfStore(ValueType.OBJECT, 6),
+            new CfConstClass(factory.createType("Ljava/lang/Enum;")),
+            new CfStore(ValueType.OBJECT, 5),
             label3,
-            new CfLoad(ValueType.OBJECT, 6),
+            new CfLoad(ValueType.OBJECT, 5),
             new CfInvoke(
                 182,
                 factory.createMethod(
@@ -96,11 +90,11 @@ public final class TypeSwitchMethods {
                 false),
             new CfIf(IfType.EQ, ValueType.INT, label6),
             label4,
-            new CfLoad(ValueType.OBJECT, 6),
-            new CfStore(ValueType.OBJECT, 7),
+            new CfLoad(ValueType.OBJECT, 5),
+            new CfStore(ValueType.OBJECT, 6),
             label5,
-            new CfLoad(ValueType.OBJECT, 7),
-            new CfLoad(ValueType.OBJECT, 4),
+            new CfLoad(ValueType.OBJECT, 6),
+            new CfLoad(ValueType.OBJECT, 3),
             new CfInvoke(
                 184,
                 factory.createMethod(
@@ -111,17 +105,16 @@ public final class TypeSwitchMethods {
                         factory.stringType),
                     factory.createString("valueOf")),
                 false),
-            new CfStore(ValueType.OBJECT, 5),
+            new CfStore(ValueType.OBJECT, 4),
             label6,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
+                    new int[] {0, 1, 2, 3, 4},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.objectType)
                     })),
@@ -129,35 +122,33 @@ public final class TypeSwitchMethods {
             label7,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
+                    new int[] {0, 1, 2, 3, 4},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.objectType)
                     }),
                 new ArrayDeque<>(
                     Arrays.asList(FrameType.initializedNonNullReference(factory.throwableType)))),
-            new CfStore(ValueType.OBJECT, 6),
+            new CfStore(ValueType.OBJECT, 5),
             label8,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
+                    new int[] {0, 1, 2, 3, 4},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
                       FrameType.initializedNonNullReference(factory.stringType),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.objectType)
                     })),
             new CfLoad(ValueType.OBJECT, 1),
             new CfLoad(ValueType.INT, 2),
-            new CfLoad(ValueType.OBJECT, 5),
+            new CfLoad(ValueType.OBJECT, 4),
             new CfIf(IfType.NE, ValueType.OBJECT, label9),
             new CfNew(factory.objectType),
             new CfStackInstruction(CfStackInstruction.Opcode.Dup),
@@ -172,13 +163,12 @@ public final class TypeSwitchMethods {
             label9,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
+                    new int[] {0, 1, 2, 3, 4},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.objectType)
                     }),
@@ -187,17 +177,16 @@ public final class TypeSwitchMethods {
                         FrameType.initializedNonNullReference(
                             factory.createType("[Ljava/lang/Object;")),
                         FrameType.intType()))),
-            new CfLoad(ValueType.OBJECT, 5),
+            new CfLoad(ValueType.OBJECT, 4),
             label10,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4, 5},
+                    new int[] {0, 1, 2, 3, 4},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.objectType)
                     }),
@@ -211,13 +200,12 @@ public final class TypeSwitchMethods {
             label11,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4},
+                    new int[] {0, 1, 2, 3},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType)
                     })),
             new CfLoad(ValueType.OBJECT, 0),
@@ -230,26 +218,24 @@ public final class TypeSwitchMethods {
             label12,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4},
+                    new int[] {0, 1, 2, 3},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType)
                     })),
             new CfConstNumber(0, ValueType.INT),
             label13,
             new CfFrame(
                 new Int2ObjectAVLTreeMap<>(
-                    new int[] {0, 1, 2, 3, 4},
+                    new int[] {0, 1, 2, 3},
                     new FrameType[] {
                       FrameType.initializedNonNullReference(factory.objectType),
                       FrameType.initializedNonNullReference(
                           factory.createType("[Ljava/lang/Object;")),
                       FrameType.intType(),
-                      FrameType.initializedNonNullReference(factory.stringType),
                       FrameType.initializedNonNullReference(factory.stringType)
                     }),
                 new ArrayDeque<>(Arrays.asList(FrameType.intType()))),

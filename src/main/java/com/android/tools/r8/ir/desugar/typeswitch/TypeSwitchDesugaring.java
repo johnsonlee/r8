@@ -124,7 +124,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                       eventConsumer,
                       theContext,
                       methodProcessingContext,
-                      typeScanner(),
+                      typeScanner(context),
                       typeDispatcher(context)))
           .build();
     }
@@ -146,7 +146,7 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
                       eventConsumer,
                       theContext,
                       methodProcessingContext,
-                      enumScanner(),
+                      enumScanner(enumType),
                       enumDispatcher(context, enumType)))
           .build();
     }
@@ -200,10 +200,10 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
     };
   }
 
-  private Scanner enumScanner() {
-    return (dexValue, intEqCheck, enumCase) -> {
+  private Scanner enumScanner(DexType enumType) {
+    return (dexValue, intEqCheck, enumConsumer) -> {
       if (dexValue.isDexValueString()) {
-        enumCase.run();
+        enumConsumer.accept(enumType);
       }
     };
   }
@@ -248,12 +248,16 @@ public class TypeSwitchDesugaring implements CfInstructionDesugaring {
     };
   }
 
-  private Scanner typeScanner() {
-    return (dexValue, intEqCheck, enumCase) -> {
+  private Scanner typeScanner(ProgramMethod context) {
+    return (dexValue, intEqCheck, enumConsumer) -> {
       if (dexValue.isDexValueInt()) {
         intEqCheck.run();
       } else if (dexValue.isDexValueConstDynamic()) {
-        enumCase.run();
+        ConstantDynamicReference constDynamic = dexValue.asDexValueConstDynamic().getValue();
+        if (isEnumDescConstantDynamic(constDynamic, factory)) {
+          dispatchEnumDescConstantDynamic(
+              constDynamic, factory, context, (type, name) -> enumConsumer.accept(type));
+        }
       }
     };
   }
