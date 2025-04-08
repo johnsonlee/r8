@@ -3,17 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.graph;
 
+import static com.android.tools.r8.graph.DexApplication.classesWithDeterministicOrder;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
-import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 public class ImmediateAppSubtypingInfo extends ImmediateSubtypingInfo<DexClass, DexClass> {
 
@@ -29,6 +27,11 @@ public class ImmediateAppSubtypingInfo extends ImmediateSubtypingInfo<DexClass, 
     DirectMappedDexApplication app = appView.app().asDirect();
     Iterable<DexClass> classes =
         Iterables.concat(app.programClasses(), app.classpathClasses(), app.libraryClasses());
+    return create(appView, classes);
+  }
+
+  public static ImmediateAppSubtypingInfo create(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Iterable<DexClass> classes) {
     return internalCreate(
         appView,
         classes,
@@ -36,23 +39,21 @@ public class ImmediateAppSubtypingInfo extends ImmediateSubtypingInfo<DexClass, 
         immediateSubtypes -> new ImmediateAppSubtypingInfo(appView, immediateSubtypes));
   }
 
-  public void forEachTransitiveProgramSubclass(
-      DexClass clazz, Consumer<? super DexProgramClass> consumer) {
-    forEachTransitiveProgramSubclass(clazz, consumer, Function.identity());
+  @Override
+  DexClass toS(DexClass clazz) {
+    return clazz;
   }
 
-  public Set<DexProgramClass> getTransitiveProgramSubclasses(DexClass clazz) {
-    return getTransitiveProgramSubclasses(clazz, Function.identity());
+  // TODO(b/188395655): This is equivalent to just sorting all interfaces?
+  public List<DexClass> computeReachableInterfacesWithDeterministicOrder() {
+    List<DexClass> interfaces = new ArrayList<>();
+    forEachInterface(interfaces::add);
+    return classesWithDeterministicOrder(interfaces);
   }
 
-  public Set<DexProgramClass> getTransitiveProgramSubclassesMatching(
-      DexClass clazz, Predicate<DexProgramClass> predicate) {
-    return getTransitiveProgramSubclassesMatching(clazz, Function.identity(), predicate);
-  }
-
-  public <TB, TC> TraversalContinuation<TB, TC> traverseTransitiveSubclasses(
-      DexClass clazz, Function<DexClass, TraversalContinuation<TB, TC>> fn) {
-    return traverseTransitiveSubclasses(clazz, Function.identity(), fn);
+  private void forEachInterface(Consumer<DexClass> consumer) {
+    DexClass objectClass = appView.definitionFor(appView.dexItemFactory().objectType);
+    forEachImmediateSubClassMatching(objectClass, DexClass::isInterface, consumer);
   }
 
   public void update(AppView<? extends AppInfoWithClassHierarchy> appView) {

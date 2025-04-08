@@ -10,8 +10,8 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.ProgramField;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.SetUtils;
@@ -33,7 +33,7 @@ import java.util.TreeSet;
 class FieldNameMinifier {
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final SubtypingInfo subtypingInfo;
+  private final ImmediateAppSubtypingInfo subtypingInfo;
   private final Map<DexField, DexString> renaming = new IdentityHashMap<>();
   private final Map<DexType, ReservedFieldNamingState> reservedNamingStates =
       new IdentityHashMap<>();
@@ -44,7 +44,7 @@ class FieldNameMinifier {
 
   FieldNameMinifier(
       AppView<AppInfoWithLiveness> appView,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       MemberNamingStrategy strategy) {
     this.appView = appView;
     this.subtypingInfo = subtypingInfo;
@@ -321,18 +321,18 @@ class FieldNameMinifier {
         if (clazz.isInterface()) {
           partition.add(clazz);
 
-          for (DexType subtype : minifier.subtypingInfo.allImmediateSubtypes(type)) {
-            if (visited.add(subtype)) {
-              worklist.add(subtype);
+          for (DexClass subclass : minifier.subtypingInfo.getSubclasses(clazz)) {
+            if (visited.add(subclass.getType())) {
+              worklist.add(subclass.getType());
             }
           }
         } else if (clazz.type != appView.dexItemFactory().objectType) {
           if (visited.add(clazz.superType)) {
             worklist.add(clazz.superType);
           }
-          for (DexType subclass : minifier.subtypingInfo.allImmediateExtendsSubtypes(type)) {
-            if (visited.add(subclass)) {
-              worklist.add(subclass);
+          for (DexClass subclass : minifier.subtypingInfo.getSubclasses(clazz)) {
+            if (visited.add(subclass.getType())) {
+              worklist.add(subclass.getType());
             }
           }
         }

@@ -55,6 +55,8 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
     return factory.apply(immediateSubtypes);
   }
 
+  abstract S toS(DexClass clazz);
+
   public void forEachImmediateSuperClass(DexClass clazz, Consumer<? super DexClass> consumer) {
     forEachImmediateSuperClassMatching(
         clazz,
@@ -120,30 +122,40 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
             });
   }
 
-  void forEachTransitiveProgramSubclass(
-      S clazz, Consumer<? super DexProgramClass> consumer, Function<DexClass, S> cast) {
-    forEachTransitiveProgramSubclassMatching(clazz, consumer, cast, Predicates.alwaysTrue());
+  public void forEachTransitiveSubclass(S clazz, Consumer<? super T> consumer) {
+    forEachTransitiveSubclassMatching(clazz, Predicates.alwaysTrue(), consumer);
   }
 
-  void forEachTransitiveProgramSubclassMatching(
-      S clazz,
-      Consumer<? super DexProgramClass> consumer,
-      Function<DexClass, S> cast,
-      Predicate<DexProgramClass> predicate) {
-    WorkList<DexClass> worklist = WorkList.newIdentityWorkList(getSubclasses(clazz));
+  @SuppressWarnings("unchecked")
+  public <U extends DexClass> void forEachTransitiveSubclassMatching(
+      S clazz, Predicate<? super T> predicate, Consumer<? super U> consumer) {
+    WorkList<T> worklist = WorkList.newIdentityWorkList(getSubclasses(clazz));
     worklist.process(
         subclass -> {
-          if (subclass.isProgramClass()) {
-            DexProgramClass programSubclass = subclass.asProgramClass();
-            if (predicate.test(programSubclass)) {
-              consumer.accept(programSubclass);
-            }
+          if (predicate.test(subclass)) {
+            consumer.accept((U) subclass);
           }
-          S subclassOrNull = cast.apply(subclass);
+          S subclassOrNull = toS(subclass);
           if (subclassOrNull != null) {
             worklist.addIfNotSeen(getSubclasses(subclassOrNull));
           }
         });
+  }
+
+  public void forEachTransitiveProgramSubclass(
+      S clazz, Consumer<? super DexProgramClass> consumer) {
+    forEachTransitiveProgramSubclassMatching(clazz, Predicates.alwaysTrue(), consumer);
+  }
+
+  @SuppressWarnings("unchecked")
+  public void forEachTransitiveProgramSubclassMatching(
+      S clazz,
+      Predicate<? super DexProgramClass> predicate,
+      Consumer<? super DexProgramClass> consumer) {
+    forEachTransitiveSubclassMatching(
+        clazz,
+        subclass -> subclass.isProgramClass() && predicate.test(subclass.asProgramClass()),
+        consumer);
   }
 
   public List<T> getSubclasses(S clazz) {
@@ -163,14 +175,14 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
         Objects::nonNull);
   }
 
-  Set<DexProgramClass> getTransitiveProgramSubclasses(S clazz, Function<DexClass, S> cast) {
-    return getTransitiveProgramSubclassesMatching(clazz, cast, Predicates.alwaysTrue());
+  public Set<DexProgramClass> getTransitiveProgramSubclasses(S clazz) {
+    return getTransitiveProgramSubclassesMatching(clazz, Predicates.alwaysTrue());
   }
 
-  Set<DexProgramClass> getTransitiveProgramSubclassesMatching(
-      S clazz, Function<DexClass, S> cast, Predicate<DexProgramClass> predicate) {
+  public Set<DexProgramClass> getTransitiveProgramSubclassesMatching(
+      S clazz, Predicate<DexProgramClass> predicate) {
     Set<DexProgramClass> classes = Sets.newIdentityHashSet();
-    forEachTransitiveProgramSubclassMatching(clazz, classes::add, cast, predicate);
+    forEachTransitiveProgramSubclassMatching(clazz, predicate, classes::add);
     return classes;
   }
 
@@ -178,10 +190,8 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
     return !getSubclasses(clazz).isEmpty();
   }
 
-  <TB, TC> TraversalContinuation<TB, TC> traverseTransitiveSubclasses(
-      S clazz,
-      Function<DexClass, S> cast,
-      Function<? super DexClass, TraversalContinuation<TB, TC>> fn) {
+  public <TB, TC> TraversalContinuation<TB, TC> traverseTransitiveSubclasses(
+      S clazz, Function<? super DexClass, TraversalContinuation<TB, TC>> fn) {
     TraversalContinuation<TB, TC> traversalContinuation = TraversalContinuation.doContinue();
     WorkList<DexClass> worklist = WorkList.newIdentityWorkList(getSubclasses(clazz));
     while (worklist.hasNext()) {
@@ -190,7 +200,7 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
       if (traversalContinuation.shouldBreak()) {
         return traversalContinuation;
       }
-      S subclassOrNull = cast.apply(subclass);
+      S subclassOrNull = toS(subclass);
       if (subclassOrNull != null) {
         worklist.addIfNotSeen(getSubclasses(subclassOrNull));
       }

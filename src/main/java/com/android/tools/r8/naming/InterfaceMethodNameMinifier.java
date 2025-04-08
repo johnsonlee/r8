@@ -13,7 +13,7 @@ import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.naming.MethodNameMinifier.State;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -383,7 +383,7 @@ class InterfaceMethodNameMinifier {
       };
 
   private final AppView<AppInfoWithLiveness> appView;
-  private final SubtypingInfo subtypingInfo;
+  private final ImmediateAppSubtypingInfo subtypingInfo;
   private final MethodNameMinifier.State minifierState;
 
   /** A map from DexMethods to all the states linked to interfaces they appear in. */
@@ -394,7 +394,9 @@ class InterfaceMethodNameMinifier {
   private final Map<DexType, InterfaceReservationState> interfaceStateMap = new HashMap<>();
 
   InterfaceMethodNameMinifier(
-      AppView<AppInfoWithLiveness> appView, State minifierState, SubtypingInfo subtypingInfo) {
+      AppView<AppInfoWithLiveness> appView,
+      State minifierState,
+      ImmediateAppSubtypingInfo subtypingInfo) {
     this.appView = appView;
     this.minifierState = minifierState;
     this.subtypingInfo = subtypingInfo;
@@ -656,26 +658,24 @@ class InterfaceMethodNameMinifier {
   private void computeReservationFrontiersForAllImplementingClasses(Iterable<DexClass> interfaces) {
     interfaces.forEach(
         iface ->
-            subtypingInfo
-                .subtypes(iface.getType())
-                .forEach(
-                    subType -> {
-                      DexClass subClass = appView.contextIndependentDefinitionFor(subType);
-                      if (subClass == null || subClass.isInterface()) {
-                        return;
-                      }
-                      DexType frontierType = minifierState.getFrontier(subType);
-                      if (minifierState.getReservationState(frontierType) == null) {
-                        // The reservation state should already be added. If it does not exist
-                        // it is because it is not reachable from the type hierarchy of program
-                        // classes and we can therefore disregard this interface.
-                        return;
-                      }
-                      InterfaceReservationState iState = interfaceStateMap.get(iface.getType());
-                      if (iState != null) {
-                        iState.addReservationType(frontierType);
-                      }
-                    }));
+            subtypingInfo.forEachTransitiveSubclass(
+                iface,
+                subclass -> {
+                  if (subclass.isInterface()) {
+                    return;
+                  }
+                  DexType frontierType = minifierState.getFrontier(subclass.getType());
+                  if (minifierState.getReservationState(frontierType) == null) {
+                    // The reservation state should already be added. If it does not exist
+                    // it is because it is not reachable from the type hierarchy of program
+                    // classes and we can therefore disregard this interface.
+                    return;
+                  }
+                  InterfaceReservationState iState = interfaceStateMap.get(iface.getType());
+                  if (iState != null) {
+                    iState.addReservationType(frontierType);
+                  }
+                }));
   }
 
   private boolean verifyAllCallSitesAreRepresentedIn(List<DexClassAndMethod> groups) {

@@ -27,9 +27,9 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramOrClasspathClass;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassRenaming;
 import com.android.tools.r8.naming.FieldNameMinifier.FieldRenaming;
 import com.android.tools.r8.naming.MemberNaming.FieldSignature;
@@ -98,23 +98,20 @@ public class ProguardMapMinifier {
   public NamingLens run(ExecutorService executorService, Timing timing) throws ExecutionException {
     ArrayDeque<Map<DexReference, MemberNaming>> nonPrivateMembers = new ArrayDeque<>();
     Set<DexReference> notMappedReferences = new HashSet<>();
-    SubtypingInfo subtypingInfo = MinifierUtils.createSubtypingInfo(appView);
+    ImmediateAppSubtypingInfo subtypingInfo = ImmediateAppSubtypingInfo.create(appView);
     timing.begin("MappingInterfaces");
     List<DexClass> interfaces = subtypingInfo.computeReachableInterfacesWithDeterministicOrder();
     interfaces.forEach(
-        iface ->
-            computeMapping(iface.getType(), nonPrivateMembers, notMappedReferences, subtypingInfo));
+        iface -> computeMapping(iface, nonPrivateMembers, notMappedReferences, subtypingInfo));
     timing.end();
     timing.begin("MappingClasses");
     mappedClasses.addAll(appView.appInfo().classes());
-    subtypingInfo.forAllImmediateExtendsSubtypes(
-        factory.objectType,
-        subType -> {
-          DexClass dexClass = appView.definitionFor(subType);
-          if (dexClass != null && !dexClass.isInterface()) {
-            computeMapping(subType, nonPrivateMembers, notMappedReferences, subtypingInfo);
-          }
-        });
+    DexClass objectClass = appView.definitionFor(factory.objectType);
+    for (DexClass subclass : subtypingInfo.getSubclasses(objectClass)) {
+      if (!subclass.isInterface()) {
+        computeMapping(subclass, nonPrivateMembers, notMappedReferences, subtypingInfo);
+      }
+    }
     assert nonPrivateMembers.isEmpty();
     timing.end();
 
@@ -167,21 +164,21 @@ public class ProguardMapMinifier {
   }
 
   private void computeMapping(
-      DexType type,
+      DexClass clazz,
       Deque<Map<DexReference, MemberNaming>> buildUpNames,
       Set<DexReference> notMappedReferences,
-      SubtypingInfo subtypingInfo) {
+      ImmediateAppSubtypingInfo subtypingInfo) {
+    DexType type = clazz.getType();
     ClassNamingForMapApplier classNaming = seedMapper.getClassNaming(type);
-    DexClass clazz = appView.definitionFor(type);
 
     // Keep track of classpath classes that needs to get renamed.
-    if (clazz != null && clazz.isClasspathClass() && classNaming != null) {
+    if (clazz.isClasspathClass() && classNaming != null) {
       mappedClasses.add(clazz.asClasspathClass());
     }
 
     Map<DexReference, MemberNaming> nonPrivateMembers = new IdentityHashMap<>();
 
-    if (classNaming != null && (clazz == null || !clazz.isLibraryClass())) {
+    if (classNaming != null && !clazz.isLibraryClass()) {
       DexString mappedName = factory.createString(classNaming.renamedName);
       checkAndAddMappedNames(type, mappedName, classNaming.position);
       classNaming.forAllMemberNaming(
@@ -204,7 +201,7 @@ public class ProguardMapMinifier {
           if (!memberNames.containsKey(parentReferenceOnCurrentType)) {
             addMemberNaming(
                 parentReferenceOnCurrentType, parentMembers.get(key), additionalMethodNamings);
-          } else if (clazz != null) {
+          } else {
             DexEncodedMethod method = clazz.lookupMethod(parentReferenceOnCurrentType);
             assert method == null
                 || method.isStatic()
@@ -227,25 +224,25 @@ public class ProguardMapMinifier {
       }
     }
 
-    if (clazz != null) {
-      // If a class is marked as abstract it is allowed to not implement methods from interfaces
-      // thus the map will not contain a mapping. Also, if an interface is defined in the library
-      // and the class is in the program, we have to build up the correct names to reserve them.
-      if (clazz.isProgramClass() || clazz.isAbstract()) {
-        addNonPrivateInterfaceMappings(type, nonPrivateMembers, clazz.interfaces.values);
-      }
+    // If a class is marked as abstract it is allowed to not implement methods from interfaces
+    // thus the map will not contain a mapping. Also, if an interface is defined in the library
+    // and the class is in the program, we have to build up the correct names to reserve them.
+    if (clazz.isProgramClass() || clazz.isAbstract()) {
+      addNonPrivateInterfaceMappings(type, nonPrivateMembers, clazz.interfaces.values);
     }
 
-    if (nonPrivateMembers.size() > 0) {
+    if (!nonPrivateMembers.isEmpty()) {
       buildUpNames.addLast(nonPrivateMembers);
-      subtypingInfo.forAllImmediateExtendsSubtypes(
-          type,
-          subType -> computeMapping(subType, buildUpNames, notMappedReferences, subtypingInfo));
+      subtypingInfo.forEachImmediateSubClassMatching(
+          clazz,
+          subclass -> clazz.isInterface() == subclass.isInterface(),
+          subclass -> computeMapping(subclass, buildUpNames, notMappedReferences, subtypingInfo));
       buildUpNames.removeLast();
     } else {
-      subtypingInfo.forAllImmediateExtendsSubtypes(
-          type,
-          subType -> computeMapping(subType, buildUpNames, notMappedReferences, subtypingInfo));
+      subtypingInfo.forEachImmediateSubClassMatching(
+          clazz,
+          subclass -> clazz.isInterface() == subclass.isInterface(),
+          subclass -> computeMapping(subclass, buildUpNames, notMappedReferences, subtypingInfo));
     }
   }
 

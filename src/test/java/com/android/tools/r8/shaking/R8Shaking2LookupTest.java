@@ -5,63 +5,76 @@ package com.android.tools.r8.shaking;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
-public class R8Shaking2LookupTest {
+@RunWith(Parameterized.class)
+public class R8Shaking2LookupTest extends TestBase {
 
-  private DirectMappedDexApplication program;
   private DexItemFactory dexItemFactory;
   private AppInfoWithClassHierarchy appInfo;
-  private SubtypingInfo subtypingInfo;
+  private ImmediateAppSubtypingInfo subtypingInfo;
+
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
+  }
 
   @Before
   public void readApp() throws IOException, ExecutionException {
-    program =
+    DirectMappedDexApplication program =
         ToolHelper.buildApplication(
             ImmutableList.of(ToolHelper.EXAMPLES_BUILD_DIR + "shaking2.jar"));
     dexItemFactory = program.dexItemFactory;
     AppView<AppInfoWithClassHierarchy> appView = AppView.createForR8(program);
     appInfo = appView.appInfo();
-    subtypingInfo = SubtypingInfo.create(appView);
+    subtypingInfo = ImmediateAppSubtypingInfo.create(appView);
   }
 
-  private void validateSubtype(DexType super_type, DexType sub_type) {
-    assertFalse(super_type.equals(sub_type));
-    assertTrue(subtypingInfo.subtypes(super_type).contains(sub_type));
+  private void validateSubtype(DexClass super_type, DexClass sub_type) {
+    assertNotEquals(super_type, sub_type);
+    assertTrue(subtypingInfo.getTransitiveProgramSubclasses(super_type).contains(sub_type));
     assertTrue(appInfo.isSubtype(sub_type, super_type));
-    assertFalse(subtypingInfo.subtypes(sub_type).contains(super_type));
+    assertFalse(subtypingInfo.getTransitiveProgramSubclasses(sub_type).contains(super_type));
     assertFalse(appInfo.isSubtype(super_type, sub_type));
   }
 
-  private void validateSubtypeSize(DexType type, int size) {
-    assertEquals(size, subtypingInfo.subtypes(type).size());
+  private void validateSubtypeSize(DexClass type, int size) {
+    assertEquals(size, subtypingInfo.getTransitiveProgramSubclasses(type).size());
   }
 
   @Test
   public void testLookup() {
-    DexType object_type = dexItemFactory.createType("Ljava/lang/Object;");
-
-    DexType interface_type = dexItemFactory.createType("Lshaking2/Interface;");
-    DexType superInterface1_type = dexItemFactory.createType("Lshaking2/SuperInterface1;");
-    DexType superInterface2_type = dexItemFactory.createType("Lshaking2/SuperInterface2;");
-
-    DexType superclass_type = dexItemFactory.createType("Lshaking2/SuperClass;");
-    DexType subClass1_type = dexItemFactory.createType("Lshaking2/SubClass1;");
-    DexType subClass2_type = dexItemFactory.createType("Lshaking2/SubClass2;");
-
+    DexClass object_type = definitionFor("Ljava/lang/Object;");
+    DexClass interface_type = definitionFor("Lshaking2/Interface;");
+    DexClass superInterface1_type = definitionFor("Lshaking2/SuperInterface1;");
+    DexClass superInterface2_type = definitionFor("Lshaking2/SuperInterface2;");
+    DexClass superclass_type = definitionFor("Lshaking2/SuperClass;");
+    DexClass subClass1_type = definitionFor("Lshaking2/SubClass1;");
+    DexClass subClass2_type = definitionFor("Lshaking2/SubClass2;");
     validateSubtype(object_type, interface_type);
     validateSubtypeSize(interface_type, 4);
     validateSubtype(interface_type, superclass_type);
@@ -71,5 +84,9 @@ public class R8Shaking2LookupTest {
     validateSubtype(superInterface1_type, interface_type);
     validateSubtype(superInterface2_type, interface_type);
     validateSubtypeSize(subClass2_type, 0);
+  }
+
+  private DexClass definitionFor(String descriptor) {
+    return appInfo.definitionFor(dexItemFactory.createType(descriptor));
   }
 }

@@ -13,7 +13,7 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions;
@@ -182,7 +182,7 @@ class MethodNameMinifier {
   }
 
   MethodRenaming computeRenaming(
-      Iterable<DexClass> interfaces, SubtypingInfo subtypingInfo, Timing timing) {
+      Iterable<DexClass> interfaces, ImmediateAppSubtypingInfo subtypingInfo, Timing timing) {
     // Phase 1: Reserve all the names that need to be kept and allocate linked state in the
     //          library part.
     timing.begin("Phase 1");

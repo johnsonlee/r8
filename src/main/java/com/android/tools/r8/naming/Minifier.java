@@ -21,12 +21,12 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ReferencedMembersCollector;
 import com.android.tools.r8.graph.ReferencedMembersCollector.ReferencedMembersConsumer;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassNamingStrategy;
 import com.android.tools.r8.naming.ClassNameMinifier.ClassRenaming;
 import com.android.tools.r8.naming.FieldNameMinifier.FieldRenaming;
@@ -57,9 +57,10 @@ public class Minifier {
 
   public void run(ExecutorService executorService, Timing timing) throws ExecutionException {
     assert appView.options().isMinifying();
-    SubtypingInfo subtypingInfo = MinifierUtils.createSubtypingInfo(appView);
+    ImmediateAppSubtypingInfo immediateSubtypingInfo = ImmediateAppSubtypingInfo.create(appView);
     timing.begin("ComputeInterfaces");
-    List<DexClass> interfaces = subtypingInfo.computeReachableInterfacesWithDeterministicOrder();
+    List<DexClass> interfaces =
+        immediateSubtypingInfo.computeReachableInterfacesWithDeterministicOrder();
     timing.end();
     timing.begin("MinifyClasses");
     ClassNameMinifier classNameMinifier =
@@ -81,7 +82,7 @@ public class Minifier {
     timing.begin("MinifyMethods");
     MethodRenaming methodRenaming =
         new MethodNameMinifier(appView, minifyMembers)
-            .computeRenaming(interfaces, subtypingInfo, timing);
+            .computeRenaming(interfaces, immediateSubtypingInfo, timing);
     timing.end();
 
     assert new MinifiedRenaming(appView, classRenaming, methodRenaming, FieldRenaming.empty())
@@ -89,7 +90,7 @@ public class Minifier {
 
     timing.begin("MinifyFields");
     FieldRenaming fieldRenaming =
-        new FieldNameMinifier(appView, subtypingInfo, minifyMembers)
+        new FieldNameMinifier(appView, immediateSubtypingInfo, minifyMembers)
             .computeRenaming(interfaces, timing);
     timing.end();
 

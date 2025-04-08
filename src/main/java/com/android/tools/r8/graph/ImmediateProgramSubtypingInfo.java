@@ -33,4 +33,9 @@ public class ImmediateProgramSubtypingInfo
         DexProgramClass::asProgramClassOrNull,
         immediateSubtypes -> new ImmediateProgramSubtypingInfo(appView, immediateSubtypes));
   }
+
+  @Override
+  DexProgramClass toS(DexClass clazz) {
+    return DexProgramClass.asProgramClassOrNull(clazz);
+  }
 }
