@@ -126,27 +126,25 @@ public class MaximallySpecificMultiplePathsSuccessTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    boolean isDalvik = parameters.getDexRuntimeVersion().isDalvik();
     runTest(testForD8(parameters.getBackend()))
-        .assertSuccessWithOutputLinesIf(isDalvik, D8_R8_RESULT)
-        .assertSuccessWithOutputLinesIf(
-            !isDalvik && !parameters.canUseDefaultAndStaticInterfaceMethods(), D8_R8_RESULT)
-        // TODO(b/230289235): Extend resolution to support multiple definition results.
-        .assertSuccessWithOutputLinesIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(), EXPECTED);
+        .applyIf(
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            rr -> rr.assertSuccessWithOutputLines(EXPECTED),
+            // TODO(b/230289235): Extend resolution to support multiple definition results.
+            rr -> rr.assertSuccessWithOutputLines(D8_R8_RESULT));
   }
 
   @Test
   public void testR8() throws Exception {
-    // TODO(b/230289235): Extend resolution to support multiple definition results.
     runTest(
             testForR8(parameters.getBackend())
                 .addKeepAttributeSourceFile()
                 .addKeepMainRule(Main.class))
-        .assertFailureWithErrorThatThrowsIf(
-            parameters.canUseDefaultAndStaticInterfaceMethods(), NoSuchMethodError.class)
-        .assertSuccessWithOutputLinesIf(
-            !parameters.canUseDefaultAndStaticInterfaceMethods(), D8_R8_RESULT);
+        .applyIf(
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            rr -> rr.assertSuccessWithOutputLines(EXPECTED),
+            // TODO(b/230289235): Extend resolution to support multiple definition results.
+            rr -> rr.assertSuccessWithOutputLines(D8_R8_RESULT));
   }
 
   private TestRunResult<?> runTest(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder)

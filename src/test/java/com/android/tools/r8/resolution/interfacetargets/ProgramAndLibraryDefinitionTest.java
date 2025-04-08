@@ -94,10 +94,16 @@ public class ProgramAndLibraryDefinitionTest extends TestBase {
       runResult.assertFailureWithErrorThatThrows(IncompatibleClassChangeError.class);
     } else if (isExpectedToFailWithNoSuchMethodError()) {
       runResult.assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+    } else if (parameters.canUseDefaultAndStaticInterfaceMethods()
+        && isAInLibrary()
+        && isBInProgram()
+        && !isDefinedOnALibrary()
+        && isDefinedOnBLibrary()
+        && !isDefinedOnBProgram()) {
+      runResult.assertSuccessWithOutputLines("B::foo");
     } else if (isDefinedOnAProgram() || (isDefinedOnALibrary() && !isAInProgram())) {
       runResult.assertSuccessWithOutputLines("A::foo");
     } else {
-      assert isDefinedOnBProgram() || (isDefinedOnBLibrary() && !isBInProgram());
       runResult.assertSuccessWithOutputLines("B::foo");
     }
   }
@@ -139,6 +145,16 @@ public class ProgramAndLibraryDefinitionTest extends TestBase {
   }
 
   private boolean isExpectedToFailWithNoSuchMethodError() {
+    if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+      if (isDefinedOnBLibrary() && isBInProgram() && !isDefinedOnBProgram()) {
+        if (!isDefinedOnALibrary() && isAInLibrary()) {
+          return false;
+        }
+        if (!isDefinedOnAProgram() && isAInProgram()) {
+          return false;
+        }
+      }
+    }
     boolean notDefinedInProgram = !isDefinedOnAProgram() && !isDefinedOnBProgram();
     boolean notDefinedInLibrary = !isDefinedOnALibrary() && !isDefinedOnBLibrary();
     if (notDefinedInLibrary && notDefinedInProgram) {
@@ -169,6 +185,19 @@ public class ProgramAndLibraryDefinitionTest extends TestBase {
   }
 
   private boolean isExpectedToFailWithICCE() {
+    if (parameters.canUseDefaultAndStaticInterfaceMethods()) {
+      if (isDefinedOnBLibrary() && isBInProgram() && !isDefinedOnBProgram()) {
+        if (isDefinedOnALibrary()) {
+          if (!isAInProgram() || isDefinedOnAProgram()) {
+            return true;
+          }
+        } else if (!isAInLibrary()) {
+          if (isDefinedOnAProgram()) {
+            return true;
+          }
+        }
+      }
+    }
     if (isDefinedOnAProgram() && isDefinedOnBProgram()) {
       return true;
     }

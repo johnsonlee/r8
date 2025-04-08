@@ -2329,14 +2329,21 @@ public class Enqueuer {
 
   private void markInterfaceTypeAsLiveViaInheritanceClause(
       DexType type, DexProgramClass implementer) {
-    DexProgramClass clazz = getProgramClassOrNull(type, implementer);
+    ClassResolutionResult resolutionResult =
+        appView.definitionForWithResolutionResult(type, implementer);
+    if (!resolutionResult.hasClassResolutionResult()) {
+      return;
+    }
+
+    DexProgramClass clazz = resolutionResult.toSingleClassWithProgramOverLibrary().asProgramClass();
     if (clazz == null) {
       return;
     }
 
     if (!options.enableUnusedInterfaceRemoval
         || hasMinimumKeepInfoThatMatches(clazz, info -> !info.isUnusedInterfaceRemovalAllowed())
-        || mode.isMainDexTracing()) {
+        || mode.isMainDexTracing()
+        || resolutionResult.isMultipleClassResolutionResult()) {
       markTypeAsLive(clazz, implementer);
       return;
     }

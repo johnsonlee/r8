@@ -112,8 +112,7 @@ public class MaximallySpecificAbstractOnIncompletePathTest extends TestBase {
         .compile()
         .addBootClasspathFiles(buildOnDexRuntime(parameters, libraryClasses))
         .run(parameters.getRuntime(), Main.class)
-        // TODO(b/230289235): Extend to support multiple definition results.
-        .assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+        .assertFailureWithErrorThatThrows(AbstractMethodError.class);
   }
 
   private void setupTestBuilder(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder) throws Exception {

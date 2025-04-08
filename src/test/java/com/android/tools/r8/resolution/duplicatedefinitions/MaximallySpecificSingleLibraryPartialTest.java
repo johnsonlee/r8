@@ -138,7 +138,14 @@ public class MaximallySpecificSingleLibraryPartialTest extends TestBase {
   public void testR8() throws Exception {
     // TODO(b/230289235): Extend resolution to support multiple definition results.
     runTest(testForR8(parameters.getBackend()).addKeepMainRule(Main.class))
-        .assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+        .applyIf(
+            parameters.canUseDefaultAndStaticInterfaceMethods(),
+            rr -> rr.assertSuccessWithOutputLines(EXPECTED),
+            rr ->
+                rr.assertFailureWithErrorThatThrows(
+                    parameters.getDexRuntimeVersion().isDalvik()
+                        ? VerifyError.class
+                        : AbstractMethodError.class));
   }
 
   private TestRunResult<?> runTest(TestCompilerBuilder<?, ?, ?, ?, ?> testBuilder)
