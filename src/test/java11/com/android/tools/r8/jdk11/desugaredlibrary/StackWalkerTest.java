@@ -78,8 +78,6 @@ public class StackWalkerTest extends DesugaredLibraryTestBase {
         .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(Example.class)
         .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.MAIN))
-        // Missing class java.lang.StackWalker$StackFrame.
-        .addOptionsModification(opt -> opt.ignoreMissingClasses = true)
         .run(parameters.getRuntime(), Example.class)
         .assertSuccessWithOutput(
             compilationSpecification.isProgramShrink() ? EXPECTED_OUTPUT_R8 : EXPECTED_OUTPUT);
