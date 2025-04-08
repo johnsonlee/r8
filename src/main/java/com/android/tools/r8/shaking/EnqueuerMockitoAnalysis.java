@@ -8,14 +8,15 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FinishedEnqueuerAnalysis;
 import com.android.tools.r8.graph.analysis.IrBasedEnqueuerAnalysis;
@@ -152,25 +153,22 @@ class EnqueuerMockitoAnalysis
   @Override
   public void done(Enqueuer enqueuer) {
     // When Mockity.spy(instance) is used, all subtypes of the given type must be mockable.
-    SubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
-    ArrayDeque<DexType> subtypeDeque = new ArrayDeque<>();
+    ImmediateAppSubtypingInfo subtypingInfo = enqueuer.getSubtypingInfo();
+    ArrayDeque<DexClass> subclassDeque = new ArrayDeque<>();
     Set<DexProgramClass> seen = Sets.newIdentityHashSet();
     for (var entry : spiedInstanceTypes.entrySet()) {
       DexProgramClass spiedClass = entry.getKey();
-      ProgramMethod context = entry.getValue();
       if (!seen.add(spiedClass)) {
         continue;
       }
-      subtypeDeque.addAll(subtypingInfo.allImmediateSubtypes(spiedClass.getType()));
-      while (!subtypeDeque.isEmpty()) {
-        DexType subtype = subtypeDeque.removeLast();
-        DexProgramClass subClass = asProgramClassOrNull(appView.definitionFor(subtype, context));
-        if (subClass == null || !seen.add(subClass)) {
+      subclassDeque.addAll(subtypingInfo.getSubclasses(spiedClass));
+      while (!subclassDeque.isEmpty()) {
+        DexProgramClass subclass = subclassDeque.removeLast().asProgramClass();
+        if (subclass == null || !seen.add(subclass)) {
           continue;
         }
-        mockedProgramClasses.add(subClass);
-
-        subtypeDeque.addAll(subtypingInfo.allImmediateSubtypes(subtype));
+        mockedProgramClasses.add(subclass);
+        subclassDeque.addAll(subtypingInfo.getSubclasses(subclass));
       }
     }
 

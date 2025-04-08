@@ -4,8 +4,6 @@
 
 package com.android.tools.r8.graph;
 
-import com.google.common.collect.Iterables;
-import java.util.Objects;
 import java.util.function.Function;
 
 public class BottomUpClassHierarchyTraversal<T extends DexClass>
@@ -26,16 +24,10 @@ public class BottomUpClassHierarchyTraversal<T extends DexClass>
    * classes) that are reachable from a given set of sources.
    */
   public static BottomUpClassHierarchyTraversal<DexClass> forAllClasses(
-      AppView<? extends AppInfoWithClassHierarchy> appView, SubtypingInfo subtypingInfo) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateAppSubtypingInfo subtypingInfo) {
     return new BottomUpClassHierarchyTraversal<>(
-        appView,
-        clazz ->
-            Iterables.filter(
-                Iterables.transform(
-                    subtypingInfo.allImmediateSubtypes(clazz.getType()),
-                    appView::contextIndependentDefinitionFor),
-                Objects::nonNull),
-        Scope.ALL_CLASSES);
+        appView, subtypingInfo::getSubclasses, Scope.ALL_CLASSES);
   }
 
   /**

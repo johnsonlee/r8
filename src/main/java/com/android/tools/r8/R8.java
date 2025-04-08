@@ -31,10 +31,10 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.GenericSignatureContextBuilder;
 import com.android.tools.r8.graph.GenericSignatureCorrectnessHelper;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.PrunedItems;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMerger;
 import com.android.tools.r8.inspector.internal.InspectorImpl;
 import com.android.tools.r8.ir.conversion.IRConverter;
@@ -364,7 +364,7 @@ public class R8 {
         ProfileCollectionAdditions profileCollectionAdditions =
             ProfileCollectionAdditions.create(appView);
         AssumeInfoCollection.Builder assumeInfoCollectionBuilder = AssumeInfoCollection.builder();
-        SubtypingInfo subtypingInfo = SubtypingInfo.create(appView);
+        ImmediateAppSubtypingInfo subtypingInfo = ImmediateAppSubtypingInfo.create(appView);
         appView.setRootSet(
             RootSet.builder(
                     appView,
@@ -582,7 +582,7 @@ public class R8 {
               EnqueuerFactory.createForFinalTreeShaking(
                   appView,
                   executorService,
-                  SubtypingInfo.create(appView),
+                  ImmediateAppSubtypingInfo.create(appView),
                   keptGraphConsumer,
                   prunedTypes,
                   finalRuntimeTypeCheckInfoBuilder);
@@ -1133,7 +1133,7 @@ public class R8 {
     // computing from the initially computed main dex root set.
     MainDexInfo mainDexInfo =
         EnqueuerFactory.createForInitialMainDexTracing(
-                appView, executorService, SubtypingInfo.create(appView))
+                appView, executorService, ImmediateAppSubtypingInfo.create(appView))
             .traceMainDex(executorService, timing);
     appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(mainDexInfo));
   }
@@ -1155,7 +1155,10 @@ public class R8 {
 
     Enqueuer enqueuer =
         EnqueuerFactory.createForFinalMainDexTracing(
-            appView, executorService, SubtypingInfo.create(appView), mainDexKeptGraphConsumer);
+            appView,
+            executorService,
+            ImmediateAppSubtypingInfo.create(appView),
+            mainDexKeptGraphConsumer);
     // Find classes which may have code executed before secondary dex files installation.
     MainDexInfo mainDexInfo = enqueuer.traceMainDex(executorService, timing);
     appView.setAppInfo(appView.appInfo().rebuildWithMainDexInfo(mainDexInfo));
@@ -1187,11 +1190,10 @@ public class R8 {
       ExecutorService executorService,
       AppView<AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       List<KeepDeclaration> keepDeclarations)
       throws ExecutionException {
     timing.begin("Update subtyping info");
-    subtypingInfo.unsetTypeInfo();
     subtypingInfo.update(appView);
     assert subtypingInfo.verifyUpToDate(appView);
     timing.end();
@@ -1257,7 +1259,7 @@ public class R8 {
     // If there is no kept-graph info, re-run the enqueueing to compute it.
     if (whyAreYouKeepingConsumer == null) {
       whyAreYouKeepingConsumer = new WhyAreYouKeepingConsumer(null);
-      SubtypingInfo subtypingInfo = SubtypingInfo.create(appView);
+      ImmediateAppSubtypingInfo subtypingInfo = ImmediateAppSubtypingInfo.create(appView);
       if (forMainDex) {
         enqueuer =
             EnqueuerFactory.createForFinalMainDexTracing(

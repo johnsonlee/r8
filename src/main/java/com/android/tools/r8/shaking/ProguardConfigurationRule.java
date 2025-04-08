@@ -10,11 +10,12 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.ClassResolutionResult;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.position.Position;
 import com.android.tools.r8.shaking.ProguardWildcard.BackReference;
@@ -22,6 +23,7 @@ import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.Iterables;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -150,7 +152,7 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
 
   Iterable<DexProgramClass> relevantCandidatesForRule(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       Iterable<DexProgramClass> defaultValue,
       Predicate<DexProgramClass> isRelevant) {
     Iterable<DexType> specificTypes;
@@ -158,15 +160,22 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
       specificTypes = getClassNames().getSpecificTypes();
     } else if (hasInheritanceClassName() && getInheritanceClassName().hasSpecificType()) {
       DexType type = getInheritanceClassName().getSpecificType();
+      DexClass clazz = appView.definitionFor(type);
+      if (clazz == null) {
+        return Collections.emptyList();
+      }
+      Iterable<DexProgramClass> relevantSubclasses =
+          subtypingInfo.getTransitiveProgramSubclassesMatching(clazz, isRelevant);
       if (appView.getVerticallyMergedClasses() != null
           && appView.getVerticallyMergedClasses().hasBeenMergedIntoSubtype(type)) {
-        DexType target = appView.getVerticallyMergedClasses().getTargetFor(type);
-        DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(target));
-        assert clazz != null;
-        specificTypes = IterableUtils.append(subtypingInfo.subtypes(type), clazz.getType());
-      } else {
-        specificTypes = subtypingInfo.subtypes(type);
+        DexType targetType = appView.getVerticallyMergedClasses().getTargetFor(type);
+        DexProgramClass targetClass = asProgramClassOrNull(appView.definitionFor(targetType));
+        assert targetClass != null;
+        if (isRelevant.test(targetClass)) {
+          return IterableUtils.append(relevantSubclasses, targetClass);
+        }
       }
+      return relevantSubclasses;
     } else {
       return defaultValue;
     }

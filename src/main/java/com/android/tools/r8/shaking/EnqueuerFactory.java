@@ -8,7 +8,7 @@ import com.android.tools.r8.experimental.graphinfo.GraphConsumer;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.Enqueuer.Mode;
 import java.util.Set;
@@ -20,7 +20,7 @@ public class EnqueuerFactory {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo) {
+      ImmediateAppSubtypingInfo subtypingInfo) {
     return new Enqueuer(
         appView,
         profileCollectionAdditions,
@@ -33,7 +33,7 @@ public class EnqueuerFactory {
   public static Enqueuer createForFinalTreeShaking(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer,
       Set<DexType> initialPrunedTypes,
       RuntimeTypeCheckInfo.Builder runtimeTypeCheckInfoBuilder) {
@@ -57,7 +57,7 @@ public class EnqueuerFactory {
   public static Enqueuer createForInitialMainDexTracing(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo) {
+      ImmediateAppSubtypingInfo subtypingInfo) {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
     return new Enqueuer(
@@ -72,7 +72,7 @@ public class EnqueuerFactory {
   public static Enqueuer createForFinalMainDexTracing(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer) {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
@@ -88,7 +88,7 @@ public class EnqueuerFactory {
   public static Enqueuer createForGenerateMainDexList(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer) {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
@@ -104,7 +104,7 @@ public class EnqueuerFactory {
   public static Enqueuer createForWhyAreYouKeeping(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer) {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);

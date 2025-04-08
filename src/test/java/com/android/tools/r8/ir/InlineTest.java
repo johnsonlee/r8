@@ -17,7 +17,7 @@ import com.android.tools.r8.graph.AppServices;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplication;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.SubtypingInfo;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
@@ -81,7 +81,7 @@ public class InlineTest extends IrInjectionTestBase {
     appView.setAppServices(AppServices.builder(appView).build());
     ProfileCollectionAdditions profileCollectionAdditions = ProfileCollectionAdditions.nop();
     ExecutorService executorService = ThreadUtils.getExecutorService(options);
-    SubtypingInfo subtypingInfo = SubtypingInfo.create(appView);
+    ImmediateAppSubtypingInfo subtypingInfo = ImmediateAppSubtypingInfo.create(appView);
     appView.setRootSet(
         RootSet.builder(
                 appView,

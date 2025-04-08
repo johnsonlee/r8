@@ -70,6 +70,7 @@ import com.android.tools.r8.graph.FieldAccessInfoCollectionImpl;
 import com.android.tools.r8.graph.FieldAccessInfoImpl;
 import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.GenericSignatureEnqueuerAnalysis;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.LazyCfCode;
@@ -89,7 +90,6 @@ import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramDerivedContext;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.UseRegistry.MethodHandleUse;
 import com.android.tools.r8.graph.analysis.ApiModelAnalysis;
 import com.android.tools.r8.graph.analysis.ClassInitializerAssertionEnablingAnalysis;
@@ -265,7 +265,7 @@ public class Enqueuer {
   private final AppView<AppInfoWithClassHierarchy> appView;
   private final EnqueuerDeferredTracing deferredTracing;
   private final ExecutorService executorService;
-  private SubtypingInfo subtypingInfo;
+  private ImmediateAppSubtypingInfo subtypingInfo;
   private final InternalOptions options;
   private RootSet rootSet;
   private final EnqueuerUseRegistryFactory useRegistryFactory;
@@ -483,7 +483,7 @@ public class Enqueuer {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer,
       Mode mode) {
     this(
@@ -501,7 +501,7 @@ public class Enqueuer {
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ProfileCollectionAdditions profileCollectionAdditions,
       ExecutorService executorService,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer,
       Mode mode,
       Set<DexType> initialPrunedTypes,
@@ -818,7 +818,7 @@ public class Enqueuer {
     return keepInfo.getClassInfo(clazz);
   }
 
-  public SubtypingInfo getSubtypingInfo() {
+  public ImmediateAppSubtypingInfo getSubtypingInfo() {
     return subtypingInfo;
   }
 
@@ -4208,6 +4208,7 @@ public class Enqueuer {
     timing.time("Desugar", () -> desugar(additions));
     timing.time("Synthesize interface method bridges", this::synthesizeInterfaceMethodBridges);
     if (additions.isEmpty()) {
+      assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
       return;
     }
 
@@ -4870,7 +4871,8 @@ public class Enqueuer {
     // Commit the pending synthetics and recompute subtypes.
     appInfo = appInfo.rebuildWithClassHierarchy(app -> app);
     appView.setAppInfo(appInfo);
-    subtypingInfo = timing.time("Create SubtypingInfo", () -> SubtypingInfo.create(appView));
+    subtypingInfo =
+        timing.time("Create SubtypingInfo", () -> ImmediateAppSubtypingInfo.create(appView));
 
     syntheticAdditions.enqueueWorkItems(this);
 

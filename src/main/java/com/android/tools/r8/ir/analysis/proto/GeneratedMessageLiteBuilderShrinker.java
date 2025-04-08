@@ -17,9 +17,9 @@ import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.graph.analysis.EnqueuerAnalysisCollection;
 import com.android.tools.r8.graph.analysis.FixpointEnqueuerAnalysis;
 import com.android.tools.r8.ir.analysis.type.ClassTypeElement;
@@ -355,7 +355,7 @@ public class GeneratedMessageLiteBuilderShrinker {
 
   public GeneratedMessageLiteBuilderShrinker addInliningHeuristicsForBuilderInlining(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      SubtypingInfo subtypingInfo,
+      ImmediateAppSubtypingInfo subtypingInfo,
       PredicateSet<DexType> alwaysClassInline,
       Set<DexMethod> alwaysInline,
       DependentMinimumKeepInfoCollection dependentMinimumKeepInfo) {
@@ -504,7 +504,7 @@ public class GeneratedMessageLiteBuilderShrinker {
       this.dependentMinimumKeepInfo = dependentMinimumKeepInfo;
     }
 
-    void extend(SubtypingInfo subtypingInfo) {
+    void extend(ImmediateAppSubtypingInfo subtypingInfo) {
       alwaysClassInlineGeneratedMessageLiteBuilders();
 
       // MessageLite and GeneratedMessageLite heuristics.
@@ -528,17 +528,20 @@ public class GeneratedMessageLiteBuilderShrinker {
                   .isStrictSubtypeOf(type, references.generatedMessageLiteBuilderType));
     }
 
-    private void bypassClinitForInliningNewBuilderMethods(SubtypingInfo subtypingInfo) {
-      for (DexType type : subtypingInfo.subtypes(references.generatedMessageLiteType)) {
-        DexProgramClass clazz = appView.definitionFor(type).asProgramClass();
-        if (clazz != null) {
-          DexEncodedMethod newBuilderMethod =
-              clazz.lookupDirectMethod(
-                  method -> method.getName().isIdenticalTo(references.newBuilderMethodName));
-          if (newBuilderMethod != null) {
-            bypassClinitForInlining.add(newBuilderMethod.getReference());
-          }
-        }
+    private void bypassClinitForInliningNewBuilderMethods(ImmediateAppSubtypingInfo subtypingInfo) {
+      DexClass generatedMessageLiteClass =
+          appView.definitionFor(references.generatedMessageLiteType);
+      if (generatedMessageLiteClass != null) {
+        subtypingInfo.forEachTransitiveProgramSubclass(
+            generatedMessageLiteClass,
+            clazz -> {
+              DexEncodedMethod newBuilderMethod =
+                  clazz.lookupDirectMethod(
+                      method -> method.getName().isIdenticalTo(references.newBuilderMethodName));
+              if (newBuilderMethod != null) {
+                bypassClinitForInlining.add(newBuilderMethod.getReference());
+              }
+            });
       }
     }
 

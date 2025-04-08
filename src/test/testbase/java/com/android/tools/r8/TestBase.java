@@ -44,9 +44,9 @@ import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.GenericSignature;
 import com.android.tools.r8.graph.GenericSignature.ClassSignature;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.SmaliWriter;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.jasmin.JasminBuilder;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
@@ -973,7 +973,7 @@ public class TestBase {
         RootSet.builder(
                 appView,
                 profileCollectionAdditions,
-                SubtypingInfo.create(appView),
+                ImmediateAppSubtypingInfo.create(appView),
                 appView.options().getProguardConfiguration().getRules())
             .build(executor);
     appView.setRootSet(rootSet);
@@ -983,7 +983,7 @@ public class TestBase {
                 appView,
                 profileCollectionAdditions,
                 executor,
-                SubtypingInfo.create(appView).unsetTypeInfo())
+                ImmediateAppSubtypingInfo.create(appView))
             .traceApplication(rootSet, executor, Timing.empty());
     executor.shutdown();
     // We do not run the tree pruner to ensure that the hierarchy is as designed and not modified

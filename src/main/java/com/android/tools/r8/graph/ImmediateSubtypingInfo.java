@@ -7,13 +7,18 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.google.common.base.Predicates.alwaysTrue;
 
+import com.android.tools.r8.utils.TraversalContinuation;
+import com.android.tools.r8.utils.WorkList;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -115,6 +120,32 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
             });
   }
 
+  void forEachTransitiveProgramSubclass(
+      S clazz, Consumer<? super DexProgramClass> consumer, Function<DexClass, S> cast) {
+    forEachTransitiveProgramSubclassMatching(clazz, consumer, cast, Predicates.alwaysTrue());
+  }
+
+  void forEachTransitiveProgramSubclassMatching(
+      S clazz,
+      Consumer<? super DexProgramClass> consumer,
+      Function<DexClass, S> cast,
+      Predicate<DexProgramClass> predicate) {
+    WorkList<DexClass> worklist = WorkList.newIdentityWorkList(getSubclasses(clazz));
+    worklist.process(
+        subclass -> {
+          if (subclass.isProgramClass()) {
+            DexProgramClass programSubclass = subclass.asProgramClass();
+            if (predicate.test(programSubclass)) {
+              consumer.accept(programSubclass);
+            }
+          }
+          S subclassOrNull = cast.apply(subclass);
+          if (subclassOrNull != null) {
+            worklist.addIfNotSeen(getSubclasses(subclassOrNull));
+          }
+        });
+  }
+
   public List<T> getSubclasses(S clazz) {
     return immediateSubtypes.getOrDefault(clazz, Collections.emptyList());
   }
@@ -132,7 +163,38 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
         Objects::nonNull);
   }
 
+  Set<DexProgramClass> getTransitiveProgramSubclasses(S clazz, Function<DexClass, S> cast) {
+    return getTransitiveProgramSubclassesMatching(clazz, cast, Predicates.alwaysTrue());
+  }
+
+  Set<DexProgramClass> getTransitiveProgramSubclassesMatching(
+      S clazz, Function<DexClass, S> cast, Predicate<DexProgramClass> predicate) {
+    Set<DexProgramClass> classes = Sets.newIdentityHashSet();
+    forEachTransitiveProgramSubclassMatching(clazz, classes::add, cast, predicate);
+    return classes;
+  }
+
   public boolean hasSubclasses(S clazz) {
     return !getSubclasses(clazz).isEmpty();
+  }
+
+  <TB, TC> TraversalContinuation<TB, TC> traverseTransitiveSubclasses(
+      S clazz,
+      Function<DexClass, S> cast,
+      Function<? super DexClass, TraversalContinuation<TB, TC>> fn) {
+    TraversalContinuation<TB, TC> traversalContinuation = TraversalContinuation.doContinue();
+    WorkList<DexClass> worklist = WorkList.newIdentityWorkList(getSubclasses(clazz));
+    while (worklist.hasNext()) {
+      DexClass subclass = worklist.next();
+      traversalContinuation = fn.apply(subclass);
+      if (traversalContinuation.shouldBreak()) {
+        return traversalContinuation;
+      }
+      S subclassOrNull = cast.apply(subclass);
+      if (subclassOrNull != null) {
+        worklist.addIfNotSeen(getSubclasses(subclassOrNull));
+      }
+    }
+    return traversalContinuation;
   }
 }

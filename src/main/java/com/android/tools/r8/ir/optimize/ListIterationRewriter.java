@@ -13,8 +13,8 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProto;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.android.tools.r8.graph.MethodResolutionResult;
-import com.android.tools.r8.graph.SubtypingInfo;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.Add;
@@ -36,6 +36,7 @@ import com.android.tools.r8.ir.conversion.passes.CodeRewriterPass;
 import com.android.tools.r8.ir.conversion.passes.result.CodeRewriterResult;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
 import com.android.tools.r8.utils.InternalOptions.TestingOptions;
+import com.android.tools.r8.utils.TraversalContinuation;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,7 +120,8 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
    * @param subtypingInfo May contain pruned items, but must not be missing any types.
    */
   public static boolean shouldEnable(
-      AppView<? extends AppInfoWithClassHierarchy> appView, SubtypingInfo subtypingInfo) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      ImmediateAppSubtypingInfo subtypingInfo) {
     TestingOptions opts = appView.options().testing;
     if (!appView.hasLiveness()) {
       return false;
@@ -129,26 +131,25 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
     }
 
     // Enable only if there are no ArrayList subclasses that override iterator() / get() / size().
-    DexType arrayListType = appView.dexItemFactory().javaUtilArrayListType;
-    JavaUtilListMembers listMembers = appView.dexItemFactory().javaUtilListMembers;
+    DexClass arrayListClass = appView.definitionFor(appView.dexItemFactory().javaUtilArrayListType);
+    if (arrayListClass == null) {
+      return false;
+    }
 
-    return subtypingInfo.subtypes(arrayListType).stream()
-        .noneMatch(
-            subType -> {
-              DexClass dexClass =
-                  appView.hasDefinitionFor(subType)
-                      ? appView.contextIndependentDefinitionFor(subType)
-                      : null;
-              return dexClass != null
-                  && dexClass.isProgramClass()
-                  && dexClass
-                      .getMethodCollection()
-                      .hasVirtualMethods(
-                          m ->
-                              listMembers.iterator.match(m)
-                                  || listMembers.get.match(m)
-                                  || listMembers.size.match(m));
-            });
+    JavaUtilListMembers listMembers = appView.dexItemFactory().javaUtilListMembers;
+    return subtypingInfo
+        .traverseTransitiveSubclasses(
+            arrayListClass,
+            subclass ->
+                TraversalContinuation.breakIf(
+                    subclass
+                        .getMethodCollection()
+                        .hasVirtualMethods(
+                            m ->
+                                listMembers.iterator.match(m)
+                                    || listMembers.get.match(m)
+                                    || listMembers.size.match(m))))
+        .shouldContinue();
   }
 
   @Override
