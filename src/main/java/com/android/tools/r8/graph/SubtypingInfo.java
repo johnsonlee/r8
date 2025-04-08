@@ -4,7 +4,9 @@
 package com.android.tools.r8.graph;
 
 import static com.android.tools.r8.graph.DexApplication.classesWithDeterministicOrder;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 
+import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.structural.StructuralItem;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -33,7 +35,7 @@ public class SubtypingInfo {
   // Map from types to their subtypes.
   private final Map<DexType, Set<DexType>> subtypeMap;
 
-  private final Map<DexType, TypeInfo> typeInfo;
+  private Map<DexType, TypeInfo> typeInfo;
 
   private final DexDefinitionSupplier definitionSupplier;
   private final DexItemFactory factory;
@@ -48,16 +50,38 @@ public class SubtypingInfo {
     factory = definitionSupplier.dexItemFactory();
   }
 
-  public static SubtypingInfo create(AppView<? extends AppInfoWithClassHierarchy> appView) {
-    return create(appView.appInfo());
+  public void update(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    assert typeInfo == null : "Extending typeInfo not implemented";
+    if (!appView.getSyntheticItems().hasPendingSyntheticClasses()) {
+      return;
+    }
+    WorkList<DexType> worklist = WorkList.newIdentityWorkList();
+    for (DexClass clazz : appView.getSyntheticItems().getAllPendingSyntheticClasses()) {
+      worklist.addIfNotSeen(clazz.allImmediateSupertypes());
+      worklist.process(
+          supertype -> {
+            DexClass superclass = appView.definitionFor(supertype);
+            if (superclass == null) {
+              return;
+            }
+            subtypeMap.computeIfAbsent(supertype, ignoreKey(HashSet::new)).add(clazz.getType());
+            worklist.addIfNotSeen(superclass.allImmediateSupertypes());
+          });
+      worklist.clearSeen();
+    }
   }
 
-  public static SubtypingInfo create(AppInfoWithClassHierarchy appInfo) {
-    DirectMappedDexApplication directApp = appInfo.app().asDirect();
-    return create(
-        Iterables.concat(
-            directApp.programClasses(), directApp.classpathClasses(), directApp.libraryClasses()),
-        appInfo);
+  public SubtypingInfo unsetTypeInfo() {
+    typeInfo = null;
+    return this;
+  }
+
+  public static SubtypingInfo create(AppView<? extends AppInfoWithClassHierarchy> appView) {
+    AppInfoWithClassHierarchy appInfo = appView.appInfo();
+    DirectMappedDexApplication app = appInfo.app().asDirect();
+    Iterable<DexClass> classes =
+        Iterables.concat(app.programClasses(), app.classpathClasses(), app.libraryClasses());
+    return create(classes, appInfo);
   }
 
   public static SubtypingInfo create(
@@ -134,7 +158,6 @@ public class SubtypingInfo {
     for (DexClass clazz : classes) {
       populateAllSuperTypes(map, typeInfo, clazz.type, clazz, definitionSupplier);
     }
-    map.replaceAll((k, v) -> ImmutableSet.copyOf(v));
     assert validateLevelsAreCorrect(typeInfo, definitionSupplier);
   }
 
@@ -231,6 +254,38 @@ public class SubtypingInfo {
                 .contextIndependentDefinitionForWithResolutionResult(type)
                 .forEachClassResolutionResult(interfaces::add));
     return classesWithDeterministicOrder(interfaces);
+  }
+
+  public boolean verifyUpToDate(AppView<AppInfoWithClassHierarchy> appView) {
+    DirectMappedDexApplication app = appView.app().asDirect();
+    Iterable<DexClass> classes =
+        Iterables.concat(app.programClasses(), app.classpathClasses(), app.libraryClasses());
+    for (DexClass clazz : classes) {
+      assert verifyUpToDate(appView, clazz);
+    }
+    // This does not check that the `typeInfo` is up-to-date.
+    assert typeInfo == null;
+    return true;
+  }
+
+  private boolean verifyUpToDate(AppView<AppInfoWithClassHierarchy> appView, DexClass clazz) {
+    WorkList<DexType> worklist = WorkList.newIdentityWorkList(clazz.allImmediateSupertypes());
+    worklist.process(
+        supertype -> {
+          DexClass superclass = appView.definitionFor(supertype);
+          if (superclass == null) {
+            return;
+          }
+          assert subtypes(supertype).contains(clazz.getType())
+                  || (clazz.isLibraryClass()
+                      && appView.definitionFor(clazz.getType()).isProgramClass())
+              : "Expected subtypes("
+                  + supertype.getTypeName()
+                  + ") to include "
+                  + clazz.getTypeName();
+          worklist.addIfNotSeen(superclass.allImmediateSupertypes());
+        });
+    return true;
   }
 
   private static class TypeInfo {

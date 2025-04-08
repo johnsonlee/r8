@@ -754,7 +754,7 @@ public class RootSetUtils {
                           resolutionMethod
                               .getDefinition()
                               .toForwardingMethod(originalClazz, appView)));
-          assert methodToKeepReference.equals(methodToKeep.getReference());
+          assert methodToKeepReference.isIdenticalTo(methodToKeep.getReference());
         } else {
           methodToKeep = resolutionMethod;
         }

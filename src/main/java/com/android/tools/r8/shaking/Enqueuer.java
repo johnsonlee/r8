@@ -4212,9 +4212,10 @@ public class Enqueuer {
     }
 
     // Commit the pending synthetics and recompute subtypes.
+    subtypingInfo.update(appView);
     appInfo = timing.time("Rebuild AppInfo", () -> appInfo.rebuildWithClassHierarchy(app -> app));
     appView.setAppInfo(appInfo);
-    subtypingInfo = timing.time("Create SubtypingInfo", () -> SubtypingInfo.create(appView));
+    assert subtypingInfo.verifyUpToDate(appView);
 
     // Finally once all synthesized items "exist" it is now safe to continue tracing. The new work
     // items are enqueued and the fixed point will continue once this subroutine returns.

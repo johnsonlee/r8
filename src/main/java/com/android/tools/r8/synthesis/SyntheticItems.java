@@ -205,6 +205,14 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       }
       return Collections.unmodifiableList(allPending);
     }
+
+    Collection<DexClass> getAllClasses() {
+      List<DexClass> allPending = new ArrayList<>(definitions.size());
+      for (SyntheticDefinition<?, ?, ?> item : definitions.values()) {
+        allPending.add(item.getHolder());
+      }
+      return Collections.unmodifiableList(allPending);
+    }
   }
 
   private final State state;
@@ -441,6 +449,10 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
 
   public Collection<DexProgramClass> getPendingSyntheticClasses() {
     return pending.getAllProgramClasses();
+  }
+
+  public Collection<DexClass> getAllPendingSyntheticClasses() {
+    return pending.getAllClasses();
   }
 
   public boolean isCommittedSynthetic(DexType type) {

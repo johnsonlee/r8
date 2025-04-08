@@ -969,18 +969,21 @@ public class TestBase {
     // Run the tree shaker to compute an instance of AppInfoWithLiveness.
     ExecutorService executor = Executors.newSingleThreadExecutor();
     ProfileCollectionAdditions profileCollectionAdditions = ProfileCollectionAdditions.nop();
-    SubtypingInfo subtypingInfo = SubtypingInfo.create(appView);
     RootSet rootSet =
         RootSet.builder(
                 appView,
                 profileCollectionAdditions,
-                subtypingInfo,
+                SubtypingInfo.create(appView),
                 appView.options().getProguardConfiguration().getRules())
             .build(executor);
     appView.setRootSet(rootSet);
+    appView.rebuildAppInfo();
     EnqueuerResult enqueuerResult =
         EnqueuerFactory.createForInitialTreeShaking(
-                appView, profileCollectionAdditions, executor, subtypingInfo)
+                appView,
+                profileCollectionAdditions,
+                executor,
+                SubtypingInfo.create(appView).unsetTypeInfo())
             .traceApplication(rootSet, executor, Timing.empty());
     executor.shutdown();
     // We do not run the tree pruner to ensure that the hierarchy is as designed and not modified
