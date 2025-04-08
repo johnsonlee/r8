@@ -401,7 +401,11 @@ public class LensCodeRewriter {
               }
               MethodLookupResult lensLookup =
                   graphLens.lookupMethod(
-                      invokedMethod, method.getReference(), invoke.getType(), codeLens);
+                      invokedMethod,
+                      method.getReference(),
+                      invoke.getType(),
+                      codeLens,
+                      invoke.getInterfaceBit());
               DexMethod actualTarget = lensLookup.getReference();
               InvokeType actualInvokeType = lensLookup.getType();
               int numberOfArguments =
