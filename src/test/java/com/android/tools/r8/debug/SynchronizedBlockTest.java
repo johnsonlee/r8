@@ -3,16 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.debug;
 
-import static org.hamcrest.core.IsNot.not;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.ToolHelper.DexVm;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.debug.classes.SynchronizedBlock;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -116,10 +114,9 @@ public class SynchronizedBlockTest extends DebugTestBase {
 
   @Test
   public void testThrowingBlock() throws Throwable {
-    Assume.assumeThat(
+    assumeTrue(
         "Connection timeout on 6.0.1 runtime. b/67671771",
-        ToolHelper.getDexVm().getVersion(),
-        not(DexVm.ART_6_0_1_TARGET.getVersion()));
+        parameters.isCfRuntime() || parameters.getDexRuntimeVersion() != Version.V6_0_1);
     final String method = "throwingBlock";
     runDebugTest(
         getConfig(),
