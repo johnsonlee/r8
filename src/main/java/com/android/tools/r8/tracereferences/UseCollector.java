@@ -113,6 +113,12 @@ public class UseCollector {
     consumer.acceptType(tracedClass, diagnostics);
   }
 
+  protected void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
+    TracedClassImpl missingClass = new TracedClassImpl(type, referencedFrom);
+    collectMissingClass(missingClass);
+    consumer.acceptType(missingClass, diagnostics);
+  }
+
   protected void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
     TracedFieldImpl tracedField = new TracedFieldImpl(field, referencedFrom);
     consumer.acceptField(tracedField, diagnostics);
@@ -176,9 +182,7 @@ public class UseCollector {
     if (result.hasClassResolutionResult()) {
       result.forEachClassResolutionResult(resolvedClassesConsumer);
     } else {
-      TracedClassImpl missingClass = new TracedClassImpl(type, referencedFrom);
-      collectMissingClass(missingClass);
-      consumer.acceptType(missingClass, diagnostics);
+      notifyMissingClass(type, referencedFrom);
     }
   }
 
@@ -630,9 +634,7 @@ public class UseCollector {
                   }
                 });
           } else {
-            TracedClassImpl missingClass = new TracedClassImpl(interfaceType, referencedFrom);
-            collectMissingClass(missingClass);
-            consumer.acceptType(missingClass, diagnostics);
+            notifyMissingClass(interfaceType, referencedFrom);
           }
         }
       }

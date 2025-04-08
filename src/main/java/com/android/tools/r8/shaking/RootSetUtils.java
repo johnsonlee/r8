@@ -9,6 +9,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static java.util.Collections.emptyMap;
 
 import com.android.tools.r8.dex.Constants;
+import com.android.tools.r8.diagnostic.DefinitionContext;
 import com.android.tools.r8.errors.AssumeNoSideEffectsRuleForObjectMembersDiagnostic;
 import com.android.tools.r8.errors.AssumeValuesMissingStaticFieldDiagnostic;
 import com.android.tools.r8.errors.InlinableStaticFinalFieldPreconditionDiagnostic;
@@ -257,6 +258,20 @@ public class RootSetUtils {
               } else if (definition.getContextClass().isLibraryClass()) {
                 rootLibraryTypes.add(definition.getContextType());
               }
+            }
+
+            @Override
+            protected void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
+              assert recordMissingClassWhenAssertionsEnabled(type);
+            }
+
+            private boolean recordMissingClassWhenAssertionsEnabled(DexType type) {
+              // Record missing class references from the D8 compilation unit in R8 partial.
+              // We use this to ensure that calling AppInfoWithLiveness#definitionFor does not fail
+              // when looking up a missing class type from the D8 part (which happens during library
+              // desugaring).
+              options.partialSubCompilationConfiguration.asR8().d8MissingClasses.add(type);
+              return true;
             }
           };
       useCollector.run(executorService);

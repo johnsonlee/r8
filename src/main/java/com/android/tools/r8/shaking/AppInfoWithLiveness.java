@@ -56,6 +56,7 @@ import com.android.tools.r8.ir.analysis.type.TypeElement;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
 import com.android.tools.r8.naming.SeedMapper;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
 import com.android.tools.r8.synthesis.CommittedItems;
@@ -523,11 +524,15 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   @Override
   public DexClass definitionFor(DexType type) {
     DexClass definition = super.definitionFor(type);
+    R8PartialSubCompilationConfiguration subCompilationConfiguration =
+        options().partialSubCompilationConfiguration;
     assert definition != null
             || deadProtoTypes.contains(type)
             || getMissingClasses().contains(type)
             // TODO(b/150736225): Not sure how to remove these.
             || isVivifiedType(type)
+            || (subCompilationConfiguration != null
+                && subCompilationConfiguration.asR8().d8MissingClasses.contains(type))
         : "Failed lookup of non-missing type: " + type;
     return definition;
   }

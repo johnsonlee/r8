@@ -24,7 +24,6 @@ import com.android.tools.r8.profile.art.ArtProfile;
 import com.android.tools.r8.profile.art.ArtProfileCollection;
 import com.android.tools.r8.profile.art.ArtProfileMethodRule;
 import com.android.tools.r8.profile.startup.profile.StartupProfile;
-import com.android.tools.r8.shaking.MissingClasses;
 import com.android.tools.r8.synthesis.SyntheticItems;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.MapUtils;
@@ -36,6 +35,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class R8PartialSubCompilationConfiguration {
 
@@ -187,6 +187,14 @@ public abstract class R8PartialSubCompilationConfiguration {
     private List<KeepDeclaration> keepDeclarations;
     private StartupProfile startupProfile;
 
+    // Stores the missing class references from the D8 compilation unit in R8 partial.
+    // We use this to ensure that calling AppInfoWithLiveness#definitionFor does not fail
+    // when looking up a missing class type from the D8 part (which happens during library
+    // desugaring).
+    //
+    // Always empty when assertions are disabled.
+    public final Set<DexType> d8MissingClasses = ConcurrentHashMap.newKeySet();
+
     public R8PartialR8SubCompilationConfiguration(
         ArtProfileCollection artProfiles,
         ClassToFeatureSplitMap classToFeatureSplitMap,
@@ -255,7 +263,6 @@ public abstract class R8PartialSubCompilationConfiguration {
               .addProgramClasses(dexingOutputClasses.values())
               .build();
       appView.rebuildAppInfo(newApp);
-      assert amendMissingClasses(appView);
     }
 
     public void uncommitDexingOutputClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
@@ -272,7 +279,6 @@ public abstract class R8PartialSubCompilationConfiguration {
               .addClasspathClasses(newClasspathClasses)
               .build();
       appView.rebuildAppInfo(newApp);
-      assert amendMissingClasses(appView);
     }
 
     public boolean hasD8DefinitionFor(DexReference reference) {
@@ -287,24 +293,6 @@ public abstract class R8PartialSubCompilationConfiguration {
 
     public boolean isD8Definition(ProgramDefinition definition) {
       return hasD8DefinitionFor(definition.getReference());
-    }
-
-    private boolean amendMissingClasses(AppView<? extends AppInfoWithClassHierarchy> appView) {
-      if (appView.hasLiveness()) {
-        MissingClasses.Builder missingClassesBuilder =
-            appView.appInfo().getMissingClasses().builder();
-        for (DexProgramClass clazz : dexingOutputClasses.values()) {
-          clazz.forEachImmediateSuperClassMatching(
-              appView.app(),
-              (supertype, superclass) -> superclass == null,
-              (supertype, superclass) ->
-                  missingClassesBuilder.addNewMissingClass(supertype, clazz));
-        }
-        appView
-            .appInfoWithLiveness()
-            .setMissingClasses(missingClassesBuilder.ignoreMissingClasses());
-      }
-      return true;
     }
 
     @Override

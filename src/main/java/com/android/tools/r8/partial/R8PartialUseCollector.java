@@ -116,7 +116,7 @@ public abstract class R8PartialUseCollector extends UseCollector {
 
     @Override
     public void acceptType(TracedClass tracedClass, DiagnosticsHandler handler) {
-      assert tracedClass.isMissingDefinition();
+      assert false;
     }
 
     @Override
