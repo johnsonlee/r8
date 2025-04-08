@@ -11,14 +11,12 @@ import com.android.tools.r8.utils.TraversalContinuation;
 import com.android.tools.r8.utils.WorkList;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -62,11 +60,6 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
         clazz,
         (supertype, superclass) -> superclass != null,
         (supertype, superclass) -> consumer.accept(superclass));
-  }
-
-  public void forEachImmediateSuperClass(
-      DexClass clazz, BiConsumer<? super DexType, ? super DexClass> consumer) {
-    forEachImmediateSuperClassMatching(clazz, (supertype, superclass) -> true, consumer);
   }
 
   public void forEachImmediateSuperClassMatching(
@@ -173,21 +166,6 @@ public abstract class ImmediateSubtypingInfo<S extends DexClass, T extends DexCl
         Iterables.transform(
             clazz.getInterfaces(), i -> asProgramClassOrNull(definitions.definitionFor(i, clazz))),
         Objects::nonNull);
-  }
-
-  public Set<DexProgramClass> getTransitiveProgramSubclasses(S clazz) {
-    return getTransitiveProgramSubclassesMatching(clazz, Predicates.alwaysTrue());
-  }
-
-  public Set<DexProgramClass> getTransitiveProgramSubclassesMatching(
-      S clazz, Predicate<DexProgramClass> predicate) {
-    Set<DexProgramClass> classes = Sets.newIdentityHashSet();
-    forEachTransitiveProgramSubclassMatching(clazz, predicate, classes::add);
-    return classes;
-  }
-
-  public boolean hasSubclasses(S clazz) {
-    return !getSubclasses(clazz).isEmpty();
   }
 
   public <TB, TC> TraversalContinuation<TB, TC> traverseTransitiveSubclasses(

@@ -6,13 +6,9 @@ package com.android.tools.r8.shaking;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.google.common.base.Predicates.alwaysTrue;
 
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
@@ -23,9 +19,9 @@ import com.android.tools.r8.utils.BooleanBox;
 import com.android.tools.r8.utils.IterableUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.Iterables;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public abstract class ProguardConfigurationRule extends ProguardClassSpecification {
@@ -150,63 +146,41 @@ public abstract class ProguardConfigurationRule extends ProguardClassSpecificati
     this.canReferenceDeadTypes = true;
   }
 
-  Iterable<DexProgramClass> relevantCandidatesForRule(
+  void forEachRelevantCandidate(
       AppView<? extends AppInfoWithClassHierarchy> appView,
       ImmediateAppSubtypingInfo subtypingInfo,
       Iterable<DexProgramClass> defaultValue,
-      Predicate<DexProgramClass> isRelevant) {
-    Iterable<DexType> specificTypes;
+      Predicate<DexProgramClass> isRelevant,
+      Consumer<DexClass> consumer) {
     if (getClassNames().hasSpecificTypes()) {
-      specificTypes = getClassNames().getSpecificTypes();
+      for (DexType type : getClassNames().getSpecificTypes()) {
+        DexProgramClass clazz =
+            asProgramClassOrNull(
+                canReferenceDeadTypes
+                    ? appView.appInfo().definitionForWithoutExistenceAssert(type)
+                    : appView.definitionFor(type));
+        if (clazz != null && isRelevant.test(clazz)) {
+          consumer.accept(clazz);
+        }
+      }
     } else if (hasInheritanceClassName() && getInheritanceClassName().hasSpecificType()) {
       DexType type = getInheritanceClassName().getSpecificType();
       DexClass clazz = appView.definitionFor(type);
-      if (clazz == null) {
-        return Collections.emptyList();
-      }
-      Iterable<DexProgramClass> relevantSubclasses =
-          subtypingInfo.getTransitiveProgramSubclassesMatching(clazz, isRelevant);
-      if (appView.getVerticallyMergedClasses() != null
-          && appView.getVerticallyMergedClasses().hasBeenMergedIntoSubtype(type)) {
-        DexType targetType = appView.getVerticallyMergedClasses().getTargetFor(type);
-        DexProgramClass targetClass = asProgramClassOrNull(appView.definitionFor(targetType));
-        assert targetClass != null;
-        if (isRelevant.test(targetClass)) {
-          return IterableUtils.append(relevantSubclasses, targetClass);
+      if (clazz != null) {
+        subtypingInfo.forEachTransitiveProgramSubclassMatching(clazz, isRelevant, consumer);
+        if (appView.getVerticallyMergedClasses() != null
+            && appView.getVerticallyMergedClasses().hasBeenMergedIntoSubtype(type)) {
+          DexType targetType = appView.getVerticallyMergedClasses().getTargetFor(type);
+          DexProgramClass targetClass = asProgramClassOrNull(appView.definitionFor(targetType));
+          assert targetClass != null;
+          if (isRelevant.test(targetClass)) {
+            consumer.accept(targetClass);
+          }
         }
       }
-      return relevantSubclasses;
     } else {
-      return defaultValue;
+      defaultValue.forEach(consumer);
     }
-    assert specificTypes != null;
-    return DexProgramClass.asProgramClasses(
-        specificTypes,
-        new DexDefinitionSupplier() {
-          @Override
-          public ClassResolutionResult contextIndependentDefinitionForWithResolutionResult(
-              DexType type) {
-            throw new Unreachable("Add support for multiple definitions with rule evaluation");
-          }
-
-          @Override
-          public DexProgramClass definitionFor(DexType type) {
-            DexProgramClass result =
-                asProgramClassOrNull(
-                    canReferenceDeadTypes
-                        ? appView.appInfo().definitionForWithoutExistenceAssert(type)
-                        : appView.definitionFor(type));
-            if (result != null && isRelevant.test(result)) {
-              return result;
-            }
-            return null;
-          }
-
-          @Override
-          public DexItemFactory dexItemFactory() {
-            return appView.dexItemFactory();
-          }
-        });
   }
 
   abstract String typeString();

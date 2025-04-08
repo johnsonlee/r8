@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -72,13 +73,16 @@ public class IfRuleEvaluator {
           // Depending on which types that trigger the -if rule, the application of the subsequent
           // -keep rule may vary (due to back references). So, we need to try all pairs of -if
           // rule and live types.
-          for (DexClass clazz :
-              getRelevantCandidatesForRule(
-                  ifRuleKey, classKind, classesWithNewlyLiveMembers, isEffectivelyLive)) {
-            assert !clazz.isProgramClass() || isEffectivelyLive.test(clazz.asProgramClass());
-            processActiveIfRulesWithMembersAndSameClassPrecondition(
-                ifRuleKey, ifRulesInEquivalence, clazz, toRemove);
-          }
+          forEachRelevantCandidate(
+              ifRuleKey,
+              classKind,
+              classesWithNewlyLiveMembers,
+              isEffectivelyLive,
+              clazz -> {
+                assert !clazz.isProgramClass() || isEffectivelyLive.test(clazz.asProgramClass());
+                processActiveIfRulesWithMembersAndSameClassPrecondition(
+                    ifRuleKey, ifRulesInEquivalence, clazz, toRemove);
+              });
           if (ifRulesInEquivalence.size() == toRemove.size()) {
             return true;
           }
@@ -89,19 +93,22 @@ public class IfRuleEvaluator {
   }
 
   @SuppressWarnings("unchecked")
-  Iterable<? extends DexClass> getRelevantCandidatesForRule(
+  void forEachRelevantCandidate(
       ProguardIfRule ifRule,
       ClassKind<?> classKind,
       Iterable<? extends DexClass> classesWithNewlyLiveMembers,
-      Predicate<DexProgramClass> isEffectivelyLive) {
+      Predicate<DexProgramClass> isEffectivelyLive,
+      Consumer<DexClass> consumer) {
     if (classKind == ClassKind.PROGRAM) {
-      return ifRule.relevantCandidatesForRule(
+      ifRule.forEachRelevantCandidate(
           appView,
           enqueuer.getSubtypingInfo(),
           (Iterable<DexProgramClass>) classesWithNewlyLiveMembers,
-          isEffectivelyLive);
+          isEffectivelyLive,
+          consumer);
+    } else {
+      classesWithNewlyLiveMembers.forEach(consumer);
     }
-    return classesWithNewlyLiveMembers;
   }
 
   private void processActiveIfRulesWithMembersAndSameClassPrecondition(

@@ -442,11 +442,12 @@ public class RootSetUtils {
 
       tasks.submit(
           () -> {
-            for (DexProgramClass clazz :
-                rule.relevantCandidatesForRule(
-                    appView, subtypingInfo, application.classes(), alwaysTrue())) {
-              process(clazz, rule, ifRulePreconditionMatch);
-            }
+            rule.forEachRelevantCandidate(
+                appView,
+                subtypingInfo,
+                application.classes(),
+                alwaysTrue(),
+                clazz -> process(clazz, rule, ifRulePreconditionMatch));
             if (rule.applyToNonProgramClasses()) {
               for (DexLibraryClass clazz : application.libraryClasses()) {
                 process(clazz, rule, ifRulePreconditionMatch);
