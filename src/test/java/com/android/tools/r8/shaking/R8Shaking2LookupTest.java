@@ -19,7 +19,9 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.ImmediateAppSubtypingInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
 import org.junit.Test;
@@ -56,14 +58,20 @@ public class R8Shaking2LookupTest extends TestBase {
 
   private void validateSubtype(DexClass super_type, DexClass sub_type) {
     assertNotEquals(super_type, sub_type);
-    assertTrue(subtypingInfo.getTransitiveProgramSubclasses(super_type).contains(sub_type));
+    assertTrue(getTransitiveProgramSubclasses(super_type).contains(sub_type));
     assertTrue(appInfo.isSubtype(sub_type, super_type));
-    assertFalse(subtypingInfo.getTransitiveProgramSubclasses(sub_type).contains(super_type));
+    assertFalse(getTransitiveProgramSubclasses(sub_type).contains(super_type));
     assertFalse(appInfo.isSubtype(super_type, sub_type));
   }
 
-  private void validateSubtypeSize(DexClass type, int size) {
-    assertEquals(size, subtypingInfo.getTransitiveProgramSubclasses(type).size());
+  private Set<DexClass> getTransitiveProgramSubclasses(DexClass clazz) {
+    Set<DexClass> subclasses = Sets.newIdentityHashSet();
+    subtypingInfo.forEachTransitiveSubclass(clazz, subclasses::add);
+    return subclasses;
+  }
+
+  private void validateSubtypeSize(DexClass clazz, int size) {
+    assertEquals(size, getTransitiveProgramSubclasses(clazz).size());
   }
 
   @Test
