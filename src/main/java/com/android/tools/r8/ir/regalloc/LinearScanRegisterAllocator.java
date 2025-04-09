@@ -948,6 +948,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         }
       }
     } else {
+      assert !mode.is8BitRetry();
       assert !mode.is16Bit();
     }
 
@@ -963,7 +964,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         break;
 
       case ALLOW_ARGUMENT_REUSE_U8BIT:
-        if (highestUsedRegister() > Constants.U8BIT_MAX
+        if (!succeeded
+            || highestUsedRegister() > Constants.U8BIT_MAX
             || options().getTestingOptions().alwaysUsePessimisticRegisterAllocation) {
           // Redo allocation in mode ALLOW_ARGUMENT_REUSE_U16BIT. This always succeed.
           unusedRegisters = null;
@@ -980,7 +982,8 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         break;
 
       case ALLOW_ARGUMENT_REUSE_U8BIT_REFINEMENT:
-        if (highestUsedRegister() > Constants.U8BIT_MAX
+        if (!succeeded
+            || highestUsedRegister() > Constants.U8BIT_MAX
             || numberOf4BitArgumentRegisters > computeNumberOf4BitArgumentRegisters()) {
           // Redo allocation in mode ALLOW_ARGUMENT_REUSE_U8BIT_RETRY. This always succeed.
           numberOf4BitArgumentRegisters = 0;
@@ -3113,7 +3116,7 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   private void computeRematerializableBits() {
     for (LiveIntervals liveInterval : liveIntervals) {
-      liveInterval.computeRematerializable(this);
+      liveInterval.computeRematerializable(this, mode);
     }
   }
 
@@ -3206,6 +3209,23 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
 
   public boolean isArgumentRegister(int register) {
     return register < numberOfArgumentRegisters;
+  }
+
+  public int maxVirtualRegister(int register, int other) {
+    if (register == NO_REGISTER) {
+      return other;
+    }
+    if (other == NO_REGISTER) {
+      return register;
+    }
+    if (isArgumentRegister(register)) {
+      if (!isArgumentRegister(other)) {
+        return register;
+      }
+    } else if (isArgumentRegister(other)) {
+      return other;
+    }
+    return Math.max(register, other);
   }
 
   boolean canSkipArgumentMove(LiveIntervals intervals) {

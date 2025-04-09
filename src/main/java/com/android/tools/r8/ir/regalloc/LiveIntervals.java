@@ -348,7 +348,7 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     liveAtMoveExceptionEntry = true;
   }
 
-  private int computeMaxNonSpilledRegister() {
+  private int computeMaxNonSpilledRegister(LinearScanRegisterAllocator allocator) {
     assert splitParent == this;
     assert maxNonSpilledRegister == NO_REGISTER;
     if (!isSpilled()) {
@@ -356,22 +356,23 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     }
     for (LiveIntervals child : splitChildren) {
       if (!child.isSpilled()) {
-        maxNonSpilledRegister = Math.max(maxNonSpilledRegister, child.getRegister());
+        maxNonSpilledRegister =
+            allocator.maxVirtualRegister(maxNonSpilledRegister, child.getRegister());
       }
     }
     return maxNonSpilledRegister;
   }
 
-  public void setMaxNonSpilledRegister(int i) {
-    assert i >= splitParent.maxNonSpilledRegister;
-    splitParent.maxNonSpilledRegister = i;
+  public void setMaxNonSpilledRegister(int register, LinearScanRegisterAllocator allocator) {
+    assert allocator.maxVirtualRegister(register, splitParent.maxNonSpilledRegister) == register;
+    splitParent.maxNonSpilledRegister = register;
   }
 
-  public int getMaxNonSpilledRegister() {
+  public int getMaxNonSpilledRegister(LinearScanRegisterAllocator allocator) {
     if (splitParent.maxNonSpilledRegister != NO_REGISTER) {
       return splitParent.maxNonSpilledRegister;
     }
-    return splitParent.computeMaxNonSpilledRegister();
+    return splitParent.computeMaxNonSpilledRegister(allocator);
   }
 
   public boolean usesRegister(int n, boolean otherIsWide) {
@@ -716,7 +717,8 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     return builder.toString();
   }
 
-  public void computeRematerializable(LinearScanRegisterAllocator allocator) {
+  public void computeRematerializable(
+      LinearScanRegisterAllocator allocator, ArgumentReuseMode mode) {
     assert splitParent == this;
     if (value.isArgument()) {
       isRematerializable = true;
@@ -729,6 +731,11 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     // rematerialized throwing const-string instruction is not covered by the catch range going
     // to the monitor-exit instruction and we can leave the method without unlocking the monitor.
     if (!value.isConstNumber()) {
+      return;
+    }
+
+    if (!mode.is16Bit()) {
+      isRematerializable = true;
       return;
     }
 
@@ -757,12 +764,13 @@ public class LiveIntervals implements Comparable<LiveIntervals> {
     // these computations. We use the unadjusted real register number to make sure that
     // isRematerializable for the same intervals does not change from one phase of
     // compilation to the next.
-    if (getMaxNonSpilledRegister() == NO_REGISTER) {
+    int maxNonSpilledRegister = getMaxNonSpilledRegister(allocator);
+    if (maxNonSpilledRegister == NO_REGISTER) {
       assert allSplitsAreSpilled();
       isRematerializable = true;
-      return;
+    } else {
+      int maxRealRegister = allocator.unadjustedRealRegisterFromAllocated(maxNonSpilledRegister);
+      isRematerializable = maxRealRegister < U8BIT_MAX;
     }
-    int max = allocator.unadjustedRealRegisterFromAllocated(getMaxNonSpilledRegister());
-    isRematerializable = max < U8BIT_MAX;
   }
 }
