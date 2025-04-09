@@ -15,6 +15,9 @@ import com.android.tools.r8.ir.conversion.OneTimeMethodProcessor;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackIgnore;
 import com.android.tools.r8.kotlin.Kotlin;
 import com.android.tools.r8.kotlin.KotlinMetadataWriter;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
+import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.synthesis.SyntheticItems.GlobalSyntheticsStrategy;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
@@ -24,6 +27,7 @@ import com.android.tools.r8.utils.timing.Timing;
 import java.io.BufferedReader;
 import java.io.PrintStream;
 import java.io.StringReader;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class AssemblyWriter extends DexByteCodeWriter {
@@ -44,7 +48,19 @@ public class AssemblyWriter extends DexByteCodeWriter {
       boolean allInfo,
       boolean writeIR,
       boolean writeCode) {
-    super(application, options);
+    this(application, options, allInfo, writeIR, writeCode, null, null, null);
+  }
+
+  public AssemblyWriter(
+      DexApplication application,
+      InternalOptions options,
+      boolean allInfo,
+      boolean writeIR,
+      boolean writeCode,
+      Set<ClassReference> classReferences,
+      Set<FieldReference> fieldReferences,
+      Set<MethodReference> methodReferences) {
+    super(application, options, classReferences, fieldReferences, methodReferences);
     this.compilationContext = CompilationContext.createInitialContext(options);
     this.writeAllClassInfo = allInfo;
     this.writeFields = allInfo;
@@ -136,7 +152,7 @@ public class AssemblyWriter extends DexByteCodeWriter {
 
   @Override
   void writeField(DexEncodedField field, PrintStream ps) {
-    if (writeFields) {
+    if (writeFields && shouldWriteField(field)) {
       writeAnnotations(null, field.annotations(), ps);
       ps.print(field.accessFlags + " ");
       ps.print(retracer.toSourceString(field.getReference()));
@@ -160,6 +176,9 @@ public class AssemblyWriter extends DexByteCodeWriter {
 
   @Override
   void writeMethod(ProgramMethod method, PrintStream ps) {
+    if (!shouldWriteMethod(method.getDefinition())) {
+      return;
+    }
     DexEncodedMethod definition = method.getDefinition();
     ps.println("#");
     ps.println("# Method: '" + retracer.toSourceString(definition.getReference()) + "':");

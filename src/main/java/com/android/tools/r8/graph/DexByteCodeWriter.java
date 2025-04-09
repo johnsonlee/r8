@@ -5,6 +5,9 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.dex.Marker;
 import com.android.tools.r8.naming.ClassNameMapper;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
+import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import java.io.File;
@@ -13,6 +16,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public abstract class DexByteCodeWriter {
@@ -24,10 +28,21 @@ public abstract class DexByteCodeWriter {
   final DexApplication application;
   final InternalOptions options;
 
-  DexByteCodeWriter(DexApplication application,
-      InternalOptions options) {
+  final Set<ClassReference> classReferences;
+  final Set<FieldReference> fieldReferences;
+  final Set<MethodReference> methodReferences;
+
+  DexByteCodeWriter(
+      DexApplication application,
+      InternalOptions options,
+      Set<ClassReference> classReferences,
+      Set<FieldReference> fieldReferences,
+      Set<MethodReference> methodReferences) {
     this.application = application;
     this.options = options;
+    this.classReferences = classReferences;
+    this.fieldReferences = fieldReferences;
+    this.methodReferences = methodReferences;
   }
 
   private static void ensureParentExists(Path path) throws IOException {
@@ -65,7 +80,7 @@ public abstract class DexByteCodeWriter {
       throws IOException {
     Iterable<DexProgramClass> classes = application.classesWithDeterministicOrder();
     for (DexProgramClass clazz : classes) {
-      if (anyMethodMatches(clazz)) {
+      if (shouldWriteClass(clazz)) {
         PrintStream ps = outputStreamProvider.get(clazz);
         try {
           writeClass(clazz, ps);
@@ -74,11 +89,6 @@ public abstract class DexByteCodeWriter {
         }
       }
     }
-  }
-
-  private boolean anyMethodMatches(DexClass clazz) {
-    return !options.hasMethodsFilter()
-        || clazz.getMethodCollection().hasMethods(options::methodMatchesFilter);
   }
 
   private void writeClass(DexProgramClass clazz, PrintStream ps) {
@@ -115,4 +125,58 @@ public abstract class DexByteCodeWriter {
   }
 
   abstract void writeClassFooter(DexProgramClass clazz, PrintStream ps);
+
+  boolean shouldWriteClass(DexClass clazz) {
+    if (classReferences == null && fieldReferences == null && methodReferences == null) {
+      return true;
+    }
+    if (classReferences != null && classReferences.contains(clazz.getClassReference())) {
+      return true;
+    }
+    if (fieldReferences != null
+        && clazz
+            .fields(field -> fieldReferences.contains(field.getReference().asFieldReference()))
+            .iterator()
+            .hasNext()) {
+      return true;
+    }
+    if (methodReferences != null
+        && clazz
+            .methods(method -> methodReferences.contains(method.getReference().asMethodReference()))
+            .iterator()
+            .hasNext()) {
+      return true;
+    }
+    return false;
+  }
+
+  boolean shouldWriteField(DexEncodedField field) {
+    if (classReferences == null && fieldReferences == null && methodReferences == null) {
+      return true;
+    }
+    if (classReferences != null
+        && classReferences.contains(field.getHolderType().asClassReference())) {
+      return true;
+    }
+    if (fieldReferences != null
+        && fieldReferences.contains(field.getReference().asFieldReference())) {
+      return true;
+    }
+    return false;
+  }
+
+  boolean shouldWriteMethod(DexEncodedMethod method) {
+    if (classReferences == null && fieldReferences == null && methodReferences == null) {
+      return true;
+    }
+    if (classReferences != null
+        && classReferences.contains(method.getHolderType().asClassReference())) {
+      return true;
+    }
+    if (methodReferences != null
+        && methodReferences.contains(method.getReference().asMethodReference())) {
+      return true;
+    }
+    return false;
+  }
 }

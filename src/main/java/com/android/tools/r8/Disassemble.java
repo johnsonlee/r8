@@ -11,9 +11,15 @@ import com.android.tools.r8.graph.DexByteCodeWriter.OutputStreamProvider;
 import com.android.tools.r8.graph.SmaliWriter;
 import com.android.tools.r8.naming.ClassNameMapper;
 import com.android.tools.r8.origin.CommandLineOrigin;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
+import com.android.tools.r8.references.MethodReference;
+import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.ConsumerUtils;
+import com.android.tools.r8.utils.FieldReferenceUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
@@ -26,6 +32,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -44,6 +52,10 @@ public class Disassemble {
       private boolean allInfo = false;
       private boolean noCode = false;
       private boolean useIr;
+
+      private Set<ClassReference> classReferences = null;
+      private Set<FieldReference> fieldReferences = null;
+      private Set<MethodReference> methodReferences = null;
 
       @Override
       Builder self() {
@@ -84,6 +96,30 @@ public class Disassemble {
         return this;
       }
 
+      public Builder addClassReference(ClassReference classReference) {
+        if (classReferences == null) {
+          classReferences = new HashSet<>();
+        }
+        classReferences.add(classReference);
+        return this;
+      }
+
+      public Builder addFieldReference(FieldReference fieldReference) {
+        if (fieldReferences == null) {
+          fieldReferences = new HashSet<>();
+        }
+        fieldReferences.add(fieldReference);
+        return this;
+      }
+
+      public Builder addMethodReference(MethodReference methodReference) {
+        if (methodReferences == null) {
+          methodReferences = new HashSet<>();
+        }
+        methodReferences.add(methodReference);
+        return this;
+      }
+
       @Override
       protected DisassembleCommand makeCommand() {
         // If printing versions ignore everything else.
@@ -97,7 +133,10 @@ public class Disassemble {
             allInfo,
             useSmali,
             useIr,
-            noCode);
+            noCode,
+            classReferences,
+            fieldReferences,
+            methodReferences);
       }
     }
 
@@ -112,6 +151,12 @@ public class Disassemble {
             + "  --pg-map <file>             # Proguard map <file> for mapping names.\n"
             + "  --pg-map-charset <charset>  # Charset for Proguard map file.\n"
             + "  --output                    # Specify a file or directory to write to.\n"
+            + "  --class <descriptor>        # Only disassemble the given class "
+            + "(e.g., Lcom/example/Class;).\n"
+            + "  --field <descriptor>        # Only disassemble the given field "
+            + "(e.g., Lcom/example/Class;->method()V).\n"
+            + "  --method <descriptor>       # Only disassemble the given method "
+            + "(e.g., Lcom/example/Class;->field:I).\n"
             + "  --version                   # Print the version of r8.\n"
             + "  --help                      # Print this message.";
 
@@ -119,6 +164,9 @@ public class Disassemble {
     private final boolean useSmali;
     private final boolean useIr;
     private final boolean noCode;
+    private final Set<ClassReference> classReferences;
+    private final Set<FieldReference> fieldReferences;
+    private final Set<MethodReference> methodReferences;
 
     public static Builder builder() {
       return new Builder();
@@ -164,6 +212,15 @@ public class Disassemble {
         } else if (arg.equals("--output")) {
           String outputPath = args[++i];
           builder.setOutputPath(Paths.get(outputPath));
+        } else if (arg.equals("--class")) {
+          String nextArg = args[++i];
+          builder.addClassReference(Reference.classFromDescriptor(nextArg));
+        } else if (arg.equals("--field")) {
+          String nextArg = args[++i];
+          builder.addFieldReference(FieldReferenceUtils.parseSmaliString(nextArg));
+        } else if (arg.equals("--method")) {
+          String nextArg = args[++i];
+          builder.addMethodReference(MethodReferenceUtils.parseSmaliString(nextArg));
         } else {
           if (arg.startsWith("--")) {
             builder.getReporter().error(new StringDiagnostic("Unknown option: " + arg,
@@ -181,7 +238,10 @@ public class Disassemble {
         boolean allInfo,
         boolean useSmali,
         boolean useIr,
-        boolean noCode) {
+        boolean noCode,
+        Set<ClassReference> classReferences,
+        Set<FieldReference> fieldReferences,
+        Set<MethodReference> methodReferences) {
       super(inputApp);
       this.outputPath = outputPath;
       this.proguardMap = proguardMap;
@@ -189,6 +249,9 @@ public class Disassemble {
       this.useSmali = useSmali;
       this.useIr = useIr;
       this.noCode = noCode;
+      this.classReferences = classReferences;
+      this.fieldReferences = fieldReferences;
+      this.methodReferences = methodReferences;
     }
 
     private DisassembleCommand(boolean printHelp, boolean printVersion) {
@@ -199,6 +262,9 @@ public class Disassemble {
       useSmali = false;
       useIr = false;
       noCode = false;
+      classReferences = null;
+      fieldReferences = null;
+      methodReferences = null;
     }
 
     public Path getOutputPath() {
@@ -215,6 +281,18 @@ public class Disassemble {
 
     public boolean noCode() {
       return noCode;
+    }
+
+    public Set<ClassReference> getClassReferences() {
+      return classReferences;
+    }
+
+    public Set<FieldReference> getFieldReferences() {
+      return fieldReferences;
+    }
+
+    public Set<MethodReference> getMethodReferences() {
+      return methodReferences;
     }
 
     @Override
@@ -283,9 +361,21 @@ public class Disassemble {
               .read(command.proguardMap, executor);
       DexByteCodeWriter writer =
           command.useSmali()
-              ? new SmaliWriter(application, options)
+              ? new SmaliWriter(
+                  application,
+                  options,
+                  command.getClassReferences(),
+                  command.getFieldReferences(),
+                  command.getMethodReferences())
               : new AssemblyWriter(
-                  application, options, command.allInfo, command.useIr(), !command.noCode());
+                  application,
+                  options,
+                  command.allInfo,
+                  command.useIr(),
+                  !command.noCode(),
+                  command.getClassReferences(),
+                  command.getFieldReferences(),
+                  command.getMethodReferences());
       if (outputWriter.extractMarkers()) {
         writer.writeMarkers(
             outputWriter.outputStreamProvider(application.getProguardMap()).get(null));

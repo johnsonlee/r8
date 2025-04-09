@@ -6,6 +6,9 @@ package com.android.tools.r8.graph;
 
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.references.ClassReference;
+import com.android.tools.r8.references.FieldReference;
+import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.RetracerForCodePrinting;
@@ -14,11 +17,17 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 public class SmaliWriter extends DexByteCodeWriter {
 
-  public SmaliWriter(DexApplication application, InternalOptions options) {
-    super(application, options);
+  public SmaliWriter(
+      DexApplication application,
+      InternalOptions options,
+      Set<ClassReference> classReferences,
+      Set<FieldReference> fieldReferences,
+      Set<MethodReference> methodReferences) {
+    super(application, options, classReferences, fieldReferences, methodReferences);
   }
 
   /** Return smali source for the application code. */
@@ -27,7 +36,7 @@ public class SmaliWriter extends DexByteCodeWriter {
     try (PrintStream ps = new PrintStream(os)) {
       DexApplication dexApplication =
           new ApplicationReader(application, options, Timing.empty()).read();
-      SmaliWriter writer = new SmaliWriter(dexApplication, options);
+      SmaliWriter writer = new SmaliWriter(dexApplication, options, null, null, null);
       writer.write(ps);
     } catch (IOException e) {
       throw new CompilationError("Failed to generate smali sting", e);

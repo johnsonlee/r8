@@ -11,6 +11,7 @@ import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
+import com.android.tools.r8.references.TypeReference;
 import java.util.Comparator;
 
 public class FieldReferenceUtils {
@@ -55,6 +56,33 @@ public class FieldReferenceUtils {
 
   public static Comparator<FieldReference> getFieldReferenceComparator() {
     return COMPARATOR;
+  }
+
+  public static FieldReference parseSmaliString(String classAndFieldDescriptor) {
+    int arrowStartIndex = classAndFieldDescriptor.indexOf("->");
+    if (arrowStartIndex >= 0) {
+      return parseSmaliString(classAndFieldDescriptor, arrowStartIndex);
+    }
+    return null;
+  }
+
+  public static FieldReference parseSmaliString(
+      String classAndFieldDescriptor, int arrowStartIndex) {
+    String classDescriptor = classAndFieldDescriptor.substring(0, arrowStartIndex);
+    ClassReference fieldHolder = ClassReferenceUtils.parseClassDescriptor(classDescriptor);
+    if (fieldHolder == null) {
+      return null;
+    }
+    int fieldNameStartIndex = arrowStartIndex + 2;
+    String fieldNameAndType = classAndFieldDescriptor.substring(fieldNameStartIndex);
+    int fieldNameEndIndex = fieldNameAndType.indexOf(':');
+    if (fieldNameEndIndex <= 0) {
+      return null;
+    }
+    String fieldName = fieldNameAndType.substring(0, fieldNameEndIndex);
+    String fieldTypeDescriptor = fieldNameAndType.substring(fieldNameEndIndex + 1);
+    TypeReference fieldType = Reference.returnTypeFromDescriptor(fieldTypeDescriptor);
+    return Reference.field(fieldHolder, fieldName, fieldType);
   }
 
   public static String toSourceString(FieldReference fieldReference) {
