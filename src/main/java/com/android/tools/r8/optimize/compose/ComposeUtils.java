@@ -94,7 +94,8 @@ public class ComposeUtils {
     }
     ConstNumber oneAgain = instructionIterator.next().asConstNumber(1);
     if (oneAgain == null) {
-      return false;
+      oneAgain = one;
+      instructionIterator.previous();
     }
     Shl lowBitsShlOne = instructionIterator.next().asShl(lowBits.outValue(), oneAgain.outValue());
     if (lowBitsShlOne == null) {

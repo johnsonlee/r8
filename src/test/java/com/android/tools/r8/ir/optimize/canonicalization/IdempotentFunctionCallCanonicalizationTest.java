@@ -245,10 +245,8 @@ public class IdempotentFunctionCallCanonicalizationTest extends TestBase {
     int expectedMaxCount = parameters.isCfRuntime() ? TOTAL_MAX_CALLS : EXPECTED_MAX_CALLS;
     // TODO(b/145259212): Should be `EXPECTED_BOOLEAN_VALUE_OF` (2) when compiling for dex.
     int expectedBooleanValueOfCount = 6;
-    // TODO(b/145253152): Should be `EXPECTED_INTEGER_VALUE_OF` (2) when compiling for dex.
-    int expectedIntValueOfCount = 5;
-    // TODO(b/145253152): Should be `EXPECTED_LONG_VALUE_OF` (7) when compiling for dex.
-    int expectedLongValueOfCount = 10;
+    int expectedIntValueOfCount = parameters.isCfRuntime() ? 5 : 2;
+    int expectedLongValueOfCount = parameters.isCfRuntime() ? 10 : 7;
     test(
         result,
         expectedMaxCount,

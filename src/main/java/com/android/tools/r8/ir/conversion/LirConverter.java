@@ -17,6 +17,7 @@ import com.android.tools.r8.ir.conversion.passes.AdaptClassStringsRewriter;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
 import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRemover;
 import com.android.tools.r8.ir.conversion.passes.ConstResourceNumberRewriter;
+import com.android.tools.r8.ir.conversion.passes.DexConstantOptimizer;
 import com.android.tools.r8.ir.conversion.passes.DexItemBasedConstStringRemover;
 import com.android.tools.r8.ir.conversion.passes.FilledNewArrayRewriter;
 import com.android.tools.r8.ir.conversion.passes.InitClassRemover;
@@ -224,10 +225,13 @@ public class LirConverter {
             irCode, null, null, onThreadTiming, previous, appView.options());
     boolean changed = result.getFirst();
     previous = result.getSecond();
-    if (appView.options().isGeneratingDex() && changed) {
+    if (appView.options().isGeneratingDex()) {
       ConstantCanonicalizer constantCanonicalizer =
           new ConstantCanonicalizer(appView, method, irCode);
-      constantCanonicalizer.canonicalize();
+      if (changed) {
+        constantCanonicalizer.canonicalize();
+      }
+      new DexConstantOptimizer(appView, constantCanonicalizer).run(irCode, onThreadTiming);
     }
     // During processing optimization info may cause previously live code to become dead.
     // E.g., we may now have knowledge that an invoke does not have side effects.

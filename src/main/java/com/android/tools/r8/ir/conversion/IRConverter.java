@@ -768,9 +768,11 @@ public class IRConverter {
       constantCanonicalizer.canonicalize();
       timing.end();
       previous = printMethod(code, "IR after constant canonicalization (SSA)", previous);
-      new DexConstantOptimizer(appView, constantCanonicalizer)
-          .run(code, methodProcessor, methodProcessingContext, timing);
-      previous = printMethod(code, "IR after DEX constant optimization (SSA)", previous);
+      if (methodConversionOptions.isGeneratingDex()) {
+        new DexConstantOptimizer(appView, constantCanonicalizer)
+            .run(code, methodProcessor, methodProcessingContext, timing);
+        previous = printMethod(code, "IR after DEX constant optimization (SSA)", previous);
+      }
     }
 
     if (removeVerificationErrorForUnknownReturnedValues != null) {

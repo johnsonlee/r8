@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.benchmarks.appdumps;
 
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
@@ -393,7 +392,9 @@ public class AppDumpBenchmarkBuilder {
                                       results,
                                       environment.getConfig().isDex2OatVerificationEnabled());
                             } catch (CompilationFailedException e) {
-                              assertTrue(e.getCause() instanceof AbortBenchmarkException);
+                              if (!(e.getCause() instanceof AbortBenchmarkException)) {
+                                throw e;
+                              }
                             }
                           });
                 });
