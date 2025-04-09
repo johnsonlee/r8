@@ -230,13 +230,19 @@ public abstract class Position implements StructuralItem<Position> {
       builder.append(getFile()).append(":");
     }
     builder.append("#").append(line);
+    DexString emitted = null;
     if (method != null && callerPosition != null) {
       builder.append(":").append(method.name);
+      emitted = method.name;
     }
     if (callerPosition != null) {
       Position caller = callerPosition;
       while (caller != null) {
-        builder.append(";").append(caller.line).append(":").append(caller.method.name);
+        builder.append(";").append(caller.line);
+        if (caller.method.name.isNotIdenticalTo(emitted)) {
+          builder.append(":").append(caller.method.name);
+          emitted = caller.method.name;
+        }
         caller = caller.callerPosition;
       }
     }
