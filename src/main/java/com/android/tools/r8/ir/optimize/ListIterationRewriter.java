@@ -142,13 +142,14 @@ public class ListIterationRewriter extends CodeRewriterPass<AppInfoWithLiveness>
             arrayListClass,
             subclass ->
                 TraversalContinuation.breakIf(
-                    subclass
-                        .getMethodCollection()
-                        .hasVirtualMethods(
-                            m ->
-                                listMembers.iterator.match(m)
-                                    || listMembers.get.match(m)
-                                    || listMembers.size.match(m))))
+                    subclass.isProgramClass()
+                        && subclass
+                            .getMethodCollection()
+                            .hasVirtualMethods(
+                                m ->
+                                    listMembers.iterator.match(m)
+                                        || listMembers.get.match(m)
+                                        || listMembers.size.match(m))))
         .shouldContinue();
   }
 
