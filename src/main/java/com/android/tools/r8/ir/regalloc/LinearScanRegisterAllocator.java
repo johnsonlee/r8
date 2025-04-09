@@ -874,7 +874,13 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         minimumRequiredRegisters <= Constants.U4BIT_MAX
             ? ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U4BIT
             : ArgumentReuseMode.ALLOW_ARGUMENT_REUSE_U8BIT;
-    performAllocation(initialMode, false);
+    ArgumentReuseMode result = performAllocation(initialMode, false);
+
+    assert !result.is4Bit() || highestUsedRegister() <= Constants.U4BIT_MAX;
+    assert !result.is8Bit() || highestUsedRegister() <= Constants.U8BIT_MAX;
+    assert !result.is16Bit() || highestUsedRegister() <= Constants.U16BIT_MAX;
+
+    new MoveSorter(code).sortMovesForSuffixSharing();
   }
 
   private ArgumentReuseMode retryAllocation(ArgumentReuseMode mode) {
@@ -1000,13 +1006,6 @@ public class LinearScanRegisterAllocator implements RegisterAllocator {
         assert highestUsedRegister() <= Constants.U16BIT_MAX;
         break;
     }
-
-    assert !result.is4Bit() || highestUsedRegister() <= Constants.U4BIT_MAX;
-    assert !result.is8Bit() || highestUsedRegister() <= Constants.U8BIT_MAX;
-    assert !result.is16Bit() || highestUsedRegister() <= Constants.U16BIT_MAX;
-
-    new MoveSorter(code).sortMovesForSuffixSharing();
-
     return result;
   }
 
