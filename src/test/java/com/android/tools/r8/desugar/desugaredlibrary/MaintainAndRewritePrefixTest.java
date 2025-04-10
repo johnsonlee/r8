@@ -60,7 +60,7 @@ public class MaintainAndRewritePrefixTest extends DesugaredLibraryTestBase imple
             .build();
     options
         .getLibraryDesugaringOptions()
-        .setDesugaredLibrarySpecification(
+        .configureDesugaredLibrary(
             new HumanDesugaredLibrarySpecification(
                 HumanTopLevelFlags.testing(), rewritingFlags, true));
   }

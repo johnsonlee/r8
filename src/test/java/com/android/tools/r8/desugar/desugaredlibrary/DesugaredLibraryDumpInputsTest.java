@@ -9,6 +9,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.DiagnosticsMatcher;
 import com.android.tools.r8.TestParameters;
@@ -22,7 +23,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -54,13 +54,18 @@ public class DesugaredLibraryDumpInputsTest extends DesugaredLibraryTestBase {
 
   @Test
   public void testDumpToDirectory() throws Exception {
-    Assume.assumeTrue(libraryDesugaringSpecification.hasAnyDesugaring(parameters));
+    assumeTrue(libraryDesugaringSpecification.hasAnyDesugaring(parameters));
     Path dumpDir = temp.newFolder().toPath();
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addProgramClasses(TestClass.class)
         .addKeepMainRule(TestClass.class)
-        .addOptionsModification(
-            options -> options.setDumpInputFlags(DumpInputFlags.dumpToDirectory(dumpDir)))
+        .applyIfR8PartialTestBuilder(
+            builder ->
+                builder.addR8PartialOptionsModification(
+                    options -> options.setDumpInputFlags(DumpInputFlags.dumpToDirectory(dumpDir))),
+            builder ->
+                builder.addOptionsModification(
+                    options -> options.setDumpInputFlags(DumpInputFlags.dumpToDirectory(dumpDir))))
         .allowDiagnosticInfoMessages()
         .compile()
         .inspectDiagnosticMessages(

@@ -100,7 +100,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     // Cf back-end is only allowed in Cf to cf compilations.
     parameters.assumeDexRuntime();
     if (compilationSpecification.isProgramShrink()) {
-      if (compilationSpecification == CompilationSpecification.R8_PARTIAL_INCLUDE_L8SHRINK) {
+      if (compilationSpecification.isProgramShrinkWithPartial()) {
         parameters.assumeCanUseR8Partial();
         return test.testForR8Partial(parameters.getBackend())
             .setR8PartialConfiguration(Builder::includeAll);
@@ -108,7 +108,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
         return test.testForR8(parameters.getBackend());
       }
     } else {
-      if (compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK) {
+      if (compilationSpecification.isNotProgramShrinkWithPartial()) {
         parameters.assumeCanUseR8Partial();
         return test.testForR8Partial(parameters.getBackend())
             .setR8PartialConfiguration(Builder::excludeAll);
@@ -643,7 +643,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
       boolean supportAllCallbacksFromLibrary, boolean libraryCompilation) {
     return opt ->
         opt.getLibraryDesugaringOptions()
-            .setDesugaredLibrarySpecification(
+            .configureDesugaredLibrary(
                 DesugaredLibrarySpecificationParser.parseDesugaredLibrarySpecificationforTesting(
                     StringResource.fromFile(libraryDesugaringSpecification.getSpecification()),
                     opt.dexItemFactory(),
@@ -651,7 +651,8 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
                     libraryCompilation,
                     parameters.getApiLevel().getLevel(),
                     builder ->
-                        builder.setSupportAllCallbacksFromLibrary(supportAllCallbacksFromLibrary)));
+                        builder.setSupportAllCallbacksFromLibrary(supportAllCallbacksFromLibrary)),
+                opt.getLibraryDesugaringOptions().getSynthesizedClassPrefix());
   }
 
   public DesugaredLibraryTestBuilder<T> addAndroidBuildVersion() {

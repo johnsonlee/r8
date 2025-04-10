@@ -62,9 +62,10 @@ public class GsonAllMapsTest extends DesugaredLibraryTestBase {
         .addProgramFiles(ToolHelper.GSON)
         .addKeepMainRule(AllMapsTestClass.class)
         .addKeepRuleFiles(GSON_CONFIGURATION)
-        .allowUnusedDontWarnPatterns()
-        .allowUnusedProguardConfigurationRules()
-        .allowDiagnosticMessages()
+        .applyIf(
+            compilationSpecification.isProgramShrink(),
+            builder ->
+                builder.allowUnusedDontWarnPatterns().allowUnusedProguardConfigurationRules())
         .run(parameters.getRuntime(), AllMapsTestClass.class)
         .assertSuccessWithOutputLines(EXPECTED_RESULT);
   }

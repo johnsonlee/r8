@@ -63,7 +63,7 @@ public class RetargetAndBackportTest extends DesugaredLibraryTestBase implements
             .build();
     options
         .getLibraryDesugaringOptions()
-        .setDesugaredLibrarySpecification(
+        .configureDesugaredLibrary(
             new LegacyDesugaredLibrarySpecification(
                 LegacyTopLevelFlags.testing(), rewritingFlags, true));
   }

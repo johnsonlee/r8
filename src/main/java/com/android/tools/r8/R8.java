@@ -758,8 +758,27 @@ public class R8 {
 
       GenericSignatureContextBuilder genericContextBuilderBeforeFinalMerging = null;
 
+      // Include the D8 part of R8 partial for lens code rewriting
+      // (synthetic finalization and repackaging).
+      if (appView.options().partialSubCompilationConfiguration != null) {
+        appView
+            .options()
+            .partialSubCompilationConfiguration
+            .asR8()
+            .commitDexingOutputClasses(appView);
+      }
+
       // Rewrite LIR with lens to allow building IR from LIR in class mergers.
       LirConverter.rewriteLirWithLens(appView, timing, executorService);
+
+      // Exclude the D8 part of R8 partial from R8 optimizations.
+      if (appView.options().partialSubCompilationConfiguration != null) {
+        appView
+            .options()
+            .partialSubCompilationConfiguration
+            .asR8()
+            .uncommitDexingOutputClasses(appView);
+      }
 
       if (!appView.hasCfByteCodePassThroughMethods()) {
         assert appView.dexItemFactory().verifyNoCachedTypeElements();

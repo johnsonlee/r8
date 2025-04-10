@@ -4,9 +4,11 @@
 package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.SPECIFICATIONS_WITH_CF2CF;
+import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CustomLibrarySpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
@@ -56,11 +58,18 @@ public class ProgramInterfaceWithLibraryMethod extends DesugaredLibraryTestBase 
         .run(parameters.getRuntime(), Executor.class)
         .applyIf(
             !libraryDesugaringSpecification.hasJDollarFunction(parameters)
-                || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N),
+                || parameters.getApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
+                || (compilationSpecification.isProgramShrinkWithPartial()
+                    && (parameters.getDexRuntimeVersion().isNewerThanOrEqual(Version.V7_0_0)
+                        || libraryDesugaringSpecification == JDK11)),
             r -> r.assertSuccessWithOutput(EXPECTED_RESULT),
             r -> {
               if (compilationSpecification.isProgramShrink()) {
-                r.assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+                if (compilationSpecification.isProgramShrinkWithPartial()) {
+                  r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
+                } else {
+                  r.assertFailureWithErrorThatThrows(NoSuchMethodError.class);
+                }
               } else {
                 r.assertFailureWithErrorThatThrows(AbstractMethodError.class);
               }

@@ -13,6 +13,7 @@ import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedInterfaceDescriptor;
 import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceSynthesizerEventConsumer.L8ProgramEmulatedInterfaceSynthesizerEventConsumer;
@@ -29,20 +30,26 @@ public final class ProgramEmulatedInterfaceSynthesizer implements CfClassSynthes
   private final InterfaceDesugaringSyntheticHelper helper;
 
   public static ProgramEmulatedInterfaceSynthesizer create(AppView<?> appView) {
-    if (!appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
-        || !appView
-            .options()
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
-            .hasEmulatedInterfaces()) {
-      return null;
+    assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
+    if (appView
+        .options()
+        .getLibraryDesugaringOptions()
+        .getMachineDesugaredLibrarySpecification()
+        .hasEmulatedInterfaces()) {
+      return new ProgramEmulatedInterfaceSynthesizer(appView);
     }
-    return new ProgramEmulatedInterfaceSynthesizer(appView);
+    return null;
   }
 
-  public ProgramEmulatedInterfaceSynthesizer(AppView<?> appView) {
+  private ProgramEmulatedInterfaceSynthesizer(AppView<?> appView) {
+    LibraryDesugaringOptions libraryDesugaringOptions =
+        appView.options().getLibraryDesugaringOptions();
     this.appView = appView;
-    helper = new InterfaceDesugaringSyntheticHelper(appView);
+    this.helper =
+        new InterfaceDesugaringSyntheticHelper(
+            appView,
+            libraryDesugaringOptions,
+            libraryDesugaringOptions.getMachineDesugaredLibrarySpecification());
   }
 
   private void synthesizeProgramEmulatedInterface(

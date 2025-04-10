@@ -1,7 +1,6 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
 import static com.android.tools.r8.CompilationMode.DEBUG;
@@ -23,10 +22,23 @@ public enum CompilationSpecification {
   D8CF2CF_L8DEBUG(false, false, true, DEBUG),
   D8CF2CF_L8SHRINK(false, true, true, RELEASE);
 
-  public static Set<CompilationSpecification> DEFAULT_SPECIFICATIONS =
-      ImmutableSet.of(D8_L8DEBUG, D8_L8SHRINK, R8_L8SHRINK);
-  public static Set<CompilationSpecification> SPECIFICATIONS_WITH_CF2CF =
-      ImmutableSet.of(D8_L8DEBUG, D8_L8SHRINK, R8_L8SHRINK, D8CF2CF_L8DEBUG, D8CF2CF_L8SHRINK);
+  public static final Set<CompilationSpecification> DEFAULT_SPECIFICATIONS;
+  public static final Set<CompilationSpecification> SPECIFICATIONS_WITH_CF2CF;
+
+  static {
+    DEFAULT_SPECIFICATIONS =
+        ImmutableSet.of(
+            D8_L8DEBUG,
+            D8_L8SHRINK,
+            R8_L8SHRINK,
+            R8_PARTIAL_EXCLUDE_L8SHRINK,
+            R8_PARTIAL_INCLUDE_L8SHRINK);
+    SPECIFICATIONS_WITH_CF2CF =
+        ImmutableSet.<CompilationSpecification>builder()
+            .addAll(DEFAULT_SPECIFICATIONS)
+            .add(D8CF2CF_L8DEBUG, D8CF2CF_L8SHRINK)
+            .build();
+  }
 
   private final boolean programShrink;
   private final boolean l8Shrink;
@@ -52,8 +64,20 @@ public enum CompilationSpecification {
     return programShrink;
   }
 
+  public boolean isProgramShrinkWithPartial() {
+    return this == R8_PARTIAL_INCLUDE_L8SHRINK;
+  }
+
+  public boolean isNotProgramShrinkWithPartial() {
+    return this == R8_PARTIAL_EXCLUDE_L8SHRINK;
+  }
+
   public boolean isL8Shrink() {
     return l8Shrink;
+  }
+
+  public boolean isR8Partial() {
+    return this == R8_PARTIAL_EXCLUDE_L8SHRINK || this == R8_PARTIAL_INCLUDE_L8SHRINK;
   }
 
   public boolean isCfToCf() {

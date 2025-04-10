@@ -26,7 +26,7 @@ public class PathOfTest extends DesugaredLibraryTestBase {
   private final TestParameters parameters;
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
-  ;
+
   private static final String EXPECTED_OUTPUT = StringUtils.lines("foo/bar", "bar");
   private static final Class<?> MAIN_CLASS = PathExample.class;
 

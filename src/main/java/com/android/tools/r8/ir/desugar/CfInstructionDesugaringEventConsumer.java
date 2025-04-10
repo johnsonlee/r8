@@ -45,6 +45,7 @@ import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.profile.rewriting.ProfileRewritingCfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
 import com.android.tools.r8.shaking.KeepMethodInfo.Joiner;
+import com.android.tools.r8.utils.collections.ProgramMethodSet.ConcurrentProgramMethodSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -119,11 +120,12 @@ public abstract class CfInstructionDesugaringEventConsumer
         appView, profileCollectionAdditions, eventConsumer);
   }
 
-  public static CfInstructionDesugaringEventConsumer createForR8LirToLirLibraryDesugaring(
+  public static CfInstructionDesugaringEventConsumer createForR8LibraryDesugaring(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      ProfileCollectionAdditions profileCollectionAdditions) {
+      ProfileCollectionAdditions profileCollectionAdditions,
+      ConcurrentProgramMethodSet synthesizedMethods) {
     CfInstructionDesugaringEventConsumer eventConsumer =
-        new R8LibraryDesugaringCfInstructionDesugaringEventConsumer();
+        new R8LibraryDesugaringCfInstructionDesugaringEventConsumer(appView, synthesizedMethods);
     return ProfileRewritingCfInstructionDesugaringEventConsumer.attach(
         appView, profileCollectionAdditions, eventConsumer);
   }
@@ -876,63 +878,73 @@ public abstract class CfInstructionDesugaringEventConsumer
   public static class R8LibraryDesugaringCfInstructionDesugaringEventConsumer
       extends CfInstructionDesugaringEventConsumer {
 
-    private R8LibraryDesugaringCfInstructionDesugaringEventConsumer() {}
+    private final AppView<? extends AppInfoWithClassHierarchy> appView;
+    private final ConcurrentProgramMethodSet synthesizedMethods;
+
+    private R8LibraryDesugaringCfInstructionDesugaringEventConsumer(
+        AppView<? extends AppInfoWithClassHierarchy> appView,
+        ConcurrentProgramMethodSet synthesizedMethods) {
+      this.appView = appView;
+      this.synthesizedMethods = synthesizedMethods;
+    }
 
     @Override
     public void acceptAPIConversionOutline(ProgramMethod method, ProgramMethod context) {
-      assert false;
+      synthesizedMethods.add(method);
     }
 
     @Override
     public void acceptClasspathEmulatedInterface(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptCollectionConversion(ProgramMethod method, ProgramMethod context) {
-      assert false;
+      synthesizedMethods.add(method);
     }
 
     @Override
     public void acceptConstantDynamicRewrittenBootstrapMethod(
         ProgramMethod method, DexMethod oldSignature) {
-      assert false;
+      synthesizedMethods.add(method);
     }
 
     @Override
     public void acceptCovariantRetargetMethod(ProgramMethod method, ProgramMethod context) {
-      assert false;
+      synthesizedMethods.add(method);
     }
 
     @Override
     public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptEnumConversionClasspathClass(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptGenericApiConversionStub(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public List<ProgramMethod> finalizeDesugaring() {
-      assert false;
+      for (ProgramMethod synthesizedMethod : synthesizedMethods) {
+        // TODO(b/391572031): Should this compute the code API level?
+        synthesizedMethod.getDefinition().setApiLevelForCode(appView.computedMinApiLevel());
+      }
       return Collections.emptyList();
     }
 
     @Override
     public boolean verifyNothingToFinalize() {
-      assert false;
       return true;
     }
 

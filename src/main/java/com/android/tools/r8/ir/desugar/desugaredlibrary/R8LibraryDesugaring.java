@@ -83,6 +83,9 @@ public class R8LibraryDesugaring {
     profileCollectionAdditions.commit(appView);
     processSynthesizedMethods(synthesizedMethods, executorService);
 
+    // Commit pending synthetics.
+    appView.rebuildAppInfo();
+
     // In R8 partial, uncommit the D8 classes from the app so that they will not be subject to whole
     // program optimizations.
     partialSubCompilationTearDown();
@@ -90,15 +93,14 @@ public class R8LibraryDesugaring {
     assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
   }
 
-  @SuppressWarnings("UnusedVariable")
   private void runInstructionDesugaring(
       ProfileCollectionAdditions profileCollectionAdditions,
       ConcurrentProgramMethodSet synthesizedMethods,
       ExecutorService executorService)
       throws ExecutionException {
     CfInstructionDesugaringEventConsumer eventConsumer =
-        CfInstructionDesugaringEventConsumer.createForR8LirToLirLibraryDesugaring(
-            appView, profileCollectionAdditions);
+        CfInstructionDesugaringEventConsumer.createForR8LibraryDesugaring(
+            appView, profileCollectionAdditions, synthesizedMethods);
     LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer =
         DesugaredLibraryDisableDesugarer.createLirToLir(appView);
     LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter =
@@ -148,9 +150,9 @@ public class R8LibraryDesugaring {
 
     // Commit pending synthetics.
     appView.rebuildAppInfo();
+    assert !appView.getSyntheticItems().hasPendingSyntheticClasses();
   }
 
-  @SuppressWarnings("UnusedVariable")
   private void runPostProcessingDesugaring(
       ProfileCollectionAdditions profileCollectionAdditions,
       ConcurrentProgramMethodSet synthesizedMethods,
@@ -159,16 +161,13 @@ public class R8LibraryDesugaring {
       throws ExecutionException {
     CfPostProcessingDesugaringEventConsumer eventConsumer =
         CfPostProcessingDesugaringEventConsumer.createForR8LirToLirLibraryDesugaring(
-            appView, profileCollectionAdditions);
+            appView, profileCollectionAdditions, synthesizedMethods);
     InterfaceMethodProcessorFacade interfaceDesugaring =
-        InterfaceMethodProcessorFacade.createForR8LirToLirLibraryDesugaring();
+        InterfaceMethodProcessorFacade.createForR8LirToLirLibraryDesugaring(appView);
     CfPostProcessingDesugaringCollection.createForR8LirToLirLibraryDesugaring(
             appView, interfaceDesugaring)
         .postProcessingDesugaring(
             appView.appInfo().classes(), eventConsumer, executorService, timing);
-
-    // Commit pending synthetics.
-    appView.rebuildAppInfo();
   }
 
   private void processSynthesizedMethods(

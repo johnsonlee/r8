@@ -172,7 +172,9 @@ public class SupportedClassesGenerator {
           getMachineSpecification(androidApiLevel, specification);
       options.setMinApiLevel(androidApiLevel);
       options.getLibraryDesugaringOptions().resetDesugaredLibrarySpecificationForTesting();
-      options.getLibraryDesugaringOptions().setDesugaredLibrarySpecification(machineSpecification);
+      options
+          .getLibraryDesugaringOptions()
+          .setMachineDesugaredLibrarySpecification(machineSpecification);
 
       AppInfo initialAppInfo =
           AppInfo.createInitialAppInfo(appForMax, GlobalSyntheticsStrategy.forNonSynthesizing());
@@ -299,7 +301,9 @@ public class SupportedClassesGenerator {
 
     options.setMinApiLevel(minApi);
     options.getLibraryDesugaringOptions().resetDesugaredLibrarySpecificationForTesting();
-    options.getLibraryDesugaringOptions().setDesugaredLibrarySpecification(machineSpecification);
+    options
+        .getLibraryDesugaringOptions()
+        .setMachineDesugaredLibrarySpecification(machineSpecification);
 
     AndroidApp.Builder appBuilder = AndroidApp.builder();
     for (ProgramResourceProvider programResource : desugaredLibraryImplementation) {

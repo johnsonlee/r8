@@ -185,7 +185,19 @@ public class HorizontalClassMerger {
       appView.rewriteWithLens(horizontalClassMergerGraphLens, executorService, timing);
       new IdentifierMinifier(appViewWithClassHierarchy)
           .rewriteDexItemBasedConstStringInStaticFields(executorService);
+      if (appView.options().partialSubCompilationConfiguration != null)
+        appView
+            .options()
+            .partialSubCompilationConfiguration
+            .asR8()
+            .commitDexingOutputClasses(appViewWithClassHierarchy);
       LirConverter.rewriteLirWithLens(appViewWithClassHierarchy, timing, executorService);
+      if (appView.options().partialSubCompilationConfiguration != null)
+        appView
+            .options()
+            .partialSubCompilationConfiguration
+            .asR8()
+            .uncommitDexingOutputClasses(appViewWithClassHierarchy);
       appView.rebuildAppInfo(newApplication);
     } else {
       SyntheticItems syntheticItems = appView.appInfo().getSyntheticItems();

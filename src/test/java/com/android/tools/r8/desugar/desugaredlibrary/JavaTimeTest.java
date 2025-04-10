@@ -6,8 +6,9 @@ package com.android.tools.r8.desugar.desugaredlibrary;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.SPECIFICATIONS_WITH_CF2CF;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
+import static com.android.tools.r8.utils.codeinspector.CodeMatchers.invokesMethod;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 
@@ -23,7 +24,6 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CheckCastInstructionSubject;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
-import com.android.tools.r8.utils.codeinspector.CodeMatchers;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.android.tools.r8.utils.codeinspector.InvokeInstructionSubject;
 import com.android.tools.r8.utils.codeinspector.MethodSubject;
@@ -90,16 +90,17 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
         .addR8OptionsModification(
             options -> options.inlinerOptions().simpleInliningInstructionLimit = 5)
         .compile()
-        .inspect(i -> checkRewrittenInvokes(i, compilationSpecification.isProgramShrink()))
+        .inspect(this::checkRewrittenInvokes)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  private void checkRewrittenInvokes(CodeInspector inspector, boolean isR8) {
+  private void checkRewrittenInvokes(CodeInspector inspector) {
     Set<String> expectedInvokeHolders;
     Set<String> expectedCatchGuards;
     Set<String> expectedCheckCastType;
     String expectedInstanceOfTypes;
+    boolean isR8 = compilationSpecification.isProgramShrink();
     if (!libraryDesugaringSpecification.hasTimeDesugaring(parameters)) {
       expectedInvokeHolders =
           SetUtils.newHashSet("java.time.Clock", "java.time.LocalDate", "java.time.ZoneId");
@@ -158,7 +159,7 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
               : "java.time.temporal.TemporalAccessor";
       assertThat(
           inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
-          CodeMatchers.invokesMethod(null, holder, "query", null));
+          invokesMethod(null, holder, "query", null));
     } else {
       if (!parameters
               .getApiLevel()
@@ -166,27 +167,23 @@ public class JavaTimeTest extends DesugaredLibraryTestBase {
           && isR8) {
         assertThat(
             inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
-            CodeMatchers.invokesMethod(
-                null, "j$.time.temporal.TemporalAccessor$-CC", "$default$query", null));
+            invokesMethod(null, "j$.time.temporal.TemporalAccessor$-CC", "$default$query", null));
       } else {
         assertThat(
             inspector.clazz(TemporalAccessorImplSub.class).uniqueMethodWithFinalName("query"),
-            CodeMatchers.invokesMethod(
+            invokesMethod(
                 null, inspector.clazz(TemporalAccessorImpl.class).getFinalName(), "query", null));
       }
     }
-    if (parameters
-            .getApiLevel()
-            .isGreaterThanOrEqualTo(TestBase.apiLevelWithDefaultInterfaceMethodsSupport())
-        || isR8) {
+    if (parameters.canUseDefaultAndStaticInterfaceMethodsWhenDesugaring()
+        || (isR8 && !compilationSpecification.isProgramShrinkWithPartial())) {
       assertThat(
           inspector.clazz(TemporalAccessorImpl.class).uniqueMethodWithOriginalName("query"),
-          not(isPresent()));
+          isAbsent());
     } else {
       assertThat(
           inspector.clazz(TemporalAccessorImpl.class).uniqueMethodWithFinalName("query"),
-          CodeMatchers.invokesMethod(
-              null, "j$.time.temporal.TemporalAccessor$-CC", "$default$query", null));
+          invokesMethod(null, "j$.time.temporal.TemporalAccessor$-CC", "$default$query", null));
     }
   }
 

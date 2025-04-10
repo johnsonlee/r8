@@ -58,8 +58,7 @@ public class LocalDateEpochTest extends DesugaredLibraryTestBase {
         .setMinApi(parameters)
         .addOptionsModification(
             opt ->
-                opt.getLibraryDesugaringOptions()
-                    .setDesugaredLibrarySpecification(getSpecification(opt)))
+                opt.getLibraryDesugaringOptions().configureDesugaredLibrary(getSpecification(opt)))
         .compile()
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -76,8 +75,7 @@ public class LocalDateEpochTest extends DesugaredLibraryTestBase {
         .setMinApi(parameters)
         .addOptionsModification(
             opt ->
-                opt.getLibraryDesugaringOptions()
-                    .setDesugaredLibrarySpecification(getSpecification(opt)))
+                opt.getLibraryDesugaringOptions().configureDesugaredLibrary(getSpecification(opt)))
         .compile()
         .addRunClasspathClasses(DesugarLocalDate.class)
         .run(parameters.getRuntime(), Main.class)

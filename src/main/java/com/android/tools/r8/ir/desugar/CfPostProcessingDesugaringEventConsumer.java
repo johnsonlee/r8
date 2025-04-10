@@ -24,7 +24,9 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceProcessingDesugaringEventCon
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.profile.rewriting.ProfileRewritingCfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.shaking.Enqueuer.SyntheticAdditions;
+import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
+import com.android.tools.r8.utils.collections.ProgramMethodSet.ConcurrentProgramMethodSet;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -53,7 +55,7 @@ public abstract class CfPostProcessingDesugaringEventConsumer
   }
 
   public static CfPostProcessingDesugaringEventConsumer createForR8(
-      AppView<?> appView,
+      AppView<? extends AppInfoWithClassHierarchy> appView,
       SyntheticAdditions additions,
       ProfileCollectionAdditions profileCollectionAdditions,
       CfInstructionDesugaringCollection desugaring,
@@ -66,9 +68,10 @@ public abstract class CfPostProcessingDesugaringEventConsumer
 
   public static CfPostProcessingDesugaringEventConsumer createForR8LirToLirLibraryDesugaring(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      ProfileCollectionAdditions profileCollectionAdditions) {
+      ProfileCollectionAdditions profileCollectionAdditions,
+      ConcurrentProgramMethodSet synthesizedMethods) {
     CfPostProcessingDesugaringEventConsumer eventConsumer =
-        new R8LibraryDesugaringPostProcessingDesugaringEventConsumer();
+        new R8LibraryDesugaringPostProcessingDesugaringEventConsumer(synthesizedMethods);
     return ProfileRewritingCfPostProcessingDesugaringEventConsumer.attach(
         appView, profileCollectionAdditions, eventConsumer);
   }
@@ -323,62 +326,66 @@ public abstract class CfPostProcessingDesugaringEventConsumer
   public static class R8LibraryDesugaringPostProcessingDesugaringEventConsumer
       extends CfPostProcessingDesugaringEventConsumer {
 
-    private R8LibraryDesugaringPostProcessingDesugaringEventConsumer() {}
+    private final ConcurrentProgramMethodSet synthesizedMethods;
+
+    public R8LibraryDesugaringPostProcessingDesugaringEventConsumer(
+        ConcurrentProgramMethodSet synthesizedMethods) {
+      this.synthesizedMethods = synthesizedMethods;
+    }
 
     @Override
     public void acceptAPIConversionCallback(
         ProgramMethod callbackMethod, ProgramMethod convertedMethod) {
-      assert false;
+      synthesizedMethods.add(callbackMethod);
     }
 
     @Override
     public void acceptDesugaredLibraryRetargeterDispatchClasspathClass(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptDesugaredLibraryRetargeterForwardingMethod(
         ProgramMethod method, EmulatedDispatchMethodDescriptor descriptor) {
-      assert false;
+      synthesizedMethods.add(method);
     }
 
     @Override
     public void acceptEmulatedInterfaceMarkerInterface(
         DexProgramClass clazz, DexClasspathClass newInterface) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptInterfaceInjection(DexProgramClass clazz, DexClass newInterface) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public void acceptInterfaceMethodDesugaringForwardingMethod(
         ProgramMethod method, DexClassAndMethod baseMethod) {
-      assert false;
+      synthesizedMethods.add(method);
     }
 
     @Override
     public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
-      assert false;
+      // Intentionally empty.
     }
 
     @Override
     public Set<DexMethod> getNewlyLiveMethods() {
-      assert false;
-      return Collections.emptySet();
+      return synthesizedMethods.toReferenceSet(SetUtils::newIdentityHashSet);
     }
 
     @Override
-    public void finalizeDesugaring() {
-      assert false;
-    }
+    public void finalizeDesugaring() {}
 
     @Override
     public void warnMissingInterface(
         DexProgramClass context, DexType missing, InterfaceDesugaringSyntheticHelper helper) {
-      assert false;
+      // Intentionally empty. Missing interfaces has been reported by default interface method
+      // desugaring.
+      // TODO(b/391572031): What if the min api is >= 24?
     }
 
     @Override

@@ -4520,6 +4520,12 @@ public class Enqueuer {
         .dexItemFactory()
         .forEachPossiblyCompilerSynthesizedType(this::recordCompilerSynthesizedTypeReference);
     appView.rootSet().rootLibraryTypes.forEach(this::recordCompilerSynthesizedTypeReference);
+    if (appView.options().getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()) {
+      appView
+          .options()
+          .getLibraryDesugaringOptions()
+          .forEachPossiblyCompilerSynthesizedType(this::recordCompilerSynthesizedTypeReference);
+    }
     timing.end();
 
     // Rebuild a new app only containing referenced types.
@@ -4868,7 +4874,8 @@ public class Enqueuer {
     InterfaceMethodProcessorFacade interfaceDesugaring =
         desugaring.getInterfaceMethodPostProcessingDesugaringR8(
             liveMethods::contains, interfaceProcessor);
-    CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, liveMethods::contains)
+    CfPostProcessingDesugaringCollection.createForR8CfToCfDesugaring(
+            appView, interfaceDesugaring, this)
         .postProcessingDesugaring(liveTypes.items, eventConsumer, executorService, timing);
 
     if (syntheticAdditions.isEmpty() && !options.testing.forceEnqueuerFullProcessingDesugaring) {

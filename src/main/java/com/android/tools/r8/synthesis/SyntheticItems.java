@@ -769,7 +769,11 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       DexType type,
       Function<SynthesizingContext, DexType> contextToType,
       AppView<?> appView) {
-    registerSyntheticTypeRewriting(outerContext, contextToType, appView, type);
+    registerSyntheticTypeRewriting(
+        outerContext,
+        contextToType,
+        type,
+        appView.options().getLibraryDesugaringOptions().getTypeRewriter());
     SyntheticProgramClassBuilder classBuilder =
         new SyntheticProgramClassBuilder(type, kind, outerContext, appView.dexItemFactory());
     fn.accept(classBuilder);
@@ -781,10 +785,8 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   private void registerSyntheticTypeRewriting(
       SynthesizingContext outerContext,
       Function<SynthesizingContext, DexType> contextToType,
-      AppView<?> appView,
-      DexType type) {
-    DesugaredLibraryTypeRewriter typeRewriter =
-        appView.options().getLibraryDesugaringOptions().getTypeRewriter();
+      DexType type,
+      DesugaredLibraryTypeRewriter typeRewriter) {
     DexType rewrittenContextType =
         typeRewriter.rewrittenContextType(outerContext.getSynthesizingContextType());
     if (rewrittenContextType == null) {
@@ -936,19 +938,20 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       Consumer<SyntheticClasspathClassBuilder> classConsumer,
       Consumer<DexClasspathClass> onCreationConsumer,
       SynthesizingContext outerContext,
-      AppView<?> appView) {
+      AppView<?> appView,
+      DesugaredLibraryTypeRewriter typeRewriter) {
     Function<SynthesizingContext, DexType> contextToType =
         c -> SyntheticNaming.createFixedType(kind, c, appView.dexItemFactory());
     DexType type = contextToType.apply(outerContext);
     synchronized (type) {
-      DexClass clazz = appView.definitionFor(type);
+      DexClass clazz = appView.appInfo().definitionForWithoutExistenceAssert(type);
       if (clazz != null) {
         if (!clazz.isClasspathClass()) {
           errorOnInvalidSyntheticEnsure(clazz, "classpath", appView);
         }
         return clazz.asClasspathClass();
       }
-      registerSyntheticTypeRewriting(outerContext, contextToType, appView, type);
+      registerSyntheticTypeRewriting(outerContext, contextToType, type, typeRewriter);
       SyntheticClasspathClassBuilder classBuilder =
           new SyntheticClasspathClassBuilder(type, kind, outerContext, appView.dexItemFactory());
       classConsumer.accept(classBuilder);
@@ -968,7 +971,12 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
     SyntheticKind kind = kindSelector.select(naming);
     SynthesizingContext outerContext = SynthesizingContext.fromType(contextType);
     return internalEnsureFixedClasspathClass(
-        kind, classConsumer, onCreationConsumer, outerContext, appView);
+        kind,
+        classConsumer,
+        onCreationConsumer,
+        outerContext,
+        appView,
+        appView.options().getLibraryDesugaringOptions().getTypeRewriter());
   }
 
   public DexClasspathClass ensureFixedClasspathClass(
@@ -977,11 +985,32 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       AppView<?> appView,
       Consumer<SyntheticClasspathClassBuilder> classConsumer,
       Consumer<DexClasspathClass> onCreationConsumer) {
+    return ensureFixedClasspathClass(
+        kindSelector,
+        context,
+        appView,
+        classConsumer,
+        onCreationConsumer,
+        appView.options().getLibraryDesugaringOptions().getTypeRewriter());
+  }
+
+  public DexClasspathClass ensureFixedClasspathClass(
+      SyntheticKindSelector kindSelector,
+      ClasspathOrLibraryClass context,
+      AppView<?> appView,
+      Consumer<SyntheticClasspathClassBuilder> classConsumer,
+      Consumer<DexClasspathClass> onCreationConsumer,
+      DesugaredLibraryTypeRewriter typeRewriter) {
     // Obtain the outer synthesizing context in the case the context itself is synthetic.
     // This is to ensure a flat input-type -> synthetic-item mapping.
     SynthesizingContext outerContext = SynthesizingContext.fromNonSyntheticInputContext(context);
     return internalEnsureFixedClasspathClass(
-        kindSelector.select(naming), classConsumer, onCreationConsumer, outerContext, appView);
+        kindSelector.select(naming),
+        classConsumer,
+        onCreationConsumer,
+        outerContext,
+        appView,
+        typeRewriter);
   }
 
   public ClasspathMethod ensureFixedClasspathMethodFromType(
@@ -1008,10 +1037,16 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
       AppView<?> appView,
       Consumer<SyntheticClasspathClassBuilder> buildClassCallback,
       Consumer<DexClasspathClass> onClassCreationCallback,
-      Consumer<SyntheticMethodBuilder> buildMethodCallback) {
+      Consumer<SyntheticMethodBuilder> buildMethodCallback,
+      DesugaredLibraryTypeRewriter typeRewriter) {
     DexClasspathClass clazz =
         ensureFixedClasspathClass(
-            kindSelector, context, appView, buildClassCallback, onClassCreationCallback);
+            kindSelector,
+            context,
+            appView,
+            buildClassCallback,
+            onClassCreationCallback,
+            typeRewriter);
     return internalEnsureFixedClasspathMethod(
         methodName, methodProto, kindSelector.select(naming), appView, buildMethodCallback, clazz);
   }

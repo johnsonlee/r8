@@ -1,7 +1,6 @@
 // Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.ir.desugar.itf;
 
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringEventConsumer.emptyInterfaceMethodDesugaringEventConsumer;
@@ -35,16 +34,18 @@ import com.android.tools.r8.graph.InvalidCode;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.ThrowNullCode;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.DerivedMethod;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedDispatchMethodDescriptor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.EmulatedInterfaceDescriptor;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
 import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceSynthesizerEventConsumer.ClasspathEmulatedInterfaceSynthesizerEventConsumer;
 import com.android.tools.r8.ir.desugar.itf.EmulatedInterfaceSynthesizerEventConsumer.L8ProgramEmulatedInterfaceSynthesizerEventConsumer;
 import com.android.tools.r8.synthesis.SyntheticClassBuilder;
 import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
 import com.android.tools.r8.synthesis.SyntheticMethodBuilder;
 import com.android.tools.r8.synthesis.SyntheticNaming.SyntheticKind;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.structural.Ordered;
 import com.google.common.collect.ImmutableList;
 import java.util.function.Predicate;
@@ -65,53 +66,65 @@ public class InterfaceDesugaringSyntheticHelper {
   public static final String PRIVATE_METHOD_PREFIX = "$private$";
 
   private final AppView<?> appView;
+  private final DexItemFactory factory;
+  private final LibraryDesugaringOptions libraryDesugaringOptions;
+  private final MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification;
   private final Predicate<DexType> shouldIgnoreFromReportsPredicate;
 
-  public InterfaceDesugaringSyntheticHelper(AppView<?> appView) {
+  public InterfaceDesugaringSyntheticHelper(
+      AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
+    this(
+        appView,
+        appView.options().getLibraryDesugaringOptions(),
+        desugaringMode.isLibraryDesugaring()
+            ? appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+            : DesugaredLibrarySpecification.empty());
+  }
+
+  public InterfaceDesugaringSyntheticHelper(
+      AppView<?> appView,
+      LibraryDesugaringOptions libraryDesugaringOptions,
+      MachineDesugaredLibrarySpecification machineDesugaredLibrarySpecification) {
     this.appView = appView;
+    this.factory = appView.dexItemFactory();
+    this.libraryDesugaringOptions = libraryDesugaringOptions;
+    this.machineDesugaredLibrarySpecification = machineDesugaredLibrarySpecification;
     this.shouldIgnoreFromReportsPredicate = getShouldIgnoreFromReportsPredicate(appView);
   }
 
+  static InterfaceDesugaringSyntheticHelper createSubCompilationHelper(
+      AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
+    LibraryDesugaringOptions libraryDesugaringOptions =
+        appView.options().getSubCompilationLibraryDesugaringOptions();
+    return new InterfaceDesugaringSyntheticHelper(
+        appView,
+        libraryDesugaringOptions,
+        libraryDesugaringOptions.getMachineDesugaredLibrarySpecification());
+  }
+
   boolean isEmulatedInterface(DexType itf) {
-    return appView
-        .options()
-        .getLibraryDesugaringOptions()
-        .getMachineDesugaredLibrarySpecification()
-        .getEmulatedInterfaces()
-        .containsKey(itf);
+    return machineDesugaredLibrarySpecification.getEmulatedInterfaces().containsKey(itf);
   }
 
   boolean isRewrittenEmulatedInterface(DexType itf) {
-    return appView
-        .options()
-        .getLibraryDesugaringOptions()
-        .getMachineDesugaredLibrarySpecification()
-        .isEmulatedInterfaceRewrittenType(itf);
+    return machineDesugaredLibrarySpecification.isEmulatedInterfaceRewrittenType(itf);
   }
 
   DexType getEmulatedInterface(DexType type) {
     EmulatedInterfaceDescriptor interfaceDescriptor =
-        appView
-            .options()
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
-            .getEmulatedInterfaces()
-            .get(type);
+        machineDesugaredLibrarySpecification.getEmulatedInterfaces().get(type);
     return interfaceDescriptor == null ? null : interfaceDescriptor.getRewrittenType();
   }
 
   boolean isInDesugaredLibrary(DexClass clazz) {
-    assert clazz.isLibraryClass()
-        || appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
+    assert clazz.isLibraryClass() || libraryDesugaringOptions.isDesugaredLibraryCompilation();
     if (isEmulatedInterface(clazz.type)) {
       return true;
     }
-    if (appView
-        .options()
-        .getLibraryDesugaringOptions()
-        .getMachineDesugaredLibrarySpecification()
-        .getMaintainType()
-        .contains(clazz.type)) {
+    if (machineDesugaredLibrarySpecification.getMaintainType().contains(clazz.type)) {
       return true;
     }
     return appView
@@ -149,8 +162,8 @@ public class InterfaceDesugaringSyntheticHelper {
 
   DexMethod emulatedInterfaceDispatchMethod(DerivedMethod method, DexType holder) {
     assert verifyKind(method, kinds -> kinds.EMULATED_INTERFACE_CLASS);
-    DexProto newProto = appView.dexItemFactory().prependHolderToProto(method.getMethod());
-    return appView.dexItemFactory().createMethod(holder, newProto, method.getName());
+    DexProto newProto = factory.prependHolderToProto(method.getMethod());
+    return factory.createMethod(holder, newProto, method.getName());
   }
 
   DexMethod emulatedInterfaceInterfaceMethod(DerivedMethod method) {
@@ -177,7 +190,7 @@ public class InterfaceDesugaringSyntheticHelper {
 
   // Gets the interface class for a companion class `type`.
   DexType getInterfaceClassType(DexType type) {
-    return getInterfaceClassType(type, appView.dexItemFactory());
+    return getInterfaceClassType(type, factory);
   }
 
   // Gets the interface class for a companion class `type`.
@@ -227,10 +240,7 @@ public class InterfaceDesugaringSyntheticHelper {
     if (maximallySpecificMethod == null) {
       return null;
     }
-    return appView
-        .options()
-        .getLibraryDesugaringOptions()
-        .getMachineDesugaredLibrarySpecification()
+    return machineDesugaredLibrarySpecification
         .getEmulatedInterfaceEmulatedDispatchMethodDescriptor(
             maximallySpecificMethod.getReference());
   }
@@ -238,10 +248,7 @@ public class InterfaceDesugaringSyntheticHelper {
   private boolean requiresEmulatedDispatch(DexClassAndMethod method) {
     return method.isLibraryMethod()
         || isEmulatedInterface(method.getHolderType())
-        || appView
-            .options()
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
+        || machineDesugaredLibrarySpecification
             .getEmulatedVirtualRetargetThroughEmulatedInterface()
             .containsKey(method.getReference());
   }
@@ -252,10 +259,7 @@ public class InterfaceDesugaringSyntheticHelper {
       return null;
     }
     DexMethod retarget =
-        appView
-            .options()
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
+        machineDesugaredLibrarySpecification
             .getEmulatedVirtualRetargetThroughEmulatedInterface()
             .get(method.getReference());
     if (retarget != null) {
@@ -320,7 +324,7 @@ public class InterfaceDesugaringSyntheticHelper {
             .getResolutionPair();
     assert verifyKind(emulatedDispatchMethod, kinds -> kinds.EMULATED_INTERFACE_CLASS);
     if (method.isProgramMethod()) {
-      assert appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation();
+      assert libraryDesugaringOptions.isDesugaredLibraryCompilation();
       DexProgramClass emulatedInterface =
           appView
               .getSyntheticItems()
@@ -335,8 +339,7 @@ public class InterfaceDesugaringSyntheticHelper {
     }
     // The holder is not used.
     DexMethod emulatedInterfaceMethod =
-        emulatedInterfaceDispatchMethod(
-            emulatedDispatchMethod, appView.dexItemFactory().objectType);
+        emulatedInterfaceDispatchMethod(emulatedDispatchMethod, factory.objectType);
     return appView
         .getSyntheticItems()
         .ensureFixedClasspathClassMethod(
@@ -350,7 +353,8 @@ public class InterfaceDesugaringSyntheticHelper {
             methodBuilder ->
                 methodBuilder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
-                    .setCode(ignore -> ThrowNullCode.get()));
+                    .setCode(ignore -> ThrowNullCode.get()),
+            libraryDesugaringOptions.getTypeRewriter());
   }
 
   /**
@@ -375,7 +379,7 @@ public class InterfaceDesugaringSyntheticHelper {
     }
     ClasspathOrLibraryClass context = method.getHolder().asClasspathOrLibraryClass();
     DexMethod companionMethodReference =
-        defaultAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+        defaultAsMethodOfCompanionClass(method.getReference(), factory);
     return ensureMethodOfClasspathCompanionClassStub(companionMethodReference, context, appView);
   }
 
@@ -394,8 +398,7 @@ public class InterfaceDesugaringSyntheticHelper {
   ProgramMethod ensureDefaultAsMethodOfProgramCompanionClassStub(
       ProgramMethod method, InterfaceMethodDesugaringBaseEventConsumer eventConsumer) {
     DexEncodedMethod virtual = method.getDefinition();
-    DexMethod companionMethod =
-        defaultAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+    DexMethod companionMethod = defaultAsMethodOfCompanionClass(method.getReference(), factory);
     return InterfaceProcessor.ensureCompanionMethod(
         method.getHolder(),
         companionMethod.getName(),
@@ -409,10 +412,7 @@ public class InterfaceDesugaringSyntheticHelper {
               .setGenericSignature(MethodTypeSignature.noSignature())
               // Will be traced by the enqueuer.
               .disableAndroidApiLevelCheck()
-              .setAnnotations(
-                  virtual
-                      .annotations()
-                      .methodParametersWithFakeThisArguments(appView.dexItemFactory()))
+              .setAnnotations(virtual.annotations().methodParametersWithFakeThisArguments(factory))
               .setParameterAnnotationsList(
                   virtual.getParameterAnnotations().withFakeThisParameter())
               .setCode(ignored -> InvalidCode.getInstance());
@@ -422,8 +422,7 @@ public class InterfaceDesugaringSyntheticHelper {
 
   ProgramMethod ensurePrivateAsMethodOfProgramCompanionClassStub(
       ProgramMethod method, InterfaceMethodDesugaringBaseEventConsumer eventConsumer) {
-    DexMethod companionMethod =
-        privateAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+    DexMethod companionMethod = privateAsMethodOfCompanionClass(method.getReference(), factory);
     DexEncodedMethod definition = method.getDefinition();
     return InterfaceProcessor.ensureCompanionMethod(
         method.getHolder(),
@@ -450,7 +449,7 @@ public class InterfaceDesugaringSyntheticHelper {
 
   // Represent a static interface method as a method of companion class.
   private DexMethod staticAsMethodOfCompanionClass(DexClassAndMethod method) {
-    return staticAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+    return staticAsMethodOfCompanionClass(method.getReference(), factory);
   }
 
   public static DexMethod staticAsMethodOfCompanionClass(DexMethod method, DexItemFactory factory) {
@@ -486,10 +485,10 @@ public class InterfaceDesugaringSyntheticHelper {
   }
 
   DexMethod privateAsMethodOfCompanionClass(DexClassAndMethod method) {
-    return privateAsMethodOfCompanionClass(method.getReference(), appView.dexItemFactory());
+    return privateAsMethodOfCompanionClass(method.getReference(), factory);
   }
 
-  private static DexClassAndMethod ensureMethodOfClasspathCompanionClassStub(
+  private DexClassAndMethod ensureMethodOfClasspathCompanionClassStub(
       DexMethod companionMethodReference, ClasspathOrLibraryClass context, AppView<?> appView) {
     return appView
         .getSyntheticItems()
@@ -504,7 +503,8 @@ public class InterfaceDesugaringSyntheticHelper {
             methodBuilder ->
                 methodBuilder
                     .setAccessFlags(MethodAccessFlags.createPublicStaticSynthetic())
-                    .setCode(ignore -> ThrowNullCode.get()));
+                    .setCode(ignore -> ThrowNullCode.get()),
+            libraryDesugaringOptions.getTypeRewriter());
   }
 
   ProgramMethod ensureStaticAsMethodOfProgramCompanionClassStub(
@@ -556,8 +556,8 @@ public class InterfaceDesugaringSyntheticHelper {
     assert hasStaticMethodThatTriggersNonTrivialClassInitializer(iface);
     InterfaceProcessor.ensureCompanionMethod(
         iface,
-        appView.dexItemFactory().classConstructorMethodName,
-        appView.dexItemFactory().createProto(appView.dexItemFactory().voidType),
+        factory.classConstructorMethodName,
+        factory.createProto(factory.voidType),
         appView,
         methodBuilder -> createCompanionClassInitializer(iface, methodBuilder),
         companionMethod ->
@@ -596,7 +596,7 @@ public class InterfaceDesugaringSyntheticHelper {
 
   private DexEncodedField createStaticClinitFieldToTriggerInterfaceInitialization(
       DexProgramClass iface) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
+    DexItemFactory dexItemFactory = factory;
     DexField clinitFieldReference =
         dexItemFactory.createFreshFieldNameWithoutHolder(
             iface.getType(),
@@ -648,12 +648,8 @@ public class InterfaceDesugaringSyntheticHelper {
   }
 
   private Predicate<DexType> getShouldIgnoreFromReportsPredicate(AppView<?> appView) {
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    InternalOptions options = appView.options();
     DexString companionClassNameDescriptorSuffix =
-        dexItemFactory.createString(
-            InterfaceDesugaringSyntheticHelper.COMPANION_CLASS_NAME_SUFFIX + ";");
-
+        factory.createString(InterfaceDesugaringSyntheticHelper.COMPANION_CLASS_NAME_SUFFIX + ";");
     return type -> {
       DexString descriptor = type.getDescriptor();
       return appView
@@ -663,10 +659,7 @@ public class InterfaceDesugaringSyntheticHelper {
               .hasRewrittenType(type)
           || descriptor.endsWith(companionClassNameDescriptorSuffix)
           || isRewrittenEmulatedInterface(type)
-          || options
-              .getLibraryDesugaringOptions()
-              .getMachineDesugaredLibrarySpecification()
-              .isCustomConversionRewrittenType(type)
+          || machineDesugaredLibrarySpecification.isCustomConversionRewrittenType(type)
           || appView.getDontWarnConfiguration().matches(type);
     };
   }

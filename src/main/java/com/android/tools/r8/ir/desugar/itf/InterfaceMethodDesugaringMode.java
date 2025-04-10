@@ -28,6 +28,12 @@ public enum InterfaceMethodDesugaringMode {
         options, false, options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled());
   }
 
+  public static InterfaceMethodDesugaringMode createForInterfaceMethodDesugaringInRootSetBuilder(
+      InternalOptions options) {
+    assert options.isInterfaceMethodDesugaringEnabled();
+    return create(options, true, false);
+  }
+
   private static InterfaceMethodDesugaringMode create(
       InternalOptions options,
       boolean enableInterfaceMethodDesugaring,

@@ -110,6 +110,10 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     }
     this.nestBasedAccessDesugaring = NestBasedAccessDesugaring.create(appView);
     BackportedMethodRewriter backportedMethodRewriter = new BackportedMethodRewriter(appView);
+    // Intentionally also running this in the Enqueuer in R8. This rewrites calls to
+    // androidx.navigation.NavType#fromArgType to a synthetic helper method. Running this together
+    // with library desugaring after the second round of tree shaking does not work since
+    // NavType#fromArgType is not kept.
     CfToCfDesugaredLibraryLibRewriter desugaredLibRewriter =
         DesugaredLibraryLibRewriter.createCfToCf(appView);
     if (desugaredLibRewriter != null) {

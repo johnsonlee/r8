@@ -50,6 +50,7 @@ import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.type.DynamicType;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
+import com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode;
 import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.partial.R8PartialResourceUseCollector;
@@ -174,7 +175,10 @@ public class RootSetUtils {
       this.options = appView.options();
       interfaceDesugaringSyntheticHelper =
           options.isInterfaceMethodDesugaringEnabled()
-              ? new InterfaceDesugaringSyntheticHelper(appView)
+              ? new InterfaceDesugaringSyntheticHelper(
+                  appView,
+                  InterfaceMethodDesugaringMode.createForInterfaceMethodDesugaringInRootSetBuilder(
+                      options))
               : null;
       attributesConfig =
           options.getProguardConfiguration() != null

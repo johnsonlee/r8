@@ -26,6 +26,14 @@ public interface DesugaredLibrarySpecification {
     return false;
   }
 
+  default boolean isMachine() {
+    return false;
+  }
+
+  default MachineDesugaredLibrarySpecification asMachine() {
+    return null;
+  }
+
   boolean isEmpty();
 
   boolean isLibraryCompilation();

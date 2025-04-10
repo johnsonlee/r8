@@ -61,6 +61,16 @@ public class MachineDesugaredLibrarySpecification implements DesugaredLibrarySpe
     return libraryCompilation;
   }
 
+  @Override
+  public boolean isMachine() {
+    return true;
+  }
+
+  @Override
+  public MachineDesugaredLibrarySpecification asMachine() {
+    return this;
+  }
+
   public MachineTopLevelFlags getTopLevelFlags() {
     return topLevelFlags;
   }

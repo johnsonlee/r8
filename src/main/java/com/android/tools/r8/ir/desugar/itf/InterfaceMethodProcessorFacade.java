@@ -6,7 +6,7 @@ package com.android.tools.r8.ir.desugar.itf;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 
-import com.android.tools.r8.errors.Unreachable;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -26,27 +26,25 @@ public class InterfaceMethodProcessorFacade implements CfPostProcessingDesugarin
   private final InterfaceProcessor interfaceProcessor;
   private final ClassProcessor classProcessor;
 
-  InterfaceMethodProcessorFacade(
-      AppView<?> appView,
-      InterfaceProcessor interfaceProcessor,
-      InterfaceMethodDesugaringMode desugaringMode) {
-    this(appView, interfaceProcessor, desugaringMode, alwaysTrue());
+  public InterfaceMethodProcessorFacade(AppView<?> appView, InterfaceProcessor interfaceProcessor) {
+    this(appView, interfaceProcessor, alwaysTrue());
   }
 
   InterfaceMethodProcessorFacade(
       AppView<?> appView,
       InterfaceProcessor interfaceProcessor,
-      InterfaceMethodDesugaringMode desugaringMode,
       Predicate<ProgramMethod> isLiveMethod) {
     this.appView = appView;
     assert interfaceProcessor != null;
     this.interfaceProcessor = interfaceProcessor;
-    this.classProcessor = new ClassProcessor(appView, isLiveMethod, desugaringMode);
+    this.classProcessor =
+        new ClassProcessor(appView, isLiveMethod, interfaceProcessor.getDesugaringMode());
   }
 
-  @SuppressWarnings("DoNotCallSuggester")
-  public static InterfaceMethodProcessorFacade createForR8LirToLirLibraryDesugaring() {
-    throw new Unreachable();
+  public static InterfaceMethodProcessorFacade createForR8LirToLirLibraryDesugaring(
+      AppView<? extends AppInfoWithClassHierarchy> appView) {
+    InterfaceProcessor processor = InterfaceProcessor.createLirToLir(appView);
+    return processor != null ? new InterfaceMethodProcessorFacade(appView, processor) : null;
   }
 
   private boolean shouldProcess(DexProgramClass clazz) {
@@ -64,7 +62,9 @@ public class InterfaceMethodProcessorFacade implements CfPostProcessingDesugarin
         appView.options().getThreadingModule(),
         executorService);
     classProcessor.finalizeProcessing(eventConsumer, executorService);
-    interfaceProcessor.finalizeProcessing();
+    if (interfaceProcessor != null) {
+      interfaceProcessor.finalizeProcessing();
+    }
   }
 
   @Override

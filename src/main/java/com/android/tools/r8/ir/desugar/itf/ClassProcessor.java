@@ -3,6 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.desugar.itf;
 
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.ALL;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.INTERFACE_METHOD_DESUGARING;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_M_MINUS;
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_N_PLUS;
 import static com.google.common.base.Predicates.alwaysTrue;
 
@@ -459,13 +462,14 @@ final class ClassProcessor {
     assert desugaringMode.isSome();
     this.appView = appView;
     this.dexItemFactory = appView.dexItemFactory();
-    this.helper = new InterfaceDesugaringSyntheticHelper(appView);
+    this.helper = new InterfaceDesugaringSyntheticHelper(appView, desugaringMode);
     needsLibraryInfo =
-        !appView
-            .options()
-            .getLibraryDesugaringOptions()
-            .getMachineDesugaredLibrarySpecification()
-            .isEmpty();
+        desugaringMode.isLibraryDesugaring()
+            && !appView
+                .options()
+                .getLibraryDesugaringOptions()
+                .getMachineDesugaredLibrarySpecification()
+                .isEmpty();
     this.isLiveMethod = isLiveMethod;
     this.desugaringMode = desugaringMode;
   }
@@ -544,14 +548,28 @@ final class ClassProcessor {
   private SignaturesInfo computeInterfaceInfo(DexClass iface, SignaturesInfo interfaceInfo) {
     assert iface.isInterface();
     assert dexItemFactory.objectType.isIdenticalTo(iface.getSuperType());
-    assert !helper.isEmulatedInterface(iface.getType());
+    assert !helper.isEmulatedInterface(iface.type);
     if (desugaringMode == LIBRARY_DESUGARING_N_PLUS) {
       return SignaturesInfo.EMPTY;
-    }
-    // Add non-library default methods as well as those for desugared library classes.
-    if (!iface.isLibraryClass() || (needsLibraryInfo() && helper.isInDesugaredLibrary(iface))) {
-      MethodSignatures signatures = getDefaultMethodsMatching(iface, alwaysTrue());
-      interfaceInfo = interfaceInfo.withSignatures(signatures);
+    } else if (desugaringMode == LIBRARY_DESUGARING_M_MINUS) {
+      // Add non-library default methods as well as those for desugared library classes.
+      if (iface.isLibraryClass() && needsLibraryInfo() && helper.isInDesugaredLibrary(iface)) {
+        MethodSignatures signatures = getDefaultMethodsMatching(iface, alwaysTrue());
+        interfaceInfo = interfaceInfo.withSignatures(signatures);
+      }
+    } else if (desugaringMode == INTERFACE_METHOD_DESUGARING) {
+      // Add non-library default methods as well as those for desugared library classes.
+      if (!iface.isLibraryClass()) {
+        MethodSignatures signatures = getDefaultMethodsMatching(iface, alwaysTrue());
+        interfaceInfo = interfaceInfo.withSignatures(signatures);
+      }
+    } else {
+      assert desugaringMode == ALL;
+      // Add non-library default methods as well as those for desugared library classes.
+      if (!iface.isLibraryClass() || (needsLibraryInfo() && helper.isInDesugaredLibrary(iface))) {
+        MethodSignatures signatures = getDefaultMethodsMatching(iface, alwaysTrue());
+        interfaceInfo = interfaceInfo.withSignatures(signatures);
+      }
     }
     return interfaceInfo;
   }

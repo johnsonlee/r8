@@ -5,12 +5,14 @@
 package com.android.tools.r8.ir.desugar.itf;
 
 import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.LIBRARY_DESUGARING_N_PLUS;
+import static com.android.tools.r8.ir.desugar.itf.InterfaceMethodDesugaringMode.NONE;
 
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.dex.code.DexInstruction;
 import com.android.tools.r8.dex.code.DexInvokeSuper;
 import com.android.tools.r8.errors.CompilationError;
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
@@ -78,10 +80,23 @@ public final class InterfaceProcessor {
     return desugaringMode.isSome() ? new InterfaceProcessor(appView, desugaringMode) : null;
   }
 
-  public InterfaceProcessor(AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
+  public static InterfaceProcessor createForR8(
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      InterfaceMethodDesugaringMode desugaringMode) {
+    if (desugaringMode == NONE) {
+      return null;
+    }
+    return new InterfaceProcessor(appView, desugaringMode);
+  }
+
+  private InterfaceProcessor(AppView<?> appView, InterfaceMethodDesugaringMode desugaringMode) {
     this.appView = appView;
-    helper = new InterfaceDesugaringSyntheticHelper(appView);
+    helper = new InterfaceDesugaringSyntheticHelper(appView, desugaringMode);
     this.desugaringMode = desugaringMode;
+  }
+
+  public InterfaceMethodDesugaringMode getDesugaringMode() {
+    return desugaringMode;
   }
 
   public InterfaceDesugaringSyntheticHelper getHelper() {

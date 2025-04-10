@@ -20,6 +20,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.machinespecification.MachineDesugaredLibrarySpecification;
+import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.timing.Timing;
@@ -27,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Predicate;
 
 public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingDesugaring {
 
@@ -37,13 +37,12 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
   private final DesugaredLibraryWrapperSynthesizer wrapperSynthesizor;
   private final Set<DexMethod> trackedCallBackAPIs;
 
-  private final Predicate<ProgramMethod> isLiveMethod;
+  private final Enqueuer enqueuer;
 
-  public DesugaredLibraryAPICallbackSynthesizer(
-      AppView<?> appView, Predicate<ProgramMethod> isLiveMethod) {
+  public DesugaredLibraryAPICallbackSynthesizer(AppView<?> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
-    this.isLiveMethod = isLiveMethod;
+    this.enqueuer = enqueuer;
     this.wrapperSynthesizor = new DesugaredLibraryWrapperSynthesizer(appView);
     if (appView.options().testing.trackDesugaredApiConversions) {
       trackedCallBackAPIs = SetUtils.newConcurrentHashSet();
@@ -99,7 +98,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
 
   private boolean isLiveMethod(
       ProgramMethod virtualProgramMethod, Set<DexMethod> newlyLiveMethods) {
-    return isLiveMethod.test(virtualProgramMethod)
+    return enqueuer == null
+        || enqueuer.isMethodLive(virtualProgramMethod)
         || newlyLiveMethods.contains(virtualProgramMethod.getReference());
   }
 

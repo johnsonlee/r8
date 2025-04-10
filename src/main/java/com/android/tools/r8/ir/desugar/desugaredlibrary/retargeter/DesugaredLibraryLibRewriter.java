@@ -38,36 +38,51 @@ public abstract class DesugaredLibraryLibRewriter {
   public static CfToCfDesugaredLibraryLibRewriter createCfToCf(AppView<?> appView) {
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getLibraryDesugaringOptions();
-    if (libraryDesugaringOptions.isLirToLirLibraryDesugaringEnabled()
-        || libraryDesugaringOptions
+    if (isCfToCfLibraryDesugaringEnabled(libraryDesugaringOptions)
+        && !libraryDesugaringOptions
             .getMachineDesugaredLibrarySpecification()
             .getRewriteType()
             .isEmpty()) {
-      return null;
+      Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings =
+          computeMap(appView);
+      if (!rewritings.isEmpty()) {
+        return new CfToCfDesugaredLibraryLibRewriter(appView, rewritings);
+      }
     }
-    Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings = computeMap(appView);
-    if (rewritings.isEmpty()) {
-      return null;
-    }
-    return new CfToCfDesugaredLibraryLibRewriter(appView, rewritings);
+    return null;
   }
 
   public static LirToLirDesugaredLibraryLibRewriter createLirToLir(
       AppView<?> appView, CfInstructionDesugaringEventConsumer eventConsumer) {
     LibraryDesugaringOptions libraryDesugaringOptions =
         appView.options().getLibraryDesugaringOptions();
-    if (libraryDesugaringOptions.isCfToCfLibraryDesugaringEnabled()
-        || libraryDesugaringOptions
+    if (isLirToLirLibraryDesugaringEnabled(libraryDesugaringOptions)
+        && !libraryDesugaringOptions
             .getMachineDesugaredLibrarySpecification()
             .getRewriteType()
             .isEmpty()) {
-      return null;
+      Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings =
+          computeMap(appView);
+      if (!rewritings.isEmpty()) {
+        return new LirToLirDesugaredLibraryLibRewriter(appView, eventConsumer, rewritings);
+      }
     }
-    Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> rewritings = computeMap(appView);
-    if (rewritings.isEmpty()) {
-      return null;
-    }
-    return new LirToLirDesugaredLibraryLibRewriter(appView, eventConsumer, rewritings);
+    return null;
+  }
+
+  private static boolean isCfToCfLibraryDesugaringEnabled(
+      LibraryDesugaringOptions libraryDesugaringOptions) {
+    return libraryDesugaringOptions.isEnabled();
+  }
+
+  @SuppressWarnings("UnusedVariable")
+  private static boolean isLirToLirLibraryDesugaringEnabled(
+      LibraryDesugaringOptions libraryDesugaringOptions) {
+    // This is currently always run cf-to-cf. This relies on the presence of a method in the program
+    // input (androidx.navigation.NavType$Companion#fromArgType). If we want to enable this rewrite
+    // in lir-to-lir desugaring then we would need to hard keep this method in the input, so that
+    // we can expect it to be present after optimizations/tree shaking.
+    return false;
   }
 
   public static Map<DexMethod, BiFunction<DexItemFactory, DexMethod, CfCode>> computeMap(

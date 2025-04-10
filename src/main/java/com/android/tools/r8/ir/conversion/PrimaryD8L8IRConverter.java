@@ -306,7 +306,7 @@ public class PrimaryD8L8IRConverter extends IRConverter {
       methodProcessor.newWave();
       InterfaceMethodProcessorFacade interfaceDesugaring =
           instructionDesugaring.getInterfaceMethodProcessorFacade(interfaceProcessor);
-      CfPostProcessingDesugaringCollection.create(appView, interfaceDesugaring, m -> true)
+      CfPostProcessingDesugaringCollection.createForD8(appView, interfaceDesugaring)
           .postProcessingDesugaring(
               appView.appInfo().classes(), eventConsumer, executorService, timing);
       methodProcessor.awaitMethodProcessing();

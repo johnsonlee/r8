@@ -86,14 +86,17 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
         .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
         .addProgramFiles(kotlinc.getKotlinReflectJar())
+        .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .enableServiceLoader()
-        .applyIf(
-            compilationSpecification.isProgramShrink(),
-            builder -> builder.addProgramFiles(kotlinc.getKotlinAnnotationJar()))
         .addKeepMainRule(PKG + ".MainKt")
         .addKeepAllClassesRule()
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .allowDiagnosticMessages()
+        // TODO(b/391572031): Why is this needed? Don't we drop all keep rules with the
+        //  PARTIAL_EXCLUDE config?
+        .applyIf(
+            compilationSpecification.isNotProgramShrinkWithPartial(),
+            DesugaredLibraryTestBuilder::allowUnusedProguardConfigurationRules)
         .applyIf(
             kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
             DesugaredLibraryTestBuilder::allowUnusedDontWarnPatterns)

@@ -82,6 +82,7 @@ public abstract class InterfaceMethodRewriter {
   // the emulated interface descriptor.
   final InterfaceMethodDesugaringMode desugaringMode;
   private final InterfaceDesugaringSyntheticHelper helper;
+  private final InterfaceDesugaringSyntheticHelper subCompilationHelper;
   // The emulatedMethod set is there to avoid doing the emulated look-up too often.
   private final Set<DexString> emulatedMethods = Sets.newIdentityHashSet();
 
@@ -99,7 +100,15 @@ public abstract class InterfaceMethodRewriter {
     this.desugaringMode = desugaringMode;
     this.options = appView.options();
     this.factory = appView.dexItemFactory();
-    this.helper = new InterfaceDesugaringSyntheticHelper(appView);
+    this.helper = new InterfaceDesugaringSyntheticHelper(appView, desugaringMode);
+    if (options.partialSubCompilationConfiguration != null
+        && options.partialSubCompilationConfiguration.isD8()) {
+      this.subCompilationHelper =
+          InterfaceDesugaringSyntheticHelper.createSubCompilationHelper(appView, desugaringMode);
+    } else {
+      this.subCompilationHelper = null;
+    }
+
     if (desugaringMode.isLibraryDesugaring()) {
       initializeEmulatedInterfaceVariables();
     }
@@ -109,11 +118,9 @@ public abstract class InterfaceMethodRewriter {
       AppView<?> appView,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvoke,
       Set<CfInstructionDesugaring> precedingDesugaringsForInvokeDynamic) {
-    InterfaceMethodDesugaringMode desugaringMode =
-        InterfaceMethodDesugaringMode.createCfToCf(appView.options());
     return create(
         appView,
-        desugaringMode,
+        InterfaceMethodDesugaringMode.createCfToCf(appView.options()),
         precedingDesugaringsForInvoke,
         precedingDesugaringsForInvokeDynamic);
   }
@@ -658,6 +665,12 @@ public abstract class InterfaceMethodRewriter {
 
     RetargetMethodSupplier emulatedInterfaceDesugaring =
         computeEmulatedInterfaceInvokeSpecial(holder, invokedMethod, context);
+    if (emulatedInterfaceDesugaring == RetargetMethodSupplier.none()
+        && subCompilationHelper != null) {
+      emulatedInterfaceDesugaring =
+          computeEmulatedInterfaceInvokeSpecial(
+              holder, invokedMethod, context, subCompilationHelper);
+    }
     if (emulatedInterfaceDesugaring == RetargetMethodSupplier.none()) {
       if (context.isDefaultMethod()) {
         return new ThrowingRetargetMethodSupplier() {
@@ -688,6 +701,14 @@ public abstract class InterfaceMethodRewriter {
 
   private RetargetMethodSupplier computeEmulatedInterfaceInvokeSpecial(
       DexClass clazz, DexMethod invokedMethod, ProgramMethod context) {
+    return computeEmulatedInterfaceInvokeSpecial(clazz, invokedMethod, context, helper);
+  }
+
+  private RetargetMethodSupplier computeEmulatedInterfaceInvokeSpecial(
+      DexClass clazz,
+      DexMethod invokedMethod,
+      ProgramMethod context,
+      InterfaceDesugaringSyntheticHelper helper) {
     assert desugaringMode != LIBRARY_DESUGARING_N_PLUS;
     if (clazz == null) {
       return RetargetMethodSupplier.none();
@@ -715,23 +736,32 @@ public abstract class InterfaceMethodRewriter {
         }
       };
     } else {
-      return computeInvokeSpecialEmulatedInterfaceForwardingMethod(clazz, superTarget);
+      return computeInvokeSpecialEmulatedInterfaceForwardingMethod(clazz, superTarget, helper);
     }
   }
 
   private RetargetMethodSupplier computeInvokeSpecialEmulatedInterfaceForwardingMethod(
       DexClass clazz, DexMethod invokedMethod, ProgramMethod context) {
+    return computeInvokeSpecialEmulatedInterfaceForwardingMethod(
+        clazz, invokedMethod, context, helper);
+  }
+
+  private RetargetMethodSupplier computeInvokeSpecialEmulatedInterfaceForwardingMethod(
+      DexClass clazz,
+      DexMethod invokedMethod,
+      ProgramMethod context,
+      InterfaceDesugaringSyntheticHelper helper) {
     if (clazz == null) {
       return RetargetMethodSupplier.none();
     }
     AppInfoWithClassHierarchy appInfo = appView.appInfoForDesugaring();
     DexClassAndMethod superTarget =
         appInfo.lookupSuperTarget(invokedMethod, context, appView, appInfo);
-    return computeInvokeSpecialEmulatedInterfaceForwardingMethod(clazz, superTarget);
+    return computeInvokeSpecialEmulatedInterfaceForwardingMethod(clazz, superTarget, helper);
   }
 
   private RetargetMethodSupplier computeInvokeSpecialEmulatedInterfaceForwardingMethod(
-      DexClass clazz, DexClassAndMethod superTarget) {
+      DexClass clazz, DexClassAndMethod superTarget, InterfaceDesugaringSyntheticHelper helper) {
     // That invoke super may not resolve since the super method may not be present since it's in the
     // emulated interface. We need to force resolution. If it resolves to a library method, then it
     // needs to be rewritten. If it resolves to a program overrides, the invoke-super can remain.
@@ -772,14 +802,13 @@ public abstract class InterfaceMethodRewriter {
 
   public InterfaceMethodProcessorFacade getPostProcessingDesugaringD8(
       InterfaceProcessor interfaceProcessor) {
-    return new InterfaceMethodProcessorFacade(appView, interfaceProcessor, desugaringMode);
+    return new InterfaceMethodProcessorFacade(appView, interfaceProcessor);
   }
 
   public InterfaceMethodProcessorFacade getPostProcessingDesugaringR8(
       Predicate<ProgramMethod> isLiveMethod,
       InterfaceProcessor interfaceProcessor) {
-    return new InterfaceMethodProcessorFacade(
-        appView, interfaceProcessor, desugaringMode, isLiveMethod);
+    return new InterfaceMethodProcessorFacade(appView, interfaceProcessor, isLiveMethod);
   }
 
   private Origin getMethodOrigin(DexMethod method) {

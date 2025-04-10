@@ -94,6 +94,7 @@ class R8Partial {
     List<KeepDeclaration> keepDeclarations = lazyApp.getKeepDeclarations();
     DirectMappedDexApplication app = lazyApp.toDirect();
     R8PartialProgramPartioning partioning = R8PartialProgramPartioning.create(app);
+    options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
     return new R8PartialD8Input(
         partioning.getD8Classes(),
         partioning.getR8Classes(),
@@ -112,7 +113,6 @@ class R8Partial {
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
             .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
-    // TODO(b/391572031): Configure library desugaring.
     input.configure(d8Builder);
     d8Builder.validate();
     D8Command d8Command = d8Builder.makeD8Command(options.dexItemFactory());
@@ -198,7 +198,6 @@ class R8Partial {
       }
     }
     r8Builder.validate();
-    // TODO(b/391572031): Configure library desugaring.
     R8Command r8Command =
         r8Builder.makeR8Command(options.dexItemFactory(), options.getProguardConfiguration());
     AndroidApp r8App = r8Command.getInputApp();
@@ -221,6 +220,11 @@ class R8Partial {
         options.getTestingOptions().enableEmbeddedKeepAnnotations;
     r8Options.mapConsumer = options.mapConsumer;
     r8Options.sourceFileProvider = options.sourceFileProvider;
+    r8Options
+        .getLibraryDesugaringOptions()
+        .setMachineDesugaredLibrarySpecification(
+            options.getLibraryDesugaringOptions().getMachineDesugaredLibrarySpecification())
+        .setTypeRewriter(options.getLibraryDesugaringOptions().getTypeRewriter());
     if (options.androidResourceProvider != null) {
       r8Options.androidResourceProvider = options.androidResourceProvider;
       r8Options.androidResourceConsumer = options.androidResourceConsumer;

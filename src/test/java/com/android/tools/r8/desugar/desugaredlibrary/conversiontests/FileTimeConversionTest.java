@@ -74,8 +74,7 @@ public class FileTimeConversionTest extends DesugaredLibraryTestBase {
     ClassSubject apiConversionClass =
         inspector.clazz(SyntheticItemsTestUtils.syntheticApiConversionClass(Executor.class, 0));
     assertThat(apiConversionClass, isPresent());
-    if (compilationSpecification.isProgramShrink()
-        || compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK) {
+    if (compilationSpecification.isProgramShrink() || compilationSpecification.isR8Partial()) {
       assertThat(apiConversionClass, isPresentAndRenamed());
     }
 
