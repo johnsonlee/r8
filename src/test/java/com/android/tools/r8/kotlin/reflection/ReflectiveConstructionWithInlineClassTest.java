@@ -136,6 +136,9 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
         .assertNoErrorMessages()
         .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
         .run(parameters.getRuntime(), MAIN_CLASS)
-        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
+        .applyIf(
+            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
+            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
+            rr -> rr.assertSuccessWithOutputLines(EXPECTED_OUTPUT));
   }
 }
