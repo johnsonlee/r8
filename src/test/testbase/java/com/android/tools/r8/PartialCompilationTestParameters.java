@@ -3,11 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8;
 
+import static org.junit.Assume.assumeTrue;
+
 public enum PartialCompilationTestParameters {
   NONE,
   INCLUDE_ALL,
   EXCLUDE_ALL,
   RANDOM;
+
+  public PartialCompilationTestParameters assumeIsSome() {
+    assumeTrue(isSome());
+    return this;
+  }
 
   public boolean isNone() {
     return this == NONE;
