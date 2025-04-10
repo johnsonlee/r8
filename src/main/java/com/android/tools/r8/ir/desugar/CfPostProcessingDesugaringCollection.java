@@ -85,23 +85,19 @@ public abstract class CfPostProcessingDesugaringCollection {
         InterfaceMethodProcessorFacade interfaceMethodProcessorFacade,
         Enqueuer enqueuer) {
       ArrayList<CfPostProcessingDesugaring> desugarings = new ArrayList<>();
-      if (isLibraryDesugaringEnabled(appView, enqueuer)) {
-        addIfNotNull(desugarings, DesugaredLibraryRetargeterPostProcessor.create(appView));
-      }
-      if (isNormalDesugaringEnabled(appView, enqueuer)) {
-        addIfNotNull(desugarings, AutoCloseableRetargeterPostProcessor.create(appView));
-      }
       addIfNotNull(desugarings, interfaceMethodProcessorFacade);
       if (isLibraryDesugaringEnabled(appView, enqueuer)) {
         addIfNotNull(
             desugarings,
-            DesugaredLibraryApiCallbackSynthesizerPostProcessor.create(appView, enqueuer));
+            DesugaredLibraryApiCallbackSynthesizerPostProcessor.create(appView, enqueuer),
+            DesugaredLibraryDisableDesugarerPostProcessor.create(appView),
+            DesugaredLibraryRetargeterPostProcessor.create(appView));
       }
       if (isNormalDesugaringEnabled(appView, enqueuer)) {
-        addIfNotNull(desugarings, RecordClassDesugaringPostProcessor.create(appView));
-      }
-      if (isLibraryDesugaringEnabled(appView, enqueuer)) {
-        addIfNotNull(desugarings, DesugaredLibraryDisableDesugarerPostProcessor.create(appView));
+        addIfNotNull(
+            desugarings,
+            AutoCloseableRetargeterPostProcessor.create(appView),
+            RecordClassDesugaringPostProcessor.create(appView));
       }
       return desugarings.isEmpty()
           ? empty()
@@ -109,9 +105,12 @@ public abstract class CfPostProcessingDesugaringCollection {
     }
 
     private static void addIfNotNull(
-        Collection<CfPostProcessingDesugaring> collection, CfPostProcessingDesugaring desugaring) {
-      if (desugaring != null) {
-        collection.add(desugaring);
+        Collection<CfPostProcessingDesugaring> collection,
+        CfPostProcessingDesugaring... desugarings) {
+      for (CfPostProcessingDesugaring desugaring : desugarings) {
+        if (desugaring != null) {
+          collection.add(desugaring);
+        }
       }
     }
 
