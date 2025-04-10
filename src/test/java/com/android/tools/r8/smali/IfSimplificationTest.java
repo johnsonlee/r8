@@ -7,6 +7,8 @@ package com.android.tools.r8.smali;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.dex.code.DexConst4;
 import com.android.tools.r8.dex.code.DexIfEqz;
 import com.android.tools.r8.dex.code.DexIfGez;
@@ -26,7 +28,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
+@RunWith(Parameterized.class)
 public class IfSimplificationTest extends SmaliTestBase {
 
   static String[] ifOpcode;
@@ -38,6 +45,14 @@ public class IfSimplificationTest extends SmaliTestBase {
     ifOpcode[IfType.GE.ordinal()] = "if-ge";
     ifOpcode[IfType.LT.ordinal()] = "if-lt";
     ifOpcode[IfType.GT.ordinal()] = "if-gt";
+  }
+
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
   }
 
   @Test
@@ -448,10 +463,6 @@ public class IfSimplificationTest extends SmaliTestBase {
         "      move                v0, v1",
         "      goto                :label_7"
     );
-    DexCode code = method.getCode().asDexCode();
-    // TODO(sgjesse): Maybe this test is too fragile, as it leaves quite a lot of code, so the
-    //  expectation might need changing with other optimizations.
-    // TODO(zerny): Consider optimizing the fallthrough branch of conditionals to not be return.
-    assertEquals(26, code.instructions.length);
+    assertEquals(25, method.getCode().asDexCode().getInstructions().length);
   }
 }
