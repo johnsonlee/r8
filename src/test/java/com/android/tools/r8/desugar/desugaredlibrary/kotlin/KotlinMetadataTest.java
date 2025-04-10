@@ -12,6 +12,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompiler;
 import com.android.tools.r8.KotlinTestBase.KotlinCompileMemoizer;
@@ -24,6 +25,7 @@ import com.android.tools.r8.desugar.desugaredlibrary.test.DesugaredLibraryTestBu
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.kotlin.KotlinMetadataWriter;
 import com.android.tools.r8.shaking.ProguardKeepAttributes;
+import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -31,10 +33,12 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.function.Consumer;
 import kotlin.metadata.jvm.KotlinClassMetadata;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
@@ -43,45 +47,64 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
   private static final String PKG = KotlinMetadataTest.class.getPackage().getName();
   private static final String EXPECTED_OUTPUT = "Wuhuu, my special day is: 1997-8-29-2-14";
 
-  private final KotlinTestParameters kotlinParameters;
-  private final KotlinCompiler kotlinc;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  private final TestParameters parameters;
-  private final CompilationSpecification compilationSpecification;
-  private final LibraryDesugaringSpecification libraryDesugaringSpecification;
+  @Parameter(1)
+  public KotlinTestParameters kotlinParameters;
+
+  @Parameter(2)
+  public CompilationSpecification compilationSpecification;
+
+  @Parameter(3)
+  public LibraryDesugaringSpecification libraryDesugaringSpecification;
 
   @Parameters(name = "{0}, kotlin: {1}, spec: {2}, {3}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withAllRuntimesAndApiLevels().build(),
         getKotlinTestParameters().withAllCompilersLambdaGenerationsAndTargetVersions().build(),
-        ImmutableList.of(LibraryDesugaringSpecification.JDK11),
-        DEFAULT_SPECIFICATIONS);
-  }
-
-  public KotlinMetadataTest(
-      TestParameters parameters,
-      KotlinTestParameters kotlinParameters,
-      LibraryDesugaringSpecification libraryDesugaringSpecification,
-      CompilationSpecification compilationSpecification) {
-    this.parameters = parameters;
-    this.kotlinParameters = kotlinParameters;
-    this.kotlinc = kotlinParameters.getCompiler();
-    this.compilationSpecification = compilationSpecification;
-    this.libraryDesugaringSpecification = libraryDesugaringSpecification;
+        DEFAULT_SPECIFICATIONS,
+        ImmutableList.of(LibraryDesugaringSpecification.JDK11));
   }
 
   @Test
-  public void test() throws Throwable {
-    if (parameters.getRuntime().isCf()) {
-      testForRuntime(parameters)
-          .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
-          .addProgramFiles(kotlinc.getKotlinStdlibJar())
-          .addProgramFiles(kotlinc.getKotlinReflectJar())
-          .run(parameters.getRuntime(), PKG + ".MainKt")
-          .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
-      return;
-    }
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    KotlinCompiler kotlinc = kotlinParameters.getCompiler();
+    testForRuntime(parameters)
+        .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
+        .addProgramFiles(kotlinc.getKotlinStdlibJar())
+        .addProgramFiles(kotlinc.getKotlinReflectJar())
+        .run(parameters.getRuntime(), PKG + ".MainKt")
+        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
+  }
+
+  @Test
+  public void testDesugaredLibrary() throws Exception {
+    parameters.assumeDexRuntime();
+    runTest(ConsumerUtils.emptyConsumer());
+  }
+
+  @Test
+  public void testR8PartialIncludeKotlinStdlib() throws Exception {
+    parameters.assumeDexRuntime();
+    assumeTrue(compilationSpecification.isProgramShrinkWithPartial());
+    runTest(
+        desugaredLibraryTestBuilder ->
+            desugaredLibraryTestBuilder.applyIfR8PartialTestBuilder(
+                r8PartialTestBuilder ->
+                    r8PartialTestBuilder
+                        .allowUnusedProguardConfigurationRules()
+                        .clearR8PartialConfiguration()
+                        .setR8PartialConfiguration(
+                            partialConfigurationBuilder ->
+                                partialConfigurationBuilder.addJavaTypeIncludePattern(
+                                    "kotlin.**"))));
+  }
+
+  private void runTest(Consumer<DesugaredLibraryTestBuilder<?>> configuration) throws Exception {
+    KotlinCompiler kotlinc = kotlinParameters.getCompiler();
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
         .addProgramFiles(compiledJars.getForConfiguration(kotlinParameters))
         .addProgramFiles(kotlinc.getKotlinStdlibJar())
@@ -89,7 +112,11 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
         .addProgramFiles(kotlinc.getKotlinAnnotationJar())
         .enableServiceLoader()
         .addKeepMainRule(PKG + ".MainKt")
-        .addKeepAllClassesRule()
+        .addKeepRules(
+            "-keep,allowobfuscation class " + PKG + ".Skynet",
+            // TODO(b/409735960): We don't seem to correctly rewrite the metadata when adding
+            //  `,allowobfuscation` to this rule.
+            "-keepclassmembers class " + PKG + ".Skynet { * specialDay; }")
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .allowDiagnosticMessages()
         // TODO(b/391572031): Why is this needed? Don't we drop all keep rules with the
@@ -100,6 +127,7 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
         .applyIf(
             kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
             DesugaredLibraryTestBuilder::allowUnusedDontWarnPatterns)
+        .apply(configuration)
         .compile()
         .inspect(
             i -> {
@@ -120,10 +148,10 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
               "Main" + FileUtils.KT_EXTENSION));
 
   private void inspectRewrittenMetadata(CodeInspector inspector) {
-    final ClassSubject clazz =
+    ClassSubject clazz =
         inspector.clazz("com.android.tools.r8.desugar.desugaredlibrary.kotlin.Skynet");
     assertThat(clazz, isPresent());
-    final KotlinClassMetadata kotlinClassMetadata = clazz.getKotlinClassMetadata();
+    KotlinClassMetadata kotlinClassMetadata = clazz.getKotlinClassMetadata();
     assertNotNull(kotlinClassMetadata);
     String metadata = KotlinMetadataWriter.kotlinMetadataToString("", kotlinClassMetadata);
     assertThat(metadata, containsString("specialDay:Lj$/time/LocalDateTime;"));

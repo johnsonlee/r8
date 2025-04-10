@@ -4,17 +4,13 @@
 
 package com.android.tools.r8.desugar.desugaredlibrary.kotlin
 
-import kotlin.reflect.full.primaryConstructor
-
 class Skynet(val specialDay: java.time.LocalDateTime)
 
 fun main() {
-  // Create Skynet reflectively and call it in a 'self-aware' fashion.
-  val primaryConstructor = Skynet::class.primaryConstructor
-  val skynet = primaryConstructor?.call(java.time.LocalDateTime.of(1997, 8, 29, 2, 14, 0))
-  val sd = skynet?.specialDay
+  val skynet = Skynet(java.time.LocalDateTime.of(1997, 8, 29, 2, 14, 0))
+  val sd = skynet.specialDay
   println(
     "Wuhuu, my special day is: " +
-      "${sd?.year}-${sd?.monthValue}-${sd?.dayOfMonth}-${sd?.hour}-${sd?.minute}"
+      "${sd.year}-${sd.monthValue}-${sd.dayOfMonth}-${sd.hour}-${sd.minute}"
   )
 }

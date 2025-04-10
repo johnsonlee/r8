@@ -5,6 +5,7 @@
 package com.android.tools.r8.desugar.desugaredlibrary.test;
 
 import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyThrowingConsumer;
 
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
@@ -312,6 +313,12 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
 
   public <E1 extends Throwable, E2 extends Throwable>
       DesugaredLibraryTestBuilder<T> applyIfR8PartialTestBuilder(
+          ThrowingConsumer<R8PartialTestBuilder, E1> thenConsumer) throws E1, E2 {
+    return applyIfR8PartialTestBuilder(thenConsumer, emptyThrowingConsumer());
+  }
+
+  public <E1 extends Throwable, E2 extends Throwable>
+      DesugaredLibraryTestBuilder<T> applyIfR8PartialTestBuilder(
           ThrowingConsumer<R8PartialTestBuilder, E1> thenConsumer,
           ThrowingConsumer<DesugaredLibraryTestBuilder<T>, E2> elseConsumer)
           throws E1, E2 {
@@ -347,7 +354,7 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> addKeepRules(String keepRules) {
+  public DesugaredLibraryTestBuilder<T> addKeepRules(String... keepRules) {
     if (compilationSpecification.isProgramShrink()) {
       withR8TestBuilder(b -> b.addKeepRules(keepRules));
     }
@@ -468,7 +475,8 @@ public class DesugaredLibraryTestBuilder<T extends DesugaredLibraryTestBase> {
     return this;
   }
 
-  public DesugaredLibraryTestBuilder<T> apply(Consumer<DesugaredLibraryTestBuilder<T>> consumer) {
+  public DesugaredLibraryTestBuilder<T> apply(
+      Consumer<? super DesugaredLibraryTestBuilder<T>> consumer) {
     consumer.accept(this);
     return this;
   }
