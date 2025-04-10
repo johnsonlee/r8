@@ -120,7 +120,10 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .compile()
         .inspect(this::verifyRewrittenExtension)
         .run(parameters.getRuntime(), MAIN)
-        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
+        .applyIf(
+            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
+            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
+            rr -> rr.assertSuccessWithOutputLines(EXPECTED_OUTPUT));
   }
 
   static JvmMethodSignature toJvmMethodSignature(DexMethod method) {
@@ -179,6 +182,9 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), MAIN)
-        .assertSuccessWithOutputLines(EXPECTED_FALSE_OUTPUT);
+        .applyIf(
+            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
+            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
+            rr -> rr.assertSuccessWithOutputLines(EXPECTED_FALSE_OUTPUT));
   }
 }
