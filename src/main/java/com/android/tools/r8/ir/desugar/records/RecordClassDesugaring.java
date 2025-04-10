@@ -10,24 +10,16 @@ import com.android.tools.r8.contexts.CompilationContext.ClassSynthesisDesugaring
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
-import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaring;
-import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
-import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
-public class RecordClassDesugaring
-    implements CfClassSynthesizerDesugaring, CfPostProcessingDesugaring {
+public class RecordClassDesugaring implements CfClassSynthesizerDesugaring {
 
   private final AppView<?> appView;
-  private final DexItemFactory factory;
 
   public static RecordClassDesugaring create(AppView<?> appView) {
     return appView.options().desugarRecordState().isFull()
@@ -35,9 +27,8 @@ public class RecordClassDesugaring
         : null;
   }
 
-  private RecordClassDesugaring(AppView<?> appView) {
+  RecordClassDesugaring(AppView<?> appView) {
     this.appView = appView;
-    factory = appView.dexItemFactory();
   }
 
   @Override
@@ -59,23 +50,6 @@ public class RecordClassDesugaring
         classes.add(dexClass.asProgramClass());
       }
       ensureRecordClass(eventConsumer, classes, appView);
-    }
-  }
-
-  @Override
-  @SuppressWarnings("ReferenceEquality")
-  public void postProcessingDesugaring(
-      Collection<DexProgramClass> programClasses,
-      CfPostProcessingDesugaringEventConsumer eventConsumer,
-      ExecutorService executorService,
-      Timing timing) {
-    try (Timing t0 = timing.begin("Record class desugaring")) {
-      for (DexProgramClass clazz : programClasses) {
-        if (clazz.isRecord()) {
-          assert clazz.superType == factory.recordType;
-          clazz.accessFlags.unsetRecord();
-        }
-      }
     }
   }
 }

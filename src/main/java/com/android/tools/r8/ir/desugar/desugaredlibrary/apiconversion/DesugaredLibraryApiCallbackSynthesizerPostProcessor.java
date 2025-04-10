@@ -1,7 +1,6 @@
-// Copyright (c) 2021, the R8 project authors. Please see the AUTHORS file
+// Copyright (c) 2025, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion;
 
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter.generateTrackDesugaredAPIWarnings;
@@ -29,7 +28,8 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingDesugaring {
+public class DesugaredLibraryApiCallbackSynthesizerPostProcessor
+    implements CfPostProcessingDesugaring {
 
   private final AppView<?> appView;
   private final DexItemFactory factory;
@@ -39,7 +39,8 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
 
   private final Enqueuer enqueuer;
 
-  public DesugaredLibraryAPICallbackSynthesizer(AppView<?> appView, Enqueuer enqueuer) {
+  private DesugaredLibraryApiCallbackSynthesizerPostProcessor(
+      AppView<?> appView, Enqueuer enqueuer) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
     this.enqueuer = enqueuer;
@@ -49,6 +50,13 @@ public class DesugaredLibraryAPICallbackSynthesizer implements CfPostProcessingD
     } else {
       trackedCallBackAPIs = null;
     }
+  }
+
+  public static DesugaredLibraryApiCallbackSynthesizerPostProcessor create(
+      AppView<?> appView, Enqueuer enqueuer) {
+    return appView.options().getLibraryDesugaringOptions().hasTypeRewriter()
+        ? new DesugaredLibraryApiCallbackSynthesizerPostProcessor(appView, enqueuer)
+        : null;
   }
 
   // TODO(b/191656218): Consider parallelizing post processing.

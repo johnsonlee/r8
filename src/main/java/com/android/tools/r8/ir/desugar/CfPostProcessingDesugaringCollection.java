@@ -8,12 +8,12 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.LibraryDesugaringOptions;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPICallbackSynthesizer;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryApiCallbackSynthesizerPostProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarerPostProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.AutoCloseableRetargeterPostProcessor;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibraryRetargeterPostProcessor;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
-import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
+import com.android.tools.r8.ir.desugar.records.RecordClassDesugaringPostProcessor;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.timing.Timing;
@@ -85,50 +85,34 @@ public abstract class CfPostProcessingDesugaringCollection {
         InterfaceMethodProcessorFacade interfaceMethodProcessorFacade,
         Enqueuer enqueuer) {
       ArrayList<CfPostProcessingDesugaring> desugarings = new ArrayList<>();
-      if (isLibraryDesugaringEnabled(appView, enqueuer)
-          && appView
-              .options()
-              .getLibraryDesugaringOptions()
-              .getMachineDesugaredLibrarySpecification()
-              .hasRetargeting()
-          && !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
-        desugarings.add(new DesugaredLibraryRetargeterPostProcessor(appView));
+      if (isLibraryDesugaringEnabled(appView, enqueuer)) {
+        addIfNotNull(desugarings, DesugaredLibraryRetargeterPostProcessor.create(appView));
       }
-      if (isNormalDesugaringEnabled(appView, enqueuer)
-          && appView.options().shouldDesugarAutoCloseable()) {
-        desugarings.add(new AutoCloseableRetargeterPostProcessor(appView));
+      if (isNormalDesugaringEnabled(appView, enqueuer)) {
+        addIfNotNull(desugarings, AutoCloseableRetargeterPostProcessor.create(appView));
       }
-      if (interfaceMethodProcessorFacade != null) {
-        desugarings.add(interfaceMethodProcessorFacade);
+      addIfNotNull(desugarings, interfaceMethodProcessorFacade);
+      if (isLibraryDesugaringEnabled(appView, enqueuer)) {
+        addIfNotNull(
+            desugarings,
+            DesugaredLibraryApiCallbackSynthesizerPostProcessor.create(appView, enqueuer));
       }
-      DesugaredLibraryAPICallbackSynthesizer apiCallbackSynthesizor =
-          isLibraryDesugaringEnabled(appView, enqueuer)
-                  && appView.options().getLibraryDesugaringOptions().hasTypeRewriter()
-              ? new DesugaredLibraryAPICallbackSynthesizer(appView, enqueuer)
-              : null;
-      // At this point the desugaredLibraryAPIConverter is required to be last to generate
-      // call-backs on the forwarding methods.
-      if (apiCallbackSynthesizor != null) {
-        desugarings.add(apiCallbackSynthesizor);
+      if (isNormalDesugaringEnabled(appView, enqueuer)) {
+        addIfNotNull(desugarings, RecordClassDesugaringPostProcessor.create(appView));
       }
-      RecordClassDesugaring recordRewriter =
-          isNormalDesugaringEnabled(appView, enqueuer)
-              ? RecordClassDesugaring.create(appView)
-              : null;
-      if (recordRewriter != null) {
-        desugarings.add(recordRewriter);
+      if (isLibraryDesugaringEnabled(appView, enqueuer)) {
+        addIfNotNull(desugarings, DesugaredLibraryDisableDesugarerPostProcessor.create(appView));
       }
-      DesugaredLibraryDisableDesugarerPostProcessor disableDesugarer =
-          isLibraryDesugaringEnabled(appView, enqueuer)
-              ? DesugaredLibraryDisableDesugarerPostProcessor.create(appView)
-              : null;
-      if (disableDesugarer != null) {
-        desugarings.add(disableDesugarer);
+      return desugarings.isEmpty()
+          ? empty()
+          : new NonEmptyCfPostProcessingDesugaringCollection(desugarings);
+    }
+
+    private static void addIfNotNull(
+        Collection<CfPostProcessingDesugaring> collection, CfPostProcessingDesugaring desugaring) {
+      if (desugaring != null) {
+        collection.add(desugaring);
       }
-      if (desugarings.isEmpty()) {
-        return empty();
-      }
-      return new NonEmptyCfPostProcessingDesugaringCollection(desugarings);
     }
 
     private static boolean isLibraryDesugaringEnabled(AppView<?> appView, Enqueuer enqueuer) {

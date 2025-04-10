@@ -38,11 +38,17 @@ public class AutoCloseableRetargeterPostProcessor implements CfPostProcessingDes
   private final AppView<?> appView;
   private final AutoCloseableRetargeterHelper data;
 
-  public AutoCloseableRetargeterPostProcessor(AppView<?> appView) {
+  private AutoCloseableRetargeterPostProcessor(AppView<?> appView) {
     this.appView = appView;
     this.data =
         new AutoCloseableRetargeterHelper(
             appView.options().getMinApiLevel(), appView.dexItemFactory());
+  }
+
+  public static AutoCloseableRetargeterPostProcessor create(AppView<?> appView) {
+    return appView.options().shouldDesugarAutoCloseable()
+        ? new AutoCloseableRetargeterPostProcessor(appView)
+        : null;
   }
 
   @Override

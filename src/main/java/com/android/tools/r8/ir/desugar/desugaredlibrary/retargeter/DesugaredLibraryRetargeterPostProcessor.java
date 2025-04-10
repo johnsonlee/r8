@@ -37,7 +37,7 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
   private final DesugaredLibraryRetargeterSyntheticHelper syntheticHelper;
   private final Map<DexMethod, EmulatedDispatchMethodDescriptor> emulatedDispatchMethods;
 
-  public DesugaredLibraryRetargeterPostProcessor(AppView<?> appView) {
+  private DesugaredLibraryRetargeterPostProcessor(AppView<?> appView) {
     this.appView = appView;
     this.syntheticHelper = new DesugaredLibraryRetargeterSyntheticHelper(appView);
     emulatedDispatchMethods =
@@ -46,6 +46,18 @@ public class DesugaredLibraryRetargeterPostProcessor implements CfPostProcessing
             .getLibraryDesugaringOptions()
             .getMachineDesugaredLibrarySpecification()
             .getEmulatedVirtualRetarget();
+  }
+
+  public static DesugaredLibraryRetargeterPostProcessor create(AppView<?> appView) {
+    if (appView
+            .options()
+            .getLibraryDesugaringOptions()
+            .getMachineDesugaredLibrarySpecification()
+            .hasRetargeting()
+        && !appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
+      return new DesugaredLibraryRetargeterPostProcessor(appView);
+    }
+    return null;
   }
 
   @Override
