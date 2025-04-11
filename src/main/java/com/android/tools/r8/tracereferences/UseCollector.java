@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.tracereferences;
 
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
+
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.diagnostic.DefinitionContext;
 import com.android.tools.r8.diagnostic.internal.DefinitionContextUtils;
@@ -38,6 +40,9 @@ import com.android.tools.r8.graph.lens.FieldLookupResult;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
 import com.android.tools.r8.ir.desugar.LambdaDescriptor;
+import com.android.tools.r8.kotlin.KotlinClassLevelInfo;
+import com.android.tools.r8.kotlin.KotlinClassMetadataReader;
+import com.android.tools.r8.kotlin.KotlinMetadataUseRegistry;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.references.FieldReference;
 import com.android.tools.r8.references.MethodReference;
@@ -53,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -106,6 +112,28 @@ public class UseCollector {
     for (DexAnnotation annotation : clazz.annotations().getAnnotations()) {
       registerAnnotation(annotation, clazz, classContext);
     }
+    traceKotlinMetadata(clazz, classContext);
+  }
+
+  private void traceKotlinMetadata(DexProgramClass clazz, DefinitionContext classContext) {
+    if (parseKotlinMetadata(clazz)) {
+      KotlinMetadataUseRegistry registry = type -> addType(type, classContext);
+      clazz.getKotlinInfo().trace(registry);
+      clazz.forEachProgramMember(member -> member.getDefinition().getKotlinInfo().trace(registry));
+    }
+  }
+
+  private boolean parseKotlinMetadata(DexProgramClass clazz) {
+    DexAnnotation metadata = clazz.annotations().getFirstMatching(factory.kotlinMetadataType);
+    if (metadata == null) {
+      return false;
+    }
+    BooleanSupplier reportUnknownMetadata = () -> false;
+    KotlinClassLevelInfo kotlinInfo =
+        KotlinClassMetadataReader.getKotlinInfoFromAnnotation(
+            appView, clazz, metadata, emptyConsumer(), reportUnknownMetadata);
+    clazz.setKotlinInfo(kotlinInfo);
+    return true;
   }
 
   protected void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {

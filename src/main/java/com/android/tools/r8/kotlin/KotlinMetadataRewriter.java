@@ -176,13 +176,17 @@ public class KotlinMetadataRewriter {
     if (metadata == null) {
       return;
     }
+    // In D8 of R8 partial the kotlin.Metadata annotations have already been read during trace
+    // references.
     KotlinClassLevelInfo kotlinInfo =
-        KotlinClassMetadataReader.getKotlinInfoFromAnnotation(
-            appView,
-            clazz,
-            metadata,
-            ConsumerUtils.emptyConsumer(),
-            reportedUnknownMetadataVersion::getAndSet);
+        appView.options().partialSubCompilationConfiguration != null
+            ? clazz.getKotlinInfo()
+            : KotlinClassMetadataReader.getKotlinInfoFromAnnotation(
+                appView,
+                clazz,
+                metadata,
+                ConsumerUtils.emptyConsumer(),
+                reportedUnknownMetadataVersion::getAndSet);
     if (kotlinInfo == getNoKotlinInfo()) {
       return;
     }

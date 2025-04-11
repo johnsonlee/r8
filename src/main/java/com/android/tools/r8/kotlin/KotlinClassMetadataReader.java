@@ -21,6 +21,7 @@ import com.android.tools.r8.kotlin.KotlinSyntheticClassInfo.Flavour;
 import com.android.tools.r8.utils.StringDiagnostic;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import kotlin.Metadata;
@@ -39,7 +40,7 @@ public final class KotlinClassMetadataReader {
       AppView<?> appView,
       DexClass clazz,
       Consumer<DexEncodedMethod> keepByteCode,
-      Supplier<Boolean> reportUnknownMetadata) {
+      BooleanSupplier reportUnknownMetadata) {
     DexAnnotation meta =
         clazz.annotations().getFirstMatching(appView.dexItemFactory().kotlinMetadataType);
     if (meta == null) {
@@ -53,11 +54,11 @@ public final class KotlinClassMetadataReader {
       DexClass clazz,
       DexAnnotation meta,
       Consumer<DexEncodedMethod> keepByteCode,
-      Supplier<Boolean> reportUnknownMetadata) {
+      BooleanSupplier reportUnknownMetadata) {
     try {
       return getKotlinInfo(appView, clazz, keepByteCode, meta);
     } catch (KotlinMetadataException e) {
-      if (reportUnknownMetadata.get()) {
+      if (reportUnknownMetadata.getAsBoolean()) {
         appView.reporter().warning(KotlinMetadataDiagnostic.unknownMetadataVersion());
       }
       appView
@@ -70,7 +71,7 @@ public final class KotlinClassMetadataReader {
                       + e.getMessage()));
       return getInvalidKotlinInfo();
     } catch (Throwable e) {
-      if (reportUnknownMetadata.get()) {
+      if (reportUnknownMetadata.getAsBoolean()) {
         appView.reporter().warning(KotlinMetadataDiagnostic.unknownMetadataVersion());
       }
       appView

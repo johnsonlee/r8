@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial.kotlin;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -88,7 +87,7 @@ public class PartialCompilationKotlinMetadataTest extends KotlinMetadataTestBase
     assertThat(message1Class, isPresent());
 
     ClassSubject message2Class = inspector.clazz(MESSAGE2_NAME);
-    assertThat(message2Class, isAbsent());
+    assertThat(message2Class, isPresent());
 
     ClassSubject greetingClass = inspector.clazz(GREETING_NAME);
     assertThat(greetingClass, isPresent());
@@ -96,11 +95,11 @@ public class PartialCompilationKotlinMetadataTest extends KotlinMetadataTestBase
     assertNotNull(kotlinClassMetadata);
     String metadata = KotlinMetadataWriter.kotlinMetadataToString("", kotlinClassMetadata);
     assertThat(metadata, containsString(greetingClass.getFinalBinaryName()));
-    // TODO(b/409260720): Message2 should be referenced.
     assertThat(metadata, containsString(message1Class.getFinalBinaryName()));
+    assertThat(metadata, containsString(message2Class.getFinalBinaryName()));
   }
 
-  private static KotlinCompileMemoizer compiledJars =
+  private static final KotlinCompileMemoizer compiledJars =
       getCompileMemoizer(
           Paths.get(
               ToolHelper.TESTS_DIR,
