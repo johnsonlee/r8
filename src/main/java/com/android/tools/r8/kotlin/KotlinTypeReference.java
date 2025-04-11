@@ -164,8 +164,8 @@ class KotlinTypeReference implements EnqueuerMetadataTraceable {
     }
     DexType rewrittenType =
         appView.graphLens().lookupClassType(type, appView.getKotlinMetadataLens());
-    if (appView.appInfo().hasLiveness()
-        && !appView.withLiveness().appInfo().isNonProgramTypeOrLiveProgramType(rewrittenType)) {
+    if (appView.hasLiveness()
+        && !appView.appInfoWithLiveness().isNonProgramTypeOrLiveProgramType(rewrittenType)) {
       return null;
     }
     return rewrittenType;

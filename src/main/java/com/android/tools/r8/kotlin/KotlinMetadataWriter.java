@@ -298,7 +298,7 @@ public class KotlinMetadataWriter {
                 .append(value)
                 .append(",")
                 .append(LINE_SEPARATOR));
-    sb.append(indent).append("]");
+    sb.append(indent).append("]").append(LINE_SEPARATOR);
   }
 
   public static void appendKmClass(String indent, StringBuilder sb, KmClass kmClass) {
@@ -611,7 +611,7 @@ public class KotlinMetadataWriter {
               nextIndent ->
                   appendKmList(
                       nextIndent,
-                      "KmAnnotion",
+                      "KmAnnotation",
                       sb,
                       JvmExtensionsKt.getAnnotations(kmType),
                       (nextNextIndent, kmAnnotation) ->

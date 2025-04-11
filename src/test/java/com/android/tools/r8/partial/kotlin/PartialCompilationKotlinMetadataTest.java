@@ -6,7 +6,6 @@ package com.android.tools.r8.partial.kotlin;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 
@@ -97,8 +96,8 @@ public class PartialCompilationKotlinMetadataTest extends KotlinMetadataTestBase
     assertNotNull(kotlinClassMetadata);
     String metadata = KotlinMetadataWriter.kotlinMetadataToString("", kotlinClassMetadata);
     assertThat(metadata, containsString(greetingClass.getFinalBinaryName()));
-    // TODO(b/409260720): Both Message1 and Message2 should be referenced.
-    assertThat(metadata, not(containsString(message1Class.getFinalBinaryName())));
+    // TODO(b/409260720): Message2 should be referenced.
+    assertThat(metadata, containsString(message1Class.getFinalBinaryName()));
   }
 
   private static KotlinCompileMemoizer compiledJars =

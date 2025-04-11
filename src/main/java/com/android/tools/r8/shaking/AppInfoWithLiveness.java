@@ -585,6 +585,12 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     if (prunedTypes.contains(type)) {
       return false;
     }
+    R8PartialSubCompilationConfiguration partialCompilationConfiguration =
+        options().partialSubCompilationConfiguration;
+    if (partialCompilationConfiguration != null
+        && partialCompilationConfiguration.asR8().hasD8DefinitionFor(type)) {
+      return true;
+    }
     DexClass clazz = definitionFor(type);
     return clazz == null || !clazz.isProgramClass();
   }
