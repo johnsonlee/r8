@@ -8,7 +8,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
@@ -45,8 +44,8 @@ public class KotlinContractInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    forEachApply(effects, effect -> effect::trace, definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    forEachApply(effects, effect -> effect::trace, registry);
   }
 
   boolean rewrite(Consumer<KmContract> consumer, AppView<?> appView) {

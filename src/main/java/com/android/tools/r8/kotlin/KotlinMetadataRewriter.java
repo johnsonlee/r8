@@ -9,14 +9,11 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getInvalidKotlinIn
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 import static com.android.tools.r8.kotlin.KotlinMetadataWriter.kotlinMetadataToString;
 
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -197,36 +194,20 @@ public class KotlinMetadataRewriter {
       DexProgramClass clazz, KotlinClassLevelInfo kotlinInfo) {
     if (appView.options().partialSubCompilationConfiguration != null) {
       assert appView.options().partialSubCompilationConfiguration.isR8();
-      DexDefinitionSupplier definitionSupplier =
-          new DexDefinitionSupplier() {
-            @Override
-            public ClassResolutionResult contextIndependentDefinitionForWithResolutionResult(
-                DexType type) {
-              throw new Unreachable();
-            }
-
-            @Override
-            public DexClass definitionFor(DexType type) {
-              DexClass result = appView.appInfo().definitionForWithoutExistenceAssert(type);
-              if (result == null) {
-                appView
-                    .options()
-                    .partialSubCompilationConfiguration
-                    .asR8()
-                    .d8MissingClasses
-                    .add(type);
-              }
-              return result;
-            }
-
-            @Override
-            public DexItemFactory dexItemFactory() {
-              throw new Unreachable();
+      KotlinMetadataUseRegistry registry =
+          type -> {
+            DexClass result = appView.appInfo().definitionForWithoutExistenceAssert(type);
+            if (result == null) {
+              appView
+                  .options()
+                  .partialSubCompilationConfiguration
+                  .asR8()
+                  .d8MissingClasses
+                  .add(type);
             }
           };
-      kotlinInfo.trace(definitionSupplier);
-      clazz.forEachProgramMember(
-          member -> member.getDefinition().getKotlinInfo().trace(definitionSupplier));
+      kotlinInfo.trace(registry);
+      clazz.forEachProgramMember(member -> member.getDefinition().getKotlinInfo().trace(registry));
     }
     return true;
   }

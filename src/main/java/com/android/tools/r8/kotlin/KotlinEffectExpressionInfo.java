@@ -9,7 +9,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
@@ -67,15 +66,15 @@ public class KotlinEffectExpressionInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
+  public void trace(KotlinMetadataUseRegistry registry) {
     if (this == NO_EXPRESSION) {
       return;
     }
     if (isInstanceType != null) {
-      isInstanceType.trace(definitionSupplier);
+      isInstanceType.trace(registry);
     }
-    forEachApply(andArguments, arg -> arg::trace, definitionSupplier);
-    forEachApply(orArguments, arg -> arg::trace, definitionSupplier);
+    forEachApply(andArguments, arg -> arg::trace, registry);
+    forEachApply(orArguments, arg -> arg::trace, registry);
   }
 
   boolean rewrite(Consumer<KmEffectExpression> consumer, AppView<?> appView) {

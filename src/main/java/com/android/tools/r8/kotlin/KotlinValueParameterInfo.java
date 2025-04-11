@@ -7,7 +7,6 @@ package com.android.tools.r8.kotlin;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteIfNotNull;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
@@ -78,10 +77,10 @@ class KotlinValueParameterInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    type.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    type.trace(registry);
     if (varargElementType != null) {
-      varargElementType.trace(definitionSupplier);
+      varargElementType.trace(registry);
     }
   }
 }

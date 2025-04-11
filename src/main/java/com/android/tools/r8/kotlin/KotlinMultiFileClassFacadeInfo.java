@@ -9,7 +9,6 @@ import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.ImmutableList;
@@ -89,7 +88,7 @@ public class KotlinMultiFileClassFacadeInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    forEachApply(partClassNames, type -> type::trace, definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    forEachApply(partClassNames, type -> type::trace, registry);
   }
 }

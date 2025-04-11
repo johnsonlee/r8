@@ -12,7 +12,6 @@ import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -458,18 +457,18 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    forEachApply(constructorsWithNoBacking, constructor -> constructor::trace, definitionSupplier);
-    declarationContainerInfo.trace(definitionSupplier);
-    forEachApply(typeParameters, param -> param::trace, definitionSupplier);
-    forEachApply(superTypes, type -> type::trace, definitionSupplier);
-    forEachApply(sealedSubClasses, sealedClass -> sealedClass::trace, definitionSupplier);
-    forEachApply(nestedClasses, nested -> nested::trace, definitionSupplier);
-    forEachApply(contextReceiverTypes, nested -> nested::trace, definitionSupplier);
-    localDelegatedProperties.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    forEachApply(constructorsWithNoBacking, constructor -> constructor::trace, registry);
+    declarationContainerInfo.trace(registry);
+    forEachApply(typeParameters, param -> param::trace, registry);
+    forEachApply(superTypes, type -> type::trace, registry);
+    forEachApply(sealedSubClasses, sealedClass -> sealedClass::trace, registry);
+    forEachApply(nestedClasses, nested -> nested::trace, registry);
+    forEachApply(contextReceiverTypes, nested -> nested::trace, registry);
+    localDelegatedProperties.trace(registry);
     // TODO(b/154347404): trace enum entries.
     if (anonymousObjectOrigin != null) {
-      anonymousObjectOrigin.trace(definitionSupplier);
+      anonymousObjectOrigin.trace(registry);
     }
   }
 }

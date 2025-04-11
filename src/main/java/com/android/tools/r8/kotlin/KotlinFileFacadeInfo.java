@@ -8,7 +8,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.updateJvmMetadataV
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.utils.Pair;
 import java.util.function.Consumer;
@@ -78,7 +77,7 @@ public class KotlinFileFacadeInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    packageInfo.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    packageInfo.trace(registry);
   }
 }

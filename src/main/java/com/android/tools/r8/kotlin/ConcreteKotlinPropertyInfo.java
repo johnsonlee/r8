@@ -9,7 +9,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -201,30 +200,30 @@ public class ConcreteKotlinPropertyInfo implements KotlinPropertyInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    returnType.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    returnType.trace(registry);
     if (receiverParameterType != null) {
-      receiverParameterType.trace(definitionSupplier);
+      receiverParameterType.trace(registry);
     }
     if (setterParameter != null) {
-      setterParameter.trace(definitionSupplier);
+      setterParameter.trace(registry);
     }
-    forEachApply(typeParameters, param -> param::trace, definitionSupplier);
-    forEachApply(contextReceiverTypes, type -> type::trace, definitionSupplier);
+    forEachApply(typeParameters, param -> param::trace, registry);
+    forEachApply(contextReceiverTypes, type -> type::trace, registry);
     if (fieldSignature != null) {
-      fieldSignature.trace(definitionSupplier);
+      fieldSignature.trace(registry);
     }
     if (getterSignature != null) {
-      getterSignature.trace(definitionSupplier);
+      getterSignature.trace(registry);
     }
     if (setterSignature != null) {
-      setterSignature.trace(definitionSupplier);
+      setterSignature.trace(registry);
     }
     if (syntheticMethodForAnnotations != null) {
-      syntheticMethodForAnnotations.trace(definitionSupplier);
+      syntheticMethodForAnnotations.trace(registry);
     }
     if (syntheticMethodForDelegate != null) {
-      syntheticMethodForDelegate.trace(definitionSupplier);
+      syntheticMethodForDelegate.trace(registry);
     }
   }
 

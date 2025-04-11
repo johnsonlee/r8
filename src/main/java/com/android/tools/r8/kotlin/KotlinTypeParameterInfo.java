@@ -8,7 +8,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
@@ -92,8 +91,8 @@ public class KotlinTypeParameterInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    forEachApply(originalUpperBounds, upperBound -> upperBound::trace, definitionSupplier);
-    forEachApply(annotations, annotation -> annotation::trace, definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    forEachApply(originalUpperBounds, upperBound -> upperBound::trace, registry);
+    forEachApply(annotations, annotation -> annotation::trace, registry);
   }
 }

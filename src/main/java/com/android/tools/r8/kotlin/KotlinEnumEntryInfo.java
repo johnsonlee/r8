@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.kotlin;
 
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.naming.NamingLens;
@@ -37,7 +36,7 @@ public class KotlinEnumEntryInfo implements KotlinFieldLevelInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
+  public void trace(KotlinMetadataUseRegistry registry) {
     // Do nothing.
   }
 

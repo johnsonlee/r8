@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.kotlin.Kotlin.ClassClassifiers;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
@@ -71,8 +70,8 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
-      value.trace(definitionSupplier);
+    public void trace(KotlinMetadataUseRegistry registry) {
+      value.trace(registry);
     }
 
     @Override
@@ -102,8 +101,8 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
-      enumClassName.trace(definitionSupplier);
+    public void trace(KotlinMetadataUseRegistry registry) {
+      enumClassName.trace(registry);
     }
 
     @Override
@@ -131,8 +130,8 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
-      value.trace(definitionSupplier);
+    public void trace(KotlinMetadataUseRegistry registry) {
+      value.trace(registry);
     }
 
     @Override
@@ -170,9 +169,9 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       for (KotlinAnnotationArgumentInfo kotlinAnnotationArgumentInfo : value) {
-        kotlinAnnotationArgumentInfo.trace(definitionSupplier);
+        kotlinAnnotationArgumentInfo.trace(registry);
       }
     }
 
@@ -208,7 +207,7 @@ abstract class KotlinAnnotationArgumentInfo implements EnqueuerMetadataTraceable
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       // Nothing to trace
     }
 

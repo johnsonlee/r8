@@ -9,7 +9,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.ListUtils;
@@ -195,20 +194,20 @@ public final class KotlinFunctionInfo implements KotlinMethodLevelInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    forEachApply(valueParameters, param -> param::trace, definitionSupplier);
-    returnType.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    forEachApply(valueParameters, param -> param::trace, registry);
+    returnType.trace(registry);
     if (receiverParameterType != null) {
-      receiverParameterType.trace(definitionSupplier);
+      receiverParameterType.trace(registry);
     }
-    forEachApply(typeParameters, param -> param::trace, definitionSupplier);
-    forEachApply(contextReceiverTypes, type -> type::trace, definitionSupplier);
+    forEachApply(typeParameters, param -> param::trace, registry);
+    forEachApply(contextReceiverTypes, type -> type::trace, registry);
     if (signature != null) {
-      signature.trace(definitionSupplier);
+      signature.trace(registry);
     }
     if (lambdaClassOrigin != null) {
-      lambdaClassOrigin.trace(definitionSupplier);
+      lambdaClassOrigin.trace(registry);
     }
-    contract.trace(definitionSupplier);
+    contract.trace(registry);
   }
 }

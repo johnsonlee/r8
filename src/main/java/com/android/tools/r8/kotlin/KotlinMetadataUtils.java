@@ -8,7 +8,6 @@ import com.android.tools.r8.errors.InvalidDescriptorException;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
@@ -72,7 +71,7 @@ public class KotlinMetadataUtils {
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       // No information needed to trace.
     }
   }

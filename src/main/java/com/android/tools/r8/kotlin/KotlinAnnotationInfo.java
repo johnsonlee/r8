@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.BooleanBox;
@@ -80,8 +79,8 @@ public class KotlinAnnotationInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    annotationType.trace(definitionSupplier);
-    arguments.forEach((ignored, arg) -> arg.trace(definitionSupplier));
+  public void trace(KotlinMetadataUseRegistry registry) {
+    annotationType.trace(registry);
+    arguments.forEach((ignored, arg) -> arg.trace(registry));
   }
 }

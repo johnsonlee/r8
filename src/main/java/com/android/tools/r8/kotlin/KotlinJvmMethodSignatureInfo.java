@@ -7,7 +7,6 @@ package com.android.tools.r8.kotlin;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
@@ -121,12 +120,12 @@ public class KotlinJvmMethodSignatureInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
+  public void trace(KotlinMetadataUseRegistry registry) {
     if (invalidDescriptor != null) {
       return;
     }
     assert returnType != null;
-    returnType.trace(definitionSupplier);
-    forEachApply(parameters, param -> param::trace, definitionSupplier);
+    returnType.trace(registry);
+    forEachApply(parameters, param -> param::trace, registry);
   }
 }

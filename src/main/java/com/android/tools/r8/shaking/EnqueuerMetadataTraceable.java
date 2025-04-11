@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.shaking;
 
-import com.android.tools.r8.graph.DexDefinitionSupplier;
+import com.android.tools.r8.kotlin.KotlinMetadataUseRegistry;
 
 public interface EnqueuerMetadataTraceable {
 
-  void trace(DexDefinitionSupplier definitionSupplier);
+  void trace(KotlinMetadataUseRegistry registry);
 }

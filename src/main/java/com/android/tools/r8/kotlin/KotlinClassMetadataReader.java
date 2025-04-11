@@ -11,7 +11,6 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -142,11 +141,8 @@ public final class KotlinClassMetadataReader {
     }
   }
 
-  public static boolean hasKotlinClassMetadataAnnotation(
-      DexClass clazz, DexDefinitionSupplier definitionSupplier) {
-    return clazz
-        .annotations()
-        .hasAnnotation(definitionSupplier.dexItemFactory().kotlinMetadataType);
+  public static boolean hasKotlinClassMetadataAnnotation(DexClass clazz, DexItemFactory factory) {
+    return clazz.annotations().hasAnnotation(factory.kotlinMetadataType);
   }
 
   public static KotlinClassMetadata toKotlinClassMetadata(

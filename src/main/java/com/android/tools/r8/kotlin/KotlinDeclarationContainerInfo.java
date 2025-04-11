@@ -11,7 +11,6 @@ import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -269,10 +268,10 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    forEachApply(typeAliases, alias -> alias::trace, definitionSupplier);
-    forEachApply(functionsWithNoBacking, function -> function::trace, definitionSupplier);
-    forEachApply(propertiesWithNoBacking, property -> property::trace, definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    forEachApply(typeAliases, alias -> alias::trace, registry);
+    forEachApply(functionsWithNoBacking, function -> function::trace, registry);
+    forEachApply(propertiesWithNoBacking, property -> property::trace, registry);
   }
 
   public static class KotlinPropertyGroup {

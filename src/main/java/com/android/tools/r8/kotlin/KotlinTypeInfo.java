@@ -9,7 +9,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.rewriteList;
 import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -113,17 +112,17 @@ public class KotlinTypeInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    classifier.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    classifier.trace(registry);
     if (abbreviatedType != null) {
-      abbreviatedType.trace(definitionSupplier);
+      abbreviatedType.trace(registry);
     }
     if (outerType != null) {
-      outerType.trace(definitionSupplier);
+      outerType.trace(registry);
     }
-    forEachApply(arguments, argument -> argument::trace, definitionSupplier);
-    flexibleTypeUpperBound.trace(definitionSupplier);
-    forEachApply(annotations, annotation -> annotation::trace, definitionSupplier);
+    forEachApply(arguments, argument -> argument::trace, registry);
+    flexibleTypeUpperBound.trace(registry);
+    forEachApply(annotations, annotation -> annotation::trace, registry);
   }
 
   public DexType rewriteType(GraphLens graphLens, GraphLens codeLens) {

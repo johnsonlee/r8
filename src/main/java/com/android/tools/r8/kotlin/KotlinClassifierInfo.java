@@ -7,7 +7,6 @@ package com.android.tools.r8.kotlin;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getKotlinLocalOrAnonymousNameFromDescriptor;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.lens.GraphLens;
@@ -77,8 +76,8 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
-      type.trace(definitionSupplier);
+    public void trace(KotlinMetadataUseRegistry registry) {
+      type.trace(registry);
     }
 
     @Override
@@ -102,7 +101,7 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       // Intentionally empty.
     }
   }
@@ -122,7 +121,7 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       // Intentionally empty.
     }
   }
@@ -141,7 +140,7 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       // Intentionally empty.
     }
   }
@@ -160,7 +159,7 @@ public abstract class KotlinClassifierInfo implements EnqueuerMetadataTraceable 
     }
 
     @Override
-    public void trace(DexDefinitionSupplier definitionSupplier) {
+    public void trace(KotlinMetadataUseRegistry registry) {
       // Intentionally empty.
     }
   }

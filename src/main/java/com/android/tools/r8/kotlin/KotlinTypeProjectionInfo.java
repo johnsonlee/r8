@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
@@ -46,9 +45,9 @@ public class KotlinTypeProjectionInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
+  public void trace(KotlinMetadataUseRegistry registry) {
     if (typeInfo != null) {
-      typeInfo.trace(definitionSupplier);
+      typeInfo.trace(registry);
     }
   }
 }

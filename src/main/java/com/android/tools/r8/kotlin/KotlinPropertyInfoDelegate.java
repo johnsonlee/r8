@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import java.util.function.Consumer;
@@ -71,8 +70,8 @@ public class KotlinPropertyInfoDelegate implements KotlinPropertyInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    delegate.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    delegate.trace(registry);
   }
 
   @Override

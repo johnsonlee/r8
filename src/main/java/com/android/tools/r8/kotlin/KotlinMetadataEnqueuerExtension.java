@@ -7,12 +7,9 @@ package com.android.tools.r8.kotlin;
 import static com.android.tools.r8.kotlin.KotlinClassMetadataReader.hasKotlinClassMetadataAnnotation;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 
-import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.ClassResolutionResult;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -39,6 +36,7 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
 
   private final AppView<?> appView;
   private final EnqueuerDefinitionSupplier enqueuerDefinitionSupplier;
+  private final DexItemFactory factory;
   private final Set<DexType> prunedTypes;
   private final AtomicBoolean reportedUnknownMetadataVersion = new AtomicBoolean(false);
 
@@ -48,6 +46,7 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
       Set<DexType> prunedTypes) {
     this.appView = appView;
     this.enqueuerDefinitionSupplier = enqueuerDefinitionSupplier;
+    this.factory = appView.dexItemFactory();
     this.prunedTypes = prunedTypes;
   }
 
@@ -78,7 +77,7 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
     // In the first round of tree shaking build up all metadata such that it can be traced later.
     boolean keepKotlinMetadata =
         KeepClassInfo.isKotlinMetadataClassKept(
-            appView.dexItemFactory(),
+            factory,
             appView.options(),
             appView.appInfo()::definitionForWithoutExistenceAssert,
             enqueuer::getKeepInfo);
@@ -100,8 +99,7 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
               clazz.clearKotlinInfo();
               clazz.removeAnnotations(
                   annotation ->
-                      annotation.getAnnotationType()
-                          == appView.dexItemFactory().kotlinMetadataType);
+                      annotation.getAnnotationType().isIdenticalTo(factory.kotlinMetadataType));
             } else {
               clazz.setKotlinInfo(
                   KotlinClassMetadataReader.getKotlinInfo(
@@ -119,8 +117,8 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
         EnclosingMethodAttribute enclosingAttribute =
             localOrAnonymousClass.getEnclosingMethodAttribute();
         DexClass holder =
-            definitionsForContext(localOrAnonymousClass)
-                .definitionForHolder(enclosingAttribute.getEnclosingMethod());
+            enqueuerDefinitionSupplier.definitionFor(
+                enclosingAttribute.getEnclosingMethod().getHolderType(), localOrAnonymousClass);
         if (holder == null) {
           continue;
         }
@@ -147,12 +145,11 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
               clazz.members().forEach(DexEncodedMember::clearKotlinInfo);
               clazz.removeAnnotations(
                   annotation ->
-                      annotation.getAnnotationType()
-                          == appView.dexItemFactory().kotlinMetadataType);
+                      annotation.getAnnotationType().isIdenticalTo(factory.kotlinMetadataType));
             } else {
               // Use the concrete getNoKotlinInfo() instead of isNoKotlinInformation() to handle
               // invalid kotlin info as well.
-              assert hasKotlinClassMetadataAnnotation(clazz, definitionsForContext(clazz))
+              assert hasKotlinClassMetadataAnnotation(clazz, factory)
                       == (clazz.getKotlinInfo() != getNoKotlinInfo())
                   : clazz.toSourceString()
                       + " "
@@ -170,7 +167,7 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
         });
   }
 
-  public class KotlinMetadataDefinitionSupplier implements DexDefinitionSupplier {
+  private static class KotlinMetadataDefinitionSupplier implements KotlinMetadataUseRegistry {
 
     private final ProgramDefinition context;
     private final EnqueuerDefinitionSupplier enqueuerDefinitionSupplier;
@@ -186,24 +183,14 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
     }
 
     @Override
-    public ClassResolutionResult contextIndependentDefinitionForWithResolutionResult(DexType type) {
-      throw new Unreachable("Not yet used");
-    }
-
-    @Override
-    public DexClass definitionFor(DexType type) {
+    public void registerType(DexType type) {
       // TODO(b/157700128) Metadata cannot at this point keep anything alive. Therefore, if a type
       //  has been pruned it may still be referenced, so we do an early check here to ensure it will
       //  not end up as. Ideally, those types should be removed by a pass on the modeled data.
       if (prunedTypes != null && prunedTypes.contains(type)) {
-        return null;
+        return;
       }
-      return enqueuerDefinitionSupplier.definitionFor(type, context);
-    }
-
-    @Override
-    public DexItemFactory dexItemFactory() {
-      return appView.dexItemFactory();
+      enqueuerDefinitionSupplier.definitionFor(type, context);
     }
   }
 }

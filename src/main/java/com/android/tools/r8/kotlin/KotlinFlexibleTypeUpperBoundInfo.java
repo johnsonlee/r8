@@ -5,7 +5,6 @@
 package com.android.tools.r8.kotlin;
 
 import com.android.tools.r8.graph.AppView;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
@@ -53,7 +52,7 @@ public class KotlinFlexibleTypeUpperBoundInfo implements EnqueuerMetadataTraceab
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
+  public void trace(KotlinMetadataUseRegistry registry) {
     if (this == NO_FLEXIBLE_UPPER_BOUND) {
       return;
     }
@@ -61,6 +60,6 @@ public class KotlinFlexibleTypeUpperBoundInfo implements EnqueuerMetadataTraceab
       assert false;
       return;
     }
-    kotlinTypeInfo.trace(definitionSupplier);
+    kotlinTypeInfo.trace(registry);
   }
 }

@@ -9,7 +9,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmMethodSignatu
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
@@ -88,9 +87,9 @@ public class KotlinPackageInfo implements EnqueuerMetadataTraceable {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
-    containerInfo.trace(definitionSupplier);
-    localDelegatedProperties.trace(definitionSupplier);
+  public void trace(KotlinMetadataUseRegistry registry) {
+    containerInfo.trace(registry);
+    localDelegatedProperties.trace(registry);
   }
 
   public String getModuleName() {

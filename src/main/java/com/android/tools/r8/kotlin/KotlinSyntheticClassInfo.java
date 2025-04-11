@@ -8,7 +8,6 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.updateJvmMetadataV
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.Pair;
 import kotlin.Metadata;
@@ -85,9 +84,9 @@ public class KotlinSyntheticClassInfo implements KotlinClassLevelInfo {
   }
 
   @Override
-  public void trace(DexDefinitionSupplier definitionSupplier) {
+  public void trace(KotlinMetadataUseRegistry registry) {
     if (lambda != null) {
-      lambda.trace(definitionSupplier);
+      lambda.trace(registry);
     }
   }
 
