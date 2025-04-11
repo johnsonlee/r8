@@ -21,7 +21,7 @@ REPOSITORIES = [
 ]
 
 ANDRDID_SUPPORT_VERSION = '25.4.0'
-ASM_VERSION = '9.7.1' # When updating update tools/asmifier.py and Toolhelper as well.
+ASM_VERSION = '9.8' # When updating update tools/asmifier.py and Toolhelper as well.
 ESPRESSO_VERSION = '3.0.0'
 FASTUTIL_VERSION = '7.2.1'
 KOTLIN_METADATA_VERSION = '2.1.0'

@@ -52,9 +52,11 @@ public final class CfVersion implements StructuralItem<CfVersion> {
   public static final CfVersion V23_PREVIEW = new CfVersion(Opcodes.V23 | Opcodes.V_PREVIEW);
   public static final CfVersion V24 = new CfVersion(Opcodes.V24);
   public static final CfVersion V24_PREVIEW = new CfVersion(Opcodes.V24 | Opcodes.V_PREVIEW);
+  public static final CfVersion V25 = new CfVersion(Opcodes.V24);
+  public static final CfVersion V25_PREVIEW = new CfVersion(Opcodes.V25 | Opcodes.V_PREVIEW);
   // Tentatively support next class file version for testing with JDK and ASM head.
-  public static final CfVersion V25 = new CfVersion(69);
-  public static final CfVersion V25_PREVIEW = new CfVersion(69 | Opcodes.V_PREVIEW);
+  public static final CfVersion V26 = new CfVersion(70);
+  public static final CfVersion V26_PREVIEW = new CfVersion(70 | Opcodes.V_PREVIEW);
 
   private final int version;
 
@@ -82,7 +84,8 @@ public final class CfVersion implements StructuralItem<CfVersion> {
     CfVersion.V21,
     CfVersion.V22,
     CfVersion.V23,
-    CfVersion.V24
+    CfVersion.V24,
+    CfVersion.V25
   };
 
   // Private constructor in case we want to canonicalize versions.
