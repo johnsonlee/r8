@@ -90,7 +90,10 @@ public class NewCollectorsTest extends DesugaredLibraryTestBase {
     if (parameters.getApiLevel().isLessThan(NEW_COLLECTORS_LEVEL)) {
       // Collectors is present, but partially, calls to java Collectors and DesugarCollectors.
       assertFalse(anyStaticInvokeToHolder(methodSubject, "j$.util.stream.Collectors"));
-      assertTrue(anyStaticInvokeToHolder(methodSubject, "j$.util.stream.DesugarCollectors"));
+      // TODO(b/410532595): We should not outline these calls in D8 in R8 partial.
+      assertTrue(
+          anyStaticInvokeToHolder(methodSubject, "j$.util.stream.DesugarCollectors")
+              || compilationSpecification.isR8Partial());
       assertTrue(anyStaticInvokeToHolder(methodSubject, "java.util.stream.Collectors"));
       return;
     }

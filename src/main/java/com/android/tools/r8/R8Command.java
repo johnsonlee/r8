@@ -1452,11 +1452,7 @@ public final class R8Command extends BaseCompilerCommand {
     internal.outputInspections = InspectorImpl.wrapInspections(getOutputInspections());
 
     if (!enableMissingLibraryApiModeling) {
-      internal
-          .apiModelingOptions()
-          .disableApiCallerIdentification()
-          .disableOutlining()
-          .disableStubbingOfClasses();
+      internal.apiModelingOptions().disableApiModeling();
     }
 
     // Default is to remove all javac generated assertion code when generating DEX.

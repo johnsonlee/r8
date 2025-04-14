@@ -135,6 +135,9 @@ public abstract class R8PartialSubCompilationConfiguration {
       } else {
         SyntheticItems syntheticItems = appView.getSyntheticItems();
         assert syntheticItems.isSynthetic(definition.getContextClass());
+        if (syntheticItems.isGlobalSyntheticClass(type)) {
+          return Target.LIR;
+        }
         Collection<DexType> syntheticContexts =
             syntheticItems.getSynthesizingContextTypes(definition.getContextType());
         assert syntheticContexts.size() == 1;

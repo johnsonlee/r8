@@ -24,6 +24,7 @@ import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.CodeMatchers;
@@ -38,6 +39,7 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.hamcrest.Matcher;
@@ -104,13 +106,14 @@ public abstract class ApiModelingTestHelper {
   public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForClass(Class<?> clazz, AndroidApiLevel apiLevel) {
     return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(
-          options ->
-              options
-                  .apiModelingOptions()
-                  .classApiMapping
-                  .put(Reference.classFromClass(clazz), apiLevel));
+      compilerBuilder.addOptionsModification(getMockApiLevelForClassModification(clazz, apiLevel));
     };
+  }
+
+  public static Consumer<InternalOptions> getMockApiLevelForClassModification(
+      Class<?> clazz, AndroidApiLevel apiLevel) {
+    return options ->
+        options.apiModelingOptions().classApiMapping.put(Reference.classFromClass(clazz), apiLevel);
   }
 
   public static void enableApiCallerIdentification(

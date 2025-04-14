@@ -110,6 +110,8 @@ class R8Partial {
     //  As a simple example, it should be safe to postpone backporting to the R8 compilation.
     D8Command.Builder d8Builder =
         D8Command.builder(options.reporter)
+            .setEnableExperimentalMissingLibraryApiModeling(
+                options.apiModelingOptions().isApiModelingEnabled())
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
             .setProgramConsumer(DexIndexedConsumer.emptyConsumer());
@@ -167,6 +169,8 @@ class R8Partial {
             .addLibraryResourceProvider(
                 new InternalClasspathOrLibraryClassProvider<>(d8Result.getOutputLibraryClasses()))
             .enableLegacyFullModeForKeepRules(true)
+            .setEnableExperimentalMissingLibraryApiModeling(
+                options.apiModelingOptions().isApiModelingEnabled())
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
             .setProgramConsumer(options.programConsumer);

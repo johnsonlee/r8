@@ -845,11 +845,7 @@ public final class D8Command extends BaseCompilerCommand {
     if (internal.isGeneratingClassFiles()
         || (System.getProperty("com.android.tools.r8.enableApiOutliningAndStubbing") == null
             && !enableMissingLibraryApiModeling)) {
-      internal
-          .apiModelingOptions()
-          .disableApiCallerIdentification()
-          .disableOutlining()
-          .disableStubbingOfClasses();
+      internal.apiModelingOptions().disableApiModeling();
     }
 
     if (enableRewritingOfArtProfilesIsNopCheck) {

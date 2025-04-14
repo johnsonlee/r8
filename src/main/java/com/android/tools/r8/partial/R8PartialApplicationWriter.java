@@ -21,7 +21,10 @@ import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
+import com.android.tools.r8.graph.ThrowExceptionCode;
+import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.graph.lens.MethodLookupResult;
+import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.LirConverter;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
@@ -78,9 +81,13 @@ public class R8PartialApplicationWriter {
       rewriteCfCodeWithLens(code.asCfCode(), method);
     } else if (code.isDexCode()) {
       rewriteDexCodeWithLens(code.asDexCode(), method);
-    } else {
+    } else if (code.isLirCode()) {
       LirConverter.rewriteLirMethodWithLens(
           method, appView, appView.graphLens(), LensCodeRewriterUtils.empty());
+    } else if (code.isThrowExceptionCode()) {
+      assert verifyThrowExceptionCodeIsUpToDate(method, code.asThrowExceptionCode());
+    } else {
+      assert false;
     }
   }
 
@@ -165,5 +172,21 @@ public class R8PartialApplicationWriter {
       }
     }
     return instruction;
+  }
+
+  private boolean verifyThrowExceptionCodeIsUpToDate(
+      ProgramMethod method, ThrowExceptionCode code) {
+    GraphLens graphLens = appView.graphLens();
+    GraphLens codeLens = appView.codeLens();
+    DexType exceptionType = code.asThrowExceptionCode().getExceptionType();
+    DexMethod exceptionConstructor =
+        appView.dexItemFactory().createInstanceInitializer(exceptionType);
+    assert exceptionType.isIdenticalTo(graphLens.lookupType(exceptionType, codeLens));
+    assert exceptionConstructor.isIdenticalTo(
+        graphLens
+            .lookupMethod(
+                exceptionConstructor, method.getReference(), InvokeType.DIRECT, codeLens, false)
+            .getReference());
+    return true;
   }
 }

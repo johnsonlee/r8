@@ -129,6 +129,10 @@ public class ThrowExceptionCode extends Code implements DexWritableCode {
     return null;
   }
 
+  public DexType getExceptionType() {
+    return exceptionType;
+  }
+
   @Override
   public int getEstimatedSizeForInliningIfLessThanOrEquals(int threshold) {
     int estimatedSizeForInlining = estimatedDexCodeSizeUpperBoundInBytes();

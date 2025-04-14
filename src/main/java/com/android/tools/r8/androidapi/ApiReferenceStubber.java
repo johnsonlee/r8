@@ -9,6 +9,7 @@ import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.Code;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexCode;
 import com.android.tools.r8.graph.DexCode.TryHandler;
@@ -113,20 +114,21 @@ public class ApiReferenceStubber {
     clazz.forEachProgramMethodMatching(
         DexEncodedMethod::hasCode,
         method -> {
-          if (appView.enableWholeProgramOptimizations()) {
-            LirCode<Integer> code = method.getDefinition().getCode().asLirCode();
-            if (code != null && code.hasTryCatchTable()) {
-              TryCatchTable tryCatchTable = code.getTryCatchTable();
+          Code code = method.getDefinition().getCode();
+          if (code.isLirCode()) {
+            LirCode<Integer> lirCode = code.asLirCode();
+            if (lirCode.hasTryCatchTable()) {
+              TryCatchTable tryCatchTable = lirCode.getTryCatchTable();
               tryCatchTable.forEachHandler(
                   (blockIndex, handlers) ->
                       handlers
                           .getGuards()
                           .forEach(guard -> findReferencedLibraryClasses(guard, clazz)));
             }
-          } else {
-            DexCode code = method.getDefinition().getCode().asDexCode();
-            if (code != null) {
-              for (TryHandler handler : code.getHandlers()) {
+          } else if (code.isDexCode()) {
+            DexCode dexCode = code.asDexCode();
+            if (dexCode != null) {
+              for (TryHandler handler : dexCode.getHandlers()) {
                 for (TypeAddrPair pair : handler.pairs) {
                   findReferencedLibraryClasses(pair.getType(), clazz);
                 }

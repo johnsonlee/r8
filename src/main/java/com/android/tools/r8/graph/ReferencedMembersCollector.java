@@ -49,6 +49,8 @@ public class ReferencedMembersCollector {
       processDefaultInstanceInitializerCode(method);
     } else if (code.isLirCode()) {
       processLirCode(method, code.asLirCode());
+    } else if (code.isThrowExceptionCode()) {
+      processThrowExceptionCode(method, code.asThrowExceptionCode());
     } else if (code.isThrowNullCode()) {
       // Intentionally empty.
     } else {
@@ -86,6 +88,12 @@ public class ReferencedMembersCollector {
         processMethodHandle(method, (DexMethodHandle) constant);
       }
     }
+  }
+
+  private void processThrowExceptionCode(ProgramMethod method, ThrowExceptionCode code) {
+    DexMethod constructor =
+        appView.dexItemFactory().createInstanceInitializer(code.getExceptionType());
+    consumer.onMethodReference(constructor, method);
   }
 
   private void processCallSite(ProgramMethod method, DexCallSite callSite) {
