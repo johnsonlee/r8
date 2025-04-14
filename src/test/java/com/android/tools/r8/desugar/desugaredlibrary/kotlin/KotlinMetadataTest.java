@@ -119,14 +119,15 @@ public class KotlinMetadataTest extends DesugaredLibraryTestBase {
             "-keepclassmembers class " + PKG + ".Skynet { * specialDay; }")
         .addKeepAttributes(ProguardKeepAttributes.RUNTIME_VISIBLE_ANNOTATIONS)
         .allowDiagnosticMessages()
-        // TODO(b/391572031): Why is this needed? Don't we drop all keep rules with the
-        //  PARTIAL_EXCLUDE config?
+        // The Kotlin 1.3.72 reflect jar does not embed a keep rule for kotlin.Metadata.
         .applyIf(
-            compilationSpecification.isNotProgramShrinkWithPartial(),
-            DesugaredLibraryTestBuilder::allowUnusedProguardConfigurationRules)
-        .applyIf(
-            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
+            kotlinParameters.getCompiler().is(KOTLINC_1_3_72),
+            b -> b.addKeepRules("-keep class kotlin.Metadata { *; }"),
             DesugaredLibraryTestBuilder::allowUnusedDontWarnPatterns)
+        .applyIf(
+            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72)
+                && compilationSpecification.isNotProgramShrinkWithPartial(),
+            DesugaredLibraryTestBuilder::allowUnusedProguardConfigurationRules)
         .apply(configuration)
         .compile()
         .inspect(

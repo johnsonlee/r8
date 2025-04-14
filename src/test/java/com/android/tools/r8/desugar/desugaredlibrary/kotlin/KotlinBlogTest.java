@@ -98,10 +98,9 @@ public class KotlinBlogTest extends DesugaredLibraryTestBase {
         .applyIf(
             kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72),
             DesugaredLibraryTestBuilder::allowUnusedDontWarnPatterns)
-        // TODO(b/391572031): Why is this needed? Don't we drop all keep rules with the
-        //  PARTIAL_EXCLUDE config?
         .applyIf(
-            compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK,
+            kotlinParameters.getCompiler().isNot(KOTLINC_1_3_72)
+                && compilationSpecification == CompilationSpecification.R8_PARTIAL_EXCLUDE_L8SHRINK,
             DesugaredLibraryTestBuilder::allowUnusedProguardConfigurationRules)
         .compile()
         .withArt6Plus64BitsLib()
