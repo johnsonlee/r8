@@ -9,14 +9,13 @@ import com.android.tools.r8.shaking.ProguardClassType;
 import com.android.tools.r8.shaking.ProguardKeepRuleBase;
 import com.android.tools.r8.shaking.ProguardKeepRuleType;
 
-// TODO(b/323816623): Make an interface to use in the keep-reason tracking.
-public class ReferencedFromD8InR8PartialFakeProguardRule extends ProguardKeepRuleBase {
+public class ReferencedFromExcludedClassInR8PartialRule extends ProguardKeepRuleBase {
 
-  public ReferencedFromD8InR8PartialFakeProguardRule() {
+  public ReferencedFromExcludedClassInR8PartialRule(Origin origin, Position position) {
     super(
-        Origin.unknown(),
-        Position.UNKNOWN,
-        "r8-partial",
+        origin,
+        position,
+        null,
         null,
         null,
         null,

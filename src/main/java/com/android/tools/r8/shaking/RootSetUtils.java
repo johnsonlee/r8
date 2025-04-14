@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.utils.LensUtils.rewriteAndApplyIfNotPrimitiveType;
+import static com.android.tools.r8.utils.MapUtils.ignoreKey;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.util.Collections.emptyMap;
 
@@ -55,6 +56,10 @@ import com.android.tools.r8.ir.optimize.info.OptimizationFeedbackSimple;
 import com.android.tools.r8.ir.optimize.membervaluepropagation.assume.AssumeInfo;
 import com.android.tools.r8.partial.R8PartialResourceUseCollector;
 import com.android.tools.r8.partial.R8PartialUseCollector;
+import com.android.tools.r8.position.ClassPosition;
+import com.android.tools.r8.position.FieldPosition;
+import com.android.tools.r8.position.MethodPosition;
+import com.android.tools.r8.position.Position;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.repackaging.RepackagingUtils;
 import com.android.tools.r8.shaking.AnnotationMatchResult.AnnotationsIgnoredMatchResult;
@@ -66,7 +71,7 @@ import com.android.tools.r8.shaking.EnqueuerEvent.LiveClassEnqueuerEvent;
 import com.android.tools.r8.shaking.EnqueuerEvent.UnconditionalKeepInfoEvent;
 import com.android.tools.r8.shaking.KeepAnnotationCollectionInfo.RetentionInfo;
 import com.android.tools.r8.shaking.KeepInfo.Joiner;
-import com.android.tools.r8.shaking.rules.ReferencedFromD8InR8PartialFakeProguardRule;
+import com.android.tools.r8.shaking.rules.ReferencedFromExcludedClassInR8PartialRule;
 import com.android.tools.r8.threading.TaskCollection;
 import com.android.tools.r8.utils.Action;
 import com.android.tools.r8.utils.ArrayUtils;
@@ -237,6 +242,10 @@ public class RootSetUtils {
       R8PartialUseCollector useCollector =
           new R8PartialUseCollector(appView) {
 
+            // Map from Reference to canonical ReferencedFromExcludedClassInR8PartialRule.
+            private final Map<Object, ReferencedFromExcludedClassInR8PartialRule> canonicalRules =
+                new ConcurrentHashMap<>();
+
             // Allow D8/R8 boundary obfuscation. We disable repackaging of the R8 part since
             // repackaging uses a graph lens, which would need to be applied to the D8 part before
             // the application writer (though this is perfectly doable).
@@ -245,22 +254,45 @@ public class RootSetUtils {
                     .setAllowsObfuscation(true)
                     .setAllowsRepackaging(false)
                     .build();
-            // TODO(b/390576160): Add a test that this works when using -whyareyoukeeping.
-            private final ReferencedFromD8InR8PartialFakeProguardRule keepRule =
-                new ReferencedFromD8InR8PartialFakeProguardRule();
 
             @Override
-            protected synchronized void keep(Definition definition) {
+            protected synchronized void keep(
+                Definition definition, DefinitionContext referencedFrom) {
               if (definition.isProgramDefinition()) {
+                ReferencedFromExcludedClassInR8PartialRule rule =
+                    canonicalRules.computeIfAbsent(
+                        getReferenceFromDefinitionContext(referencedFrom),
+                        ignoreKey(
+                            () ->
+                                new ReferencedFromExcludedClassInR8PartialRule(
+                                    referencedFrom.getOrigin(),
+                                    getPositionFromDefinitionContext(referencedFrom))));
                 evaluateKeepRule(
-                    definition.asProgramDefinition(),
-                    null,
-                    null,
-                    modifiers,
-                    Action.empty(),
-                    keepRule);
+                    definition.asProgramDefinition(), null, null, modifiers, Action.empty(), rule);
               } else if (definition.getContextClass().isLibraryClass()) {
                 rootLibraryTypes.add(definition.getContextType());
+              }
+            }
+
+            private Object getReferenceFromDefinitionContext(DefinitionContext referencedFrom) {
+              if (referencedFrom.isClassContext()) {
+                return referencedFrom.asClassContext().getClassReference();
+              } else if (referencedFrom.isFieldContext()) {
+                return referencedFrom.asFieldContext().getFieldReference();
+              } else {
+                assert referencedFrom.isMethodContext();
+                return referencedFrom.asMethodContext().getMethodReference();
+              }
+            }
+
+            private Position getPositionFromDefinitionContext(DefinitionContext referencedFrom) {
+              if (referencedFrom.isClassContext()) {
+                return new ClassPosition(referencedFrom.asClassContext().getClassReference());
+              } else if (referencedFrom.isFieldContext()) {
+                return new FieldPosition(referencedFrom.asFieldContext().getFieldReference());
+              } else {
+                assert referencedFrom.isMethodContext();
+                return new MethodPosition(referencedFrom.asMethodContext().getMethodReference());
               }
             }
 

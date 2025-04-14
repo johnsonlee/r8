@@ -25,6 +25,7 @@ public class GraphEdgeInfo {
     InvokedFromLambdaCreatedIn,
     AnnotatedOn,
     ReferencedFrom,
+    ReferencedFromExcludedClass,
     ReflectiveUseFrom,
     ReachableFromLiveType,
     ReferencedInAnnotation,
@@ -69,6 +70,8 @@ public class GraphEdgeInfo {
         return "annotated on";
       case ReferencedFrom:
         return "referenced from";
+      case ReferencedFromExcludedClass:
+        return "referenced from excluded class in partial compilation";
       case ReflectiveUseFrom:
         return "reflected from";
       case ReachableFromLiveType:

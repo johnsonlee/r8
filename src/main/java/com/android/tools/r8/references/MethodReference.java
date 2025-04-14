@@ -4,6 +4,7 @@
 package com.android.tools.r8.references;
 
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
+import com.android.tools.r8.utils.MethodReferenceUtils;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.StringUtils.BraceType;
 import java.util.List;
@@ -81,7 +82,7 @@ public final class MethodReference {
 
   @Override
   public String toString() {
-    return getHolderClass() + getMethodName() + getMethodDescriptor();
+    return MethodReferenceUtils.toSmaliString(this);
   }
 
   public String toSourceString() {

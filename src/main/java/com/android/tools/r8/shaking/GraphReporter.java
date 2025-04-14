@@ -30,6 +30,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.references.Reference;
 import com.android.tools.r8.references.TypeReference;
+import com.android.tools.r8.shaking.rules.ReferencedFromExcludedClassInR8PartialRule;
 import com.android.tools.r8.utils.DequeUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.SetUtils;
@@ -99,12 +100,16 @@ public class GraphReporter {
     return false;
   }
 
-  private EdgeKind reportPrecondition(KeepRuleGraphNode keepRuleGraphNode) {
-    if (keepRuleGraphNode.getPreconditions().isEmpty()) {
+  private EdgeKind reportPrecondition(ProguardKeepRuleBase rule, KeepRuleGraphNode ruleNode) {
+    if (rule instanceof ReferencedFromExcludedClassInR8PartialRule) {
+      assert ruleNode.getPreconditions().isEmpty();
+      return EdgeKind.ReferencedFromExcludedClass;
+    }
+    if (ruleNode.getPreconditions().isEmpty()) {
       return EdgeKind.KeepRule;
     }
-    for (GraphNode precondition : keepRuleGraphNode.getPreconditions()) {
-      reportEdge(precondition, keepRuleGraphNode, EdgeKind.KeepRulePrecondition);
+    for (GraphNode precondition : ruleNode.getPreconditions()) {
+      reportEdge(precondition, ruleNode, EdgeKind.KeepRulePrecondition);
     }
     return EdgeKind.ConditionalKeepRule;
   }
@@ -113,7 +118,7 @@ public class GraphReporter {
       DexDefinition precondition, ProguardKeepRuleBase rule, DexProgramClass clazz) {
     if (keptGraphConsumer != null) {
       KeepRuleGraphNode ruleNode = getKeepRuleGraphNode(precondition, rule);
-      EdgeKind edgeKind = reportPrecondition(ruleNode);
+      EdgeKind edgeKind = reportPrecondition(rule, ruleNode);
       return reportEdge(ruleNode, getClassGraphNode(clazz.type), edgeKind);
     }
     return KeepReasonWitness.INSTANCE;
@@ -134,7 +139,7 @@ public class GraphReporter {
       DexDefinition precondition, ProguardKeepRuleBase rule, DexEncodedMethod method) {
     if (keptGraphConsumer != null) {
       KeepRuleGraphNode ruleNode = getKeepRuleGraphNode(precondition, rule);
-      EdgeKind edgeKind = reportPrecondition(ruleNode);
+      EdgeKind edgeKind = reportPrecondition(rule, ruleNode);
       return reportEdge(ruleNode, getMethodGraphNode(method.getReference()), edgeKind);
     }
     return KeepReasonWitness.INSTANCE;
@@ -161,7 +166,7 @@ public class GraphReporter {
       DexDefinition precondition, ProguardKeepRuleBase rule, DexEncodedField field) {
     if (keptGraphConsumer != null) {
       KeepRuleGraphNode ruleNode = getKeepRuleGraphNode(precondition, rule);
-      EdgeKind edgeKind = reportPrecondition(ruleNode);
+      EdgeKind edgeKind = reportPrecondition(rule, ruleNode);
       return reportEdge(ruleNode, getFieldGraphNode(field.getReference()), edgeKind);
     }
     return KeepReasonWitness.INSTANCE;
@@ -545,6 +550,11 @@ public class GraphReporter {
                 SetUtils.newHashSet(getGraphNode(ifRule.getPrecondition().getReference()));
             return new KeepRuleGraphNode(ifRule, preconditions);
           });
+    }
+    if (rule instanceof ReferencedFromExcludedClassInR8PartialRule) {
+      assert precondition == null;
+      return ruleNodes.computeIfAbsent(
+          rule, key -> new KeepRuleGraphNode(rule, Collections.emptySet()));
     }
     throw new Unreachable("Unexpected type of keep rule: " + rule);
   }
