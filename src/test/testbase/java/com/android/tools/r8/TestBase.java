@@ -255,6 +255,10 @@ public class TestBase {
         .applyIf(parameters.isRandom(), R8PartialTestBuilder::allowUnusedDontWarnPatterns);
   }
 
+  public R8PartialTestBuilder testForR8Partial(TestParameters parameters) {
+    return testForR8Partial(parameters.getBackend()).setMinApi(parameters);
+  }
+
   public R8PartialTestBuilder testForR8Partial(Backend backend) {
     return testForR8Partial(temp, backend);
   }
