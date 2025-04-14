@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotationElement;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedAnnotation;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
@@ -21,6 +22,7 @@ import com.android.tools.r8.kotlin.KotlinSyntheticClassInfo.Flavour;
 import com.android.tools.r8.utils.StringDiagnostic;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -55,8 +57,27 @@ public final class KotlinClassMetadataReader {
       DexAnnotation meta,
       Consumer<DexEncodedMethod> keepByteCode,
       BooleanSupplier reportUnknownMetadata) {
+    return getKotlinInfoFromAnnotation(
+        appView,
+        clazz,
+        meta,
+        keepByteCode,
+        reportUnknownMetadata,
+        (member, memberInfo) ->
+            member.accept(
+                f -> f.setKotlinMemberInfo(memberInfo.asFieldInfo()),
+                m -> m.setKotlinMemberInfo(memberInfo.asMethodInfo())));
+  }
+
+  public static KotlinClassLevelInfo getKotlinInfoFromAnnotation(
+      AppView<?> appView,
+      DexClass clazz,
+      DexAnnotation meta,
+      Consumer<DexEncodedMethod> keepByteCode,
+      BooleanSupplier reportUnknownMetadata,
+      BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer) {
     try {
-      return getKotlinInfo(appView, clazz, keepByteCode, meta);
+      return getKotlinInfo(appView, clazz, keepByteCode, meta, memberInfoConsumer);
     } catch (KotlinMetadataException e) {
       if (reportUnknownMetadata.getAsBoolean()) {
         appView.reporter().warning(KotlinMetadataDiagnostic.unknownMetadataVersion());
@@ -90,7 +111,8 @@ public final class KotlinClassMetadataReader {
       AppView<?> appView,
       DexClass clazz,
       Consumer<DexEncodedMethod> keepByteCode,
-      DexAnnotation annotation)
+      DexAnnotation annotation,
+      BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer)
       throws KotlinMetadataException {
     Kotlin kotlin = appView.dexItemFactory().kotlin;
     KotlinClassMetadata kMetadata = toKotlinClassMetadata(kotlin, annotation.annotation);
@@ -98,7 +120,7 @@ public final class KotlinClassMetadataReader {
       throw new KotlinMetadataException(
           new Exception("Could not parse metadata for " + clazz.toSourceString()));
     }
-    return createKotlinInfo(kotlin, clazz, kMetadata, appView, keepByteCode);
+    return createKotlinInfo(kotlin, clazz, kMetadata, appView, keepByteCode, memberInfoConsumer);
   }
 
   public static boolean isLambda(
@@ -212,7 +234,8 @@ public final class KotlinClassMetadataReader {
       DexClass clazz,
       KotlinClassMetadata kMetadata,
       AppView<?> appView,
-      Consumer<DexEncodedMethod> keepByteCode) {
+      Consumer<DexEncodedMethod> keepByteCode,
+      BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer) {
     Metadata metadata = extractMetadataWithPossiblyUnsupportedMetadataVersion(kMetadata);
     String packageName = metadata.pn();
     if (kMetadata instanceof KotlinClassMetadata.Class) {
@@ -221,11 +244,12 @@ public final class KotlinClassMetadataReader {
           packageName,
           clazz,
           appView,
-          keepByteCode);
+          keepByteCode,
+          memberInfoConsumer);
     } else if (kMetadata instanceof KotlinClassMetadata.FileFacade) {
       // e.g., B.kt becomes class `BKt`
       return KotlinFileFacadeInfo.create(
-          (FileFacade) kMetadata, packageName, clazz, appView, keepByteCode);
+          (FileFacade) kMetadata, packageName, clazz, appView, keepByteCode, memberInfoConsumer);
     } else if (kMetadata instanceof KotlinClassMetadata.MultiFileClassFacade) {
       // multi-file class with the same @JvmName.
       return KotlinMultiFileClassFacadeInfo.create(
@@ -237,14 +261,16 @@ public final class KotlinClassMetadataReader {
           packageName,
           clazz,
           appView,
-          keepByteCode);
+          keepByteCode,
+          memberInfoConsumer);
     } else if (kMetadata instanceof KotlinClassMetadata.SyntheticClass) {
       return KotlinSyntheticClassInfo.create(
           (KotlinClassMetadata.SyntheticClass) kMetadata,
           packageName,
           clazz,
           kotlin,
-          appView);
+          appView,
+          memberInfoConsumer);
     } else {
       throw new MetadataError("unsupported 'k' value: " + metadata.k());
     }

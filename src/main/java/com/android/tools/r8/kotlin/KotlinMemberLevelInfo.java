@@ -8,6 +8,14 @@ import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 
 public interface KotlinMemberLevelInfo extends EnqueuerMetadataTraceable {
 
+  default KotlinFieldLevelInfo asFieldInfo() {
+    return null;
+  }
+
+  default KotlinMethodLevelInfo asMethodInfo() {
+    return null;
+  }
+
   default boolean isNoKotlinInformation() {
     return false;
   }

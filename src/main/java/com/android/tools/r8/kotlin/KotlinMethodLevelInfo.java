@@ -6,4 +6,8 @@ package com.android.tools.r8.kotlin;
 
 public interface KotlinMethodLevelInfo extends KotlinMemberLevelInfo {
 
+  @Override
+  default KotlinMethodLevelInfo asMethodInfo() {
+    return this;
+  }
 }

@@ -8,6 +8,8 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.VERSION_1_4_0;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getInvalidKotlinInfo;
 import static com.android.tools.r8.kotlin.KotlinMetadataUtils.getNoKotlinInfo;
 import static com.android.tools.r8.kotlin.KotlinMetadataWriter.kotlinMetadataToString;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyBiConsumer;
+import static com.android.tools.r8.utils.ConsumerUtils.emptyConsumer;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -25,7 +27,6 @@ import com.android.tools.r8.graph.DexValue.DexValueInt;
 import com.android.tools.r8.graph.DexValue.DexValueString;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.utils.BooleanBox;
-import com.android.tools.r8.utils.ConsumerUtils;
 import com.android.tools.r8.utils.Pair;
 import com.android.tools.r8.utils.ThreadUtils;
 import java.util.ArrayList;
@@ -178,20 +179,29 @@ public class KotlinMetadataRewriter {
     }
     // In D8 of R8 partial the kotlin.Metadata annotations have already been read during trace
     // references.
-    KotlinClassLevelInfo kotlinInfo =
-        appView.options().partialSubCompilationConfiguration != null
-            ? clazz.getKotlinInfo()
-            : KotlinClassMetadataReader.getKotlinInfoFromAnnotation(
-                appView,
-                clazz,
-                metadata,
-                ConsumerUtils.emptyConsumer(),
-                reportedUnknownMetadataVersion::getAndSet);
+    KotlinClassLevelInfo kotlinInfo;
+    if (appView.options().partialSubCompilationConfiguration != null) {
+      assert verifyKotlinInfoIsSet(clazz, metadata);
+      kotlinInfo = clazz.getKotlinInfo();
+    } else {
+      kotlinInfo =
+          KotlinClassMetadataReader.getKotlinInfoFromAnnotation(
+              appView, clazz, metadata, emptyConsumer(), reportedUnknownMetadataVersion::getAndSet);
+    }
     if (kotlinInfo == getNoKotlinInfo()) {
       return;
     }
     assert recordMissingClassesInR8Partial(clazz, kotlinInfo);
     writeKotlinInfoToAnnotation(clazz, kotlinInfo, metadata, writeMetadataFieldInfo);
+  }
+
+  private boolean verifyKotlinInfoIsSet(DexProgramClass clazz, DexAnnotation metadata) {
+    assert appView.options().partialSubCompilationConfiguration != null;
+    KotlinClassLevelInfo classInfo =
+        KotlinClassMetadataReader.getKotlinInfoFromAnnotation(
+            appView, clazz, metadata, emptyConsumer(), () -> false, emptyBiConsumer());
+    assert classInfo.isNoKotlinInformation() || !clazz.getKotlinInfo().isNoKotlinInformation();
+    return true;
   }
 
   private boolean recordMissingClassesInR8Partial(

@@ -13,6 +13,7 @@ import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexString;
@@ -28,6 +29,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import kotlin.Metadata;
 import kotlin.metadata.KmClass;
@@ -109,7 +111,8 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       String packageName,
       DexClass hostClass,
       AppView<?> appView,
-      Consumer<DexEncodedMethod> keepByteCode) {
+      Consumer<DexEncodedMethod> keepByteCode,
+      BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer) {
     DexItemFactory factory = appView.dexItemFactory();
     Reporter reporter = appView.reporter();
     KmClass kmClass = metadata.getKmClass();
@@ -131,7 +134,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
       if (signature != null) {
         DexEncodedMethod method = methodMap.get(signature.toString());
         if (method != null) {
-          method.setKotlinMemberInfo(constructorInfo);
+          memberInfoConsumer.accept(method, constructorInfo);
           originalMembersWithKotlinInfo.add(method.getReference());
           continue;
         }
@@ -147,6 +150,7 @@ public class KotlinClassInfo implements KotlinClassLevelInfo {
             factory,
             reporter,
             keepByteCode,
+            memberInfoConsumer,
             originalMembersWithKotlinInfo);
     KotlinTypeReference anonymousObjectOrigin = getAnonymousObjectOrigin(kmClass, factory);
     boolean nameCanBeDeducedFromClassOrOrigin =

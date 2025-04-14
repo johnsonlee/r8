@@ -8,10 +8,12 @@ import static com.android.tools.r8.kotlin.KotlinMetadataUtils.toJvmMethodSignatu
 
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.shaking.EnqueuerMetadataTraceable;
 import com.android.tools.r8.utils.Reporter;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import kotlin.metadata.KmLambda;
 import kotlin.metadata.jvm.JvmExtensionsKt;
@@ -29,7 +31,11 @@ public class KotlinLambdaInfo implements EnqueuerMetadataTraceable {
   }
 
   static KotlinLambdaInfo create(
-      DexClass clazz, KmLambda lambda, DexItemFactory factory, Reporter reporter) {
+      DexClass clazz,
+      KmLambda lambda,
+      DexItemFactory factory,
+      BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer,
+      Reporter reporter) {
     if (lambda == null) {
       assert false;
       return null;
@@ -40,7 +46,7 @@ public class KotlinLambdaInfo implements EnqueuerMetadataTraceable {
     if (signature != null) {
       for (DexEncodedMethod method : clazz.methods()) {
         if (toJvmMethodSignature(method.getReference()).toString().equals(signature.toString())) {
-          method.setKotlinMemberInfo(kotlinFunctionInfo);
+          memberInfoConsumer.accept(method, kotlinFunctionInfo);
           return new KotlinLambdaInfo(kotlinFunctionInfo, true);
         }
       }

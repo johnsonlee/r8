@@ -6,4 +6,8 @@ package com.android.tools.r8.kotlin;
 
 public interface KotlinFieldLevelInfo extends KotlinMemberLevelInfo {
 
+  @Override
+  default KotlinFieldLevelInfo asFieldInfo() {
+    return this;
+  }
 }

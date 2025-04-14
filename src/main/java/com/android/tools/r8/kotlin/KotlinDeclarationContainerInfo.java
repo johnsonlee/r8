@@ -12,6 +12,7 @@ import static com.android.tools.r8.utils.FunctionUtils.forEachApply;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
+import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.kotlin.KotlinMetadataUtils.KmPropertyProcessor;
@@ -24,6 +25,7 @@ import java.math.RoundingMode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import kotlin.metadata.Attributes;
 import kotlin.metadata.KmDeclarationContainer;
@@ -60,6 +62,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
       DexItemFactory factory,
       Reporter reporter,
       Consumer<DexEncodedMethod> keepByteCode,
+      BiConsumer<DexEncodedMember<?, ?>, KotlinMemberLevelInfo> memberInfoConsumer,
       KotlinMetadataMembersTracker originalAssignmentTracker) {
     ImmutableList.Builder<KotlinFunctionInfo> notBackedFunctions = ImmutableList.builder();
     for (KmFunction kmFunction : container.getFunctions()) {
@@ -86,7 +89,7 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
         continue;
       }
       keepIfInline(kmFunction, method, signature, methodSignatureMap, keepByteCode);
-      method.setKotlinMemberInfo(kotlinFunctionInfo);
+      memberInfoConsumer.accept(method, kotlinFunctionInfo);
       originalAssignmentTracker.add(method.getReference());
     }
 
@@ -111,8 +114,8 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
         if (method != null) {
           hasBacking = true;
           keepIfAccessorInline(kmProperty.getGetter(), method, keepByteCode);
-          method.setKotlinMemberInfo(
-              new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.GETTER));
+          memberInfoConsumer.accept(
+              method, new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.GETTER));
           originalAssignmentTracker.add(method.getReference());
         }
       }
@@ -122,8 +125,8 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
         if (method != null) {
           hasBacking = true;
           keepIfAccessorInline(kmProperty.getGetter(), method, keepByteCode);
-          method.setKotlinMemberInfo(
-              new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.SETTER));
+          memberInfoConsumer.accept(
+              method, new KotlinPropertyInfoDelegate(kotlinPropertyInfo, PropertyType.SETTER));
           originalAssignmentTracker.add(method.getReference());
         }
       }
@@ -133,7 +136,8 @@ public class KotlinDeclarationContainerInfo implements EnqueuerMetadataTraceable
                 propertyProcessor.syntheticMethodForAnnotationsSignature().toString());
         if (method != null) {
           hasBacking = true;
-          method.setKotlinMemberInfo(
+          memberInfoConsumer.accept(
+              method,
               new KotlinPropertyInfoDelegate(
                   kotlinPropertyInfo, PropertyType.SYNTHETIC_METHOD_FOR_ANNOTATIONS));
           originalAssignmentTracker.add(method.getReference());
