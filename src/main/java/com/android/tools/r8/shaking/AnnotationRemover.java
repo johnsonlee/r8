@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking;
 
+import static com.android.tools.r8.graph.DexAnnotation.VISIBILITY_BUILD;
+
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexAnnotation;
@@ -135,7 +137,7 @@ public class AnnotationRemover {
         return shouldKeepNormalAnnotation(
             annotation, isAnnotationTypeLive, kind, keepInfo, options);
 
-      case DexAnnotation.VISIBILITY_BUILD:
+      case VISIBILITY_BUILD:
         if (annotation
             .getAnnotationType()
             .getDescriptor()
@@ -186,13 +188,33 @@ public class AnnotationRemover {
     return this;
   }
 
-  public void run(ExecutorService executorService) throws ExecutionException {
+  public AnnotationRemover run(ExecutorService executorService) throws ExecutionException {
     ThreadUtils.processItems(
         appView.appInfo().classes(),
         this::run,
         appView.options().getThreadingModule(),
         executorService);
     assert verifyNoKeptKotlinMembersForClassesWithNoKotlinInfo();
+    return this;
+  }
+
+  public void runForExcludedClassesInR8Partial(ExecutorService executorService)
+      throws ExecutionException {
+    if (options.partialSubCompilationConfiguration == null) {
+      return;
+    }
+    ThreadUtils.processItems(
+        options.partialSubCompilationConfiguration.asR8().getDexingOutputClasses(),
+        clazz -> {
+          clazz.removeAnnotations(DexAnnotation::isClassRetentionAnnotation);
+          clazz.forEachProgramMember(
+              member ->
+                  member
+                      .getDefinition()
+                      .removeAnnotations(DexAnnotation::isClassRetentionAnnotation));
+        },
+        options.getThreadingModule(),
+        executorService);
   }
 
   private void run(DexProgramClass clazz) {

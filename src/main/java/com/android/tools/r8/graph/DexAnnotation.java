@@ -83,6 +83,10 @@ public class DexAnnotation extends DexItem implements StructuralItem<DexAnnotati
     return annotation;
   }
 
+  public boolean isClassRetentionAnnotation() {
+    return visibility == VISIBILITY_BUILD;
+  }
+
   public boolean isTypeAnnotation() {
     return false;
   }

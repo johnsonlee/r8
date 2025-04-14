@@ -647,7 +647,8 @@ public class R8 {
             // Remove annotations that refer to types that no longer exist.
             AnnotationRemover.builder(Mode.FINAL_TREE_SHAKING)
                 .build(appView.withLiveness(), prunedItems.getRemovedClasses())
-                .run(executorService);
+                .run(executorService)
+                .runForExcludedClassesInR8Partial(executorService);
             new GenericSignatureRewriter(appView, genericContextBuilder)
                 .run(appView.appInfo().classes(), executorService);
             assert appView.checkForTesting(

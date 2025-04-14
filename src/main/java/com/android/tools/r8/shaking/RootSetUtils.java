@@ -1171,11 +1171,8 @@ public class RootSetUtils {
         if (matchedAnnotation == null) {
           return null;
         }
-        if (annotatedItem.isProgramDefinition()) {
-          matchedAnnotations.add(
-              new MatchedAnnotation(
-                  annotatedItem.asProgramDefinition(), matchedAnnotation, annotatedKind));
-        }
+        matchedAnnotations.add(
+            new MatchedAnnotation(annotatedItem, matchedAnnotation, annotatedKind));
       }
       return new ConcreteAnnotationMatchResult(matchedAnnotations);
     }

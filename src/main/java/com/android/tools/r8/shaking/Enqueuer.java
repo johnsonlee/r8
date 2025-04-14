@@ -4,6 +4,7 @@
 package com.android.tools.r8.shaking;
 
 import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
+import static com.android.tools.r8.graph.DexClasspathClass.asClasspathClassOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCESS_INFO;
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
@@ -4532,6 +4533,19 @@ public class Enqueuer {
     timing.begin("Rebuild application");
     Set<DexLibraryClass> libraryClasses = Sets.newIdentityHashSet();
     Set<DexClasspathClass> classpathClasses = Sets.newIdentityHashSet();
+    // Mark all D8 classes in R8 partial as referenced.
+    if (options.partialSubCompilationConfiguration != null) {
+      for (DexProgramClass programClass :
+          options.partialSubCompilationConfiguration.asR8().getDexingOutputClasses()) {
+        DexClasspathClass classpathClass =
+            asClasspathClassOrNull(appView.definitionFor(programClass.getType()));
+        if (classpathClass != null) {
+          referencedNonProgramTypes.add(classpathClass);
+        } else {
+          assert false;
+        }
+      }
+    }
     // Ensure all referenced non program types have their hierarchy built as live.
     referencedNonProgramTypes.forEach(
         clazz -> addLiveNonProgramType(clazz, false, this::ignoreMissingClasspathOrLibraryClass));
@@ -4971,11 +4985,13 @@ public class Enqueuer {
     assert mode.isInitialTreeShaking();
     if (annotationRemoverBuilder != null) {
       for (MatchedAnnotation matchedAnnotation : matchedAnnotations) {
-        annotationRemoverBuilder.retainAnnotation(matchedAnnotation.getAnnotation());
-        worklist.enqueueTraceAnnotationAction(
-            matchedAnnotation.getAnnotatedItem(),
-            matchedAnnotation.getAnnotation(),
-            matchedAnnotation.getAnnotatedKind());
+        if (matchedAnnotation.getAnnotatedItem().isProgramDefinition()) {
+          annotationRemoverBuilder.retainAnnotation(matchedAnnotation.getAnnotation());
+          worklist.enqueueTraceAnnotationAction(
+              matchedAnnotation.getAnnotatedItem().asProgramDefinition(),
+              matchedAnnotation.getAnnotation(),
+              matchedAnnotation.getAnnotatedKind());
+        }
       }
     }
   }

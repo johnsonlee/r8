@@ -4,9 +4,9 @@
 
 package com.android.tools.r8.shaking;
 
+import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexAnnotation;
 import com.android.tools.r8.graph.DexAnnotation.AnnotatedKind;
-import com.android.tools.r8.graph.ProgramDefinition;
 import java.util.List;
 import java.util.Objects;
 
@@ -57,18 +57,18 @@ public abstract class AnnotationMatchResult {
 
   static class MatchedAnnotation {
 
-    private final ProgramDefinition annotatedItem;
+    private final Definition annotatedItem;
     private final DexAnnotation annotation;
     private final AnnotatedKind annotatedKind;
 
     MatchedAnnotation(
-        ProgramDefinition annotatedItem, DexAnnotation annotation, AnnotatedKind annotatedKind) {
+        Definition annotatedItem, DexAnnotation annotation, AnnotatedKind annotatedKind) {
       this.annotatedItem = annotatedItem;
       this.annotation = annotation;
       this.annotatedKind = annotatedKind;
     }
 
-    public ProgramDefinition getAnnotatedItem() {
+    public Definition getAnnotatedItem() {
       return annotatedItem;
     }
 

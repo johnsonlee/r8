@@ -3,7 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.partial;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
@@ -41,9 +42,12 @@ public class PartialCompilationIfClassRetentionAnnotationTest extends TestBase {
         .compile()
         .inspect(
             inspector -> {
-              // TODO(b/394275411): Should be present.
+              ClassSubject mainClassSubject = inspector.clazz(Main.class);
+              assertThat(mainClassSubject, isPresent());
+              assertTrue(mainClassSubject.annotations().isEmpty());
+
               ClassSubject unusedClassSubject = inspector.clazz(Unused.class);
-              assertThat(unusedClassSubject, isAbsent());
+              assertThat(unusedClassSubject, isPresent());
             });
   }
 
