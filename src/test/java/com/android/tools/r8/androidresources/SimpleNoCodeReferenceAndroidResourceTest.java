@@ -8,19 +8,22 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.ResourceTableInspector;
+import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.ZipUtils;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -33,17 +36,24 @@ public class SimpleNoCodeReferenceAndroidResourceTest extends TestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection parameters() {
-    return getTestParameters()
-        .withDefaultDexRuntime()
-        .withAllApiLevels()
-        .withIncludeAllPartialCompilation()
-        .build();
+  @Parameter(1)
+  public boolean optimized;
+
+  @Parameters(name = "{0}, elementType: {1}")
+  public static List<Object[]> data() {
+    return buildParameters(
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withIncludeAllPartialCompilation()
+            .build(),
+        BooleanUtils.values());
   }
 
   @Test
   public void testR8() throws Exception {
+    // We don't support running R8Partial with non optimized resource shrinking.
+    assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     String manifestPath = "AndroidManifest.xml";
     String resourcePath = "resources.pb";
     String pngPath = "res/drawable/foo.png";
@@ -60,6 +70,7 @@ public class SimpleNoCodeReferenceAndroidResourceTest extends TestBase {
         .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addAndroidResources(testResource, output)
+        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
         .addKeepMainRule(FooBar.class)
         .compile()
         .inspectShrunkenResources(

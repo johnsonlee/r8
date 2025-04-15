@@ -782,6 +782,10 @@ public final class R8Command extends BaseCompilerCommand {
       if (forceProguardCompatibility) {
         reporter.error("Partial shrinking does not support Proguard compatibility mode");
       }
+      if (androidResourceProvider != null
+          && !resourceShrinkerConfiguration.isOptimizedShrinking()) {
+        reporter.error("Partial shrinking only supports optimized resource shrinking");
+      }
     }
 
     private void validateProguardConfiguration(
