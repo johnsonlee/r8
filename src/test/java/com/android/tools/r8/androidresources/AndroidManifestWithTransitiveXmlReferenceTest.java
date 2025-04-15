@@ -25,7 +25,11 @@ public class AndroidManifestWithTransitiveXmlReferenceTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String MANIFEST_WITH_XML_REFERENCE =
@@ -58,8 +62,7 @@ public class AndroidManifestWithTransitiveXmlReferenceTest extends TestBase {
 
   @Test
   public void testManifestReferences() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addAndroidResources(getTestResources(temp))
         .enableOptimizedShrinking()
         .compile()

@@ -7,7 +7,9 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
+import com.android.tools.r8.R8TestCompileResultBase;
+import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -29,7 +31,11 @@ public class ConstResourceValueToStaticFieldTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -39,9 +45,9 @@ public class ConstResourceValueToStaticFieldTest extends TestBase {
         .build(temp);
   }
 
-  private R8FullTestBuilder getSharedBuilder() throws Exception {
-    return testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+  private R8TestBuilder<? extends R8TestCompileResultBase<?>, R8TestRunResult, ?> getSharedBuilder()
+      throws Exception {
+    return testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
@@ -62,7 +68,9 @@ public class ConstResourceValueToStaticFieldTest extends TestBase {
               assertThat(rStringClass.field("int", "foo"), isPresent());
               // Even with the keep all we should have removed the field write, and hence the
               // clinit.
-              assertThat(rStringClass.clinit(), isAbsent());
+              if (!parameters.isRandomPartialCompilation()) {
+                assertThat(rStringClass.clinit(), isAbsent());
+              }
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccessWithEmptyOutput();
@@ -75,7 +83,9 @@ public class ConstResourceValueToStaticFieldTest extends TestBase {
         .inspect(
             codeInspector -> {
               ClassSubject rStringClass = codeInspector.clazz(R.string.class);
-              assertThat(rStringClass, isAbsent());
+              if (!parameters.isRandomPartialCompilation()) {
+                assertThat(rStringClass, isAbsent());
+              }
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccessWithEmptyOutput();

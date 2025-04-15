@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -29,7 +31,11 @@ public class AlwaysKeepIDsInLegacyMode extends TestBase {
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -42,8 +48,9 @@ public class AlwaysKeepIDsInLegacyMode extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    // We don't support running R8Partial with non optimized resource shrinking.
+    assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
+    testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)

@@ -34,7 +34,11 @@ public class AndroidManifestWithManifestEntriesTest extends TestBase {
   @Parameters(name = "{0}, elementType: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         ImmutableList.of("application", "instrumentation"));
   }
 
@@ -65,8 +69,7 @@ public class AndroidManifestWithManifestEntriesTest extends TestBase {
 
   @Test
   public void testManifestReferences() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(Bar.class)
         .addAndroidResources(getTestResources(temp))
         .enableOptimizedShrinking()
@@ -77,7 +80,9 @@ public class AndroidManifestWithManifestEntriesTest extends TestBase {
               assertThat(barClass, isPresentAndNotRenamed());
               // We should have two and only two methods, the two constructors.
               assertEquals(barClass.allMethods(MethodSubject::isInstanceInitializer).size(), 2);
-              assertEquals(barClass.allMethods().size(), 2);
+              if (!parameters.isRandomPartialCompilation()) {
+                assertEquals(barClass.allMethods().size(), 2);
+              }
             });
   }
 

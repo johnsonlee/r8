@@ -29,7 +29,11 @@ public class AndroidManifestWithCodeReferences extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String MANIFEST_WITH_CLASS_REFERENCE =
@@ -63,8 +67,7 @@ public class AndroidManifestWithCodeReferences extends TestBase {
 
   @Test
   public void testManifestReferences() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(Bar.class)
         .addAndroidResources(getTestResources(temp))
         .enableOptimizedShrinking()
@@ -79,7 +82,9 @@ public class AndroidManifestWithCodeReferences extends TestBase {
               assertThat(barClass, isPresentAndNotRenamed());
               // We should have two and only two methods, the two constructors.
               assertEquals(barClass.allMethods(MethodSubject::isInstanceInitializer).size(), 2);
-              assertEquals(barClass.allMethods().size(), 2);
+              if (!parameters.isRandomPartialCompilation()) {
+                assertEquals(barClass.allMethods().size(), 2);
+              }
             });
   }
 
