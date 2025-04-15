@@ -26,7 +26,6 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.dex.CompatByteBuffer;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.maindexlist.MainDexListTests;
 import com.android.tools.r8.transformers.ClassTransformer;
 import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
@@ -49,7 +48,7 @@ import org.objectweb.asm.Opcodes;
 
 public class DexContainerFormatTestBase extends TestBase {
 
-  static void validateDex(Path output, int expectedDexes, DexVersion expectedVersion)
+  public static void validateDex(Path output, int expectedDexes, DexVersion expectedVersion)
       throws Exception {
     List<byte[]> dexes = unzipContent(output);
     assertEquals(expectedDexes, dexes.size());
@@ -247,7 +246,7 @@ public class DexContainerFormatTestBase extends TestBase {
     for (String typename : classes) {
       String descriptor = DescriptorUtils.javaTypeToDescriptor(typename);
       byte[] bytes =
-          transformer(MainDexListTests.ClassStub.class)
+          transformer(ClassStub.class)
               .setClassDescriptor(descriptor)
               .addClassTransformer(
                   new ClassTransformer() {
