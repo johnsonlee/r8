@@ -27,7 +27,11 @@ public class NestedXmlReferences extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String TO_BE_INCLUDED =
@@ -60,8 +64,7 @@ public class NestedXmlReferences extends TestBase {
 
   @Test
   public void testTransitiveReference() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class, Bar.class, Foo.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(TestClass.class)

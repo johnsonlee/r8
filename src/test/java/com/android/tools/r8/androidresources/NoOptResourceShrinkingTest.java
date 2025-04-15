@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
+import static org.junit.Assume.assumeTrue;
+
 import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -29,7 +31,11 @@ public class NoOptResourceShrinkingTest extends TestBase {
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -42,9 +48,10 @@ public class NoOptResourceShrinkingTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    // We don't support running R8Partial with non optimized resource shrinking.
+    assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     AndroidTestResource testResources = getTestResources(temp);
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
         .addAndroidResources(testResources)
@@ -55,8 +62,10 @@ public class NoOptResourceShrinkingTest extends TestBase {
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               resourceTableInspector.assertContainsResourceWithName("string", "foo");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "unused_string");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "unused_string");
+              }
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccess();

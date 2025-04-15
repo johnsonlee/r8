@@ -27,7 +27,11 @@ public class KeptOnlyRClassEntriesTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -69,8 +73,7 @@ public class KeptOnlyRClassEntriesTest extends TestBase {
               }
             },
             s -> s.contains("drawable"));
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class)
         .addAndroidResources(testResources)
         .addKeepMainRule(TestClass.class)

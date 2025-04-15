@@ -26,7 +26,11 @@ public class MultiConfigXmlFilesTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String VIEW_WITH_CLASS_ATTRIBUTE_REFERENCE =
@@ -49,8 +53,7 @@ public class MultiConfigXmlFilesTest extends TestBase {
 
   @Test
   public void testClassReferences() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class, Foo.class, Bar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(TestClass.class)

@@ -31,7 +31,11 @@ public class KeepXmlTransitiveCodeReachabilityTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String XML_WITH_CODE_REFERENCE =
@@ -73,8 +77,7 @@ public class KeepXmlTransitiveCodeReachabilityTest extends TestBase {
       Multimap<String, String> present,
       Multimap<String, String> absent)
       throws ExecutionException, IOException, CompilationFailedException {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class, Bar.class)
         .addAndroidResources(testResources)
         .addKeepMainRule(TestClass.class)
@@ -83,7 +86,9 @@ public class KeepXmlTransitiveCodeReachabilityTest extends TestBase {
         .inspectShrunkenResources(
             resourceTableInspector -> {
               present.forEach(resourceTableInspector::assertContainsResourceWithName);
-              absent.forEach(resourceTableInspector::assertDoesNotContainResourceWithName);
+              if (!parameters.isRandomPartialCompilation()) {
+                absent.forEach(resourceTableInspector::assertDoesNotContainResourceWithName);
+              }
             })
         .inspect(
             codeInspector -> {

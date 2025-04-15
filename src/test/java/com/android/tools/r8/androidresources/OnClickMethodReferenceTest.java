@@ -30,7 +30,11 @@ public class OnClickMethodReferenceTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String XML_WITH_ONCLICK =
@@ -64,8 +68,7 @@ public class OnClickMethodReferenceTest extends TestBase {
 
   @Test
   public void testSingleClassWithOnclick() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class, Bar.class, Foo.class)
         .addAndroidResources(getTestResources(temp, XML_WITH_ONCLICK))
         .addKeepMainRule(TestClass.class)
@@ -79,15 +82,16 @@ public class OnClickMethodReferenceTest extends TestBase {
                   barClass.uniqueMethodWithOriginalName("theMagicOnClick"),
                   isPresentAndNotRenamed());
 
-              ClassSubject fooClass = codeInspector.clazz(Foo.class);
-              assertThat(fooClass, isAbsent());
+              if (!parameters.isRandomPartialCompilation()) {
+                ClassSubject fooClass = codeInspector.clazz(Foo.class);
+                assertThat(fooClass, isAbsent());
+              }
             });
   }
 
   @Test
   public void testNestedClassWithOnclick() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class, Bar.class, Foo.class)
         .addAndroidResources(getTestResources(temp, XML_WITH_NESTED_CLASS_AND_ONCLICK))
         .addKeepMainRule(TestClass.class)

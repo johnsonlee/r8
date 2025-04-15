@@ -25,7 +25,11 @@ public class RClassWithNonIDFieldTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -40,8 +44,7 @@ public class RClassWithNonIDFieldTest extends TestBase {
     // We test the non id field type by simply passing the standard test resources but ignoring
     // the aapt generated R class, instead we pass directly the R class from this file, which
     // have no real resource references, but does have a non integer field.
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .addAndroidResources(
             getTestResources(temp),
@@ -54,7 +57,9 @@ public class RClassWithNonIDFieldTest extends TestBase {
             resourceTableInspector -> {
               // We explicitly do not have any resources traced since we don't use the aapt
               // R class file.
-              resourceTableInspector.assertDoesNotContainResourceWithName("string", "foo");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName("string", "foo");
+              }
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccessWithOutputLines("bar");
