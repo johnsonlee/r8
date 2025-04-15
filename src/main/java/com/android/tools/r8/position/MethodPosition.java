@@ -9,6 +9,7 @@ import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.references.MethodReference;
 import com.android.tools.r8.references.TypeReference;
+import com.android.tools.r8.utils.MethodReferenceUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -86,7 +87,7 @@ public class MethodPosition implements Position {
 
   @Override
   public String toString() {
-    return method.toString();
+    return MethodReferenceUtils.toSmaliString(method);
   }
 
   @Override
