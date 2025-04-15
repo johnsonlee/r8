@@ -256,6 +256,7 @@ public class TestBase {
   }
 
   public R8PartialTestBuilder testForR8Partial(TestParameters parameters) {
+    parameters.assumeCanUseR8Partial();
     return testForR8Partial(parameters.getBackend()).setMinApi(parameters);
   }
 

@@ -32,7 +32,6 @@ public class PartialCompilationIfClassRetentionAnnotationTest extends TestBase {
 
   @Test
   public void test() throws Exception {
-    parameters.assumeCanUseR8Partial();
     testForR8Partial(parameters)
         .addR8ExcludedClasses(ClassRetentionAnnotation.class, Main.class)
         .addR8IncludedClasses(Unused.class)

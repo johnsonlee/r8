@@ -279,6 +279,10 @@ public class TestParameters {
     return this;
   }
 
+  public TestParameters assumeNoPartialCompilation() {
+    return assumeNoPartialCompilation(null);
+  }
+
   public TestParameters assumeNoPartialCompilation(String unusedReason) {
     assumeTrue(getPartialCompilationTestParameters().isNone());
     return this;
