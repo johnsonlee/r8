@@ -6,6 +6,7 @@ package com.android.tools.r8.desugar.backports;
 
 import static org.hamcrest.core.StringContains.containsString;
 
+import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -24,7 +25,8 @@ public class ApiLevelBackportsTest extends TestBase {
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
     // NOTE: Most of the 'run' invocations below work only because the static configured APIs do not
-    // give rise to DEX file versions larger than what can be accepted by VM 9.0.0.
+    // give rise to DEX file versions larger than what can be accepted by VM 9.0.0. This is
+    // ensured by using OutputMode.DexFilePerClassFile to not use DEX container format.
     return getTestParameters().withDexRuntimesStartingFromIncluding(Version.V9_0_0).build();
   }
 
@@ -46,6 +48,7 @@ public class ApiLevelBackportsTest extends TestBase {
     testForD8()
         .addProgramClassFileData(transformTestMathMultiplyExactLongInt())
         .setMinApi(AndroidApiLevel.LATEST)
+        .setOutputMode(OutputMode.DexFilePerClassFile)
         .compile()
         .assertNoMessages()
         .run(parameters.getRuntime(), TestMathMultiplyExactLongInt.class)
@@ -64,6 +67,7 @@ public class ApiLevelBackportsTest extends TestBase {
     testForD8()
         .addProgramClassFileData(transformTestListOf())
         .setMinApi(AndroidApiLevel.LATEST)
+        .setOutputMode(OutputMode.DexFilePerClassFile)
         .compile()
         .assertNoMessages()
         .run(parameters.getRuntime(), TestListOf.class)
@@ -81,6 +85,7 @@ public class ApiLevelBackportsTest extends TestBase {
     testForD8()
         .addProgramClassFileData(transformTestMathMultiplyExactLongInt())
         .setMinApi(AndroidApiLevel.UNKNOWN.getLevel())
+        .setOutputMode(OutputMode.DexFilePerClassFile)
         .compile()
         .assertOnlyWarnings()
         .assertWarningMessageThatMatches(containsString("is not supported by this compiler"))
@@ -100,6 +105,7 @@ public class ApiLevelBackportsTest extends TestBase {
     testForD8()
         .addProgramClassFileData(transformTestMathMultiplyExactLongInt())
         .setMinApi(AndroidApiLevel.ANDROID_PLATFORM_CONSTANT)
+        .setOutputMode(OutputMode.DexFilePerClassFile)
         .compile()
         .assertNoMessages()
         .run(parameters.getRuntime(), TestMathMultiplyExactLongInt.class)
