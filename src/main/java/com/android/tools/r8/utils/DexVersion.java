@@ -69,6 +69,8 @@ public enum DexVersion implements Ordered<DexVersion> {
         // MAIN is an unknown higher api version we therefore choose the highest known version.
       case MAIN:
       case BAKLAVA:
+        assert InternalOptions.containerDexApiLevel().isEqualTo(AndroidApiLevel.BAKLAVA);
+        return DexVersion.V41;
       case V:
       case U:
       case T:

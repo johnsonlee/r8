@@ -109,7 +109,8 @@ public enum AndroidApiLevel implements Ordered<AndroidApiLevel> {
       case V40:
         return AndroidApiLevel.R;
       case V41:
-        return AndroidApiLevel.MAIN;
+        assert InternalOptions.containerDexApiLevel().isEqualTo(AndroidApiLevel.BAKLAVA);
+        return AndroidApiLevel.BAKLAVA;
       default:
         throw new Unreachable();
     }

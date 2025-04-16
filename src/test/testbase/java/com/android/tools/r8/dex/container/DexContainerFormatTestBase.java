@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex.container;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
 import static com.android.tools.r8.dex.Constants.CHECKSUM_OFFSET;
 import static com.android.tools.r8.dex.Constants.CONTAINER_OFF_OFFSET;
 import static com.android.tools.r8.dex.Constants.CONTAINER_SIZE_OFFSET;
@@ -16,6 +18,8 @@ import static com.android.tools.r8.dex.Constants.SIGNATURE_OFFSET;
 import static com.android.tools.r8.dex.Constants.STRING_IDS_OFF_OFFSET;
 import static com.android.tools.r8.dex.Constants.STRING_IDS_SIZE_OFFSET;
 import static com.android.tools.r8.dex.Constants.TYPE_STRING_ID_ITEM;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -23,14 +27,19 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompilerBuilder;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.dex.CompatByteBuffer;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
 import com.android.tools.r8.transformers.ClassTransformer;
+import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BitUtils;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.DexVersion;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
+import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ZipUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
@@ -281,5 +290,30 @@ public class DexContainerFormatTestBase extends TestBase {
   // Simple stub/template for generating the input classes.
   public static class ClassStub {
     public static void methodStub() {}
+  }
+
+  protected void enableContainer(
+      TestCompilerBuilder<?, ?, ?, ?, ?> builder, boolean useContainerDexApiLevel) {
+    builder.applyIf(
+        useContainerDexApiLevel,
+        b -> b.setMinApi(InternalOptions.containerDexApiLevel()),
+        b ->
+            b.setMinApi(AndroidApiLevel.L)
+                .addOptionsModification(
+                    options -> options.getTestingOptions().forceDexContainerFormat = true));
+  }
+
+  protected void checkContainerApiLevelWarning(
+      TestDiagnosticMessages diagnostics, boolean useContainerDexApiLevel) {
+    diagnostics.assertNoErrors().assertNoInfos();
+    if (useContainerDexApiLevel) {
+      diagnostics.assertNoWarnings();
+    } else {
+      diagnostics.assertWarningsMatch(
+          allOf(
+              diagnosticType(StringDiagnostic.class),
+              diagnosticMessage(
+                  containsString("Forcing container DEX for an API level not supporting it"))));
+    }
   }
 }

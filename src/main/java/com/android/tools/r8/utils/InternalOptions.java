@@ -177,7 +177,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public static final int SUPPORTED_DEX_VERSION =
       AndroidApiLevel.LATEST.getDexVersion().getIntValue();
-  public static final int EXPERIMENTAL_DEX_VERSION = DexVersion.V41.getIntValue();
 
   public static final int ASM_VERSION = Opcodes.ASM9;
 
@@ -2196,7 +2195,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean usePcEncodingInCfForTesting = false;
     public boolean dexVersion40FromApiLevel30 =
         System.getProperty("com.android.tools.r8.dexVersion40ForApiLevel30") != null;
-    public boolean dexContainerExperiment =
+    public boolean forceDexContainerFormat =
         System.getProperty("com.android.tools.r8.dexContainerExperiment") != null;
     public boolean nullOutDebugInfo =
         System.getProperty("com.android.tools.r8.nullOutDebugInfo") != null;
@@ -2738,6 +2737,15 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
   public boolean canUseMultidex() {
     assert isGeneratingDex();
     return intermediate || hasMinApi(AndroidApiLevel.L);
+  }
+
+  public static AndroidApiLevel containerDexApiLevel() {
+    return AndroidApiLevel.BAKLAVA;
+  }
+
+  public boolean canUseContainerDex() {
+    assert isGeneratingDex();
+    return hasMinApi(containerDexApiLevel());
   }
 
   public boolean canUseJavaLangVarHandleStoreStoreFence(DexDefinitionSupplier definitions) {

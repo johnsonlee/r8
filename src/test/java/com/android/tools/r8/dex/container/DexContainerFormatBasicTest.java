@@ -4,11 +4,13 @@
 package com.android.tools.r8.dex.container;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.BooleanUtils;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -19,11 +21,15 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
 
-  @Parameter() public TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withNoneRuntime().build();
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
+
+  @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
+  public static List<Object[]> data() {
+    return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
   }
 
   private static Path inputA;
@@ -42,6 +48,7 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
 
   @Test
   public void testNonContainerD8() throws Exception {
+    assumeFalse(useContainerDexApiLevel);
     Path outputA =
         testForD8(Backend.DEX)
             .addProgramFiles(inputA)
@@ -68,23 +75,22 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
   }
 
   @Test
-  public void testD8ExperimentSimpleMerge() throws Exception {
+  public void testD8ContainerSimpleMerge() throws Exception {
     Path outputFromDexing =
         testForD8(Backend.DEX)
             .addProgramFiles(inputA)
-            .setMinApi(AndroidApiLevel.L)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
-            .compile()
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputFromDexing);
 
     Path outputFromMerging =
         testForD8(Backend.DEX)
             .addProgramFiles(outputFromDexing)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
-            .compile()
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputFromMerging);
 
@@ -94,46 +100,58 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
   }
 
   @Test
-  public void testD8ExperimentMoreMerge() throws Exception {
+  public void testD8ContainerMoreMerge() throws Exception {
     Path outputA =
         testForD8(Backend.DEX)
             .addProgramFiles(inputA)
-            .setMinApi(AndroidApiLevel.L)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
-            .compile()
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputA);
 
     Path outputB =
         testForD8(Backend.DEX)
             .addProgramFiles(inputB)
-            .setMinApi(AndroidApiLevel.L)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
-            .compile()
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputB);
 
     Path outputBoth =
         testForD8(Backend.DEX)
             .addProgramFiles(inputA, inputB)
-            .setMinApi(AndroidApiLevel.L)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
-            .compile()
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputBoth);
 
     Path outputMerged =
         testForD8(Backend.DEX)
             .addProgramFiles(outputA, outputB)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
-            .compile()
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputMerged);
 
     assertArrayEquals(unzipContent(outputBoth).get(0), unzipContent(outputMerged).get(0));
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    Path output =
+        testForR8(Backend.DEX)
+            .addProgramFiles(inputA)
+            .addProgramFiles(inputB)
+            .addKeepRules("-keep class * { *; }")
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
+            .allowDiagnosticMessages()
+            .compileWithExpectedDiagnostics(
+                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+            .writeToZip();
+    validateSingleContainerDex(output);
   }
 }

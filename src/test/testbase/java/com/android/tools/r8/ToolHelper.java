@@ -1897,15 +1897,10 @@ public class ToolHelper {
 
   public static void runLegacyResourceShrinker(
       ResourceShrinker.Builder builder,
-      Consumer<InternalOptions> optionsConsumer,
       ReferenceChecker callback)
       throws IOException, CompilationFailedException, ExecutionException {
     ResourceShrinker.Command command = builder.build();
     InternalOptions options = command.getInternalOptions();
-    if (optionsConsumer != null) {
-      ExceptionUtils.withD8CompilationHandler(
-          options.reporter, () -> optionsConsumer.accept(options));
-    }
     ResourceShrinker.runForTesting(command.getInputApp(), options, callback);
   }
 

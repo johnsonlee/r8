@@ -49,6 +49,7 @@ import com.android.tools.r8.utils.LibraryClassCollection;
 import com.android.tools.r8.utils.MainDexListParser;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.timing.Timing;
+import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.IOException;
@@ -251,10 +252,6 @@ public class ApplicationReader {
   private AndroidApiLevel validateOrComputeMinApiLevel(
       AndroidApiLevel computedMinApiLevel, DexReader dexReader) {
     DexVersion version = dexReader.getDexVersion();
-    if (!options.testing.dexContainerExperiment
-        && version.getIntValue() == InternalOptions.EXPERIMENTAL_DEX_VERSION) {
-      throwIncompatibleDexVersionAndMinApi(version);
-    }
     if (options.getMinApiLevel() == AndroidApiLevel.getDefault()) {
       computedMinApiLevel = computedMinApiLevel.max(AndroidApiLevel.getMinAndroidApiLevel(version));
     } else if (!version.matchesApiLevel(options.getMinApiLevel())) {
@@ -334,50 +331,44 @@ public class ApplicationReader {
       }
       hasReadProgramResourceFromDex = true;
       List<DexParser<DexProgramClass>> dexParsers = new ArrayList<>(dexSources.size());
+      List<DexParser<DexProgramClass>> dexContainerParsers = new ArrayList<>(4);
       AndroidApiLevel computedMinApiLevel = options.getMinApiLevel();
       for (ProgramResource input : dexSources) {
         DexReader dexReader = new DexReader(input);
         if (options.passthroughDexCode) {
-          if (!options.testing.dexContainerExperiment) {
+          if (!options.getTestingOptions().forceDexContainerFormat) {
             computedMinApiLevel = validateOrComputeMinApiLevel(computedMinApiLevel, dexReader);
           } else {
-            assert dexReader.getDexVersion() == DexVersion.V41;
+            // Allow forcing DEX container format independent of min API level.
+            assert dexReader.getDexVersion().isGreaterThanOrEqualTo(DexVersion.V41);
           }
         }
-        if (!options.testing.dexContainerExperiment) {
-          if (dexReader.getDexVersion().isContainerDex()) {
-            throw new ResourceException(
-                input.getOrigin(),
-                "Experimental container DEX version "
-                    + dexReader.getDexVersion()
-                    + " is not supported");
-          }
+        if (!dexReader.getDexVersion().isContainerDex()) {
           dexParsers.add(new DexParser<>(dexReader, PROGRAM, options));
         } else {
-          addDexParsersForContainer(dexParsers, dexReader);
+          addDexParsersForContainer(dexContainerParsers, dexReader);
         }
       }
 
       options.setMinApiLevel(computedMinApiLevel);
-      for (DexParser<DexProgramClass> dexParser : dexParsers) {
+      for (DexParser<DexProgramClass> dexParser :
+          Iterables.concat(dexParsers, dexContainerParsers)) {
         dexParser.populateIndexTables();
       }
-      // Read the DexCode items and DexProgramClass items in parallel.
       if (!options.skipReadingDexCode) {
         ApplicationReaderMap applicationReaderMap = ApplicationReaderMap.getInstance(options);
-        if (!options.testing.dexContainerExperiment) {
-          for (DexParser<DexProgramClass> dexParser : dexParsers) {
-            tasks.submit(
-                () -> {
-                  dexParser.addClassDefsTo(
-                      classes::add, applicationReaderMap); // Depends on Methods, Code items etc.
-                });
-          }
-        } else {
-          // All Dex parsers use the same DEX reader, so don't process in parallel.
-          for (int i = 0; i < dexParsers.size(); i++) {
-            dexParsers.get(i).addClassDefsTo(classes::add, applicationReaderMap);
-          }
+        // Read the DexCode items and DexProgramClass items in parallel.
+        for (DexParser<DexProgramClass> dexParser : dexParsers) {
+          tasks.submit(
+              () -> {
+                dexParser.addClassDefsTo(
+                    classes::add, applicationReaderMap); // Depends on Methods, Code items etc.
+              });
+        }
+        // All DEX parsers for container sections use the same DEX reader,
+        // so don't process in parallel.
+        for (DexParser<DexProgramClass> dexParser : dexContainerParsers) {
+          dexParser.addClassDefsTo(classes::add, applicationReaderMap);
         }
       }
     }

@@ -333,7 +333,7 @@ public class FileWriter {
         mapping.getMethodHandles(), layout.methodHandleIdsOffset, this::writeMethodHandle);
 
     // Fill in the header information.
-    writeHeader(layout);
+    writeHeader(layout, layoutType);
     if (includeStringData) {
       writeSignature(layout);
       writeChecksum(layout);
@@ -827,8 +827,8 @@ public class FileWriter {
     dest.forward(size * Constants.TYPE_MAP_LIST_ITEM_SIZE);
   }
 
-  private byte[] dexVersionBytes() {
-    if (options.testing.dexContainerExperiment) {
+  private byte[] dexVersionBytes(DexVersion.Layout layoutType) {
+    if (options.testing.forceDexContainerFormat && layoutType.isContainer()) {
       return DexVersion.V41.getBytes();
     }
     // TODO(b/269089718): Remove this testing option and always emit DEX version 040 if DEX contains
@@ -837,15 +837,25 @@ public class FileWriter {
         && options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.R)) {
       return DexVersion.V40.getBytes();
     }
+    assert !layoutType.isContainer()
+        || options.getMinApiLevel().isGreaterThanOrEqualTo(InternalOptions.containerDexApiLevel());
+    DexVersion dexVersion =
+        layoutType.isContainer()
+            ? DexVersion.getDexVersion(options.getMinApiLevel())
+            : options
+                    .getMinApiLevel()
+                    .isGreaterThanOrEqualTo(InternalOptions.containerDexApiLevel())
+                ? DexVersion.V39
+                : DexVersion.getDexVersion(options.getMinApiLevel());
     return options.testing.forceDexVersionBytes != null
         ? options.testing.forceDexVersionBytes
-        : DexVersion.getDexVersion(options.getMinApiLevel()).getBytes();
+        : dexVersion.getBytes();
   }
 
-  private void writeHeader(Layout layout) {
+  private void writeHeader(Layout layout, DexVersion.Layout layoutType) {
     dest.moveTo(layout.headerOffset);
     dest.putBytes(Constants.DEX_FILE_MAGIC_PREFIX);
-    dest.putBytes(dexVersionBytes());
+    dest.putBytes(dexVersionBytes(layoutType));
     dest.putByte(Constants.DEX_FILE_MAGIC_SUFFIX);
     // Leave out checksum and signature for now.
     dest.moveTo(layout.headerOffset + Constants.FILE_SIZE_OFFSET);

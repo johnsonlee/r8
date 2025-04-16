@@ -3,21 +3,16 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex.container;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.ResourceShrinker;
 import com.android.tools.r8.ResourceShrinker.ReferenceChecker;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
-import com.android.tools.r8.utils.AndroidApiLevel;
-import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
+import com.android.tools.r8.utils.InternalOptions;
 import java.nio.file.Path;
-import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,12 +26,9 @@ public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
   @Parameter(0)
   public TestParameters parameters;
 
-  @Parameter(1)
-  public boolean enableDexContainerInResourceShrinker;
-
-  @Parameters(name = "{0}, enableDexContainerInResourceShrinker: {1}")
-  public static List<Object[]> data() {
-    return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withNoneRuntime().build();
   }
 
   private static Path inputA;
@@ -58,47 +50,36 @@ public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
     Path outputBoth =
         testForD8(Backend.DEX)
             .addProgramFiles(inputA, inputB)
-            .setMinApi(AndroidApiLevel.L)
-            .addOptionsModification(
-                options -> options.getTestingOptions().dexContainerExperiment = true)
+            .setMinApi(InternalOptions.containerDexApiLevel())
             .compile()
             .writeToZip();
     validateSingleContainerDex(outputBoth);
     ResourceShrinker.Command command =
         new ResourceShrinker.Builder().addProgramFiles(outputBoth).build();
 
-    try {
-      IntBox classCount = new IntBox();
-      ToolHelper.runLegacyResourceShrinker(
-          new ResourceShrinker.Builder().addProgramFiles(outputBoth),
-          options -> options.testing.dexContainerExperiment = enableDexContainerInResourceShrinker,
-          new ReferenceChecker() {
-            @Override
-            public boolean shouldProcess(String internalName) {
-              classCount.increment();
-              return true;
-            }
+    IntBox classCount = new IntBox();
+    ToolHelper.runLegacyResourceShrinker(
+        new ResourceShrinker.Builder().addProgramFiles(outputBoth),
+        new ReferenceChecker() {
+          @Override
+          public boolean shouldProcess(String internalName) {
+            classCount.increment();
+            return true;
+          }
 
-            @Override
-            public void referencedInt(int value) {}
+          @Override
+          public void referencedInt(int value) {}
 
-            @Override
-            public void referencedString(String value) {}
+          @Override
+          public void referencedString(String value) {}
 
-            @Override
-            public void referencedStaticField(String internalName, String fieldName) {}
+          @Override
+          public void referencedStaticField(String internalName, String fieldName) {}
 
-            @Override
-            public void referencedMethod(
-                String internalName, String methodName, String methodDescriptor) {}
-          });
-      assertTrue(enableDexContainerInResourceShrinker);
-      assertEquals(20000, classCount.get());
-    } catch (RuntimeException e) {
-      assertThat(
-          e.getMessage(),
-          containsString("Experimental container DEX version V41 is not supported"));
-      assertFalse(enableDexContainerInResourceShrinker);
-    }
+          @Override
+          public void referencedMethod(
+              String internalName, String methodName, String methodDescriptor) {}
+        });
+    assertEquals(20000, classCount.get());
   }
 }
