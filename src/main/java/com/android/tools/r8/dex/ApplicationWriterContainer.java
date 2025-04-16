@@ -34,8 +34,8 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
-class ApplicationWriterExperimental extends ApplicationWriter {
-  protected ApplicationWriterExperimental(
+class ApplicationWriterContainer extends ApplicationWriter {
+  protected ApplicationWriterContainer(
       AppView<?> appView, Marker marker, DexIndexedConsumer consumer) {
     super(appView, marker, consumer);
   }

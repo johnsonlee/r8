@@ -209,7 +209,7 @@ public class ApplicationWriter {
             .reporter
             .warning("Forcing container DEX for an API level not supporting it");
       }
-      return new ApplicationWriterExperimental(appView, marker, consumer);
+      return new ApplicationWriterContainer(appView, marker, consumer);
     } else {
       return new ApplicationWriter(appView, marker, consumer);
     }
