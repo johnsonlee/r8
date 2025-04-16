@@ -70,7 +70,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
   private final NestBasedAccessDesugaring nestBasedAccessDesugaring;
   private final CfToCfDesugaredLibraryRetargeter desugaredLibraryRetargeter;
   private final CfToCfInterfaceMethodRewriter interfaceMethodRewriter;
-  private final CfToCfDesugaredLibraryApiConverter desugaredLibraryAPIConverter;
+  private final CfToCfDesugaredLibraryApiConverter desugaredLibraryApiConverter;
   private final CfToCfDesugaredLibraryDisableDesugarer disableDesugarer;
 
   private final CfInstructionDesugaring[][] asmOpcodeOrCompareToIdToDesugaringsMap;
@@ -86,17 +86,14 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
         appView.enableWholeProgramOptimizations()
             ? new AlwaysThrowingInstructionDesugaring(appView.withClassHierarchy())
             : null;
-    if (alwaysThrowingInstructionDesugaring != null) {
-      desugarings.add(alwaysThrowingInstructionDesugaring);
-    }
-    if (appView.options().apiModelingOptions().isOutliningOfMethodsEnabled()) {
-      yieldingDesugarings.add(new ApiInvokeOutlinerDesugaring(appView, apiLevelCompute));
-    }
+    addIfNotNull(desugarings, alwaysThrowingInstructionDesugaring);
+    addIfNotNull(
+        yieldingDesugarings, ApiInvokeOutlinerDesugaring.createCfToCf(appView, apiLevelCompute));
     if (appView.options().desugarState.isOff()) {
       this.nestBasedAccessDesugaring = null;
       this.desugaredLibraryRetargeter = null;
       this.interfaceMethodRewriter = null;
-      this.desugaredLibraryAPIConverter = null;
+      this.desugaredLibraryApiConverter = null;
       this.disableDesugarer = null;
       desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
       if (appView.options().isGeneratingDex()) {
@@ -116,24 +113,16 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     // NavType#fromArgType is not kept.
     CfToCfDesugaredLibraryLibRewriter desugaredLibRewriter =
         DesugaredLibraryLibRewriter.createCfToCf(appView);
-    if (desugaredLibRewriter != null) {
-      desugarings.add(desugaredLibRewriter);
-    }
+    addIfNotNull(desugarings, desugaredLibRewriter);
     desugaredLibraryRetargeter = DesugaredLibraryRetargeter.createCfToCf(appView);
-    if (desugaredLibraryRetargeter != null) {
-      desugarings.add(desugaredLibraryRetargeter);
-    }
+    addIfNotNull(desugarings, desugaredLibraryRetargeter);
     AutoCloseableRetargeter autoCloseableRetargeter =
         appView.options().shouldDesugarAutoCloseable()
             ? new AutoCloseableRetargeter(appView)
             : null;
-    if (autoCloseableRetargeter != null) {
-      desugarings.add(autoCloseableRetargeter);
-    }
+    addIfNotNull(desugarings, autoCloseableRetargeter);
     disableDesugarer = DesugaredLibraryDisableDesugarer.createCfToCf(appView);
-    if (disableDesugarer != null) {
-      desugarings.add(disableDesugarer);
-    }
+    addIfNotNull(desugarings, disableDesugarer);
     if (appView.options().enableTryWithResourcesDesugaring()) {
       desugarings.add(new TwrInstructionDesugaring(appView));
     }
@@ -142,9 +131,7 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
       desugarings.add(typeSwitchDesugaring = new TypeSwitchDesugaring(appView));
     }
     RecordInstructionDesugaring recordRewriter = RecordInstructionDesugaring.create(appView);
-    if (recordRewriter != null) {
-      desugarings.add(recordRewriter);
-    }
+    addIfNotNull(desugarings, recordRewriter);
     StringConcatInstructionDesugaring stringConcatDesugaring =
         new StringConcatInstructionDesugaring(appView);
     desugarings.add(stringConcatDesugaring);
@@ -165,15 +152,13 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     } else if (appView.options().canHaveArtArrayCloneFromInterfaceMethodBug()) {
       desugarings.add(new OutlineArrayCloneFromInterfaceMethodDesugaring(appView));
     }
-    desugaredLibraryAPIConverter =
+    desugaredLibraryApiConverter =
         DesugaredLibraryAPIConverter.createForCfToCf(
             appView,
             SetUtils.newImmutableSetExcludingNullItems(
                 interfaceMethodRewriter, desugaredLibraryRetargeter, backportedMethodRewriter),
             interfaceMethodRewriter);
-    if (desugaredLibraryAPIConverter != null) {
-      desugarings.add(desugaredLibraryAPIConverter);
-    }
+    addIfNotNull(desugarings, desugaredLibraryApiConverter);
     desugarings.add(new ConstantDynamicInstructionDesugaring(appView));
     desugarings.add(new InvokeSpecialToSelfDesugaring(appView));
     if (appView.options().isGeneratingClassFiles()) {
@@ -187,15 +172,18 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
     if (backportedMethodRewriter.hasBackports()) {
       desugarings.add(backportedMethodRewriter);
     }
-    if (nestBasedAccessDesugaring != null) {
-      desugarings.add(nestBasedAccessDesugaring);
-    }
+    addIfNotNull(desugarings, nestBasedAccessDesugaring);
     VarHandleDesugaring varHandleDesugaring = VarHandleDesugaring.create(appView);
-    if (varHandleDesugaring != null) {
-      desugarings.add(varHandleDesugaring);
-    }
+    addIfNotNull(desugarings, varHandleDesugaring);
     yieldingDesugarings.add(new UnrepresentableInDexInstructionRemover(appView));
     asmOpcodeOrCompareToIdToDesugaringsMap = createAsmOpcodeOrCompareToIdToDesugaringsMap();
+  }
+
+  private static void addIfNotNull(
+      Collection<CfInstructionDesugaring> collection, CfInstructionDesugaring desugaring) {
+    if (desugaring != null) {
+      collection.add(desugaring);
+    }
   }
 
   private CfInstructionDesugaring[][] createAsmOpcodeOrCompareToIdToDesugaringsMap() {
@@ -546,8 +534,8 @@ public class NonEmptyCfInstructionDesugaringCollection extends CfInstructionDesu
 
   @Override
   public void withDesugaredLibraryAPIConverter(Consumer<DesugaredLibraryAPIConverter> consumer) {
-    if (desugaredLibraryAPIConverter != null) {
-      consumer.accept(desugaredLibraryAPIConverter);
+    if (desugaredLibraryApiConverter != null) {
+      consumer.accept(desugaredLibraryApiConverter);
     }
   }
 
