@@ -5,9 +5,7 @@ package com.android.tools.r8.dex.container;
 
 import com.android.tools.r8.R8TestCompileResult;
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
-import com.android.tools.r8.utils.DexVersion;
 import com.android.tools.r8.utils.InternalOptions;
 import java.nio.file.Path;
 import java.util.List;
@@ -69,19 +67,7 @@ public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBa
     Path feature2Path = result.getFeature(1);
 
     validateDex(basePath, 1, InternalOptions.containerDexApiLevel().getDexVersion());
-    validateDex(
-        feature1Path,
-        2,
-        // For container DEX API levels non container output use the highest non container format.
-        useContainerDexApiLevel
-            ? DexVersion.getDexVersion(AndroidApiLevel.V)
-            : DexVersion.getDexVersion(AndroidApiLevel.L));
-    validateDex(
-        feature2Path,
-        2,
-        // For container DEX API levels non container output use the highest non container format.
-        useContainerDexApiLevel
-            ? DexVersion.getDexVersion(AndroidApiLevel.V)
-            : DexVersion.getDexVersion(AndroidApiLevel.L));
+    validateDex(feature1Path, 1, InternalOptions.containerDexApiLevel().getDexVersion());
+    validateDex(feature2Path, 1, InternalOptions.containerDexApiLevel().getDexVersion());
   }
 }
