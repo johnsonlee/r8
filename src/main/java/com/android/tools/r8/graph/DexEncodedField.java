@@ -68,8 +68,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
     this.accessFlags = accessFlags;
     this.staticValue = staticValue;
     this.deprecated = deprecated;
-    this.genericSignature = genericSignature;
-    assert genericSignature != null;
+    setGenericSignature(genericSignature);
     assert GenericSignatureUtils.verifyNoDuplicateGenericDefinitions(genericSignature, annotations);
   }
 
@@ -314,7 +313,7 @@ public class DexEncodedField extends DexEncodedMember<DexEncodedField, DexField>
 
   @Override
   public void clearGenericSignature() {
-    this.genericSignature = FieldTypeSignature.noSignature();
+    setGenericSignature(FieldTypeSignature.noSignature());
   }
 
   public static Builder builder() {

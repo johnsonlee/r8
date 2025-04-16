@@ -269,6 +269,10 @@ public class GenericSignature {
       return formalTypeParameters;
     }
 
+    public void registerUses(GenericSignatureUseRegistry registry) {
+      visitWithoutRewrite(registry.toVisitor());
+    }
+
     public ClassSignature visit(GenericSignatureVisitor visitor, DexItemFactory factory) {
       if (hasNoSignature()) {
         return this;
@@ -541,10 +545,16 @@ public class GenericSignature {
       return NO_FIELD_TYPE_SIGNATURE;
     }
 
+    public void registerUses(GenericSignatureUseRegistry registry) {
+      visit(registry.toVisitor());
+    }
+
     @Override
     public InvalidFieldTypeSignature toInvalid() {
       return new InvalidFieldTypeSignature(toString());
     }
+
+    public abstract FieldTypeSignature visit(GenericSignatureVisitor visitor);
   }
 
   private static class InvalidFieldTypeSignature extends FieldTypeSignature {
@@ -577,6 +587,11 @@ public class GenericSignature {
       assert false : " Should not be called for an invalid signature";
       return this;
     }
+
+    @Override
+    public FieldTypeSignature visit(GenericSignatureVisitor visitor) {
+      return this;
+    }
   }
 
   static final class StarFieldTypeSignature extends FieldTypeSignature {
@@ -600,6 +615,11 @@ public class GenericSignature {
 
     public static StarFieldTypeSignature getStarFieldTypeSignature() {
       return STAR_FIELD_TYPE_SIGNATURE;
+    }
+
+    @Override
+    public FieldTypeSignature visit(GenericSignatureVisitor visitor) {
+      return this;
     }
   }
 
@@ -679,6 +699,7 @@ public class GenericSignature {
     }
 
     @SuppressWarnings("ReferenceEquality")
+    @Override
     public ClassTypeSignature visit(GenericSignatureVisitor visitor) {
       if (hasNoSignature()) {
         return this;
@@ -751,6 +772,7 @@ public class GenericSignature {
       return new ArrayTypeSignature(this);
     }
 
+    @Override
     public ArrayTypeSignature visit(GenericSignatureVisitor visitor) {
       TypeSignature rewrittenElementSignature = visitor.visitTypeSignature(elementSignature);
       if (rewrittenElementSignature == null) {
@@ -801,6 +823,11 @@ public class GenericSignature {
     public String typeVariable() {
       return typeVariable;
     }
+
+    @Override
+    public FieldTypeSignature visit(GenericSignatureVisitor visitor) {
+      return this;
+    }
   }
 
   // TODO(b/129925954): Canonicalization?
@@ -811,6 +838,10 @@ public class GenericSignature {
       assert type != null;
       assert type.isPrimitiveType() : type.toDescriptorString();
       this.type = type;
+    }
+
+    public DexType getType() {
+      return type;
     }
 
     @Override
@@ -907,6 +938,10 @@ public class GenericSignature {
     @Override
     public MethodTypeSignature asMethodTypeSignature() {
       return this;
+    }
+
+    public void registerUses(GenericSignatureUseRegistry registry) {
+      visit(registry.toVisitor());
     }
 
     public MethodTypeSignature visit(GenericSignatureVisitor visitor) {

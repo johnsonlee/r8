@@ -113,6 +113,7 @@ public class UseCollector {
       registerAnnotation(annotation, clazz, classContext);
     }
     traceKotlinMetadata(clazz, classContext);
+    traceSignature(clazz, classContext);
   }
 
   private void traceKotlinMetadata(DexProgramClass clazz, DefinitionContext classContext) {
@@ -134,6 +135,18 @@ public class UseCollector {
             appView, clazz, metadata, emptyConsumer(), reportUnknownMetadata);
     clazz.setKotlinInfo(kotlinInfo);
     return true;
+  }
+
+  private void traceSignature(DexProgramClass clazz, DefinitionContext classContext) {
+    clazz.getClassSignature().registerUses(type -> addType(type, classContext));
+  }
+
+  private void traceSignature(ProgramField field, DefinitionContext fieldContext) {
+    field.getDefinition().getGenericSignature().registerUses(type -> addType(type, fieldContext));
+  }
+
+  private void traceSignature(ProgramMethod method, DefinitionContext methodContext) {
+    method.getDefinition().getGenericSignature().registerUses(type -> addType(type, methodContext));
   }
 
   protected void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
@@ -279,6 +292,7 @@ public class UseCollector {
         .getAnnotations()
         .forEach(
             dexAnnotation -> registerAnnotation(dexAnnotation, field.getHolder(), referencedFrom));
+    traceSignature(field, referencedFrom);
   }
 
   private void registerMethod(ProgramMethod method) {
@@ -294,6 +308,7 @@ public class UseCollector {
         .forEachAnnotation(
             dexAnnotation -> registerAnnotation(dexAnnotation, method.getHolder(), referencedFrom));
     traceCode(method);
+    traceSignature(method, referencedFrom);
   }
 
   private void traceCode(ProgramMethod method) {

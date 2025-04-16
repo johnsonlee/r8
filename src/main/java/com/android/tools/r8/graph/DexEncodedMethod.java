@@ -227,7 +227,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
     super(method, annotations, d8R8Synthesized, apiLevelForDefinition);
     this.accessFlags = accessFlags;
     this.deprecated = deprecated;
-    this.genericSignature = genericSignature;
+    setGenericSignature(genericSignature);
     this.parameterAnnotationsList = parameterAnnotationsList;
     this.code = code;
     this.pendingInlineFrame = pendingInlineFrame;
@@ -1397,7 +1397,7 @@ public class DexEncodedMethod extends DexEncodedMember<DexEncodedMethod, DexMeth
 
   @Override
   public void clearGenericSignature() {
-    this.genericSignature = MethodTypeSignature.noSignature();
+    setGenericSignature(MethodTypeSignature.noSignature());
   }
 
   public DexWritableCode getDexWritableCodeOrNull() {

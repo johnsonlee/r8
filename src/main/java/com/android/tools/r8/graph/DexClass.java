@@ -124,8 +124,7 @@ public abstract class DexClass extends DexDefinition
     assert permittedSubclasses != null;
     this.enclosingMethod = enclosingMethod;
     this.innerClasses = innerClasses;
-    assert classSignature != null;
-    this.classSignature = classSignature;
+    setClassSignature(classSignature);
     assert GenericSignatureUtils.verifyNoDuplicateGenericDefinitions(classSignature, annotations);
     if (type.isIdenticalTo(superType)) {
       throw new CompilationError("Class " + type + " cannot extend itself");
@@ -1045,7 +1044,7 @@ public abstract class DexClass extends DexDefinition
   }
 
   public void clearClassSignature() {
-    classSignature = ClassSignature.noSignature();
+    setClassSignature(ClassSignature.noSignature());
   }
 
   public void removeInnerClasses(Predicate<InnerClassAttribute> predicate) {
@@ -1080,6 +1079,7 @@ public abstract class DexClass extends DexDefinition
   }
 
   public void setClassSignature(ClassSignature classSignature) {
+    assert classSignature != null;
     this.classSignature = classSignature;
   }
 
