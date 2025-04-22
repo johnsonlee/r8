@@ -16,6 +16,7 @@ import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
+import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.FieldAccessFlags;
 import com.android.tools.r8.graph.FieldResolutionResult.SingleFieldResolutionResult;
@@ -33,10 +34,12 @@ import com.android.tools.r8.ir.code.FieldGet;
 import com.android.tools.r8.ir.code.FieldInstruction;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.InstanceGet;
+import com.android.tools.r8.ir.code.InstancePut;
 import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InstructionOrPhi;
 import com.android.tools.r8.ir.code.InvokeDirect;
+import com.android.tools.r8.ir.code.LazyDominatorTree;
 import com.android.tools.r8.ir.code.NewInstance;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Position;
@@ -45,8 +48,10 @@ import com.android.tools.r8.ir.code.StaticGet;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.passes.BranchSimplifier;
 import com.android.tools.r8.utils.AndroidApiLevelUtils;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.OptionalBool;
 import com.android.tools.r8.utils.WorkList;
+import com.android.tools.r8.utils.collections.DexClassAndFieldMap;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.Hash.Strategy;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenCustomHashMap;
@@ -197,9 +202,22 @@ public class ConstantCanonicalizer {
               }
             });
 
+    // Compute a mapping from instance fields to its assignments.
+    DexClassAndFieldMap<List<InstancePut>> instancePuts = DexClassAndFieldMap.create();
+    if (appView.hasClassHierarchy()) {
+      for (InstancePut instancePut : code.<InstancePut>instructions(Instruction::isInstancePut)) {
+        DexClassAndField field =
+            instancePut.resolveField(appView.withClassHierarchy(), context).getResolutionPair();
+        if (field != null) {
+          instancePuts.computeIfAbsent(field, ignoreKey(ArrayList::new)).add(instancePut);
+        }
+      }
+    }
+
     // Collect usages of constants that can be canonicalized.
+    LazyDominatorTree dominatorTree = new LazyDominatorTree(code);
     for (Instruction instruction : code.instructions()) {
-      if (isConstantCanonicalizationCandidate(instruction)) {
+      if (isConstantCanonicalizationCandidate(instruction, instancePuts, dominatorTree)) {
         valuesDefinedByConstant
             .computeIfAbsent(instruction, ignoreKey(ArrayList::new))
             .add(instruction);
@@ -240,7 +258,8 @@ public class ConstantCanonicalizer {
         newInstruction = canonicalizedConstant;
       } else {
         newInstruction = createMaterializingInstruction(canonicalizedConstant);
-        InstructionOrPhi insertionPoint = getInsertionPointForCanonicalizedConstant(newInstruction);
+        InstructionOrPhi insertionPoint =
+            getInsertionPointForCanonicalizedConstant(newInstruction, instancePuts);
         if (insertionPoint == null) {
           insertCanonicalizedConstantInEntryBlock(newInstruction);
         } else {
@@ -348,7 +367,8 @@ public class ConstantCanonicalizer {
         : Collections.emptyList();
   }
 
-  private InstructionOrPhi getInsertionPointForCanonicalizedConstant(Instruction newInstruction) {
+  private InstructionOrPhi getInsertionPointForCanonicalizedConstant(
+      Instruction newInstruction, DexClassAndFieldMap<List<InstancePut>> instancePutsByField) {
     switch (newInstruction.opcode()) {
       case CONST_CLASS:
       case CONST_NUMBER:
@@ -373,11 +393,20 @@ public class ConstantCanonicalizer {
             return code.getLastArgument();
           }
           if (definition.isNewInstance()) {
-            InvokeDirect uniqueConstructorInvoke =
-                definition.asNewInstance().getUniqueConstructorInvoke(appView.dexItemFactory());
-            // This is guaranteed to be non-null by isConstantCanonicalizationCandidate.
-            assert uniqueConstructorInvoke != null;
-            return uniqueConstructorInvoke;
+            DexClassAndField field =
+                instanceGet.resolveField(appView.withClassHierarchy(), context).getResolutionPair();
+            assert field != null;
+            List<InstancePut> instancePuts = instancePutsByField.get(field);
+            if (instancePuts == null) {
+              InvokeDirect uniqueConstructorInvoke =
+                  definition.asNewInstance().getUniqueConstructorInvoke(appView.dexItemFactory());
+              // This is guaranteed to be non-null by isConstantCanonicalizationCandidate.
+              assert uniqueConstructorInvoke != null;
+              return uniqueConstructorInvoke;
+            } else {
+              assert instancePuts.size() == 1;
+              return ListUtils.first(instancePuts);
+            }
           }
           return definition;
         }
@@ -408,8 +437,14 @@ public class ConstantCanonicalizer {
     }
   }
 
-  public boolean isConstantCanonicalizationCandidate(Instruction instruction) {
+  public boolean isConstantCanonicalizationCandidate(
+      Instruction instruction,
+      DexClassAndFieldMap<List<InstancePut>> instancePuts,
+      LazyDominatorTree dominatorTree) {
     if (!isConstant(instruction)) {
+      return false;
+    }
+    if (canHoistInstanceGetAboveInstancePut(instruction, instancePuts, dominatorTree)) {
       return false;
     }
     // Do not canonicalize throwing instructions if there are monitor operations in the code.
@@ -427,6 +462,54 @@ public class ConstantCanonicalizer {
       return false;
     }
     return true;
+  }
+
+  private boolean canHoistInstanceGetAboveInstancePut(
+      Instruction instruction,
+      DexClassAndFieldMap<List<InstancePut>> instancePutsByField,
+      LazyDominatorTree dominatorTree) {
+    InstanceGet instanceGet = instruction.asInstanceGet();
+    // We care about instance-gets where the receiver is a new-instance.
+    if (instanceGet == null
+        || !instanceGet.object().isDefinedByInstructionSatisfying(Instruction::isNewInstance)) {
+      return false;
+    }
+    assert instancePutsByField != null;
+    DexClassAndField resolvedField =
+        instanceGet.resolveField(appView.withClassHierarchy(), context).getResolutionPair();
+    if (resolvedField == null) {
+      // This should never be a constant canonicalization candidate in the first place.
+      assert false;
+      return false;
+    }
+    List<InstancePut> instancePuts = instancePutsByField.get(resolvedField);
+    if (instancePuts == null) {
+      // We can safely hoist this instance-put up to the constructor call.
+      return false;
+    }
+    assert !instancePuts.isEmpty();
+    if (instancePuts.size() == 1) {
+      // If the instance-put dominates the instance-get we use the instance-put as insertion
+      // position. Otherwise, bail out by returning true.
+      InstancePut instancePut = ListUtils.first(instancePuts);
+      return !isInstructionDominatedBy(instanceGet, instancePut, dominatorTree);
+    }
+    return true;
+  }
+
+  private boolean isInstructionDominatedBy(
+      Instruction dominated, Instruction dominator, LazyDominatorTree dominatorTree) {
+    if (dominated.getBlock() == dominator.getBlock()) {
+      for (Instruction successor = dominated.getNext();
+          successor != null;
+          successor = successor.getNext()) {
+        if (successor == dominated) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return dominatorTree.get().dominatedBy(dominated.getBlock(), dominator.getBlock());
   }
 
   public boolean isConstant(Instruction instruction) {

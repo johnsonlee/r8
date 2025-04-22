@@ -3,15 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.ir.optimize.canonicalization;
 
-import static org.hamcrest.CoreMatchers.anyOf;
-import static org.hamcrest.CoreMatchers.equalTo;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.NeverClassInline;
 import com.android.tools.r8.NoRedundantFieldLoadElimination;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
+import com.android.tools.r8.utils.codeinspector.InstructionSubject;
+import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -36,18 +39,21 @@ public class CanonicalizeInstanceGetBeforeInstancePutTest extends TestBase {
         .addKeepMainRule(Main.class)
         .enableNeverClassInliningAnnotations()
         .enableNoRedundantFieldLoadEliminationAnnotations()
+        .compile()
+        .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), Main.class, "Hello, world!")
-        // TODO(b/412512136): Should always succeed with expected output.
-        .applyIf(
-            parameters.isRandomPartialCompilation(),
-            b ->
-                b.assertSuccessWithOutputThatMatches(
-                    anyOf(
-                        equalTo(StringUtils.lines("null")),
-                        equalTo(StringUtils.lines("Hello, world!")))),
-            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
-            b -> b.assertSuccessWithOutputLines("null"),
-            b -> b.assertSuccessWithOutputLines("Hello, world!"));
+        .assertSuccessWithOutputLines("Hello, world!");
+  }
+
+  private void inspect(CodeInspector inspector) {
+    MethodSubject mainMethodSubject = inspector.clazz(Main.class).mainMethod();
+    assertThat(mainMethodSubject, isPresent());
+
+    // We expect two instance-get instructions when compiling to CF since we only run
+    // canonicalization when compiling to DEX.
+    assertEquals(
+        parameters.isCfRuntime() ? 2 : 1,
+        mainMethodSubject.streamInstructions().filter(InstructionSubject::isInstanceGet).count());
   }
 
   static class Main {
