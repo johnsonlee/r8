@@ -930,6 +930,11 @@ public abstract class CfInstructionDesugaringEventConsumer
     }
 
     @Override
+    public void acceptOutlinedMethod(ProgramMethod outlinedMethod, ProgramMethod context) {
+      synthesizedMethods.add(outlinedMethod);
+    }
+
+    @Override
     public void acceptWrapperClasspathClass(DexClasspathClass clazz) {
       // Intentionally empty.
     }
@@ -946,11 +951,6 @@ public abstract class CfInstructionDesugaringEventConsumer
     @Override
     public boolean verifyNothingToFinalize() {
       return true;
-    }
-
-    @Override
-    public void acceptOutlinedMethod(ProgramMethod outlinedMethod, ProgramMethod context) {
-      assert false;
     }
 
     @Override

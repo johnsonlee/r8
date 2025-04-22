@@ -18,6 +18,8 @@ import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring;
+import com.android.tools.r8.ir.desugar.apimodel.LirToLirApiInvokeOutlinerDesugaring;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryAPIConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.DesugaredLibraryDisableDesugarer;
@@ -60,6 +62,8 @@ public class R8LibraryDesugaring {
         && options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
         && options.isGeneratingDex()) {
       new R8LibraryDesugaring(appView).run(executorService, timing);
+    } else {
+      assert !appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled();
     }
   }
 
@@ -101,6 +105,9 @@ public class R8LibraryDesugaring {
     CfInstructionDesugaringEventConsumer eventConsumer =
         CfInstructionDesugaringEventConsumer.createForR8LibraryDesugaring(
             appView, profileCollectionAdditions, synthesizedMethods);
+    LirToLirApiInvokeOutlinerDesugaring apiOutliner =
+        ApiInvokeOutlinerDesugaring.createLirToLir(
+            appView, appView.apiLevelCompute(), eventConsumer);
     LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer =
         DesugaredLibraryDisableDesugarer.createLirToLir(appView);
     LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter =
@@ -125,6 +132,7 @@ public class R8LibraryDesugaring {
                   R8LibraryDesugaringGraphLens libraryDesugaringGraphLens =
                       new R8LibraryDesugaringGraphLens(
                           appView,
+                          apiOutliner,
                           desugaredLibraryApiConverter,
                           desugaredLibraryDisableDesugarer,
                           desugaredLibraryLibRewriter,

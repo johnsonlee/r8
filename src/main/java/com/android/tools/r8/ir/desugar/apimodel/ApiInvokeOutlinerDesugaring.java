@@ -42,7 +42,7 @@ import java.util.function.Function;
  * This desugaring will outline calls to library methods that are introduced after the min-api
  * level. For classes introduced after the min-api level see ApiReferenceStubber.
  */
-public class ApiInvokeOutlinerDesugaring {
+public abstract class ApiInvokeOutlinerDesugaring {
 
   private final AppView<?> appView;
   private final AndroidApiLevelCompute apiLevelCompute;
@@ -59,13 +59,23 @@ public class ApiInvokeOutlinerDesugaring {
 
   public static CfToCfApiInvokeOutlinerDesugaring createCfToCf(
       AppView<?> appView, AndroidApiLevelCompute apiLevelCompute) {
-    if (appView.options().apiModelingOptions().isOutliningOfMethodsEnabled()) {
+    if (appView.options().apiModelingOptions().isCfToCfApiOutliningEnabled()) {
       return new CfToCfApiInvokeOutlinerDesugaring(appView, apiLevelCompute);
     }
     return null;
   }
 
-  RetargetMethodSupplier getRetargetMethodSupplier(
+  public static LirToLirApiInvokeOutlinerDesugaring createLirToLir(
+      AppView<?> appView,
+      AndroidApiLevelCompute apiLevelCompute,
+      CfInstructionDesugaringEventConsumer eventConsumer) {
+    if (appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled()) {
+      return new LirToLirApiInvokeOutlinerDesugaring(appView, apiLevelCompute, eventConsumer);
+    }
+    return null;
+  }
+
+  public RetargetMethodSupplier getRetargetMethodSupplier(
       InstructionKind instructionKind, DexReference reference, ProgramMethod context) {
     ComputedApiLevel computedApiLevel =
         getComputedApiLevelInstructionOnHolderWithMinApi(instructionKind, reference, context);
@@ -276,36 +286,24 @@ public class ApiInvokeOutlinerDesugaring {
   }
 
   private void setCodeForCheckCast(SyntheticMethodBuilder methodBuilder, DexType type) {
-    DexClass target = appView.definitionFor(type);
-    assert target != null;
     methodBuilder
-        .setProto(factory.createProto(target.getType(), objectParams))
+        .setProto(factory.createProto(type, objectParams))
         .setCode(
-            m ->
-                CheckCastSourceCode.create(appView, m.getHolderType(), target.getType())
-                    .generateCfCode());
+            m -> CheckCastSourceCode.create(appView, m.getHolderType(), type).generateCfCode());
   }
 
   private void setCodeForInstanceOf(SyntheticMethodBuilder methodBuilder, DexType type) {
-    DexClass target = appView.definitionFor(type);
-    assert target != null;
     methodBuilder
         .setProto(factory.createProto(factory.booleanType, objectParams))
         .setCode(
-            m ->
-                InstanceOfSourceCode.create(appView, m.getHolderType(), target.getType())
-                    .generateCfCode());
+            m -> InstanceOfSourceCode.create(appView, m.getHolderType(), type).generateCfCode());
   }
 
   private void setCodeForConstClass(SyntheticMethodBuilder methodBuilder, DexType type) {
-    DexClass target = appView.definitionFor(type);
-    assert target != null;
     methodBuilder
         .setProto(factory.createProto(factory.classType))
         .setCode(
-            m ->
-                ConstClassSourceCode.create(appView, m.getHolderType(), target.getType())
-                    .generateCfCode());
+            m -> ConstClassSourceCode.create(appView, m.getHolderType(), type).generateCfCode());
   }
 
   private boolean verifyLibraryHolderAndInvoke(
@@ -315,7 +313,7 @@ public class ApiInvokeOutlinerDesugaring {
         || libraryApiMethodDefinition.isVirtualMethod() == isVirtualInvoke;
   }
 
-  enum InstructionKind {
+  public enum InstructionKind {
     CHECKCAST,
     CONSTCLASS,
     IGET,
@@ -327,11 +325,11 @@ public class ApiInvokeOutlinerDesugaring {
     SGET,
     SPUT;
 
-    boolean isFieldInstruction() {
+    public boolean isFieldInstruction() {
       return this == IGET || this == IPUT || this == SGET || this == SPUT;
     }
 
-    boolean isInvoke() {
+    public boolean isInvoke() {
       return this == INVOKEINTERFACE || this == INVOKESTATIC || this == INVOKEVIRTUAL;
     }
 
@@ -342,7 +340,7 @@ public class ApiInvokeOutlinerDesugaring {
     }
   }
 
-  interface RetargetMethodSupplier {
+  public interface RetargetMethodSupplier {
 
     DexMethod getRetargetMethod(
         CfInstructionDesugaringEventConsumer eventConsumer,

@@ -23,6 +23,7 @@ import com.android.tools.r8.graph.proto.RewrittenPrototypeDescription;
 import com.android.tools.r8.horizontalclassmerging.HorizontalClassMergerGraphLens;
 import com.android.tools.r8.ir.code.InvokeType;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
+import com.android.tools.r8.ir.desugar.desugaredlibrary.R8LibraryDesugaringGraphLens;
 import com.android.tools.r8.ir.optimize.CustomLensCodeRewriter;
 import com.android.tools.r8.ir.optimize.enums.EnumUnboxingLens;
 import com.android.tools.r8.optimize.MemberRebindingIdentityLens;
@@ -439,6 +440,14 @@ public abstract class GraphLens {
   }
 
   public EnumUnboxingLens asEnumUnboxerLens() {
+    return null;
+  }
+
+  public boolean isLirToLirDesugaringLens() {
+    return false;
+  }
+
+  public R8LibraryDesugaringGraphLens asLirToLirDesugaringLens() {
     return null;
   }
 

@@ -6,7 +6,9 @@ package com.android.tools.r8.ir.desugar.desugaredlibrary;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
+import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.lens.DefaultNonIdentityGraphLens;
@@ -27,10 +29,14 @@ import com.android.tools.r8.ir.code.Instruction;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeStatic;
 import com.android.tools.r8.ir.code.InvokeVirtual;
+import com.android.tools.r8.ir.code.Opcodes;
 import com.android.tools.r8.ir.code.Phi;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
+import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring;
+import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring.InstructionKind;
+import com.android.tools.r8.ir.desugar.apimodel.LirToLirApiInvokeOutlinerDesugaring;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.DesugaredLibraryConversionCfProvider;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.LirToLirDesugaredLibraryApiConverter;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.disabledesugarer.LirToLirDesugaredLibraryDisableDesugarer;
@@ -46,6 +52,7 @@ import java.util.Set;
 // TODO(b/391572031): Apply type instruction rewriting from CfToCfDesugaredLibraryDisableDesugarer.
 public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
+  private final LirToLirApiInvokeOutlinerDesugaring apiOutliner;
   private final LirToLirDesugaredLibraryApiConverter desugaredLibraryApiConverter;
   private final LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer;
   private final LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter;
@@ -58,6 +65,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
 
   public R8LibraryDesugaringGraphLens(
       AppView<? extends AppInfoWithClassHierarchy> appView,
+      LirToLirApiInvokeOutlinerDesugaring apiOutliner,
       LirToLirDesugaredLibraryApiConverter desugaredLibraryApiConverter,
       LirToLirDesugaredLibraryDisableDesugarer desugaredLibraryDisableDesugarer,
       LirToLirDesugaredLibraryLibRewriter desugaredLibraryLibRewriter,
@@ -67,6 +75,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
       ProgramMethod method,
       MethodProcessingContext methodProcessingContext) {
     super(appView);
+    this.apiOutliner = apiOutliner;
     this.desugaredLibraryApiConverter = desugaredLibraryApiConverter;
     this.desugaredLibraryDisableDesugarer = desugaredLibraryDisableDesugarer;
     this.desugaredLibraryLibRewriter = desugaredLibraryLibRewriter;
@@ -75,6 +84,45 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
     this.eventConsumer = eventConsumer;
     this.method = method;
     this.methodProcessingContext = methodProcessingContext;
+  }
+
+  public boolean needsApiOutlining(
+      ApiInvokeOutlinerDesugaring.InstructionKind instructionKind,
+      DexReference reference,
+      ProgramMethod context) {
+    return apiOutliner != null
+        && apiOutliner.getRetargetMethodSupplier(instructionKind, reference, context) != null
+        && !needsLibraryDesugaring(instructionKind, reference);
+  }
+
+  private DexMethod lookupApiOutline(
+      ApiInvokeOutlinerDesugaring.InstructionKind instructionKind,
+      DexReference reference,
+      ProgramMethod context) {
+    return apiOutliner != null && !needsLibraryDesugaring(instructionKind, reference)
+        ? apiOutliner.getRetargetMethod(
+            instructionKind, reference, context, methodProcessingContext)
+        : null;
+  }
+
+  private boolean needsLibraryDesugaring(
+      ApiInvokeOutlinerDesugaring.InstructionKind instructionKind, DexReference reference) {
+    if (instructionKind.isFieldInstruction()) {
+      DexField field = reference.asDexField();
+      DexField lookupResult = lookupField(field, appView.codeLens());
+      return lookupResult.isNotIdenticalTo(field);
+    }
+    return false;
+  }
+
+  @Override
+  public boolean isLirToLirDesugaringLens() {
+    return true;
+  }
+
+  @Override
+  public R8LibraryDesugaringGraphLens asLirToLirDesugaringLens() {
+    return this;
   }
 
   @Override
@@ -149,6 +197,10 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
           previous, method, methodProcessingContext, this);
     }
 
+    if (apiOutliner != null) {
+      return apiOutliner.lookupMethod(previous, method, methodProcessingContext, this);
+    }
+
     return previous;
   }
 
@@ -162,26 +214,84 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
         NonIdentityGraphLens lens) {
       boolean changed = false;
       BasicBlockIterator blocks = code.listIterator();
-      GraphLens codeLens = code.context().getDefinition().getCode().getCodeLens(appView);
+      ProgramMethod context = code.context();
+      GraphLens codeLens = context.getDefinition().getCode().getCodeLens(appView);
       while (blocks.hasNext()) {
         BasicBlock block = blocks.next();
         BasicBlockInstructionListIterator instructions = block.listIterator();
         while (instructions.hasNext()) {
-          InvokeMethod invoke = instructions.next().asInvokeMethod();
-          if (invoke == null) {
-            continue;
+          Instruction instruction = instructions.next();
+          DexMethod apiOutline = null;
+          switch (instruction.opcode()) {
+            case Opcodes.CHECK_CAST:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.CHECKCAST, instruction.asCheckCast().getType(), context);
+              break;
+            case Opcodes.CONST_CLASS:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.CONSTCLASS, instruction.asConstClass().getType(), context);
+              break;
+            case Opcodes.INSTANCE_GET:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.IGET, instruction.asInstanceGet().getField(), context);
+              break;
+            case Opcodes.INSTANCE_OF:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.INSTANCEOF, instruction.asInstanceOf().type(), context);
+              break;
+            case Opcodes.INSTANCE_PUT:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.INSTANCEOF, instruction.asInstancePut().getField(), context);
+              break;
+            case Opcodes.INVOKE_DIRECT:
+            case Opcodes.INVOKE_INTERFACE:
+            case Opcodes.INVOKE_STATIC:
+            case Opcodes.INVOKE_SUPER:
+            case Opcodes.INVOKE_VIRTUAL:
+              {
+                InvokeMethod invoke = instruction.asInvokeMethod();
+                MethodLookupResult lookupResult =
+                    lookupMethod(
+                        invoke.getInvokedMethod(),
+                        context.getReference(),
+                        invoke.getType(),
+                        codeLens,
+                        invoke.getInterfaceBit());
+                if (lookupResult.isNeedsDesugaredLibraryApiConversionSet()) {
+                  rewriteInvoke(code, blocks, instructions, invoke);
+                  changed = true;
+                }
+                break;
+              }
+            case Opcodes.STATIC_GET:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.SGET, instruction.asStaticGet().getField(), context);
+              break;
+            case Opcodes.STATIC_PUT:
+              apiOutline =
+                  lookupApiOutline(
+                      InstructionKind.SPUT, instruction.asStaticPut().getField(), context);
+              break;
+            default:
+              break;
           }
-          MethodLookupResult lookupResult =
-              lookupMethod(
-                  invoke.getInvokedMethod(),
-                  code.context().getReference(),
-                  invoke.getType(),
-                  codeLens,
-                  invoke.getInterfaceBit());
-          if (lookupResult.isNeedsDesugaredLibraryApiConversionSet()) {
-            rewriteInvoke(code, blocks, instructions, invoke);
+          if (apiOutline != null) {
+            instructions.replaceCurrentInstruction(
+                InvokeStatic.builder()
+                    .setArguments(instruction.inValues())
+                    .setMethod(apiOutline)
+                    .setOutValue(instruction.outValue())
+                    .setIsInterface(false)
+                    .setPosition(instruction)
+                    .build());
+            changed = true;
           }
-          changed = true;
         }
       }
       assert changed;

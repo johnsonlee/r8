@@ -117,6 +117,20 @@ public class AndroidApiModelingOptions {
     return isApiModelingEnabled() && options.isGeneratingDex() && enableOutliningOfMethods;
   }
 
+  public boolean isCfToCfApiOutliningEnabled() {
+    if (isOutliningOfMethodsEnabled()) {
+      // Enable cf-to-cf when running normal D8/R8. When running R8 partial, enable cf-to-cf
+      // desugaring when there is no library desugaring.
+      return options.partialSubCompilationConfiguration == null
+          || !options.getSubCompilationLibraryDesugaringOptions().isEnabled();
+    }
+    return false;
+  }
+
+  public boolean isLirToLirApiOutliningEnabled() {
+    return isOutliningOfMethodsEnabled() && !isCfToCfApiOutliningEnabled();
+  }
+
   public boolean isCheckAllApiReferencesAreSet() {
     return isApiModelingEnabled() && checkAllApiReferencesAreSet;
   }

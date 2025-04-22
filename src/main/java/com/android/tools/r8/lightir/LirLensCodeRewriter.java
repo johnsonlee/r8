@@ -32,7 +32,7 @@ import com.android.tools.r8.ir.conversion.LensCodeRewriter;
 import com.android.tools.r8.ir.conversion.LensCodeRewriterUtils;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.conversion.MethodProcessor;
-import com.android.tools.r8.ir.desugar.desugaredlibrary.R8LibraryDesugaringGraphLens;
+import com.android.tools.r8.ir.desugar.apimodel.ApiInvokeOutlinerDesugaring.InstructionKind;
 import com.android.tools.r8.ir.optimize.AffectedValues;
 import com.android.tools.r8.ir.optimize.DeadCodeRemover;
 import com.android.tools.r8.lightir.LirBuilder.NameComputationPayload;
@@ -43,6 +43,7 @@ import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import com.android.tools.r8.verticalclassmerging.VerticalClassMergerGraphLens;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.util.ArrayList;
@@ -54,7 +55,9 @@ import java.util.Set;
 
 public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
-  private static final Set<DexMethod> NO_INVOKES_TO_REWRITE = ImmutableSet.of();
+  private static final Set<DexField> NO_FIELD_INSTRUCTIONS_TO_REWRITE = ImmutableSet.of();
+  private static final Set<DexMethod> NO_INVOKE_INSTRUCTIONS_TO_REWRITE = ImmutableSet.of();
+  private static final Set<DexType> NO_TYPE_INSTRUCTIONS_TO_REWRITE = ImmutableSet.of();
 
   private final AppView<?> appView;
   private final ProgramMethod context;
@@ -66,8 +69,11 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   private final boolean isNonStartupInStartupOutlinerLens;
 
   private int numberOfInvokeOpcodeChanges = 0;
-  private Set<DexMethod> invokesToRewrite = NO_INVOKES_TO_REWRITE;
+  private Set<DexMethod> invokeInstructionsToRewrite = NO_INVOKE_INSTRUCTIONS_TO_REWRITE;
   private Map<LirConstant, LirConstant> constantPoolMapping = null;
+
+  private Set<DexField> fieldInstructionsToRewrite = NO_FIELD_INSTRUCTIONS_TO_REWRITE;
+  private Set<DexType> typeInstructionsToRewrite = NO_TYPE_INSTRUCTIONS_TO_REWRITE;
 
   private boolean hasNonTrivialRewritings = false;
 
@@ -181,7 +187,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         }
       }
     }
-    if (graphLens instanceof R8LibraryDesugaringGraphLens) {
+    if (graphLens.isLirToLirDesugaringLens()) {
       if (result.isNeedsDesugaredLibraryApiConversionSet()) {
         return true;
       }
@@ -190,6 +196,13 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     }
     assert result.getPrototypeChanges().isEmpty();
     return false;
+  }
+
+  private void addFieldInstructionToRewrite(DexField field) {
+    if (fieldInstructionsToRewrite == NO_FIELD_INSTRUCTIONS_TO_REWRITE) {
+      fieldInstructionsToRewrite = Sets.newIdentityHashSet();
+    }
+    fieldInstructionsToRewrite.add(field);
   }
 
   private void addRewrittenMethodMapping(DexMethod method, DexMethod rewrittenMethod) {
@@ -203,13 +216,20 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
                 // Two invokes with the same symbolic method reference but different invoke types
                 // are rewritten to two different symbolic method references. Record that the
                 // invokes need to be processed.
-                if (invokesToRewrite == NO_INVOKES_TO_REWRITE) {
-                  invokesToRewrite = new HashSet<>();
+                if (invokeInstructionsToRewrite == NO_INVOKE_INSTRUCTIONS_TO_REWRITE) {
+                  invokeInstructionsToRewrite = new HashSet<>();
                 }
-                invokesToRewrite.add(method);
+                invokeInstructionsToRewrite.add(method);
                 return method;
               }
             });
+  }
+
+  private void addTypeInstructionToRewrite(DexType type) {
+    if (typeInstructionsToRewrite == NO_TYPE_INSTRUCTIONS_TO_REWRITE) {
+      typeInstructionsToRewrite = Sets.newIdentityHashSet();
+    }
+    typeInstructionsToRewrite.add(type);
   }
 
   private void addRewrittenMapping(LirConstant item, LirConstant rewrittenItem) {
@@ -239,6 +259,46 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   @Override
+  public void onCheckCast(DexType type, EV value, boolean ignoreCompatRules) {
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.CHECKCAST, type, context)) {
+      addTypeInstructionToRewrite(type);
+    }
+  }
+
+  @Override
+  public void onSafeCheckCast(DexType type, EV value) {
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.CHECKCAST, type, context)) {
+      addTypeInstructionToRewrite(type);
+    }
+  }
+
+  @Override
+  public void onConstClass(DexType type, boolean ignoreCompatRules) {
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.CONSTCLASS, type, context)) {
+      addTypeInstructionToRewrite(type);
+    }
+  }
+
+  @Override
+  public void onInstanceOf(DexType type, EV value) {
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.INSTANCEOF, type, context)) {
+      addTypeInstructionToRewrite(type);
+    }
+  }
+
+  @Override
   public void onDexItemBasedConstString(
       DexReference item, NameComputationInfo<?> nameComputationInfo) {
     addRewrittenMapping(item, graphLens.getRenamedReference(item, codeLens));
@@ -246,56 +306,83 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   @Override
   public void onInstanceGet(DexField field, EV object) {
-    onFieldGet(field);
+    if (setHasPotentialNonTrivialFieldGetRewriting(field)) {
+      return;
+    }
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.IGET, field, context)) {
+      addFieldInstructionToRewrite(field);
+    }
   }
 
   @Override
   public void onStaticGet(DexField field) {
-    onFieldGet(field);
-  }
-
-  private void onFieldGet(DexField field) {
-    if (hasPotentialNonTrivialFieldGetRewriting(field)) {
-      hasNonTrivialRewritings = true;
+    if (setHasPotentialNonTrivialFieldGetRewriting(field)) {
+      return;
+    }
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.SGET, field, context)) {
+      addFieldInstructionToRewrite(field);
     }
   }
 
-  private boolean hasPotentialNonTrivialFieldGetRewriting(DexField field) {
+  private boolean setHasPotentialNonTrivialFieldGetRewriting(DexField field) {
     HorizontalClassMergerGraphLens horizontalClassMergerLens =
         graphLens.asHorizontalClassMergerGraphLens();
     if (horizontalClassMergerLens != null) {
       FieldLookupResult result = horizontalClassMergerLens.lookupFieldResult(field, codeLens);
-      return result.hasReadCastType();
+      if (result.hasReadCastType()) {
+        hasNonTrivialRewritings = true;
+        return true;
+      }
     }
     return false;
   }
 
   @Override
   public void onInstancePut(DexField field, EV object, EV value) {
-    onFieldPut(field);
+    if (setHasPotentialNonTrivialFieldPutRewriting(field)) {
+      return;
+    }
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.IPUT, field, context)) {
+      addFieldInstructionToRewrite(field);
+    }
   }
 
   @Override
   public void onStaticPut(DexField field, EV value) {
-    onFieldPut(field);
-  }
-
-  private void onFieldPut(DexField field) {
-    if (hasPotentialNonTrivialFieldPutRewriting(field)) {
-      hasNonTrivialRewritings = true;
+    if (setHasPotentialNonTrivialFieldPutRewriting(field)) {
+      return;
+    }
+    if (graphLens.isLirToLirDesugaringLens()
+        && graphLens
+            .asLirToLirDesugaringLens()
+            .needsApiOutlining(InstructionKind.SPUT, field, context)) {
+      addFieldInstructionToRewrite(field);
     }
   }
 
-  private boolean hasPotentialNonTrivialFieldPutRewriting(DexField field) {
+  private boolean setHasPotentialNonTrivialFieldPutRewriting(DexField field) {
     HorizontalClassMergerGraphLens horizontalClassMergerLens =
         graphLens.asHorizontalClassMergerGraphLens();
     if (horizontalClassMergerLens != null) {
       FieldLookupResult result = horizontalClassMergerLens.lookupFieldResult(field, codeLens);
-      return result.hasWriteCastType();
+      if (result.hasWriteCastType()) {
+        hasNonTrivialRewritings = true;
+        return true;
+      }
     }
     VerticalClassMergerGraphLens verticalClassMergerLens = graphLens.asVerticalClassMergerLens();
     if (verticalClassMergerLens != null
         && verticalClassMergerLens.hasInterfaceBeenMergedIntoClass(field.getType())) {
+      hasNonTrivialRewritings = true;
       return true;
     }
     return false;
@@ -328,7 +415,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
   private boolean isInvokeThatMaybeRequiresRewriting(int opcode) {
     assert LirOpcodeUtils.isInvokeMethod(opcode);
-    if (!invokesToRewrite.isEmpty()) {
+    if (!invokeInstructionsToRewrite.isEmpty()) {
       return true;
     }
     if (codeLens.isIdentityLens() && LirOpcodeUtils.isInvokeMethod(opcode)) {
@@ -362,7 +449,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
         return true;
       }
     }
-    if (graphLens instanceof R8LibraryDesugaringGraphLens) {
+    if (graphLens.isLirToLirDesugaringLens()) {
       return LirOpcodeUtils.isInvokeMethod(opcode);
     }
     return false;
@@ -381,7 +468,9 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     }
     assert !hasNonTrivialRewritings;
     LirCode<EV> rewritten = rewriteConstantPoolAndScanForTypeChanges(getCode());
-    if (hasNonTrivialRewritings) {
+    if (hasNonTrivialRewritings
+        || fieldInstructionsToRewrite != NO_FIELD_INSTRUCTIONS_TO_REWRITE
+        || typeInstructionsToRewrite != NO_TYPE_INSTRUCTIONS_TO_REWRITE) {
       return rewriteWithLensCodeRewriter();
     }
     rewritten = rewriteInstructionsWithInvokeTypeChanges(rewritten);
@@ -481,9 +570,11 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
     boolean hasDexItemBasedConstString = false;
     boolean hasFieldReference = false;
     boolean hasPotentialRewrittenMethod = false;
+    boolean hasTypeReference = false;
     for (LirConstant constant : code.getConstantPool()) {
       if (constant instanceof DexType) {
         onTypeReference((DexType) constant);
+        hasTypeReference = true;
       } else if (constant instanceof DexField) {
         onFieldReference((DexField) constant);
         hasFieldReference = true;
@@ -505,11 +596,15 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
 
     // If there are potential method rewritings then we need to iterate the instructions as the
     // rewriting is instruction-sensitive (i.e., may be dependent on the invoke type).
-    boolean hasPotentialNonTrivialFieldAccessRewriting =
-        hasFieldReference && graphLens.isClassMergerLens();
+    boolean hasPotentialRewrittenFieldInstruction =
+        hasFieldReference
+            && (graphLens.isClassMergerLens() || graphLens.isLirToLirDesugaringLens());
+    boolean hasPotentialRewrittenTypeInstruction =
+        hasTypeReference && graphLens.isLirToLirDesugaringLens();
     if (hasDexItemBasedConstString
-        || hasPotentialNonTrivialFieldAccessRewriting
-        || hasPotentialRewrittenMethod) {
+        || hasPotentialRewrittenFieldInstruction
+        || hasPotentialRewrittenMethod
+        || hasPotentialRewrittenTypeInstruction) {
       for (LirInstructionView view : code) {
         view.accept(this);
         if (hasNonTrivialRewritings) {
@@ -527,7 +622,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
   }
 
   private LirCode<EV> rewriteInstructionsWithInvokeTypeChanges(LirCode<EV> code) {
-    if (numberOfInvokeOpcodeChanges == 0 && invokesToRewrite.isEmpty()) {
+    if (numberOfInvokeOpcodeChanges == 0 && invokeInstructionsToRewrite.isEmpty()) {
       return code;
     }
     // Build a small map from method refs to index in case the type-dependent methods are already
@@ -573,7 +668,7 @@ public class LirLensCodeRewriter<EV> extends LirParsedInstructionCallback<EV> {
       boolean newIsInterface = lookupIsInterface(method, opcode, result);
       InvokeType newType = result.getType();
       int newOpcode = newType.getLirOpcode(newIsInterface);
-      if (newOpcode != opcode || invokesToRewrite.contains(method)) {
+      if (newOpcode != opcode || invokeInstructionsToRewrite.contains(method)) {
         constantIndex =
             methodIndices.computeIfAbsent(
                 result.getReference(),
