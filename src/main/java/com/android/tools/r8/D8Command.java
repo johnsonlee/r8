@@ -107,7 +107,8 @@ public final class D8Command extends BaseCompilerCommand {
     private DesugarGraphConsumer desugarGraphConsumer = null;
     private SyntheticInfoConsumer syntheticInfoConsumer = null;
     private StringConsumer desugaredLibraryKeepRuleConsumer = null;
-    private String synthesizedClassPrefix = "";
+    private String synthesizedClassPrefix =
+        System.getProperty("com.android.tools.r8.synthesizedClassPrefix", "");
     private boolean enableMainDexListCheck = true;
     private boolean minimalMainDex = false;
     private final List<ProguardConfigurationSource> mainDexRules = new ArrayList<>();

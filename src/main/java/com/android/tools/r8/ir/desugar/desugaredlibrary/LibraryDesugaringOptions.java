@@ -161,15 +161,13 @@ public class LibraryDesugaringOptions {
         && synthesizedClassPrefix.isEmpty()) {
       return;
     }
-    String prefix =
-        synthesizedClassPrefix.isEmpty()
-            ? System.getProperty("com.android.tools.r8.synthesizedClassPrefix", "")
-            : synthesizedClassPrefix;
     String postPrefix = System.getProperty("com.android.tools.r8.desugaredLibraryPostPrefix", null);
     setDesugaredLibrarySpecification(desugaredLibrarySpecification, postPrefix);
-    String post =
-        postPrefix == null ? "" : DescriptorUtils.getPackageBinaryNameFromJavaType(postPrefix);
-    this.synthesizedClassPrefix = prefix.isEmpty() ? "" : prefix + post;
+    if (!synthesizedClassPrefix.isEmpty()) {
+      String post =
+          postPrefix == null ? "" : DescriptorUtils.getPackageBinaryNameFromJavaType(postPrefix);
+      this.synthesizedClassPrefix = synthesizedClassPrefix + post;
+    }
   }
 
   private void setDesugaredLibrarySpecification(

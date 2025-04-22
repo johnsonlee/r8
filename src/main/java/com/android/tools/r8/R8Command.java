@@ -146,7 +146,8 @@ public final class R8Command extends BaseCompilerCommand {
     private Consumer<? super R8BuildMetadata> buildMetadataConsumer = null;
     private final FeatureSplitConfiguration.Builder featureSplitConfigurationBuilder =
         FeatureSplitConfiguration.builder();
-    private String synthesizedClassPrefix = "";
+    private String synthesizedClassPrefix =
+        System.getProperty("com.android.tools.r8.synthesizedClassPrefix", "");
     private boolean enableMissingLibraryApiModeling = false;
     private boolean enableExperimentalKeepAnnotations =
         System.getProperty("com.android.tools.r8.enableKeepAnnotations") != null;
