@@ -246,7 +246,7 @@ public class R8LibraryDesugaringGraphLens extends DefaultNonIdentityGraphLens {
             case Opcodes.INSTANCE_PUT:
               apiOutline =
                   lookupApiOutline(
-                      InstructionKind.INSTANCEOF, instruction.asInstancePut().getField(), context);
+                      InstructionKind.IPUT, instruction.asInstancePut().getField(), context);
               break;
             case Opcodes.INVOKE_DIRECT:
             case Opcodes.INVOKE_INTERFACE:
