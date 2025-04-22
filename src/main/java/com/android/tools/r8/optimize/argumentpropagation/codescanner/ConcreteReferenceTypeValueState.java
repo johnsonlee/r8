@@ -35,15 +35,23 @@ public abstract class ConcreteReferenceTypeValueState extends ConcreteValueState
     }
     assert dynamicType.isDynamicTypeWithUpperBound();
     DynamicTypeWithUpperBound dynamicTypeWithUpperBound = dynamicType.asDynamicTypeWithUpperBound();
+    // If this is an upcast, then return the more precise type.
     TypeElement typeElement = type.toTypeElement(appView, dynamicType.getNullability());
     if (dynamicTypeWithUpperBound
         .getDynamicUpperBoundType()
         .lessThanOrEqual(typeElement, appView)) {
       return dynamicType;
     }
+    // Otherwise this is a downcast.
     if (dynamicType.hasDynamicLowerBoundType()) {
+      // There are three cases:
+      // (1) the cast type is between the upper and lower bound,
+      // (2) the cast type is below the lower bound, or
+      // (3) the cast type is unrelated to the bounds.
+      // In (2) and (3) the cast always fails unless the in-dynamic type can be null.
       ClassTypeElement lowerBound = dynamicTypeWithUpperBound.getDynamicLowerBoundType();
-      if (typeElement.lessThanOrEqual(lowerBound, appView)) {
+      if (typeElement.lessThanOrEqual(dynamicTypeWithUpperBound.getDynamicUpperBoundType(), appView)
+          && lowerBound.lessThanOrEqual(typeElement, appView)) {
         return DynamicType.create(appView, typeElement, lowerBound);
       } else {
         return dynamicType.getNullability().isMaybeNull()
