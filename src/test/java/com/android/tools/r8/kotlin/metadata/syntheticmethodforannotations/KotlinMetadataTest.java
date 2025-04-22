@@ -1,7 +1,6 @@
 // Copyright (c) 2024, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.kotlin.metadata.syntheticmethodforannotations;
 
 import static com.android.tools.r8.ToolHelper.getFilesInTestFolderRelativeToClass;
@@ -120,10 +119,7 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .compile()
         .inspect(this::verifyRewrittenExtension)
         .run(parameters.getRuntime(), MAIN)
-        .applyIf(
-            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
-            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
-            rr -> rr.assertSuccessWithOutputLines(EXPECTED_OUTPUT));
+        .assertSuccessWithOutputLines(EXPECTED_OUTPUT);
   }
 
   static JvmMethodSignature toJvmMethodSignature(DexMethod method) {
@@ -182,9 +178,6 @@ public class KotlinMetadataTest extends KotlinTestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), MAIN)
-        .applyIf(
-            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
-            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
-            rr -> rr.assertSuccessWithOutputLines(EXPECTED_FALSE_OUTPUT));
+        .assertSuccessWithOutputLines(EXPECTED_FALSE_OUTPUT);
   }
 }

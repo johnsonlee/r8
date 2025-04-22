@@ -1,7 +1,6 @@
 // Copyright (c) 2022, the R8 project authors. Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-
 package com.android.tools.r8.kotlin.reflection;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
@@ -120,10 +119,7 @@ public class ReflectiveConstructionWithInlineClassTest extends KotlinTestBase {
         .assertNoErrorMessages()
         .apply(KotlinMetadataTestBase::verifyExpectedWarningsFromKotlinReflectAndStdLib)
         .run(parameters.getRuntime(), MAIN_CLASS)
-        .applyIf(
-            parameters.canUseJavaLangInvokeVarHandleStoreStoreFence(),
-            rr -> rr.assertFailureWithErrorThatThrows(NullPointerException.class),
-            rr -> rr.assertFailureWithErrorThatThrows(IllegalArgumentException.class));
+        .assertFailureWithErrorThatThrows(IllegalArgumentException.class);
   }
 
   @Test
