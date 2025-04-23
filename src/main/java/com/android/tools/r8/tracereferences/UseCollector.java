@@ -300,21 +300,24 @@ public class UseCollector implements UseCollectorEventConsumer {
       DexMember<?, ?> reference,
       DexClassAndMember<?, ?> member,
       DexProgramClass context,
-      DefinitionContext referencedFrom) {
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
     DexClass holder = member.getHolder();
     assert isTargetType(holder.getType());
     if (member.getHolderType().isNotIdenticalTo(reference.getHolderType())) {
-      notifyPresentClass(holder, referencedFrom);
+      eventConsumer.notifyPresentClass(holder, referencedFrom);
     }
-    ensurePackageAccessToMember(member, context);
+    ensurePackageAccessToMember(member, context, eventConsumer);
   }
 
   private void ensurePackageAccessToMember(
-      DexClassAndMember<?, ?> member, DexProgramClass context) {
+      DexClassAndMember<?, ?> member,
+      DexProgramClass context,
+      UseCollectorEventConsumer eventConsumer) {
     if (member.getAccessFlags().isPackagePrivateOrProtected()) {
       if (member.getAccessFlags().isPackagePrivate()
           || !appInfo().isSubtype(context, member.getHolder())) {
-        notifyPackageOf(member);
+        eventConsumer.notifyPackageOf(member);
       }
     }
   }
@@ -405,17 +408,17 @@ public class UseCollector implements UseCollectorEventConsumer {
             // - The holder type is registered from visiting the extends/implements clause of the
             //   sub class.
             if (resolvedMethod.getHolderType().isIdenticalTo(superType)) {
-              notifyPresentMethod(resolvedMethod, referencedFrom);
+              eventConsumer.notifyPresentMethod(resolvedMethod, referencedFrom);
             } else if (isTargetType(superType)) {
-              notifyPresentMethod(
+              eventConsumer.notifyPresentMethod(
                   resolvedMethod,
                   referencedFrom,
                   resolvedMethod.getReference().withHolder(superType, factory));
             } else {
-              notifyPresentMethod(resolvedMethod, referencedFrom);
+              eventConsumer.notifyPresentMethod(resolvedMethod, referencedFrom);
               addClass(resolvedMethod.getHolder(), referencedFrom, eventConsumer);
             }
-            ensurePackageAccessToMember(resolvedMethod, method.getHolder());
+            ensurePackageAccessToMember(resolvedMethod, method.getHolder(), eventConsumer);
           }
         });
   }
@@ -500,7 +503,7 @@ public class UseCollector implements UseCollectorEventConsumer {
                 if (isTargetType(resolvedClass.getType())) {
                   resolvedClass.forEachClassMethodMatching(
                       method -> method.getName().isIdenticalTo(element.name),
-                      method -> notifyPresentMethod(method, referencedFrom));
+                      method -> eventConsumer.notifyPresentMethod(method, referencedFrom));
                 }
                 // Handle the argument values passed to the annotation "method".
                 registerDexValue(element.getValue(), context, referencedFrom, eventConsumer);
@@ -538,12 +541,12 @@ public class UseCollector implements UseCollectorEventConsumer {
           singleResolutionResult -> {
             DexClassAndField resolvedField = singleResolutionResult.getResolutionPair();
             if (isTargetType(resolvedField.getHolderType())) {
-              handleMemberResolution(field, resolvedField, context, referencedFrom);
-              notifyPresentField(resolvedField, referencedFrom);
+              handleMemberResolution(field, resolvedField, context, referencedFrom, eventConsumer);
+              eventConsumer.notifyPresentField(resolvedField, referencedFrom);
             }
           });
     } else {
-      notifyMissingField(field, referencedFrom);
+      eventConsumer.notifyMissingField(field, referencedFrom);
     }
   }
 
@@ -684,11 +687,12 @@ public class UseCollector implements UseCollectorEventConsumer {
         assert resolvedMethod.getReference().match(method)
             || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
         if (isTargetType(resolvedMethod.getHolderType())) {
-          handleMemberResolution(method, resolvedMethod, getContext().getHolder(), referencedFrom);
-          notifyPresentMethod(resolvedMethod, referencedFrom);
+          handleMemberResolution(
+              method, resolvedMethod, getContext().getHolder(), referencedFrom, eventConsumer);
+          eventConsumer.notifyPresentMethod(resolvedMethod, referencedFrom);
         }
       } else {
-        notifyMissingMethod(method, referencedFrom);
+        eventConsumer.notifyMissingMethod(method, referencedFrom);
       }
     }
 
@@ -766,7 +770,7 @@ public class UseCollector implements UseCollectorEventConsumer {
                   }
                 });
           } else {
-            notifyMissingClass(interfaceType, referencedFrom);
+            eventConsumer.notifyMissingClass(interfaceType, referencedFrom);
           }
         }
       }
