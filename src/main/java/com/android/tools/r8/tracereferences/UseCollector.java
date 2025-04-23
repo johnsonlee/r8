@@ -65,7 +65,7 @@ import java.util.function.Predicate;
 
 // The graph lens is intentionally only made accessible to the MethodUseCollector, since the
 // graph lens should only be applied to the code.
-public class UseCollector {
+public class UseCollector implements UseCollectorEventConsumer {
 
   protected final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory factory;
@@ -92,6 +92,10 @@ public class UseCollector {
     this.dalvikAnnotationCodegenPrefix = factory.createString("Ldalvik/annotation/codegen/");
   }
 
+  private UseCollectorEventConsumer getDefaultEventConsumer() {
+    return this;
+  }
+
   public void traceClasses(Collection<DexProgramClass> classes) {
     for (DexProgramClass clazz : classes) {
       traceClass(clazz);
@@ -106,19 +110,23 @@ public class UseCollector {
 
   public void traceClass(DexProgramClass clazz) {
     DefinitionContext classContext = DefinitionContextUtils.create(clazz);
-    clazz.forEachImmediateSupertype(supertype -> registerSuperType(clazz, supertype, classContext));
-    clazz.forEachProgramField(this::registerField);
-    clazz.forEachProgramMethod(this::registerMethod);
+    clazz.forEachImmediateSupertype(
+        supertype -> registerSuperType(clazz, supertype, classContext, getDefaultEventConsumer()));
+    clazz.forEachProgramField(field -> registerField(field, getDefaultEventConsumer()));
+    clazz.forEachProgramMethod(method -> registerMethod(method, getDefaultEventConsumer()));
     for (DexAnnotation annotation : clazz.annotations().getAnnotations()) {
-      registerAnnotation(annotation, clazz, classContext);
+      registerAnnotation(annotation, clazz, classContext, getDefaultEventConsumer());
     }
-    traceKotlinMetadata(clazz, classContext);
-    traceSignature(clazz, classContext);
+    traceKotlinMetadata(clazz, classContext, getDefaultEventConsumer());
+    traceSignature(clazz, classContext, getDefaultEventConsumer());
   }
 
-  private void traceKotlinMetadata(DexProgramClass clazz, DefinitionContext classContext) {
+  private void traceKotlinMetadata(
+      DexProgramClass clazz,
+      DefinitionContext classContext,
+      UseCollectorEventConsumer eventConsumer) {
     if (parseKotlinMetadata(clazz)) {
-      KotlinMetadataUseRegistry registry = type -> addType(type, classContext);
+      KotlinMetadataUseRegistry registry = type -> addType(type, classContext, eventConsumer);
       clazz.getKotlinInfo().trace(registry);
       clazz.forEachProgramMember(member -> member.getDefinition().getKotlinInfo().trace(registry));
     }
@@ -137,46 +145,79 @@ public class UseCollector {
     return true;
   }
 
-  private void traceSignature(DexProgramClass clazz, DefinitionContext classContext) {
-    clazz.getClassSignature().registerUses(type -> addType(type, classContext));
+  private void traceSignature(
+      DexProgramClass clazz,
+      DefinitionContext classContext,
+      UseCollectorEventConsumer eventConsumer) {
+    clazz.getClassSignature().registerUses(type -> addType(type, classContext, eventConsumer));
   }
 
-  private void traceSignature(ProgramField field, DefinitionContext fieldContext) {
-    field.getDefinition().getGenericSignature().registerUses(type -> addType(type, fieldContext));
+  private void traceSignature(
+      ProgramField field, DefinitionContext fieldContext, UseCollectorEventConsumer eventConsumer) {
+    field
+        .getDefinition()
+        .getGenericSignature()
+        .registerUses(type -> addType(type, fieldContext, eventConsumer));
   }
 
-  private void traceSignature(ProgramMethod method, DefinitionContext methodContext) {
-    method.getDefinition().getGenericSignature().registerUses(type -> addType(type, methodContext));
+  private void traceSignature(
+      ProgramMethod method,
+      DefinitionContext methodContext,
+      UseCollectorEventConsumer eventConsumer) {
+    method
+        .getDefinition()
+        .getGenericSignature()
+        .registerUses(type -> addType(type, methodContext, eventConsumer));
   }
 
-  protected void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
+  @Override
+  public void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
     TracedClassImpl tracedClass = new TracedClassImpl(clazz, referencedFrom);
     consumer.acceptType(tracedClass, diagnostics);
   }
 
-  protected void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
+  @Override
+  public void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
     TracedClassImpl missingClass = new TracedClassImpl(type, referencedFrom);
     collectMissingClass(missingClass);
     consumer.acceptType(missingClass, diagnostics);
   }
 
-  protected void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
+  @Override
+  public void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
     TracedFieldImpl tracedField = new TracedFieldImpl(field, referencedFrom);
     consumer.acceptField(tracedField, diagnostics);
   }
 
-  protected void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
+  @Override
+  public void notifyMissingField(DexField field, DefinitionContext referencedFrom) {
+    TracedFieldImpl missingField = new TracedFieldImpl(field, referencedFrom);
+    collectMissingField(missingField);
+    consumer.acceptField(missingField, diagnostics);
+  }
+
+  @Override
+  public void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
     TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom);
     consumer.acceptMethod(tracedMethod, diagnostics);
   }
 
-  protected void notifyPresentMethod(
+  @Override
+  public void notifyPresentMethod(
       DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
     TracedMethodImpl tracedMethod = new TracedMethodImpl(method, referencedFrom, reference);
     consumer.acceptMethod(tracedMethod, diagnostics);
   }
 
-  protected void notifyPackageOf(Definition definition) {
+  @Override
+  public void notifyMissingMethod(DexMethod method, DefinitionContext referencedFrom) {
+    TracedMethodImpl missingMethod = new TracedMethodImpl(method, referencedFrom);
+    collectMissingMethod(missingMethod);
+    consumer.acceptMethod(missingMethod, diagnostics);
+  }
+
+  @Override
+  public void notifyPackageOf(Definition definition) {
     consumer.acceptPackage(
         Reference.packageFromString(definition.getContextType().getPackageName()), diagnostics);
   }
@@ -197,45 +238,58 @@ public class UseCollector {
     return targetPredicate.test(type);
   }
 
-  private void addType(DexType type, DefinitionContext referencedFrom) {
+  private void addType(
+      DexType type, DefinitionContext referencedFrom, UseCollectorEventConsumer eventConsumer) {
     if (type.isArrayType()) {
-      addType(type.toBaseType(factory), referencedFrom);
+      addType(type.toBaseType(factory), referencedFrom, eventConsumer);
       return;
     }
     if (type.isPrimitiveType() || type.isVoidType()) {
       return;
     }
     assert type.isClassType();
-    addClassType(type, referencedFrom);
+    addClassType(type, referencedFrom, eventConsumer);
   }
 
-  private void addTypes(DexTypeList types, DefinitionContext referencedFrom) {
+  private void addTypes(
+      DexTypeList types,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
     for (DexType type : types) {
-      addType(type, referencedFrom);
+      addType(type, referencedFrom, eventConsumer);
     }
   }
 
   private void addClassType(
-      DexType type, DefinitionContext referencedFrom, Consumer<DexClass> resolvedClassesConsumer) {
+      DexType type,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer,
+      Consumer<DexClass> resolvedClassesConsumer) {
     assert type.isClassType();
     ClassResolutionResult result =
         appView.contextIndependentDefinitionForWithResolutionResult(type);
     if (result.hasClassResolutionResult()) {
       result.forEachClassResolutionResult(resolvedClassesConsumer);
     } else {
-      notifyMissingClass(type, referencedFrom);
+      eventConsumer.notifyMissingClass(type, referencedFrom);
     }
   }
 
-  private void addClassType(DexType type, DefinitionContext referencedFrom) {
-    addClassType(type, referencedFrom, clazz -> addClass(clazz, referencedFrom));
+  private void addClassType(
+      DexType type, DefinitionContext referencedFrom, UseCollectorEventConsumer eventConsumer) {
+    addClassType(
+        type,
+        referencedFrom,
+        eventConsumer,
+        clazz -> addClass(clazz, referencedFrom, eventConsumer));
   }
 
-  private void addClass(DexClass clazz, DefinitionContext referencedFrom) {
+  private void addClass(
+      DexClass clazz, DefinitionContext referencedFrom, UseCollectorEventConsumer eventConsumer) {
     if (isTargetType(clazz.getType())) {
-      notifyPresentClass(clazz, referencedFrom);
+      eventConsumer.notifyPresentClass(clazz, referencedFrom);
       if (clazz.getAccessFlags().isPackagePrivateOrProtected()) {
-        notifyPackageOf(clazz);
+        eventConsumer.notifyPackageOf(clazz);
       }
     }
   }
@@ -285,39 +339,51 @@ public class UseCollector {
     collectMissing(tracedMethod, missingMethods);
   }
 
-  private void registerField(ProgramField field) {
+  private void registerField(ProgramField field, UseCollectorEventConsumer eventConsumer) {
     DefinitionContext referencedFrom = DefinitionContextUtils.create(field);
-    addType(field.getType(), referencedFrom);
+    addType(field.getType(), referencedFrom, eventConsumer);
     field
         .getAnnotations()
         .forEach(
-            dexAnnotation -> registerAnnotation(dexAnnotation, field.getHolder(), referencedFrom));
-    traceSignature(field, referencedFrom);
+            dexAnnotation ->
+                registerAnnotation(
+                    dexAnnotation, field.getHolder(), referencedFrom, eventConsumer));
+    traceSignature(field, referencedFrom, eventConsumer);
   }
 
-  private void registerMethod(ProgramMethod method) {
+  private void registerMethod(ProgramMethod method, UseCollectorEventConsumer eventConsumer) {
     DefinitionContext referencedFrom = DefinitionContextUtils.create(method);
-    addTypes(method.getParameters(), referencedFrom);
-    addType(method.getReturnType(), referencedFrom);
+    addTypes(method.getParameters(), referencedFrom, eventConsumer);
+    addType(method.getReturnType(), referencedFrom, eventConsumer);
     method
         .getAnnotations()
         .forEach(
-            dexAnnotation -> registerAnnotation(dexAnnotation, method.getHolder(), referencedFrom));
+            dexAnnotation ->
+                registerAnnotation(
+                    dexAnnotation, method.getHolder(), referencedFrom, eventConsumer));
     method
         .getParameterAnnotations()
         .forEachAnnotation(
-            dexAnnotation -> registerAnnotation(dexAnnotation, method.getHolder(), referencedFrom));
-    traceCode(method);
-    traceSignature(method, referencedFrom);
+            dexAnnotation ->
+                registerAnnotation(
+                    dexAnnotation, method.getHolder(), referencedFrom, eventConsumer));
+    traceCode(method, referencedFrom, eventConsumer);
+    traceSignature(method, referencedFrom, eventConsumer);
   }
 
-  private void traceCode(ProgramMethod method) {
-    method.registerCodeReferences(new MethodUseCollector(method));
+  private void traceCode(
+      ProgramMethod method,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
+    method.registerCodeReferences(new MethodUseCollector(method, referencedFrom, eventConsumer));
   }
 
   private void registerSuperType(
-      DexProgramClass clazz, DexType superType, DefinitionContext referencedFrom) {
-    addType(superType, referencedFrom);
+      DexProgramClass clazz,
+      DexType superType,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
+    addType(superType, referencedFrom, eventConsumer);
     // If clazz overrides any methods in superType, we should keep those as well.
     clazz.forEachProgramVirtualMethod(
         method -> {
@@ -345,7 +411,7 @@ public class UseCollector {
                   resolvedMethod.getReference().withHolder(superType, factory));
             } else {
               notifyPresentMethod(resolvedMethod, referencedFrom);
-              addClass(resolvedMethod.getHolder(), referencedFrom);
+              addClass(resolvedMethod.getHolder(), referencedFrom, eventConsumer);
             }
             ensurePackageAccessToMember(resolvedMethod, method.getHolder());
           }
@@ -353,7 +419,10 @@ public class UseCollector {
   }
 
   private void registerAnnotation(
-      DexAnnotation annotation, DexProgramClass context, DefinitionContext referencedFrom) {
+      DexAnnotation annotation,
+      DexProgramClass context,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
     DexType type = annotation.getAnnotationType();
     assert type.isClassType();
     if (type.isIdenticalTo(factory.annotationMethodParameters)
@@ -383,7 +452,10 @@ public class UseCollector {
               element -> {
                 assert element.getValue().isDexValueAnnotation();
                 registerEncodedAnnotation(
-                    element.getValue().asDexValueAnnotation().getValue(), context, referencedFrom);
+                    element.getValue().asDexValueAnnotation().getValue(),
+                    context,
+                    referencedFrom,
+                    eventConsumer);
               });
       return;
     }
@@ -395,7 +467,10 @@ public class UseCollector {
     if (type.isIdenticalTo(factory.annotationThrows)) {
       assert referencedFrom.isMethodContext();
       registerDexValue(
-          annotation.annotation.elements[0].value.asDexValueArray(), context, referencedFrom);
+          annotation.annotation.elements[0].value.asDexValueArray(),
+          context,
+          referencedFrom,
+          eventConsumer);
       return;
     }
     assert !type.getDescriptor().startsWith(factory.dalvikAnnotationPrefix)
@@ -403,16 +478,20 @@ public class UseCollector {
             + factory.dalvikAnnotationPrefix
             + ": "
             + type.getDescriptor();
-    registerEncodedAnnotation(annotation.getAnnotation(), context, referencedFrom);
+    registerEncodedAnnotation(annotation.getAnnotation(), context, referencedFrom, eventConsumer);
   }
 
   void registerEncodedAnnotation(
-      DexEncodedAnnotation annotation, DexProgramClass context, DefinitionContext referencedFrom) {
+      DexEncodedAnnotation annotation,
+      DexProgramClass context,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
     addClassType(
         annotation.getType(),
         referencedFrom,
+        eventConsumer,
         resolvedClass -> {
-          addClass(resolvedClass, referencedFrom);
+          addClass(resolvedClass, referencedFrom, eventConsumer);
           // For annotations in target handle annotation "methods" used to set values.
           annotation.forEachElement(
               element -> {
@@ -422,29 +501,35 @@ public class UseCollector {
                       method -> notifyPresentMethod(method, referencedFrom));
                 }
                 // Handle the argument values passed to the annotation "method".
-                registerDexValue(element.getValue(), context, referencedFrom);
+                registerDexValue(element.getValue(), context, referencedFrom, eventConsumer);
               });
         });
   }
 
   private void registerDexValue(
-      DexValue value, DexProgramClass context, DefinitionContext referencedFrom) {
+      DexValue value,
+      DexProgramClass context,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
     if (value.isDexValueType()) {
-      addType(value.asDexValueType().getValue(), referencedFrom);
+      addType(value.asDexValueType().getValue(), referencedFrom, eventConsumer);
     } else if (value.isDexValueEnum()) {
       DexField field = value.asDexValueEnum().value;
-      handleRewrittenFieldReference(field, context, referencedFrom);
+      handleRewrittenFieldReference(field, context, referencedFrom, eventConsumer);
     } else if (value.isDexValueArray()) {
       for (DexValue elementValue : value.asDexValueArray().getValues()) {
-        registerDexValue(elementValue, context, referencedFrom);
+        registerDexValue(elementValue, context, referencedFrom, eventConsumer);
       }
     }
   }
 
   private void handleRewrittenFieldReference(
-      DexField field, DexProgramClass context, DefinitionContext referencedFrom) {
-    addType(field.getHolderType(), referencedFrom);
-    addType(field.getType(), referencedFrom);
+      DexField field,
+      DexProgramClass context,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
+    addType(field.getHolderType(), referencedFrom, eventConsumer);
+    addType(field.getType(), referencedFrom, eventConsumer);
     FieldResolutionResult resolutionResult = appInfo().resolveField(field);
     if (resolutionResult.hasSuccessfulResolutionResult()) {
       resolutionResult.forEachSuccessfulFieldResolutionResult(
@@ -456,19 +541,22 @@ public class UseCollector {
             }
           });
     } else {
-      TracedFieldImpl missingField = new TracedFieldImpl(field, referencedFrom);
-      collectMissingField(missingField);
-      consumer.acceptField(missingField, diagnostics);
+      notifyMissingField(field, referencedFrom);
     }
   }
 
   class MethodUseCollector extends UseRegistry<ProgramMethod> {
 
     private final DefinitionContext referencedFrom;
+    private final UseCollectorEventConsumer eventConsumer;
 
-    public MethodUseCollector(ProgramMethod context) {
+    public MethodUseCollector(
+        ProgramMethod context,
+        DefinitionContext referencedFrom,
+        UseCollectorEventConsumer eventConsumer) {
       super(appView(), context);
-      this.referencedFrom = DefinitionContextUtils.create(context);
+      this.referencedFrom = referencedFrom;
+      this.eventConsumer = eventConsumer;
     }
 
     // Method references.
@@ -541,7 +629,7 @@ public class UseCollector {
       DexMethod method = lookupResult.getReference();
       if (method.getHolderType().isArrayType()) {
         assert lookupResult.getType().isVirtual();
-        addType(method.getHolderType(), referencedFrom);
+        addType(method.getHolderType(), referencedFrom, eventConsumer);
         return;
       }
       assert lookupResult.getType().isInterface() || lookupResult.getType().isVirtual();
@@ -564,7 +652,7 @@ public class UseCollector {
               result
                   .asFailedResolution()
                   .forEachFailureDependency(
-                      type -> addType(type, referencedFrom),
+                      type -> addType(type, referencedFrom, eventConsumer),
                       methodCausingFailure ->
                           handleRewrittenMethodReference(
                               method, methodCausingFailure.asDexClassAndMethod(appView)));
@@ -586,9 +674,9 @@ public class UseCollector {
 
     private void handleRewrittenMethodReference(
         DexMethod method, DexClassAndMethod resolvedMethod) {
-      addType(method.getHolderType(), referencedFrom);
-      addTypes(method.getParameters(), referencedFrom);
-      addType(method.getReturnType(), referencedFrom);
+      addType(method.getHolderType(), referencedFrom, eventConsumer);
+      addTypes(method.getParameters(), referencedFrom, eventConsumer);
+      addType(method.getReturnType(), referencedFrom, eventConsumer);
       if (resolvedMethod != null) {
         DexEncodedMethod definition = resolvedMethod.getDefinition();
         assert resolvedMethod.getReference().match(method)
@@ -598,9 +686,7 @@ public class UseCollector {
           notifyPresentMethod(resolvedMethod, referencedFrom);
         }
       } else {
-        TracedMethodImpl missingMethod = new TracedMethodImpl(method, referencedFrom);
-        collectMissingMethod(missingMethod);
-        consumer.acceptMethod(missingMethod, diagnostics);
+        notifyMissingMethod(method, referencedFrom);
       }
     }
 
@@ -610,7 +696,8 @@ public class UseCollector {
     public void registerInitClass(DexType clazz) {
       DexType rewrittenClass = graphLens().lookupType(clazz);
       DexField clinitField = appView.initClassLens().getInitClassField(rewrittenClass);
-      handleRewrittenFieldReference(clinitField, getContext().getHolder(), referencedFrom);
+      handleRewrittenFieldReference(
+          clinitField, getContext().getHolder(), referencedFrom, eventConsumer);
     }
 
     @Override
@@ -636,14 +723,14 @@ public class UseCollector {
     private void handleFieldAccess(DexField field) {
       FieldLookupResult lookupResult = graphLens().lookupFieldResult(field);
       handleRewrittenFieldReference(
-          lookupResult.getReference(), getContext().getHolder(), referencedFrom);
+          lookupResult.getReference(), getContext().getHolder(), referencedFrom, eventConsumer);
     }
 
     // Type references.
 
     @Override
     public void registerTypeReference(DexType type) {
-      addType(graphLens().lookupType(type), referencedFrom);
+      addType(graphLens().lookupType(type), referencedFrom, eventConsumer);
     }
 
     // Call sites.

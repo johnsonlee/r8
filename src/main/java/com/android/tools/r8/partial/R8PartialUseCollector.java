@@ -81,22 +81,22 @@ public abstract class R8PartialUseCollector extends UseCollector {
   protected abstract void keep(Definition definition, DefinitionContext referencedFrom);
 
   @Override
-  protected void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
+  public void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
     notifyPresentItem(clazz, referencedFrom);
   }
 
   @Override
-  protected void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
+  public void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
     notifyPresentItem(field, referencedFrom);
   }
 
   @Override
-  protected void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
+  public void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
     notifyPresentItem(method, referencedFrom);
   }
 
   @Override
-  protected void notifyPresentMethod(
+  public void notifyPresentMethod(
       DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
     notifyPresentItem(method, referencedFrom);
   }
@@ -108,7 +108,7 @@ public abstract class R8PartialUseCollector extends UseCollector {
   }
 
   @Override
-  protected void notifyPackageOf(Definition definition) {
+  public void notifyPackageOf(Definition definition) {
     packagesToKeep.add(definition.getContextType().getPackageName());
   }
 

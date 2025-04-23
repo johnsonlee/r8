@@ -297,7 +297,7 @@ public class RootSetUtils {
             }
 
             @Override
-            protected void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
+            public void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
               assert recordMissingClassWhenAssertionsEnabled(type);
             }
 
