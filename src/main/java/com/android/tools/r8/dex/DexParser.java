@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex;
 
+import static com.android.tools.r8.graph.ClassKind.PROGRAM;
 import static com.android.tools.r8.utils.EncodedValueUtils.parseDouble;
 import static com.android.tools.r8.utils.EncodedValueUtils.parseFloat;
 import static com.android.tools.r8.utils.EncodedValueUtils.parseSigned;
@@ -70,6 +71,7 @@ import com.android.tools.r8.graph.PermittedSubclassAttribute;
 import com.android.tools.r8.graph.RecordComponentInfo;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.utils.DexVersion;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.Pair;
@@ -78,6 +80,8 @@ import com.google.common.io.ByteStreams;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -91,6 +95,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public class DexParser<T extends DexClass> {
 
@@ -113,10 +118,69 @@ public class DexParser<T extends DexClass> {
     return parseMapFrom(new DexReader(origin, ByteStreams.toByteArray(stream)));
   }
 
-  private static List<DexSection> parseMapFrom(DexReader dexReader) {
+  public static List<DexSection> parseMapFrom(DexReader dexReader) {
+    if (dexReader.getDexVersion().isContainerDex()) {
+      return parseMapsFromContainerDex(dexReader);
+    }
     DexParser<DexProgramClass> dexParser =
         new DexParser<>(dexReader, ClassKind.PROGRAM, new InternalOptions());
     return dexParser.dexSections;
+  }
+
+  private static List<DexSection> parseMapsFromContainerDex(DexReader dexReader) {
+    List<DexParser<DexProgramClass>> dexParsersForContainerFormat =
+        getDexParsersForContainerFormat(dexReader, new InternalOptions());
+    List<DexSection> allSections = new ArrayList<>();
+    boolean addedStrings = false;
+    for (DexParser<DexProgramClass> dexProgramClassDexParser : dexParsersForContainerFormat) {
+      // Only add the string section once, they are all pointing at the same offset.
+      if (!addedStrings) {
+        allSections.addAll(dexProgramClassDexParser.dexSections);
+        addedStrings = true;
+      } else {
+        allSections.addAll(
+            dexProgramClassDexParser.dexSections.stream()
+                .filter(
+                    dexSection ->
+                        dexSection.type != Constants.TYPE_STRING_ID_ITEM
+                            && dexSection.type != Constants.TYPE_STRING_DATA_ITEM)
+                .collect(Collectors.toList()));
+      }
+    }
+    return allSections;
+  }
+
+  public static List<DexParser<DexProgramClass>> getDexParsersForContainerFormat(
+      DexReader dexReader, InternalOptions internalOptions) {
+    List<DexParser<DexProgramClass>> dexParsers = new ArrayList<>();
+    IntList offsets = new IntArrayList();
+    dexReader.setByteOrder();
+    int offset = 0;
+    while (offset < dexReader.end()) {
+      offsets.add(offset);
+      DexReader tmp = new DexReader(Origin.unknown(), dexReader.buffer.array(), offset);
+      assert tmp.getDexVersion() == DexVersion.V41;
+      assert dexReader.getUint(offset + Constants.HEADER_SIZE_OFFSET)
+          == Constants.TYPE_HEADER_ITEM_SIZE_V41;
+      assert dexReader.getUint(offset + Constants.CONTAINER_OFF_OFFSET) == offset;
+      int dataSize = dexReader.getUint(offset + Constants.DATA_SIZE_OFFSET);
+      int dataOffset = dexReader.getUint(offset + Constants.DATA_OFF_OFFSET);
+      int file_size = dexReader.getUint(offset + Constants.FILE_SIZE_OFFSET);
+      assert dataOffset == 0;
+      assert dataSize == 0;
+      offset += file_size;
+    }
+    assert offset == dexReader.end();
+    // Create a parser for the last section with string data.
+    DexParser<DexProgramClass> last =
+        new DexParser<>(
+            dexReader, PROGRAM, internalOptions, offsets.getInt(offsets.size() - 1), null);
+    // Create a parsers for the remaining sections with reference to the string data.
+    for (int i = 0; i < offsets.size() - 1; i++) {
+      dexParsers.add(new DexParser<>(dexReader, PROGRAM, internalOptions, offsets.getInt(i), last));
+    }
+    dexParsers.add(last);
+    return dexParsers;
   }
 
   public void close() {

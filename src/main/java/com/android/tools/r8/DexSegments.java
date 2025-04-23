@@ -6,13 +6,13 @@ package com.android.tools.r8;
 import com.android.tools.r8.ProgramResource.Kind;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.dex.DexParser;
+import com.android.tools.r8.dex.DexReader;
 import com.android.tools.r8.dex.DexSection;
 import com.android.tools.r8.origin.CommandLineOrigin;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closer;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ReferenceMap;
 import java.io.IOException;
@@ -165,16 +165,13 @@ public class DexSegments {
     for (int benchmark : DexSection.getConstants()) {
       result.put(benchmark, new SegmentInfo());
     }
-    try (Closer closer = Closer.create()) {
-      for (ProgramResource resource : app.computeAllProgramResources()) {
-        if (resource.getKind() == Kind.DEX) {
-          for (DexSection dexSection :
-              DexParser.parseMapFrom(
-                  closer.register(resource.getByteStream()), resource.getOrigin())) {
-            assert result.containsKey(dexSection.type) : dexSection.typeName();
-            SegmentInfo info = result.get(dexSection.type);
-            info.increment(dexSection.length, dexSection.size());
-          }
+    for (ProgramResource resource : app.computeAllProgramResources()) {
+      DexReader dexReader = new DexReader(resource);
+      if (resource.getKind() == Kind.DEX) {
+        for (DexSection dexSection : DexParser.parseMapFrom(dexReader)) {
+          assert result.containsKey(dexSection.type) : dexSection.typeName();
+          SegmentInfo info = result.get(dexSection.type);
+          info.increment(dexSection.length, dexSection.size());
         }
       }
     }

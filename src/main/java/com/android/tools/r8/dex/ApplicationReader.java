@@ -50,8 +50,6 @@ import com.android.tools.r8.utils.MainDexListParser;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Iterables;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -376,32 +374,7 @@ public class ApplicationReader {
     private void addDexParsersForContainer(
         List<DexParser<DexProgramClass>> dexParsers, DexReader dexReader) {
       // Find the start offsets of each dex section.
-      IntList offsets = new IntArrayList();
-      dexReader.setByteOrder();
-      int offset = 0;
-      while (offset < dexReader.end()) {
-        offsets.add(offset);
-        DexReader tmp = new DexReader(Origin.unknown(), dexReader.buffer.array(), offset);
-        assert tmp.getDexVersion() == DexVersion.V41;
-        assert dexReader.getUint(offset + Constants.HEADER_SIZE_OFFSET)
-            == Constants.TYPE_HEADER_ITEM_SIZE_V41;
-        assert dexReader.getUint(offset + Constants.CONTAINER_OFF_OFFSET) == offset;
-        int dataSize = dexReader.getUint(offset + Constants.DATA_SIZE_OFFSET);
-        int dataOffset = dexReader.getUint(offset + Constants.DATA_OFF_OFFSET);
-        int file_size = dexReader.getUint(offset + Constants.FILE_SIZE_OFFSET);
-        assert dataOffset == 0;
-        assert dataSize == 0;
-        offset += file_size;
-      }
-      assert offset == dexReader.end();
-      // Create a parser for the last section with string data.
-      DexParser<DexProgramClass> last =
-          new DexParser<>(dexReader, PROGRAM, options, offsets.getInt(offsets.size() - 1), null);
-      // Create a parsers for the remaining sections with reference to the string data.
-      for (int i = 0; i < offsets.size() - 1; i++) {
-        dexParsers.add(new DexParser<>(dexReader, PROGRAM, options, offsets.getInt(i), last));
-      }
-      dexParsers.add(last);
+      dexParsers.addAll(DexParser.getDexParsersForContainerFormat(dexReader, options));
     }
 
     private boolean includeAnnotationClass(DexProgramClass clazz) {
