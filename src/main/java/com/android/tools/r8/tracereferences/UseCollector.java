@@ -71,6 +71,7 @@ public class UseCollector implements UseCollectorEventConsumer {
   private final DexItemFactory factory;
   private final TraceReferencesConsumer consumer;
   private final DiagnosticsHandler diagnostics;
+  private final UseCollectorEventConsumer kotlinMetadataEventConsumer;
   private final Predicate<DexType> targetPredicate;
 
   private final Set<ClassReference> missingClasses = ConcurrentHashMap.newKeySet();
@@ -88,6 +89,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     this.factory = appView.dexItemFactory();
     this.consumer = consumer;
     this.diagnostics = diagnostics;
+    this.kotlinMetadataEventConsumer = new KotlinMetadataUseCollectorEventConsumer(this);
     this.targetPredicate = targetPredicate;
     this.dalvikAnnotationCodegenPrefix = factory.createString("Ldalvik/annotation/codegen/");
   }
@@ -117,7 +119,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     for (DexAnnotation annotation : clazz.annotations().getAnnotations()) {
       registerAnnotation(annotation, clazz, classContext, getDefaultEventConsumer());
     }
-    traceKotlinMetadata(clazz, classContext, getDefaultEventConsumer());
+    traceKotlinMetadata(clazz, classContext, kotlinMetadataEventConsumer);
     traceSignature(clazz, classContext, getDefaultEventConsumer());
   }
 
@@ -768,6 +770,57 @@ public class UseCollector implements UseCollectorEventConsumer {
           }
         }
       }
+    }
+  }
+
+  private static class KotlinMetadataUseCollectorEventConsumer
+      implements UseCollectorEventConsumer {
+
+    private final UseCollectorEventConsumer parent;
+
+    private KotlinMetadataUseCollectorEventConsumer(UseCollectorEventConsumer parent) {
+      this.parent = parent;
+    }
+
+    @Override
+    public void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
+      parent.notifyPresentClass(clazz, referencedFrom);
+    }
+
+    @Override
+    public void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
+      parent.notifyPresentField(field, referencedFrom);
+    }
+
+    @Override
+    public void notifyMissingField(DexField field, DefinitionContext referencedFrom) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
+      parent.notifyPresentMethod(method, referencedFrom);
+    }
+
+    @Override
+    public void notifyPresentMethod(
+        DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
+      parent.notifyPresentMethod(method, referencedFrom, reference);
+    }
+
+    @Override
+    public void notifyMissingMethod(DexMethod method, DefinitionContext referencedFrom) {
+      // Intentionally empty.
+    }
+
+    @Override
+    public void notifyPackageOf(Definition definition) {
+      parent.notifyPackageOf(definition);
     }
   }
 }
