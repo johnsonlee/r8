@@ -46,6 +46,8 @@ import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
+import it.unimi.dsi.fastutil.objects.Reference2BooleanOpenHashMap;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.IdentityHashMap;
@@ -442,7 +444,6 @@ public class AssumeInserter {
       IRCode code, AssumedValues assumedValues) {
     Map<Instruction, Map<Value, AssumedValueInfo>> redundantAssumedValues = new IdentityHashMap<>();
     LazyDominatorTree lazyDominatorTree = new LazyDominatorTree(code);
-    Map<BasicBlock, Set<BasicBlock>> dominatedBlocksCache = new IdentityHashMap<>();
     assumedValues.computeDominance(
         (instruction, assumedValue, assumedValueInfo) -> {
           Map<Value, AssumedValueInfo> alreadyAssumedValues =
@@ -507,13 +508,20 @@ public class AssumeInserter {
           // or the new split-off block. Since NPE can be explicitly caught, nullness should be
           // propagated through dominance.
           DominatorTree dominatorTree = lazyDominatorTree.get();
-          Set<BasicBlock> dominatedBlocks =
-              dominatedBlocksCache.computeIfAbsent(
-                  insertionBlock, x -> dominatorTree.dominatedBlocks(x, Sets.newIdentityHashSet()));
-
+          Reference2BooleanMap<BasicBlock> dominatedByInsertionBlockCache =
+              new Reference2BooleanOpenHashMap<>();
+          Predicate<BasicBlock> dominatedByInsertionBlock =
+              b -> {
+                if (dominatedByInsertionBlockCache.containsKey(b)) {
+                  return dominatedByInsertionBlockCache.getBoolean(b);
+                }
+                boolean result = dominatorTree.dominatedBy(b, insertionBlock);
+                dominatedByInsertionBlockCache.put(b, result);
+                return result;
+              };
           AssumedDominance.Builder dominance = AssumedDominance.builder(assumedValue);
           for (Instruction user : assumedValue.uniqueUsers()) {
-            if (user != instruction && dominatedBlocks.contains(user.getBlock())) {
+            if (user != instruction && dominatedByInsertionBlock.test(user.getBlock())) {
               if (user.getBlock() == insertionBlock && insertionBlock == block) {
                 Instruction first = block.iterator().nextUntil(x -> x == instruction || x == user);
                 assert first != null;
@@ -532,7 +540,7 @@ public class AssumeInserter {
           }
           for (Phi user : assumedValue.uniquePhiUsers()) {
             IntList dominatedPredecessorIndices =
-                findDominatedPredecessorIndexesInPhi(user, assumedValue, dominatedBlocks);
+                findDominatedPredecessorIndexesInPhi(user, assumedValue, dominatedByInsertionBlock);
             if (!dominatedPredecessorIndices.isEmpty()) {
               dominance.addDominatedPhiUser(user, dominatedPredecessorIndices);
             }
@@ -700,7 +708,7 @@ public class AssumeInserter {
   }
 
   private IntList findDominatedPredecessorIndexesInPhi(
-      Phi user, Value assumedValue, Set<BasicBlock> dominatedBlocks) {
+      Phi user, Value assumedValue, Predicate<BasicBlock> dominatedByInsertionBlock) {
     assert user.getOperands().contains(assumedValue);
     List<Value> operands = user.getOperands();
     List<BasicBlock> predecessors = user.getBlock().getPredecessors();
@@ -715,7 +723,7 @@ public class AssumeInserter {
       BasicBlock predecessor = predecessorIterator.next();
       // When this phi is chosen to be known-to-be-non-null value,
       // check if the corresponding predecessor is dominated by the block where non-null is added.
-      if (operand == assumedValue && dominatedBlocks.contains(predecessor)) {
+      if (operand == assumedValue && dominatedByInsertionBlock.test(predecessor)) {
         predecessorIndexes.add(index);
       }
 
