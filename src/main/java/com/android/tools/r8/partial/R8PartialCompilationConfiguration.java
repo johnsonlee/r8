@@ -190,15 +190,28 @@ public class R8PartialCompilationConfiguration {
         return new UnnamedPackageMatcher();
       } else if (descriptorPrefix.endsWith("/**")) {
         return new PackageAndSubpackagePrefixMatcher(
-            descriptorPrefix.substring(0, descriptorPrefix.length() - 2));
+            extractDescriptorPrefixWithoutWildcards(descriptorPrefix, 2));
       } else if (descriptorPrefix.endsWith("/*")) {
         return new PackagePrefixMatcher(
-            descriptorPrefix.substring(0, descriptorPrefix.length() - 1));
+            extractDescriptorPrefixWithoutWildcards(descriptorPrefix, 1));
       } else if (descriptorPrefix.endsWith("*")) {
-        return new ClassPrefixMatcher(descriptorPrefix.substring(0, descriptorPrefix.length() - 1));
+        return new ClassPrefixMatcher(extractDescriptorPrefixWithoutWildcards(descriptorPrefix, 1));
       } else {
-        return new ClassNameMatcher(descriptorPrefix + ';');
+        return new ClassNameMatcher(
+            extractDescriptorPrefixWithoutWildcards(descriptorPrefix, 0) + ';');
       }
+    }
+
+    private static String extractDescriptorPrefixWithoutWildcards(
+        String descriptorPattern, int numberOfWildcardsToRemove) {
+      String descriptorPrefixWithoutWildcards =
+          descriptorPattern.substring(0, descriptorPattern.length() - numberOfWildcardsToRemove);
+      if (descriptorPrefixWithoutWildcards.indexOf('*') >= 0) {
+        throw new IllegalArgumentException(
+            "Expected descriptor prefix without wildcards, got: "
+                + descriptorPrefixWithoutWildcards);
+      }
+      return descriptorPrefixWithoutWildcards;
     }
   }
 }

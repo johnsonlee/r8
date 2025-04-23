@@ -11,8 +11,7 @@ public class ClassNameMatcher implements R8PartialPredicate {
   private final String descriptor;
 
   public ClassNameMatcher(String descriptor) {
-    assert descriptor.charAt(0) == 'L';
-    assert descriptor.charAt(descriptor.length() - 1) == ';';
+    assert DescriptorUtils.isValidClassDescriptor(descriptor);
     this.descriptor = descriptor;
   }
 
