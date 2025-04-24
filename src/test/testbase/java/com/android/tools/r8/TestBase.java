@@ -170,8 +170,8 @@ public class TestBase {
     return R8FullTestBuilder.create(new TestState(temp), backend);
   }
 
-  public static R8PartialTestBuilder testForR8Partial(TemporaryFolder temp, Backend backend) {
-    return R8PartialTestBuilder.create(new TestState(temp), backend);
+  public static R8PartialTestBuilder testForR8Partial(TemporaryFolder temp) {
+    return R8PartialTestBuilder.create(new TestState(temp));
   }
 
   public static R8CompatTestBuilder testForR8Compat(
@@ -264,7 +264,8 @@ public class TestBase {
   }
 
   public R8PartialTestBuilder testForR8Partial(Backend backend) {
-    return testForR8Partial(temp, backend);
+    assert backend.isDex();
+    return testForR8Partial(temp);
   }
 
   public R8CompatTestBuilder testForR8Compat(Backend backend) {
@@ -346,20 +347,12 @@ public class TestBase {
   }
 
   public TestBuilder<DesugarTestRunResult, ?> testForDesugaring(TestParameters parameters) {
-    return testForDesugaring(
-        parameters.getRuntime().getBackend(),
-        parameters.getApiLevel(),
-        o -> {},
-        Predicates.alwaysTrue());
+    return testForDesugaring(parameters, null);
   }
 
   public TestBuilder<DesugarTestRunResult, ?> testForDesugaring(
       TestParameters parameters, Consumer<InternalOptions> optionsModification) {
-    return testForDesugaring(
-        parameters.getRuntime().getBackend(),
-        parameters.getApiLevel(),
-        optionsModification,
-        Predicates.alwaysTrue());
+    return internalTestForDesugaring(parameters, optionsModification, Predicates.alwaysTrue());
   }
 
   @Deprecated
@@ -369,24 +362,21 @@ public class TestBase {
       TestParameters parameters,
       Consumer<InternalOptions> optionsModification,
       Predicate<DesugarTestConfiguration> filter) {
-    return testForDesugaring(
-        parameters.getRuntime().getBackend(),
-        parameters.getApiLevel(),
-        optionsModification,
-        filter);
+    return internalTestForDesugaring(parameters, optionsModification, filter);
   }
 
-  private TestBuilder<DesugarTestRunResult, ?> testForDesugaring(
-      Backend backend,
-      AndroidApiLevel apiLevel,
+  private TestBuilder<DesugarTestRunResult, ?> internalTestForDesugaring(
+      TestParameters parameters,
       Consumer<InternalOptions> optionsModification,
       Predicate<DesugarTestConfiguration> filter) {
-    assert apiLevel != null : "No API level. Add .withAllApiLevelsAlsoForCf() to test parameters?";
+    assert parameters.hasApiLevel()
+        : "No API level. Add .withAllApiLevelsAlsoForCf() to test parameters?";
     TestState state = new TestState(temp);
     ImmutableList.Builder<
             Pair<DesugarTestConfiguration, TestBuilder<? extends TestRunResult<?>, ?>>>
         builders = ImmutableList.builder();
-    if (backend == Backend.CF) {
+    if (parameters.isCfRuntime()) {
+      assumeTrue(parameters.getPartialCompilationTestParameters().isNone());
       if (filter.test(DesugarTestConfiguration.JAVAC)) {
         builders.add(new Pair<>(DesugarTestConfiguration.JAVAC, JvmTestBuilder.create(state)));
       }
@@ -395,25 +385,39 @@ public class TestBase {
             new Pair<>(
                 DesugarTestConfiguration.D8_CF,
                 D8TestBuilder.create(state, Backend.CF)
-                    .setMinApi(apiLevel)
+                    .setMinApi(parameters)
                     .addOptionsModification(optionsModification)));
       }
     } else {
-      assert backend == Backend.DEX;
-      if (filter.test(DesugarTestConfiguration.D8_DEX)) {
-        builders.add(
-            new Pair<>(
-                DesugarTestConfiguration.D8_DEX,
-                D8TestBuilder.create(state, Backend.DEX)
-                    .setMinApi(apiLevel)
-                    .addOptionsModification(optionsModification)));
-      }
-      if (filter.test(DesugarTestConfiguration.D8_CF_D8_DEX)) {
-        builders.add(
-            new Pair<>(
-                DesugarTestConfiguration.D8_CF_D8_DEX,
-                IntermediateCfD8TestBuilder.create(state, apiLevel)
-                    .addOptionsModification(optionsModification)));
+      assert parameters.isDexRuntime();
+      assumeTrue(
+          parameters.getPartialCompilationTestParameters().isNone()
+              || parameters.getPartialCompilationTestParameters().isExcludeAll());
+      if (parameters.getPartialCompilationTestParameters().isNone()) {
+        if (filter.test(DesugarTestConfiguration.D8_DEX)) {
+          builders.add(
+              new Pair<>(
+                  DesugarTestConfiguration.D8_DEX,
+                  D8TestBuilder.create(state, Backend.DEX)
+                      .setMinApi(parameters)
+                      .addOptionsModification(optionsModification)));
+        }
+        if (filter.test(DesugarTestConfiguration.D8_CF_D8_DEX)) {
+          builders.add(
+              new Pair<>(
+                  DesugarTestConfiguration.D8_CF_D8_DEX,
+                  IntermediateCfD8TestBuilder.create(state, parameters.getApiLevel())
+                      .addOptionsModification(optionsModification)));
+        }
+      } else {
+        assert parameters.getPartialCompilationTestParameters().isExcludeAll();
+        if (filter.test(DesugarTestConfiguration.R8_PARTIAL_EXCLUDE_DEX)) {
+          assert optionsModification == null;
+          builders.add(
+              new Pair<>(
+                  DesugarTestConfiguration.R8_PARTIAL_EXCLUDE_DEX,
+                  R8PartialTestBuilder.create(state).setMinApi(parameters)));
+        }
       }
     }
     return DesugarTestBuilder.create(state, builders.build());

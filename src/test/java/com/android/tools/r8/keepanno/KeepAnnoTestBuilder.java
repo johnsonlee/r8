@@ -351,7 +351,7 @@ public abstract class KeepAnnoTestBuilder {
         KeepAnnoParameters params,
         KeepAnnotationLibrary keepAnnotationLibrary,
         TemporaryFolder temp) {
-      super(params, TestBase.testForR8Partial(temp, params.getBackend()));
+      super(params, TestBase.testForR8Partial(temp));
 
       builder
           .setR8PartialConfiguration(Builder::includeAll)

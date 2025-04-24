@@ -4520,7 +4520,7 @@ public class Enqueuer {
     appView
         .dexItemFactory()
         .forEachPossiblyCompilerSynthesizedType(this::recordCompilerSynthesizedTypeReference);
-    appView.rootSet().rootLibraryTypes.forEach(this::recordCompilerSynthesizedTypeReference);
+    appView.rootSet().rootNonProgramTypes.forEach(this::recordCompilerSynthesizedTypeReference);
     if (appView.options().getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()) {
       appView
           .options()

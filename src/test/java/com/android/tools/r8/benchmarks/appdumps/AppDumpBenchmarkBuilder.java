@@ -413,7 +413,7 @@ public class AppDumpBenchmarkBuilder {
                   DumpOptions dumpProperties = dump.getBuildProperties();
 
                   // Run R8.
-                  TestBase.testForR8Partial(environment.getTemp(), Backend.DEX)
+                  TestBase.testForR8Partial(environment.getTemp())
                       .addProgramFiles(dump.getProgramArchive())
                       .addLibraryFiles(dump.getLibraryArchive())
                       .addKeepRules(

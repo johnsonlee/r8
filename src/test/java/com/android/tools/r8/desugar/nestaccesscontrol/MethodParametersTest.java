@@ -22,24 +22,24 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class MethodParametersTest extends TestBase {
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     // java.lang.reflect.Method.getParameters() supported from Android 8.1.
     return getTestParameters()
         .withDexRuntimesStartingFromIncluding(Version.V8_1_0)
         .withCfRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
-  }
-
-  public MethodParametersTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -78,10 +78,9 @@ public class MethodParametersTest extends TestBase {
             .assertNoMessages()
             .writeToZip();
 
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramFiles(nestDesugaredTwice)
         .addProgramFiles(programDesugared)
-        .setMinApi(parameters)
         .compile()
         .assertNoMessages()
         .inspect(this::verifyNoAnnotationsOnSyntheticConstructors)

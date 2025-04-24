@@ -4,6 +4,7 @@
 package com.android.tools.r8.desugar.nestaccesscontrol;
 
 import com.android.tools.r8.DesugarTestConfiguration;
+import com.android.tools.r8.PartialCompilationTestParameters;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -13,21 +14,24 @@ import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestPrivateInterfaceMethodsTest extends TestBase {
 
   static final String EXPECTED = StringUtils.lines("Hello world!");
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
-  }
-
-  public NestPrivateInterfaceMethodsTest(TestParameters parameters) {
-    this.parameters = parameters;
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private byte[] getClassWithNest(Class<?> clazz) throws Exception {
@@ -62,27 +66,25 @@ public class NestPrivateInterfaceMethodsTest extends TestBase {
     byte[] bytesI = getClassWithNest(I.class);
     byte[] bytesJ = getClassWithNest(J.class);
     Path outI =
-        testForD8(parameters.getBackend())
+        testForD8(parameters)
             .addProgramClassFileData(bytesI)
             .addClasspathClassFileData(bytesJ)
-            .setMinApi(parameters)
             .compile()
             .writeToZip();
     Path outJ =
-        testForD8(parameters.getBackend())
+        testForD8(parameters)
             .addProgramClassFileData(bytesJ)
             .addClasspathClassFileData(bytesI)
-            .setMinApi(parameters)
             .compile()
             .writeToZip();
     Path outTestClass =
-        testForD8(parameters.getBackend())
+        testForD8(parameters)
             .addProgramClasses(TestClass.class)
             .addClasspathClassFileData(bytesI, bytesJ)
-            .setMinApi(parameters)
             .compile()
             .writeToZip();
-    testForD8(parameters.getBackend())
+    // Merge and run using D8.
+    testForD8(parameters.getBackend(), PartialCompilationTestParameters.NONE)
         .addProgramFiles(outI, outJ, outTestClass)
         .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)

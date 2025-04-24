@@ -128,7 +128,7 @@ public class RootSetUtils {
     private final RootSetBuilderEventConsumer eventConsumer;
     private final ImmediateAppSubtypingInfo subtypingInfo;
     private final DirectMappedDexApplication application;
-    private final Set<DexType> rootLibraryTypes = Sets.newIdentityHashSet();
+    private final Set<DexType> rootNonProgramTypes = Sets.newIdentityHashSet();
     private final Iterable<? extends ProguardConfigurationRule> rules;
     private final DependentMinimumKeepInfoCollection dependentMinimumKeepInfo =
         DependentMinimumKeepInfoCollection.createConcurrent();
@@ -269,8 +269,8 @@ public class RootSetUtils {
                                     getPositionFromDefinitionContext(referencedFrom))));
                 evaluateKeepRule(
                     definition.asProgramDefinition(), null, null, modifiers, Action.empty(), rule);
-              } else if (definition.getContextClass().isLibraryClass()) {
-                rootLibraryTypes.add(definition.getContextType());
+              } else {
+                rootNonProgramTypes.add(definition.getContextType());
               }
             }
 
@@ -558,7 +558,7 @@ public class RootSetUtils {
           Lists.newArrayList(delayedRootSetActionItems),
           pendingMethodMoveInverse,
           resourceRootIds,
-          rootLibraryTypes);
+          rootNonProgramTypes);
     }
 
     private void propagateAssumeRules(DexClass clazz) {
@@ -2069,7 +2069,7 @@ public class RootSetUtils {
     public final Set<DexMember<?, ?>> identifierNameStrings;
     public final Set<ProguardIfRule> ifRules;
     public final IntSet resourceIds;
-    public final Set<DexType> rootLibraryTypes;
+    public final Set<DexType> rootNonProgramTypes;
 
     private RootSet(
         DependentMinimumKeepInfoCollection dependentMinimumKeepInfo,
@@ -2085,7 +2085,7 @@ public class RootSetUtils {
         List<DelayedRootSetActionItem> delayedRootSetActionItems,
         ProgramMethodMap<ProgramMethod> pendingMethodMoveInverse,
         IntSet resourceIds,
-        Set<DexType> rootLibraryTypes) {
+        Set<DexType> rootNonProgramTypes) {
       super(
           dependentMinimumKeepInfo,
           dependentKeepClassCompatRule,
@@ -2100,7 +2100,7 @@ public class RootSetUtils {
       this.identifierNameStrings = Collections.unmodifiableSet(identifierNameStrings);
       this.ifRules = Collections.unmodifiableSet(ifRules);
       this.resourceIds = resourceIds;
-      this.rootLibraryTypes = rootLibraryTypes;
+      this.rootNonProgramTypes = rootNonProgramTypes;
     }
 
     public void checkAllRulesAreUsed(InternalOptions options) {
@@ -2216,7 +2216,7 @@ public class RootSetUtils {
                 delayedRootSetActionItems,
                 pendingMethodMoveInverse,
                 resourceIds,
-                rootLibraryTypes);
+                rootNonProgramTypes);
       }
       timing.end();
       return rewrittenRootSet;

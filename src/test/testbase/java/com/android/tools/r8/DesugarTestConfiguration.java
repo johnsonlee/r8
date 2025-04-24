@@ -11,6 +11,8 @@ public enum DesugarTestConfiguration {
   D8_CF,
   // Javac generated code with desugaring to DEX.
   D8_DEX,
+  // Javac generated code with desugaring to DEX using R8 partial.
+  R8_PARTIAL_EXCLUDE_DEX,
   // Javac generated code with desugaring to class file and then compiled to DEX without desugaring.
   D8_CF_D8_DEX;
 
