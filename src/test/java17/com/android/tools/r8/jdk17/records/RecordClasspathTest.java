@@ -11,7 +11,7 @@ import static org.junit.Assert.assertTrue;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.OutputMode;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -24,7 +24,6 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -53,6 +52,7 @@ public class RecordClasspathTest extends TestBase {
             .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
             .withDexRuntimes()
             .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
             .build(),
         BooleanUtils.values());
   }
@@ -93,11 +93,10 @@ public class RecordClasspathTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramClasses(TestClass.class)
         .addClasspathClasses(getClass())
         .addClasspathClassFileData(getClasspathData())
-        .setMinApi(parameters)
         .compile()
         .inspect(this::assertNoRecord)
         .run(parameters.getRuntime(), TestClass.class)
@@ -106,8 +105,8 @@ public class RecordClasspathTest extends TestBase {
 
   @Test
   public void testD8DexPerFile() throws Exception {
+    parameters.assumeDexRuntime().assumeNoPartialCompilation();
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
-    Assume.assumeFalse(parameters.isCfRuntime());
     testForD8(parameters.getBackend())
         .addProgramClasses(TestClass.class)
         .addClasspathClasses(getClass())
@@ -126,8 +125,8 @@ public class RecordClasspathTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
             .addProgramClasses(TestClass.class)
             .addClasspathClassFileData(
                 TestBase.transformer(getClass())
@@ -138,7 +137,6 @@ public class RecordClasspathTest extends TestBase {
                     .setImplements()
                     .transform())
             .addClasspathClassFileData(getClasspathData())
-            .setMinApi(parameters)
             .addKeepMainRule(TestClass.class);
     if (parameters.isCfRuntime()) {
       builder

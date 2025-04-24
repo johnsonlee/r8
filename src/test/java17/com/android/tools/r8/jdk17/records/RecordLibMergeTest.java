@@ -5,7 +5,7 @@
 package com.android.tools.r8.jdk17.records;
 
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -35,6 +35,7 @@ public class RecordLibMergeTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -50,11 +51,10 @@ public class RecordLibMergeTest extends TestBase {
             .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
             .compile()
             .writeToZip();
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
             .addProgramFiles(lib)
             .addProgramClassesAndInnerClasses(RecordMain.class)
-            .setMinApi(parameters)
             .addKeepMainRule(RecordMain.class)
             .addKeepRules("-keep class " + RECORD_LIB + "$LibRecord")
             .addKeepRules("-keep class " + RecordMain.MainRecord.class.getTypeName());

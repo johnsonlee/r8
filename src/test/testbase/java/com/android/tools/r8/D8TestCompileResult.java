@@ -83,12 +83,14 @@ public class D8TestCompileResult extends TestCompileResult<D8TestCompileResult, 
     return new D8TestRunResult(app, runtime, result, proguardMap, state);
   }
 
+  @Override
   public <E extends Throwable> D8TestCompileResult inspectResidualArtProfile(
       ThrowingConsumer<ArtProfileInspector, E> consumer) throws E, IOException {
     return inspectResidualArtProfile(
         (rewrittenArtProfile, inspector) -> consumer.accept(rewrittenArtProfile));
   }
 
+  @Override
   public <E extends Throwable> D8TestCompileResult inspectResidualArtProfile(
       ThrowingBiConsumer<ArtProfileInspector, CodeInspector, E> consumer) throws E, IOException {
     assertEquals(1, residualArtProfiles.size());

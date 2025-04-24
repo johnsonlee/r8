@@ -50,7 +50,8 @@ public class RecordKeepRulesTest extends TestBase {
   @Parameterized.Parameters(name = "{0}; proguardCompat: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevels().build(), BooleanUtils.values());
+        getTestParameters().withDexRuntimes().withAllApiLevels().withPartialCompilation().build(),
+        BooleanUtils.values());
   }
 
   @Test
@@ -96,9 +97,8 @@ public class RecordKeepRulesTest extends TestBase {
             .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
             .compile()
             .writeToZip();
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramFiles(desugared)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), RecordKeepRules.class)
         .assertSuccessWithOutput(expectedOutput);
   }

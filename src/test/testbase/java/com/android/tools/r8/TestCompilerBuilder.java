@@ -13,8 +13,10 @@ import com.android.tools.r8.benchmarks.BenchmarkResults;
 import com.android.tools.r8.debug.DebugTestConfig;
 import com.android.tools.r8.dump.CompilerDump;
 import com.android.tools.r8.dump.DumpOptions;
+import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.optimize.argumentpropagation.ArgumentPropagatorEventConsumer;
 import com.android.tools.r8.optimize.argumentpropagation.codescanner.MethodStateCollectionByReference;
+import com.android.tools.r8.profile.art.model.ExternalArtProfile;
 import com.android.tools.r8.testing.AndroidBuildVersion;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
@@ -79,6 +81,14 @@ public abstract class TestCompilerBuilder<
                 .setAllowUnreachableCfBlocks(false)
                 .setEnableUnverifiableCodeReporting(true);
             options.getOpenClosedInterfacesOptions().disallowOpenInterfaces();
+          });
+
+  public static final Consumer<InternalOptions> DEFAULT_R8_IN_R8_PARTIAL_OPTIONS =
+      DEFAULT_R8_OPTIONS.andThen(
+          options -> {
+            // By default, skip tracing of inner classes in trace references of R8 partial.
+            // This generally leads to unintended, hidden keep rules in R8 partial tests.
+            options.getTraceReferencesOptions().skipInnerClassesForTesting = true;
           });
 
   final Backend backend;
@@ -175,7 +185,8 @@ public abstract class TestCompilerBuilder<
           DEFAULT_OPTIONS.andThen(
               options -> {
                 options.partialCompilationConfiguration.d8DexOptionsConsumer = DEFAULT_D8_OPTIONS;
-                options.partialCompilationConfiguration.r8OptionsConsumer = DEFAULT_R8_OPTIONS;
+                options.partialCompilationConfiguration.r8OptionsConsumer =
+                    DEFAULT_R8_IN_R8_PARTIAL_OPTIONS;
               });
     } else {
       optionsConsumer = DEFAULT_OPTIONS;
@@ -211,10 +222,20 @@ public abstract class TestCompilerBuilder<
                     }));
   }
 
+  // Overridden in D8TestBuilder and R8TestBuilder.
+  public T addArtProfileForRewriting(ExternalArtProfile externalArtProfile) {
+    throw new Unimplemented();
+  }
+
   public T addOptionsModification(Consumer<InternalOptions> optionsConsumer) {
     if (optionsConsumer != null) {
       this.optionsConsumer = this.optionsConsumer.andThen(optionsConsumer);
     }
+    return self();
+  }
+
+  public T addR8PartialR8OptionsModification(Consumer<InternalOptions> optionsConsumer) {
+    // Intentionally empty. Overridden in R8PartialTestBuilder.
     return self();
   }
 

@@ -7,7 +7,6 @@ package com.android.tools.r8.jdk17.records;
 public class RecordMain {
 
   record MainRecord(String data) {}
-  ;
 
   public static void main(String[] args) {
     System.out.println(new MainRecord("main") instanceof java.lang.Record);

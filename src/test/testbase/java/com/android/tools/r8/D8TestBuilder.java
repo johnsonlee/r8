@@ -164,6 +164,7 @@ public class D8TestBuilder
         ArtProfileTestingUtils.createResidualArtProfileConsumer(residualArtProfiles::add));
   }
 
+  @Override
   public D8TestBuilder addArtProfileForRewriting(ExternalArtProfile artProfile) {
     return addArtProfileForRewriting(ArtProfileTestingUtils.createArtProfileProvider(artProfile));
   }

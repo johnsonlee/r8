@@ -124,4 +124,15 @@ public class TraceReferences {
     }
     ExceptionUtils.withMainProgramHandler(() -> run(args));
   }
+
+  public static class TraceReferencesForTesting {
+
+    public static void runForTesting(
+        TraceReferencesCommand command, Consumer<InternalOptions> optionsModifier)
+        throws CompilationFailedException {
+      InternalOptions options = command.getInternalOptions();
+      optionsModifier.accept(options);
+      TraceReferences.runForTesting(command, options);
+    }
+  }
 }

@@ -8,7 +8,7 @@ import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.NeverInline;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -32,7 +32,11 @@ public class RecordHashCodeTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private boolean isCfRuntimeWithNativeRecordSupport() {
@@ -52,9 +56,8 @@ public class RecordHashCodeTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
@@ -67,10 +70,9 @@ public class RecordHashCodeTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
             .addInnerClassesAndStrippedOuter(getClass())
-            .setMinApi(parameters)
             .addInliningAnnotations()
             .addKeepMainRule(TestClass.class);
     if (parameters.isCfRuntime()) {
@@ -87,10 +89,9 @@ public class RecordHashCodeTest extends TestBase {
   public void testR8DontShrinkDontObfuscate() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
             .addInnerClassesAndStrippedOuter(getClass())
-            .setMinApi(parameters)
             .addDontShrink()
             .addDontObfuscate()
             .addInliningAnnotations()

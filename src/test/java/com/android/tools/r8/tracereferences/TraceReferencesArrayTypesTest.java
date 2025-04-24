@@ -7,7 +7,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.tools.r8.DiagnosticsChecker;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -94,16 +93,13 @@ public class TraceReferencesArrayTypesTest extends TestBase {
                 ToolHelper.getClassPathForTests(),
                 ToolHelper.getClassFileForTestClass(Source.class))
             .build();
-    DiagnosticsChecker diagnosticsChecker = new DiagnosticsChecker();
     MissingReferencesConsumer consumer = new MissingReferencesConsumer();
-
-    TraceReferences.run(
-        TraceReferencesCommand.builder(diagnosticsChecker)
-            .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
-            .addSourceFiles(sourceJar)
-            .addTargetFiles(targetJar)
-            .setConsumer(consumer)
-            .build());
+    testForTraceReferences()
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
+        .addSourceFiles(sourceJar)
+        .addTargetFiles(targetJar)
+        .setConsumer(consumer)
+        .trace();
 
     assertEquals(
         ImmutableSet.of(

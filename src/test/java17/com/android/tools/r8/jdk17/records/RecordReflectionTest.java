@@ -38,7 +38,10 @@ public class RecordReflectionTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withCfRuntimesStartingFromIncluding(CfVm.JDK17).build();
+    return getTestParameters()
+        .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
+        .withPartialCompilation()
+        .build();
   }
 
   @Test
@@ -52,9 +55,8 @@ public class RecordReflectionTest extends TestBase {
 
   @Test
   public void testR8Cf() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .addKeepMainRule(RecordReflection.class)
         .addKeepAllAttributes()
         .addKeepRules("-keep class * extends java.lang.Record { private final <fields>; }")

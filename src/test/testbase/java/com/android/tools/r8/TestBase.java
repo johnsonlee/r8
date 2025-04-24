@@ -210,11 +210,14 @@ public class TestBase {
   }
 
   public R8FullTestBuilder testForR8(Backend backend) {
-    assert verifyNoPartialCompilationTestParameters();
+    assert verifyNoPartialCompilationTestParameters(backend);
     return testForR8(temp, backend);
   }
 
-  private boolean verifyNoPartialCompilationTestParameters() {
+  private boolean verifyNoPartialCompilationTestParameters(Backend backend) {
+    if (backend.isCf()) {
+      return true;
+    }
     try {
       Class<?> testClass = getClass();
       for (Field field : testClass.getDeclaredFields()) {
@@ -285,19 +288,20 @@ public class TestBase {
   }
 
   public D8TestBuilder testForD8(Backend backend) {
-    assert verifyNoPartialCompilationTestParameters();
+    assert verifyNoPartialCompilationTestParameters(backend);
     return testForD8(temp, backend);
   }
 
-  public TestCompilerBuilder<?, ?, ?, ?, ?> testForD8(TestParameters parameters) {
+  public TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testForD8(
+      TestParameters parameters) {
     return testForD8(parameters.getBackend(), parameters.getPartialCompilationTestParameters())
         .applyIf(parameters.hasApiLevel(), b -> b.setMinApi(parameters));
   }
 
-  public TestCompilerBuilder<?, ?, ?, ?, ?> testForD8(
+  public TestCompilerBuilder<?, ?, ?, ? extends SingleTestRunResult<?>, ?> testForD8(
       Backend backend, PartialCompilationTestParameters partialCompilationTestParameters) {
     if (partialCompilationTestParameters.isNone()) {
-      return testForD8(backend);
+      return testForD8(temp, backend);
     }
     assumeTrue(partialCompilationTestParameters.isExcludeAll());
     return testForR8Partial(backend)

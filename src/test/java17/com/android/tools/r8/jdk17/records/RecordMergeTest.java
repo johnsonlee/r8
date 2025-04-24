@@ -16,7 +16,9 @@ import com.android.tools.r8.D8TestBuilder;
 import com.android.tools.r8.D8TestCompileResult;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.OutputMode;
+import com.android.tools.r8.PartialCompilationTestParameters;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompileResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
@@ -24,7 +26,6 @@ import com.android.tools.r8.errors.MissingGlobalSyntheticsConsumerDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -47,11 +48,16 @@ public class RecordMergeTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   @Test
   public void testNoGlobalSyntheticsConsumer() throws Exception {
+    parameters.assumeNoPartialCompilation();
     D8TestBuilder builder =
         testForD8(parameters.getBackend())
             .addStrippedOuter(getClass())
@@ -76,12 +82,15 @@ public class RecordMergeTest extends TestBase {
 
   @Test
   public void testMergeDesugaredInputs() throws Exception {
+    parameters.assumeNoPartialCompilation();
     testMergeDesugaredInputsDexPerClass(false);
   }
 
   @Test
   public void testMergeDesugaredInputsDexPerClass() throws Exception {
-    Assume.assumeTrue("CF is already run from the other test", parameters.isDexRuntime());
+    parameters
+        .assumeDexRuntime("CF is already run from the other test")
+        .assumeNoPartialCompilation();
     testMergeDesugaredInputsDexPerClass(true);
   }
 
@@ -150,6 +159,7 @@ public class RecordMergeTest extends TestBase {
 
   @Test
   public void testMergeDesugaredAndNonDesugaredInputs() throws Exception {
+    parameters.assumeNoPartialCompilation();
     GlobalSyntheticsTestingConsumer globals1 = new GlobalSyntheticsTestingConsumer();
     Path output1 =
         testForD8(parameters.getBackend())
@@ -191,27 +201,26 @@ public class RecordMergeTest extends TestBase {
   @Test
   public void testMergeNonIntermediates() throws Exception {
     Path output1 =
-        testForD8(parameters.getBackend())
+        testForD8(parameters)
             .addStrippedOuter(getClass())
             .addProgramClassesAndInnerClasses(RecordWithMembers.class)
             .addClasspathClassesAndInnerClasses(SimpleRecord.class)
-            .setMinApi(parameters)
             .compile()
             .inspect(this::assertHasRecordTag)
             .writeToZip();
 
     Path output2 =
-        testForD8(parameters.getBackend())
+        testForD8(parameters)
             .addProgramClassesAndInnerClasses(SimpleRecord.class)
             .addClasspathClassesAndInnerClasses(getClass())
-            .setMinApi(parameters)
             .compile()
             .inspect(this::assertHasRecordTag)
             .writeToZip();
 
+    // Merge using D8.
     if (!isRecordsFullyDesugaredForD8(parameters)) {
-      D8TestCompileResult result =
-          testForD8(parameters.getBackend())
+      TestCompileResult<?, ?> result =
+          testForD8(parameters.getBackend(), PartialCompilationTestParameters.NONE)
               .addProgramFiles(output1, output2)
               .setMinApi(parameters)
               .compile();
@@ -233,7 +242,7 @@ public class RecordMergeTest extends TestBase {
       assertThrows(
           CompilationFailedException.class,
           () ->
-              testForD8(parameters.getBackend())
+              testForD8(parameters.getBackend(), PartialCompilationTestParameters.NONE)
                   .addProgramFiles(output1, output2)
                   .setMinApi(parameters)
                   .compileWithExpectedDiagnostics(

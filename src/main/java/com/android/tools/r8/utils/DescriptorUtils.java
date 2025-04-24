@@ -397,6 +397,16 @@ public class DescriptorUtils {
         getSimpleClassNameIndex(classDescriptor), classDescriptor.length() - 1);
   }
 
+  public static String getInnerClassNameOrSimpleNameFromDescriptorForTesting(
+      String classDescriptor) {
+    int innerClassSeparatorIndex = classDescriptor.lastIndexOf(INNER_CLASS_SEPARATOR);
+    if (innerClassSeparatorIndex >= 0) {
+      return classDescriptor.substring(innerClassSeparatorIndex + 1, classDescriptor.length() - 1);
+    } else {
+      return getSimpleClassNameFromDescriptor(classDescriptor);
+    }
+  }
+
   /**
    * Replace the simple class name from its descriptor with a new simple name.
    *

@@ -31,6 +31,7 @@ import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.DexTypeList;
 import com.android.tools.r8.graph.DexValue;
 import com.android.tools.r8.graph.FieldResolutionResult;
+import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
 import com.android.tools.r8.graph.ProgramField;
@@ -73,6 +74,7 @@ public class UseCollector implements UseCollectorEventConsumer {
   private final DiagnosticsHandler diagnostics;
   private final UseCollectorEventConsumer kotlinMetadataEventConsumer;
   private final Predicate<DexType> targetPredicate;
+  private final TraceReferencesOptions traceReferencesOptions;
 
   private final Set<ClassReference> missingClasses = ConcurrentHashMap.newKeySet();
   private final Set<FieldReference> missingFields = ConcurrentHashMap.newKeySet();
@@ -91,6 +93,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     this.diagnostics = diagnostics;
     this.kotlinMetadataEventConsumer = new KotlinMetadataUseCollectorEventConsumer(this);
     this.targetPredicate = targetPredicate;
+    this.traceReferencesOptions = appView.options().getTraceReferencesOptions();
     this.dalvikAnnotationCodegenPrefix = factory.createString("Ldalvik/annotation/codegen/");
   }
 
@@ -119,8 +122,26 @@ public class UseCollector implements UseCollectorEventConsumer {
     for (DexAnnotation annotation : clazz.annotations().getAnnotations()) {
       registerAnnotation(annotation, clazz, classContext, getDefaultEventConsumer());
     }
+    traceInnerClasses(clazz, classContext, getDefaultEventConsumer());
     traceKotlinMetadata(clazz, classContext, kotlinMetadataEventConsumer);
     traceSignature(clazz, classContext, getDefaultEventConsumer());
+  }
+
+  private void traceInnerClasses(
+      DexProgramClass clazz,
+      DefinitionContext classContext,
+      UseCollectorEventConsumer eventConsumer) {
+    if (traceReferencesOptions.skipInnerClassesForTesting) {
+      return;
+    }
+    for (InnerClassAttribute innerClassAttribute : clazz.getInnerClasses()) {
+      if (innerClassAttribute.getInner() != null) {
+        addType(innerClassAttribute.getInner(), classContext, eventConsumer);
+      }
+      if (innerClassAttribute.getOuter() != null) {
+        addType(innerClassAttribute.getOuter(), classContext, eventConsumer);
+      }
+    }
   }
 
   private void traceKotlinMetadata(

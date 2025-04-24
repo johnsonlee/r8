@@ -31,6 +31,7 @@ import java.util.function.Predicate;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
+import org.hamcrest.core.IsAnything;
 
 public class Matchers {
 
@@ -145,6 +146,10 @@ public class Matchers {
 
   public static Matcher<Subject> isAbsentIf(boolean condition) {
     return onlyIf(condition, isAbsent());
+  }
+
+  public static Matcher<Subject> isAbsentOr(boolean condition) {
+    return condition ? new IsAnything<>() : isAbsent();
   }
 
   public static Matcher<Subject> isPresent() {

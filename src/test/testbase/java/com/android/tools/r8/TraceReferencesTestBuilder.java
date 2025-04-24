@@ -7,14 +7,23 @@ import com.android.tools.r8.TestCompilerBuilder.DiagnosticsConsumer;
 import com.android.tools.r8.tracereferences.TraceReferences;
 import com.android.tools.r8.tracereferences.TraceReferencesCommand;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.ZipUtils.ZipBuilder;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Consumer;
 
 public class TraceReferencesTestBuilder {
+
+  public static final Consumer<InternalOptions> DEFAULT_OPTIONS =
+      options -> {
+        // By default, skip tracing of inner classes in trace references of R8 partial.
+        // This generally leads to unintended, hidden keep rules in R8 partial tests.
+        options.getTraceReferencesOptions().skipInnerClassesForTesting = true;
+      };
 
   private final TraceReferencesCommand.Builder builder;
   private final TraceReferencesInspector inspector = new TraceReferencesInspector();
@@ -93,7 +102,7 @@ public class TraceReferencesTestBuilder {
   }
 
   public TraceReferencesTestResult trace() throws CompilationFailedException {
-    TraceReferences.run(builder.build());
+    TraceReferences.TraceReferencesForTesting.runForTesting(builder.build(), DEFAULT_OPTIONS);
     return new TraceReferencesTestResult(inspector);
   }
 

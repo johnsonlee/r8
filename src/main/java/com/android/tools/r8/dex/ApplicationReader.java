@@ -316,6 +316,9 @@ public class ApplicationReader {
     }
 
     public DexApplicationReadFlags getDexApplicationReadFlags() {
+      if (options.partialSubCompilationConfiguration != null) {
+        return options.partialSubCompilationConfiguration.getFlags();
+      }
       return readFlagsBuilder
           .setHasReadProgramClassFromDex(hasReadProgramResourceFromDex)
           .setHasReadProgramClassFromCf(hasReadProgramResourceFromCf)

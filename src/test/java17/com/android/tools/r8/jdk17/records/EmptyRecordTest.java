@@ -4,6 +4,8 @@
 
 package com.android.tools.r8.jdk17.records;
 
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.JdkClassFileProvider;
@@ -13,6 +15,7 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.StringUtils;
 import java.util.List;
+import org.hamcrest.Matcher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -45,6 +48,7 @@ public class EmptyRecordTest extends TestBase {
             .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
             .withDexRuntimes()
             .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
             .build());
   }
 
@@ -61,9 +65,8 @@ public class EmptyRecordTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     assumeFalse("Only applicable for R8", enableMinification || enableRepackaging);
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
@@ -73,24 +76,33 @@ public class EmptyRecordTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeDexRuntime();
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(TestClass.class)
+        .addR8PartialR8OptionsModification(
+            options -> options.getTraceReferencesOptions().skipInnerClassesForTesting = false)
         .applyIf(
             parameters.isCfRuntime(),
             testBuilder -> testBuilder.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
         .addDontObfuscateUnless(enableMinification)
         .applyIf(enableRepackaging, b -> b.addKeepRules("-repackageclasses p"))
-        .setMinApi(parameters)
         .compile()
         .applyIf(
             parameters.isCfRuntime(),
             compileResult -> compileResult.inspect(RecordTestUtils::assertRecordsAreRecords))
         .run(parameters.getRuntime(), TestClass.class)
-        .assertSuccessWithOutput(
-            enableMinification
-                ? EXPECTED_RESULT_R8_MINIFICATION
-                : EXPECTED_RESULT_R8_NO_MINIFICATION);
+        .assertSuccessWithOutputThatMatches(getExpectedOutput());
+  }
+
+  private Matcher<String> getExpectedOutput() {
+    Matcher<String> matcher =
+        enableMinification
+            ? equalTo(EXPECTED_RESULT_R8_MINIFICATION)
+            : equalTo(EXPECTED_RESULT_R8_NO_MINIFICATION);
+    if (parameters.getPartialCompilationTestParameters().isRandom()) {
+      return anyOf(matcher, equalTo(EXPECTED_RESULT_D8));
+    }
+    return matcher;
   }
 
   record Empty() {}

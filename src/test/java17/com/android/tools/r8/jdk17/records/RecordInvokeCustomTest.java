@@ -4,14 +4,19 @@
 
 package com.android.tools.r8.jdk17.records;
 
+import static com.android.tools.r8.utils.DescriptorUtils.getInnerClassNameOrSimpleNameFromDescriptorForTesting;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.StringUtils;
+import com.android.tools.r8.utils.codeinspector.ClassSubject;
+import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -35,8 +40,6 @@ public class RecordInvokeCustomTest extends TestBase {
           "%s[%s=Jane Doe, %s=42]");
   private static final String EXPECTED_RESULT_D8 =
       String.format(EXPECTED_RESULT, "Empty", "Person", "name", "age");
-  private static final String EXPECTED_RESULT_R8 =
-      String.format(EXPECTED_RESULT, "a", "b", "a", "b");
 
   private final TestParameters parameters;
 
@@ -50,6 +53,7 @@ public class RecordInvokeCustomTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -64,9 +68,8 @@ public class RecordInvokeCustomTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), RecordInvokeCustom.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
@@ -75,25 +78,39 @@ public class RecordInvokeCustomTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
-            .addInnerClassesAndStrippedOuter(getClass())
-            .setMinApi(parameters)
-            .addKeepMainRule(RecordInvokeCustom.class);
-    if (parameters.isCfRuntime()) {
-      builder
-          .addLibraryProvider(
-              JdkClassFileProvider.fromSystemModulesJdk(
-                  CfRuntime.getCheckedInJdk17().getJavaHome()))
-          .compile()
-          .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .run(parameters.getRuntime(), RecordInvokeCustom.class)
-          .assertSuccessWithOutput(EXPECTED_RESULT_R8);
-      return;
-    }
-    builder
+    testForR8(parameters)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .setMinApi(parameters)
+        .addKeepMainRule(RecordInvokeCustom.class)
+        .addR8PartialR8OptionsModification(
+            options -> options.getTraceReferencesOptions().skipInnerClassesForTesting = false)
+        .applyIf(
+            parameters.isCfRuntime(),
+            b ->
+                b.addLibraryProvider(
+                    JdkClassFileProvider.fromSystemModulesJdk(
+                        CfRuntime.getCheckedInJdk17().getJavaHome())))
+        .compile()
+        .inspectIf(parameters.isCfRuntime(), RecordTestUtils::assertRecordsAreRecords)
         .run(parameters.getRuntime(), RecordInvokeCustom.class)
-        .assertSuccessWithOutput(EXPECTED_RESULT_R8);
+        .apply(rr -> rr.assertSuccessWithOutput(getExpectedResultForR8(rr.inspector())));
+  }
+
+  private String getExpectedResultForR8(CodeInspector inspector) {
+    ClassSubject emptyClassSubject = inspector.clazz(Empty.class);
+    assertThat(emptyClassSubject, isPresent());
+
+    ClassSubject personClassSubject = inspector.clazz(Person.class);
+    assertThat(personClassSubject, isPresent());
+
+    return String.format(
+        EXPECTED_RESULT,
+        getInnerClassNameOrSimpleNameFromDescriptorForTesting(
+            emptyClassSubject.getFinalDescriptor()),
+        getInnerClassNameOrSimpleNameFromDescriptorForTesting(
+            personClassSubject.getFinalDescriptor()),
+        parameters.getPartialCompilationTestParameters().isNone() ? "a" : "name",
+        parameters.getPartialCompilationTestParameters().isNone() ? "b" : "age");
   }
 
   record Empty() {}

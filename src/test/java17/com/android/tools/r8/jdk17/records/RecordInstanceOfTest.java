@@ -5,7 +5,7 @@
 package com.android.tools.r8.jdk17.records;
 
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -32,6 +32,7 @@ public class RecordInstanceOfTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -46,9 +47,8 @@ public class RecordInstanceOfTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
@@ -57,10 +57,9 @@ public class RecordInstanceOfTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
             .addInnerClassesAndStrippedOuter(getClass())
-            .setMinApi(parameters)
             .addKeepMainRule(TestClass.class);
     if (parameters.isCfRuntime()) {
       builder

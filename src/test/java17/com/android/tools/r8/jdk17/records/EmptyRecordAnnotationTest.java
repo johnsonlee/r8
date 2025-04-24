@@ -34,6 +34,7 @@ public class EmptyRecordAnnotationTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -49,25 +50,23 @@ public class EmptyRecordAnnotationTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), TestClass.class)
         .apply(
             rr ->
                 rr.assertSuccessWithOutput(
                     getExpectedOutput(
-                        rr.inspector(), isRecordsFullyDesugaredForD8(parameters), true)));
+                        rr.inspector(), isRecordsFullyDesugaredForD8(parameters), false)));
   }
 
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .addKeepClassAndMembersRules(EmptyRecordAnnotationTest.TestClass.class)
         .addKeepRules("-keepattributes *Annotation*")
         .addKeepClassRules(EmptyRecordAnnotationTest.Empty.class)
@@ -79,14 +78,16 @@ public class EmptyRecordAnnotationTest extends TestBase {
             rr ->
                 rr.assertSuccessWithOutput(
                     getExpectedOutput(
-                        rr.inspector(), isRecordsFullyDesugaredForD8(parameters), false)));
+                        rr.inspector(), isRecordsFullyDesugaredForD8(parameters), true)));
   }
 
-  private String getExpectedOutput(CodeInspector inspector, boolean isDesugared, boolean isD8) {
+  private String getExpectedOutput(CodeInspector inspector, boolean isDesugared, boolean isR8) {
     if (isDesugared) {
       ClassSubject recordClass = inspector.clazz("java.lang.Record");
       String recordName;
-      if (recordClass.isPresent() && !isD8) {
+      if (recordClass.isPresent()
+          && isR8
+          && parameters.getPartialCompilationTestParameters().isNone()) {
         recordName = recordClass.getFinalName();
       } else if (parameters.isCfRuntime()) {
         recordName = "java.lang.Record";

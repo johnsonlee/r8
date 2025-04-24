@@ -75,6 +75,14 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
       boolean value,
       ThrowableConsumer<T> trueConsumer,
       boolean value2,
+      ThrowableConsumer<T> trueConsumer2) {
+    return applyIf(value, trueConsumer, value2, trueConsumer2, ThrowableConsumer.empty());
+  }
+
+  public T applyIf(
+      boolean value,
+      ThrowableConsumer<T> trueConsumer,
+      boolean value2,
       ThrowableConsumer<T> trueConsumer2,
       ThrowableConsumer<T> falseConsumer) {
     T self = self();

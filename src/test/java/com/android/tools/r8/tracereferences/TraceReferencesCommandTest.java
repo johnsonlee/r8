@@ -3,9 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.tracereferences;
 
+import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.utils.MissingDefinitionsDiagnosticTestUtils.getMissingClassMessage;
 import static com.android.tools.r8.utils.MissingDefinitionsDiagnosticTestUtils.getMissingFieldMessage;
 import static com.android.tools.r8.utils.MissingDefinitionsDiagnosticTestUtils.getMissingMethodMessage;
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -17,6 +19,8 @@ import com.android.tools.r8.DiagnosticsChecker;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.StringConsumer;
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestCompilerBuilder.DiagnosticsConsumer;
+import com.android.tools.r8.TestDiagnosticMessages;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
@@ -40,7 +44,6 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 import kotlin.text.Charsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -68,7 +71,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "No library specified",
         handler -> {
-          TraceReferences.run(TraceReferencesCommand.builder(handler).build());
+          runCommand(TraceReferencesCommand.builder(handler).build());
         });
   }
 
@@ -77,7 +80,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "Missing command",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(new String[] {}, Origin.unknown(), handler).build());
         });
   }
@@ -87,7 +90,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "Missing command, specify one of 'check' or '--keep-rules'",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(new String[] {"--xxx"}, Origin.unknown(), handler)
                   .build());
         });
@@ -98,7 +101,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "No source specified",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.builder(handler)
                   .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
                   .build());
@@ -110,7 +113,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "No source specified",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(
                       new String[] {
                         "--check", "--lib", ToolHelper.getAndroidJar(AndroidApiLevel.P).toString()
@@ -126,7 +129,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "Multiple commands specified",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(
                       new String[] {"--check", "--keep-rules"}, Origin.unknown(), handler)
                   .build());
@@ -138,7 +141,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "Using '--allowobfuscation' requires command '--keep-rules'",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(
                       new String[] {"--check", "--allowobfuscation"}, Origin.unknown(), handler)
                   .build());
@@ -150,7 +153,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "No library specified",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(
                       new String[] {"--keep-rules", "--allowobfuscation", "--allowobfuscation"},
                       Origin.unknown(),
@@ -164,7 +167,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "Using '--output' requires command '--keep-rules'",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(
                       new String[] {"--check", "--output", "xxx"}, Origin.unknown(), handler)
                   .build());
@@ -176,7 +179,7 @@ public class TraceReferencesCommandTest extends TestBase {
     DiagnosticsChecker.checkErrorsContains(
         "Option '--output' passed multiple times",
         handler -> {
-          TraceReferences.run(
+          runCommand(
               TraceReferencesCommand.parse(
                       new String[] {"--keep-rules", "--output", "xxx", "--output", "xxx"},
                       Origin.unknown(),
@@ -223,39 +226,30 @@ public class TraceReferencesCommandTest extends TestBase {
       Path sourceJar,
       OutputFormat format,
       String expected,
-      Consumer<DiagnosticsChecker> diagnosticsCheckerConsumer)
+      DiagnosticsConsumer<RuntimeException> diagnosticsConsumer)
       throws Throwable {
     Path dir = temp.newFolder().toPath();
     Path output = dir.resolve("output.txt");
-    DiagnosticsChecker diagnosticsChecker = new DiagnosticsChecker();
     StringValueStringConsumer stringConsumer = new StringValueStringConsumer();
     TraceReferencesConsumer consumer =
         TraceReferencesKeepRules.builder()
             .setAllowObfuscation(format == OutputFormat.KEEP_RULES_WITH_ALLOWOBFUSCATION)
             .setOutputConsumer(stringConsumer)
             .build();
-    try {
-      TraceReferences.run(
-          TraceReferencesCommand.builder(diagnosticsChecker)
-              .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
-              .addTargetFiles(targetJar)
-              .addSourceFiles(sourceJar)
-              .setConsumer(new TraceReferencesCheckConsumer(consumer))
-              .build());
-      assertEquals(expected, stringConsumer.get());
-      if (diagnosticsCheckerConsumer != null) {
-        diagnosticsCheckerConsumer.accept(diagnosticsChecker);
-      } else {
-        assertEquals(0, diagnosticsChecker.errors.size());
-        assertEquals(0, diagnosticsChecker.warnings.size());
-        assertEquals(0, diagnosticsChecker.infos.size());
-      }
-    } catch (CompilationFailedException e) {
-      if (diagnosticsCheckerConsumer != null) {
-        diagnosticsCheckerConsumer.accept(diagnosticsChecker);
-      }
-      throw e;
-    }
+    testForTraceReferences()
+        .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
+        .addTargetFiles(targetJar)
+        .addSourceFiles(sourceJar)
+        .setConsumer(new TraceReferencesCheckConsumer(consumer))
+        .traceWithExpectedDiagnostics(
+            diagnostics -> {
+              if (diagnosticsConsumer != null) {
+                diagnosticsConsumer.accept(diagnostics);
+              } else {
+                diagnostics.assertNoMessages();
+              }
+            });
+    assertEquals(expected, stringConsumer.get());
 
     List<String> args = new ArrayList<>();
     args.add(formatName(format));
@@ -273,7 +267,7 @@ public class TraceReferencesCommandTest extends TestBase {
             "--output",
             output.toString()));
 
-    TraceReferences.run(TraceReferencesCommand.parse(args, Origin.unknown()).build());
+    runCommand(TraceReferencesCommand.parse(args, Origin.unknown()).build());
     assertEquals(expected, FileUtils.readTextFile(output, Charsets.UTF_8));
   }
 
@@ -291,12 +285,12 @@ public class TraceReferencesCommandTest extends TestBase {
       List<Class<?>> sourceClasses,
       OutputFormat format,
       String expected,
-      Consumer<DiagnosticsChecker> diagnosticsCheckerConsumer)
+      DiagnosticsConsumer<RuntimeException> diagnosticsConsumer)
       throws Throwable {
     Path dir = temp.newFolder().toPath();
     Path targetJar = zipWithTestClasses(dir.resolve("target.jar"), targetClasses);
     Path sourceJar = zipWithTestClasses(dir.resolve("source.jar"), sourceClasses);
-    runAndCheckOutput(targetJar, sourceJar, format, expected, diagnosticsCheckerConsumer);
+    runAndCheckOutput(targetJar, sourceJar, format, expected, diagnosticsConsumer);
   }
 
   @Test
@@ -340,7 +334,7 @@ public class TraceReferencesCommandTest extends TestBase {
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       System.setOut(new PrintStream(baos));
-      TraceReferences.run(
+      runCommand(
           TraceReferencesCommand.builder()
               .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
               .addTargetFiles(targetJar)
@@ -355,7 +349,7 @@ public class TraceReferencesCommandTest extends TestBase {
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       System.setOut(new PrintStream(baos));
-      TraceReferences.run(
+      runCommand(
           TraceReferencesCommand.parse(
                   new String[] {
                     "--lib",
@@ -392,7 +386,7 @@ public class TraceReferencesCommandTest extends TestBase {
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       System.setOut(new PrintStream(baos));
-      TraceReferences.run(
+      runCommand(
           TraceReferencesCommand.parse(
                   new String[] {
                     "--lib",
@@ -425,7 +419,7 @@ public class TraceReferencesCommandTest extends TestBase {
     Path output = temp.newFile().toPath();
     TraceReferencesKeepRules consumer =
         TraceReferencesKeepRules.builder().setOutputPath(output).build();
-    TraceReferences.run(
+    runCommand(
         TraceReferencesCommand.builder()
             .addLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.P))
             .addTargetFiles(ToolHelper.getClassFileForTestClass(Target.class))
@@ -435,7 +429,7 @@ public class TraceReferencesCommandTest extends TestBase {
     assertEquals(expected, FileUtils.readTextFile(output, Charsets.UTF_8));
 
     output = temp.newFile().toPath();
-    TraceReferences.run(
+    runCommand(
         TraceReferencesCommand.parse(
                 new String[] {
                   "--lib",
@@ -453,7 +447,7 @@ public class TraceReferencesCommandTest extends TestBase {
     assertEquals(expected, FileUtils.readTextFile(output, Charsets.UTF_8));
   }
 
-  private void checkTargetMissing(DiagnosticsChecker diagnosticsChecker) {
+  private void checkTargetMissing(TestDiagnosticMessages diagnostics) {
     Field field;
     Method method;
     try {
@@ -462,14 +456,17 @@ public class TraceReferencesCommandTest extends TestBase {
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException(e);
     }
-    assertEquals(1, diagnosticsChecker.errors.size());
-    assertEquals(0, diagnosticsChecker.warnings.size());
-    assertEquals(0, diagnosticsChecker.infos.size());
-    diagnosticsChecker.checkErrorsContains(Reference.classFromClass(Target.class).getTypeName());
-    diagnosticsChecker.checkErrorsContains(
-        FieldReferenceUtils.toSourceString(Reference.fieldFromField(field)));
-    diagnosticsChecker.checkErrorsContains(
-        MethodReferenceUtils.toSourceString(Reference.methodFromMethod(method)));
+    diagnostics.assertOnlyErrors();
+    assertEquals(1, diagnostics.getErrors().size());
+    diagnostics.assertErrorsMatch(
+        allOf(
+            diagnosticMessage(containsString(Reference.classFromClass(Target.class).getTypeName())),
+            diagnosticMessage(
+                containsString(
+                    FieldReferenceUtils.toSourceString(Reference.fieldFromField(field)))),
+            diagnosticMessage(
+                containsString(
+                    MethodReferenceUtils.toSourceString(Reference.methodFromMethod(method))))));
   }
 
   @Test
@@ -509,7 +506,7 @@ public class TraceReferencesCommandTest extends TestBase {
         zipWithTestClasses(dir.resolve("target.jar"), ImmutableList.of(OtherTarget.class));
     Path sourceJar = zipWithTestClasses(dir.resolve("source.jar"), ImmutableList.of(Source.class));
     DiagnosticsChecker diagnosticsChecker = new DiagnosticsChecker();
-    TraceReferences.run(
+    runCommand(
         TraceReferencesCommand.parse(
                 new String[] {
                   "--check",
@@ -544,7 +541,7 @@ public class TraceReferencesCommandTest extends TestBase {
     try {
       System.setErr(new PrintStream(baosErr));
       System.setOut(new PrintStream(baosOut));
-      TraceReferences.run(
+      runCommand(
           TraceReferencesCommand.parse(
                   new String[] {
                     "--check",
@@ -598,7 +595,7 @@ public class TraceReferencesCommandTest extends TestBase {
     try {
       System.setErr(new PrintStream(baosErr));
       System.setOut(new PrintStream(baosOut));
-      TraceReferences.run(
+      runCommand(
           TraceReferencesCommand.parse(
                   new String[] {
                     "--check",
@@ -640,7 +637,7 @@ public class TraceReferencesCommandTest extends TestBase {
                     referencedFrom))));
   }
 
-  private void checkTargetPartlyMissing(DiagnosticsChecker diagnosticsChecker) {
+  private void checkTargetPartlyMissing(TestDiagnosticMessages diagnostics) {
     Field field;
     Method method;
     try {
@@ -649,13 +646,16 @@ public class TraceReferencesCommandTest extends TestBase {
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException(e);
     }
-    assertEquals(1, diagnosticsChecker.errors.size());
-    assertEquals(0, diagnosticsChecker.warnings.size());
-    assertEquals(0, diagnosticsChecker.infos.size());
-    diagnosticsChecker.checkErrorsContains(
-        FieldReferenceUtils.toSourceString(Reference.fieldFromField(field)));
-    diagnosticsChecker.checkErrorsContains(
-        MethodReferenceUtils.toSourceString(Reference.methodFromMethod(method)));
+    diagnostics.assertOnlyErrors();
+    assertEquals(1, diagnostics.getErrors().size());
+    diagnostics.assertErrorsMatch(
+        allOf(
+            diagnosticMessage(
+                containsString(
+                    FieldReferenceUtils.toSourceString(Reference.fieldFromField(field)))),
+            diagnosticMessage(
+                containsString(
+                    MethodReferenceUtils.toSourceString(Reference.methodFromMethod(method))))));
   }
 
   @Test
@@ -711,6 +711,11 @@ public class TraceReferencesCommandTest extends TestBase {
     } catch (CompilationFailedException e) {
       // Expected.
     }
+  }
+
+  private static void runCommand(TraceReferencesCommand command) throws CompilationFailedException {
+    TraceReferences.TraceReferencesForTesting.runForTesting(
+        command, options -> options.getTraceReferencesOptions().skipInnerClassesForTesting = true);
   }
 
   private byte[] getClassWithTargetRemoved() throws IOException {

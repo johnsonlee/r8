@@ -8,7 +8,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
+import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -16,7 +17,7 @@ import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableMap;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,7 +28,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class RecordBlogTest extends TestBase {
 
-  private static final String REFERENCE_OUTPUT_FORMAT = "Person[name=%s, age=42]";
+  private static final String REFERENCE_OUTPUT_TEMPLATE = "Person[name=%s, age=42]";
   private static final String CLASS = RecordBlog.Person.class.getTypeName();
   private static final Map<String, String> KEEP_RULE_TO_OUTPUT_FORMAT =
       ImmutableMap.<String, String>builder()
@@ -52,7 +53,11 @@ public class RecordBlogTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private boolean isCfRuntimeWithNativeRecordSupport() {
@@ -61,8 +66,40 @@ public class RecordBlogTest extends TestBase {
         && parameters.getApiLevel().equals(AndroidApiLevel.B);
   }
 
-  private String computeOutput(String format) {
-    return StringUtils.lines(String.format(format, "Jane"), String.format(format, "John"));
+  private String getExpectedOutputFromKeepRule(String keepRule) {
+    String template = null;
+    if (parameters.getPartialCompilationTestParameters().isIncludeAll()) {
+      if (keepRule.isEmpty()
+          || keepRule.equals(
+              "-keepclassmembers,allowobfuscation,allowoptimization class "
+                  + CLASS
+                  + " { <fields>; }")
+          || keepRule.equals(
+              "-keepclassmembers,allowshrinking,allowoptimization class "
+                  + CLASS
+                  + " { <fields>; }")) {
+        template = "a[name=%s, age=42]";
+      } else if (keepRule.equals("-keep,allowshrinking class " + CLASS)) {
+        template = "RecordBlog$Person[name=%s, age=42]";
+      }
+    }
+    if (template == null) {
+      template = KEEP_RULE_TO_OUTPUT_FORMAT.get(keepRule);
+    }
+    return getExpectedOutputFromTemplate(template);
+  }
+
+  private String getExpectedOutputFromTemplate(String template) {
+    return StringUtils.lines(String.format(template, "Jane"), String.format(template, "John"));
+  }
+
+  private boolean isExpectedOutput(String keepRule, Map<String, String> results) {
+    if (parameters.getPartialCompilationTestParameters().isRandom()) {
+      return true;
+    }
+    String actual = results.get(keepRule);
+    String expected = getExpectedOutputFromKeepRule(keepRule);
+    return expected.equals(actual);
   }
 
   @Test
@@ -71,19 +108,19 @@ public class RecordBlogTest extends TestBase {
     testForJvm(parameters)
         .addProgramClassesAndInnerClasses(RecordBlog.class)
         .run(parameters.getRuntime(), RecordBlog.class)
-        .assertSuccessWithOutput(computeOutput(REFERENCE_OUTPUT_FORMAT));
+        .assertSuccessWithOutput(getExpectedOutputFromTemplate(REFERENCE_OUTPUT_TEMPLATE));
   }
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramClassesAndInnerClasses(RecordBlog.class)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), RecordBlog.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
                 || runtimeWithRecordsSupport(parameters.getRuntime()),
-            r -> r.assertSuccessWithOutput(computeOutput(REFERENCE_OUTPUT_FORMAT)),
+            r ->
+                r.assertSuccessWithOutput(getExpectedOutputFromTemplate(REFERENCE_OUTPUT_TEMPLATE)),
             r -> r.assertFailureWithErrorThatThrows(ClassNotFoundException.class));
   }
 
@@ -91,14 +128,13 @@ public class RecordBlogTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
-    Map<String, String> results = new IdentityHashMap<>();
+    Map<String, String> results = new HashMap<>();
     KEEP_RULE_TO_OUTPUT_FORMAT.forEach(
         (kr, outputFormat) -> {
           try {
-            R8FullTestBuilder builder =
-                testForR8(parameters.getBackend())
+            R8TestBuilder<?, R8TestRunResult, ?> builder =
+                testForR8(parameters)
                     .addProgramClassesAndInnerClasses(RecordBlog.class)
-                    .setMinApi(parameters)
                     .addKeepRules(kr)
                     .addKeepMainRule(RecordBlog.class);
             String res;
@@ -107,27 +143,35 @@ public class RecordBlogTest extends TestBase {
                   builder
                       .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
                       .run(parameters.getRuntime(), RecordBlog.class)
+                      .assertSuccess()
                       .getStdOut();
             } else {
               res = builder.run(parameters.getRuntime(), RecordBlog.class).getStdOut();
             }
             results.put(kr, res);
           } catch (Exception e) {
-            throw new RuntimeException(e);
+            // Preserve AssumptionViolatedException.
+            if (e instanceof RuntimeException) {
+              throw (RuntimeException) e;
+            } else {
+              throw new RuntimeException(e);
+            }
           }
         });
     boolean success = true;
     for (String kr : KEEP_RULE_TO_OUTPUT_FORMAT.keySet()) {
-      if (!computeOutput(KEEP_RULE_TO_OUTPUT_FORMAT.get(kr)).equals(results.get(kr))) {
+      if (!isExpectedOutput(kr, results)) {
         success = false;
       }
     }
     if (!success) {
       for (String kr : KEEP_RULE_TO_OUTPUT_FORMAT.keySet()) {
-        System.out.println("==========");
-        System.out.println("Keep rules:\n" + kr + "\n");
-        System.out.println("Expected:\n" + computeOutput(KEEP_RULE_TO_OUTPUT_FORMAT.get(kr)));
-        System.out.println("Got:\n" + results.get(kr));
+        if (!isExpectedOutput(kr, results)) {
+          System.out.println("==========");
+          System.out.println("Keep rules:\n" + kr + "\n");
+          System.out.println("Expected:\n" + getExpectedOutputFromKeepRule(kr));
+          System.out.println("Got:\n" + results.get(kr));
+        }
       }
       System.out.println("==========");
     }

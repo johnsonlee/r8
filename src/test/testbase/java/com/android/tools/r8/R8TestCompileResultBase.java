@@ -184,12 +184,14 @@ public abstract class R8TestCompileResultBase<CR extends R8TestCompileResultBase
     return self();
   }
 
+  @Override
   public <E extends Throwable> CR inspectResidualArtProfile(
       ThrowingConsumer<ArtProfileInspector, E> consumer) throws E, IOException {
     return inspectResidualArtProfile(
         (rewrittenArtProfile, inspector) -> consumer.accept(rewrittenArtProfile));
   }
 
+  @Override
   public <E extends Throwable> CR inspectResidualArtProfile(
       ThrowingBiConsumer<ArtProfileInspector, CodeInspector, E> consumer) throws E, IOException {
     assertEquals(1, residualArtProfiles.size());

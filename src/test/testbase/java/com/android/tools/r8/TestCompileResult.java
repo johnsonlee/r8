@@ -23,11 +23,13 @@ import com.android.tools.r8.debug.DebugTestConfig;
 import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.errors.Unreachable;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.profile.art.utils.ArtProfileInspector;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.DescriptorUtils;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ThrowingBiConsumer;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import com.android.tools.r8.utils.TriFunction;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
@@ -155,6 +157,18 @@ public abstract class TestCompileResult<
         || outputMode == OutputMode.DexFilePerClass
         || outputMode == OutputMode.DexFilePerClassFile;
     return Backend.DEX;
+  }
+
+  // Overridden in D8TestCompileResult and R8TestCompileResultBase.
+  public <E extends Throwable> CR inspectResidualArtProfile(
+      ThrowingConsumer<ArtProfileInspector, E> consumer) throws E, IOException {
+    throw new Unimplemented();
+  }
+
+  // Overridden in D8TestCompileResult and R8TestCompileResultBase.
+  public <E extends Throwable> CR inspectResidualArtProfile(
+      ThrowingBiConsumer<ArtProfileInspector, CodeInspector, E> consumer) throws E, IOException {
+    throw new Unimplemented();
   }
 
   public abstract TestDiagnosticMessages getDiagnosticMessages();

@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.jdk17.records;
 
-import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsent;
+import static com.android.tools.r8.utils.codeinspector.Matchers.isAbsentOr;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -62,6 +62,7 @@ public class RecordComponentSignatureTest extends TestBase {
             .withDexRuntimesAndAllApiLevels()
             .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
             .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
             .build(),
         BooleanUtils.values());
   }
@@ -133,18 +134,18 @@ public class RecordComponentSignatureTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addLibraryFiles(ToolHelper.getAndroidJar(35))
         .addKeepMainRule(RecordWithSignature.class)
         .applyIf(keepSignatures, TestShrinkerBuilder::addKeepAttributeSignature)
-        .setMinApi(parameters)
         .compile()
         .inspect(
             inspector -> {
               ClassSubject person = inspector.clazz(RecordComponentSignatureTest.Person.class);
               FieldSubject age = person.uniqueFieldWithOriginalName("age");
-              assertThat(age, isAbsent());
+              assertThat(
+                  age, isAbsentOr(parameters.getPartialCompilationTestParameters().isRandom()));
               assertEquals(0, person.getFinalRecordComponents().size());
             })
         .run(parameters.getRuntime(), RecordWithSignature.class)

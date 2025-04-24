@@ -5,7 +5,7 @@
 package com.android.tools.r8.jdk17.records;
 
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -30,6 +30,8 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
   private static final String EXPECTED_RESULT_D8 =
       String.format(EXPECTED_RESULT_FORMAT, "MyRecordWithConstClass", "theClass");
   private static final String EXPECTED_RESULT_R8 = String.format(EXPECTED_RESULT_FORMAT, "a", "a");
+  private static final String EXPECTED_RESULT_R8_PARTIAL_INCLUDE_ALL =
+      String.format(EXPECTED_RESULT_FORMAT, "a", "theClass");
 
   @Parameter(0)
   public TestParameters parameters;
@@ -40,6 +42,7 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -56,11 +59,10 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addProgramClasses(EXTRA_DATA)
         .addInnerClasses(EXTRA_DATA)
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), RecordWithConstClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
@@ -69,15 +71,19 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addProgramClasses(EXTRA_DATA)
         .addInnerClasses(EXTRA_DATA)
         .apply(this::configureR8)
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), RecordWithConstClass.class)
-        .assertSuccessWithOutput(EXPECTED_RESULT_R8);
+        .applyIf(
+            parameters.getPartialCompilationTestParameters().isIncludeAll(),
+            rr -> rr.assertSuccessWithOutput(EXPECTED_RESULT_R8_PARTIAL_INCLUDE_ALL),
+            parameters.getPartialCompilationTestParameters().isRandom(),
+            rr -> rr.assertSuccess(),
+            rr -> rr.assertSuccessWithOutput(EXPECTED_RESULT_R8));
   }
 
   @Test
@@ -94,19 +100,20 @@ public class RecordWithNonMaterializableConstClassTest extends TestBase {
             .writeToZip();
     // TODO(b/288360309): Correctly deal with non-identity lenses in R8 record rewriting.
     parameters.assumeDexRuntime();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramFiles(desugared)
         .apply(this::configureR8)
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), RecordWithConstClass.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_R8);
   }
 
-  private void configureR8(R8FullTestBuilder testBuilder) {
+  private void configureR8(R8TestBuilder<?, ?, ?> testBuilder) {
     testBuilder
         .addKeepMainRule(RecordWithConstClass.class)
         .addKeepRules("-keep class " + PRIVATE_CLASS_NAME)
+        .addR8PartialR8OptionsModification(
+            options -> options.getTraceReferencesOptions().skipInnerClassesForTesting = false)
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()));

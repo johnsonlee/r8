@@ -7,6 +7,7 @@ import com.android.tools.r8.features.ClassToFeatureSplitMap;
 import com.android.tools.r8.graph.AppInfo;
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexLibraryClass;
@@ -39,9 +40,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class R8PartialSubCompilationConfiguration {
 
+  private final DexApplicationReadFlags flags;
   public final Timing timing;
 
-  R8PartialSubCompilationConfiguration(Timing timing) {
+  R8PartialSubCompilationConfiguration(DexApplicationReadFlags flags, Timing timing) {
+    this.flags = flags;
     this.timing = timing;
   }
 
@@ -59,6 +62,10 @@ public abstract class R8PartialSubCompilationConfiguration {
 
   public R8PartialR8SubCompilationConfiguration asR8() {
     return null;
+  }
+
+  public DexApplicationReadFlags getFlags() {
+    return flags;
   }
 
   public static class R8PartialD8SubCompilationConfiguration
@@ -79,9 +86,10 @@ public abstract class R8PartialSubCompilationConfiguration {
     public R8PartialD8SubCompilationConfiguration(
         Set<DexType> d8Types,
         Set<DexType> r8Types,
+        DexApplicationReadFlags flags,
         LibraryDesugaringOptions libraryDesugaringOptions,
         Timing timing) {
-      super(timing);
+      super(flags, timing);
       this.d8Types = d8Types;
       this.r8Types = r8Types;
       this.libraryDesugaringOptions = libraryDesugaringOptions;
@@ -202,10 +210,11 @@ public abstract class R8PartialSubCompilationConfiguration {
         ArtProfileCollection artProfiles,
         ClassToFeatureSplitMap classToFeatureSplitMap,
         Collection<DexProgramClass> dexingOutputClasses,
+        DexApplicationReadFlags flags,
         List<KeepDeclaration> keepDeclarations,
         StartupProfile startupProfile,
         Timing timing) {
-      super(timing);
+      super(flags, timing);
       this.artProfiles = artProfiles;
       this.classToFeatureSplitMap = classToFeatureSplitMap;
       this.dexingOutputClasses =

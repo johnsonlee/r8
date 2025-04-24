@@ -171,7 +171,9 @@ public class Minifier {
             }
           }
         };
-    new ReferencedMembersCollector(appView, consumer).run(executorService);
+    new ReferencedMembersCollector(appView, consumer)
+        .run(executorService)
+        .runForR8Partial(executorService);
     fieldRenaming.renaming.putAll(fieldNames);
     methodRenaming.renaming.putAll(methodNames);
   }

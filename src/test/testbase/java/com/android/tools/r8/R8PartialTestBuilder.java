@@ -178,6 +178,7 @@ public class R8PartialTestBuilder
                 options.partialCompilationConfiguration.d8DexOptionsConsumer.andThen(consumer));
   }
 
+  @Override
   public R8PartialTestBuilder addR8PartialR8OptionsModification(
       Consumer<InternalOptions> consumer) {
     return super.addOptionsModification(
@@ -241,5 +242,12 @@ public class R8PartialTestBuilder
           R8PartialCompilationConfiguration.builder().randomizeForTesting(seed).build();
     }
     return this;
+  }
+
+  @Override
+  public R8PartialTestBuilder enablePrintPartialCompilationPartitioning() {
+    return addR8PartialOptionsModification(
+            options -> options.partialCompilationConfiguration.printPartitioningForTesting = true)
+        .allowStdoutMessages();
   }
 }

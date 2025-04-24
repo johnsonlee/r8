@@ -11,7 +11,6 @@ import com.android.tools.r8.DesugarGraphTestConsumer;
 import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
@@ -43,7 +42,11 @@ public class RecordInterfaceTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private boolean isCfRuntimeWithNativeRecordSupport() {
@@ -63,9 +66,8 @@ public class RecordInterfaceTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), RecordInterface.class)
         .applyIf(
             isRecordsFullyDesugaredForD8(parameters)
@@ -76,7 +78,7 @@ public class RecordInterfaceTest extends TestBase {
 
   @Test
   public void testD8Intermediate() throws Exception {
-    parameters.assumeDexRuntime();
+    parameters.assumeDexRuntime().assumeNoPartialCompilation();
     DesugarGraphTestConsumer consumer = new DesugarGraphTestConsumer();
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);
@@ -100,7 +102,7 @@ public class RecordInterfaceTest extends TestBase {
 
   @Test
   public void testD8IntermediateNoDesugaringInStep2() throws Exception {
-    parameters.assumeDexRuntime();
+    parameters.assumeDexRuntime().assumeNoPartialCompilation();
     DesugarGraphTestConsumer consumer = new DesugarGraphTestConsumer();
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);
@@ -162,21 +164,14 @@ public class RecordInterfaceTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
-            .addInnerClassesAndStrippedOuter(getClass())
-            .setMinApi(parameters)
-            .addKeepMainRule(RecordInterface.class);
-    if (parameters.isCfRuntime()) {
-      builder
-          .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
-          .compile()
-          .inspect(RecordTestUtils::assertRecordsAreRecords)
-          .run(parameters.getRuntime(), RecordInterface.class)
-          .assertSuccessWithOutput(EXPECTED_RESULT);
-      return;
-    }
-    builder
+    testForR8(parameters)
+        .addInnerClassesAndStrippedOuter(getClass())
+        .addKeepMainRule(RecordInterface.class)
+        .applyIf(
+            parameters.isCfRuntime(),
+            b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
+        .compile()
+        .inspectIf(parameters.isCfRuntime(), RecordTestUtils::assertRecordsAreRecords)
         .run(parameters.getRuntime(), RecordInterface.class)
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }

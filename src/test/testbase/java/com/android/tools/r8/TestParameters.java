@@ -270,6 +270,10 @@ public class TestParameters {
   }
 
   public TestParameters assumeDexRuntime() {
+    return assumeDexRuntime(null);
+  }
+
+  public TestParameters assumeDexRuntime(String unusedReason) {
     assumeTrue(isDexRuntime());
     return this;
   }
@@ -298,12 +302,14 @@ public class TestParameters {
   public TestParameters assumeJvmTestParameters() {
     assumeCfRuntime();
     assumeTrue(apiLevel == null || representativeApiLevelForRuntime);
+    assumeTrue(partialCompilationTestParameters.isNone());
     return this;
   }
 
   public TestParameters assumeProguardTestParameters() {
     assumeCfRuntime();
     assumeTrue(apiLevel == null || representativeApiLevelForRuntime);
+    assumeTrue(partialCompilationTestParameters.isNone());
     return this;
   }
 

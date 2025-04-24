@@ -209,6 +209,7 @@ public class RecordComponentAnnotationsTest extends TestBase {
             .withDexRuntimesAndAllApiLevels()
             .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
             .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
             .build(),
         BooleanUtils.values());
   }
@@ -304,7 +305,7 @@ public class RecordComponentAnnotationsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addLibraryFiles(ToolHelper.getAndroidJar(35))
         .addKeepMainRule(RecordWithAnnotations.class)
@@ -315,7 +316,6 @@ public class RecordComponentAnnotationsTest extends TestBase {
             RecordComponentAnnotationsTest.AnnotationFieldOnly.class,
             RecordComponentAnnotationsTest.AnnotationRecordComponentOnly.class)
         .applyIf(keepAnnotations, TestShrinkerBuilder::addKeepRuntimeVisibleAnnotations)
-        .setMinApi(parameters)
         .compile()
         .inspect(
             inspector -> {

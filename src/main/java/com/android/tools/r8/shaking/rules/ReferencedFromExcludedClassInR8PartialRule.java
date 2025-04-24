@@ -15,7 +15,7 @@ public class ReferencedFromExcludedClassInR8PartialRule extends ProguardKeepRule
     super(
         origin,
         position,
-        null,
+        "r8-partial",
         null,
         null,
         null,

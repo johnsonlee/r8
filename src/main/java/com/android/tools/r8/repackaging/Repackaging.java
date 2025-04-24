@@ -310,7 +310,8 @@ public class Repackaging {
       ProgramPackage pkg, ExecutorService executorService) throws ExecutionException {
     RepackagingConstraintGraph constraintGraph = new RepackagingConstraintGraph(appView, pkg);
     boolean canRepackageAllClasses = constraintGraph.initializeGraph();
-    if (canRepackageAllClasses) {
+    // TODO(b/410597153): Account for classpath classes in pkg.
+    if (canRepackageAllClasses && appView.options().partialSubCompilationConfiguration == null) {
       return pkg.classesInPackage();
     }
     constraintGraph.populateConstraints(executorService);

@@ -28,9 +28,24 @@ public class ReferencedMembersCollector {
     this.consumer = consumer;
   }
 
-  public void run(ExecutorService executorService) throws ExecutionException {
+  public ReferencedMembersCollector run(ExecutorService executorService) throws ExecutionException {
     ThreadUtils.processItems(
         appView.appInfo().classes(),
+        this::processClass,
+        appView.options().getThreadingModule(),
+        executorService);
+    return this;
+  }
+
+  // In R8 partial, there can be non-rebound field and method references in the D8 partition, which
+  // resolve to definitions in the R8 partition. This makes sure that we also record the minified
+  // names for these non-rebound field and method references.
+  public void runForR8Partial(ExecutorService executorService) throws ExecutionException {
+    if (appView.options().partialSubCompilationConfiguration == null) {
+      return;
+    }
+    ThreadUtils.processItems(
+        appView.options().partialSubCompilationConfiguration.asR8().getDexingOutputClasses(),
         this::processClass,
         appView.options().getThreadingModule(),
         executorService);

@@ -4,6 +4,7 @@
 package com.android.tools.r8.partial;
 
 import com.android.tools.r8.D8Command;
+import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexLibraryClass;
@@ -27,6 +28,7 @@ public class R8PartialD8Input {
   private final Collection<DexProgramClass> r8Classes;
   private final Map<DexType, DexClasspathClass> classpathClasses;
   private final Map<DexType, DexLibraryClass> libraryClasses;
+  private final DexApplicationReadFlags flags;
   private final List<KeepDeclaration> keepDeclarations;
 
   public R8PartialD8Input(
@@ -34,6 +36,7 @@ public class R8PartialD8Input {
       Collection<DexProgramClass> r8Classes,
       Collection<DexClasspathClass> classpathClasses,
       Collection<DexLibraryClass> libraryClasses,
+      DexApplicationReadFlags flags,
       List<KeepDeclaration> keepDeclarations) {
     this.d8Classes = d8Classes;
     this.r8Classes = r8Classes;
@@ -41,6 +44,7 @@ public class R8PartialD8Input {
         MapUtils.transform(classpathClasses, IdentityHashMap::new, DexClass::getType);
     this.libraryClasses =
         MapUtils.transform(libraryClasses, IdentityHashMap::new, DexClass::getType);
+    this.flags = flags;
     this.keepDeclarations = keepDeclarations;
   }
 
@@ -63,6 +67,10 @@ public class R8PartialD8Input {
     // Intentionally not returning r8Classes.keySet(). This allows clearing the map after providing
     // the classes to the D8 compilation.
     return SetUtils.mapIdentityHashSet(r8Classes, DexClass::getType);
+  }
+
+  public DexApplicationReadFlags getFlags() {
+    return flags;
   }
 
   public List<KeepDeclaration> getKeepDeclarations() {

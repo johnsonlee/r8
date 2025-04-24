@@ -4,7 +4,11 @@
 
 package com.android.tools.r8.jdk17.records;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.core.AnyOf.anyOf;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
@@ -15,7 +19,7 @@ import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.Assume;
+import org.hamcrest.Matcher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -31,6 +35,13 @@ public class RecordShrinkFieldTest extends TestBase {
       StringUtils.lines(
           "RecordShrinkFieldTest$Person[name=Jane Doe]", "RecordShrinkFieldTest$Person[name=Bob]");
 
+  private static final String EXPECTED_RESULT_R8_PARTIAL_INCLUDE_ALL =
+      StringUtils.lines("a[unused=-1, name=Jane Doe, age=42]", "a[unused=-1, name=Bob, age=42]");
+  private static final String EXPECTED_RESULT_R8_PARTIAL_INCLUDE_NO_MINIFICATION =
+      StringUtils.lines(
+          "RecordShrinkFieldTest$Person[unused=-1, name=Jane Doe, age=42]",
+          "RecordShrinkFieldTest$Person[unused=-1, name=Bob, age=42]");
+
   private final TestParameters parameters;
   private final boolean minifying;
 
@@ -42,16 +53,19 @@ public class RecordShrinkFieldTest extends TestBase {
   @Parameterized.Parameters(name = "{0}, minifying: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withDexRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
   @Test
   public void testD8() throws Exception {
-    Assume.assumeTrue("Only valid in R8", minifying);
-    testForD8(parameters.getBackend())
+    assumeTrue("Only valid in R8", minifying);
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), RecordShrinkField.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
@@ -59,17 +73,34 @@ public class RecordShrinkFieldTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    assumeTrue(parameters.getPartialCompilationTestParameters().isRandom());
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .addKeepMainRule(RecordShrinkField.class)
         .addDontObfuscateUnless(minifying)
+        .addR8PartialR8OptionsModification(
+            options -> options.getTraceReferencesOptions().skipInnerClassesForTesting = false)
         .compile()
         .inspect(inspector -> inspect(inspector, false))
         .run(parameters.getRuntime(), RecordShrinkField.class)
-        .assertSuccessWithOutput(
-            minifying ? EXPECTED_RESULT_R8 : EXPECTED_RESULT_R8_NO_MINIFICATION);
+        .assertSuccessWithOutputThatMatches(getExpectedOutputForR8());
+  }
+
+  private Matcher<String> getExpectedOutputForR8() {
+    if (parameters.getPartialCompilationTestParameters().isIncludeAll()) {
+      return equalTo(
+          minifying
+              ? EXPECTED_RESULT_R8_PARTIAL_INCLUDE_ALL
+              : EXPECTED_RESULT_R8_PARTIAL_INCLUDE_NO_MINIFICATION);
+    } else if (parameters.getPartialCompilationTestParameters().isRandom()) {
+      return anyOf(
+          equalTo(EXPECTED_RESULT_D8),
+          equalTo(EXPECTED_RESULT_R8_PARTIAL_INCLUDE_ALL),
+          equalTo(EXPECTED_RESULT_R8_PARTIAL_INCLUDE_NO_MINIFICATION));
+    } else {
+      return equalTo(minifying ? EXPECTED_RESULT_R8 : EXPECTED_RESULT_R8_NO_MINIFICATION);
+    }
   }
 
   @Test
@@ -83,9 +114,8 @@ public class RecordShrinkFieldTest extends TestBase {
             .addLibraryProvider(JdkClassFileProvider.fromSystemJdk())
             .compile()
             .writeToZip();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramFiles(desugared)
-        .setMinApi(parameters)
         .addKeepMainRule(RecordShrinkField.class)
         .addDontObfuscateUnless(minifying)
         .compile()
@@ -97,12 +127,22 @@ public class RecordShrinkFieldTest extends TestBase {
 
   private void inspect(CodeInspector inspector, boolean isCfThenDex) {
     ClassSubject recordClass = inspector.clazz(Person.class);
+    int numberOfInstanceFields = recordClass.allInstanceFields().size();
     if (!isCfThenDex || !minifying) {
-      assertEquals(1, recordClass.allInstanceFields().size());
-      assertEquals(
-          "java.lang.String", recordClass.allInstanceFields().get(0).getField().type().toString());
+      if (parameters.getPartialCompilationTestParameters().isRandom()) {
+        assertTrue(
+            Integer.toString(numberOfInstanceFields),
+            numberOfInstanceFields == 1
+                || numberOfInstanceFields == 2
+                || numberOfInstanceFields == 3);
+      } else {
+        assertEquals(1, numberOfInstanceFields);
+        assertEquals(
+            "java.lang.String",
+            recordClass.allInstanceFields().get(0).getField().type().toString());
+      }
     } else {
-      assertEquals(0, recordClass.allInstanceFields().size());
+      assertEquals(0, numberOfInstanceFields);
     }
   }
 

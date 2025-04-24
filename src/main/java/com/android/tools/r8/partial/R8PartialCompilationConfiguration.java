@@ -32,6 +32,8 @@ public class R8PartialCompilationConfiguration {
   public Consumer<InternalOptions> d8DexOptionsConsumer = ConsumerUtils.emptyConsumer();
   public Consumer<InternalOptions> r8OptionsConsumer = ConsumerUtils.emptyConsumer();
 
+  public boolean printPartitioningForTesting = false;
+
   private static final R8PartialCompilationConfiguration disabledConfiguration =
       new R8PartialCompilationConfiguration(false, null, null, null);
 

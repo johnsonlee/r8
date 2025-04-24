@@ -188,10 +188,17 @@ def CheckForAddedDisassemble(input_api, output_api):
               'Test call to disassemble\n%s:%s %s' % (file.LocalPath(), line_nr, line)))
   return results
 
-def CheckForAddedPartialSeed(input_api, output_api):
+def CheckForAddedPartialDebug(input_api, output_api):
   results = []
   for (file, line_nr, line) in input_api.RightHandSideLines():
-    if file.LocalPath().endswith('.java') and '.setPartialCompilationSeed(' in line:
+    if not file.LocalPath().endswith('.java'):
+      continue
+    if '.enablePrintPartialCompilationPartitioning(' in line:
+      results.append(
+          output_api.PresubmitError(
+              'Test call to enablePrintPartialCompilationPartitioning\n%s:%s %s' % (
+                file.LocalPath(), line_nr, line)))
+    if '.setPartialCompilationSeed(' in line:
       results.append(
           output_api.PresubmitError(
               'Test call to setPartialCompilationSeed\n%s:%s %s' % (
@@ -235,7 +242,7 @@ def CheckChange(input_api, output_api):
   results.extend(
       CheckDeterministicDebuggingChanged(input_api, output_api, branch))
   results.extend(CheckForAddedDisassemble(input_api, output_api))
-  results.extend(CheckForAddedPartialSeed(input_api, output_api))
+  results.extend(CheckForAddedPartialDebug(input_api, output_api))
   results.extend(CheckForCopyRight(input_api, output_api, branch))
   return results
 

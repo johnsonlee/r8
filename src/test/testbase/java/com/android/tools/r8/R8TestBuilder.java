@@ -987,6 +987,7 @@ public abstract class R8TestBuilder<
         ArtProfileTestingUtils.createResidualArtProfileConsumer(residualArtProfiles::add));
   }
 
+  @Override
   public T addArtProfileForRewriting(ExternalArtProfile artProfile) {
     return addArtProfileForRewriting(ArtProfileTestingUtils.createArtProfileProvider(artProfile));
   }
@@ -1134,6 +1135,11 @@ public abstract class R8TestBuilder<
 
   public T setPartialCompilationSeed(TestParameters parameters, long seed) {
     // Intentionally empty. Implemented In R8PartialTestBuilder.
+    return self();
+  }
+
+  public T enablePrintPartialCompilationPartitioning() {
+    // Intentionally empty. Implemented in R8PartialTestBuilder.
     return self();
   }
 }

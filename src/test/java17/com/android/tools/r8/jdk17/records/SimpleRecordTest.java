@@ -10,12 +10,13 @@ import static org.junit.Assume.assumeTrue;
 import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.JdkClassFileProvider;
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
 import java.nio.file.Path;
 import java.util.List;
@@ -41,7 +42,11 @@ public class SimpleRecordTest extends TestBase {
   @Parameters(name = "{0}, forceInvokeRangeForInvokeCustom: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -64,9 +69,8 @@ public class SimpleRecordTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     assumeFalse(forceInvokeRangeForInvokeCustom);
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .compile()
         .inspectWithOptions(
             i -> RecordTestUtils.assertNoJavaLangRecord(i, parameters),
@@ -82,7 +86,7 @@ public class SimpleRecordTest extends TestBase {
 
   @Test
   public void testD8Intermediate() throws Exception {
-    parameters.assumeDexRuntime();
+    parameters.assumeDexRuntime().assumeNoPartialCompilation();
     assumeFalse(forceInvokeRangeForInvokeCustom);
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);
@@ -101,7 +105,7 @@ public class SimpleRecordTest extends TestBase {
 
   @Test
   public void testD8IntermediateNoDesugaringInStep2() throws Exception {
-    parameters.assumeDexRuntime();
+    parameters.assumeDexRuntime().assumeNoPartialCompilation();
     assumeFalse(forceInvokeRangeForInvokeCustom);
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path path = compileIntermediate(globals);
@@ -136,13 +140,17 @@ public class SimpleRecordTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
-    assumeTrue(forceInvokeRangeForInvokeCustom || !parameters.isDexRuntime());
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
-            .addOptionsModification(
-                opptions ->
-                    opptions.testing.forceInvokeRangeForInvokeCustom =
-                        forceInvokeRangeForInvokeCustom)
+    assumeTrue(forceInvokeRangeForInvokeCustom || parameters.isCfRuntime());
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
+            .apply(
+                b -> {
+                  if (b.isR8PartialTestBuilder()) {
+                    b.addR8PartialR8OptionsModification(this::configure);
+                  } else {
+                    b.addOptionsModification(this::configure);
+                  }
+                })
             .addInnerClassesAndStrippedOuter(getClass())
             .setMinApi(parameters)
             .addKeepMainRule(SimpleRecord.class);
@@ -165,16 +173,19 @@ public class SimpleRecordTest extends TestBase {
         .assertSuccessWithOutput(EXPECTED_RESULT);
   }
 
+  private void configure(InternalOptions options) {
+    options.testing.forceInvokeRangeForInvokeCustom = forceInvokeRangeForInvokeCustom;
+  }
+
   @Test
   public void testR8NoMinification() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isCfRuntimeWithNativeRecordSupport());
     assumeTrue(forceInvokeRangeForInvokeCustom || !parameters.isDexRuntime());
-    R8FullTestBuilder builder =
-        testForR8(parameters.getBackend())
+    R8TestBuilder<?, ?, ?> builder =
+        testForR8(parameters)
             .addInnerClassesAndStrippedOuter(getClass())
             .addDontObfuscate()
-            .setMinApi(parameters)
             .addKeepMainRule(SimpleRecord.class);
     if (parameters.isCfRuntime()) {
       builder

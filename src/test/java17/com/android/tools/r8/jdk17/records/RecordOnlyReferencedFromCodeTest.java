@@ -23,7 +23,7 @@ public class RecordOnlyReferencedFromCodeTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
+    return getTestParameters().withDexRuntimesAndAllApiLevels().withPartialCompilation().build();
   }
 
   @Test
@@ -39,17 +39,17 @@ public class RecordOnlyReferencedFromCodeTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
         .addKeepMainRule(Main.class)
         .addDontOptimize()
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), Main.class)
         .applyIf(
             parameters.isDexRuntimeVersion(Version.V14_0_0)
-                && parameters.getApiLevel().equals(AndroidApiLevel.U),
+                && parameters.getApiLevel().equals(AndroidApiLevel.U)
+                && parameters.getPartialCompilationTestParameters().isNone(),
             // TODO(b/193004879): The Enqueuer should "prepare" all methods, even if they do not
             //  require desugaring.
             rr -> rr.assertFailureWithErrorThatThrows(NoClassDefFoundError.class),

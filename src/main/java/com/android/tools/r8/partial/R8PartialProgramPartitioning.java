@@ -6,22 +6,23 @@ package com.android.tools.r8.partial;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.WorkList;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 /** Partitions the input classes to R8 partial into the classes for D8 and R8. */
-public class R8PartialProgramPartioning {
+public class R8PartialProgramPartitioning {
 
   private final Set<DexProgramClass> d8Classes = new LinkedHashSet<>();
   private final Set<DexProgramClass> r8Classes = new LinkedHashSet<>();
 
-  private R8PartialProgramPartioning() {}
+  private R8PartialProgramPartitioning() {}
 
-  public static R8PartialProgramPartioning create(DirectMappedDexApplication app) {
+  public static R8PartialProgramPartitioning create(DirectMappedDexApplication app) {
     R8PartialCompilationConfiguration partialCompilationConfiguration =
         app.options.partialCompilationConfiguration;
-    R8PartialProgramPartioning partioning = new R8PartialProgramPartioning();
+    R8PartialProgramPartitioning partioning = new R8PartialProgramPartitioning();
     partialCompilationConfiguration.partition(
         app, partioning.d8Classes::add, partioning.r8Classes::add);
     // Collect all transitive superclasses of all D8 classes and treat these as D8 classes.
@@ -47,5 +48,12 @@ public class R8PartialProgramPartioning {
 
   public Set<DexProgramClass> getR8Classes() {
     return r8Classes;
+  }
+
+  public void printForTesting(InternalOptions options) {
+    if (options.partialCompilationConfiguration.printPartitioningForTesting) {
+      d8Classes.forEach(clazz -> System.out.println("D8: " + clazz.getTypeName()));
+      r8Classes.forEach(clazz -> System.out.println("R8: " + clazz.getTypeName()));
+    }
   }
 }

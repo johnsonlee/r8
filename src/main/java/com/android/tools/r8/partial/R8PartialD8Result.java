@@ -4,6 +4,7 @@
 package com.android.tools.r8.partial;
 
 import com.android.tools.r8.features.ClassToFeatureSplitMap;
+import com.android.tools.r8.graph.DexApplicationReadFlags;
 import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexProgramClass;
@@ -19,6 +20,7 @@ public class R8PartialD8Result {
   private final ClassToFeatureSplitMap classToFeatureSplitMap;
   private final Collection<DexProgramClass> dexedClasses;
   private final Collection<DexProgramClass> desugaredClasses;
+  private final DexApplicationReadFlags flags;
   private final List<KeepDeclaration> keepDeclarations;
   private final Collection<DexClasspathClass> outputClasspathClasses;
   private final Collection<DexLibraryClass> outputLibraryClasses;
@@ -29,6 +31,7 @@ public class R8PartialD8Result {
       ClassToFeatureSplitMap classToFeatureSplitMap,
       Collection<DexProgramClass> dexedClasses,
       Collection<DexProgramClass> desugaredClasses,
+      DexApplicationReadFlags flags,
       List<KeepDeclaration> keepDeclarations,
       Collection<DexClasspathClass> outputClasspathClasses,
       Collection<DexLibraryClass> outputLibraryClasses,
@@ -37,6 +40,7 @@ public class R8PartialD8Result {
     this.classToFeatureSplitMap = classToFeatureSplitMap;
     this.dexedClasses = dexedClasses;
     this.desugaredClasses = desugaredClasses;
+    this.flags = flags;
     this.keepDeclarations = keepDeclarations;
     this.outputClasspathClasses = outputClasspathClasses;
     this.outputLibraryClasses = outputLibraryClasses;
@@ -57,6 +61,10 @@ public class R8PartialD8Result {
 
   public Collection<DexProgramClass> getDesugaredClasses() {
     return desugaredClasses;
+  }
+
+  public DexApplicationReadFlags getFlags() {
+    return flags;
   }
 
   public List<KeepDeclaration> getKeepDeclarations() {

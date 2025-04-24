@@ -13,7 +13,7 @@ import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.partial.R8PartialD8Input;
 import com.android.tools.r8.partial.R8PartialD8Result;
-import com.android.tools.r8.partial.R8PartialProgramPartioning;
+import com.android.tools.r8.partial.R8PartialProgramPartitioning;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialD8SubCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.profile.art.ArtProfileOptions;
@@ -93,13 +93,15 @@ class R8Partial {
         new ApplicationReader(androidApp, options, timing).read(executor);
     List<KeepDeclaration> keepDeclarations = lazyApp.getKeepDeclarations();
     DirectMappedDexApplication app = lazyApp.toDirect();
-    R8PartialProgramPartioning partioning = R8PartialProgramPartioning.create(app);
+    R8PartialProgramPartitioning partitioning = R8PartialProgramPartitioning.create(app);
+    partitioning.printForTesting(options);
     options.getLibraryDesugaringOptions().loadMachineDesugaredLibrarySpecification(timing, app);
     return new R8PartialD8Input(
-        partioning.getD8Classes(),
-        partioning.getR8Classes(),
+        partitioning.getD8Classes(),
+        partitioning.getR8Classes(),
         app.classpathClasses(),
         app.libraryClasses(),
+        app.getFlags(),
         keepDeclarations);
   }
 
@@ -123,7 +125,11 @@ class R8Partial {
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
     R8PartialD8SubCompilationConfiguration subCompilationConfiguration =
         new R8PartialD8SubCompilationConfiguration(
-            input.getD8Types(), input.getR8Types(), options.getLibraryDesugaringOptions(), timing);
+            input.getD8Types(),
+            input.getR8Types(),
+            input.getFlags(),
+            options.getLibraryDesugaringOptions(),
+            timing);
     d8Options.setArtProfileOptions(
         new ArtProfileOptions(d8Options, options.getArtProfileOptions()));
     d8Options.setFeatureSplitConfiguration(options.getFeatureSplitConfiguration());
@@ -135,6 +141,7 @@ class R8Partial {
         subCompilationConfiguration.getClassToFeatureSplitMap(),
         subCompilationConfiguration.getDexedOutputClasses(),
         subCompilationConfiguration.getDesugaredOutputClasses(),
+        input.getFlags(),
         input.getKeepDeclarations(),
         subCompilationConfiguration.getOutputClasspathClasses(),
         subCompilationConfiguration.getOutputLibraryClasses(),
@@ -212,6 +219,7 @@ class R8Partial {
             d8Result.getArtProfiles(),
             d8Result.getClassToFeatureSplitMap(),
             d8Result.getDexedClasses(),
+            d8Result.getFlags(),
             d8Result.getKeepDeclarations(),
             d8Result.getStartupProfile(),
             timing);

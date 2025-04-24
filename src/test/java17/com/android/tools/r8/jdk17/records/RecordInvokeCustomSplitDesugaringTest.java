@@ -6,10 +6,10 @@ package com.android.tools.r8.jdk17.records;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticType;
+import static com.android.tools.r8.utils.DescriptorUtils.INNER_CLASS_SEPARATOR;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -17,6 +17,7 @@ import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.DuplicateTypeInProgramAndLibraryDiagnostic;
 import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.ZipUtils;
@@ -54,7 +55,7 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
 
   @Parameterized.Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withDexRuntimesAndAllApiLevels().build();
+    return getTestParameters().withDexRuntimesAndAllApiLevels().withPartialCompilation().build();
   }
 
   @Test
@@ -65,9 +66,8 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
             .setMinApi(parameters)
             .compile()
             .writeToZip();
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramFiles(desugared)
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), RecordInvokeCustom.class)
         .assertSuccessWithOutput(EXPECTED_RESULT_D8);
@@ -82,16 +82,15 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
             .setMinApi(parameters)
             .compile()
             .writeToZip();
-    if (isRecordsFullyDesugaredForR8(parameters)) {
-      assertTrue(ZipUtils.containsEntry(desugared, "com/android/tools/r8/RecordTag.class"));
-    } else {
-      assertFalse(ZipUtils.containsEntry(desugared, "com/android/tools/r8/RecordTag.class"));
-    }
+    assertEquals(
+        isRecordsFullyDesugaredForR8(parameters),
+        ZipUtils.containsEntry(desugared, "com/android/tools/r8/RecordTag.class"));
     String[] minifiedNames = {null, null};
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramFiles(desugared)
-        .setMinApi(parameters)
         .addKeepMainRule(RecordInvokeCustom.class)
+        .addR8PartialR8OptionsModification(
+            options -> options.getTraceReferencesOptions().skipInnerClassesForTesting = false)
         .allowDiagnosticMessages()
         .compileWithExpectedDiagnostics(
             // Class com.android.tools.r8.RecordTag in desugared input is seen as java.lang.Record
@@ -99,17 +98,26 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
             // partial desugaring.
             diagnostics -> {
               if (parameters.getApiLevel().isEqualTo(AndroidApiLevel.U)) {
-                diagnostics
-                    .assertNoErrors()
-                    .assertInfosMatch(
-                        allOf(
-                            diagnosticType(DuplicateTypesDiagnostic.class),
-                            diagnosticType(DuplicateTypeInProgramAndLibraryDiagnostic.class),
-                            diagnosticMessage(containsString("java.lang.Record"))))
-                    .assertWarningsMatch(
-                        allOf(
-                            diagnosticType(StringDiagnostic.class),
-                            diagnosticMessage(containsString("java.lang.Record"))));
+                if (parameters.getPartialCompilationTestParameters().isNone()) {
+                  diagnostics
+                      .assertNoErrors()
+                      .assertInfosMatch(
+                          allOf(
+                              diagnosticType(DuplicateTypesDiagnostic.class),
+                              diagnosticType(DuplicateTypeInProgramAndLibraryDiagnostic.class),
+                              diagnosticMessage(containsString("java.lang.Record"))))
+                      .assertWarningsMatch(
+                          allOf(
+                              diagnosticType(StringDiagnostic.class),
+                              diagnosticMessage(containsString("java.lang.Record"))));
+                } else {
+                  diagnostics
+                      .assertOnlyWarnings()
+                      .assertWarningsMatch(
+                          allOf(
+                              diagnosticType(StringDiagnostic.class),
+                              diagnosticMessage(containsString("java.lang.Record"))));
+                }
               } else {
                 diagnostics.assertNoMessages();
               }
@@ -130,7 +138,10 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
 
   private static String extractSimpleFinalName(CodeInspector i, String name) {
     String finalName = i.clazz(name).getFinalName();
-    return finalName.split("\\.")[1];
+    int innerClassSeparatorIndex = finalName.lastIndexOf(INNER_CLASS_SEPARATOR);
+    return innerClassSeparatorIndex >= 0
+        ? finalName.substring(innerClassSeparatorIndex + 1)
+        : ArrayUtils.last(finalName.split("\\."));
   }
 
   record Empty() {}
