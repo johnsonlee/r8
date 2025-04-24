@@ -122,10 +122,31 @@ public class UseCollector implements UseCollectorEventConsumer {
     for (DexAnnotation annotation : clazz.annotations().getAnnotations()) {
       registerAnnotation(annotation, clazz, classContext, getDefaultEventConsumer());
     }
+    traceEnclosingMethod(clazz, classContext, getDefaultEventConsumer());
     traceInnerClasses(clazz, classContext, getDefaultEventConsumer());
     traceKotlinMetadata(clazz, classContext, kotlinMetadataEventConsumer);
     traceNest(clazz, classContext, getDefaultEventConsumer());
     traceSignature(clazz, classContext, getDefaultEventConsumer());
+  }
+
+  private void traceEnclosingMethod(
+      DexProgramClass clazz,
+      DefinitionContext classContext,
+      UseCollectorEventConsumer eventConsumer) {
+    if (clazz.hasEnclosingMethodAttribute()) {
+      if (clazz.getEnclosingMethodAttribute().hasEnclosingMethod()) {
+        DexMethod enclosingMethod = clazz.getEnclosingMethodAttribute().getEnclosingMethod();
+        handleRewrittenMethodResolution(
+            enclosingMethod,
+            appInfo().unsafeResolveMethodDueToDexFormat(enclosingMethod),
+            SingleResolutionResult::getResolutionPair,
+            classContext,
+            eventConsumer);
+      } else {
+        addType(
+            clazz.getEnclosingMethodAttribute().getEnclosingClass(), classContext, eventConsumer);
+      }
+    }
   }
 
   private void traceInnerClasses(
@@ -583,6 +604,65 @@ public class UseCollector implements UseCollectorEventConsumer {
     }
   }
 
+  private void handleRewrittenMethodResolution(
+      DexMethod method,
+      MethodResolutionResult resolutionResult,
+      Function<SingleResolutionResult<?>, DexClassAndMethod> getResult,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
+    BooleanBox seenSingleResult = new BooleanBox();
+    resolutionResult.forEachMethodResolutionResult(
+        result -> {
+          if (result.isFailedResolution()) {
+            result
+                .asFailedResolution()
+                .forEachFailureDependency(
+                    type -> addType(type, referencedFrom, eventConsumer),
+                    methodCausingFailure ->
+                        handleRewrittenMethodReference(
+                            method,
+                            methodCausingFailure.asDexClassAndMethod(appView),
+                            referencedFrom,
+                            eventConsumer));
+            return;
+          }
+          seenSingleResult.set();
+          handleRewrittenMethodReference(
+              method, getResult.apply(result.asSingleResolution()), referencedFrom, eventConsumer);
+        });
+    if (seenSingleResult.isFalse()) {
+      resolutionResult.forEachMethodResolutionResult(
+          failingResult -> {
+            assert failingResult.isFailedResolution();
+            if (!failingResult.asFailedResolution().hasMethodsCausingError()) {
+              handleRewrittenMethodReference(method, null, referencedFrom, eventConsumer);
+            }
+          });
+    }
+  }
+
+  private void handleRewrittenMethodReference(
+      DexMethod method,
+      DexClassAndMethod resolvedMethod,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
+    addType(method.getHolderType(), referencedFrom, eventConsumer);
+    addTypes(method.getParameters(), referencedFrom, eventConsumer);
+    addType(method.getReturnType(), referencedFrom, eventConsumer);
+    if (resolvedMethod != null) {
+      DexEncodedMethod definition = resolvedMethod.getDefinition();
+      assert resolvedMethod.getReference().match(method)
+          || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
+      if (isTargetType(resolvedMethod.getHolderType())) {
+        handleMemberResolution(
+            method, resolvedMethod, getContext().getHolder(), referencedFrom, eventConsumer);
+        eventConsumer.notifyPresentMethod(resolvedMethod, referencedFrom);
+      }
+    } else {
+      eventConsumer.notifyMissingMethod(method, referencedFrom);
+    }
+  }
+
   class MethodUseCollector extends UseRegistry<ProgramMethod> {
 
     private final DefinitionContext referencedFrom;
@@ -608,7 +688,9 @@ public class UseCollector implements UseCollectorEventConsumer {
         handleRewrittenMethodResolution(
             rewrittenMethod,
             appInfo().unsafeResolveMethodDueToDexFormat(rewrittenMethod),
-            SingleResolutionResult::getResolutionPair);
+            SingleResolutionResult::getResolutionPair,
+            referencedFrom,
+            eventConsumer);
       } else {
         BooleanBox seenMethod = new BooleanBox();
         appView
@@ -617,12 +699,13 @@ public class UseCollector implements UseCollectorEventConsumer {
                 holder -> {
                   DexClassAndMethod target = rewrittenMethod.lookupMemberOnClass(holder);
                   if (target != null) {
-                    handleRewrittenMethodReference(rewrittenMethod, target);
+                    handleRewrittenMethodReference(
+                        rewrittenMethod, target, referencedFrom, eventConsumer);
                     seenMethod.set();
                   }
                 });
         if (seenMethod.isFalse()) {
-          handleRewrittenMethodReference(rewrittenMethod, null);
+          handleRewrittenMethodReference(rewrittenMethod, null, referencedFrom, eventConsumer);
         }
       }
     }
@@ -642,7 +725,9 @@ public class UseCollector implements UseCollectorEventConsumer {
       handleRewrittenMethodResolution(
           rewrittenMethod,
           appInfo().unsafeResolveMethodDueToDexFormat(rewrittenMethod),
-          SingleResolutionResult::getResolutionPair);
+          SingleResolutionResult::getResolutionPair,
+          referencedFrom,
+          eventConsumer);
     }
 
     @Override
@@ -653,7 +738,9 @@ public class UseCollector implements UseCollectorEventConsumer {
       handleRewrittenMethodResolution(
           method,
           appInfo().unsafeResolveMethodDueToDexFormat(rewrittenMethod),
-          result -> result.lookupInvokeSuperTarget(getContext().getHolder(), appView, appInfo()));
+          result -> result.lookupInvokeSuperTarget(getContext().getHolder(), appView, appInfo()),
+          referencedFrom,
+          eventConsumer);
     }
 
     @Override
@@ -676,57 +763,9 @@ public class UseCollector implements UseCollectorEventConsumer {
           lookupResult.getType().isInterface()
               ? appInfo().resolveMethodOnInterfaceHolder(method)
               : appInfo().resolveMethodOnClassHolder(method),
-          SingleResolutionResult::getResolutionPair);
-    }
-
-    private void handleRewrittenMethodResolution(
-        DexMethod method,
-        MethodResolutionResult resolutionResult,
-        Function<SingleResolutionResult<?>, DexClassAndMethod> getResult) {
-      BooleanBox seenSingleResult = new BooleanBox();
-      resolutionResult.forEachMethodResolutionResult(
-          result -> {
-            if (result.isFailedResolution()) {
-              result
-                  .asFailedResolution()
-                  .forEachFailureDependency(
-                      type -> addType(type, referencedFrom, eventConsumer),
-                      methodCausingFailure ->
-                          handleRewrittenMethodReference(
-                              method, methodCausingFailure.asDexClassAndMethod(appView)));
-              return;
-            }
-            seenSingleResult.set();
-            handleRewrittenMethodReference(method, getResult.apply(result.asSingleResolution()));
-          });
-      if (seenSingleResult.isFalse()) {
-        resolutionResult.forEachMethodResolutionResult(
-            failingResult -> {
-              assert failingResult.isFailedResolution();
-              if (!failingResult.asFailedResolution().hasMethodsCausingError()) {
-                handleRewrittenMethodReference(method, null);
-              }
-            });
-      }
-    }
-
-    private void handleRewrittenMethodReference(
-        DexMethod method, DexClassAndMethod resolvedMethod) {
-      addType(method.getHolderType(), referencedFrom, eventConsumer);
-      addTypes(method.getParameters(), referencedFrom, eventConsumer);
-      addType(method.getReturnType(), referencedFrom, eventConsumer);
-      if (resolvedMethod != null) {
-        DexEncodedMethod definition = resolvedMethod.getDefinition();
-        assert resolvedMethod.getReference().match(method)
-            || resolvedMethod.getHolder().isSignaturePolymorphicMethod(definition, factory);
-        if (isTargetType(resolvedMethod.getHolderType())) {
-          handleMemberResolution(
-              method, resolvedMethod, getContext().getHolder(), referencedFrom, eventConsumer);
-          eventConsumer.notifyPresentMethod(resolvedMethod, referencedFrom);
-        }
-      } else {
-        eventConsumer.notifyMissingMethod(method, referencedFrom);
-      }
+          SingleResolutionResult::getResolutionPair,
+          referencedFrom,
+          eventConsumer);
     }
 
     // Field references.
