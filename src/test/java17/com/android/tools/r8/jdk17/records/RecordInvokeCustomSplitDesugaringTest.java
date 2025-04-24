@@ -16,6 +16,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.errors.DuplicateTypeInProgramAndLibraryDiagnostic;
 import com.android.tools.r8.errors.DuplicateTypesDiagnostic;
+import com.android.tools.r8.errors.UnusedProguardKeepRuleDiagnostic;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.ArrayUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
@@ -119,17 +120,19 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
                               diagnosticMessage(containsString("java.lang.Record"))));
                 }
               } else {
-                diagnostics.assertNoMessages();
+                if (parameters.isRandomPartialCompilation()) {
+                  diagnostics
+                      .assertAllInfosMatch(diagnosticType(UnusedProguardKeepRuleDiagnostic.class))
+                      .assertNoWarnings();
+                } else {
+                  diagnostics.assertNoMessages();
+                }
               }
             })
         .inspect(
             i -> {
-              minifiedNames[0] =
-                  extractSimpleFinalName(
-                      i, RecordInvokeCustomSplitDesugaringTest.Empty.class.getTypeName());
-              minifiedNames[1] =
-                  extractSimpleFinalName(
-                      i, RecordInvokeCustomSplitDesugaringTest.Person.class.getTypeName());
+              minifiedNames[0] = extractSimpleFinalName(i, Empty.class.getTypeName());
+              minifiedNames[1] = extractSimpleFinalName(i, Person.class.getTypeName());
             })
         .run(parameters.getRuntime(), RecordInvokeCustom.class)
         .assertSuccessWithOutput(
