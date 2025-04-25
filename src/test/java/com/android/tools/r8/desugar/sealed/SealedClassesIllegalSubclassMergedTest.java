@@ -38,7 +38,11 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
 
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private void addTestClasses(TestBuilder<?, ?> builder) throws Exception {
@@ -70,20 +74,19 @@ public class SealedClassesIllegalSubclassMergedTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::addTestClasses)
-        .setMinApi(parameters)
         .addKeepAttributePermittedSubclasses()
         .addKeepClassRulesWithAllowObfuscation(Super.class)
         .addKeepMainRule(TestClass.class)
-        .addHorizontallyMergedClassesInspector(
-            inspector -> {
-              inspector
-                  .assertIsCompleteMergeGroup(Sub2.class, Sub1.class)
-                  .assertNoOtherClassesMerged();
-            })
+        .addHorizontallyMergedClassesInspectorIf(
+            !parameters.isRandomPartialCompilation(),
+            inspector ->
+                inspector
+                    .assertIsCompleteMergeGroup(Sub2.class, Sub1.class)
+                    .assertNoOtherClassesMerged())
         .compile()
-        .inspect(this::inspect)
+        .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),

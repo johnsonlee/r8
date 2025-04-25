@@ -42,7 +42,11 @@ public class SealedClassesEnumImplementsTest extends TestBase {
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -86,9 +90,8 @@ public class SealedClassesEnumImplementsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::addTestClasses)
-        .setMinApi(parameters)
         .applyIf(
             keepPermittedSubclassesAttribute,
             TestShrinkerBuilder::addKeepAttributePermittedSubclasses)
@@ -97,12 +100,14 @@ public class SealedClassesEnumImplementsTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .addEnumUnboxingInspector(
             inspector -> {
-              inspector.assertUnboxed(Enum.class);
+              if (!parameters.isRandomPartialCompilation()) {
+                inspector.assertUnboxed(Enum.class);
+              }
             })
         .enableNoUnusedInterfaceRemovalAnnotations()
         .enableNoVerticalClassMergingAnnotations()
         .compile()
-        .inspect(this::inspect)
+        .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
         // The Iface interface which still has class file version 61 is never accessed, so no
         // UnsupportedClassVersionError is thrown.

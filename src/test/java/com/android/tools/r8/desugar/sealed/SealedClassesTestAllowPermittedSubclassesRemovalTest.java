@@ -9,7 +9,6 @@ import static junit.framework.Assert.assertEquals;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.android.tools.r8.TestBase;
-import com.android.tools.r8.TestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -34,13 +33,11 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
-  }
-
-  private void addTestClasses(TestBuilder<?, ?> builder) throws Exception {
-    builder
-        .addProgramClasses(TestClass.class, Sub1.class, Sub2.class)
-        .addProgramClassFileData(getTransformedClasses());
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private void inspect(CodeInspector inspector) {
@@ -60,15 +57,15 @@ public class SealedClassesTestAllowPermittedSubclassesRemovalTest extends TestBa
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
-        .apply(this::addTestClasses)
-        .setMinApi(parameters)
+    testForR8(parameters)
+        .addProgramClasses(TestClass.class, Sub1.class, Sub2.class)
+        .addProgramClassFileData(getTransformedClasses())
         .addKeepAttributePermittedSubclasses()
         .addKeepRules("-keep,allowpermittedsubclassesremoval class " + Super.class.getTypeName())
         .addKeepClassRulesWithAllowObfuscation(Sub1.class, Sub2.class)
         .addKeepMainRule(TestClass.class)
         .compile()
-        .inspect(this::inspect)
+        .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),

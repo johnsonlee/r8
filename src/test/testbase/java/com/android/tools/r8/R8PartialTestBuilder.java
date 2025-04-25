@@ -14,6 +14,8 @@ import com.android.tools.r8.utils.AndroidApp;
 import com.android.tools.r8.utils.Box;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.codeinspector.EnumUnboxingInspector;
+import com.android.tools.r8.utils.codeinspector.HorizontallyMergedClassesInspector;
+import com.android.tools.r8.utils.codeinspector.VerticallyMergedClassesInspector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -198,6 +200,30 @@ public class R8PartialTestBuilder
             options.testing.unboxedEnumsConsumer =
                 (dexItemFactory, unboxedEnums) ->
                     inspector.accept(new EnumUnboxingInspector(dexItemFactory, unboxedEnums)));
+  }
+
+  @Override
+  public R8PartialTestBuilder addHorizontallyMergedClassesInspector(
+      ThrowableConsumer<HorizontallyMergedClassesInspector> inspector) {
+    return addR8PartialR8OptionsModification(
+        options ->
+            options.testing.horizontallyMergedClassesConsumer =
+                (appView, horizontallyMergedClasses) ->
+                    inspector.acceptWithRuntimeException(
+                        new HorizontallyMergedClassesInspector(
+                            appView, horizontallyMergedClasses)));
+  }
+
+  @Override
+  public R8PartialTestBuilder addVerticallyMergedClassesInspector(
+      Consumer<VerticallyMergedClassesInspector> inspector) {
+    return addR8PartialR8OptionsModification(
+        options ->
+            options.testing.verticallyMergedClassesConsumer =
+                (dexItemFactory, verticallyMergedClasses) ->
+                    inspector.accept(
+                        new VerticallyMergedClassesInspector(
+                            dexItemFactory, verticallyMergedClasses)));
   }
 
   @Override

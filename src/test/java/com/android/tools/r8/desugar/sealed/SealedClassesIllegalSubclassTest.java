@@ -47,7 +47,11 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -102,9 +106,8 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
     assumeFalse(parameters.isDexRuntime() && keepPermittedSubclassesAttribute);
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::addTestClasses)
-        .setMinApi(parameters)
         .applyIf(
             keepPermittedSubclassesAttribute,
             TestShrinkerBuilder::addKeepAttributePermittedSubclasses)
@@ -112,7 +115,7 @@ public class SealedClassesIllegalSubclassTest extends TestBase {
         .addKeepRules("-keep class * extends " + Super.class.getTypeName())
         .addKeepMainRule(TestClass.class)
         .compile()
-        .inspect(this::inspect)
+        .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             parameters.isDexRuntime()

@@ -34,6 +34,7 @@ import com.android.tools.r8.graph.FieldResolutionResult;
 import com.android.tools.r8.graph.InnerClassAttribute;
 import com.android.tools.r8.graph.MethodResolutionResult;
 import com.android.tools.r8.graph.MethodResolutionResult.SingleResolutionResult;
+import com.android.tools.r8.graph.PermittedSubclassAttribute;
 import com.android.tools.r8.graph.ProgramDefinition;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -125,6 +126,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     traceInnerClasses(clazz, classContext, getDefaultEventConsumer());
     traceKotlinMetadata(clazz, classContext, kotlinMetadataEventConsumer);
     traceNest(clazz, classContext, getDefaultEventConsumer());
+    tracePermittedSubclasses(clazz, classContext, getDefaultEventConsumer());
     traceSignature(clazz, classContext, getDefaultEventConsumer());
   }
 
@@ -199,6 +201,15 @@ public class UseCollector implements UseCollectorEventConsumer {
     }
     clazz.forEachNestMemberOnHost(
         appView, memberType -> addType(memberType, classContext, eventConsumer));
+  }
+
+  private void tracePermittedSubclasses(
+      DexProgramClass clazz,
+      DefinitionContext classContext,
+      UseCollectorEventConsumer eventConsumer) {
+    for (PermittedSubclassAttribute attribute : clazz.getPermittedSubclassAttributes()) {
+      addType(attribute.getPermittedSubclass(), classContext, eventConsumer);
+    }
   }
 
   private void traceSignature(

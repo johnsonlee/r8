@@ -8,6 +8,7 @@ import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentAndRena
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.DesugarTestConfiguration;
@@ -45,7 +46,11 @@ public class SealedClassesExtendsTest extends TestBase {
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}, repackage = {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values(),
         BooleanUtils.values());
   }
@@ -61,6 +66,7 @@ public class SealedClassesExtendsTest extends TestBase {
     parameters.assumeJvmTestParameters();
     assumeTrue(keepPermittedSubclassesAttribute);
     assumeTrue(parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
+    assumeFalse(repackage);
     testForJvm(parameters)
         .apply(this::addTestClasses)
         .run(parameters.getRuntime(), TestClass.class)
@@ -70,6 +76,7 @@ public class SealedClassesExtendsTest extends TestBase {
   @Test
   public void testDesugaring() throws Exception {
     assumeTrue(keepPermittedSubclassesAttribute);
+    assumeFalse(repackage);
     testForDesugaring(parameters)
         .apply(this::addTestClasses)
         .run(parameters.getRuntime(), TestClass.class)
@@ -103,9 +110,8 @@ public class SealedClassesExtendsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::addTestClasses)
-        .setMinApi(parameters)
         .applyIf(
             keepPermittedSubclassesAttribute,
             TestShrinkerBuilder::addKeepAttributePermittedSubclasses)
@@ -114,7 +120,7 @@ public class SealedClassesExtendsTest extends TestBase {
         .addKeepMainRule(TestClass.class)
         .applyIf(repackage, b -> b.addKeepRules("-repackageclasses"))
         .compile()
-        .inspect(this::inspect)
+        .inspectIf(!parameters.isRandomPartialCompilation(), this::inspect)
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             !parameters.isCfRuntime() || parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17),

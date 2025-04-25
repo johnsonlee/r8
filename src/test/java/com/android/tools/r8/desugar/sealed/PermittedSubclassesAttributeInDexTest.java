@@ -36,7 +36,11 @@ public class PermittedSubclassesAttributeInDexTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT_PRE_34 = StringUtils.lines("false");
@@ -44,10 +48,8 @@ public class PermittedSubclassesAttributeInDexTest extends TestBase {
 
   @Test
   public void testRuntime() throws Exception {
-    assumeTrue(
-        parameters.isCfRuntime()
-            && parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17)
-            && parameters.getApiLevel().isEqualTo(AndroidApiLevel.B));
+    parameters.assumeJvmTestParameters();
+    assumeTrue(parameters.asCfRuntime().isNewerThanOrEqual(CfVm.JDK17));
     testForJvm(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addProgramClasses(Sub1.class, Sub2.class)
@@ -69,10 +71,9 @@ public class PermittedSubclassesAttributeInDexTest extends TestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addProgramClasses(Sub1.class, Sub2.class)
-        .setMinApi(parameters)
         .compile()
         .inspect(this::inspect)
         .run(parameters.getRuntime(), TestClass.class)

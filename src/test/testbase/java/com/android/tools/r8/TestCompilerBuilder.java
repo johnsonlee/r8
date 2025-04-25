@@ -310,6 +310,14 @@ public abstract class TestCompilerBuilder<
                             dexItemFactory, verticallyMergedClasses))));
   }
 
+  public T addVerticallyMergedClassesInspectorIf(
+      boolean condition, Consumer<VerticallyMergedClassesInspector> inspector) {
+    if (condition) {
+      return addVerticallyMergedClassesInspector(inspector);
+    }
+    return self();
+  }
+
   public CR benchmarkCompile(BenchmarkResults results) throws CompilationFailedException {
     if (System.getProperty("com.android.tools.r8.printtimes") != null) {
       allowStdoutMessages();
