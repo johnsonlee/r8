@@ -15,6 +15,7 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.itf.InterfaceMethodRewriter;
 import com.android.tools.r8.ir.desugar.itf.InterfaceProcessor;
 import com.android.tools.r8.ir.desugar.nest.D8NestBasedAccessDesugaring;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThrowingConsumer;
 import java.util.Collection;
 import java.util.function.Consumer;
@@ -30,16 +31,21 @@ import java.util.function.Predicate;
 public abstract class CfInstructionDesugaringCollection {
 
   public static CfInstructionDesugaringCollection create(AppView<?> appView) {
-    if (appView.options().desugarState.isOff() && appView.options().forceNestDesugaring) {
+    InternalOptions options = appView.options();
+    if (options.desugarState.isOff() && options.forceNestDesugaring) {
       throw new CompilationError(
           "Cannot combine -Dcom.android.tools.r8.forceNestDesugaring with desugaring turned off");
     }
-    if (appView.options().desugarState.isOn()) {
+    if (options.partialSubCompilationConfiguration != null
+        && options.partialSubCompilationConfiguration.isR8()) {
+      return empty();
+    }
+    if (options.desugarState.isOn()) {
       return new NonEmptyCfInstructionDesugaringCollection(appView);
     }
     // TODO(b/145775365): invoke-special desugaring is mandatory, since we currently can't map
     //  invoke-special instructions that require desugaring into IR.
-    if (appView.options().isGeneratingClassFiles()) {
+    if (options.isGeneratingClassFiles()) {
       return NonEmptyCfInstructionDesugaringCollection.createForCfToCfNonDesugar(appView);
     }
     return NonEmptyCfInstructionDesugaringCollection.createForCfToDexNonDesugar(appView);

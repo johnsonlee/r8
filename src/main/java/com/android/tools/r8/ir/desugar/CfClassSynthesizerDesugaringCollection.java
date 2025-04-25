@@ -11,6 +11,7 @@ import com.android.tools.r8.ir.desugar.desugaredlibrary.retargeter.DesugaredLibr
 import com.android.tools.r8.ir.desugar.itf.ProgramEmulatedInterfaceSynthesizer;
 import com.android.tools.r8.ir.desugar.records.RecordClassDesugaring;
 import com.android.tools.r8.ir.desugar.varhandle.VarHandleDesugaring;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ThreadUtils;
 import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
@@ -22,8 +23,13 @@ import java.util.stream.Collectors;
 public abstract class CfClassSynthesizerDesugaringCollection {
 
   public static CfClassSynthesizerDesugaringCollection create(AppView<?> appView) {
+    InternalOptions options = appView.options();
+    if (options.partialSubCompilationConfiguration != null
+        && options.partialSubCompilationConfiguration.isR8()) {
+      return new EmptyCfClassSynthesizerCollection();
+    }
     Collection<CfClassSynthesizerDesugaring> synthesizers = new ArrayList<>();
-    if (appView.options().getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
+    if (options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       ProgramEmulatedInterfaceSynthesizer emulatedInterfaceSynthesizer =
           ProgramEmulatedInterfaceSynthesizer.create(appView);
       if (emulatedInterfaceSynthesizer != null) {

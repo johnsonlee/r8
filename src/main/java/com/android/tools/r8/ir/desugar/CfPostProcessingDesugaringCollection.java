@@ -16,6 +16,7 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceMethodProcessorFacade;
 import com.android.tools.r8.ir.desugar.records.RecordClassDesugaringPostProcessor;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.CollectionUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.timing.Timing;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,7 +36,12 @@ public abstract class CfPostProcessingDesugaringCollection {
       AppView<?> appView,
       InterfaceMethodProcessorFacade interfaceMethodProcessorFacade,
       Enqueuer enqueuer) {
-    if (appView.options().desugarState.isOn()) {
+    InternalOptions options = appView.options();
+    if (options.partialSubCompilationConfiguration != null
+        && options.partialSubCompilationConfiguration.isR8()) {
+      return empty();
+    }
+    if (options.desugarState.isOn()) {
       return NonEmptyCfPostProcessingDesugaringCollection.create(
           appView, interfaceMethodProcessorFacade, enqueuer);
     }

@@ -14,7 +14,6 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaring;
 import com.android.tools.r8.ir.desugar.CfClassSynthesizerDesugaringEventConsumer;
-import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,14 +42,6 @@ public class RecordClassDesugaring implements CfClassSynthesizerDesugaring {
       CfClassSynthesizerDesugaringEventConsumer eventConsumer) {
     DexApplicationReadFlags flags = appView.appInfo().app().getFlags();
     if (!flags.hasReadRecordReferenceFromProgramClass()) {
-      return;
-    }
-    // TODO(b/413303956): Disable record desugaring in R8 of R8 partial and then remove this.
-    R8PartialSubCompilationConfiguration partialCompilationConfiguration =
-        appView.options().partialSubCompilationConfiguration;
-    if (partialCompilationConfiguration != null
-        && partialCompilationConfiguration.isR8()
-        && appView.hasDefinitionFor(appView.dexItemFactory().recordType)) {
       return;
     }
     List<DexProgramClass> classes = new ArrayList<>(flags.getRecordWitnesses().size());
