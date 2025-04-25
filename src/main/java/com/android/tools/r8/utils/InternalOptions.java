@@ -2363,7 +2363,6 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
     public boolean enableVerticalClassMergerLensAssertion = false;
     public boolean forceRedundantConstNumberRemoval = false;
     public boolean forceSplitReturnRewriter = false;
-    public boolean enableExperimentalDesugaredLibraryKeepRuleGenerator = false;
     public boolean invertConditionals = false;
     public boolean placeExceptionalBlocksLast = false;
     public boolean forceJumboStringProcessing = false;

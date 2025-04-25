@@ -11,7 +11,6 @@ import com.android.build.shrinker.r8integration.LegacyResourceShrinker;
 import com.android.build.shrinker.r8integration.LegacyResourceShrinker.ShrinkerResult;
 import com.android.tools.r8.DexIndexedConsumer.ForwardingConsumer;
 import com.android.tools.r8.androidapi.ApiReferenceStubber;
-import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryKeepRuleGenerator;
 import com.android.tools.r8.dex.ApplicationReader;
 import com.android.tools.r8.dex.ApplicationWriter;
 import com.android.tools.r8.dex.Marker;
@@ -872,8 +871,6 @@ public class R8 {
                           .run(appView.appInfo().classes())
                           .isValid())
           : "Could not validate generic signatures";
-
-      new DesugaredLibraryKeepRuleGenerator(appView).runIfNecessary(timing);
 
       Map<String, byte[]> dexFileContent = new ConcurrentHashMap<>();
       if (options.androidResourceProvider != null

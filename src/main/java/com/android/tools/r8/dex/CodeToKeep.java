@@ -40,8 +40,7 @@ public abstract class CodeToKeep {
                 .getLibraryDesugaringOptions()
                 .getMachineDesugaredLibrarySpecification()
                 .hasEmulatedInterfaces())
-        || options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()
-        || options.getTestingOptions().enableExperimentalDesugaredLibraryKeepRuleGenerator) {
+        || options.getLibraryDesugaringOptions().isDesugaredLibraryCompilation()) {
       return new NopCodeToKeep();
     }
     return new DesugaredLibraryCodeToKeep(appView);
