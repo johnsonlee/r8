@@ -57,13 +57,14 @@ public class R8LibraryDesugaring {
       Timing timing)
       throws ExecutionException {
     InternalOptions options = appView.options();
-    if (options.isDesugaring()
-        && options.getLibraryDesugaringOptions().isEnabled()
-        && options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
-        && options.isGeneratingDex()) {
-      new R8LibraryDesugaring(appView).run(executorService, timing);
-    } else {
-      assert !appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled();
+    if (options.isDesugaring()) {
+      if (options.getLibraryDesugaringOptions().isEnabled()
+          && options.getLibraryDesugaringOptions().isLirToLirLibraryDesugaringEnabled()
+          && options.isGeneratingDex()) {
+        new R8LibraryDesugaring(appView).run(executorService, timing);
+      } else {
+        assert !appView.options().apiModelingOptions().isLirToLirApiOutliningEnabled();
+      }
     }
   }
 

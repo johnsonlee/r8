@@ -3,13 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.jdk11.nest.dex;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.AnyOf.anyOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
@@ -18,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
@@ -30,21 +31,25 @@ import org.objectweb.asm.Opcodes;
 public class NestAttributesInDexShrinkingFieldsTest extends NestAttributesInDexTestBase
     implements Opcodes {
 
-  @Parameter() public TestParameters parameters;
+  private static final String EXPECTED_OUTPUT = StringUtils.lines("Hello, world!");
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
-  private static final String EXPECTED_OUTPUT = StringUtils.lines("Hello, world!");
+  public NestAttributesInDexShrinkingFieldsTest(TestParameters parameters) {
+    super(parameters);
+  }
 
   @Test
-  public void testRuntime() throws Exception {
-    assumeTrue(
-        parameters.isCfRuntime()
-            && isRuntimeWithNestSupport(parameters.asCfRuntime())
-            && parameters.getApiLevel().isEqualTo(AndroidApiLevel.B));
+  public void testJvm() throws Exception {
+    parameters.assumeJvmTestParameters();
+    assumeTrue(isRuntimeWithNestSupport(parameters.asCfRuntime()));
     testForJvm(parameters)
         .addProgramClassFileData(
             dumpHost(ACC_PRIVATE), dumpMember1(ACC_PRIVATE), dumpMember2(ACC_PRIVATE))
@@ -52,20 +57,42 @@ public class NestAttributesInDexShrinkingFieldsTest extends NestAttributesInDexT
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
+  @Test
+  public void testD8() throws Exception {
+    parameters.assumeDexRuntime();
+    testForD8(parameters)
+        .addProgramClassFileData(
+            dumpHost(ACC_PRIVATE), dumpMember1(ACC_PRIVATE), dumpMember2(ACC_PRIVATE))
+        .apply(this::configureEmitNestAnnotationsInDex)
+        .run(parameters.getRuntime(), "Host")
+        .assertFailureWithErrorThatThrows(IllegalAccessError.class);
+  }
+
   private void inspect(CodeInspector inspector, boolean expectNestAttributes) {
     ClassSubject host = inspector.clazz("Host");
     ClassSubject member1 = inspector.clazz("Host$Member1");
     ClassSubject member2 = inspector.clazz("Host$Member2");
-    if (expectNestAttributes) {
-      assertEquals(
-          ImmutableList.of(member2.asTypeSubject(), member1.asTypeSubject()),
-          host.getFinalNestMembersAttribute());
+    if (parameters.isRandomPartialCompilation()) {
+      assertThat(
+          host.getFinalNestMembersAttribute(),
+          anyOf(
+              equalTo(ImmutableList.of()),
+              equalTo(ImmutableList.of(member1.asTypeSubject())),
+              equalTo(ImmutableList.of(member2.asTypeSubject())),
+              equalTo(ImmutableList.of(member2.asTypeSubject(), member1.asTypeSubject()))));
     } else {
-      assertEquals(0, host.getFinalNestMembersAttribute().size());
+      if (expectNestAttributes) {
+        assertEquals(
+            ImmutableList.of(member2.asTypeSubject(), member1.asTypeSubject()),
+            host.getFinalNestMembersAttribute());
+      } else {
+        assertEquals(0, host.getFinalNestMembersAttribute().size());
+      }
+
+      TypeSubject expectedNestHostAttribute = expectNestAttributes ? host.asTypeSubject() : null;
+      assertEquals(expectedNestHostAttribute, member1.getFinalNestHostAttribute());
+      assertEquals(expectedNestHostAttribute, member2.getFinalNestHostAttribute());
     }
-    TypeSubject expectedNestHostAttribute = expectNestAttributes ? host.asTypeSubject() : null;
-    assertEquals(expectedNestHostAttribute, member1.getFinalNestHostAttribute());
-    assertEquals(expectedNestHostAttribute, member2.getFinalNestHostAttribute());
   }
 
   private void expectNestAttributes(CodeInspector inspector) {
@@ -82,16 +109,24 @@ public class NestAttributesInDexShrinkingFieldsTest extends NestAttributesInDexT
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(
             dumpHost(ACC_PRIVATE), dumpMember1(ACC_PRIVATE), dumpMember2(ACC_PRIVATE))
         .addKeepMainRule("Host")
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .compile()
-        .inspect(inspector -> assertEquals(1, inspector.allClasses().size()))
+        .inspectIf(
+            !parameters.isRandomPartialCompilation(),
+            inspector -> assertEquals(1, inspector.allClasses().size()))
         .run(parameters.getRuntime(), "Host")
-        .assertSuccessWithOutput(EXPECTED_OUTPUT);
+        .applyIf(
+            parameters.isRandomPartialCompilation(),
+            rr ->
+                rr.applyIf(
+                    rr.getExitCode() == 0,
+                    ignore -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT),
+                    ignore -> rr.assertFailureWithErrorThatThrows(IllegalAccessError.class)),
+            rr -> rr.assertSuccessWithOutput(EXPECTED_OUTPUT));
   }
 
   @Test
@@ -100,11 +135,10 @@ public class NestAttributesInDexShrinkingFieldsTest extends NestAttributesInDexT
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(
             dumpHost(ACC_PRIVATE), dumpMember1(ACC_PRIVATE), dumpMember2(ACC_PRIVATE))
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .addKeepMainRule("Host")
         .addKeepClassAndMembersRules("Host", "Host$Member1", "Host$Member2")
         .compile()
@@ -122,11 +156,10 @@ public class NestAttributesInDexShrinkingFieldsTest extends NestAttributesInDexT
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(
             dumpHost(ACC_PUBLIC), dumpMember1(ACC_PUBLIC), dumpMember2(ACC_PUBLIC))
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .addKeepMainRule("Host")
         .addKeepClassAndMembersRules("Host", "Host$Member1", "Host$Member2")
         .compile()

@@ -122,6 +122,7 @@ class R8Partial {
     D8Command d8Command = d8Builder.makeD8Command(options.dexItemFactory());
     AndroidApp d8App = d8Command.getInputApp();
     InternalOptions d8Options = d8Command.getInternalOptions();
+    forwardOptions(d8Options);
     options.partialCompilationConfiguration.d8DexOptionsConsumer.accept(d8Options);
     R8PartialD8SubCompilationConfiguration subCompilationConfiguration =
         new R8PartialD8SubCompilationConfiguration(
@@ -213,6 +214,7 @@ class R8Partial {
         r8Builder.makeR8Command(options.dexItemFactory(), options.getProguardConfiguration());
     AndroidApp r8App = r8Command.getInputApp();
     InternalOptions r8Options = r8Command.getInternalOptions();
+    forwardOptions(r8Options);
     options.partialCompilationConfiguration.r8OptionsConsumer.accept(r8Options);
     r8Options.partialSubCompilationConfiguration =
         new R8PartialR8SubCompilationConfiguration(
@@ -300,5 +302,14 @@ class R8Partial {
                   });
       featureSplit.internalSetProgramResourceProviders(replacementProgramResourceProviders);
     }
+  }
+
+  private void forwardOptions(InternalOptions subCompilationOptions) {
+    subCompilationOptions.emitNestAnnotationsInDex = options.emitNestAnnotationsInDex;
+    subCompilationOptions.emitRecordAnnotationsInDex = options.emitRecordAnnotationsInDex;
+    subCompilationOptions.emitPermittedSubclassesAnnotationsInDex =
+        options.emitPermittedSubclassesAnnotationsInDex;
+    subCompilationOptions.desugarState = options.desugarState;
+    subCompilationOptions.forceNestDesugaring = options.forceNestDesugaring;
   }
 }

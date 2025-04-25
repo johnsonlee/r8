@@ -1170,6 +1170,18 @@ public abstract class DexClass extends DexDefinition
     getNestMembersClassAttributes().forEach(member -> consumer.accept(member.getNestMember()));
   }
 
+  public void forEachNestMemberOnHost(
+      DexDefinitionSupplier definitions, Consumer<DexType> consumer) {
+    if (isNestHost()) {
+      forEachNestMember(consumer);
+    } else if (isNestMember()) {
+      DexClass host = definitions.definitionFor(getNestHost());
+      if (host != null) {
+        host.forEachNestMember(consumer);
+      }
+    }
+  }
+
   public NestHostClassAttribute getNestHostClassAttribute() {
     return nestHost;
   }

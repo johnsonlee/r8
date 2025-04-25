@@ -124,6 +124,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     }
     traceInnerClasses(clazz, classContext, getDefaultEventConsumer());
     traceKotlinMetadata(clazz, classContext, kotlinMetadataEventConsumer);
+    traceNest(clazz, classContext, getDefaultEventConsumer());
     traceSignature(clazz, classContext, getDefaultEventConsumer());
   }
 
@@ -166,6 +167,17 @@ public class UseCollector implements UseCollectorEventConsumer {
             appView, clazz, metadata, emptyConsumer(), reportUnknownMetadata);
     clazz.setKotlinInfo(kotlinInfo);
     return true;
+  }
+
+  private void traceNest(
+      DexProgramClass clazz,
+      DefinitionContext classContext,
+      UseCollectorEventConsumer eventConsumer) {
+    if (clazz.isNestMember()) {
+      addType(clazz.getNestHost(), classContext, eventConsumer);
+    }
+    clazz.forEachNestMemberOnHost(
+        appView, memberType -> addType(memberType, classContext, eventConsumer));
   }
 
   private void traceSignature(

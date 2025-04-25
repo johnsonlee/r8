@@ -28,11 +28,10 @@ public class RecordOnlyReferencedFromCodeTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8()
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .addLibraryFiles(ToolHelper.getMostRecentAndroidJar())
         .release()
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutputLines("false");
   }

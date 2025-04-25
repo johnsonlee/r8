@@ -4,7 +4,6 @@
 package com.android.tools.r8.jdk11.nest.dex;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -32,18 +31,23 @@ import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.Opcodes;
 
 @RunWith(Parameterized.class)
 public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
 
-  @Parameter() public TestParameters parameters;
-
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
+  }
+
+  public NestAttributesInDexTest(TestParameters parameters) {
+    super(parameters);
   }
 
   private static final String EXPECTED_OUTPUT =
@@ -95,6 +99,9 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   }
 
   private void inspect(CodeInspector inspector, boolean emitNestAnnotationsInDex) {
+    if (parameters.isRandomPartialCompilation()) {
+      return;
+    }
     ClassSubject host = inspector.clazz(Host.class);
     ClassSubject member1 = inspector.clazz(Member1.class);
     ClassSubject member2 = inspector.clazz(Member2.class);
@@ -114,13 +121,13 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addStrippedOuter(getClass())
+        .addStrippedOuter(AdditionalClassAPIs.class)
         .addClasspathClasses(AdditionalClassAPIs.class)
         .addProgramClasses(OtherHost.class)
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .compile()
         .inspect(inspector -> inspect(inspector, true))
         .run(parameters.getRuntime(), TestClass.class)
@@ -130,12 +137,11 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   @Test
   public void testD8NoDesugar() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addProgramClasses(OtherHost.class)
         .disableDesugaring()
-        .setMinApi(parameters)
-        .addOptionsModification(options -> assertFalse(options.emitNestAnnotationsInDex))
+        .apply(this::assertEmitNestAnnotationsInDexIsFalse)
         .compile()
         .inspect(inspector -> inspect(inspector, false))
         .run(parameters.getRuntime(), TestClass.class)
@@ -146,12 +152,12 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   public void testR8NoKeep() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addStrippedOuter(getClass())
+        .addStrippedOuter(AdditionalClassAPIs.class)
         .addProgramClasses(OtherHost.class)
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .addKeepMainRule(TestClass.class)
         .compile()
         // Don't expect any nest info. The classes Host, Member1, Member2 and OtherHost remains
@@ -166,12 +172,12 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   public void testR8KeepHost() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addStrippedOuter(getClass())
+        .addStrippedOuter(AdditionalClassAPIs.class)
         .addProgramClasses(OtherHost.class)
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .addKeepMainRule(TestClass.class)
         .addKeepClassRules(Host.class)
         .compile()
@@ -188,12 +194,12 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   public void testR8KeepMembers() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addStrippedOuter(getClass())
+        .addStrippedOuter(AdditionalClassAPIs.class)
         .addProgramClasses(OtherHost.class)
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .addKeepMainRule(TestClass.class)
         .addKeepClassRules(Member1.class, Member2.class)
         .compile()
@@ -210,12 +216,12 @@ public class NestAttributesInDexTest extends NestAttributesInDexTestBase {
   public void testR8KeepBoth() throws Exception {
     parameters.assumeR8TestParameters();
     assumeTrue(parameters.isDexRuntime() || isRuntimeWithNestSupport(parameters.asCfRuntime()));
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addStrippedOuter(getClass())
+        .addStrippedOuter(AdditionalClassAPIs.class)
         .addProgramClasses(OtherHost.class)
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .addKeepMainRule(TestClass.class)
         .addKeepClassRules(Host.class, Member1.class, Member2.class)
         .compile()

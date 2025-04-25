@@ -3,12 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.jdk11.nest.dex;
 
+import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresentIf;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.graph.MethodAccessFlags;
 import com.android.tools.r8.jdk11.nest.dex.NestAttributesNotInDexWithForceNestDesugaringTest.Host.Member1;
@@ -23,31 +22,32 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestAttributesNotInDexWithForceNestDesugaringTest extends NestAttributesInDexTestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameter(1)
-  public boolean forceNestDesugaring;
+  private final boolean forceNestDesugaring;
 
   @Parameters(name = "{0}, forceNestDesugaring: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDexRuntimesAndAllApiLevels().build(), BooleanUtils.values());
+        getTestParameters().withDexRuntimesAndAllApiLevels().withPartialCompilation().build(),
+        BooleanUtils.values());
+  }
+
+  public NestAttributesNotInDexWithForceNestDesugaringTest(
+      TestParameters parameters, boolean forceNestDesugaring) {
+    super(parameters);
+    this.forceNestDesugaring = forceNestDesugaring;
   }
 
   @Test
   public void testD8() throws Exception {
-    testForD8()
+    testForD8(parameters)
         .addProgramClassFileData(getTransformedClasses())
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
-        .addOptionsModification(options -> options.forceNestDesugaring = forceNestDesugaring)
+        .apply(this::configureEmitNestAnnotationsInDex)
+        .applyIf(forceNestDesugaring, this::configureForceNestDesugaring)
         .compile()
         .inspect(
             inspector -> {
@@ -71,18 +71,15 @@ public class NestAttributesNotInDexWithForceNestDesugaringTest extends NestAttri
   }
 
   @Test
-  public void testD8NoDesugar() {
+  public void testD8NoDesugar() throws Exception {
     assumeTrue(forceNestDesugaring);
-    assertThrows(
-        CompilationFailedException.class,
+    assertFailsCompilation(
         () ->
-            testForD8(parameters.getBackend())
+            testForD8(parameters)
                 .addProgramClassFileData(getTransformedClasses())
                 .disableDesugaring()
-                .setMinApi(parameters)
-                .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
-                .addOptionsModification(
-                    options -> options.forceNestDesugaring = forceNestDesugaring)
+                .apply(this::configureEmitNestAnnotationsInDex)
+                .apply(this::configureForceNestDesugaring)
                 .compile());
   }
 

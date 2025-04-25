@@ -234,6 +234,16 @@ public abstract class TestCompilerBuilder<
     return self();
   }
 
+  public T addR8PartialOptionsModification(Consumer<InternalOptions> optionsConsumer) {
+    // Intentionally empty. Overridden in R8PartialTestBuilder.
+    return self();
+  }
+
+  public T addR8PartialD8OptionsModification(Consumer<InternalOptions> optionsConsumer) {
+    // Intentionally empty. Overridden in R8PartialTestBuilder.
+    return self();
+  }
+
   public T addR8PartialR8OptionsModification(Consumer<InternalOptions> optionsConsumer) {
     // Intentionally empty. Overridden in R8PartialTestBuilder.
     return self();

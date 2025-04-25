@@ -10,7 +10,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -22,23 +21,23 @@ import java.util.function.Predicate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class NestAttributesInDexRewriteInvokeSpecialTest extends NestAttributesInDexTestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return TestBase.getTestParameters().withAllRuntimes().withAllApiLevels().build();
-  }
-
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines(
           "m1", "m2", "m3", "s1", "s2", "m1", "m2", "m3", "s1", "s2", "s1", "s2", "s1", "s2");
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters().withAllRuntimesAndApiLevels().withPartialCompilation().build();
+  }
+
+  public NestAttributesInDexRewriteInvokeSpecialTest(TestParameters parameters) {
+    super(parameters);
+  }
 
   @Test
   public void testRuntime() throws Exception {
@@ -52,9 +51,8 @@ public class NestAttributesInDexRewriteInvokeSpecialTest extends NestAttributesI
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8()
+    testForD8(parameters)
         .addProgramClassesAndInnerClasses(NestHierachy.class)
-        .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), NestHierachy.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -166,10 +164,10 @@ public class NestAttributesInDexRewriteInvokeSpecialTest extends NestAttributesI
     assumeTrue(parameters.getApiLevel().getLevel() >= 35);
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-    testForD8()
+    testForD8(parameters)
         .addProgramClassesAndInnerClasses(NestHierachy.class)
         .setMinApi(AndroidApiLevel.U)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .compile()
         .inspect(
             inspector -> {

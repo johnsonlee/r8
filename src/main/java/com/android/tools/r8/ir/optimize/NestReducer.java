@@ -4,9 +4,8 @@
 
 package com.android.tools.r8.ir.optimize;
 
-import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
-
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
@@ -41,7 +40,7 @@ public class NestReducer {
     timing.begin("NestReduction");
     if (appView.options().shouldDesugarNests()) {
       removeNests();
-    } else {
+    } else if (appView.options().enableNestReduction) {
       reduceNests(executorService);
     }
     appView.notifyOptimizationFinishedForTesting();
@@ -79,29 +78,27 @@ public class NestReducer {
   }
 
   private void processNestHost(DexProgramClass clazz) {
+    BooleanBox nestHasNonProgramClass = new BooleanBox();
     BooleanBox nestHasPrivateMembers =
         new BooleanBox(IterableUtils.hasNext(clazz.members(DexEncodedMember::isPrivate)));
-    clazz
-        .getNestMembersClassAttributes()
-        .removeIf(
-            attribute -> {
-              DexProgramClass member =
-                  asProgramClassOrNull(appView.definitionFor(attribute.getNestMember(), clazz));
-              if (member == null) {
-                return true;
-              }
-              nestHasPrivateMembers.computeIfNotSet(
-                  () -> IterableUtils.hasNext(member.members(DexEncodedMember::isPrivate)));
-              return false;
-            });
-    if (nestHasPrivateMembers.isFalse() && appView.options().enableNestReduction) {
-      clazz.getNestMembersClassAttributes().clear();
+    clazz.removeNestMemberAttributes(
+        attribute -> {
+          DexClass member = appView.definitionFor(attribute.getNestMember(), clazz);
+          if (member == null) {
+            return true;
+          }
+          nestHasNonProgramClass.or(!member.isProgramClass());
+          nestHasPrivateMembers.computeIfNotSet(
+              () -> IterableUtils.hasNext(member.members(DexEncodedMember::isPrivate)));
+          return false;
+        });
+    if (nestHasNonProgramClass.isFalse() && nestHasPrivateMembers.isFalse()) {
+      clazz.clearNestMembers();
     }
   }
 
   private void processNestMember(DexProgramClass clazz) {
-    DexProgramClass hostClass =
-        asProgramClassOrNull(appView.definitionFor(clazz.getNestHost(), clazz));
+    DexClass hostClass = appView.definitionFor(clazz.getNestHost(), clazz);
     if (hostClass == null || !hostClass.isNestHost()) {
       clazz.clearNestHost();
     }

@@ -4,14 +4,13 @@
 package com.android.tools.r8.jdk11.nest.dex;
 
 import static com.android.tools.r8.DiagnosticsMatcher.diagnosticMessage;
+import static com.android.tools.r8.utils.codeinspector.AssertUtils.assertFailsCompilation;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.TestBase;
+import com.android.tools.r8.PartialCompilationTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -24,7 +23,6 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
@@ -32,17 +30,23 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 @RunWith(Parameterized.class)
-public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implements Opcodes {
+public class NestAttributesInDexRewriteInvokeVirtualTest extends NestAttributesInDexTestBase
+    implements Opcodes {
 
-  @Parameter(0)
-  public TestParameters parameters;
+  private static final List<String> EXPECTED_OUTPUT_LINES = ImmutableList.of("Hello, world!");
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
-  private static final List<String> EXPECTED_OUTPUT_LINES = ImmutableList.of("Hello, world!");
+  public NestAttributesInDexRewriteInvokeVirtualTest(TestParameters parameters) {
+    super(parameters);
+  }
 
   @Test
   public void testRuntime() throws Exception {
@@ -70,10 +74,9 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
     parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-    testForD8()
+    testForD8(parameters)
         .addProgramClassFileData(dumpHost(), dumpMember1(), dumpMember2())
-        .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .compile()
         .inspect(
             inspector -> {
@@ -105,11 +108,10 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
     assertFalse(parameters.getApiLevel().getLevel() > 35);
 
     Path host =
-        testForD8()
+        testForD8(parameters)
             .addProgramClassFileData(dumpHost())
             .addClasspathClassFileData(dumpMember1(), dumpMember2())
-            .setMinApi(parameters)
-            .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+            .apply(this::configureEmitNestAnnotationsInDex)
             .compile()
             .inspect(
                 inspector -> {
@@ -125,11 +127,10 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
             .writeToZip();
 
     Path member1 =
-        testForD8()
+        testForD8(parameters)
             .addProgramClassFileData(dumpMember1())
             .addClasspathClassFileData(dumpHost(), dumpMember2())
-            .setMinApi(parameters)
-            .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+            .apply(this::configureEmitNestAnnotationsInDex)
             .compile()
             .inspect(
                 inspector -> {
@@ -141,11 +142,10 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
             .writeToZip();
 
     Path member2 =
-        testForD8()
+        testForD8(parameters)
             .addProgramClassFileData(dumpMember2())
             .addClasspathClassFileData(dumpHost(), dumpMember1())
-            .setMinApi(parameters)
-            .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+            .apply(this::configureEmitNestAnnotationsInDex)
             .compile()
             .inspect(
                 inspector -> {
@@ -156,11 +156,12 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
                 })
             .writeToZip();
 
-    testForD8()
+    // Merge using D8.
+    testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
         .addProgramFiles(host, member1, member2)
         .addClasspathClassFileData(dumpMember2())
         .setMinApi(parameters)
-        .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+        .apply(this::configureEmitNestAnnotationsInDex)
         .compile()
         .inspect(
             inspector -> {
@@ -186,18 +187,15 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
   }
 
   @Test
-  public void testD8WithoutMembersOnClasspath() {
+  public void testD8WithoutMembersOnClasspath() throws Exception {
     parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-
-    assertThrows(
-        CompilationFailedException.class,
+    assertFailsCompilation(
         () ->
-            testForD8()
+            testForD8(parameters)
                 .addProgramClassFileData(dumpHost())
-                .setMinApi(parameters)
-                .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+                .apply(this::configureEmitNestAnnotationsInDex)
                 .compileWithExpectedDiagnostics(
                     diagnostics -> {
                       diagnostics.assertOnlyErrors();
@@ -207,18 +205,15 @@ public class NestAttributesInDexRewriteInvokeVirtualTest extends TestBase implem
   }
 
   @Test
-  public void testD8WithoutHostOnClasspath() {
+  public void testD8WithoutHostOnClasspath() throws Exception {
     parameters.assumeDexRuntime();
     // TODO(b/247047415): Update test when a DEX VM natively supporting nests is added.
     assertFalse(parameters.getApiLevel().getLevel() > 35);
-
-    assertThrows(
-        CompilationFailedException.class,
+    assertFailsCompilation(
         () ->
-            testForD8()
+            testForD8(parameters)
                 .addProgramClassFileData(dumpMember1(), dumpMember2())
-                .setMinApi(parameters)
-                .addOptionsModification(options -> options.emitNestAnnotationsInDex = true)
+                .apply(this::configureEmitNestAnnotationsInDex)
                 .compileWithExpectedDiagnostics(
                     diagnostics -> {
                       diagnostics.assertOnlyErrors();

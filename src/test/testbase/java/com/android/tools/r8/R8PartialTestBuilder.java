@@ -164,10 +164,12 @@ public class R8PartialTestBuilder
             + "Did you mean addD8PartialOptionsModification or addR8PartialOptionsModification?");
   }
 
+  @Override
   public R8PartialTestBuilder addR8PartialOptionsModification(Consumer<InternalOptions> consumer) {
     return super.addOptionsModification(consumer);
   }
 
+  @Override
   public R8PartialTestBuilder addR8PartialD8OptionsModification(
       Consumer<InternalOptions> consumer) {
     return super.addOptionsModification(

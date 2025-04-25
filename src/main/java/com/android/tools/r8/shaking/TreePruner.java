@@ -294,12 +294,10 @@ public class TreePruner {
   private static void clearDeadNestMembers(
       DexClass nestHost, Predicate<DexType> isLive, Function<DexType, DexClass> definition) {
     // null definition should raise a warning which is raised later on in Nest specific passes.
-    nestHost
-        .getNestMembersClassAttributes()
-        .removeIf(
-            nestMemberAttr ->
-                definition.apply(nestMemberAttr.getNestMember()) != null
-                    && !isLive.test(nestMemberAttr.getNestMember()));
+    nestHost.removeNestMemberAttributes(
+        nestMemberAttr ->
+            definition.apply(nestMemberAttr.getNestMember()) != null
+                && !isLive.test(nestMemberAttr.getNestMember()));
   }
 
   @SuppressWarnings("ReferenceEquality")

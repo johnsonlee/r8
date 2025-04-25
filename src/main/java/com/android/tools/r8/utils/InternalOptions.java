@@ -535,7 +535,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   // TODO(b/293591931): Remove this flag.
   // Flag to allow permitted subclasses annotations in DEX. See b/231930852 for context.
-  private final boolean emitPermittedSubclassesAnnotationsInDex =
+  public boolean emitPermittedSubclassesAnnotationsInDex =
       System.getProperty("com.android.tools.r8.emitPermittedSubclassesAnnotationsInDex") != null;
 
   private DumpInputFlags dumpInputFlags = DumpInputFlags.getDefault();
