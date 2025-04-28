@@ -104,6 +104,9 @@ INTERNAL_BENCHMARKS = {
     'SystemUIApp': {
         'targets': ['r8-full']
     },
+    'SystemUIAppPartial': {
+        'targets': ['r8-full']
+    },
 }
 # A collection of benchmarks that should not be run on the bots, but can be used
 # for running locally.

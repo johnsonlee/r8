@@ -117,7 +117,7 @@ public final class CovariantReturnTypeAnnotationTransformer {
     converter.optimizeSynthesizedMethods(
         covariantReturnTypeMethods,
         MethodProcessorEventConsumer.empty(),
-        MethodConversionOptions.forD8(appView),
+        method -> MethodConversionOptions.forD8(appView, method),
         executorService);
   }
 

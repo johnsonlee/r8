@@ -99,6 +99,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 public class IRConverter {
 
@@ -357,7 +358,7 @@ public class IRConverter {
   public void optimizeSynthesizedMethods(
       List<ProgramMethod> programMethods,
       MethodProcessorEventConsumer eventConsumer,
-      MutableMethodConversionOptions conversionOptions,
+      Function<ProgramMethod, MutableMethodConversionOptions> conversionOptions,
       ExecutorService executorService)
       throws ExecutionException {
     // Process the generated class, but don't apply any outlining.
@@ -365,31 +366,10 @@ public class IRConverter {
     processMethodsConcurrently(methods, eventConsumer, conversionOptions, executorService);
   }
 
-  public void optimizeSynthesizedMethod(
-      ProgramMethod synthesizedMethod,
-      MethodProcessorEventConsumer eventConsumer,
-      MutableMethodConversionOptions conversionOptions,
-      Timing timing) {
-    if (!synthesizedMethod.getDefinition().isProcessed()) {
-      // Process the generated method, but don't apply any outlining.
-      OneTimeMethodProcessor methodProcessor =
-          OneTimeMethodProcessor.create(synthesizedMethod, eventConsumer, appView);
-      methodProcessor.forEachWaveWithExtension(
-          (method, methodProcessingContext) ->
-              processDesugaredMethod(
-                  method,
-                  delayedOptimizationFeedback,
-                  methodProcessor,
-                  methodProcessingContext,
-                  conversionOptions,
-                  timing));
-    }
-  }
-
   public void processClassesConcurrently(
       Collection<DexProgramClass> classes,
       MethodProcessorEventConsumer eventConsumer,
-      MutableMethodConversionOptions conversionOptions,
+      Function<ProgramMethod, MutableMethodConversionOptions> conversionOptions,
       ExecutorService executorService)
       throws ExecutionException {
     ProgramMethodSet wave = ProgramMethodSet.create();
@@ -402,7 +382,7 @@ public class IRConverter {
   public void processMethodsConcurrently(
       ProgramMethodSet wave,
       MethodProcessorEventConsumer eventConsumer,
-      MutableMethodConversionOptions conversionOptions,
+      Function<ProgramMethod, MutableMethodConversionOptions> conversionOptions,
       ExecutorService executorService)
       throws ExecutionException {
     if (!wave.isEmpty()) {
@@ -415,7 +395,7 @@ public class IRConverter {
                   delayedOptimizationFeedback,
                   methodProcessor,
                   methodProcessingContext,
-                  conversionOptions,
+                  conversionOptions.apply(method),
                   Timing.empty()),
           appView.options().getThreadingModule(),
           executorService);

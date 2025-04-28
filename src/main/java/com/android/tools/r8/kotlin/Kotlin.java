@@ -30,8 +30,6 @@ public final class Kotlin {
   public static final String NAME = "kotlin";
   public static final String PACKAGE_PREFIX = "L" + NAME + "/";
 
-  public final DexString kotlinJvmTypePrefix;
-
   public static final class ClassClassifiers {
 
     public static final String arrayBinaryName = NAME + "/Array";
@@ -96,7 +94,6 @@ public final class Kotlin {
     this.intrinsics = new Intrinsics();
     this.metadata = new Metadata();
     this.assertions = new _Assertions();
-    kotlinJvmTypePrefix = factory.createString("Lkotlin/jvm/");
   }
 
   public final class Functional {

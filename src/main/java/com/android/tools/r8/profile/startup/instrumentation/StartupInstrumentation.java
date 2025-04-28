@@ -112,7 +112,7 @@ public class StartupInstrumentation {
     converter.processClassesConcurrently(
         extraProgramClasses,
         eventConsumer,
-        MethodConversionOptions.forD8(appView),
+        method -> MethodConversionOptions.forD8(appView, method),
         executorService);
 
     DexApplication newApplication =

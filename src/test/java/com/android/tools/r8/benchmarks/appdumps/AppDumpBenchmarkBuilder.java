@@ -67,6 +67,7 @@ public class AppDumpBenchmarkBuilder {
   private int fromRevision = -1;
   private CompilationMode compilationMode;
   private boolean enableLibraryDesugaring = true;
+  private boolean enableResourceShrinking = false;
   private boolean runtimeOnly = false;
   private final List<String> programPackages = new ArrayList<>();
 
@@ -89,6 +90,11 @@ public class AppDumpBenchmarkBuilder {
 
   public AppDumpBenchmarkBuilder setEnableLibraryDesugaring(boolean enableLibraryDesugaring) {
     this.enableLibraryDesugaring = enableLibraryDesugaring;
+    return this;
+  }
+
+  public AppDumpBenchmarkBuilder setEnableResourceShrinking(boolean enableResourceShrinking) {
+    this.enableResourceShrinking = enableResourceShrinking;
     return this;
   }
 
@@ -135,21 +141,33 @@ public class AppDumpBenchmarkBuilder {
 
   public BenchmarkConfig buildR8(ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     verify();
-    return BenchmarkConfig.builder()
-        .setName(name)
-        .setTarget(BenchmarkTarget.R8)
-        .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-        .setMethod(runR8(this, configuration))
-        .setFromRevision(fromRevision)
-        .addDependency(dumpDependency)
-        .measureRunTime()
-        .measureCodeSize()
-        .measureInstructionCodeSize()
-        .measureComposableInstructionCodeSize()
-        .measureDexSegmentsCodeSize()
-        .measureDex2OatCodeSize()
-        .setTimeout(10, TimeUnit.MINUTES)
-        .build();
+    BenchmarkConfig.Builder builder =
+        BenchmarkConfig.builder()
+            .setName(name)
+            .setTarget(BenchmarkTarget.R8)
+            .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
+            .setMethod(runR8(this, configuration))
+            .setFromRevision(fromRevision)
+            .addDependency(dumpDependency)
+            .measureRunTime()
+            .measureCodeSize()
+            .measureInstructionCodeSize()
+            .measureComposableInstructionCodeSize()
+            .measureDexSegmentsCodeSize()
+            .measureDex2OatCodeSize()
+            // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
+            //  on SystemUI.
+            .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
+            .setTimeout(10, TimeUnit.MINUTES);
+    if (!runtimeOnly) {
+      builder
+          .measureCodeSize()
+          .measureInstructionCodeSize()
+          .measureComposableInstructionCodeSize()
+          .measureDexSegmentsCodeSize()
+          .measureDex2OatCodeSize();
+    }
+    return builder.build();
   }
 
   public BenchmarkConfig buildR8WithPartialShrinking() {
@@ -178,12 +196,11 @@ public class AppDumpBenchmarkBuilder {
         .measureComposableInstructionCodeSize()
         .measureDexSegmentsCodeSize()
         .measureDex2OatCodeSize()
+        // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
+        //  on SystemUI.
+        .setEnableDex2OatVerification(!name.equals("SystemUIAppPartialShrinking"))
         .setTimeout(10, TimeUnit.MINUTES)
         .build();
-  }
-
-  public BenchmarkConfig buildR8WithResourceShrinking() {
-    return buildR8WithResourceShrinking(getDefaultR8Configuration());
   }
 
   public BenchmarkConfig buildR8WithResourceShrinking(
@@ -194,7 +211,7 @@ public class AppDumpBenchmarkBuilder {
             .setName(name)
             .setTarget(BenchmarkTarget.R8)
             .setSuite(BenchmarkSuite.OPENSOURCE_BENCHMARKS)
-            .setMethod(runR8WithResourceShrinking(this, configuration))
+            .setMethod(runR8(this, configuration))
             .setFromRevision(fromRevision)
             .addDependency(dumpDependency)
             // TODO(b/368282141): Also measure resource size.
@@ -269,11 +286,6 @@ public class AppDumpBenchmarkBuilder {
   }
 
   private CompilerDump getExtractedDump(BenchmarkEnvironment environment) throws IOException {
-    return getExtractedDump(environment, false);
-  }
-
-  private CompilerDump getExtractedDump(
-      BenchmarkEnvironment environment, boolean enableResourceShrinking) throws IOException {
     String dumpName = enableResourceShrinking ? "dump_app_res.zip" : "dump_app.zip";
     Path dump = dumpDependency.getRoot(environment).resolve(dumpName);
     return CompilerDump.fromArchive(dump, environment.getTemp().newFolder().toPath());
@@ -325,7 +337,7 @@ public class AppDumpBenchmarkBuilder {
 
   private static BenchmarkMethod runR8(
       AppDumpBenchmarkBuilder builder, ThrowableConsumer<? super R8FullTestBuilder> configuration) {
-    return internalRunR8(builder, false, configuration);
+    return internalRunR8(builder, configuration);
   }
 
   private static BenchmarkMethod runR8WithPartialShrinking(
@@ -335,22 +347,15 @@ public class AppDumpBenchmarkBuilder {
     return internalRunR8Partial(builder, configuration, compileResultConsumer);
   }
 
-  private static BenchmarkMethod runR8WithResourceShrinking(
-      AppDumpBenchmarkBuilder builder, ThrowableConsumer<? super R8FullTestBuilder> configuration) {
-    return internalRunR8(builder, true, configuration);
-  }
-
   private static BenchmarkMethod internalRunR8(
       AppDumpBenchmarkBuilder builder,
-      boolean enableResourceShrinking,
       ThrowableConsumer<? super R8FullTestBuilder> configuration) {
     return environment ->
         BenchmarkBase.runner(environment)
             .setWarmupIterations(1)
             .run(
                 results -> {
-                  CompilerDump dump =
-                      builder.getExtractedDump(environment, enableResourceShrinking);
+                  CompilerDump dump = builder.getExtractedDump(environment);
                   DumpOptions dumpProperties = dump.getBuildProperties();
                   TestBase.testForR8(environment.getTemp(), Backend.DEX)
                       .addProgramFiles(dump.getProgramArchive())
@@ -376,7 +381,7 @@ public class AppDumpBenchmarkBuilder {
                           environment.getConfig().containsComposableCodeSizeMetric(),
                           getKeepComposableAnnotationsConfiguration())
                       .applyIf(
-                          enableResourceShrinking,
+                          builder.enableResourceShrinking,
                           b ->
                               b.enableOptimizedShrinking()
                                   .setAndroidResourcesFromPath(dump.getAndroidResources()))
@@ -406,7 +411,7 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(1)
+            .setWarmupIterations(0)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
@@ -451,6 +456,11 @@ public class AppDumpBenchmarkBuilder {
                       .applyIf(
                           environment.getConfig().containsComposableCodeSizeMetric(),
                           getKeepComposableAnnotationsConfiguration())
+                      .applyIf(
+                          builder.enableResourceShrinking,
+                          b ->
+                              b.enableOptimizedShrinking()
+                                  .setAndroidResourcesFromPath(dump.getAndroidResources()))
                       .apply(
                           r ->
                               r.benchmarkCompile(results)

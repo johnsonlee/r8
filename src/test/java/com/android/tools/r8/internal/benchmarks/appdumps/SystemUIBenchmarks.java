@@ -4,6 +4,7 @@
 package com.android.tools.r8.internal.benchmarks.appdumps;
 
 import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8PartialTestBuilder;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.benchmarks.BenchmarkBase;
@@ -41,20 +42,39 @@ public class SystemUIBenchmarks extends BenchmarkBase {
         AppDumpBenchmarkBuilder.builder()
             .setName("SystemUIApp")
             .setDumpDependencyPath(dir)
+            .setEnableResourceShrinking(true)
             .setFromRevision(16457)
-            .buildR8WithResourceShrinking(SystemUIBenchmarks::configure),
+            .buildR8(SystemUIBenchmarks::configure),
+        AppDumpBenchmarkBuilder.builder()
+            .setName("SystemUIAppPartial")
+            .setDumpDependencyPath(dir)
+            .setEnableResourceShrinking(true)
+            .setFromRevision(16457)
+            .buildR8WithPartialShrinking(SystemUIBenchmarks::configurePartialShrinking),
         AppDumpBenchmarkBuilder.builder()
             .setName("SystemUIAppTreeShaking")
             .setDumpDependencyPath(dir)
+            .setEnableResourceShrinking(true)
             .setFromRevision(16457)
             .setRuntimeOnly()
-            .buildR8WithResourceShrinking(SystemUIBenchmarks::configureTreeShaking));
+            .buildR8(SystemUIBenchmarks::configureTreeShaking));
   }
 
   private static void configure(R8FullTestBuilder testBuilder) {
     testBuilder
         .addDontWarn("android.hardware.graphics.common.DisplayDecorationSupport")
         .addOptionsModification(
+            options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
+        .allowDiagnosticMessages()
+        .allowUnusedDontWarnPatterns()
+        .allowUnusedProguardConfigurationRules()
+        .allowUnnecessaryDontWarnWildcards()
+        .setAndroidPlatformBuild();
+  }
+
+  private static void configurePartialShrinking(R8PartialTestBuilder testBuilder) {
+    testBuilder
+        .addR8PartialR8OptionsModification(
             options -> options.getOpenClosedInterfacesOptions().suppressAllOpenInterfaces())
         .allowDiagnosticMessages()
         .allowUnusedDontWarnPatterns()
@@ -91,5 +111,10 @@ public class SystemUIBenchmarks extends BenchmarkBase {
   @Test
   public void testSystemUIApp() throws Exception {
     testBenchmarkWithName("SystemUIApp");
+  }
+
+  @Test
+  public void testSystemUIAppPartial() throws Exception {
+    testBenchmarkWithName("SystemUIAppPartial");
   }
 }

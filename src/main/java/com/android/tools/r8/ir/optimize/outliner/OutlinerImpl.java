@@ -1394,7 +1394,7 @@ public class OutlinerImpl extends Outliner {
       converter.optimizeSynthesizedMethods(
           outlineMethods,
           methodProcessorEventConsumer,
-          MethodConversionOptions.forLirPhase(appView),
+          ignore -> MethodConversionOptions.forLirPhase(appView),
           executorService);
       feedback.updateVisibleOptimizationInfo();
       forEachSelectedOutliningMethod(

@@ -90,8 +90,9 @@ public class NowInAndroidBenchmarks extends BenchmarkBase {
         AppDumpBenchmarkBuilder.builder()
             .setName("NowInAndroidAppWithResourceShrinking")
             .setDumpDependencyPath(dump)
+            .setEnableResourceShrinking(true)
             .setFromRevision(16017)
-            .buildR8WithResourceShrinking());
+            .buildR8());
   }
 
   @Ignore
