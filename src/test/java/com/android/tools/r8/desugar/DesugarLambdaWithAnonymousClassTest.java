@@ -29,7 +29,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DesugarLambdaWithAnonymousClass extends TestBase {
+public class DesugarLambdaWithAnonymousClassTest extends TestBase {
 
   private final List<String> EXPECTED_JAVAC_RESULT =
       ImmutableList.of("Hello from inside lambda$test$0", "Hello from inside lambda$testStatic$1");
@@ -37,12 +37,16 @@ public class DesugarLambdaWithAnonymousClass extends TestBase {
   private final List<String> EXPECTED_D8_DESUGARED_RESULT =
       ImmutableList.of(
           "Hello from inside"
-              + " lambda$test$0$com-android-tools-r8-desugar-DesugarLambdaWithAnonymousClass$TestClass",
+              + " lambda$test$0$com-android-tools-r8-desugar-DesugarLambdaWithAnonymousClassTest$TestClass",
           "Hello from inside lambda$testStatic$1");
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   @Parameter(0)
@@ -70,7 +74,7 @@ public class DesugarLambdaWithAnonymousClass extends TestBase {
             assertTrue(clazz.isAnonymousClass());
             DexMethod enclosingMethod = clazz.getFinalEnclosingMethod();
             ClassSubject testClassSubject =
-                inspector.clazz(DesugarLambdaWithAnonymousClass.TestClass.class);
+                inspector.clazz(DesugarLambdaWithAnonymousClassTest.TestClass.class);
             assertEquals(
                 testClassSubject, inspector.clazz(enclosingMethod.holder.toSourceString()));
             assertThat(
@@ -85,8 +89,8 @@ public class DesugarLambdaWithAnonymousClass extends TestBase {
   public static void checkExpectedJavacNames() throws Exception {
     CodeInspector inspector =
         new CodeInspector(
-            ToolHelper.getClassFilesForInnerClasses(DesugarLambdaWithAnonymousClass.class));
-    String outer = DesugarLambdaWithAnonymousClass.class.getTypeName();
+            ToolHelper.getClassFilesForInnerClasses(DesugarLambdaWithAnonymousClassTest.class));
+    String outer = DesugarLambdaWithAnonymousClassTest.class.getTypeName();
     ClassSubject testClass = inspector.clazz(outer + "$TestClass");
     assertThat(testClass, isPresent());
     assertThat(testClass.uniqueMethodWithOriginalName("lambda$test$0"), isPresent());
@@ -98,7 +102,7 @@ public class DesugarLambdaWithAnonymousClass extends TestBase {
   @Test
   public void testDesugar() throws Exception {
     testForDesugaring(parameters)
-        .addInnerClasses(DesugarLambdaWithAnonymousClass.class)
+        .addInnerClasses(DesugarLambdaWithAnonymousClassTest.class)
         .run(parameters.getRuntime(), TestClass.class)
         .inspect(this::checkEnclosingMethod)
         .applyIf(
@@ -112,9 +116,10 @@ public class DesugarLambdaWithAnonymousClass extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     try {
       testForR8(parameters.getBackend())
-          .addInnerClasses(DesugarLambdaWithAnonymousClass.class)
+          .addInnerClasses(DesugarLambdaWithAnonymousClassTest.class)
           .setMinApi(parameters)
           // Keep the synthesized inner classes.
           .addKeepRules("-keep class **.*$TestClass$1")

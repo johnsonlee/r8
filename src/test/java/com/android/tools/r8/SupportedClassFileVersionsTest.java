@@ -16,7 +16,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 @RunWith(Parameterized.class)
-public class SupportedClassFileVersions extends TestBase implements Opcodes {
+public class SupportedClassFileVersionsTest extends TestBase implements Opcodes {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -27,7 +27,12 @@ public class SupportedClassFileVersions extends TestBase implements Opcodes {
   @Parameters(name = "{0}, CF version = {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(), CfVersion.all());
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
+        CfVersion.all());
   }
 
   @Test
@@ -46,6 +51,7 @@ public class SupportedClassFileVersions extends TestBase implements Opcodes {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(dump(version))
         .addKeepMainRule("Test")

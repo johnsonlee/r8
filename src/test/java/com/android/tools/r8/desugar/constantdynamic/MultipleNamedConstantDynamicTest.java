@@ -33,7 +33,11 @@ public class MultipleNamedConstantDynamicTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT =
@@ -42,10 +46,8 @@ public class MultipleNamedConstantDynamicTest extends TestBase {
 
   @Test
   public void testReference() throws Exception {
-    assumeTrue(parameters.isCfRuntime());
+    parameters.assumeJvmTestParameters();
     assumeTrue(parameters.getRuntime().asCf().isNewerThanOrEqual(CfVm.JDK11));
-    assumeTrue(parameters.getApiLevel().isEqualTo(AndroidApiLevel.B));
-
     testForJvm(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -54,6 +56,8 @@ public class MultipleNamedConstantDynamicTest extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
+    // TODO(b/414327631): Fixme.
+    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -75,6 +79,7 @@ public class MultipleNamedConstantDynamicTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getTransformedClasses())
         .setMinApi(parameters)

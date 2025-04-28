@@ -12,6 +12,7 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.DesugarTestConfiguration;
+import com.android.tools.r8.PartialCompilationTestParameters;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
@@ -30,25 +31,29 @@ import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class InvokeStaticDesugarTest extends TestBase {
 
-  private final TestParameters parameters;
-  private final boolean intermediate;
-  private final String EXPECTED = "Hello World!";
+  private static final String EXPECTED = "Hello World!";
+
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean intermediate;
 
   @Parameters(name = "{0}, intermediate in first step: {1}")
   public static Collection<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
-  }
-
-  public InvokeStaticDesugarTest(TestParameters parameters, boolean intermediate) {
-    this.parameters = parameters;
-    this.intermediate = intermediate;
   }
 
   @Test
@@ -74,11 +79,11 @@ public class InvokeStaticDesugarTest extends TestBase {
   public void testDoubleDesugar() throws Exception {
     // Desugar using API level that cannot leave static interface invokes.
     Path jar =
-        testForD8(Backend.CF)
+        testForD8(Backend.CF, PartialCompilationTestParameters.NONE)
             .addLibraryClasses(Library.class)
             .addProgramClasses(Main.class)
             .setMinApi(AndroidApiLevel.B)
-            .setIntermediate(intermediate)
+            .apply(b -> b.asD8TestBuilder().setIntermediate(intermediate))
             .compile()
             .inspect(i -> assertEquals(1, getSyntheticMethods(i).size()))
             .writeToZip();
@@ -126,14 +131,12 @@ public class InvokeStaticDesugarTest extends TestBase {
       return compileToZip(parameters, ImmutableList.of(), Library.class);
     } else {
       assert parameters.isDexRuntime();
-      return testForD8(parameters.getBackend())
+      return testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
           .addProgramClasses(Library.class)
           .setMinApi(parameters)
           .disableDesugaring()
           .addOptionsModification(
-              options -> {
-                options.testing.allowStaticInterfaceMethodsForPreNApiLevel = true;
-              })
+              options -> options.testing.allowStaticInterfaceMethodsForPreNApiLevel = true)
           .compile()
           .writeToZip();
     }

@@ -23,7 +23,11 @@ public class CollisionWithDefaultMethodsTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT =
@@ -40,6 +44,7 @@ public class CollisionWithDefaultMethodsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)

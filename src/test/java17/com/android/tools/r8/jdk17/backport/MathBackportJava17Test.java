@@ -26,6 +26,7 @@ public class MathBackportJava17Test extends TestBase {
         .withDexRuntimes()
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 

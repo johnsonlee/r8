@@ -34,7 +34,11 @@ public class ConstantDynamicRegress272346803Test extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final Class<?> MAIN_CLASS = Main.class;
@@ -53,6 +57,8 @@ public class ConstantDynamicRegress272346803Test extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
+    // TODO(b/414327631): Fixme.
+    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClasses(Main.class)
         .addProgramClassFileData(getTransformedClasses())
@@ -75,6 +81,7 @@ public class ConstantDynamicRegress272346803Test extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClasses(Main.class)
         .addProgramClassFileData(getTransformedClasses())

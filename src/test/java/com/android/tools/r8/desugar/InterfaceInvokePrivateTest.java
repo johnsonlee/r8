@@ -4,7 +4,6 @@
 package com.android.tools.r8.desugar;
 
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.DesugarTestConfiguration;
 import com.android.tools.r8.TestBase;
@@ -18,6 +17,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.Opcodes;
 
 @RunWith(Parameterized.class)
@@ -29,10 +29,15 @@ public class InterfaceInvokePrivateTest extends TestBase implements Opcodes {
   @Parameter(1)
   public CfVersion inputCfVersion;
 
-  @Parameterized.Parameters(name = "{0}, Input CfVersion = {1})")
+  @Parameters(name = "{0}, Input CfVersion = {1})")
   public static Iterable<?> data() {
     return buildParameters(
-        getTestParameters().withCfRuntimes().withDexRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withCfRuntimes()
+            .withDexRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         CfVersion.rangeInclusive(CfVersion.V1_8, CfVersion.V15));
   }
 
@@ -45,9 +50,7 @@ public class InterfaceInvokePrivateTest extends TestBase implements Opcodes {
 
   @Test
   public void testReference() throws Exception {
-    assumeTrue(parameters.getRuntime().isCf());
-    assumeTrue(parameters.getApiLevel().isEqualTo(AndroidApiLevel.B));
-
+    parameters.assumeJvmTestParameters();
     testForJvm(parameters)
         .addProgramClassFileData(transformIToPrivate(inputCfVersion))
         .addProgramClasses(TestRunner.class)
@@ -101,6 +104,7 @@ public class InterfaceInvokePrivateTest extends TestBase implements Opcodes {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(transformIToPrivate(inputCfVersion))
         .addProgramClasses(TestRunner.class)

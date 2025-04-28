@@ -40,7 +40,11 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
   @Parameters(name = "{0}, keepPermittedSubclasses = {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -84,6 +88,7 @@ public class SealedClassesEnumJdk17CompiledTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .setMinApi(parameters)

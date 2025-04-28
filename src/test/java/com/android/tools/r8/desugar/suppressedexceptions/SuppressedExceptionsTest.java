@@ -30,7 +30,11 @@ public class SuppressedExceptionsTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   public boolean runtimeHasSuppressedExceptionsSupport() {
@@ -50,7 +54,7 @@ public class SuppressedExceptionsTest extends TestBase {
   }
 
   @Test
-  public void testD8() throws Exception {
+  public void testDesugaring() throws Exception {
     testForDesugaring(parameters)
         .addProgramClasses(TestClass.class)
         .run(parameters.getRuntime(), TestClass.class)
@@ -75,6 +79,7 @@ public class SuppressedExceptionsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addInnerClasses(SuppressedExceptionsTest.class)
         .setMinApi(parameters)

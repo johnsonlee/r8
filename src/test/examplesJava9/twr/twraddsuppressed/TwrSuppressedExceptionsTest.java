@@ -43,6 +43,7 @@ public class TwrSuppressedExceptionsTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK9)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -112,6 +113,7 @@ public class TwrSuppressedExceptionsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getProgramInputs())
         .setMinApi(parameters)

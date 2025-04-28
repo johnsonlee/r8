@@ -21,13 +21,17 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 @RunWith(Parameterized.class)
-public class LambdasInHugeMethod extends TestBase implements Opcodes {
+public class LambdasInHugeMethodTest extends TestBase implements Opcodes {
 
   @Parameter() public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   // With 1311 the TestClass main method exceeds class file method size limit
@@ -68,6 +72,7 @@ public class LambdasInHugeMethod extends TestBase implements Opcodes {
 
   @Test
   public void testR8() throws Exception {
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClasses(MyConsumer.class, MyTriConsumer.class)
         .addProgramClassFileData(generateTestClass())
@@ -140,7 +145,7 @@ public class LambdasInHugeMethod extends TestBase implements Opcodes {
         Type.getType("()V"),
         new Handle(
             Opcodes.H_INVOKESTATIC,
-            "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$TestClass",
+            "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$TestClass",
             "greet",
             "()V",
             false),
@@ -160,7 +165,7 @@ public class LambdasInHugeMethod extends TestBase implements Opcodes {
     methodVisitor.visitInsn(POP);
     methodVisitor.visitInvokeDynamicInsn(
         "create",
-        "(Ljava/io/PrintStream;)Lcom/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$MyConsumer;",
+        "(Ljava/io/PrintStream;)Lcom/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$MyConsumer;",
         new Handle(
             Opcodes.H_INVOKESTATIC,
             "java/lang/invoke/LambdaMetafactory",
@@ -179,13 +184,13 @@ public class LambdasInHugeMethod extends TestBase implements Opcodes {
         });
     methodVisitor.visitMethodInsn(
         INVOKESTATIC,
-        "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$TestClass",
+        "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$TestClass",
         "greet",
-        "(Lcom/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$MyConsumer;)V",
+        "(Lcom/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$MyConsumer;)V",
         false);
     methodVisitor.visitInvokeDynamicInsn(
         "accept",
-        "()Lcom/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$MyTriConsumer;",
+        "()Lcom/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$MyTriConsumer;",
         new Handle(
             Opcodes.H_INVOKESTATIC,
             "java/lang/invoke/LambdaMetafactory",
@@ -196,7 +201,7 @@ public class LambdasInHugeMethod extends TestBase implements Opcodes {
           Type.getType("(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V"),
           new Handle(
               Opcodes.H_INVOKESTATIC,
-              "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$TestClass",
+              "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$TestClass",
               "greetTri",
               "(JDLjava/lang/String;)V",
               false),
@@ -214,7 +219,7 @@ public class LambdasInHugeMethod extends TestBase implements Opcodes {
     methodVisitor.visitLdcInsn("5");
     methodVisitor.visitMethodInsn(
         INVOKEINTERFACE,
-        "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethod$MyTriConsumer",
+        "com/android/tools/r8/desugar/lambdas/LambdasInHugeMethodTest$MyTriConsumer",
         "accept",
         "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
         true);

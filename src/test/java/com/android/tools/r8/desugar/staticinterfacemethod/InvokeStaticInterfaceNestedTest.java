@@ -38,7 +38,11 @@ public class InvokeStaticInterfaceNestedTest extends TestBase {
   public static List<Object[]> data() {
     return buildParameters(
         BooleanUtils.values(),
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build());
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build());
   }
 
   private void inspectRunResult(TestRunResult<?> runResult, boolean isDesugared) {
@@ -88,6 +92,7 @@ public class InvokeStaticInterfaceNestedTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     assertFailsCompilationIf(
         !allowInvokeErrors,
         () ->

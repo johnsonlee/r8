@@ -4,14 +4,11 @@
 
 package com.android.tools.r8.jdk21.jdk8272564;
 
-import static org.junit.Assume.assumeTrue;
-
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
-import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.DescriptorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,7 +18,7 @@ import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.Opcodes;
 
 @RunWith(Parameterized.class)
-public class Jdk8272564InvalidCode extends TestBase {
+public class Jdk8272564InvalidCodeTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -29,19 +26,16 @@ public class Jdk8272564InvalidCode extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK21)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
   @Parameter(0)
   public TestParameters parameters;
 
-  private boolean isDefaultCfParameters() {
-    return parameters.isCfRuntime() && parameters.getApiLevel().equals(AndroidApiLevel.B);
-  }
-
   @Test
   public void testRuntime() throws Exception {
-    assumeTrue(isDefaultCfParameters());
+    parameters.assumeJvmTestParameters();
     testForJvm(parameters)
         .addProgramClasses(I.class)
         .addProgramClassFileData(getTransformedClass())
@@ -51,7 +45,6 @@ public class Jdk8272564InvalidCode extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
-    assumeTrue(parameters.isDexRuntime() || isDefaultCfParameters());
     testForDesugaring(parameters)
         .addStrippedOuter(getClass())
         .addProgramClasses(I.class)
@@ -67,6 +60,7 @@ public class Jdk8272564InvalidCode extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     // The R8 lens code rewriter rewrites to the code prior to fixing JDK-8272564.
     testForR8(parameters.getBackend())
         .addStrippedOuter(getClass())

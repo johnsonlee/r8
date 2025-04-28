@@ -15,25 +15,28 @@ import java.util.ArrayList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DesugarLambdaDontPublicize extends TestBase {
+public class DesugarLambdaDontPublicizeTest extends TestBase {
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
-  private final TestParameters parameters;
-
-  public DesugarLambdaDontPublicize(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Test
   public void testDesugar() throws Exception {
     testForDesugaring(parameters)
-        .addInnerClasses(DesugarLambdaDontPublicize.class)
+        .addInnerClasses(DesugarLambdaDontPublicizeTest.class)
         .run(parameters.getRuntime(), TestClass.class)
         .assertSuccessWithOutputLines("foobar")
         .inspectIf(

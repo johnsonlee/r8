@@ -29,7 +29,11 @@ public class ConstantDynamicInDefaultInterfaceMethodICCETest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final Class<?> MAIN_CLASS = A.class;
@@ -70,6 +74,7 @@ public class ConstantDynamicInDefaultInterfaceMethodICCETest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClasses(MAIN_CLASS)
         .addProgramClassFileData(getTransformedClasses())

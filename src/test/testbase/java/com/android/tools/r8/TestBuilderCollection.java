@@ -25,7 +25,12 @@ public abstract class TestBuilderCollection<
     this.builders = builders;
   }
 
-  private T forEach(Consumer<TestBuilder<? extends TestRunResult<?>, ?>> fn) {
+  public T allowDiagnosticWarningMessages() {
+    forEach(b -> b.applyIfR8(R8TestBuilder::allowDiagnosticWarningMessages));
+    return self();
+  }
+
+  public T forEach(Consumer<TestBuilder<? extends TestRunResult<?>, ?>> fn) {
     builders.forEach(b -> fn.accept(b.getSecond()));
     return self();
   }

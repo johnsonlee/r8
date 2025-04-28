@@ -30,7 +30,11 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT_WITH_METHOD_HANDLES =
@@ -66,6 +70,8 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
+    // TODO(b/414327631): Fixme.
+    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -90,6 +96,7 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeDexRuntime();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getTransformedClasses())
         .setMinApi(parameters)
@@ -104,6 +111,7 @@ public class ConstantDynamicGetDeclaredMethodsTest extends TestBase {
   @Test
   public void testR8KeepBootstrapMethod() throws Exception {
     parameters.assumeDexRuntime();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(getTransformedClasses())
         .setMinApi(parameters)

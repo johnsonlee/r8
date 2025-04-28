@@ -15,10 +15,11 @@ import java.util.concurrent.Callable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DesugarInnerClassesInInterfaces extends TestBase {
+public class DesugarInnerClassesInInterfacesTest extends TestBase {
 
   private final List<String> EXPECTED_RESULT_WITHOUT_DESUGARING =
       ImmutableList.of(
@@ -33,19 +34,20 @@ public class DesugarInnerClassesInInterfaces extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
-  private final TestParameters parameters;
-
-  public DesugarInnerClassesInInterfaces(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Test
   public void testDesugar() throws Exception {
     testForDesugaring(parameters)
-        .addInnerClasses(DesugarInnerClassesInInterfaces.class)
+        .addInnerClasses(getClass())
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             DesugarTestConfiguration::isNotDesugared,
@@ -64,8 +66,9 @@ public class DesugarInnerClassesInInterfaces extends TestBase {
   @Test
   public void testR8Compat() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8Compat(parameters.getBackend())
-        .addInnerClasses(DesugarInnerClassesInInterfaces.class)
+        .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addKeepAllClassesRule()
         .addKeepAttributeInnerClassesAndEnclosingMethod()
@@ -81,8 +84,9 @@ public class DesugarInnerClassesInInterfaces extends TestBase {
   @Test
   public void testR8Full() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
-        .addInnerClasses(DesugarInnerClassesInInterfaces.class)
+        .addInnerClasses(getClass())
         .setMinApi(parameters)
         .addKeepAllClassesRule()
         .addKeepAttributeInnerClassesAndEnclosingMethod()

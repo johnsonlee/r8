@@ -24,29 +24,32 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DesugarLambdaWithLocalClass extends TestBase {
+public class DesugarLambdaWithLocalClassTest extends TestBase {
 
-  private List<String> EXPECTED_JAVAC_RESULT =
+  private static final List<String> EXPECTED_JAVAC_RESULT =
       ImmutableList.of("Hello from inside lambda$test$0", "Hello from inside lambda$testStatic$1");
 
-  private List<String> EXPECTED_D8_DESUGARED_RESULT =
+  private static final List<String> EXPECTED_D8_DESUGARED_RESULT =
       ImmutableList.of(
           "Hello from inside"
-              + " lambda$test$0$com-android-tools-r8-desugar-DesugarLambdaWithLocalClass$TestClass",
+              + " lambda$test$0$com-android-tools-r8-desugar-DesugarLambdaWithLocalClassTest$TestClass",
           "Hello from inside lambda$testStatic$1");
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
-  private final TestParameters parameters;
-
-  public DesugarLambdaWithLocalClass(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   static class Counter {
     private int count = 0;
@@ -84,8 +87,8 @@ public class DesugarLambdaWithLocalClass extends TestBase {
   public static void checkExpectedJavacNames() throws Exception {
     CodeInspector inspector =
         new CodeInspector(
-            ToolHelper.getClassFilesForInnerClasses(DesugarLambdaWithLocalClass.class));
-    String outer = DesugarLambdaWithLocalClass.class.getTypeName();
+            ToolHelper.getClassFilesForInnerClasses(DesugarLambdaWithLocalClassTest.class));
+    String outer = DesugarLambdaWithLocalClassTest.class.getTypeName();
     ClassSubject testClass = inspector.clazz(outer + "$TestClass");
     assertThat(testClass, isPresent());
     assertThat(testClass.uniqueMethodWithOriginalName("lambda$test$0"), isPresent());
@@ -97,7 +100,7 @@ public class DesugarLambdaWithLocalClass extends TestBase {
   @Test
   public void testDesugar() throws Exception {
     testForDesugaring(parameters)
-        .addInnerClasses(DesugarLambdaWithLocalClass.class)
+        .addInnerClasses(DesugarLambdaWithLocalClassTest.class)
         .run(parameters.getRuntime(), TestClass.class)
         .inspect(this::checkEnclosingMethod)
         .applyIf(
@@ -111,8 +114,9 @@ public class DesugarLambdaWithLocalClass extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
-        .addInnerClasses(DesugarLambdaWithLocalClass.class)
+        .addInnerClasses(DesugarLambdaWithLocalClassTest.class)
         .setMinApi(parameters)
         // Keep the synthesized inner classes.
         .addKeepRules("-keep class **.*$TestClass$*MyConsumerImpl")

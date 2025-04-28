@@ -6,7 +6,6 @@ package com.android.tools.r8.jdk21.jdk8272564;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
@@ -34,6 +33,7 @@ public class Jdk8272564Test extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK20)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -118,14 +118,10 @@ public class Jdk8272564Test extends TestBase {
     assertJdk8272564NotFixedCode(inspector, 19, 0);
   }
 
-  private boolean isDefaultCfParameters() {
-    return parameters.isCfRuntime() && parameters.getApiLevel().equals(AndroidApiLevel.B);
-  }
-
   @Test
   // See https://bugs.openjdk.java.net/browse/JDK-8272564.
   public void testJdk8272564Compiler() throws Exception {
-    assumeTrue(isDefaultCfParameters());
+    parameters.assumeJvmTestParameters();
     AndroidApp build =
         AndroidApp.builder()
             .addProgramFiles(ToolHelper.getClassFileForTestClass(Main.class))
@@ -140,7 +136,7 @@ public class Jdk8272564Test extends TestBase {
 
   @Test
   public void testJvm() throws Exception {
-    assumeTrue(isDefaultCfParameters());
+    parameters.assumeJvmTestParameters();
     testForJvm(parameters)
         .addProgramClasses(getInput())
         .run(parameters.getRuntime(), Main.class)
@@ -148,7 +144,7 @@ public class Jdk8272564Test extends TestBase {
   }
 
   @Test
-  public void testD8() throws Exception {
+  public void testDesugaring() throws Exception {
     testForDesugaring(parameters)
         .addProgramClasses(getInput())
         .run(parameters.getRuntime(), Main.class)
@@ -162,6 +158,7 @@ public class Jdk8272564Test extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     // The R8 lens code rewriter rewrites to the code prior to fixing JDK-8272564.
     testForR8(parameters.getBackend())
         .addProgramClasses(getInput())

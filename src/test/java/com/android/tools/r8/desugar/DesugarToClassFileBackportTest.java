@@ -26,20 +26,23 @@ import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class DesugarToClassFileBackport extends TestBase {
+public class DesugarToClassFileBackportTest extends TestBase {
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
-  private final TestParameters parameters;
-
-  public DesugarToClassFileBackport(TestParameters parameters) {
-    this.parameters = parameters;
-  }
+  @Parameter(0)
+  public TestParameters parameters;
 
   private boolean isCfLAdd(CfInstruction instruction) {
     return (instruction instanceof CfArithmeticBinop)
@@ -97,7 +100,7 @@ public class DesugarToClassFileBackport extends TestBase {
   @Test
   public void test() throws Exception {
     testForDesugaring(parameters)
-        .addInnerClasses(DesugarToClassFileBackport.class)
+        .addInnerClasses(DesugarToClassFileBackportTest.class)
         .run(parameters.getRuntime(), TestClass.class)
         .inspectIf(DesugarTestConfiguration::isNotDesugared, this::checkBackportingNotRequired)
         .inspectIf(DesugarTestConfiguration::isDesugared, this::checkBackportedIfRequired)

@@ -21,6 +21,8 @@ import java.lang.invoke.MethodType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 
@@ -34,21 +36,19 @@ import org.objectweb.asm.Opcodes;
 @RunWith(Parameterized.class)
 public class InvokeDynamicVirtualDispatchToDefaultInterfaceMethodTest extends TestBase {
 
-  static final String EXPECTED = StringUtils.lines("Called I.foo");
+  private static final String EXPECTED = StringUtils.lines("Called I.foo");
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
         .withAllRuntimes()
         .withApiLevelsStartingAtIncluding(apiLevelWithInvokeCustomSupport())
         .enableApiLevelsForCf()
+        .withPartialCompilation()
         .build();
-  }
-
-  public InvokeDynamicVirtualDispatchToDefaultInterfaceMethodTest(TestParameters parameters) {
-    this.parameters = parameters;
   }
 
   @Test
@@ -65,6 +65,7 @@ public class InvokeDynamicVirtualDispatchToDefaultInterfaceMethodTest extends Te
     assumeTrue(
         "Only test one R8/CF build.",
         parameters.isDexRuntime() || parameters.getApiLevel() == apiLevelWithInvokeCustomSupport());
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .allowAccessModification()
         .addProgramClasses(I.class, A.class)

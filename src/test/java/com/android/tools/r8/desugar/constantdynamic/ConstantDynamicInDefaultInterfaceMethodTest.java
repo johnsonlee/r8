@@ -31,7 +31,11 @@ public class ConstantDynamicInDefaultInterfaceMethodTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("true", "true");
@@ -50,6 +54,8 @@ public class ConstantDynamicInDefaultInterfaceMethodTest extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
+    // TODO(b/414327631): Fixme.
+    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClasses(MAIN_CLASS)
         .addProgramClassFileData(getTransformedClasses())
@@ -72,6 +78,7 @@ public class ConstantDynamicInDefaultInterfaceMethodTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClasses(MAIN_CLASS)
         .addProgramClassFileData(getTransformedClasses())

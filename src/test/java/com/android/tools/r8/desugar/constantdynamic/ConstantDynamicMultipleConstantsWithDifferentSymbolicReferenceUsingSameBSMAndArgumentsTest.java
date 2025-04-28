@@ -33,7 +33,11 @@ public class ConstantDynamicMultipleConstantsWithDifferentSymbolicReferenceUsing
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String MAIN_CLASS = "A";
@@ -52,6 +56,8 @@ public class ConstantDynamicMultipleConstantsWithDifferentSymbolicReferenceUsing
 
   @Test
   public void testDesugaring() throws Exception {
+    // TODO(b/414327631): Fixme.
+    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClassFileData(classFileData)
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -73,6 +79,7 @@ public class ConstantDynamicMultipleConstantsWithDifferentSymbolicReferenceUsing
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addProgramClassFileData(classFileData)
         .setMinApi(parameters)

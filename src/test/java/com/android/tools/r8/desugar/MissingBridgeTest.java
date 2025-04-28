@@ -15,6 +15,8 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class MissingBridgeTest extends TestBase {
@@ -22,19 +24,21 @@ public class MissingBridgeTest extends TestBase {
   static final String EXPECTED_WITH_BRIDGE = StringUtils.lines("null", "non-null");
   static final String EXPECTED_WITHOUT_BRIDGE = StringUtils.lines("null", "null");
 
-  private final TestParameters parameters;
-  private final boolean withBridge;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}, bridge:{1}")
+  @Parameter(1)
+  public boolean withBridge;
+
+  @Parameters(name = "{0}, bridge:{1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
-  }
-
-  public MissingBridgeTest(TestParameters parameters, boolean withBridge) {
-    this.parameters = parameters;
-    this.withBridge = withBridge;
   }
 
   private String getExpected() {

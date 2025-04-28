@@ -17,18 +17,16 @@ import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class LambdaJava17Test extends TestBase {
 
-  public LambdaJava17Test(TestParameters parameters) {
-    this.parameters = parameters;
-  }
-
   private static final String EXPECTED_RESULT = "[abb, bbc]";
 
-  private final TestParameters parameters;
+  @Parameter(0)
+  public TestParameters parameters;
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
@@ -36,6 +34,7 @@ public class LambdaJava17Test extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withDexRuntimes()
         .withAllApiLevels()
+        .withPartialCompilation()
         .enableApiLevelsForCf()
         .build();
   }
@@ -50,7 +49,7 @@ public class LambdaJava17Test extends TestBase {
   }
 
   @Test
-  public void testJavaD8() throws Exception {
+  public void testDesugaring() throws Exception {
     testForDesugaring(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .run(parameters.getRuntime(), Lambda.class)
@@ -60,6 +59,7 @@ public class LambdaJava17Test extends TestBase {
   @Test
   public void testR8() throws Exception {
     Assume.assumeTrue(parameters.isDexRuntime() || parameters.getApiLevel().equals(B));
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addInnerClassesAndStrippedOuter(getClass())
         .applyIf(

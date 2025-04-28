@@ -6,6 +6,7 @@ package com.android.tools.r8.desugaring.interfacemethods;
 import static org.junit.Assert.assertFalse;
 
 import com.android.tools.r8.TestBase;
+import com.android.tools.r8.TestBuilderCollection;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestRuntime.CfVm;
@@ -15,29 +16,33 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class StaticInterfaceMethodReferenceTest extends TestBase {
 
-  private final TestParameters parameters;
-  private final boolean isInterface;
+  @Parameter(0)
+  public TestParameters parameters;
 
-  @Parameterized.Parameters(name = "{0}, itf:{1}")
+  @Parameter(1)
+  public boolean isInterface;
+
+  @Parameters(name = "{0}, itf:{1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build(),
+        getTestParameters()
+            .withAllRuntimes()
+            .withAllApiLevelsAlsoForCf()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
-  }
-
-  public StaticInterfaceMethodReferenceTest(TestParameters parameters, boolean isInterface) {
-    this.parameters = parameters;
-    this.isInterface = isInterface;
   }
 
   @Test
   public void test() throws Exception {
     TestRunResult<?> result =
-        testForDesugaring(parameters, o -> o.testing.allowInvokeErrors = true)
+        testForDesugaring(parameters)
             .addProgramClasses(TestClass.class)
             .addProgramClassFileData(getTarget(isInterface))
             .run(parameters.getRuntime(), TestClass.class);
@@ -47,9 +52,13 @@ public class StaticInterfaceMethodReferenceTest extends TestBase {
   @Test
   public void testTargetMissing() throws Exception {
     TestRunResult<?> result =
-        testForDesugaring(parameters, o -> o.testing.allowInvokeErrors = true)
+        testForDesugaring(parameters)
             .addProgramClasses(TestClass.class)
             .addRunClasspathFiles(buildOnDexRuntime(parameters, getTarget(isInterface)))
+            .applyIf(
+                parameters.getPartialCompilationTestParameters().isSome()
+                    && !parameters.canUseDefaultAndStaticInterfaceMethods(),
+                TestBuilderCollection::allowDiagnosticWarningMessages)
             .run(parameters.getRuntime(), TestClass.class);
     // Missing target will cause the call to remain as Target::foo rather than Target$-CC::foo.
     // TODO(b/166726895): Support static interface invoke as no knowledge of Target is needed.

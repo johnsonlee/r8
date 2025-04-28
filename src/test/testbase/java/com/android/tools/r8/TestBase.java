@@ -346,11 +346,11 @@ public class TestBase {
     return testForRuntime(parameters.getRuntime(), parameters.getApiLevel());
   }
 
-  public TestBuilder<DesugarTestRunResult, ?> testForDesugaring(TestParameters parameters) {
+  public DesugarTestBuilder testForDesugaring(TestParameters parameters) {
     return testForDesugaring(parameters, null);
   }
 
-  public TestBuilder<DesugarTestRunResult, ?> testForDesugaring(
+  public DesugarTestBuilder testForDesugaring(
       TestParameters parameters, Consumer<InternalOptions> optionsModification) {
     return internalTestForDesugaring(parameters, optionsModification, Predicates.alwaysTrue());
   }
@@ -358,14 +358,14 @@ public class TestBase {
   @Deprecated
   // This is not supposed to be used for tests. It is here for debugging where filtering to run
   // only some (typically one) test configuration is helpful.
-  public TestBuilder<DesugarTestRunResult, ?> testForDesugaring(
+  public DesugarTestBuilder testForDesugaring(
       TestParameters parameters,
       Consumer<InternalOptions> optionsModification,
       Predicate<DesugarTestConfiguration> filter) {
     return internalTestForDesugaring(parameters, optionsModification, filter);
   }
 
-  private TestBuilder<DesugarTestRunResult, ?> internalTestForDesugaring(
+  private DesugarTestBuilder internalTestForDesugaring(
       TestParameters parameters,
       Consumer<InternalOptions> optionsModification,
       Predicate<DesugarTestConfiguration> filter) {
@@ -1761,7 +1761,7 @@ public class TestBase {
   public Path buildOnDexRuntime(TestParameters parameters, byte[]... classes)
       throws IOException, CompilationFailedException {
     if (parameters.isDexRuntime()) {
-      return testForD8()
+      return testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
           .addProgramClassFileData(classes)
           .setMinApi(parameters)
           .compile()

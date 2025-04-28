@@ -12,6 +12,7 @@ import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.synthesis.SyntheticItemsTestUtils;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
@@ -29,7 +30,11 @@ public class LambdaFactoryTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimes().withAllApiLevelsAlsoForCf().build();
+    return getTestParameters()
+        .withAllRuntimes()
+        .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
+        .build();
   }
 
   private static final String EXPECTED_OUTPUT = StringUtils.lines("1", "2", "3", "4.0", "5");
@@ -81,12 +86,27 @@ public class LambdaFactoryTest extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
-    testForDesugaring(
-            parameters,
-            options -> {
-              options.testing.alwaysGenerateLambdaFactoryMethods = true;
-            })
+    testForDesugaring(parameters)
         .addInnerClasses(getClass())
+        .forEach(
+            builder -> {
+              if (builder.isD8TestBuilder()) {
+                builder
+                    .asD8TestBuilder()
+                    .addOptionsModification(this::configureAlwaysGenerateLambdaFactoryMethods);
+              } else if (builder.isD8IntermediateTestBuilder()) {
+                builder
+                    .asD8IntermediateTestBuilder()
+                    .addOptionsModification(this::configureAlwaysGenerateLambdaFactoryMethods);
+              } else if (builder.isR8PartialTestBuilder()) {
+                builder
+                    .asR8PartialTestBuilder()
+                    .addR8PartialD8OptionsModification(
+                        this::configureAlwaysGenerateLambdaFactoryMethods);
+              } else {
+                assert builder.isJvmTestBuilder();
+              }
+            })
         .run(parameters.getRuntime(), TestClass.class)
         .applyIf(
             DesugarTestConfiguration::isDesugared,
@@ -107,9 +127,14 @@ public class LambdaFactoryTest extends TestBase {
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
+  private void configureAlwaysGenerateLambdaFactoryMethods(InternalOptions options) {
+    options.getTestingOptions().alwaysGenerateLambdaFactoryMethods = true;
+  }
+
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addInnerClasses(getClass())
         .addKeepMainRule(TestClass.class)

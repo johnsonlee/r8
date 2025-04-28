@@ -104,8 +104,40 @@ public abstract class TestBuilder<RR extends TestRunResult<RR>, T extends TestBu
     return self;
   }
 
+  public boolean isD8TestBuilder() {
+    return false;
+  }
+
+  public D8TestBuilder asD8TestBuilder() {
+    return null;
+  }
+
+  public boolean isD8IntermediateTestBuilder() {
+    return false;
+  }
+
+  public IntermediateCfD8TestBuilder asD8IntermediateTestBuilder() {
+    return null;
+  }
+
   public boolean isJvmTestBuilder() {
     return false;
+  }
+
+  public boolean isR8TestBuilder() {
+    return false;
+  }
+
+  public R8TestBuilder<?, ?, ?> asR8TestBuilder() {
+    return null;
+  }
+
+  public boolean isR8PartialTestBuilder() {
+    return false;
+  }
+
+  public R8PartialTestBuilder asR8PartialTestBuilder() {
+    return null;
   }
 
   @Deprecated

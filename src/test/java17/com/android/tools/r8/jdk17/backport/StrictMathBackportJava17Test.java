@@ -25,6 +25,7 @@ public class StrictMathBackportJava17Test extends TestBase {
         .withDexRuntimes()
         .withCfRuntimesStartingFromIncluding(CfVm.JDK17)
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 

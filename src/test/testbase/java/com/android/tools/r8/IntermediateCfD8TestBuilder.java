@@ -37,6 +37,16 @@ public class IntermediateCfD8TestBuilder
   }
 
   @Override
+  public boolean isD8IntermediateTestBuilder() {
+    return true;
+  }
+
+  @Override
+  public IntermediateCfD8TestBuilder asD8IntermediateTestBuilder() {
+    return this;
+  }
+
+  @Override
   IntermediateCfD8TestBuilder self() {
     return this;
   }
