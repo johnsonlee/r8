@@ -143,7 +143,12 @@ public class R8PartialCompilationConfiguration {
     public Builder randomizeForTesting(long seed) {
       randomizeForTesting = new Random();
       randomizeForTesting.setSeed(seed);
-      System.out.println("Partial compilation seed: " + seed);
+      System.out.println(
+          "Partial compilation seed: "
+              + seed
+              + ". Use .setPartialCompilationSeed(parameters, "
+              + seed
+              + "L) to reproduce.");
       return this;
     }
 
