@@ -57,8 +57,10 @@ import com.android.tools.r8.ir.desugar.itf.InterfaceDesugaringSyntheticHelper;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.MethodSynthesizerConsumer;
 import com.android.tools.r8.ir.optimize.UtilityMethodsForCodeOptimizations.UtilityMethodForCodeOptimizations;
+import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
 import com.android.tools.r8.utils.AndroidApiLevel;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
@@ -391,8 +393,7 @@ public class ConstantDynamicClass {
     if (finalDefinition != null) {
       // Since we've copied the code object from an existing method, the code should already be
       // processed, and thus we don't need to schedule it for processing in D8.
-      assert !appView.options().isGeneratingClassFiles() || finalDefinition.getCode().isCfCode();
-      assert !appView.options().isGeneratingDex() || finalDefinition.getCode().isDexCode();
+      assert verifyCodeMatchesBackend(appView, finalDefinition);
       finalMethod = finalDefinition.asProgramMethod(bootstrapMethodHolder);
       eventConsumer.acceptConstantDynamicRewrittenBootstrapMethod(
           finalMethod, bootstrapMethodReference);
@@ -405,6 +406,21 @@ public class ConstantDynamicClass {
     assert finalMethod.getDefinition().isPublicMethod();
   }
 
+  private boolean verifyCodeMatchesBackend(AppView<?> appView, DexEncodedMethod method) {
+    InternalOptions options = appView.options();
+    if (options.isGeneratingClassFiles()) {
+      assert method.getCode().isCfCode();
+    } else if (options.isGeneratingDex()) {
+      R8PartialSubCompilationConfiguration subCompilationConfiguration =
+          options.partialSubCompilationConfiguration;
+      assert method.getCode().isDexCode()
+          || (subCompilationConfiguration != null
+              && subCompilationConfiguration.isD8()
+              && method.getCode().isLirCode());
+    }
+    return true;
+  }
+
   @SuppressWarnings("ReferenceEquality")
   private DexType mapLookupTypeToObject(DexType type) {
     return type == appView.dexItemFactory().lookupType ? appView.dexItemFactory().objectType : type;
@@ -412,25 +428,26 @@ public class ConstantDynamicClass {
 
   private Code adaptCode(DexEncodedMethod method) {
     assert behaviour == CACHE_CONSTANT;
-    if (method.getCode().isDexCode()) {
-      return method.getCode();
+    Code code = method.getCode();
+    if (code.isDexCode() || code.isLirCode()) {
+      return code;
     }
-    CfCode code = method.getCode().asCfCode();
+    CfCode cfCode = code.asCfCode();
     List<CfInstruction> newInstructions =
         ListUtils.mapOrElse(
-            code.getInstructions(),
+            cfCode.getInstructions(),
             instruction ->
                 instruction.isFrame()
                     ? instruction.asFrame().mapReferenceTypes(this::mapLookupTypeToObject)
                     : instruction);
-    return code.getInstructions() != newInstructions
+    return cfCode.getInstructions() != newInstructions
         ? new CfCode(
             method.getHolderType(),
-            code.getMaxStack(),
-            code.getMaxLocals(),
+            cfCode.getMaxStack(),
+            cfCode.getMaxLocals(),
             newInstructions,
-            code.getTryCatchRanges(),
-            code.getLocalVariables())
-        : code;
+            cfCode.getTryCatchRanges(),
+            cfCode.getLocalVariables())
+        : cfCode;
   }
 }

@@ -57,8 +57,6 @@ public class ConstantDynamicRegress272346803Test extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
-    // TODO(b/414327631): Fixme.
-    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClasses(Main.class)
         .addProgramClassFileData(getTransformedClasses())

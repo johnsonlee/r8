@@ -55,8 +55,6 @@ public class MultipleTypesConstantDynamicTest extends TestBase {
 
   @Test
   public void testDesugaring() throws Exception {
-    // TODO(b/414327631): Fixme.
-    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .run(parameters.getRuntime(), MAIN_CLASS)

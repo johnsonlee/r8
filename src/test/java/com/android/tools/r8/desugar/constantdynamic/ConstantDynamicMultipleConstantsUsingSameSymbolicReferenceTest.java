@@ -55,8 +55,6 @@ public class ConstantDynamicMultipleConstantsUsingSameSymbolicReferenceTest exte
 
   @Test
   public void testDesugaring() throws Exception {
-    // TODO(b/414327631): Fixme.
-    parameters.assumeNoPartialCompilation();
     testForDesugaring(parameters)
         .addProgramClassFileData(getTransformedClasses())
         .addProgramClasses(Main.class)
