@@ -5,7 +5,6 @@ package com.android.tools.r8.shaking;
 
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexItemFactory;
-import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.utils.InternalOptions;
 import java.util.List;
@@ -117,14 +116,14 @@ public class KeepClassInfo extends KeepInfo<KeepClassInfo.Builder, KeepClassInfo
 
   public static boolean isKotlinMetadataClassKept(
       DexItemFactory factory,
+      KeepInfoCollection keepInfo,
       InternalOptions options,
-      Function<DexType, DexClass> definitionForWithoutExistenceAssert,
-      Function<DexProgramClass, KeepClassInfo> getClassInfo) {
+      Function<DexType, DexClass> definitionForWithoutExistenceAssert) {
     DexType kotlinMetadataType = factory.kotlinMetadataType;
     DexClass kotlinMetadataClass = definitionForWithoutExistenceAssert.apply(kotlinMetadataType);
     return kotlinMetadataClass == null
         || kotlinMetadataClass.isNotProgramClass()
-        || !getClassInfo.apply(kotlinMetadataClass.asProgramClass()).isShrinkingAllowed(options);
+        || !keepInfo.isKotlinMetadataRemovalAllowed(options);
   }
 
   public boolean isPermittedSubclassesRemovalAllowed(GlobalKeepInfoConfiguration configuration) {

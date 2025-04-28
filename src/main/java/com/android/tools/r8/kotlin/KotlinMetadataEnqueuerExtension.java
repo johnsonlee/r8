@@ -78,9 +78,9 @@ public class KotlinMetadataEnqueuerExtension implements FinishedEnqueuerAnalysis
     boolean keepKotlinMetadata =
         KeepClassInfo.isKotlinMetadataClassKept(
             factory,
+            enqueuer.getKeepInfo(),
             appView.options(),
-            appView.appInfo()::definitionForWithoutExistenceAssert,
-            enqueuer::getKeepInfo);
+            appView.appInfo()::definitionForWithoutExistenceAssert);
     // In the first round of tree shaking build up all metadata such that it can be traced later.
     if (enqueuer.getMode().isInitialTreeShaking()) {
       Set<DexMethod> keepByteCodeFunctions = Sets.newIdentityHashSet();
