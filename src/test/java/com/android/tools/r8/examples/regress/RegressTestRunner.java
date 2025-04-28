@@ -14,11 +14,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RegressTestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public RegressTestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -31,20 +26,5 @@ public class RegressTestRunner extends ExamplesTestBase {
   @Override
   public String getExpected() {
     return StringUtils.lines("LOOP", "LOOP", "LOOP", "LOOP");
-  }
-
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

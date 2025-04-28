@@ -14,11 +14,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class LoadConstTestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public LoadConstTestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -32,20 +27,5 @@ public class LoadConstTestRunner extends ExamplesTestBase {
   public String getExpected() {
     return StringUtils.lines(
         "21474836471234.5foobar", "class com.android.tools.r8.examples.loadconst.LoadConst");
-  }
-
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

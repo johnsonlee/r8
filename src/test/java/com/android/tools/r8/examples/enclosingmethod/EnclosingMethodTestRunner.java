@@ -3,14 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.examples.enclosingmethod;
 
+import static org.junit.Assume.assumeFalse;
+
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,11 +18,6 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class EnclosingMethodTestRunner extends ExamplesTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
 
   public EnclosingMethodTestRunner(TestParameters parameters) {
     super(parameters);
@@ -78,12 +73,14 @@ public class EnclosingMethodTestRunner extends ExamplesTestBase {
   }
 
   @Test
+  @Override
   public void testDesugaring() throws Exception {
-    Assume.assumeFalse(isDalvikWithIncorrectBehavior());
-    runTestDesugaring();
+    assumeFalse(isDalvikWithIncorrectBehavior());
+    super.testDesugaring();
   }
 
   @Test
+  @Override
   public void testR8() throws Exception {
     // The program reflects on inner-outer classes so disable all shrinking and optimization.
     runTestR8(b -> b.addDontShrink().addDontOptimize().addDontObfuscate().addKeepAllAttributes());
@@ -91,7 +88,8 @@ public class EnclosingMethodTestRunner extends ExamplesTestBase {
 
   @Ignore("TODO(b/281805219): R8 output steps to a different line number.")
   @Test
+  @Override
   public void testDebug() throws Exception {
-    runTestDebugComparator();
+    super.testDebug();
   }
 }

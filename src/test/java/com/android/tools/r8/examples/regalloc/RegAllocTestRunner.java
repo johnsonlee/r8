@@ -17,11 +17,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RegAllocTestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public RegAllocTestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -46,20 +41,5 @@ public class RegAllocTestRunner extends ExamplesTestBase {
         "sum: 33670",
         "binaryOpUsingHighRegistersLocals 518.0",
         "sum: 33670.0");
-  }
-
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

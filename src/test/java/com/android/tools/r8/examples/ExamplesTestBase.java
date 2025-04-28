@@ -5,6 +5,7 @@ package com.android.tools.r8.examples;
 
 import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.TestParameters;
+import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfRuntime;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
@@ -17,13 +18,39 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import org.junit.Assume;
+import org.junit.Test;
+import org.junit.runners.Parameterized.Parameters;
 
 public abstract class ExamplesTestBase extends DebugTestBase {
+
+  @Parameters(name = "{0}")
+  public static TestParametersCollection data() {
+    return getTestParameters()
+        .withAllRuntimesAndApiLevels()
+        .withPartialCompilation()
+        .enableApiLevelsForCf()
+        .build();
+  }
 
   public final TestParameters parameters;
 
   public ExamplesTestBase(TestParameters parameters) {
     this.parameters = parameters;
+  }
+
+  @Test
+  public void testDesugaring() throws Exception {
+    runTestDesugaring();
+  }
+
+  @Test
+  public void testR8() throws Exception {
+    runTestR8();
+  }
+
+  @Test
+  public void testDebug() throws Exception {
+    runTestDebugComparator();
   }
 
   public abstract String getExpected();
@@ -47,6 +74,7 @@ public abstract class ExamplesTestBase extends DebugTestBase {
 
   public void runTestR8(Consumer<R8FullTestBuilder> modifier) throws Exception {
     parameters.assumeR8TestParameters();
+    parameters.assumeNoPartialCompilation("TODO");
     testForR8(parameters.getBackend())
         .addOptionsModification(o -> o.testing.roundtripThroughLir = true)
         .setMinApi(parameters)
@@ -64,6 +92,7 @@ public abstract class ExamplesTestBase extends DebugTestBase {
     Assume.assumeTrue(
         "Streaming on Dalvik DEX runtimes has some unknown interference issue",
         parameters.isCfRuntime() || parameters.isDexRuntimeVersionNewerThanOrEqual(Version.V6_0_1));
+    parameters.assumeNoPartialCompilation("TODO");
 
     String mainTypeName = getMainClass().getTypeName();
     DebugStreamComparator comparator =

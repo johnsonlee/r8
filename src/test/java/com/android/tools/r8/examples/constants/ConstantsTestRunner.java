@@ -13,11 +13,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class ConstantsTestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public ConstantsTestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -37,20 +32,5 @@ public class ConstantsTestRunner extends ExamplesTestBase {
         + "-140737488355329-281474976710655"
         + "-11529215046068469751080863910568919041675539944105574414222124650659841"
         + "-922337203685477580728147497671065792233720368547758079223090561878065153";
-  }
-
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

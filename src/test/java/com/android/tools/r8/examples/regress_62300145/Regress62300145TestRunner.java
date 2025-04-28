@@ -4,7 +4,6 @@
 package com.android.tools.r8.examples.regress_62300145;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -15,11 +14,6 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class Regress62300145TestRunner extends ExamplesTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
 
   public Regress62300145TestRunner(TestParameters parameters) {
     super(parameters);
@@ -45,11 +39,7 @@ public class Regress62300145TestRunner extends ExamplesTestBase {
   }
 
   @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
+  @Override
   public void testR8() throws Exception {
     runTestR8(
         b ->
@@ -58,6 +48,10 @@ public class Regress62300145TestRunner extends ExamplesTestBase {
                 .addKeepClassRules(Regress.A.class, Regress.B.class));
   }
 
-  // Since DEX 9 and below have different runtime behavior it does not make sense to compare
-  // single stepping.
+  @Test
+  @Override
+  public void testDebug() throws Exception {
+    // Since DEX 9 and below have different runtime behavior it does not make sense to compare
+    // single stepping.
+  }
 }

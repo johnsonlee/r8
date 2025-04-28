@@ -15,16 +15,18 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class UdpServerTestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
+  @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters()
         // Test uses Executors.newWorkStealingPool introduced at API 24.
         .withApiLevelsStartingAtIncluding(AndroidApiLevel.N)
         .withAllRuntimes()
+        .withPartialCompilation()
         .enableApiLevelsForCf()
         .build();
   }
@@ -48,20 +50,11 @@ public class UdpServerTestRunner extends ExamplesTestBase {
     return StringUtils.lines("java.util.concurrent.TimeoutException");
   }
 
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
   // TODO(b/79671093): We don't match JVM's behavior on this example (line differences).
   @Ignore("b/79671093")
   @Test
+  @Override
   public void testDebug() throws Exception {
-    runTestDebugComparator();
+    super.testDebug();
   }
 }

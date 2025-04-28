@@ -4,7 +4,6 @@
 package com.android.tools.r8.examples.throwing;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -15,11 +14,6 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class ThrowingTestRunner extends ExamplesTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
 
   public ThrowingTestRunner(TestParameters parameters) {
     super(parameters);
@@ -116,18 +110,9 @@ public class ThrowingTestRunner extends ExamplesTestBase {
   }
 
   @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
+  @Override
   public void testR8() throws Exception {
     // The expected output includes the reflected frames so disable all optimization.
     runTestR8(b -> b.addDontOptimize().addDontObfuscate().addKeepAllAttributes());
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

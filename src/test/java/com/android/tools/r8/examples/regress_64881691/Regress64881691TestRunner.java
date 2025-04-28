@@ -4,7 +4,6 @@
 package com.android.tools.r8.examples.regress_64881691;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
@@ -15,11 +14,6 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class Regress64881691TestRunner extends ExamplesTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
 
   public Regress64881691TestRunner(TestParameters parameters) {
     super(parameters);
@@ -41,17 +35,8 @@ public class Regress64881691TestRunner extends ExamplesTestBase {
   }
 
   @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
+  @Override
   public void testR8() throws Exception {
     runTestR8(b -> b.addKeepClassRules(A.class, B.class));
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

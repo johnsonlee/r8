@@ -14,11 +14,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class FilledArrayTestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public FilledArrayTestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -129,20 +124,5 @@ public class FilledArrayTestRunner extends ExamplesTestBase {
         "ints = [0, 1, 2, 3, 4]",
         "Exception: class java.lang.ArithmeticException",
         "Exception: class java.lang.ArithmeticException");
-  }
-
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

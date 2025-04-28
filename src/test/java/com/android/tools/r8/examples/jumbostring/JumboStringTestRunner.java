@@ -4,7 +4,6 @@
 package com.android.tools.r8.examples.jumbostring;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
@@ -21,11 +20,6 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class JumboStringTestRunner extends ExamplesTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
 
   public JumboStringTestRunner(TestParameters parameters) {
     super(parameters);
@@ -47,19 +41,10 @@ public class JumboStringTestRunner extends ExamplesTestBase {
   }
 
   @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
+  @Override
   public void testR8() throws Exception {
     // Disable shrinking and obfuscation so that the fields and their names are retained.
     runTestR8(b -> b.addDontShrink().addDontObfuscate());
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 
   // Code for generating the StringPoolX.java files.

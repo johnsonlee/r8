@@ -16,11 +16,6 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class Regress72361252TestRunner extends ExamplesTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public Regress72361252TestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -53,20 +48,5 @@ public class Regress72361252TestRunner extends ExamplesTestBase {
         "mF = 0.0",
         "mD = 0.0",
         "mArray = [[[[[[[[[1.7861851E9]]]]]]]]]");
-  }
-
-  @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
-  public void testDebug() throws Exception {
-    runTestDebugComparator();
   }
 }

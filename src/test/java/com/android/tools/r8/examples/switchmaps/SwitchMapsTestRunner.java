@@ -4,12 +4,10 @@
 package com.android.tools.r8.examples.switchmaps;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -45,11 +43,6 @@ public class SwitchMapsTestRunner extends ExamplesTestBase {
           "fifty",
           "not really");
 
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
-
   public SwitchMapsTestRunner(TestParameters parameters) {
     super(parameters);
   }
@@ -74,19 +67,9 @@ public class SwitchMapsTestRunner extends ExamplesTestBase {
   }
 
   @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
   public void testDebug() throws Exception {
     // TODO(b/79671093): DEX has different line number info during stepping.
-    Assume.assumeTrue(parameters.isCfRuntime());
-    runTestDebugComparator();
+    parameters.assumeCfRuntime();
+    super.testDebug();
   }
 }

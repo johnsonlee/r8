@@ -4,7 +4,6 @@
 package com.android.tools.r8.examples.switches;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.examples.ExamplesTestBase;
 import com.android.tools.r8.utils.StringUtils;
 import org.apache.harmony.jpda.tests.framework.TestErrorException;
@@ -15,11 +14,6 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class SwitchesTestRunner extends ExamplesTestBase {
-
-  @Parameterized.Parameters(name = "{0}")
-  public static TestParametersCollection data() {
-    return getTestParameters().withAllRuntimesAndApiLevels().enableApiLevelsForCf().build();
-  }
 
   public SwitchesTestRunner(TestParameters parameters) {
     super(parameters);
@@ -54,19 +48,10 @@ public class SwitchesTestRunner extends ExamplesTestBase {
   }
 
   @Test
-  public void testDesugaring() throws Exception {
-    runTestDesugaring();
-  }
-
-  @Test
-  public void testR8() throws Exception {
-    runTestR8();
-  }
-
-  @Test
+  @Override
   public void testDebug() throws Exception {
     try {
-      runTestDebugComparator();
+      super.testDebug();
     } catch (TestErrorException e) {
       if (e.getCause() instanceof TimeoutException) {
         return;
