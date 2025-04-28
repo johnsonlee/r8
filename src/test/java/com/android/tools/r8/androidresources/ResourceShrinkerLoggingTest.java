@@ -13,6 +13,7 @@ import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.Android
 import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -32,7 +33,11 @@ public class ResourceShrinkerLoggingTest extends TestBase {
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -45,8 +50,8 @@ public class ResourceShrinkerLoggingTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
+    testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
         .addResourceShrinkerLogCapture()
@@ -58,10 +63,12 @@ public class ResourceShrinkerLoggingTest extends TestBase {
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               resourceTableInspector.assertContainsResourceWithName("string", "foo");
               resourceTableInspector.assertContainsResourceWithName("drawable", "foobar");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "unused_string");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "drawable", "unused_drawable");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "unused_string");
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "drawable", "unused_drawable");
+              }
             })
         .inspectResourceShrinkerLog(
             inspector -> {
@@ -80,8 +87,9 @@ public class ResourceShrinkerLoggingTest extends TestBase {
                 inspector.ensureReachableOptimized("string", "bar");
                 inspector.ensureReachableOptimized("string", "foo");
                 inspector.ensureReachableOptimized("drawable", "foobar");
-
-                inspector.ensureUnreachableOptimized("drawable", "unused_drawable");
+                if (!parameters.isRandomPartialCompilation()) {
+                  inspector.ensureUnreachableOptimized("drawable", "unused_drawable");
+                }
               }
             })
         .run(parameters.getRuntime(), FooBar.class)

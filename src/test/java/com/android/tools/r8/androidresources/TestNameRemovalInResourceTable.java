@@ -7,13 +7,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tools.r8.R8TestBuilder;
-import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResource;
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -33,7 +34,11 @@ public class TestNameRemovalInResourceTable extends TestBase {
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -46,9 +51,9 @@ public class TestNameRemovalInResourceTable extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    R8TestCompileResult r8TestCompileResult =
-        testForR8(parameters.getBackend())
-            .setMinApi(parameters)
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
+    R8TestCompileResultBase<?> r8TestCompileResult =
+        testForR8(parameters)
             .addProgramClasses(FooBar.class)
             .addAndroidResources(getTestResources(temp))
             .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
@@ -60,17 +65,21 @@ public class TestNameRemovalInResourceTable extends TestBase {
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               resourceTableInspector.assertContainsResourceWithName("string", "foo");
               resourceTableInspector.assertContainsResourceWithName("drawable", "foobar");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "unused_string");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "drawable", "unused_drawable");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "unused_string");
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "drawable", "unused_drawable");
+              }
             })
         .run(parameters.getRuntime(), FooBar.class)
         .assertSuccess();
     String dumpResources = r8TestCompileResult.dumpResources();
     if (optimized) {
-      assertFalse(dumpResources.contains("unused_string"));
-      assertFalse(dumpResources.contains("unused_drawable"));
+      if (!parameters.isRandomPartialCompilation()) {
+        assertFalse(dumpResources.contains("unused_string"));
+        assertFalse(dumpResources.contains("unused_drawable"));
+      }
     } else {
       assertTrue(dumpResources.contains("unused_string"));
       assertTrue(dumpResources.contains("unused_drawable"));

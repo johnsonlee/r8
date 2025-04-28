@@ -15,6 +15,7 @@ import com.android.tools.r8.utils.BooleanUtils;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -34,7 +35,11 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -64,13 +69,13 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     TemporaryFolder featureSplitTemp = ToolHelper.getTemporaryFolderForTest();
     featureSplitTemp.create();
 
     TemporaryFolder featureSplit2Temp = ToolHelper.getTemporaryFolderForTest();
     featureSplit2Temp.create();
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(Base.class)
         .addFeatureSplit(FeatureSplitMain.class)
         .addFeatureSplit(FeatureSplit2Main.class)
@@ -88,20 +93,27 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
         .inspectShrunkenResources(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "base_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName("string", "base_unused");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "base_unused");
+              }
             })
         .inspectShrunkenResourcesForFeature(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "feature_unused");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "feature_unused");
+              }
             },
             FeatureSplit.class.getName())
         .inspectShrunkenResourcesForFeature(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "feature2_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "feature2_unused");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "feature2_unused");
+              }
             },
             FeatureSplit2.class.getName())
         .inspectResourceShrinkerLog(
@@ -117,7 +129,9 @@ public class ResourceShrinkingWithSeveralFeaturesTest extends TestBase {
               for (String unused :
                   ImmutableList.of("base_unused", "feature_unused", "feature2_unused")) {
                 if (optimized) {
-                  inspector.ensureUnreachableOptimized("string", unused);
+                  if (!parameters.isRandomPartialCompilation()) {
+                    inspector.ensureUnreachableOptimized("string", unused);
+                  }
                 } else {
                   inspector.ensureUnreachable("string", unused);
                 }

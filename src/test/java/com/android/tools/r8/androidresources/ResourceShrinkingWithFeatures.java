@@ -7,9 +7,9 @@ import static com.android.tools.r8.DiagnosticsMatcher.diagnosticException;
 import static org.junit.Assert.fail;
 
 import com.android.tools.r8.CompilationFailedException;
-import com.android.tools.r8.R8FullTestBuilder;
 import com.android.tools.r8.R8TestBuilder;
-import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.R8TestCompileResultBase;
+import com.android.tools.r8.R8TestRunResult;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
@@ -19,6 +19,7 @@ import com.android.tools.r8.androidresources.ResourceShrinkingWithFeatures.Featu
 import com.android.tools.r8.utils.BooleanUtils;
 import java.io.IOException;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -41,7 +42,11 @@ public class ResourceShrinkingWithFeatures extends TestBase {
   @Parameters(name = "{0}, optimized: {1}, feature_package_id: {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withPartialCompilation()
+            .withAllApiLevels()
+            .build(),
         BooleanUtils.values(),
         // Ensure that we can handle resource ids both bigger and smaller than 127, see
         // b/378470047
@@ -65,9 +70,9 @@ public class ResourceShrinkingWithFeatures extends TestBase {
 
   @Test
   public void testFailureIfNotResourcesOrCode() throws Exception {
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     try {
-      testForR8(parameters.getBackend())
-          .setMinApi(parameters)
+      testForR8(parameters)
           .addProgramClasses(Base.class)
           .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
           .addFeatureSplit(builder -> builder.build())
@@ -94,21 +99,22 @@ public class ResourceShrinkingWithFeatures extends TestBase {
   }
 
   private void testR8(boolean referenceFromBase) throws Exception {
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     TemporaryFolder featureSplitTemp = ToolHelper.getTemporaryFolderForTest();
     featureSplitTemp.create();
-    R8FullTestBuilder r8FullTestBuilder =
-        testForR8(parameters.getBackend()).setMinApi(parameters).addProgramClasses(Base.class);
+    R8TestBuilder<? extends R8TestCompileResultBase<?>, R8TestRunResult, ?> r8FullTestBuilder =
+        testForR8(parameters).addProgramClasses(Base.class);
     if (referenceFromBase) {
       r8FullTestBuilder.addProgramClasses(FeatureSplit.FeatureSplitMain.class);
     } else {
       r8FullTestBuilder.addFeatureSplit(FeatureSplit.FeatureSplitMain.class);
     }
-    R8TestCompileResult compile =
+    R8TestCompileResultBase<?> compile =
         r8FullTestBuilder
             .addAndroidResources(getTestResources(temp))
             .addFeatureSplitAndroidResources(
                 getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
-            .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
+            .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
             .addKeepMainRule(Base.class)
             .addKeepMainRule(FeatureSplitMain.class)
             .compile();
@@ -116,13 +122,18 @@ public class ResourceShrinkingWithFeatures extends TestBase {
         .inspectShrunkenResources(
             resourceTableInspector -> {
               resourceTableInspector.assertContainsResourceWithName("string", "base_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName("string", "base_unused");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "base_unused");
+              }
             })
         .inspectShrunkenResourcesForFeature(
             resourceTableInspector -> {
-                resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
+              resourceTableInspector.assertContainsResourceWithName("string", "feature_used");
+              if (!parameters.isRandomPartialCompilation()) {
                 resourceTableInspector.assertDoesNotContainResourceWithName(
                     "string", "feature_unused");
+              }
             },
             FeatureSplit.class.getName())
         .run(parameters.getRuntime(), Base.class)

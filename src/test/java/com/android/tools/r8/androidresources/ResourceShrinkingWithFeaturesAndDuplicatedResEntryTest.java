@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestBuilder;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
@@ -12,6 +12,7 @@ import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.Android
 import com.android.tools.r8.utils.BooleanUtils;
 import java.io.IOException;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -33,7 +34,11 @@ public class ResourceShrinkingWithFeaturesAndDuplicatedResEntryTest extends Test
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withPartialCompilation()
+            .withAllApiLevels()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -60,35 +65,40 @@ public class ResourceShrinkingWithFeaturesAndDuplicatedResEntryTest extends Test
 
   @Test
   public void testR8() throws Exception {
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     TemporaryFolder featureSplitTemp = ToolHelper.getTemporaryFolderForTest();
     featureSplitTemp.create();
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(Base.class)
         .addFeatureSplit(FeatureSplit.FeatureSplitMain.class)
         .addAndroidResources(getTestResources(temp))
         .addFeatureSplitAndroidResources(
             getFeatureSplitTestResources(featureSplitTemp), FeatureSplit.class.getName())
-        .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
+        .applyIf(optimized, R8TestBuilder::enableOptimizedShrinking)
         .addKeepMainRule(Base.class)
         .addKeepMainRule(FeatureSplit.FeatureSplitMain.class)
         .compile()
         .inspectShrunkenResources(
             resourceTableInspector -> {
-              resourceTableInspector.assertDoesNotContainResourceWithName("xml", "base_unused_xml");
               resourceTableInspector.assertContainsResourceWithName("xml", "base_used_xml");
               resourceTableInspector.assertContainsResourceWithName("xml", "duplicated_xml");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "duplicated_xml");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "xml", "base_unused_xml");
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "duplicated_xml");
+              }
             })
         .inspectShrunkenResourcesForFeature(
             resourceTableInspector -> {
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "xml", "feature_unused_xml");
               resourceTableInspector.assertContainsResourceWithName("xml", "feature_used_xml");
               resourceTableInspector.assertContainsResourceWithName("xml", "duplicated_xml");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "duplicated_xml");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "xml", "feature_unused_xml");
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "duplicated_xml");
+              }
             },
             FeatureSplit.class.getName())
         .run(parameters.getRuntime(), Base.class)

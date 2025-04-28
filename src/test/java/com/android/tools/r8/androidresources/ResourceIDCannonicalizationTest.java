@@ -26,7 +26,11 @@ public class ResourceIDCannonicalizationTest extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withPartialCompilation()
+        .withAllApiLevels()
+        .build();
   }
 
   public static AndroidTestResource getTestResources(TemporaryFolder temp) throws Exception {
@@ -38,8 +42,7 @@ public class ResourceIDCannonicalizationTest extends TestBase {
 
   @Test
   public void testR8() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(FooBar.class)
         .addAndroidResources(getTestResources(temp))
         .addKeepMainRule(FooBar.class)
@@ -57,7 +60,9 @@ public class ResourceIDCannonicalizationTest extends TestBase {
                       .streamInstructions()
                       .filter(i -> i.isConstNumber(EXPECTED_RESOURCE_NUMBER))
                       .count();
-              assertEquals(1, constNumbers);
+              if (!parameters.isRandomPartialCompilation()) {
+                assertEquals(1, constNumbers);
+              }
             })
         .inspectShrunkenResources(
             resourceTableInspector -> {

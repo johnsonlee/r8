@@ -31,7 +31,11 @@ public class XmlFilesWithClassReferences extends TestBase {
 
   @Parameters(name = "{0}")
   public static TestParametersCollection parameters() {
-    return getTestParameters().withDefaultDexRuntime().withAllApiLevels().build();
+    return getTestParameters()
+        .withDefaultDexRuntime()
+        .withAllApiLevels()
+        .withPartialCompilation()
+        .build();
   }
 
   public static String VIEW_WITH_CLASS_ATTRIBUTE_REFERENCE =
@@ -85,8 +89,7 @@ public class XmlFilesWithClassReferences extends TestBase {
   public void testXmlReferenceWithBarClassInserted(String xmlFile, boolean assertFoo)
       throws Exception {
     String formatedXmlFile = String.format(xmlFile, Bar.class.getTypeName());
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    testForR8(parameters)
         .addProgramClasses(TestClass.class, Bar.class, BarFoo.class)
         .addAndroidResources(getTestResources(temp, formatedXmlFile))
         .addKeepMainRule(TestClass.class)
@@ -104,8 +107,10 @@ public class XmlFilesWithClassReferences extends TestBase {
               assertThat(barClass, isPresentAndNotRenamed());
               // We should have two and only two methods, the two constructors.
               assertEquals(barClass.allMethods(MethodSubject::isInstanceInitializer).size(), 2);
-              assertEquals(barClass.allMethods().size(), 2);
-              assertThat(codeInspector.clazz(BarFoo.class), assertFoo ? isPresent() : isAbsent());
+              if (!parameters.isRandomPartialCompilation()) {
+                assertEquals(barClass.allMethods().size(), 2);
+                assertThat(codeInspector.clazz(BarFoo.class), assertFoo ? isPresent() : isAbsent());
+              }
             })
         .assertSuccess();
   }

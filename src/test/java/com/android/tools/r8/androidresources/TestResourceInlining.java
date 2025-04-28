@@ -19,6 +19,7 @@ import com.android.tools.r8.utils.codeinspector.MethodSubject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -41,7 +42,11 @@ public class TestResourceInlining extends TestBase {
   @Parameters(name = "{0}, optimize: {1}, addResourcesSubclass: {2}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withAllApiLevels()
+            .withPartialCompilation()
+            .build(),
         BooleanUtils.values(),
         BooleanUtils.values());
   }
@@ -76,8 +81,8 @@ public class TestResourceInlining extends TestBase {
 
   @Test
   public void testR8Optimized() throws Exception {
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
+    Assume.assumeTrue(optimize || parameters.getPartialCompilationTestParameters().isNone());
+    testForR8(parameters)
         .addProgramClassFileData(
             AndroidResourceTestingUtils.transformResourcesReferences(FooBar.class))
         .applyIf(
@@ -94,7 +99,9 @@ public class TestResourceInlining extends TestBase {
         .inspectShrunkenResources(
             resourceTableInspector -> {
               if (optimize && !addResourcesSubclass) {
-                resourceTableInspector.assertDoesNotContainResourceWithName("string", "foo");
+                if (!parameters.isRandomPartialCompilation()) {
+                  resourceTableInspector.assertDoesNotContainResourceWithName("string", "foo");
+                }
               } else {
                 // When there are resource subclasses we should not inline, since this can have
                 // side effects (or return different values).
@@ -104,31 +111,35 @@ public class TestResourceInlining extends TestBase {
               resourceTableInspector.assertContainsResourceWithName("string", "bar");
               // Has overlayable value, don't inline
               resourceTableInspector.assertContainsResourceWithName("string", "overlayable");
-              resourceTableInspector.assertDoesNotContainResourceWithName(
-                  "string", "unused_string");
+              if (!parameters.isRandomPartialCompilation()) {
+                resourceTableInspector.assertDoesNotContainResourceWithName(
+                    "string", "unused_string");
+              }
             })
         .inspect(
             inspector -> {
               // We should have removed one of the calls to getString if we are optimizing.
               MethodSubject mainMethodSubject = inspector.clazz(FooBar.class).mainMethod();
               assertThat(mainMethodSubject, isPresent());
-              assertEquals(
-                  mainMethodSubject
-                      .streamInstructions()
-                      .filter(InstructionSubject::isInvokeVirtual)
-                      .filter(
-                          i ->
-                              i.getMethod()
-                                  .holder
-                                  .descriptor
-                                  .toString()
-                                  .equals(DexItemFactory.androidResourcesDescriptorString))
-                      .count(),
-                  optimize && !addResourcesSubclass ? 2 : 3);
+              if (!parameters.isRandomPartialCompilation()) {
+                assertEquals(
+                    mainMethodSubject
+                        .streamInstructions()
+                        .filter(InstructionSubject::isInvokeVirtual)
+                        .filter(
+                            i ->
+                                i.getMethod()
+                                    .holder
+                                    .descriptor
+                                    .toString()
+                                    .equals(DexItemFactory.androidResourcesDescriptorString))
+                        .count(),
+                    optimize && !addResourcesSubclass ? 2 : 3);
+              }
             })
         .run(parameters.getRuntime(), FooBar.class)
         .applyIf(
-            optimize && !addResourcesSubclass,
+            optimize && !addResourcesSubclass && !parameters.isRandomPartialCompilation(),
             result -> {
               result.assertSuccessWithOutputLines(
                   "foo", Resources.GET_STRING_VALUE, Resources.GET_STRING_VALUE);

@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.androidresources;
 
-import com.android.tools.r8.R8FullTestBuilder;
+import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
@@ -11,6 +11,7 @@ import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.Android
 import com.android.tools.r8.androidresources.AndroidResourceTestingUtils.AndroidTestResourceBuilder;
 import com.android.tools.r8.utils.BooleanUtils;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
@@ -33,7 +34,11 @@ public class ResourceShrinkingMultiApkAsFeaturesplits extends TestBase {
   @Parameters(name = "{0}, optimized: {1}")
   public static List<Object[]> data() {
     return buildParameters(
-        getTestParameters().withDefaultDexRuntime().withAllApiLevels().build(),
+        getTestParameters()
+            .withDefaultDexRuntime()
+            .withPartialCompilation()
+            .withAllApiLevels()
+            .build(),
         BooleanUtils.values());
   }
 
@@ -53,45 +58,55 @@ public class ResourceShrinkingMultiApkAsFeaturesplits extends TestBase {
 
   @Test
   public void test() throws Exception {
+    Assume.assumeTrue(optimized || parameters.getPartialCompilationTestParameters().isNone());
     TemporaryFolder featureSplitTemp = ToolHelper.getTemporaryFolderForTest();
     featureSplitTemp.create();
     String featureSplitName = "featuresplit";
-    testForR8(parameters.getBackend())
-        .setMinApi(parameters)
-        .addProgramClasses(Base.class)
-        .addAndroidResources(getTestResources(temp, true, VIEW))
-        .addFeatureSplitAndroidResources(
-            // For the feature, we don't add the R class (we already have it in the base)
-            // and to test we add one less xml file.
-            getTestResources(featureSplitTemp, false, VIEW), featureSplitName)
-        .applyIf(optimized, R8FullTestBuilder::enableOptimizedShrinking)
-        .addKeepMainRule(Base.class)
-        .compile()
-        .inspectShrunkenResources(
-            resourceTableInspector -> {
-              resourceTableInspector.assertContainsResourceWithName("string", "used");
-              resourceTableInspector.assertDoesNotContainResourceWithName("string", "unused");
-              resourceTableInspector.assertContainsResourceWithName("xml", "both_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName("xml", "both_unused");
-              resourceTableInspector.assertContainsResourceWithName("xml", "only_in_base");
-            })
-        .inspectShrunkenResourcesForFeature(
-            resourceTableInspector -> {
-              resourceTableInspector.assertContainsResourceWithName("string", "used");
-              resourceTableInspector.assertDoesNotContainResourceWithName("string", "unused");
-              resourceTableInspector.assertContainsResourceWithName("xml", "both_used");
-              resourceTableInspector.assertDoesNotContainResourceWithName("xml", "both_unused");
-              resourceTableInspector.assertDoesNotContainResourceWithName("xml", "only_in_base");
-            },
-            featureSplitName)
-        .assertResourceFile("res/xml/both_used.xml", true)
-        .assertResourceFile("res/xml/only_in_base.xml", true)
-        .assertResourceFile("res/xml/both_unused.xml", false)
-        .assertFeatureResourceFile("res/xml/both_used.xml", true, featureSplitName)
-        .assertFeatureResourceFile("res/xml/both_unused.xml", false, featureSplitName)
-        .assertFeatureResourceFile("res/xml/only_in_base.xml", false, featureSplitName)
-        .run(parameters.getRuntime(), Base.class)
-        .assertSuccess();
+    R8TestCompileResultBase<?> compileResult =
+        testForR8(parameters)
+            .addProgramClasses(Base.class)
+            .addAndroidResources(getTestResources(temp, true, VIEW))
+            .addFeatureSplitAndroidResources(
+                // For the feature, we don't add the R class (we already have it in the base)
+                // and to test we add one less xml file.
+                getTestResources(featureSplitTemp, false, VIEW), featureSplitName)
+            .applyIf(optimized, b -> b.enableOptimizedShrinking())
+            .addKeepMainRule(Base.class)
+            .compile()
+            .inspectShrunkenResources(
+                resourceTableInspector -> {
+                  resourceTableInspector.assertContainsResourceWithName("string", "used");
+                  resourceTableInspector.assertContainsResourceWithName("xml", "both_used");
+                  resourceTableInspector.assertContainsResourceWithName("xml", "only_in_base");
+                  if (!parameters.isRandomPartialCompilation()) {
+                    resourceTableInspector.assertDoesNotContainResourceWithName("string", "unused");
+                    resourceTableInspector.assertDoesNotContainResourceWithName(
+                        "xml", "both_unused");
+                  }
+                })
+            .inspectShrunkenResourcesForFeature(
+                resourceTableInspector -> {
+                  resourceTableInspector.assertContainsResourceWithName("string", "used");
+                  resourceTableInspector.assertContainsResourceWithName("xml", "both_used");
+                  if (!parameters.isRandomPartialCompilation()) {
+                    resourceTableInspector.assertDoesNotContainResourceWithName("string", "unused");
+                    resourceTableInspector.assertDoesNotContainResourceWithName(
+                        "xml", "both_unused");
+                    resourceTableInspector.assertDoesNotContainResourceWithName(
+                        "xml", "only_in_base");
+                  }
+                },
+                featureSplitName)
+            .assertResourceFile("res/xml/both_used.xml", true)
+            .assertResourceFile("res/xml/only_in_base.xml", true)
+            .assertFeatureResourceFile("res/xml/both_used.xml", true, featureSplitName);
+    if (!parameters.isRandomPartialCompilation()) {
+      compileResult
+          .assertResourceFile("res/xml/both_unused.xml", false)
+          .assertFeatureResourceFile("res/xml/both_unused.xml", false, featureSplitName)
+          .assertFeatureResourceFile("res/xml/only_in_base.xml", false, featureSplitName);
+    }
+    compileResult.run(parameters.getRuntime(), Base.class).assertSuccess();
   }
 
   public static class Base {
