@@ -60,7 +60,7 @@ public class ApiModelIndirectTargetWithDifferentApiLevelTest extends TestBase {
         .addDefaultRuntimeLibrary(parameters)
         .setMinApi(parameters)
         .addAndroidBuildVersion(parameters.getApiLevel())
-        .apply(ApiModelingTestHelper::enableStubbingOfClassesAndDisableGlobalSyntheticCheck)
+        .apply(ApiModelingTestHelper::disableGlobalSyntheticCheck)
         .apply(setMockApiLevelForDefaultInstanceInitializer(LibraryClass.class, classApiLevel))
         .apply(setMockApiLevelForClass(LibraryClass.class, classApiLevel))
         .apply(

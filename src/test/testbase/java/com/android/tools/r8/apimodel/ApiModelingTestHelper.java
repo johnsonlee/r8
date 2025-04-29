@@ -153,11 +153,10 @@ public abstract class ApiModelingTestHelper {
                 }));
   }
 
-  public static void enableStubbingOfClassesAndDisableGlobalSyntheticCheck(
+  public static void disableGlobalSyntheticCheckx(
       TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
     compilerBuilder.addOptionsModification(
         options -> {
-          options.apiModelingOptions().setEnableApiModeling(true).setEnableStubbingOfClasses(true);
           if (options.isGeneratingDex()) {
             // Our tests rely on us amending the library path with additional classes that are not
             // in the library.

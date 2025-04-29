@@ -57,7 +57,7 @@ public class ApiModelFieldAssignNewInstanceTest extends TestBase {
         .setMinApi(parameters)
         .addAndroidBuildVersion(getMaxSupportedApiLevel())
         .apply(ApiModelingTestHelper::enableOutliningOfMethods)
-        .apply(ApiModelingTestHelper::enableStubbingOfClassesAndDisableGlobalSyntheticCheck)
+        .apply(ApiModelingTestHelper::disableGlobalSyntheticCheck)
         .apply(setMockApiLevelForClass(LibraryClass.class, AndroidApiLevel.B))
         .apply(setMockApiLevelForDefaultInstanceInitializer(LibraryClass.class, AndroidApiLevel.B))
         .apply(

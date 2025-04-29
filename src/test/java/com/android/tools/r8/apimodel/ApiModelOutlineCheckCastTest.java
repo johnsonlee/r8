@@ -61,7 +61,7 @@ public class ApiModelOutlineCheckCastTest extends TestBase {
         .apply(setMockApiLevelForMethod(LibraryClass.class.getDeclaredMethod("foo"), classApiLevel))
         .apply(ApiModelingTestHelper::enableApiCallerIdentification)
         .apply(ApiModelingTestHelper::enableOutliningOfMethods)
-        .apply(ApiModelingTestHelper::enableStubbingOfClassesAndDisableGlobalSyntheticCheck);
+        .apply(ApiModelingTestHelper::disableGlobalSyntheticCheck);
   }
 
   public AndroidApiLevel getApiLevelForRuntime() {

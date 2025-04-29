@@ -58,7 +58,7 @@ public class ApiModelMockExceptionTest extends TestBase {
         .addLibraryClasses(LibrarySuperException.class, LibrarySubException.class, Thrower.class)
         .addDefaultRuntimeLibrary(parameters)
         .setMinApi(parameters)
-        .apply(ApiModelingTestHelper::enableStubbingOfClassesAndDisableGlobalSyntheticCheck)
+        .apply(ApiModelingTestHelper::disableGlobalSyntheticCheck)
         .apply(setMockApiLevelForClass(LibrarySuperException.class, mockSuperExceptionLevel))
         .apply(setMockApiLevelForClass(LibrarySubException.class, mockSubExceptionLevel));
   }

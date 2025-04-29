@@ -50,7 +50,7 @@ public class ApiModelMockExceptionInstantiateAndCatchTest extends TestBase {
         .addLibraryClasses(LibraryException.class)
         .addDefaultRuntimeLibrary(parameters)
         .setMinApi(parameters)
-        .apply(ApiModelingTestHelper::enableStubbingOfClassesAndDisableGlobalSyntheticCheck)
+        .apply(ApiModelingTestHelper::disableGlobalSyntheticCheck)
         .apply(setMockApiLevelForClass(LibraryException.class, mockExceptionLevel))
         .apply(
             setMockApiLevelForMethod(
