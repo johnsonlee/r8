@@ -265,7 +265,7 @@ public class R8PartialTestBuilder
   public R8PartialTestBuilder setPartialCompilationSeed(TestParameters parameters, long seed) {
     if (parameters.getPartialCompilationTestParameters().isRandom()) {
       r8PartialConfiguration =
-          R8PartialCompilationConfiguration.builder().randomizeForTesting(seed).build();
+          R8PartialCompilationConfiguration.builder().randomizeForTesting(true, seed).build();
     }
     return this;
   }

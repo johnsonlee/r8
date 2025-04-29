@@ -234,6 +234,10 @@ public abstract class R8TestBuilder<
       if (configuration != null && configuration.isRandomizeForTestingEnabled()) {
         return false;
       }
+    } else if (isR8TestBuilder()
+        && R8PartialCompilationConfiguration.fromSystemProperties(false)
+            .isRandomizeForTestingEnabled()) {
+      return false;
     }
     return true;
   }

@@ -28,6 +28,10 @@ public class R8PartialCompilationConfiguration {
       "com.android.tools.r8.experimentalPartialShrinkingIncludePatterns";
   public static final String EXCLUDE_PROPERTY_NAME =
       "com.android.tools.r8.experimentalPartialShrinkingExcludePatterns";
+  public static final String RANDOMIZE_PROPERTY_NAME =
+      "com.android.tools.r8.experimentalPartialShrinkingRandomize";
+  public static final String RANDOMIZE_SEED_PROPERTY_NAME =
+      "com.android.tools.r8.experimentalPartialShrinkingRandomizeSeed";
 
   private final boolean enabled;
   private final R8PartialPredicateCollection includePredicates;
@@ -47,7 +51,7 @@ public class R8PartialCompilationConfiguration {
       R8PartialPredicateCollection includePredicates,
       R8PartialPredicateCollection excludePredicates,
       Random randomizeForTesting) {
-    assert !enabled || !includePredicates.isEmpty();
+    assert !enabled || !includePredicates.isEmpty() || randomizeForTesting != null;
     assert !enabled || excludePredicates != null;
     this.enabled = enabled;
     this.includePredicates = includePredicates;
@@ -106,6 +110,18 @@ public class R8PartialCompilationConfiguration {
   }
 
   public static R8PartialCompilationConfiguration fromSystemProperties() {
+    return fromSystemProperties(true);
+  }
+
+  public static R8PartialCompilationConfiguration fromSystemProperties(boolean printSeed) {
+    if (System.getProperty(RANDOMIZE_PROPERTY_NAME) != null) {
+      if (System.getProperty(RANDOMIZE_SEED_PROPERTY_NAME) != null) {
+        long seed = Long.parseLong(System.getProperty(RANDOMIZE_SEED_PROPERTY_NAME));
+        return builder().randomizeForTesting(printSeed, seed).build();
+      } else {
+        return builder().randomizeForTesting(printSeed).build();
+      }
+    }
     return fromIncludeExcludePatterns(
         System.getProperty(INCLUDE_PROPERTY_NAME), System.getProperty(EXCLUDE_PROPERTY_NAME));
   }
@@ -133,7 +149,10 @@ public class R8PartialCompilationConfiguration {
 
     public R8PartialCompilationConfiguration build() {
       return new R8PartialCompilationConfiguration(
-          !includePredicates.isEmpty(), includePredicates, excludePredicates, randomizeForTesting);
+          !includePredicates.isEmpty() || randomizeForTesting != null,
+          includePredicates,
+          excludePredicates,
+          randomizeForTesting);
     }
 
     public Builder includeAll() {
@@ -146,19 +165,21 @@ public class R8PartialCompilationConfiguration {
       return this;
     }
 
-    public Builder randomizeForTesting() {
-      return randomizeForTesting(System.currentTimeMillis());
+    public Builder randomizeForTesting(boolean printSeed) {
+      return randomizeForTesting(printSeed, System.currentTimeMillis());
     }
 
-    public Builder randomizeForTesting(long seed) {
+    public Builder randomizeForTesting(boolean printSeed, long seed) {
       randomizeForTesting = new Random();
       randomizeForTesting.setSeed(seed);
-      System.out.println(
-          "Partial compilation seed: "
-              + seed
-              + ". Use .setPartialCompilationSeed(parameters, "
-              + seed
-              + "L) to reproduce.");
+      if (printSeed) {
+        System.out.println(
+            "Partial compilation seed: "
+                + seed
+                + ". Use .setPartialCompilationSeed(parameters, "
+                + seed
+                + "L) to reproduce.");
+      }
       return this;
     }
 

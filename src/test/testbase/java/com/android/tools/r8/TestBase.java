@@ -258,7 +258,7 @@ public class TestBase {
                 builder.includeAll();
               } else {
                 assert parameters.isRandom();
-                builder.randomizeForTesting();
+                builder.randomizeForTesting(true);
               }
             })
         .applyIf(parameters.isRandom(), R8PartialTestBuilder::allowUnusedDontWarnPatterns);
