@@ -150,11 +150,6 @@ public class AppDumpBenchmarkBuilder {
             .setFromRevision(fromRevision)
             .addDependency(dumpDependency)
             .measureRunTime()
-            .measureCodeSize()
-            .measureInstructionCodeSize()
-            .measureComposableInstructionCodeSize()
-            .measureDexSegmentsCodeSize()
-            .measureDex2OatCodeSize()
             // TODO(b/373550435): Update dex2oat to enable checking absence of verification errors
             //  on SystemUI.
             .setEnableDex2OatVerification(!name.equals("SystemUIApp"))
@@ -411,7 +406,7 @@ public class AppDumpBenchmarkBuilder {
       ThrowableConsumer<? super R8PartialTestCompileResult> compileResultConsumer) {
     return environment ->
         BenchmarkBase.runner(environment)
-            .setWarmupIterations(0)
+            .setWarmupIterations(1)
             .run(
                 results -> {
                   CompilerDump dump = builder.getExtractedDump(environment);
