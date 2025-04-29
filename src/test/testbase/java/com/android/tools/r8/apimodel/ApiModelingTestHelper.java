@@ -106,7 +106,16 @@ public abstract class ApiModelingTestHelper {
   public static <T extends TestCompilerBuilder<?, ?, ?, ?, ?>>
       ThrowableConsumer<T> setMockApiLevelForClass(Class<?> clazz, AndroidApiLevel apiLevel) {
     return compilerBuilder -> {
-      compilerBuilder.addOptionsModification(getMockApiLevelForClassModification(clazz, apiLevel));
+      if (compilerBuilder.isR8PartialTestBuilder()) {
+        compilerBuilder
+            .asR8PartialTestBuilder()
+            .addR8PartialD8OptionsModification(getMockApiLevelForClassModification(clazz, apiLevel))
+            .addR8PartialD8OptionsModification(
+                getMockApiLevelForClassModification(clazz, apiLevel));
+      } else {
+        compilerBuilder.addOptionsModification(
+            getMockApiLevelForClassModification(clazz, apiLevel));
+      }
     };
   }
 
@@ -124,6 +133,24 @@ public abstract class ApiModelingTestHelper {
                 .apiModelingOptions()
                 .setEnableApiModeling(true)
                 .setEnableApiCallerIdentification(true));
+  }
+
+  public static void disableGlobalSyntheticCheck(
+      TestCompilerBuilder<?, ?, ?, ?, ?> compilerBuilder) {
+    compilerBuilder.applyIf(
+        compilerBuilder.isR8PartialTestBuilder(),
+        b -> {
+          // Empty for now.
+        },
+        b ->
+            b.addOptionsModification(
+                options -> {
+                  if (options.isGeneratingDex()) {
+                    // Our tests rely on us amending the library path with additional classes that
+                    // are not in the library.
+                    options.testing.globalSyntheticCreatedCallback = null;
+                  }
+                }));
   }
 
   public static void enableStubbingOfClassesAndDisableGlobalSyntheticCheck(

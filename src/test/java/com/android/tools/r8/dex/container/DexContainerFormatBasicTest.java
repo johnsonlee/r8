@@ -4,8 +4,10 @@
 package com.android.tools.r8.dex.container;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assume.assumeFalse;
 
+import com.android.tools.r8.PartialCompilationTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -15,25 +17,27 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameter(1)
-  public boolean useContainerDexApiLevel;
+  final boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
-    return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
+    return buildParameters(
+        getTestParameters().withNoneRuntime().withPartialCompilation().build(),
+        BooleanUtils.values());
   }
 
   private static Path inputA;
   private static Path inputB;
+
+  public DexContainerFormatBasicTest(TestParameters parameters, boolean useContainerDexApiLevel) {
+    super(parameters);
+    this.useContainerDexApiLevel = useContainerDexApiLevel;
+  }
 
   @BeforeClass
   public static void generateTestApplications() throws Throwable {
@@ -50,7 +54,7 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
   public void testNonContainerD8() throws Exception {
     assumeFalse(useContainerDexApiLevel);
     Path outputA =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputA)
             .setMinApi(AndroidApiLevel.L)
             .compile()
@@ -58,15 +62,16 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
     validateDex(outputA, 2, AndroidApiLevel.L.getDexVersion());
 
     Path outputB =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputB)
             .setMinApi(AndroidApiLevel.L)
             .compile()
             .writeToZip();
     validateDex(outputB, 2, AndroidApiLevel.L.getDexVersion());
 
+    // Merge using D8.
     Path outputMerged =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
             .addProgramFiles(outputA, outputB)
             .setMinApi(AndroidApiLevel.L)
             .compile()
@@ -77,7 +82,7 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
   @Test
   public void testD8ContainerSimpleMerge() throws Exception {
     Path outputFromDexing =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputA)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
@@ -85,8 +90,9 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .writeToZip();
     validateSingleContainerDex(outputFromDexing);
 
+    // Merge using D8.
     Path outputFromMerging =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
             .addProgramFiles(outputFromDexing)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
@@ -95,14 +101,21 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
     validateSingleContainerDex(outputFromMerging);
 
     // Identical DEX after re-merging.
-    assertArrayEquals(
-        unzipContent(outputFromDexing).get(0), unzipContent(outputFromMerging).get(0));
+    // TODO(b/414366630): Fix this.
+    if (parameters.getPartialCompilationTestParameters().isSome()) {
+      assertNotEquals(
+          unzipContent(outputFromDexing).get(0).length,
+          unzipContent(outputFromMerging).get(0).length);
+    } else {
+      assertArrayEquals(
+          unzipContent(outputFromDexing).get(0), unzipContent(outputFromMerging).get(0));
+    }
   }
 
   @Test
   public void testD8ContainerMoreMerge() throws Exception {
     Path outputA =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputA)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
@@ -111,7 +124,7 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
     validateSingleContainerDex(outputA);
 
     Path outputB =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputB)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
@@ -120,7 +133,7 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
     validateSingleContainerDex(outputB);
 
     Path outputBoth =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputA, inputB)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
@@ -128,8 +141,9 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .writeToZip();
     validateSingleContainerDex(outputBoth);
 
+    // Merge using D8.
     Path outputMerged =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
             .addProgramFiles(outputA, outputB)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
@@ -137,13 +151,19 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .writeToZip();
     validateSingleContainerDex(outputMerged);
 
-    assertArrayEquals(unzipContent(outputBoth).get(0), unzipContent(outputMerged).get(0));
+    // TODO(b/414366630): Fix this.
+    if (parameters.getPartialCompilationTestParameters().isSome()) {
+      assertNotEquals(
+          unzipContent(outputBoth).get(0).length, unzipContent(outputMerged).get(0).length);
+    } else {
+      assertArrayEquals(unzipContent(outputBoth).get(0), unzipContent(outputMerged).get(0));
+    }
   }
 
   @Test
   public void testR8() throws Exception {
     Path output =
-        testForR8(Backend.DEX)
+        testForR8(Backend.DEX, parameters)
             .addProgramFiles(inputA)
             .addProgramFiles(inputB)
             .addKeepRules("-keep class * { *; }")

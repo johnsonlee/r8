@@ -311,5 +311,7 @@ class R8Partial {
         options.emitPermittedSubclassesAnnotationsInDex;
     subCompilationOptions.desugarState = options.desugarState;
     subCompilationOptions.forceNestDesugaring = options.forceNestDesugaring;
+    subCompilationOptions.getTestingOptions().forceDexContainerFormat =
+        options.getTestingOptions().forceDexContainerFormat;
   }
 }

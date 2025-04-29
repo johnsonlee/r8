@@ -332,7 +332,7 @@ public class TestParameters {
   }
 
   public boolean canUseR8Partial() {
-    return isDexRuntime()
+    return (isDexRuntime() || isNoneRuntime())
         && (apiLevel == null || apiLevel.isGreaterThanOrEqualTo(AndroidApiLevel.L));
   }
 

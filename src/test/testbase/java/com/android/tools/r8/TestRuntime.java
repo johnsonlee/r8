@@ -251,6 +251,11 @@ public abstract class TestRuntime {
     }
 
     @Override
+    public boolean isNone() {
+      return true;
+    }
+
+    @Override
     public String name() {
       return NAME;
     }
@@ -452,6 +457,10 @@ public abstract class TestRuntime {
   }
 
   public boolean isCf() {
+    return false;
+  }
+
+  public boolean isNone() {
     return false;
   }
 

@@ -14,21 +14,22 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatDexFilePerClassTest extends DexContainerFormatTestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameter(1)
-  public boolean useContainerDexApiLevel;
+  final boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
     return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
+  }
+
+  public DexContainerFormatDexFilePerClassTest(
+      TestParameters parameters, boolean useContainerDexApiLevel) {
+    super(parameters);
+    this.useContainerDexApiLevel = useContainerDexApiLevel;
   }
 
   @Test

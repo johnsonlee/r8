@@ -29,6 +29,7 @@ import com.android.tools.r8.ClassFileConsumer.ArchiveConsumer;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestCompilerBuilder;
 import com.android.tools.r8.TestDiagnosticMessages;
+import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.dex.CompatByteBuffer;
 import com.android.tools.r8.dex.Constants;
 import com.android.tools.r8.errors.CompilationError;
@@ -41,6 +42,7 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.android.tools.r8.utils.ZipUtils;
+import com.android.tools.r8.utils.codeinspector.Matchers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -56,6 +58,12 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 public class DexContainerFormatTestBase extends TestBase {
+
+  protected final TestParameters parameters;
+
+  public DexContainerFormatTestBase(TestParameters parameters) {
+    this.parameters = parameters;
+  }
 
   public static void validateDex(Path output, int expectedDexes, DexVersion expectedVersion)
       throws Exception {
@@ -299,13 +307,30 @@ public class DexContainerFormatTestBase extends TestBase {
         b -> b.setMinApi(InternalOptions.containerDexApiLevel()),
         b ->
             b.setMinApi(AndroidApiLevel.L)
-                .addOptionsModification(
-                    options -> options.getTestingOptions().forceDexContainerFormat = true));
+                .applyIf(
+                    b.isR8PartialTestBuilder(),
+                    bb ->
+                        bb.addR8PartialOptionsModification(
+                            options -> options.getTestingOptions().forceDexContainerFormat = true),
+                    bb ->
+                        bb.addOptionsModification(
+                            options ->
+                                options.getTestingOptions().forceDexContainerFormat = true)));
   }
 
   protected void checkContainerApiLevelWarning(
       TestDiagnosticMessages diagnostics, boolean useContainerDexApiLevel) {
-    diagnostics.assertNoErrors().assertNoInfos();
+    diagnostics.assertNoErrors();
+    onlyContainerApiLevelWarning(diagnostics, useContainerDexApiLevel);
+    if (!parameters.isRandomPartialCompilation()) {
+      diagnostics.assertNoInfos();
+    } else {
+      diagnostics.assertAllInfosMatch(Matchers.proguardConfigurationRuleDoesNotMatch());
+    }
+  }
+
+  protected static void onlyContainerApiLevelWarning(
+      TestDiagnosticMessages diagnostics, boolean useContainerDexApiLevel) {
     if (useContainerDexApiLevel) {
       diagnostics.assertNoWarnings();
     } else {

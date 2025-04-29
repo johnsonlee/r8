@@ -6,6 +6,7 @@ package com.android.tools.r8.dex.container;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeFalse;
 
+import com.android.tools.r8.PartialCompilationTestParameters;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.BooleanUtils;
@@ -14,35 +15,40 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatEmptyTest extends DexContainerFormatTestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameter(1)
-  public boolean useContainerDexApiLevel;
+  final boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
-    return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
+    return buildParameters(
+        getTestParameters().withNoneRuntime().withPartialCompilation().build(),
+        BooleanUtils.values());
   }
+
+  public DexContainerFormatEmptyTest(TestParameters parameters, boolean useContainerDexApiLevel) {
+    super(parameters);
+    this.useContainerDexApiLevel = useContainerDexApiLevel;
+  }
+
 
   @Test
   public void testNonContainerD8() throws Exception {
     assumeFalse(useContainerDexApiLevel);
 
-    Path outputA = testForD8(Backend.DEX).setMinApi(AndroidApiLevel.L).compile().writeToZip();
+    Path outputA =
+        testForD8(Backend.DEX, parameters).setMinApi(AndroidApiLevel.L).compile().writeToZip();
     assertEquals(0, unzipContent(outputA).size());
 
-    Path outputB = testForD8(Backend.DEX).setMinApi(AndroidApiLevel.L).compile().writeToZip();
+    Path outputB =
+        testForD8(Backend.DEX, parameters).setMinApi(AndroidApiLevel.L).compile().writeToZip();
     assertEquals(0, unzipContent(outputB).size());
 
     Path outputMerged =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, PartialCompilationTestParameters.NONE)
             .addProgramFiles(outputA, outputB)
             .setMinApi(AndroidApiLevel.L)
             .compile()
@@ -53,7 +59,7 @@ public class DexContainerFormatEmptyTest extends DexContainerFormatTestBase {
   @Test
   public void testD8Container() throws Exception {
     Path outputFromDexing =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
                 diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))

@@ -240,6 +240,12 @@ public class TestBase {
   }
 
   public R8TestBuilder<? extends R8TestCompileResultBase<?>, R8TestRunResult, ?> testForR8(
+      Backend backend, TestParameters parameters) {
+    assert parameters.getRuntime().isNone();
+    return testForR8(backend, parameters.getPartialCompilationTestParameters());
+  }
+
+  public R8TestBuilder<? extends R8TestCompileResultBase<?>, R8TestRunResult, ?> testForR8(
       Backend backend, PartialCompilationTestParameters parameters) {
     if (parameters.isNone()) {
       return testForR8(backend);
@@ -308,6 +314,11 @@ public class TestBase {
     return testForR8Partial(backend)
         .allowDiagnosticMessages()
         .setR8PartialConfiguration(R8PartialCompilationConfiguration.Builder::excludeAll);
+  }
+
+  public TestCompilerBuilder<?, ?, ?, ?, ?> testForD8(Backend backend, TestParameters parameters) {
+    assert parameters.getRuntime().isNone();
+    return testForD8(backend, parameters.getPartialCompilationTestParameters());
   }
 
   public AssistantTestBuilder testForAssistant() {

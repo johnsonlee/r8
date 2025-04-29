@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.dex.container;
 
-import com.android.tools.r8.R8TestCompileResult;
+import com.android.tools.r8.R8TestCompileResultBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -13,26 +13,29 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBase {
 
-  @Parameter(0)
-  public TestParameters parameters;
-
-  @Parameter(1)
-  public boolean useContainerDexApiLevel;
+  final boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
-    return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
+    return buildParameters(
+        getTestParameters().withNoneRuntime().withPartialCompilation().build(),
+        BooleanUtils.values());
   }
 
   private static Path inputBase;
   private static Path inputFeature1;
   private static Path inputFeature2;
+
+  public DexContainerFormatFeatureSplitTest(
+      TestParameters parameters, boolean useContainerDexApiLevel) {
+    super(parameters);
+    this.useContainerDexApiLevel = useContainerDexApiLevel;
+  }
 
   @BeforeClass
   public static void generateTestApplications() throws Throwable {
@@ -49,8 +52,8 @@ public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBa
 
   @Test
   public void test() throws Exception {
-    R8TestCompileResult result =
-        testForR8(Backend.DEX)
+    R8TestCompileResultBase<?> result =
+        testForR8(Backend.DEX, parameters)
             .addProgramFiles(inputBase)
             .addFeatureSplit(inputFeature1)
             .addFeatureSplit(inputFeature2)
