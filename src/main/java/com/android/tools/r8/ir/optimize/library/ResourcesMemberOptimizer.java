@@ -12,7 +12,6 @@ import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.DexType;
-import com.android.tools.r8.graph.TopDownClassHierarchyTraversal;
 import com.android.tools.r8.ir.code.BasicBlock;
 import com.android.tools.r8.ir.code.BasicBlockIterator;
 import com.android.tools.r8.ir.code.IRCode;
@@ -21,6 +20,7 @@ import com.android.tools.r8.ir.code.InstructionListIterator;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.optimize.AffectedValues;
+import com.google.common.collect.Iterables;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -46,21 +46,20 @@ public class ResourcesMemberOptimizer extends StatelessLibraryMethodModelCollect
     // or have side effects.
     allowStringInlining = Optional.of(true);
     Map<DexClass, Boolean> cachedResults = new IdentityHashMap<>();
-    TopDownClassHierarchyTraversal.forProgramClasses(appView.withClassHierarchy())
-        .visit(
-            appView.appInfo().classes(),
-            clazz -> {
-              if (isResourcesSubtype(cachedResults, clazz)) {
-                DexEncodedMethod dexEncodedMethod =
-                    clazz.lookupMethod(
-                        dexItemFactory.androidResourcesGetStringProto,
-                        dexItemFactory.androidResourcesGetStringName);
-                if (dexEncodedMethod != null) {
-                  // TODO(b/312695444): Break out of traversal when supported.
-                  allowStringInlining = Optional.of(false);
-                }
-              }
-            });
+    for (DexClass clazz :
+        Iterables.concat(
+            appView.appInfo().classes(), appView.app().asDirect().classpathClasses())) {
+      if (isResourcesSubtype(cachedResults, clazz)) {
+        DexEncodedMethod dexEncodedMethod =
+            clazz.lookupMethod(
+                dexItemFactory.androidResourcesGetStringProto,
+                dexItemFactory.androidResourcesGetStringName);
+        if (dexEncodedMethod != null) {
+          // TODO(b/312695444): Break out of traversal when supported.
+          allowStringInlining = Optional.of(false);
+        }
+      }
+    }
     return allowStringInlining.get();
   }
 
