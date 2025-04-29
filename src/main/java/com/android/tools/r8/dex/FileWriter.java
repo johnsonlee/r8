@@ -841,7 +841,9 @@ public class FileWriter {
     DexVersion dexVersion =
         layoutType.isContainer()
             ? DexVersion.getDexVersion(options.getMinApiLevel())
-            : options.canUseContainerDex()
+            : DexVersion.getDexVersion(options.getMinApiLevel())
+                    .isGreaterThanOrEqualTo(
+                        DexVersion.getDexVersion(InternalOptions.containerDexApiLevel()))
                 ? DexVersion.V39
                 : DexVersion.getDexVersion(options.getMinApiLevel());
     return options.testing.forceDexVersionBytes != null
