@@ -24,6 +24,11 @@ import java.util.function.Consumer;
 
 public class R8PartialCompilationConfiguration {
 
+  public static final String INCLUDE_PROPERTY_NAME =
+      "com.android.tools.r8.experimentalPartialShrinkingIncludePatterns";
+  public static final String EXCLUDE_PROPERTY_NAME =
+      "com.android.tools.r8.experimentalPartialShrinkingExcludePatterns";
+
   private final boolean enabled;
   private final R8PartialPredicateCollection includePredicates;
   private final R8PartialPredicateCollection excludePredicates;
@@ -98,6 +103,11 @@ public class R8PartialCompilationConfiguration {
       Splitter.on(",").splitToList(excludePatterns).forEach(builder::addJavaTypeExcludePattern);
     }
     return builder.build();
+  }
+
+  public static R8PartialCompilationConfiguration fromSystemProperties() {
+    return fromIncludeExcludePatterns(
+        System.getProperty(INCLUDE_PROPERTY_NAME), System.getProperty(EXCLUDE_PROPERTY_NAME));
   }
 
   public static Builder builder() {

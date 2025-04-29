@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.DexClasspathClass;
 import com.android.tools.r8.graph.DirectMappedDexApplication;
 import com.android.tools.r8.graph.LazyLoadedDexApplication;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.partial.R8PartialD8Input;
 import com.android.tools.r8.partial.R8PartialD8Result;
 import com.android.tools.r8.partial.R8PartialProgramPartitioning;
@@ -181,6 +182,8 @@ class R8Partial {
                 options.apiModelingOptions().isApiModelingEnabled())
             .setMinApiLevel(options.getMinApiLevel().getLevel())
             .setMode(options.getCompilationMode())
+            .setPartialCompilationConfiguration(
+                R8PartialCompilationConfiguration.disabledConfiguration())
             .setProgramConsumer(options.programConsumer);
     // The program input that R8 must compile is provided above using an
     // InternalProgramClassProvider. This passes in the data resources that we must either rewrite

@@ -160,9 +160,7 @@ public final class R8Command extends BaseCompilerCommand {
     private ResourceShrinkerConfiguration resourceShrinkerConfiguration =
         ResourceShrinkerConfiguration.DEFAULT_CONFIGURATION;
     private R8PartialCompilationConfiguration partialCompilationConfiguration =
-        R8PartialCompilationConfiguration.fromIncludeExcludePatterns(
-            System.getProperty("com.android.tools.r8.experimentalPartialShrinkingIncludePatterns"),
-            System.getProperty("com.android.tools.r8.experimentalPartialShrinkingExcludePatterns"));
+        R8PartialCompilationConfiguration.fromSystemProperties();
 
     private final ProguardConfigurationParserOptions.Builder parserOptionsBuilder =
         ProguardConfigurationParserOptions.builder().readEnvironment();
