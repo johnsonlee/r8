@@ -15,12 +15,17 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatEmptyTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
@@ -28,12 +33,6 @@ public class DexContainerFormatEmptyTest extends DexContainerFormatTestBase {
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
         BooleanUtils.values());
   }
-
-  public DexContainerFormatEmptyTest(TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
-  }
-
 
   @Test
   public void testNonContainerD8() throws Exception {
@@ -62,7 +61,8 @@ public class DexContainerFormatEmptyTest extends DexContainerFormatTestBase {
         testForD8(Backend.DEX, parameters)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     assertEquals(0, unzipContent(outputFromDexing).size());
   }

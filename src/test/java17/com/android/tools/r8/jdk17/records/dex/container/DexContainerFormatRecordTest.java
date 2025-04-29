@@ -17,23 +17,23 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatRecordTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
         BooleanUtils.values());
-  }
-
-  public DexContainerFormatRecordTest(TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
   }
 
   @Test
@@ -43,7 +43,8 @@ public class DexContainerFormatRecordTest extends DexContainerFormatTestBase {
             .addInnerClassesAndStrippedOuter(getClass())
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateDex(
         outputFromDexing, 1, DexVersion.getDexVersion(InternalOptions.containerDexApiLevel()));
@@ -63,7 +64,8 @@ public class DexContainerFormatRecordTest extends DexContainerFormatTestBase {
             .applyIf(
                 !useContainerDexApiLevel, b -> b.getBuilder().setGlobalSyntheticsConsumer(globals))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     if (!useContainerDexApiLevel) {
       assertTrue(globals.isSingleGlobal());
@@ -81,7 +83,8 @@ public class DexContainerFormatRecordTest extends DexContainerFormatTestBase {
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .allowDiagnosticMessages()
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateDex(
         outputFromDexing, 1, DexVersion.getDexVersion(InternalOptions.containerDexApiLevel()));

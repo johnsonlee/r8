@@ -14,22 +14,21 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatDexFilePerClassTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
     return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
-  }
-
-  public DexContainerFormatDexFilePerClassTest(
-      TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
   }
 
   @Test
@@ -41,7 +40,8 @@ public class DexContainerFormatDexFilePerClassTest extends DexContainerFormatTes
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .setOutputMode(OutputMode.DexFilePerClass)
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateDex(
         outputFromDexing,

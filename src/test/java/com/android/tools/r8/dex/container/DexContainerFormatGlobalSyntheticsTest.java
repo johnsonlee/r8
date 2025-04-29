@@ -7,7 +7,6 @@ import static com.android.tools.r8.apimodel.ApiModelingTestHelper.setMockApiLeve
 import static com.android.tools.r8.utils.codeinspector.Matchers.isPresent;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
 
 import com.android.tools.r8.GlobalSyntheticsTestingConsumer;
 import com.android.tools.r8.TestCompilerBuilder;
@@ -24,24 +23,23 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatGlobalSyntheticsTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
         BooleanUtils.values());
-  }
-
-  public DexContainerFormatGlobalSyntheticsTest(
-      TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
   }
 
   private void configure(TestCompilerBuilder<?, ?, ?, ?, ?> builder) {
@@ -60,7 +58,8 @@ public class DexContainerFormatGlobalSyntheticsTest extends DexContainerFormatTe
         testForD8(Backend.DEX, parameters)
             .apply(this::configure)
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .inspect(
                 inspector -> {
                   ClassSubject globalSyntheticClass = inspector.clazz(ExceptionNotPresent.class);
@@ -73,7 +72,7 @@ public class DexContainerFormatGlobalSyntheticsTest extends DexContainerFormatTe
 
   @Test
   public void testD8Intermediate() throws Exception {
-    assumeTrue(parameters.getPartialCompilationTestParameters().isNone());
+    parameters.assumeNoPartialCompilation();
     GlobalSyntheticsTestingConsumer globals = new GlobalSyntheticsTestingConsumer();
     Path outputFromDexing =
         testForD8(Backend.DEX)
@@ -81,7 +80,8 @@ public class DexContainerFormatGlobalSyntheticsTest extends DexContainerFormatTe
             .setIntermediate(true)
             .apply(b -> b.getBuilder().setGlobalSyntheticsConsumer(globals))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     assertTrue(globals.isSingleGlobal());
     validateDex(
@@ -96,7 +96,8 @@ public class DexContainerFormatGlobalSyntheticsTest extends DexContainerFormatTe
             .addKeepClassRules(TestClass.class)
             .allowDiagnosticMessages()
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateDex(
         outputFromDexing, 1, DexVersion.getDexVersion(InternalOptions.containerDexApiLevel()));

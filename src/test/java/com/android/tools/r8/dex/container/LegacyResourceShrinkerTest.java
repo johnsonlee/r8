@@ -18,12 +18,17 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   private static Path inputA;
   private static Path inputB;
@@ -33,11 +38,6 @@ public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
         BooleanUtils.values());
-  }
-
-  public LegacyResourceShrinkerTest(TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
   }
 
   @BeforeClass
@@ -54,7 +54,7 @@ public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
   @Test
   public void test() throws Exception {
     Path outputBoth =
-        testForD8(Backend.DEX)
+        testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputA, inputB)
             .setMinApi(InternalOptions.containerDexApiLevel())
             .compile()

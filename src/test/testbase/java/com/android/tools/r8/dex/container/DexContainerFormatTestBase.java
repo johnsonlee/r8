@@ -59,12 +59,6 @@ import org.objectweb.asm.Opcodes;
 
 public class DexContainerFormatTestBase extends TestBase {
 
-  protected final TestParameters parameters;
-
-  public DexContainerFormatTestBase(TestParameters parameters) {
-    this.parameters = parameters;
-  }
-
   public static void validateDex(Path output, int expectedDexes, DexVersion expectedVersion)
       throws Exception {
     List<byte[]> dexes = unzipContent(output);
@@ -319,7 +313,9 @@ public class DexContainerFormatTestBase extends TestBase {
   }
 
   protected void checkContainerApiLevelWarning(
-      TestDiagnosticMessages diagnostics, boolean useContainerDexApiLevel) {
+      TestDiagnosticMessages diagnostics,
+      TestParameters parameters,
+      boolean useContainerDexApiLevel) {
     diagnostics.assertNoErrors();
     onlyContainerApiLevelWarning(diagnostics, useContainerDexApiLevel);
     if (!parameters.isRandomPartialCompilation()) {

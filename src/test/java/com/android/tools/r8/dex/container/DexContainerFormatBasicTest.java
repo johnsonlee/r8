@@ -17,12 +17,17 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
@@ -33,11 +38,6 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
 
   private static Path inputA;
   private static Path inputB;
-
-  public DexContainerFormatBasicTest(TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
-  }
 
   @BeforeClass
   public static void generateTestApplications() throws Throwable {
@@ -86,7 +86,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .addProgramFiles(inputA)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputFromDexing);
 
@@ -96,7 +97,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .addProgramFiles(outputFromDexing)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputFromMerging);
 
@@ -119,7 +121,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .addProgramFiles(inputA)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputA);
 
@@ -128,7 +131,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .addProgramFiles(inputB)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputB);
 
@@ -137,7 +141,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .addProgramFiles(inputA, inputB)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputBoth);
 
@@ -147,7 +152,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .addProgramFiles(outputA, outputB)
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(outputMerged);
 
@@ -170,7 +176,8 @@ public class DexContainerFormatBasicTest extends DexContainerFormatTestBase {
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .allowDiagnosticMessages()
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel))
+                diagnostics ->
+                    checkContainerApiLevelWarning(diagnostics, parameters, useContainerDexApiLevel))
             .writeToZip();
     validateSingleContainerDex(output);
   }

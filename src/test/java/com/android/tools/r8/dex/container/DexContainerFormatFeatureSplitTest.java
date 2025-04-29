@@ -13,12 +13,17 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBase {
 
-  final boolean useContainerDexApiLevel;
+  @Parameter(0)
+  public TestParameters parameters;
+
+  @Parameter(1)
+  public boolean useContainerDexApiLevel;
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
@@ -30,12 +35,6 @@ public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBa
   private static Path inputBase;
   private static Path inputFeature1;
   private static Path inputFeature2;
-
-  public DexContainerFormatFeatureSplitTest(
-      TestParameters parameters, boolean useContainerDexApiLevel) {
-    super(parameters);
-    this.useContainerDexApiLevel = useContainerDexApiLevel;
-  }
 
   @BeforeClass
   public static void generateTestApplications() throws Throwable {
@@ -64,7 +63,9 @@ public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBa
             .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .allowDiagnosticMessages()
             .compileWithExpectedDiagnostics(
-                diagnostics -> checkContainerApiLevelWarning(diagnostics, useContainerDexApiLevel));
+                diagnostics ->
+                    checkContainerApiLevelWarning(
+                        diagnostics, parameters, useContainerDexApiLevel));
     Path basePath = result.writeToZip();
     Path feature1Path = result.getFeature(0);
     Path feature2Path = result.getFeature(1);
