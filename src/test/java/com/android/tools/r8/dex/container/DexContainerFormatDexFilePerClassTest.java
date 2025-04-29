@@ -28,7 +28,8 @@ public class DexContainerFormatDexFilePerClassTest extends DexContainerFormatTes
 
   @Parameters(name = "{0}, useContainerDexApiLevel = {1}")
   public static List<Object[]> data() {
-    return buildParameters(getTestParameters().withNoneRuntime().build(), BooleanUtils.values());
+    return buildParameters(
+        getTestParameters().withNoneRuntime().build(), BooleanUtils.falseValues());
   }
 
   @Test

@@ -11,7 +11,6 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.utils.BooleanUtils;
 import com.android.tools.r8.utils.IntBox;
-import com.android.tools.r8.utils.InternalOptions;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.BeforeClass;
@@ -37,7 +36,7 @@ public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
-        BooleanUtils.values());
+        BooleanUtils.falseValues());
   }
 
   @BeforeClass
@@ -56,7 +55,7 @@ public class LegacyResourceShrinkerTest extends DexContainerFormatTestBase {
     Path outputBoth =
         testForD8(Backend.DEX, parameters)
             .addProgramFiles(inputA, inputB)
-            .setMinApi(InternalOptions.containerDexApiLevel())
+            .apply(b -> enableContainer(b, useContainerDexApiLevel))
             .compile()
             .writeToZip();
     validateSingleContainerDex(outputBoth);

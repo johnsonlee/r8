@@ -39,7 +39,7 @@ public class DexContainerFormatGlobalSyntheticsTest extends DexContainerFormatTe
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
-        BooleanUtils.values());
+        BooleanUtils.falseValues());
   }
 
   private void configure(TestCompilerBuilder<?, ?, ?, ?, ?> builder) {

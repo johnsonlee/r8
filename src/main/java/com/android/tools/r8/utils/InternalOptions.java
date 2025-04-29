@@ -2750,7 +2750,7 @@ public class InternalOptions implements GlobalKeepInfoConfiguration {
 
   public boolean canUseContainerDex() {
     assert isGeneratingDex();
-    return hasMinApi(containerDexApiLevel());
+    return false;
   }
 
   public boolean canUseJavaLangVarHandleStoreStoreFence(DexDefinitionSupplier definitions) {

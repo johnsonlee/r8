@@ -29,7 +29,7 @@ public class DexContainerFormatFeatureSplitTest extends DexContainerFormatTestBa
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
-        BooleanUtils.values());
+        BooleanUtils.falseValues());
   }
 
   private static Path inputBase;

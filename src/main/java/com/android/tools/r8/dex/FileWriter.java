@@ -837,14 +837,11 @@ public class FileWriter {
         && options.getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.R)) {
       return DexVersion.V40.getBytes();
     }
-    assert !layoutType.isContainer()
-        || options.getMinApiLevel().isGreaterThanOrEqualTo(InternalOptions.containerDexApiLevel());
+    assert !layoutType.isContainer() || options.canUseContainerDex();
     DexVersion dexVersion =
         layoutType.isContainer()
             ? DexVersion.getDexVersion(options.getMinApiLevel())
-            : options
-                    .getMinApiLevel()
-                    .isGreaterThanOrEqualTo(InternalOptions.containerDexApiLevel())
+            : options.canUseContainerDex()
                 ? DexVersion.V39
                 : DexVersion.getDexVersion(options.getMinApiLevel());
     return options.testing.forceDexVersionBytes != null

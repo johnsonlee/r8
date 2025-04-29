@@ -31,7 +31,7 @@ public class DexContainerFormatEmptyTest extends DexContainerFormatTestBase {
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters().withNoneRuntime().withPartialCompilation().build(),
-        BooleanUtils.values());
+        BooleanUtils.falseValues());
   }
 
   @Test
