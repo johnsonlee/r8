@@ -112,8 +112,11 @@ public class RecordInvokeCustomSplitDesugaringTest extends TestBase {
                               diagnosticType(StringDiagnostic.class),
                               diagnosticMessage(containsString("java.lang.Record"))));
                 } else {
+                  if (!parameters.isRandomPartialCompilation()) {
+                    diagnostics.assertOnlyWarnings();
+                  }
                   diagnostics
-                      .assertOnlyWarnings()
+                      .assertAllInfosMatch(diagnosticType(UnusedProguardKeepRuleDiagnostic.class))
                       .assertWarningsMatch(
                           allOf(
                               diagnosticType(StringDiagnostic.class),
