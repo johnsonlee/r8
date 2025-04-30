@@ -109,7 +109,16 @@ public class AndroidApiModelingOptions {
 
   public boolean isStubbingOfClassesEnabled() {
     // TODO(b/384426376): Should not check backend when isApiModelingEnabled() return false for CF.
-    return isApiModelingEnabled() && options.isGeneratingDex() && enableStubbingOfClasses;
+    if (!isApiModelingEnabled() || !options.isGeneratingDex() || !enableStubbingOfClasses) {
+      return false;
+    }
+    if (options.partialSubCompilationConfiguration != null
+        && options.partialSubCompilationConfiguration.isD8()) {
+      // Defer stubbing of classes to R8 in R8 partial. This is needed to ensure tree shaking
+      // correctly keep library method overrides in R8 of R8 partial. See also b/414535123#comment8.
+      return false;
+    }
+    return true;
   }
 
   public boolean isOutliningOfMethodsEnabled() {

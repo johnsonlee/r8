@@ -110,7 +110,7 @@ public abstract class ApiModelingTestHelper {
         compilerBuilder
             .asR8PartialTestBuilder()
             .addR8PartialD8OptionsModification(getMockApiLevelForClassModification(clazz, apiLevel))
-            .addR8PartialD8OptionsModification(
+            .addR8PartialR8OptionsModification(
                 getMockApiLevelForClassModification(clazz, apiLevel));
       } else {
         compilerBuilder.addOptionsModification(

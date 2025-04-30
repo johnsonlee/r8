@@ -213,7 +213,7 @@ def getAndroidBuildTools():
         assert os.path.exists(build_tools_dir)
         return build_tools_dir
     else:
-        versions = ['34.0.0', '33.0.1', '32.0.0']
+        versions = ['35.0.1', '34.0.0', '33.0.1', '32.0.0']
         for version in versions:
             build_tools_dir = os.path.join(getAndroidHome(), 'build-tools',
                                            version)

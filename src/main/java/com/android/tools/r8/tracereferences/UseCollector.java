@@ -460,9 +460,7 @@ public class UseCollector implements UseCollectorEventConsumer {
                       method.getReference(),
                       superType.isNotIdenticalTo(clazz.getSuperType()))
                   .getResolutionPair();
-          if (resolvedMethod != null
-              && !resolvedMethod.isProgramMethod()
-              && isTargetType(resolvedMethod.getHolderType())) {
+          if (resolvedMethod != null && isTargetType(resolvedMethod.getHolderType())) {
             // There should be no need to register the types referenced from the method signature:
             // - The return type and the parameter types are registered when visiting the source
             //   method that overrides this target method,
