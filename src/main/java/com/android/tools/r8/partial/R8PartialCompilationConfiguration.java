@@ -109,8 +109,23 @@ public class R8PartialCompilationConfiguration {
     return builder.build();
   }
 
+  private static String systemPropertyValue(String propertyName) {
+    String value = System.getProperty(propertyName);
+    return value != null ? value : "";
+  }
+
   public static R8PartialCompilationConfiguration fromSystemProperties() {
-    return fromSystemProperties(true);
+    R8PartialCompilationConfiguration configuration = fromSystemProperties(true);
+    if (configuration.isEnabled()) {
+      System.out.println("R8 partial compilation configered through system properties:");
+      System.out.println(
+          RANDOMIZE_PROPERTY_NAME + "=" + systemPropertyValue(RANDOMIZE_PROPERTY_NAME));
+      System.out.println(
+          RANDOMIZE_SEED_PROPERTY_NAME + "=" + systemPropertyValue(RANDOMIZE_SEED_PROPERTY_NAME));
+      System.out.println(INCLUDE_PROPERTY_NAME + "=" + systemPropertyValue(INCLUDE_PROPERTY_NAME));
+      System.out.println(EXCLUDE_PROPERTY_NAME + "=" + systemPropertyValue(EXCLUDE_PROPERTY_NAME));
+    }
+    return configuration;
   }
 
   public static R8PartialCompilationConfiguration fromSystemProperties(boolean printSeed) {

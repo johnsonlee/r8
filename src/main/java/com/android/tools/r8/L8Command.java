@@ -14,6 +14,7 @@ import com.android.tools.r8.inspector.Inspector;
 import com.android.tools.r8.ir.desugar.desugaredlibrary.DesugaredLibrarySpecification;
 import com.android.tools.r8.keepanno.annotations.KeepForApi;
 import com.android.tools.r8.origin.Origin;
+import com.android.tools.r8.partial.R8PartialCompilationConfiguration;
 import com.android.tools.r8.profile.art.ArtProfileForRewriting;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.AndroidApp;
@@ -423,6 +424,8 @@ public final class L8Command extends BaseCompilerCommand {
         r8Builder.addProguardConfigurationFiles(proguardConfigFiles);
         r8Builder.setDisableDesugaring(true);
         r8Builder.skipDump();
+        r8Builder.setPartialCompilationConfiguration(
+            R8PartialCompilationConfiguration.disabledConfiguration());
         r8Command = r8Builder.makeCommand();
       } else if (!(getProgramConsumer() instanceof ClassFileConsumer)) {
         l8CfConsumer = new InMemoryJarContent();

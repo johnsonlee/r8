@@ -634,6 +634,9 @@ public final class R8Command extends BaseCompilerCommand {
     @Deprecated
     public Builder enableExperimentalPartialShrinking(
         String includePatterns, String excludePatterns) {
+      if (partialCompilationConfiguration.isEnabled()) {
+        getReporter().warning("Overriding partial compilation specified in system properties.");
+      }
       if (includePatterns == null || includePatterns.isEmpty()) {
         includePatterns = "androidx.**,kotlin.**,kotlinx.**";
       }
