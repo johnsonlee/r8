@@ -249,15 +249,20 @@ public class RootSetUtils {
             // Allow D8/R8 boundary obfuscation. We disable repackaging of the R8 part since
             // repackaging uses a graph lens, which would need to be applied to the D8 part before
             // the application writer (though this is perfectly doable).
-            private final ProguardKeepRuleModifiers modifiers =
+            private final ProguardKeepRuleModifiers allowObfuscationModifiers =
                 ProguardKeepRuleModifiers.builder()
                     .setAllowsObfuscation(true)
+                    .setAllowsRepackaging(false)
+                    .build();
+            private final ProguardKeepRuleModifiers disallowObfuscationModifiers =
+                ProguardKeepRuleModifiers.builder()
+                    .setAllowsObfuscation(false)
                     .setAllowsRepackaging(false)
                     .build();
 
             @Override
             protected synchronized void keep(
-                Definition definition, DefinitionContext referencedFrom) {
+                Definition definition, DefinitionContext referencedFrom, boolean allowObfuscation) {
               if (definition.isProgramDefinition()) {
                 ReferencedFromExcludedClassInR8PartialRule rule =
                     canonicalRules.computeIfAbsent(
@@ -267,6 +272,8 @@ public class RootSetUtils {
                                 new ReferencedFromExcludedClassInR8PartialRule(
                                     referencedFrom.getOrigin(),
                                     getPositionFromDefinitionContext(referencedFrom))));
+                ProguardKeepRuleModifiers modifiers =
+                    allowObfuscation ? allowObfuscationModifiers : disallowObfuscationModifiers;
                 evaluateKeepRule(
                     definition.asProgramDefinition(), null, null, modifiers, Action.empty(), rule);
               } else {

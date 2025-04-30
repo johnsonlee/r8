@@ -277,6 +277,12 @@ public class UseCollector implements UseCollectorEventConsumer {
   }
 
   @Override
+  public void notifyPresentMethodOverride(
+      DexClassAndMethod method, ProgramMethod override, DefinitionContext referencedFrom) {
+    // Intentionally empty.
+  }
+
+  @Override
   public void notifyMissingMethod(DexMethod method, DefinitionContext referencedFrom) {
     TracedMethodImpl missingMethod = new TracedMethodImpl(method, referencedFrom);
     collectMissingMethod(missingMethod);
@@ -466,6 +472,7 @@ public class UseCollector implements UseCollectorEventConsumer {
             //   method that overrides this target method,
             // - The holder type is registered from visiting the extends/implements clause of the
             //   sub class.
+            eventConsumer.notifyPresentMethodOverride(resolvedMethod, method, referencedFrom);
             if (resolvedMethod.getHolderType().isIdenticalTo(superType)) {
               eventConsumer.notifyPresentMethod(resolvedMethod, referencedFrom);
             } else if (isTargetType(superType)) {
@@ -886,6 +893,12 @@ public class UseCollector implements UseCollectorEventConsumer {
     public void notifyPresentMethod(
         DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
       parent.notifyPresentMethod(method, referencedFrom, reference);
+    }
+
+    @Override
+    public void notifyPresentMethodOverride(
+        DexClassAndMethod method, ProgramMethod override, DefinitionContext referencedFrom) {
+      parent.notifyPresentMethodOverride(method, override, referencedFrom);
     }
 
     @Override

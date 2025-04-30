@@ -14,6 +14,7 @@ import com.android.tools.r8.graph.DexClassAndMethod;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.partial.R8PartialSubCompilationConfiguration.R8PartialR8SubCompilationConfiguration;
 import com.android.tools.r8.references.PackageReference;
 import com.android.tools.r8.shaking.ProguardClassFilter;
@@ -34,7 +35,8 @@ import java.util.function.Predicate;
 
 public abstract class R8PartialUseCollector extends UseCollector {
 
-  private final Set<DexReference> seen = ConcurrentHashMap.newKeySet();
+  private final Set<DexReference> seenAllowObfuscation = ConcurrentHashMap.newKeySet();
+  private final Set<DexReference> seenDisallowObfuscation = ConcurrentHashMap.newKeySet();
   private final Set<String> packagesToKeep = ConcurrentHashMap.newKeySet();
 
   public R8PartialUseCollector(AppView<? extends AppInfoWithClassHierarchy> appView) {
@@ -78,7 +80,8 @@ public abstract class R8PartialUseCollector extends UseCollector {
             .build());
   }
 
-  protected abstract void keep(Definition definition, DefinitionContext referencedFrom);
+  protected abstract void keep(
+      Definition definition, DefinitionContext referencedFrom, boolean allowObfuscation);
 
   @Override
   public void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
@@ -101,9 +104,17 @@ public abstract class R8PartialUseCollector extends UseCollector {
     notifyPresentItem(method, referencedFrom);
   }
 
+  @Override
+  public void notifyPresentMethodOverride(
+      DexClassAndMethod method, ProgramMethod override, DefinitionContext referencedFrom) {
+    if (seenDisallowObfuscation.add(method.getReference())) {
+      keep(method, referencedFrom, false);
+    }
+  }
+
   private void notifyPresentItem(Definition definition, DefinitionContext referencedFrom) {
-    if (seen.add(definition.getReference())) {
-      keep(definition, referencedFrom);
+    if (seenAllowObfuscation.add(definition.getReference())) {
+      keep(definition, referencedFrom, true);
     }
   }
 
