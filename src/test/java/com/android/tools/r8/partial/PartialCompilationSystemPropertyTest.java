@@ -46,6 +46,7 @@ public class PartialCompilationSystemPropertyTest extends TestBase {
           .addInnerClasses(getClass())
           .addKeepMainRule(IncludedMain.class)
           .setMinApi(apiLevelWithNativeMultiDexSupport())
+          .allowStdoutMessages()
           .compile()
           .inspect(
               inspector -> {
