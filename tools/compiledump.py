@@ -700,7 +700,7 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.append('--isolated-splits')
         if dump.library_jar():
             cmd.extend(['--lib', dump.library_jar()])
-        if dump.resource_ap_file():
+        if is_r8_compiler(compiler) and dump.resource_ap_file():
             res_output = os.path.join(temp, 'app-res-out.ap_')
             cmd.extend(['--android-resources', dump.resource_ap_file(),
                         res_output])
@@ -746,7 +746,7 @@ def run1(out, args, otherargs, jdkhome=None, worker_id=None):
             cmd.extend(['--classfile'])
         if android_platform_build:
             cmd.extend(['--android-platform-build'])
-        if optimized_resource_shrinking:
+        if is_r8_compiler(compiler) and optimized_resource_shrinking:
             cmd.extend(['--optimized-resource-shrinking'])
         if enable_missing_library_api_modeling:
             cmd.extend(['--enable-missing-library-api-modeling'])
