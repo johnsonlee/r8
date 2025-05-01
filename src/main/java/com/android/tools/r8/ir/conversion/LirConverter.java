@@ -12,6 +12,7 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.graph.bytecodemetadata.BytecodeMetadataProvider;
 import com.android.tools.r8.graph.lens.GraphLens;
+import com.android.tools.r8.ir.analysis.proto.ProtoReferences;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.conversion.passes.AdaptClassStringsRewriter;
 import com.android.tools.r8.ir.conversion.passes.CodeRewriterPassCollection;
@@ -62,6 +63,9 @@ public class LirConverter {
             new ConstResourceNumberRewriter(appView),
             new StringSwitchConverter(appView),
             new IdentifierNameStringMarker(appView));
+    // Only used for checking assertions.
+    ProtoReferences protoReferences =
+        InternalOptions.assertionsEnabled() ? new ProtoReferences(appView.dexItemFactory()) : null;
     // Convert code objects to LIR.
     ThreadUtils.processItems(
         appView.appInfo().classes(),
@@ -73,8 +77,10 @@ public class LirConverter {
                 // TODO(b/414965524): Remove the need for checking processed and move the handling
                 // synchronized methods in DEX to a "CodeRewriterPass" as IR rewriting.
                 if (method.getDefinition().isProcessed()) {
-                  assert appView.options().partialSubCompilationConfiguration != null
-                      && appView.options().partialSubCompilationConfiguration.isR8();
+                  assert (appView.options().partialSubCompilationConfiguration != null
+                          && appView.options().partialSubCompilationConfiguration.isR8())
+                      || (appView.options().protoShrinking().enableGeneratedMessageLiteShrinking
+                          && protoReferences.isDynamicMethod(method.getDefinition()));
                   method.getDefinition().markNotProcessed();
                 }
                 IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
