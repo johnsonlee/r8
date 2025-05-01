@@ -138,6 +138,7 @@ import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
 import com.android.tools.r8.shaking.reflectiveidentification.EnqueuerReflectiveIdentificationAnalysis;
+import com.android.tools.r8.shaking.reflectiveidentification.EnqueuerReflectiveIdentificationEventConsumer;
 import com.android.tools.r8.shaking.rules.ApplicableRulesEvaluator;
 import com.android.tools.r8.shaking.rules.KeepAnnotationFakeProguardRule;
 import com.android.tools.r8.shaking.rules.KeepAnnotationMatcher;
@@ -504,7 +505,8 @@ public class Enqueuer {
     this.options = options;
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.reflectiveIdentificationAnalysis =
-        new EnqueuerReflectiveIdentificationAnalysis(appView, this);
+        new EnqueuerReflectiveIdentificationAnalysis(
+            appView, this, new EnqueuerReflectiveIdentificationEventConsumer(this));
     this.useRegistryFactory = createUseRegistryFactory();
     this.worklist =
         EnqueuerWorklist.createWorklist(this, executorService, options.getThreadingModule());

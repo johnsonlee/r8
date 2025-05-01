@@ -53,16 +53,20 @@ public class EnqueuerReflectiveIdentificationAnalysis {
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory factory;
   private final Enqueuer enqueuer;
+  private final ReflectiveIdentificationEventConsumer eventConsumer;
   private final InternalOptions options;
 
   private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
   private final ProgramMethodSet worklist = ProgramMethodSet.create();
 
   public EnqueuerReflectiveIdentificationAnalysis(
-      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+      AppView<? extends AppInfoWithClassHierarchy> appView,
+      Enqueuer enqueuer,
+      ReflectiveIdentificationEventConsumer eventConsumer) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
     this.enqueuer = enqueuer;
+    this.eventConsumer = eventConsumer;
     this.options = appView.options();
   }
 
@@ -170,12 +174,8 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
     DexProgramClass clazz =
         enqueuer.getProgramClassOrNullFromReflectiveAccess(instantiatedType, method);
-    if (clazz == null) {
-      return;
-    }
-    ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
-    if (defaultInitializer != null) {
-      enqueuer.traceReflectiveNewInstance(method, clazz, defaultInitializer);
+    if (clazz != null) {
+      eventConsumer.onJavaLangClassNewInstance(clazz, method);
     }
   }
 
