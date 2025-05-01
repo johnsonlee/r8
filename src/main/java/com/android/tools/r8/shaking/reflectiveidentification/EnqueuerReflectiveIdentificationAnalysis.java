@@ -518,7 +518,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       ProgramMethod method,
       DexType referencedType,
       IdentifierNameStringLookupResult<?> identifierLookupResult) {
-    if (!referencedType.isClassType()) {
+    if (!referencedType.isClassType() || appView.allMergedClasses().isMergeSource(referencedType)) {
       return;
     }
     assert identifierLookupResult.isTypeResult();
