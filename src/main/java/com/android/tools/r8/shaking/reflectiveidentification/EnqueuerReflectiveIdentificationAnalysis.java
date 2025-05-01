@@ -22,7 +22,6 @@ import com.android.tools.r8.ir.code.ArrayPut;
 import com.android.tools.r8.ir.code.ConstantValueUtils;
 import com.android.tools.r8.ir.code.IRCode;
 import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
 import com.android.tools.r8.ir.code.InvokeMethod;
 import com.android.tools.r8.ir.code.InvokeVirtual;
 import com.android.tools.r8.ir.code.NewArrayEmpty;
@@ -48,6 +47,7 @@ import java.util.List;
 public class EnqueuerReflectiveIdentificationAnalysis {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
+  private final DexItemFactory factory;
   private final Enqueuer enqueuer;
   private final InternalOptions options;
 
@@ -56,6 +56,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
   public EnqueuerReflectiveIdentificationAnalysis(
       AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
     this.appView = appView;
+    this.factory = appView.dexItemFactory();
     this.enqueuer = enqueuer;
     this.options = appView.options();
   }
@@ -79,39 +80,33 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
   private void processMethod(ProgramMethod method) {
     IRCode code = method.buildIR(appView, MethodConversionOptions.nonConverting());
-    InstructionIterator iterator = code.instructionIterator();
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-      if (instruction.isInvokeMethod()) {
-        processInvoke(method, instruction.asInvokeMethod());
-      }
+    for (InvokeMethod invoke : code.<InvokeMethod>instructions(Instruction::isInvokeMethod)) {
+      processInvoke(method, invoke);
     }
   }
 
   private void processInvoke(ProgramMethod method, InvokeMethod invoke) {
     DexMethod invokedMethod = invoke.getInvokedMethod();
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (invokedMethod.isIdenticalTo(dexItemFactory.classMethods.newInstance)) {
+    if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
       handleJavaLangClassNewInstance(method, invoke);
       return;
     }
-    if (invokedMethod.isIdenticalTo(dexItemFactory.constructorMethods.newInstance)) {
+    if (invokedMethod.isIdenticalTo(factory.constructorMethods.newInstance)) {
       handleJavaLangReflectConstructorNewInstance(method, invoke);
       return;
     }
-    if (invokedMethod.isIdenticalTo(dexItemFactory.proxyMethods.newProxyInstance)) {
+    if (invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
       handleJavaLangReflectProxyNewProxyInstance(method, invoke);
       return;
     }
-    if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
+    if (factory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
       handleServiceLoaderInvocation(method, invoke);
       return;
     }
     if (enqueuer.getAnalyses().handleReflectiveInvoke(method, invoke)) {
       return;
     }
-
-    if (!isReflectionMethod(dexItemFactory, invokedMethod)) {
+    if (!isReflectionMethod(factory, invokedMethod)) {
       return;
     }
     IdentifierNameStringLookupResult<?> identifierLookupResult =
@@ -167,7 +162,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       // is not present.
       boolean keepClass =
           !encodedField.isStatic()
-              && dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod);
+              && factory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod);
       if (keepClass) {
         enqueuer
             .getWorklist()
@@ -236,7 +231,6 @@ public class EnqueuerReflectiveIdentificationAnalysis {
   }
 
   /** Handles reflective uses of {@link java.lang.reflect.Constructor#newInstance(Object...)}. */
-  @SuppressWarnings("ReferenceEquality")
   private void handleJavaLangReflectConstructorNewInstance(
       ProgramMethod method, InvokeMethod invoke) {
     if (!invoke.isInvokeVirtual()) {
@@ -252,8 +246,8 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
     InvokeVirtual constructorDefinition = constructorValue.definition.asInvokeVirtual();
     DexMethod invokedMethod = constructorDefinition.getInvokedMethod();
-    if (invokedMethod != appView.dexItemFactory().classMethods.getConstructor
-        && invokedMethod != appView.dexItemFactory().classMethods.getDeclaredConstructor) {
+    if (invokedMethod.isNotIdenticalTo(factory.classMethods.getConstructor)
+        && invokedMethod.isNotIdenticalTo(factory.classMethods.getDeclaredConstructor)) {
       // Give up, we can't tell which constructor is being invoked.
       return;
     }
@@ -331,7 +325,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
             return;
           }
 
-          if (parameterTypes[index] == type) {
+          if (type.isIdenticalTo(parameterTypes[index])) {
             continue;
           }
           if (parameterTypes[index] != null) {
