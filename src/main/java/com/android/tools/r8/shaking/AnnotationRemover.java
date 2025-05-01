@@ -211,7 +211,9 @@ public class AnnotationRemover {
               member ->
                   member
                       .getDefinition()
-                      .removeAnnotations(DexAnnotation::isClassRetentionAnnotation));
+                      .rewriteAllAnnotations(
+                          (annotation, kind) ->
+                              annotation.isClassRetentionAnnotation() ? null : annotation));
         },
         options.getThreadingModule(),
         executorService);
