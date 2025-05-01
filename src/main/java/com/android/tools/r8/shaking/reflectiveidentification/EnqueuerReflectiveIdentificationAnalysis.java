@@ -211,7 +211,8 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     }
 
     DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(instantiatedType, method);
+        asProgramClassOrNull(
+            appView.appInfo().definitionForWithoutExistenceAssert(instantiatedType));
     if (clazz == null) {
       return;
     }
@@ -233,7 +234,6 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     }
 
     ProgramMethod initializer = null;
-
     if (parametersSize == 0) {
       initializer = clazz.getProgramDefaultInitializer();
     } else {
@@ -291,7 +291,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     }
 
     if (initializer != null) {
-      enqueuer.traceReflectiveNewInstance(method, clazz, initializer);
+      eventConsumer.onJavaLangReflectConstructorNewInstance(initializer, method);
     }
   }
 

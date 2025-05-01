@@ -1717,16 +1717,16 @@ public class Enqueuer {
     return clazz;
   }
 
-  public void traceReflectiveNewInstance(
-      ProgramMethod context, DexProgramClass clazz, ProgramMethod initializer) {
+  public void traceReflectiveNewInstance(ProgramMethod initializer, ProgramMethod context) {
     assert initializer.getDefinition().isInstanceInitializer();
     KeepReason reason = KeepReason.reflectiveUseIn(context);
-    traceNewInstance(clazz.getType(), context, InstantiationReason.REFLECTION, reason);
+    traceNewInstance(initializer.getHolderType(), context, InstantiationReason.REFLECTION, reason);
     markMethodAsTargeted(initializer, reason);
     markDirectStaticOrConstructorMethodAsLive(initializer, reason);
     applyMinimumKeepInfoWhenLiveOrTargeted(
         initializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
-    applyMinimumKeepInfoWhenLive(clazz, KeepClassInfo.newEmptyJoiner().disallowOptimization());
+    applyMinimumKeepInfoWhenLive(
+        initializer.getHolder(), KeepClassInfo.newEmptyJoiner().disallowOptimization());
   }
 
   void traceInstanceFieldRead(DexField field, ProgramMethod currentMethod) {

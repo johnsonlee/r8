@@ -9,4 +9,6 @@ import com.android.tools.r8.graph.ProgramMethod;
 public interface ReflectiveIdentificationEventConsumer {
 
   void onJavaLangClassNewInstance(DexProgramClass clazz, ProgramMethod context);
+
+  void onJavaLangReflectConstructorNewInstance(ProgramMethod initializer, ProgramMethod context);
 }

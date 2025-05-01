@@ -20,7 +20,13 @@ public class EnqueuerReflectiveIdentificationEventConsumer
   public void onJavaLangClassNewInstance(DexProgramClass clazz, ProgramMethod context) {
     ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
     if (defaultInitializer != null) {
-      enqueuer.traceReflectiveNewInstance(context, clazz, defaultInitializer);
+      enqueuer.traceReflectiveNewInstance(defaultInitializer, context);
     }
+  }
+
+  @Override
+  public void onJavaLangReflectConstructorNewInstance(
+      ProgramMethod initializer, ProgramMethod context) {
+    enqueuer.traceReflectiveNewInstance(initializer, context);
   }
 }
