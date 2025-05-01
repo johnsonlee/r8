@@ -17,7 +17,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
-public class PartialCompilationSynchronizedMethodTest extends TestBase {
+public class PartialCompilationSynchronizedMethodIncludedTest extends TestBase {
 
   @Parameter(0)
   public TestParameters parameters;
@@ -55,10 +55,6 @@ public class PartialCompilationSynchronizedMethodTest extends TestBase {
     checkMonitorEnterAndExit(inspector, 3);
   }
 
-  private void unexpectedMonitorEnterAndExit(CodeInspector inspector) {
-    checkMonitorEnterAndExit(inspector, 0);
-  }
-
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
@@ -80,10 +76,9 @@ public class PartialCompilationSynchronizedMethodTest extends TestBase {
         .addKeepClassAndMembersRules(ClassWithSynchronizedMethod.class)
         .setMinApi(parameters)
         .compile()
-        // TODO(b/414598986): Should not happen.
-        .inspect(this::unexpectedMonitorEnterAndExit)
+        .inspect(this::expectedMonitorEnterAndExit)
         .run(parameters.getRuntime(), TestClass.class)
-        .assertFailureWithErrorThatThrows(IllegalMonitorStateException.class);
+        .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
   static class ClassWithSynchronizedMethod {

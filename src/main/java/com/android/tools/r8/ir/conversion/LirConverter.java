@@ -70,6 +70,13 @@ public class LirConverter {
               method -> method.hasCode() && !appView.isCfByteCodePassThrough(method),
               method -> {
                 assert !method.getDefinition().getCode().hasExplicitCodeLens();
+                // TODO(b/414965524): Remove the need for checking processed and move the handling
+                // synchronized methods in DEX to a "CodeRewriterPass" as IR rewriting.
+                if (method.getDefinition().isProcessed()) {
+                  assert appView.options().partialSubCompilationConfiguration != null
+                      && appView.options().partialSubCompilationConfiguration.isR8();
+                  method.getDefinition().markNotProcessed();
+                }
                 IRCode code = method.buildIR(appView, MethodConversionOptions.forLirPhase(appView));
                 codeRewriterPassCollection.run(
                     code, null, null, Timing.empty(), null, appView.options());
