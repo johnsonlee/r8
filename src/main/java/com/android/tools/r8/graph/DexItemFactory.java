@@ -358,6 +358,14 @@ public class DexItemFactory {
       createString("Ljava/util/concurrent/atomic/AtomicLongFieldUpdater;");
   public final DexString referenceFieldUpdaterDescriptor =
       createString("Ljava/util/concurrent/atomic/AtomicReferenceFieldUpdater;");
+
+  public final DexType javaUtilConcurrentAtomicAtomicIntegerFieldUpdater =
+      createType(intFieldUpdaterDescriptor);
+  public final DexType javaUtilConcurrentAtomicAtomicLongFieldUpdater =
+      createType(longFieldUpdaterDescriptor);
+  public final DexType javaUtilConcurrentAtomicAtomicReferenceFieldUpdater =
+      createType(referenceFieldUpdaterDescriptor);
+
   public final DexString newUpdaterName = createString("newUpdater");
 
   public final DexString constructorMethodName = createString(Constants.INSTANCE_INITIALIZER_NAME);

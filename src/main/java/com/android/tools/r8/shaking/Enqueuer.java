@@ -51,7 +51,6 @@ import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexEncodedMember;
 import com.android.tools.r8.graph.DexEncodedMethod;
 import com.android.tools.r8.graph.DexField;
-import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexItemFactory.ClassMethods;
 import com.android.tools.r8.graph.DexLibraryClass;
 import com.android.tools.r8.graph.DexMember;
@@ -261,8 +260,6 @@ public class Enqueuer {
       new FieldAccessInfoCollectionImpl();
   private final ObjectAllocationInfoCollectionImpl.Builder objectAllocationInfoCollection;
   private final Map<DexCallSite, ProgramMethodSet> callSites = new IdentityHashMap<>();
-
-  private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
 
   private List<KeepDeclaration> keepDeclarations = Collections.emptyList();
   private ApplicableRulesEvaluator applicableRules = ApplicableRulesEvaluator.empty();
@@ -1602,19 +1599,7 @@ public class Enqueuer {
     if (registry != null && !registry.markInvokeStaticAsSeen(invokedMethod)) {
       return;
     }
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (dexItemFactory.classMethods.isReflectiveClassLookup(invokedMethod)
-        || dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
-      // Implicitly add -identifiernamestring rule for the Java reflection in use.
-      identifierNameStrings.add(invokedMethod);
-      // Revisit the current method to implicitly add -keep rule for items with reflective access.
-      reflectiveIdentificationAnalysis.enqueue(context);
-    } else if (invokedMethod == dexItemFactory.proxyMethods.newProxyInstance) {
-      reflectiveIdentificationAnalysis.enqueue(context);
-    } else if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
-      // Handling of application services.
-      reflectiveIdentificationAnalysis.enqueue(context);
-    }
+    reflectiveIdentificationAnalysis.scanInvoke(invokedMethod, context);
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         handleInvokeOfStaticTarget(invokedMethod, context, reason);
@@ -1651,16 +1636,7 @@ public class Enqueuer {
     if (registry != null && !registry.markInvokeVirtualAsSeen(invokedMethod)) {
       return;
     }
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (invokedMethod.isIdenticalTo(dexItemFactory.classMethods.newInstance)
-        || invokedMethod.isIdenticalTo(dexItemFactory.constructorMethods.newInstance)) {
-      reflectiveIdentificationAnalysis.enqueue(context);
-    } else if (dexItemFactory.classMethods.isReflectiveMemberLookup(invokedMethod)) {
-      // Implicitly add -identifiernamestring rule for the Java reflection in use.
-      identifierNameStrings.add(invokedMethod);
-      // Revisit the current method to implicitly add -keep rule for items with reflective access.
-      reflectiveIdentificationAnalysis.enqueue(context);
-    }
+    reflectiveIdentificationAnalysis.scanInvoke(invokedMethod, context);
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         markVirtualMethodAsReachable(invokedMethod, false, context, reason);
@@ -4607,7 +4583,9 @@ public class Enqueuer {
             amendWithCompanionMethods(rootSet.whyAreYouNotInlining),
             amendWithCompanionMethods(rootSet.reprocess),
             rootSet.alwaysClassInline,
-            joinIdentifierNameStrings(rootSet.identifierNameStrings, identifierNameStrings),
+            joinIdentifierNameStrings(
+                rootSet.identifierNameStrings,
+                reflectiveIdentificationAnalysis.getIdentifierNameStrings()),
             emptySet(),
             Collections.emptyMap(),
             lockCandidates,
