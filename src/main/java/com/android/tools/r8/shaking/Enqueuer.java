@@ -9,8 +9,6 @@ import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.FieldAccessInfoImpl.MISSING_FIELD_ACCESS_INFO;
 import static com.android.tools.r8.ir.desugar.LambdaDescriptor.isLambdaMetafactoryMethod;
 import static com.android.tools.r8.ir.desugar.desugaredlibrary.apiconversion.VivifiedTypeUtils.methodWithVivifiedTypeInSignature;
-import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
-import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 import static com.android.tools.r8.shaking.KeepInfo.Joiner.asClassJoinerOrNull;
 import static com.android.tools.r8.shaking.KeepInfo.Joiner.asFieldJoinerOrNull;
 import static com.android.tools.r8.utils.CovariantReturnTypeUtils.modelLibraryMethodsWithCovariantReturnTypes;
@@ -102,17 +100,6 @@ import com.android.tools.r8.graph.analysis.ResourceAccessAnalysis;
 import com.android.tools.r8.ir.analysis.proto.GeneratedMessageLiteBuilderShrinker;
 import com.android.tools.r8.ir.analysis.proto.ProtoEnqueuerUseRegistry;
 import com.android.tools.r8.ir.analysis.proto.schema.ProtoEnqueuerExtension;
-import com.android.tools.r8.ir.code.ArrayPut;
-import com.android.tools.r8.ir.code.ConstantValueUtils;
-import com.android.tools.r8.ir.code.IRCode;
-import com.android.tools.r8.ir.code.Instruction;
-import com.android.tools.r8.ir.code.InstructionIterator;
-import com.android.tools.r8.ir.code.InvokeMethod;
-import com.android.tools.r8.ir.code.InvokeVirtual;
-import com.android.tools.r8.ir.code.NewArrayEmpty;
-import com.android.tools.r8.ir.code.NewArrayFilled;
-import com.android.tools.r8.ir.code.Value;
-import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollection;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.desugar.CfPostProcessingDesugaringCollection;
@@ -128,8 +115,6 @@ import com.android.tools.r8.ir.desugar.lambda.SyntheticLambdaAccessorMethodConsu
 import com.android.tools.r8.ir.optimize.info.MutableMethodOptimizationInfo;
 import com.android.tools.r8.keepanno.ast.KeepDeclaration;
 import com.android.tools.r8.kotlin.KotlinMetadataEnqueuerExtension;
-import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
-import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringTypeLookupResult;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.profile.rewriting.ProfileCollectionAdditions;
 import com.android.tools.r8.shaking.AnnotationMatchResult.MatchedAnnotation;
@@ -153,6 +138,7 @@ import com.android.tools.r8.shaking.RootSetUtils.RootSet;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
+import com.android.tools.r8.shaking.reflectiveidentification.EnqueuerReflectiveIdentificationAnalysis;
 import com.android.tools.r8.shaking.rules.ApplicableRulesEvaluator;
 import com.android.tools.r8.shaking.rules.KeepAnnotationFakeProguardRule;
 import com.android.tools.r8.shaking.rules.KeepAnnotationMatcher;
@@ -179,7 +165,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
-import java.lang.reflect.InvocationHandler;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -398,8 +383,8 @@ public class Enqueuer {
 
   private final ProguardCompatibilityActions.Builder proguardCompatibilityActionsBuilder;
 
-  /** A set of methods that need code inspection for Java reflection in use. */
-  private final ProgramMethodSet methodsThatRequireIrAnalysis = ProgramMethodSet.create();
+  /** Tracing of reflection. */
+  private final EnqueuerReflectiveIdentificationAnalysis reflectiveIdentificationAnalysis;
 
   /** Mapping of types to the resolved methods for that type along with the context. */
   private final Map<DexProgramClass, Map<ResolutionSearchKey, ProgramMethodSet>>
@@ -521,6 +506,8 @@ public class Enqueuer {
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
     this.options = options;
     this.keepInfo = new MutableKeepInfoCollection(options);
+    this.reflectiveIdentificationAnalysis =
+        new EnqueuerReflectiveIdentificationAnalysis(appView, this);
     this.useRegistryFactory = createUseRegistryFactory();
     this.worklist =
         EnqueuerWorklist.createWorklist(this, executorService, options.getThreadingModule());
@@ -807,6 +794,10 @@ public class Enqueuer {
     return classResolutionResult;
   }
 
+  public EnqueuerAnalysisCollection getAnalyses() {
+    return analyses;
+  }
+
   public FieldAccessInfoCollectionImpl getFieldAccessInfoCollection() {
     return fieldAccessInfoCollection;
   }
@@ -817,6 +808,10 @@ public class Enqueuer {
 
   public KeepClassInfo getKeepInfo(DexProgramClass clazz) {
     return keepInfo.getClassInfo(clazz);
+  }
+
+  public EnqueuerReflectiveIdentificationAnalysis getReflectiveIdentificationAnalysis() {
+    return reflectiveIdentificationAnalysis;
   }
 
   public ImmediateAppSubtypingInfo getSubtypingInfo() {
@@ -940,7 +935,7 @@ public class Enqueuer {
         });
   }
 
-  private DexProgramClass getProgramClassOrNull(DexType type, ProgramDefinition context) {
+  public DexProgramClass getProgramClassOrNull(DexType type, ProgramDefinition context) {
     DexClass clazz = definitionFor(type, context);
     return clazz != null && clazz.isProgramClass() ? clazz.asProgramClass() : null;
   }
@@ -956,7 +951,7 @@ public class Enqueuer {
         type, context, this::recordNonProgramClassWithNoMissingReporting, this::ignoreMissingClass);
   }
 
-  private DexProgramClass getProgramClassOrNullFromReflectiveAccess(
+  public DexProgramClass getProgramClassOrNullFromReflectiveAccess(
       DexType type, ProgramDefinition context) {
     return asProgramClassOrNull(getClassOrNullFromReflectiveAccess(type, context));
   }
@@ -1613,12 +1608,12 @@ public class Enqueuer {
       // Implicitly add -identifiernamestring rule for the Java reflection in use.
       identifierNameStrings.add(invokedMethod);
       // Revisit the current method to implicitly add -keep rule for items with reflective access.
-      addMethodThatRequireIrAnalysis(context);
+      reflectiveIdentificationAnalysis.enqueue(context);
     } else if (invokedMethod == dexItemFactory.proxyMethods.newProxyInstance) {
-      addMethodThatRequireIrAnalysis(context);
+      reflectiveIdentificationAnalysis.enqueue(context);
     } else if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
       // Handling of application services.
-      addMethodThatRequireIrAnalysis(context);
+      reflectiveIdentificationAnalysis.enqueue(context);
     }
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
@@ -1659,12 +1654,12 @@ public class Enqueuer {
     DexItemFactory dexItemFactory = appView.dexItemFactory();
     if (invokedMethod.isIdenticalTo(dexItemFactory.classMethods.newInstance)
         || invokedMethod.isIdenticalTo(dexItemFactory.constructorMethods.newInstance)) {
-      addMethodThatRequireIrAnalysis(context);
+      reflectiveIdentificationAnalysis.enqueue(context);
     } else if (dexItemFactory.classMethods.isReflectiveMemberLookup(invokedMethod)) {
       // Implicitly add -identifiernamestring rule for the Java reflection in use.
       identifierNameStrings.add(invokedMethod);
       // Revisit the current method to implicitly add -keep rule for items with reflective access.
-      addMethodThatRequireIrAnalysis(context);
+      reflectiveIdentificationAnalysis.enqueue(context);
     }
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
@@ -1744,7 +1739,7 @@ public class Enqueuer {
     return clazz;
   }
 
-  private void traceReflectiveNewInstance(
+  public void traceReflectiveNewInstance(
       ProgramMethod context, DexProgramClass clazz, ProgramMethod initializer) {
     assert initializer.getDefinition().isInstanceInitializer();
     KeepReason reason = KeepReason.reflectiveUseIn(context);
@@ -2106,7 +2101,7 @@ public class Enqueuer {
     markTypeAsLive(clazz, graphReporter.reportClassReferencedFrom(clazz, context));
   }
 
-  void markTypeAsLive(DexProgramClass clazz, KeepReason reason) {
+  public void markTypeAsLive(DexProgramClass clazz, KeepReason reason) {
     assert clazz != null;
     markTypeAsLive(
         clazz,
@@ -2570,7 +2565,7 @@ public class Enqueuer {
     return resolutionResults;
   }
 
-  void markDirectAndIndirectClassInitializersAsLive(DexProgramClass clazz) {
+  public void markDirectAndIndirectClassInitializersAsLive(DexProgramClass clazz) {
     if (clazz.isInterface()) {
       // Accessing a static field or method on an interface does not trigger the class initializer
       // of any parent interfaces.
@@ -2935,7 +2930,7 @@ public class Enqueuer {
     transitionDependentItemsForInstantiatedInterface(clazz);
   }
 
-  void markInterfaceAsInstantiated(DexProgramClass clazz, KeepReasonWitness witness) {
+  public void markInterfaceAsInstantiated(DexProgramClass clazz, KeepReasonWitness witness) {
     assert !clazz.isAnnotation();
     assert clazz.isInterface();
     if (!objectAllocationInfoCollection.recordInstantiatedInterface(clazz, appInfo)) {
@@ -3387,7 +3382,7 @@ public class Enqueuer {
     markTypeAsLive(field.getType(), context);
   }
 
-  private void markDirectStaticOrConstructorMethodAsLive(ProgramMethod method, KeepReason reason) {
+  public void markDirectStaticOrConstructorMethodAsLive(ProgramMethod method, KeepReason reason) {
     if (appView.options().isGeneratingDex()
         && method.getReference().match(appView.dexItemFactory().deserializeLambdaMethod)
         && method.getAccessFlags().isPrivate()) {
@@ -3406,7 +3401,7 @@ public class Enqueuer {
     }
   }
 
-  private void markVirtualMethodAsLive(ProgramMethod method, KeepReason reason) {
+  public void markVirtualMethodAsLive(ProgramMethod method, KeepReason reason) {
     // Only explicit keep rules or reflective use should make abstract methods live.
     assert !method.getDefinition().isAbstract()
         || reason.isDueToKeepRule()
@@ -3545,7 +3540,7 @@ public class Enqueuer {
     liveTypes.getItems().forEach(consumer);
   }
 
-  private MethodResolutionResult markVirtualMethodAsReachable(
+  public MethodResolutionResult markVirtualMethodAsReachable(
       DexMethod method, boolean interfaceInvoke, ProgramMethod context, KeepReason reason) {
     MethodResolutionResult resolutionResults =
         resolveMethod(method, context, reason, interfaceInvoke);
@@ -3928,9 +3923,8 @@ public class Enqueuer {
     }
   }
 
-  private void applyMinimumKeepInfoWhenLive(
-      DexProgramClass clazz,
-      KeepClassInfo.Joiner minimumKeepInfo) {
+  public void applyMinimumKeepInfoWhenLive(
+      DexProgramClass clazz, KeepClassInfo.Joiner minimumKeepInfo) {
     applyMinimumKeepInfoWhenLive(clazz, minimumKeepInfo, EnqueuerEvent.unconditional());
   }
 
@@ -4791,12 +4785,7 @@ public class Enqueuer {
 
         // Continue fix-point processing while there are additional work items to ensure items that
         // are passed to Java reflections are traced.
-        if (!methodsThatRequireIrAnalysis.isEmpty()) {
-          timing.begin("Handle reflective behavior");
-          methodsThatRequireIrAnalysis.forEach(this::handleReflectiveBehavior);
-          methodsThatRequireIrAnalysis.clear();
-          timing.end();
-        }
+        reflectiveIdentificationAnalysis.processWorklist(timing);
         if (worklist.hasNext()) {
           timing.end();
           continue;
@@ -5133,7 +5122,7 @@ public class Enqueuer {
     timing.end();
   }
 
-  private void markMethodAsTargeted(ProgramMethod method, KeepReason reason) {
+  public void markMethodAsTargeted(ProgramMethod method, KeepReason reason) {
     if (!addTargetedMethod(method, reason)) {
       // Already targeted.
       return;
@@ -5205,7 +5194,7 @@ public class Enqueuer {
     markTypeAsLive(method.getDefinition().returnType(), method);
   }
 
-  private void markClassAsInstantiatedWithReason(DexProgramClass clazz, KeepReason reason) {
+  public void markClassAsInstantiatedWithReason(DexProgramClass clazz, KeepReason reason) {
     worklist.enqueueMarkInstantiatedAction(clazz, null, InstantiationReason.REFLECTION, reason);
     if (clazz.hasDefaultInitializer()) {
       ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
@@ -5214,7 +5203,7 @@ public class Enqueuer {
     }
   }
 
-  private void markClassAsInstantiatedWithCompatRule(
+  public void markClassAsInstantiatedWithCompatRule(
       DexProgramClass clazz, Supplier<KeepReason> reasonSupplier) {
     assert forceProguardCompatibility;
 
@@ -5263,416 +5252,6 @@ public class Enqueuer {
   private void markMethodAsLiveWithCompatRule(ProgramMethod method) {
     worklist.enqueueMarkMethodLiveAction(
         method, method, graphReporter.reportCompatKeepMethod(method));
-  }
-
-  public void addMethodThatRequireIrAnalysis(ProgramMethod programMethod) {
-    methodsThatRequireIrAnalysis.add(programMethod);
-  }
-
-  private void handleReflectiveBehavior(ProgramMethod method) {
-    IRCode code = method.buildIR(appView, MethodConversionOptions.nonConverting());
-    InstructionIterator iterator = code.instructionIterator();
-    while (iterator.hasNext()) {
-      Instruction instruction = iterator.next();
-      if (instruction.isInvokeMethod()) {
-        handleReflectiveBehavior(method, instruction.asInvokeMethod());
-      }
-    }
-  }
-
-  private void handleReflectiveBehavior(ProgramMethod method, InvokeMethod invoke) {
-    DexMethod invokedMethod = invoke.getInvokedMethod();
-    DexItemFactory dexItemFactory = appView.dexItemFactory();
-    if (invokedMethod.isIdenticalTo(dexItemFactory.classMethods.newInstance)) {
-      handleJavaLangClassNewInstance(method, invoke);
-      return;
-    }
-    if (invokedMethod.isIdenticalTo(dexItemFactory.constructorMethods.newInstance)) {
-      handleJavaLangReflectConstructorNewInstance(method, invoke);
-      return;
-    }
-    if (invokedMethod.isIdenticalTo(dexItemFactory.proxyMethods.newProxyInstance)) {
-      handleJavaLangReflectProxyNewProxyInstance(method, invoke);
-      return;
-    }
-    if (dexItemFactory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
-      handleServiceLoaderInvocation(method, invoke);
-      return;
-    }
-    if (analyses.handleReflectiveInvoke(method, invoke)) {
-      return;
-    }
-
-    if (!isReflectionMethod(dexItemFactory, invokedMethod)) {
-      return;
-    }
-    IdentifierNameStringLookupResult<?> identifierLookupResult =
-        identifyIdentifier(invoke, appView, method);
-    if (identifierLookupResult == null) {
-      return;
-    }
-    DexReference referencedItem = identifierLookupResult.getReference();
-    if (referencedItem.isDexType()) {
-      DexType referencedType = referencedItem.asDexType();
-      if (!referencedType.isClassType()
-          || appView.allMergedClasses().isMergeSource(referencedType)) {
-        return;
-      }
-      assert identifierLookupResult.isTypeResult();
-      IdentifierNameStringTypeLookupResult identifierTypeLookupResult =
-          identifierLookupResult.asTypeResult();
-      DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(referencedType, method);
-      if (clazz == null) {
-        return;
-      }
-      markTypeAsLive(clazz, KeepReason.reflectiveUseIn(method));
-      if (clazz.canBeInstantiatedByNewInstance()
-          && identifierTypeLookupResult.isTypeCompatInstantiatedFromUse(options)) {
-        markClassAsInstantiatedWithCompatRule(clazz, () -> KeepReason.reflectiveUseIn(method));
-      } else if (identifierTypeLookupResult.isTypeInitializedFromUse()) {
-        markDirectAndIndirectClassInitializersAsLive(clazz);
-      }
-      // To ensure we are not moving the class because we cannot prune it when there is a reflective
-      // use of it.
-      if (keepInfo.getClassInfo(clazz).isShrinkingAllowed(options)) {
-        keepInfo.joinClass(clazz, joiner -> joiner.disallowOptimization().disallowShrinking());
-      }
-    } else if (referencedItem.isDexField()) {
-      DexField field = referencedItem.asDexField();
-      DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(field.holder, method);
-      if (clazz == null) {
-        return;
-      }
-      DexEncodedField encodedField = clazz.lookupField(field);
-      if (encodedField == null) {
-        return;
-      }
-      // Normally, we generate a -keepclassmembers rule for the field, such that the field is only
-      // kept if it is a static field, or if the holder or one of its subtypes are instantiated.
-      // However, if the invoked method is a field updater, then we always need to keep instance
-      // fields since the creation of a field updater throws a NoSuchFieldException if the field
-      // is not present.
-      boolean keepClass =
-          !encodedField.isStatic()
-              && dexItemFactory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod);
-      if (keepClass) {
-        worklist.enqueueMarkInstantiatedAction(
-            clazz, null, InstantiationReason.REFLECTION, KeepReason.reflectiveUseIn(method));
-      }
-      if (keepInfo.getFieldInfo(encodedField, clazz).isShrinkingAllowed(options)) {
-        ProgramField programField = new ProgramField(clazz, encodedField);
-        applyMinimumKeepInfoWhenLive(
-            programField,
-            KeepFieldInfo.newEmptyJoiner()
-                .disallowOptimization()
-                .disallowShrinking()
-                .addReason(KeepReason.reflectiveUseIn(method)));
-      }
-    } else {
-      assert referencedItem.isDexMethod();
-      DexMethod targetedMethodReference = referencedItem.asDexMethod();
-      DexProgramClass clazz =
-          getProgramClassOrNullFromReflectiveAccess(targetedMethodReference.holder, method);
-      if (clazz == null) {
-        return;
-      }
-      ProgramMethod targetedMethod = clazz.lookupProgramMethod(targetedMethodReference);
-      if (targetedMethod == null) {
-        return;
-      }
-      KeepReason reason = KeepReason.reflectiveUseIn(method);
-      if (targetedMethod.getDefinition().belongsToDirectPool()) {
-        markMethodAsTargeted(targetedMethod, reason);
-        markDirectStaticOrConstructorMethodAsLive(targetedMethod, reason);
-      } else {
-        markVirtualMethodAsLive(targetedMethod, reason);
-      }
-      applyMinimumKeepInfoWhenLiveOrTargeted(
-          targetedMethod, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
-    }
-  }
-
-  /** Handles reflective uses of {@link Class#newInstance()}. */
-  private void handleJavaLangClassNewInstance(ProgramMethod method, InvokeMethod invoke) {
-    if (!invoke.isInvokeVirtual()) {
-      assert false;
-      return;
-    }
-
-    DexType instantiatedType =
-        ConstantValueUtils.getDexTypeRepresentedByValueForTracing(
-            invoke.asInvokeVirtual().getReceiver(), appView);
-    if (instantiatedType == null || !instantiatedType.isClassType()) {
-      // Give up, we can't tell which class is being instantiated, or the type is not a class type.
-      // The latter should not happen in practice.
-      return;
-    }
-
-    DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(instantiatedType, method);
-    if (clazz == null) {
-      return;
-    }
-    ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
-    if (defaultInitializer != null) {
-      traceReflectiveNewInstance(method, clazz, defaultInitializer);
-    }
-  }
-
-  /** Handles reflective uses of {@link java.lang.reflect.Constructor#newInstance(Object...)}. */
-  @SuppressWarnings("ReferenceEquality")
-  private void handleJavaLangReflectConstructorNewInstance(
-      ProgramMethod method, InvokeMethod invoke) {
-    if (!invoke.isInvokeVirtual()) {
-      assert false;
-      return;
-    }
-
-    Value constructorValue = invoke.asInvokeVirtual().getReceiver().getAliasedValue();
-    if (constructorValue.isPhi() || !constructorValue.definition.isInvokeVirtual()) {
-      // Give up, we can't tell which class is being instantiated.
-      return;
-    }
-
-    InvokeVirtual constructorDefinition = constructorValue.definition.asInvokeVirtual();
-    DexMethod invokedMethod = constructorDefinition.getInvokedMethod();
-    if (invokedMethod != appView.dexItemFactory().classMethods.getConstructor
-        && invokedMethod != appView.dexItemFactory().classMethods.getDeclaredConstructor) {
-      // Give up, we can't tell which constructor is being invoked.
-      return;
-    }
-
-    DexType instantiatedType =
-        ConstantValueUtils.getDexTypeRepresentedByValueForTracing(
-            constructorDefinition.getReceiver(), appView);
-    if (instantiatedType == null || !instantiatedType.isClassType()) {
-      // Give up, we can't tell which constructor is being invoked, or the type is not a class type.
-      // The latter should not happen in practice.
-      return;
-    }
-
-    DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(instantiatedType, method);
-    if (clazz == null) {
-      return;
-    }
-    Value parametersValue = constructorDefinition.inValues().get(1);
-    if (parametersValue.isPhi()) {
-      // Give up, we can't tell which constructor is being invoked.
-      return;
-    }
-    NewArrayEmpty newArrayEmpty = parametersValue.definition.asNewArrayEmpty();
-    NewArrayFilled newArrayFilled = parametersValue.definition.asNewArrayFilled();
-    int parametersSize =
-        newArrayEmpty != null
-            ? newArrayEmpty.sizeIfConst()
-            : newArrayFilled != null
-                ? newArrayFilled.size()
-                : parametersValue.isAlwaysNull(appView) ? 0 : -1;
-    if (parametersSize < 0) {
-      return;
-    }
-
-    ProgramMethod initializer = null;
-
-    if (parametersSize == 0) {
-      initializer = clazz.getProgramDefaultInitializer();
-    } else {
-      DexType[] parameterTypes = new DexType[parametersSize];
-      int missingIndices;
-
-      if (newArrayEmpty != null) {
-        missingIndices = parametersSize;
-      } else {
-        missingIndices = 0;
-        List<Value> values = newArrayFilled.inValues();
-        for (int i = 0; i < parametersSize; ++i) {
-          DexType type =
-              ConstantValueUtils.getDexTypeRepresentedByValueForTracing(values.get(i), appView);
-          if (type == null) {
-            return;
-          }
-          parameterTypes[i] = type;
-        }
-      }
-
-      for (Instruction user : parametersValue.uniqueUsers()) {
-        if (user.isArrayPut()) {
-          ArrayPut arrayPutInstruction = user.asArrayPut();
-          if (arrayPutInstruction.array() != parametersValue) {
-            return;
-          }
-
-          int index = arrayPutInstruction.indexIfConstAndInBounds(parametersSize);
-          if (index < 0) {
-            return;
-          }
-
-          DexType type =
-              ConstantValueUtils.getDexTypeRepresentedByValueForTracing(
-                  arrayPutInstruction.value(), appView);
-          if (type == null) {
-            return;
-          }
-
-          if (parameterTypes[index] == type) {
-            continue;
-          }
-          if (parameterTypes[index] != null) {
-            return;
-          }
-          parameterTypes[index] = type;
-          missingIndices--;
-        }
-      }
-
-      if (missingIndices == 0) {
-        initializer = clazz.getProgramInitializer(parameterTypes);
-      }
-    }
-
-    if (initializer != null) {
-      traceReflectiveNewInstance(method, clazz, initializer);
-    }
-  }
-
-  /**
-   * Handles reflective uses of {@link java.lang.reflect.Proxy#newProxyInstance(ClassLoader,
-   * Class[], InvocationHandler)}.
-   */
-  private void handleJavaLangReflectProxyNewProxyInstance(
-      ProgramMethod method, InvokeMethod invoke) {
-    if (!invoke.isInvokeStatic()) {
-      assert false;
-      return;
-    }
-
-    Value interfacesValue = invoke.arguments().get(1);
-    if (interfacesValue.isPhi()) {
-      // Give up, we can't tell which interfaces the proxy implements.
-      return;
-    }
-
-    NewArrayFilled newArrayFilled = interfacesValue.definition.asNewArrayFilled();
-    NewArrayEmpty newArrayEmpty = interfacesValue.definition.asNewArrayEmpty();
-    List<Value> values;
-    if (newArrayFilled != null) {
-      values = newArrayFilled.inValues();
-    } else if (newArrayEmpty != null) {
-      values = new ArrayList<>(interfacesValue.uniqueUsers().size());
-      for (Instruction user : interfacesValue.uniqueUsers()) {
-        ArrayPut arrayPut = user.asArrayPut();
-        if (arrayPut != null) {
-          values.add(arrayPut.value());
-        }
-      }
-    } else {
-      return;
-    }
-
-    WorkList<DexProgramClass> worklist = WorkList.newIdentityWorkList();
-    for (Value value : values) {
-      DexType type = ConstantValueUtils.getDexTypeRepresentedByValueForTracing(value, appView);
-      if (type == null || !type.isClassType()) {
-        continue;
-      }
-
-      DexProgramClass clazz = getProgramClassOrNullFromReflectiveAccess(type, method);
-      if (clazz != null && clazz.isInterface()) {
-        KeepReason reason = KeepReason.reflectiveUseIn(method);
-        markInterfaceAsInstantiated(clazz, graphReporter.registerClass(clazz, reason));
-        worklist.addIfNotSeen(clazz);
-      }
-    }
-
-    while (worklist.hasNext()) {
-      DexProgramClass clazz = worklist.next();
-      assert clazz.isInterface();
-
-      // Keep this interface to ensure that we do not merge the interface into its unique subtype,
-      // or merge other interfaces into it horizontally.
-      keepInfo.joinClass(clazz, joiner -> joiner.disallowOptimization().disallowShrinking());
-
-      // Also keep all of its virtual methods to ensure that the devirtualizer does not perform
-      // illegal rewritings of invoke-interface instructions into invoke-virtual instructions.
-      if (mode.isInitialTreeShaking()) {
-        KeepReason reason = KeepReason.reflectiveUseIn(method);
-        clazz.forEachProgramVirtualMethod(
-            virtualMethod -> {
-              keepInfo.joinMethod(
-                  virtualMethod, joiner -> joiner.disallowOptimization().disallowShrinking());
-              markVirtualMethodAsReachable(virtualMethod.getReference(), true, method, reason);
-            });
-      }
-
-      // Repeat for all super interfaces.
-      for (DexType implementedType : clazz.getInterfaces()) {
-        DexProgramClass implementedClass =
-            asProgramClassOrNull(definitionFor(implementedType, clazz));
-        if (implementedClass != null && implementedClass.isInterface()) {
-          worklist.addIfNotSeen(implementedClass);
-        }
-      }
-    }
-  }
-
-  private void handleServiceLoaderInvocation(ProgramMethod method, InvokeMethod invoke) {
-    if (invoke.inValues().isEmpty()) {
-      // Should never happen.
-      return;
-    }
-
-    Value argument = invoke.inValues().get(0).getAliasedValue();
-    if (!argument.isPhi() && argument.definition.isConstClass()) {
-      DexType serviceType = argument.definition.asConstClass().getType();
-      if (!appView.appServices().allServiceTypes().contains(serviceType)) {
-        // Should never happen.
-        return;
-      }
-
-      handleServiceInstantiation(serviceType, method, KeepReason.reflectiveUseIn(method));
-    } else {
-      KeepReason reason = KeepReason.reflectiveUseIn(method);
-      for (DexType serviceType : appView.appServices().allServiceTypes()) {
-        handleServiceInstantiation(serviceType, method, reason);
-      }
-    }
-  }
-
-  private void handleServiceInstantiation(
-      DexType serviceType, ProgramMethod context, KeepReason reason) {
-    DexProgramClass serviceClass = getProgramClassOrNullFromReflectiveAccess(serviceType, context);
-    if (serviceClass != null && !serviceClass.isPublic()) {
-      // Package-private service types are allowed only when the load() call is made from the same
-      // package.
-      applyMinimumKeepInfoWhenLive(
-          serviceClass,
-          KeepClassInfo.newEmptyJoiner()
-              .disallowHorizontalClassMerging()
-              .disallowVerticalClassMerging()
-              .disallowAccessModification());
-    }
-
-    List<DexType> serviceImplementationTypes =
-        appView.appServices().serviceImplementationsFor(serviceType);
-    for (DexType serviceImplementationType : serviceImplementationTypes) {
-      if (!serviceImplementationType.isClassType()) {
-        // Should never happen.
-        continue;
-      }
-
-      DexProgramClass serviceImplementationClass =
-          getProgramClassOrNull(serviceImplementationType, context);
-      if (serviceImplementationClass == null) {
-        continue;
-      }
-
-      markClassAsInstantiatedWithReason(serviceImplementationClass, reason);
-
-      ProgramMethod defaultInitializer = serviceImplementationClass.getProgramDefaultInitializer();
-      if (defaultInitializer != null) {
-        applyMinimumKeepInfoWhenLiveOrTargeted(
-            defaultInitializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
-      }
-    }
   }
 
   private static class SetWithReportedReason<T> {
