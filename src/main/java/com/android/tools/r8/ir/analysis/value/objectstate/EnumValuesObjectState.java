@@ -43,6 +43,10 @@ public class EnumValuesObjectState extends ObjectState {
     return UnknownValue.getInstance();
   }
 
+  public ObjectState[] getState() {
+    return state;
+  }
+
   public ObjectState getObjectStateForOrdinal(int ordinal) {
     if (ordinal < 0 || ordinal >= state.length) {
       return ObjectState.empty();

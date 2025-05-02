@@ -41,6 +41,7 @@ import com.android.tools.r8.ir.conversion.passes.StringSwitchRemover;
 import com.android.tools.r8.ir.conversion.passes.ThrowCatchOptimizer;
 import com.android.tools.r8.ir.conversion.passes.TrivialPhiSimplifier;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringCollectionSupplier;
+import com.android.tools.r8.ir.desugar.typeswitch.TypeSwitchIRRewriter;
 import com.android.tools.r8.ir.optimize.AssertionErrorTwoArgsConstructorRewriter;
 import com.android.tools.r8.ir.optimize.AssertionsRewriter;
 import com.android.tools.r8.ir.optimize.AssumeInserter;
@@ -122,6 +123,7 @@ public class IRConverter {
   private final Devirtualizer devirtualizer;
   private final TypeChecker typeChecker;
   protected EnumUnboxer enumUnboxer;
+  protected final TypeSwitchIRRewriter typeSwitchIRRewriter;
   protected final NumberUnboxer numberUnboxer;
   protected final RemoveVerificationErrorForUnknownReturnedValues
       removeVerificationErrorForUnknownReturnedValues;
@@ -201,6 +203,7 @@ public class IRConverter {
       this.typeChecker = null;
       this.methodOptimizationInfoCollector = null;
       this.enumUnboxer = EnumUnboxer.empty();
+      this.typeSwitchIRRewriter = null;
       this.numberUnboxer = NumberUnboxer.empty();
       this.assumeInserter = null;
       this.removeVerificationErrorForUnknownReturnedValues = null;
@@ -234,6 +237,7 @@ public class IRConverter {
               ? new LibraryMethodOverrideAnalysis(appViewWithLiveness)
               : null;
       this.enumUnboxer = EnumUnboxer.create(appViewWithLiveness);
+      this.typeSwitchIRRewriter = TypeSwitchIRRewriter.create(appViewWithLiveness);
       this.numberUnboxer = NumberUnboxer.create(appViewWithLiveness);
       this.outliner = Outliner.create(appViewWithLiveness);
       this.memberValuePropagation = new R8MemberValuePropagation(appViewWithLiveness);
@@ -269,6 +273,7 @@ public class IRConverter {
       this.typeChecker = null;
       this.methodOptimizationInfoCollector = null;
       this.enumUnboxer = EnumUnboxer.empty();
+      this.typeSwitchIRRewriter = null;
       this.numberUnboxer = NumberUnboxer.empty();
     }
   }
@@ -687,6 +692,10 @@ public class IRConverter {
     rewriterPassCollection.run(
         code, methodProcessor, methodProcessingContext, timing, previous, options);
 
+    if (typeSwitchIRRewriter != null) {
+      typeSwitchIRRewriter.run(code);
+    }
+
     timing.begin("Optimize class initializers");
     ClassInitializerDefaultsResult classInitializerDefaultsResult =
         classInitializerDefaultsOptimization.optimize(code, feedback);
@@ -892,6 +901,9 @@ public class IRConverter {
       }
     }
     enumUnboxer.recordEnumState(method.getHolder(), staticFieldValues);
+    if (typeSwitchIRRewriter != null) {
+      typeSwitchIRRewriter.recordEnumState(method.getHolder(), staticFieldValues);
+    }
     if (appView.options().protoShrinking().enableRemoveProtoEnumSwitchMap()) {
       appView
           .protoShrinker()

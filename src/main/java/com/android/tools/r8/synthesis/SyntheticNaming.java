@@ -70,8 +70,10 @@ public class SyntheticNaming {
       generator.forSingleMethodWithGlobalMerging("AutoCloseableDispatcher");
   public final SyntheticKind AUTOCLOSEABLE_FORWARDER =
       generator.forSingleMethodWithGlobalMerging("AutoCloseableForwarder");
-  public final SyntheticKind TYPE_SWITCH_HELPER =
-      generator.forSingleMethodWithGlobalMerging("TypeSwitchHelper");
+  public final SyntheticKind TYPE_SWITCH_HELPER_INT =
+      generator.forSingleMethodWithGlobalMerging("TypeSwitchHelperInt");
+  public final SyntheticKind TYPE_SWITCH_HELPER_ENUM =
+      generator.forSingleMethodWithGlobalMerging("TypeSwitchHelperEnum");
   public final SyntheticKind ENUM_UNBOXING_CHECK_NOT_ZERO_METHOD =
       generator.forSingleMethodWithGlobalMerging("CheckNotZero");
   public final SyntheticKind RECORD_HELPER = generator.forSingleMethodWithGlobalMerging("Record");

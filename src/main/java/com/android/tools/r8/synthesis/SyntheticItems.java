@@ -416,7 +416,6 @@ public class SyntheticItems implements SyntheticDefinitionsProvider {
   }
 
   // Predicates and accessors.
-
   @Override
   public ClassResolutionResult definitionFor(
       DexType type, Function<DexType, ClassResolutionResult> baseDefinitionFor) {

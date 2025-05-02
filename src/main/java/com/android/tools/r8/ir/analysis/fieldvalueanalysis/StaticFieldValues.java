@@ -9,11 +9,15 @@ import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexString;
 import com.android.tools.r8.graph.lens.GraphLens;
 import com.android.tools.r8.ir.analysis.value.AbstractValue;
+import com.android.tools.r8.ir.analysis.value.objectstate.EnumValuesObjectState;
 import com.android.tools.r8.ir.analysis.value.objectstate.ObjectState;
 import com.android.tools.r8.shaking.AppInfoWithLiveness;
+import com.android.tools.r8.utils.Pair;
 import com.google.common.collect.ImmutableMap;
+import java.util.Map.Entry;
 
 public abstract class StaticFieldValues {
 
@@ -111,6 +115,36 @@ public abstract class StaticFieldValues {
 
     public ObjectState getObjectStateForPossiblyPinnedField(DexField field) {
       return enumAbstractValues.get(field);
+    }
+
+    public Pair<DexField, Integer> getFieldAccessorForName(DexString name, DexItemFactory factory) {
+      Entry<DexField, ObjectState> array = null;
+      for (Entry<DexField, ObjectState> fieldAndState : enumAbstractValues.entrySet()) {
+        DexField field = fieldAndState.getKey();
+        if (field.getType().isArrayType()) {
+          array = fieldAndState;
+        } else {
+          AbstractValue fieldValue =
+              fieldAndState.getValue().getAbstractFieldValue(factory.enumMembers.nameField);
+          if (fieldValue.isSingleStringValue()
+              && fieldValue.asSingleStringValue().getDexString().isIdenticalTo(name)) {
+            return new Pair<>(field, null);
+          }
+        }
+      }
+      if (array != null && array.getValue().isEnumValuesObjectState()) {
+        EnumValuesObjectState valuesState = array.getValue().asEnumValuesObjectState();
+        ObjectState[] objectStates = valuesState.getState();
+        for (int i = 0; i < objectStates.length; i++) {
+          AbstractValue fieldValue =
+              objectStates[i].getAbstractFieldValue(factory.enumMembers.nameField);
+          if (fieldValue.isSingleStringValue()
+              && fieldValue.asSingleStringValue().getDexString().isIdenticalTo(name)) {
+            return new Pair<>(array.getKey(), i);
+          }
+        }
+      }
+      return null;
     }
   }
 

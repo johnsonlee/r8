@@ -31,6 +31,7 @@ import com.android.tools.r8.ir.code.ValueType;
 import com.android.tools.r8.ir.desugar.CfInstructionDesugaringEventConsumer;
 import com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider;
 import com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider.Dispatcher;
+import com.android.tools.r8.synthesis.SyntheticItems.SyntheticKindSelector;
 import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
@@ -49,7 +50,7 @@ public class SwitchHelperGenerator {
   private DexMethod intEq;
   private DexField enumCacheField;
   private int enumCases = 0;
-  private Map<DexType, DexMethod> enumEqMethods = new IdentityHashMap<>();
+  private final Map<DexType, DexMethod> enumEqMethods = new IdentityHashMap<>();
 
   SwitchHelperGenerator(AppView<?> appView, DexCallSite dexCallSite) {
     this.appView = appView;
@@ -148,7 +149,8 @@ public class SwitchHelperGenerator {
                   cfCode.getInstructions(), i -> i.isConstClass() ? new CfConstClass(enumType) : i);
           cfCode.setInstructions(newInstructions);
           return cfCode;
-        });
+        },
+        kinds -> kinds.TYPE_SWITCH_HELPER_ENUM);
   }
 
   private DexMethod generateIntEqMethod(
@@ -162,7 +164,8 @@ public class SwitchHelperGenerator {
         eventConsumer,
         methodProcessingContext,
         proto,
-        methodSig -> TypeSwitchMethods.TypeSwitchMethods_switchIntEq(factory, methodSig));
+        methodSig -> TypeSwitchMethods.TypeSwitchMethods_switchIntEq(factory, methodSig),
+        kinds -> kinds.TYPE_SWITCH_HELPER_INT);
   }
 
   private DexMethod generateMethod(
@@ -170,13 +173,14 @@ public class SwitchHelperGenerator {
       TypeSwitchDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext,
       DexProto proto,
-      Function<DexMethod, CfCode> cfCodeGen) {
+      Function<DexMethod, CfCode> cfCodeGen,
+      SyntheticKindSelector kindSelector) {
     DexItemFactory factory = appView.dexItemFactory();
     ProgramMethod method =
         appView
             .getSyntheticItems()
             .createMethod(
-                kinds -> kinds.TYPE_SWITCH_HELPER,
+                kindSelector,
                 methodProcessingContext.createUniqueContext(),
                 appView,
                 builder ->
