@@ -75,7 +75,7 @@ public class EnqueuerEnumReflectionAnalysisJava extends EnqueuerEnumReflectionAn
   public void traceInvokeStatic(
       DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     if (invokedMethod.isIdenticalTo(enumValueOfMethod) || isEnumSetFactoryMethod(invokedMethod)) {
-      enqueuer.getReflectiveIdentificationAnalysis().enqueue(context);
+      enqueuer.getReflectiveIdentification().enqueue(context);
     }
   }
 
@@ -84,7 +84,7 @@ public class EnqueuerEnumReflectionAnalysisJava extends EnqueuerEnumReflectionAn
       DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     // EnumMap uses reflection.
     if (invokedMethod.isIdenticalTo(enumMapConstructor)) {
-      enqueuer.getReflectiveIdentificationAnalysis().enqueue(context);
+      enqueuer.getReflectiveIdentification().enqueue(context);
     }
   }
 

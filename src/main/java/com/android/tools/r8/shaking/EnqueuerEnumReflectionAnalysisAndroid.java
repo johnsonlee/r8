@@ -102,7 +102,7 @@ public class EnqueuerEnumReflectionAnalysisAndroid extends EnqueuerEnumReflectio
         || invokedMethod.isIdenticalTo(parcelReadSerializable2)
         || invokedMethod.isIdenticalTo(intentGetSerializableExtra1)
         || invokedMethod.isIdenticalTo(intentGetSerializableExtra2)) {
-      enqueuer.getReflectiveIdentificationAnalysis().enqueue(context);
+      enqueuer.getReflectiveIdentification().enqueue(context);
     }
   }
 

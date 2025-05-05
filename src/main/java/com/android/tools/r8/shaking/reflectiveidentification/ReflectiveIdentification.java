@@ -31,7 +31,6 @@ import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
-import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
@@ -42,23 +41,20 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public class EnqueuerReflectiveIdentificationAnalysis {
+public class ReflectiveIdentification {
 
   private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final DexItemFactory factory;
-  private final Enqueuer enqueuer;
   private final ReflectiveIdentificationEventConsumer eventConsumer;
 
   private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
   private final ProgramMethodSet worklist = ProgramMethodSet.create();
 
-  public EnqueuerReflectiveIdentificationAnalysis(
+  public ReflectiveIdentification(
       AppView<? extends AppInfoWithClassHierarchy> appView,
-      Enqueuer enqueuer,
       ReflectiveIdentificationEventConsumer eventConsumer) {
     this.appView = appView;
     this.factory = appView.dexItemFactory();
-    this.enqueuer = enqueuer;
     this.eventConsumer = eventConsumer;
   }
 
@@ -131,7 +127,8 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     }
   }
 
-  private void processInvoke(ProgramMethod method, InvokeMethod invoke) {
+  /** Returns true if the invoke is to a modeled method. */
+  protected boolean processInvoke(ProgramMethod method, InvokeMethod invoke) {
     DexMethod invokedMethod = invoke.getInvokedMethod();
     DexType holder = invokedMethod.getHolderType();
     if (holder.isIdenticalTo(factory.classType)) {
@@ -139,29 +136,36 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       if (invokedMethod.isIdenticalTo(factory.classMethods.forName)
           || invokedMethod.isIdenticalTo(factory.classMethods.forName3)) {
         handleJavaLangClassForName(method, invoke);
+        return true;
       } else if (invokedMethod.isIdenticalTo(factory.classMethods.getField)
           || invokedMethod.isIdenticalTo(factory.classMethods.getDeclaredField)) {
         handleJavaLangClassGetField(method, invoke);
+        return true;
       } else if (invokedMethod.isIdenticalTo(factory.classMethods.getMethod)
           || invokedMethod.isIdenticalTo(factory.classMethods.getDeclaredMethod)) {
         handleJavaLangClassGetMethod(method, invoke);
+        return true;
       } else if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
         handleJavaLangClassNewInstance(method, invoke);
+        return true;
       }
     } else if (holder.isIdenticalTo(factory.constructorType)) {
       // java.lang.reflect.Constructor
       if (invokedMethod.isIdenticalTo(factory.constructorMethods.newInstance)) {
         handleJavaLangReflectConstructorNewInstance(method, invoke);
+        return true;
       }
     } else if (holder.isIdenticalTo(factory.proxyType)) {
       // java.lang.reflect.Proxy
       if (invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
         handleJavaLangReflectProxyNewProxyInstance(method, invoke);
+        return true;
       }
     } else if (holder.isIdenticalTo(factory.serviceLoaderType)) {
       // java.util.ServiceLoader
       if (factory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
         handleJavaUtilServiceLoaderLoad(method, invoke);
+        return true;
       }
     } else if (holder.isIdenticalTo(factory.javaUtilConcurrentAtomicAtomicIntegerFieldUpdater)) {
       // java.util.concurrent.atomic.AtomicIntegerFieldUpdater
@@ -172,6 +176,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
             field ->
                 eventConsumer.onJavaUtilConcurrentAtomicAtomicIntegerFieldUpdaterNewUpdater(
                     field, method));
+        return true;
       }
     } else if (holder.isIdenticalTo(factory.javaUtilConcurrentAtomicAtomicLongFieldUpdater)) {
       // java.util.concurrent.atomic.AtomicLongFieldUpdater
@@ -182,6 +187,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
             field ->
                 eventConsumer.onJavaUtilConcurrentAtomicAtomicLongFieldUpdaterNewUpdater(
                     field, method));
+        return true;
       }
     } else if (holder.isIdenticalTo(factory.javaUtilConcurrentAtomicAtomicReferenceFieldUpdater)) {
       // java.util.concurrent.atomic.AtomicReferenceFieldUpdater
@@ -192,10 +198,10 @@ public class EnqueuerReflectiveIdentificationAnalysis {
             field ->
                 eventConsumer.onJavaUtilConcurrentAtomicAtomicReferenceFieldUpdaterNewUpdater(
                     field, method));
+        return true;
       }
-    } else if (enqueuer.getAnalyses().handleReflectiveInvoke(method, invoke)) {
-      // Intentionally empty.
     }
+    return false;
   }
 
   private void handleJavaLangClassForName(ProgramMethod method, InvokeMethod invoke) {
@@ -257,8 +263,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       return;
     }
 
-    DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(instantiatedType, method);
+    DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(instantiatedType, method));
     if (clazz != null) {
       eventConsumer.onJavaLangClassNewInstance(clazz, method);
     }
@@ -421,7 +426,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
         continue;
       }
 
-      DexProgramClass clazz = enqueuer.getProgramClassOrNullFromReflectiveAccess(type, method);
+      DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type, method));
       if (clazz != null && clazz.isInterface()) {
         classes.add(clazz);
       }
@@ -467,13 +472,13 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
   private void notifyOnJavaUtilServiceLoaderLoad(DexType serviceType, ProgramMethod context) {
     DexProgramClass serviceClass =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(serviceType, context);
+        asProgramClassOrNull(appView.definitionFor(serviceType, context));
     List<DexProgramClass> implementationClasses =
         ListUtils.mapNotNull(
             appView.appServices().serviceImplementationsFor(serviceType),
             implementationType ->
                 implementationType.isClassType()
-                    ? enqueuer.getProgramClassOrNull(implementationType, context)
+                    ? asProgramClassOrNull(appView.definitionFor(implementationType, context))
                     : null);
     if (serviceClass != null || !implementationClasses.isEmpty()) {
       eventConsumer.onJavaUtilServiceLoaderLoad(serviceClass, implementationClasses, context);

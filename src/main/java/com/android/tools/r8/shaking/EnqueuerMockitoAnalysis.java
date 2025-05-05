@@ -76,7 +76,7 @@ class EnqueuerMockitoAnalysis
   public void traceInvokeStatic(
       DexMethod invokedMethod, MethodResolutionResult resolutionResult, ProgramMethod context) {
     if (isReflectiveMockInvoke(invokedMethod)) {
-      enqueuer.getReflectiveIdentificationAnalysis().enqueue(context);
+      enqueuer.getReflectiveIdentification().enqueue(context);
     }
   }
 

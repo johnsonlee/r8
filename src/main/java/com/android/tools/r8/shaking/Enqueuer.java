@@ -137,8 +137,7 @@ import com.android.tools.r8.shaking.RootSetUtils.RootSet;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBase;
 import com.android.tools.r8.shaking.RootSetUtils.RootSetBuilder;
 import com.android.tools.r8.shaking.ScopedDexMethodSet.AddMethodIfMoreVisibleResult;
-import com.android.tools.r8.shaking.reflectiveidentification.EnqueuerReflectiveIdentificationAnalysis;
-import com.android.tools.r8.shaking.reflectiveidentification.EnqueuerReflectiveIdentificationEventConsumer;
+import com.android.tools.r8.shaking.reflectiveidentification.EnqueuerReflectiveIdentification;
 import com.android.tools.r8.shaking.rules.ApplicableRulesEvaluator;
 import com.android.tools.r8.shaking.rules.KeepAnnotationFakeProguardRule;
 import com.android.tools.r8.shaking.rules.KeepAnnotationMatcher;
@@ -382,7 +381,7 @@ public class Enqueuer {
   private final ProguardCompatibilityActions.Builder proguardCompatibilityActionsBuilder;
 
   /** Tracing of reflection. */
-  private final EnqueuerReflectiveIdentificationAnalysis reflectiveIdentificationAnalysis;
+  private final EnqueuerReflectiveIdentification reflectiveIdentification;
 
   /** Mapping of types to the resolved methods for that type along with the context. */
   private final Map<DexProgramClass, Map<ResolutionSearchKey, ProgramMethodSet>>
@@ -504,9 +503,7 @@ public class Enqueuer {
     this.missingClassesBuilder = appView.appInfo().getMissingClasses().builder();
     this.options = options;
     this.keepInfo = new MutableKeepInfoCollection(options);
-    this.reflectiveIdentificationAnalysis =
-        new EnqueuerReflectiveIdentificationAnalysis(
-            appView, this, new EnqueuerReflectiveIdentificationEventConsumer(appView, this));
+    this.reflectiveIdentification = new EnqueuerReflectiveIdentification(appView, this);
     this.useRegistryFactory = createUseRegistryFactory();
     this.worklist =
         EnqueuerWorklist.createWorklist(this, executorService, options.getThreadingModule());
@@ -809,8 +806,8 @@ public class Enqueuer {
     return keepInfo.getClassInfo(clazz);
   }
 
-  public EnqueuerReflectiveIdentificationAnalysis getReflectiveIdentificationAnalysis() {
-    return reflectiveIdentificationAnalysis;
+  public EnqueuerReflectiveIdentification getReflectiveIdentification() {
+    return reflectiveIdentification;
   }
 
   public ImmediateAppSubtypingInfo getSubtypingInfo() {
@@ -1601,7 +1598,7 @@ public class Enqueuer {
     if (registry != null && !registry.markInvokeStaticAsSeen(invokedMethod)) {
       return;
     }
-    reflectiveIdentificationAnalysis.scanInvoke(invokedMethod, context);
+    reflectiveIdentification.scanInvoke(invokedMethod, context);
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         handleInvokeOfStaticTarget(invokedMethod, context, reason);
@@ -1638,7 +1635,7 @@ public class Enqueuer {
     if (registry != null && !registry.markInvokeVirtualAsSeen(invokedMethod)) {
       return;
     }
-    reflectiveIdentificationAnalysis.scanInvoke(invokedMethod, context);
+    reflectiveIdentification.scanInvoke(invokedMethod, context);
     markTypeAsLive(invokedMethod.getHolderType(), context);
     MethodResolutionResult resolutionResult =
         markVirtualMethodAsReachable(invokedMethod, false, context, reason);
@@ -4586,8 +4583,7 @@ public class Enqueuer {
             amendWithCompanionMethods(rootSet.reprocess),
             rootSet.alwaysClassInline,
             joinIdentifierNameStrings(
-                rootSet.identifierNameStrings,
-                reflectiveIdentificationAnalysis.getIdentifierNameStrings()),
+                rootSet.identifierNameStrings, reflectiveIdentification.getIdentifierNameStrings()),
             emptySet(),
             Collections.emptyMap(),
             lockCandidates,
@@ -4765,7 +4761,7 @@ public class Enqueuer {
 
         // Continue fix-point processing while there are additional work items to ensure items that
         // are passed to Java reflections are traced.
-        reflectiveIdentificationAnalysis.processWorklist(timing);
+        reflectiveIdentification.processWorklist(timing);
         if (worklist.hasNext()) {
           timing.end();
           continue;
