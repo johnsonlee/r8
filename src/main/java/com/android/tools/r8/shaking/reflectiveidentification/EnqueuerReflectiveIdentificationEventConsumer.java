@@ -3,9 +3,15 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking.reflectiveidentification;
 
+import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+
 import com.android.tools.r8.graph.DexProgramClass;
+import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.shaking.KeepReason;
+import com.android.tools.r8.utils.WorkList;
+import java.util.Set;
 
 public class EnqueuerReflectiveIdentificationEventConsumer
     implements ReflectiveIdentificationEventConsumer {
@@ -28,5 +34,50 @@ public class EnqueuerReflectiveIdentificationEventConsumer
   public void onJavaLangReflectConstructorNewInstance(
       ProgramMethod initializer, ProgramMethod context) {
     enqueuer.traceReflectiveNewInstance(initializer, context);
+  }
+
+  @Override
+  public void onJavaLangReflectProxyNewProxyInstance(
+      Set<DexProgramClass> classes, ProgramMethod context) {
+    KeepReason reason = KeepReason.reflectiveUseIn(context);
+    for (DexProgramClass clazz : classes) {
+      enqueuer.markInterfaceAsInstantiated(
+          clazz, enqueuer.getGraphReporter().registerClass(clazz, reason));
+    }
+
+    WorkList<DexProgramClass> worklist = WorkList.newIdentityWorkList(classes);
+    while (worklist.hasNext()) {
+      DexProgramClass clazz = worklist.next();
+      assert clazz.isInterface();
+
+      // Keep this interface to ensure that we do not merge the interface into its unique subtype,
+      // or merge other interfaces into it horizontally.
+      enqueuer
+          .getKeepInfo()
+          .joinClass(clazz, joiner -> joiner.disallowOptimization().disallowShrinking());
+
+      // Also keep all of its virtual methods to ensure that the devirtualizer does not perform
+      // illegal rewritings of invoke-interface instructions into invoke-virtual instructions.
+      if (enqueuer.getMode().isInitialTreeShaking()) {
+        clazz.forEachProgramVirtualMethod(
+            virtualMethod -> {
+              enqueuer
+                  .getKeepInfo()
+                  .joinMethod(
+                      virtualMethod, joiner -> joiner.disallowOptimization().disallowShrinking());
+              enqueuer.markVirtualMethodAsReachable(
+                  virtualMethod.getReference(), true, context, reason);
+            });
+      }
+
+      // Repeat for all super interfaces.
+      for (DexType implementedType : clazz.getInterfaces()) {
+        DexProgramClass implementedClass =
+            asProgramClassOrNull(enqueuer.definitionFor(implementedType, clazz));
+        if (implementedClass != null && implementedClass.isInterface()) {
+          worklist.addIfNotSeen(implementedClass);
+        }
+      }
+    }
   }
 }

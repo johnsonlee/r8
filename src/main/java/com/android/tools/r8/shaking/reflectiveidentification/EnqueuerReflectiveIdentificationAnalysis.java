@@ -39,7 +39,6 @@ import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.InternalOptions;
-import com.android.tools.r8.utils.WorkList;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
@@ -306,14 +305,14 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       return;
     }
 
-    Value interfacesValue = invoke.arguments().get(1);
+    Value interfacesValue = invoke.getArgument(1);
     if (interfacesValue.isPhi()) {
       // Give up, we can't tell which interfaces the proxy implements.
       return;
     }
 
-    NewArrayFilled newArrayFilled = interfacesValue.definition.asNewArrayFilled();
-    NewArrayEmpty newArrayEmpty = interfacesValue.definition.asNewArrayEmpty();
+    NewArrayFilled newArrayFilled = interfacesValue.getDefinition().asNewArrayFilled();
+    NewArrayEmpty newArrayEmpty = interfacesValue.getDefinition().asNewArrayEmpty();
     List<Value> values;
     if (newArrayFilled != null) {
       values = newArrayFilled.inValues();
@@ -329,7 +328,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       return;
     }
 
-    WorkList<DexProgramClass> worklist = WorkList.newIdentityWorkList();
+    Set<DexProgramClass> classes = Sets.newIdentityHashSet();
     for (Value value : values) {
       DexType type = ConstantValueUtils.getDexTypeRepresentedByValueForTracing(value, appView);
       if (type == null || !type.isClassType()) {
@@ -338,46 +337,11 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
       DexProgramClass clazz = enqueuer.getProgramClassOrNullFromReflectiveAccess(type, method);
       if (clazz != null && clazz.isInterface()) {
-        KeepReason reason = KeepReason.reflectiveUseIn(method);
-        enqueuer.markInterfaceAsInstantiated(
-            clazz, enqueuer.getGraphReporter().registerClass(clazz, reason));
-        worklist.addIfNotSeen(clazz);
+        classes.add(clazz);
       }
     }
-
-    while (worklist.hasNext()) {
-      DexProgramClass clazz = worklist.next();
-      assert clazz.isInterface();
-
-      // Keep this interface to ensure that we do not merge the interface into its unique subtype,
-      // or merge other interfaces into it horizontally.
-      enqueuer
-          .getKeepInfo()
-          .joinClass(clazz, joiner -> joiner.disallowOptimization().disallowShrinking());
-
-      // Also keep all of its virtual methods to ensure that the devirtualizer does not perform
-      // illegal rewritings of invoke-interface instructions into invoke-virtual instructions.
-      if (enqueuer.getMode().isInitialTreeShaking()) {
-        KeepReason reason = KeepReason.reflectiveUseIn(method);
-        clazz.forEachProgramVirtualMethod(
-            virtualMethod -> {
-              enqueuer
-                  .getKeepInfo()
-                  .joinMethod(
-                      virtualMethod, joiner -> joiner.disallowOptimization().disallowShrinking());
-              enqueuer.markVirtualMethodAsReachable(
-                  virtualMethod.getReference(), true, method, reason);
-            });
-      }
-
-      // Repeat for all super interfaces.
-      for (DexType implementedType : clazz.getInterfaces()) {
-        DexProgramClass implementedClass =
-            asProgramClassOrNull(enqueuer.definitionFor(implementedType, clazz));
-        if (implementedClass != null && implementedClass.isInterface()) {
-          worklist.addIfNotSeen(implementedClass);
-        }
-      }
+    if (!classes.isEmpty()) {
+      eventConsumer.onJavaLangReflectProxyNewProxyInstance(classes, method);
     }
   }
 
