@@ -17,7 +17,6 @@ import com.android.tools.r8.graph.DexItemFactory.ClassMethods;
 import com.android.tools.r8.graph.DexMember;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexProgramClass;
-import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -32,7 +31,6 @@ import com.android.tools.r8.ir.code.NewArrayFilled;
 import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
-import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringTypeLookupResult;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.InstantiationReason;
 import com.android.tools.r8.shaking.KeepFieldInfo;
@@ -145,12 +143,17 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     DexType holder = invokedMethod.getHolderType();
     if (holder.isIdenticalTo(factory.classType)) {
       // java.lang.Class
-      if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
-        handleJavaLangClassNewInstance(method, invoke);
-      } else if (factory.classMethods.isReflectiveClassLookup(invokedMethod)) {
+      if (invokedMethod.isIdenticalTo(factory.classMethods.forName)
+          || invokedMethod.isIdenticalTo(factory.classMethods.forName3)) {
         handleJavaLangClassForName(method, invoke);
-      } else if (factory.classMethods.isReflectiveMemberLookup(invokedMethod)) {
-        handleJavaLangClassGetMember(method, invoke);
+      } else if (invokedMethod.isIdenticalTo(factory.classMethods.getField)
+          || invokedMethod.isIdenticalTo(factory.classMethods.getDeclaredField)) {
+        handleJavaLangClassGetField(method, invoke);
+      } else if (invokedMethod.isIdenticalTo(factory.classMethods.getMethod)
+          || invokedMethod.isIdenticalTo(factory.classMethods.getDeclaredMethod)) {
+        handleJavaLangClassGetMethod(method, invoke);
+      } else if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
+        handleJavaLangClassNewInstance(method, invoke);
       }
     } else if (holder.isIdenticalTo(factory.constructorType)) {
       // java.lang.reflect.Constructor
@@ -210,6 +213,80 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     if (clazz != null) {
       eventConsumer.onJavaLangClassForName(clazz, method);
     }
+  }
+
+  private void handleJavaLangClassGetField(ProgramMethod method, InvokeMethod invoke) {
+    IdentifierNameStringLookupResult<?> identifierLookupResult =
+        identifyIdentifier(invoke, appView, method);
+    if (identifierLookupResult == null) {
+      return;
+    }
+
+    DexField field = identifierLookupResult.getReference().asDexField();
+    assert field != null;
+
+    DexProgramClass clazz =
+        enqueuer.getProgramClassOrNullFromReflectiveAccess(field.holder, method);
+    if (clazz == null) {
+      return;
+    }
+    DexEncodedField encodedField = clazz.lookupField(field);
+    if (encodedField == null) {
+      return;
+    }
+    // Normally, we generate a -keepclassmembers rule for the field, such that the field is only
+    // kept if it is a static field, or if the holder or one of its subtypes are instantiated.
+    // However, if the invoked method is a field updater, then we always need to keep instance
+    // fields since the creation of a field updater throws a NoSuchFieldException if the field
+    // is not present.
+    boolean keepClass =
+        !encodedField.isStatic()
+            && factory.atomicFieldUpdaterMethods.isFieldUpdater(invoke.getInvokedMethod());
+    if (keepClass) {
+      enqueuer
+          .getWorklist()
+          .enqueueMarkInstantiatedAction(
+              clazz, null, InstantiationReason.REFLECTION, KeepReason.reflectiveUseIn(method));
+    }
+    if (enqueuer.getKeepInfo().getFieldInfo(encodedField, clazz).isShrinkingAllowed(options)) {
+      ProgramField programField = new ProgramField(clazz, encodedField);
+      enqueuer.applyMinimumKeepInfoWhenLive(
+          programField,
+          KeepFieldInfo.newEmptyJoiner()
+              .disallowOptimization()
+              .disallowShrinking()
+              .addReason(KeepReason.reflectiveUseIn(method)));
+    }
+  }
+
+  private void handleJavaLangClassGetMethod(ProgramMethod method, InvokeMethod invoke) {
+    IdentifierNameStringLookupResult<?> identifierLookupResult =
+        identifyIdentifier(invoke, appView, method);
+    if (identifierLookupResult == null) {
+      return;
+    }
+
+    DexMethod targetedMethodReference = identifierLookupResult.getReference().asDexMethod();
+    assert targetedMethodReference != null;
+
+    DexProgramClass clazz =
+        enqueuer.getProgramClassOrNullFromReflectiveAccess(targetedMethodReference.holder, method);
+    if (clazz == null) {
+      return;
+    }
+    ProgramMethod targetedMethod = clazz.lookupProgramMethod(targetedMethodReference);
+    if (targetedMethod == null) {
+      return;
+    }
+    KeepReason reason = KeepReason.reflectiveUseIn(method);
+    if (targetedMethod.getDefinition().belongsToDirectPool()) {
+      enqueuer.markMethodAsTargeted(targetedMethod, reason);
+      enqueuer.markDirectStaticOrConstructorMethodAsLive(targetedMethod, reason);
+    } else {
+      enqueuer.markVirtualMethodAsLive(targetedMethod, reason);
+    }
+    enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
+        targetedMethod, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
   }
 
   /** Handles reflective uses of {@link Class#newInstance()}. */
@@ -448,109 +525,6 @@ public class EnqueuerReflectiveIdentificationAnalysis {
                     : null);
     if (serviceClass != null || !implementationClasses.isEmpty()) {
       eventConsumer.onJavaUtilServiceLoaderLoad(serviceClass, implementationClasses, context);
-    }
-  }
-
-  private void handleJavaLangClassGetMember(ProgramMethod method, InvokeMethod invoke) {
-    IdentifierNameStringLookupResult<?> identifierLookupResult =
-        identifyIdentifier(invoke, appView, method);
-    if (identifierLookupResult != null) {
-      DexReference referencedItem = identifierLookupResult.getReference();
-      referencedItem.accept(
-          referencedType ->
-              handleReflectiveTypeLookup(method, referencedType, identifierLookupResult),
-          referencedField -> handleReflectiveFieldLookup(method, invoke, referencedField),
-          referencedMethod -> handleReflectiveMethodLookup(method, referencedMethod));
-    }
-  }
-
-  private void handleReflectiveFieldLookup(
-      ProgramMethod method, InvokeMethod invoke, DexField field) {
-    DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(field.holder, method);
-    if (clazz == null) {
-      return;
-    }
-    DexEncodedField encodedField = clazz.lookupField(field);
-    if (encodedField == null) {
-      return;
-    }
-    // Normally, we generate a -keepclassmembers rule for the field, such that the field is only
-    // kept if it is a static field, or if the holder or one of its subtypes are instantiated.
-    // However, if the invoked method is a field updater, then we always need to keep instance
-    // fields since the creation of a field updater throws a NoSuchFieldException if the field
-    // is not present.
-    boolean keepClass =
-        !encodedField.isStatic()
-            && factory.atomicFieldUpdaterMethods.isFieldUpdater(invoke.getInvokedMethod());
-    if (keepClass) {
-      enqueuer
-          .getWorklist()
-          .enqueueMarkInstantiatedAction(
-              clazz, null, InstantiationReason.REFLECTION, KeepReason.reflectiveUseIn(method));
-    }
-    if (enqueuer.getKeepInfo().getFieldInfo(encodedField, clazz).isShrinkingAllowed(options)) {
-      ProgramField programField = new ProgramField(clazz, encodedField);
-      enqueuer.applyMinimumKeepInfoWhenLive(
-          programField,
-          KeepFieldInfo.newEmptyJoiner()
-              .disallowOptimization()
-              .disallowShrinking()
-              .addReason(KeepReason.reflectiveUseIn(method)));
-    }
-  }
-
-  private void handleReflectiveMethodLookup(
-      ProgramMethod method, DexMethod targetedMethodReference) {
-    DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(targetedMethodReference.holder, method);
-    if (clazz == null) {
-      return;
-    }
-    ProgramMethod targetedMethod = clazz.lookupProgramMethod(targetedMethodReference);
-    if (targetedMethod == null) {
-      return;
-    }
-    KeepReason reason = KeepReason.reflectiveUseIn(method);
-    if (targetedMethod.getDefinition().belongsToDirectPool()) {
-      enqueuer.markMethodAsTargeted(targetedMethod, reason);
-      enqueuer.markDirectStaticOrConstructorMethodAsLive(targetedMethod, reason);
-    } else {
-      enqueuer.markVirtualMethodAsLive(targetedMethod, reason);
-    }
-    enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
-        targetedMethod, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
-  }
-
-  private void handleReflectiveTypeLookup(
-      ProgramMethod method,
-      DexType referencedType,
-      IdentifierNameStringLookupResult<?> identifierLookupResult) {
-    if (!referencedType.isClassType() || appView.allMergedClasses().isMergeSource(referencedType)) {
-      return;
-    }
-    assert identifierLookupResult.isTypeResult();
-    IdentifierNameStringTypeLookupResult identifierTypeLookupResult =
-        identifierLookupResult.asTypeResult();
-    DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(referencedType, method);
-    if (clazz == null) {
-      return;
-    }
-    enqueuer.markTypeAsLive(clazz, KeepReason.reflectiveUseIn(method));
-    if (clazz.canBeInstantiatedByNewInstance()
-        && identifierTypeLookupResult.isTypeCompatInstantiatedFromUse(options)) {
-      enqueuer.markClassAsInstantiatedWithCompatRule(
-          clazz, () -> KeepReason.reflectiveUseIn(method));
-    } else if (identifierTypeLookupResult.isTypeInitializedFromUse()) {
-      enqueuer.markDirectAndIndirectClassInitializersAsLive(clazz);
-    }
-    // To ensure we are not moving the class because we cannot prune it when there is a reflective
-    // use of it.
-    if (enqueuer.getKeepInfo().getClassInfo(clazz).isShrinkingAllowed(options)) {
-      enqueuer
-          .getKeepInfo()
-          .joinClass(clazz, joiner -> joiner.disallowOptimization().disallowShrinking());
     }
   }
 }
