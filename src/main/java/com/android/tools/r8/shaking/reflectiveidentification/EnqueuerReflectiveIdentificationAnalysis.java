@@ -34,11 +34,11 @@ import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLook
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringTypeLookupResult;
 import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.InstantiationReason;
-import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.InternalOptions;
+import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
 import com.google.common.collect.Sets;
@@ -351,59 +351,31 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       return;
     }
 
-    Value argument = invoke.inValues().get(0).getAliasedValue();
-    if (!argument.isPhi() && argument.definition.isConstClass()) {
-      DexType serviceType = argument.definition.asConstClass().getType();
-      if (!appView.appServices().allServiceTypes().contains(serviceType)) {
-        // Should never happen.
-        return;
+    Value argument = invoke.getFirstArgument().getAliasedValue();
+    if (argument.isDefinedByInstructionSatisfying(Instruction::isConstClass)) {
+      DexType serviceType = argument.getDefinition().asConstClass().getType();
+      if (appView.appServices().allServiceTypes().contains(serviceType)) {
+        notifyOnJavaUtilServiceLoaderLoad(serviceType, method);
       }
-
-      handleServiceInstantiation(serviceType, method, KeepReason.reflectiveUseIn(method));
     } else {
-      KeepReason reason = KeepReason.reflectiveUseIn(method);
       for (DexType serviceType : appView.appServices().allServiceTypes()) {
-        handleServiceInstantiation(serviceType, method, reason);
+        notifyOnJavaUtilServiceLoaderLoad(serviceType, method);
       }
     }
   }
 
-  private void handleServiceInstantiation(
-      DexType serviceType, ProgramMethod context, KeepReason reason) {
+  private void notifyOnJavaUtilServiceLoaderLoad(DexType serviceType, ProgramMethod context) {
     DexProgramClass serviceClass =
         enqueuer.getProgramClassOrNullFromReflectiveAccess(serviceType, context);
-    if (serviceClass != null && !serviceClass.isPublic()) {
-      // Package-private service types are allowed only when the load() call is made from the same
-      // package.
-      enqueuer.applyMinimumKeepInfoWhenLive(
-          serviceClass,
-          KeepClassInfo.newEmptyJoiner()
-              .disallowHorizontalClassMerging()
-              .disallowVerticalClassMerging()
-              .disallowAccessModification());
-    }
-
-    List<DexType> serviceImplementationTypes =
-        appView.appServices().serviceImplementationsFor(serviceType);
-    for (DexType serviceImplementationType : serviceImplementationTypes) {
-      if (!serviceImplementationType.isClassType()) {
-        // Should never happen.
-        continue;
-      }
-
-      DexProgramClass serviceImplementationClass =
-          enqueuer.getProgramClassOrNull(serviceImplementationType, context);
-      if (serviceImplementationClass == null) {
-        continue;
-      }
-
-      enqueuer.markClassAsInstantiatedWithReason(serviceImplementationClass, reason);
-
-      ProgramMethod defaultInitializer = serviceImplementationClass.getProgramDefaultInitializer();
-      if (defaultInitializer != null) {
-        enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
-            defaultInitializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
-      }
+    List<DexProgramClass> implementationClasses =
+        ListUtils.mapNotNull(
+            appView.appServices().serviceImplementationsFor(serviceType),
+            implementationType ->
+                implementationType.isClassType()
+                    ? enqueuer.getProgramClassOrNull(implementationType, context)
+                    : null);
+    if (serviceClass != null || !implementationClasses.isEmpty()) {
+      eventConsumer.onJavaUtilServiceLoaderLoad(serviceClass, implementationClasses, context);
     }
   }
 

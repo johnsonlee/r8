@@ -9,8 +9,11 @@ import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.shaking.KeepClassInfo;
+import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.WorkList;
+import java.util.Collection;
 import java.util.Set;
 
 public class EnqueuerReflectiveIdentificationEventConsumer
@@ -77,6 +80,33 @@ public class EnqueuerReflectiveIdentificationEventConsumer
         if (implementedClass != null && implementedClass.isInterface()) {
           worklist.addIfNotSeen(implementedClass);
         }
+      }
+    }
+  }
+
+  @Override
+  public void onJavaUtilServiceLoaderLoad(
+      DexProgramClass serviceClass,
+      Collection<DexProgramClass> implementationClasses,
+      ProgramMethod context) {
+    if (serviceClass != null && !serviceClass.isPublic()) {
+      // Package-private service types are allowed only when the load() call is made from the same
+      // package.
+      enqueuer.applyMinimumKeepInfoWhenLive(
+          serviceClass,
+          KeepClassInfo.newEmptyJoiner()
+              .disallowHorizontalClassMerging()
+              .disallowVerticalClassMerging()
+              .disallowAccessModification());
+    }
+
+    KeepReason reason = KeepReason.reflectiveUseIn(context);
+    for (DexProgramClass implementationClass : implementationClasses) {
+      enqueuer.markClassAsInstantiatedWithReason(implementationClass, reason);
+      ProgramMethod defaultInitializer = implementationClass.getProgramDefaultInitializer();
+      if (defaultInitializer != null) {
+        enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
+            defaultInitializer, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
       }
     }
   }

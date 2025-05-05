@@ -5,6 +5,7 @@ package com.android.tools.r8.shaking.reflectiveidentification;
 
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.ProgramMethod;
+import java.util.Collection;
 import java.util.Set;
 
 public interface ReflectiveIdentificationEventConsumer {
@@ -14,4 +15,9 @@ public interface ReflectiveIdentificationEventConsumer {
   void onJavaLangReflectConstructorNewInstance(ProgramMethod initializer, ProgramMethod context);
 
   void onJavaLangReflectProxyNewProxyInstance(Set<DexProgramClass> classes, ProgramMethod context);
+
+  void onJavaUtilServiceLoaderLoad(
+      DexProgramClass serviceClass,
+      Collection<DexProgramClass> implementationClasses,
+      ProgramMethod context);
 }
