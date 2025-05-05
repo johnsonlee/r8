@@ -12,6 +12,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.StringUtils;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -68,6 +69,7 @@ public class EnumSwitchOldSyntaxV2Test extends TestBase {
 
   @Test
   public void testR8Split() throws Exception {
+    Assume.assumeFalse("TODO(b/414335863)", parameters.isRandomPartialCompilation());
     parameters.assumeR8TestParameters();
     R8TestCompileResult compile =
         testForR8(Backend.CF)

@@ -65,7 +65,6 @@ import com.android.tools.r8.utils.CollectionUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.PredicateSet;
-import com.android.tools.r8.utils.SetUtils;
 import com.android.tools.r8.utils.Visibility;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
@@ -172,13 +171,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
    * ).
    */
   public final Object2BooleanMap<DexMember<?, ?>> identifierNameStrings;
-
-  /**
-   * A set of classpath types that are not referenced from the app, but which names can still lead
-   * to collusions in the minifier.
-   */
-  final Set<DexType> prunedClasspathTypes;
-
   /** A set of types that have been removed by the {@link TreePruner}. */
   final Set<DexType> prunedTypes;
   /** A map from switchmap class types to their corresponding switchmaps. */
@@ -213,7 +205,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
       PredicateSet<DexType> alwaysClassInline,
       Object2BooleanMap<DexMember<?, ?>> identifierNameStrings,
       Set<DexType> prunedTypes,
-      Set<DexType> prunedClasspathTypes,
       Map<DexField, Int2ReferenceMap<DexField>> switchMaps,
       Set<DexType> lockCandidates,
       Map<DexType, Visibility> initClassReferences,
@@ -239,7 +230,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.alwaysClassInline = alwaysClassInline;
     this.identifierNameStrings = identifierNameStrings;
     this.prunedTypes = prunedTypes;
-    this.prunedClasspathTypes = prunedClasspathTypes;
     this.switchMaps = switchMaps;
     this.lockCandidates = lockCandidates;
     this.initClassReferences = initClassReferences;
@@ -273,7 +263,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         previous.alwaysClassInline,
         previous.identifierNameStrings,
         previous.prunedTypes,
-        previous.prunedClasspathTypes,
         previous.switchMaps,
         previous.lockCandidates,
         previous.initClassReferences,
@@ -310,7 +299,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         prunedItems.hasRemovedClasses()
             ? CollectionUtils.mergeSets(previous.prunedTypes, prunedItems.getRemovedClasses())
             : previous.prunedTypes,
-        previous.prunedClasspathTypes,
         previous.switchMaps,
         pruneClasses(previous.lockCandidates, prunedItems, tasks),
         pruneMapFromClasses(previous.initClassReferences, prunedItems, tasks),
@@ -451,7 +439,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         alwaysClassInline,
         identifierNameStrings,
         prunedTypes,
-        prunedClasspathTypes,
         switchMaps,
         lockCandidates,
         initClassReferences,
@@ -522,7 +509,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
     this.alwaysClassInline = previous.alwaysClassInline;
     this.identifierNameStrings = previous.identifierNameStrings;
     this.prunedTypes = previous.prunedTypes;
-    this.prunedClasspathTypes = previous.prunedClasspathTypes;
     this.switchMaps = switchMaps;
     this.lockCandidates = previous.lockCandidates;
     this.initClassReferences = previous.initClassReferences;
@@ -1021,7 +1007,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
         lens.rewriteReferenceKeys(identifierNameStrings),
         // Don't rewrite pruned types - the removed types are identified by their original name.
         prunedTypes,
-        prunedClasspathTypes,
         lens.rewriteFieldKeys(switchMaps),
         lens.rewriteReferences(lockCandidates),
         rewriteInitClassReferences(lens),
@@ -1059,18 +1044,6 @@ public class AppInfoWithLiveness extends AppInfoWithClassHierarchy
   public Set<DexType> getPrunedTypes() {
     assert checkIfObsolete();
     return prunedTypes;
-  }
-
-  public Set<DexType> getClasspathTypesIncludingPruned() {
-    assert checkIfObsolete();
-    Collection<DexClasspathClass> classpathClasses = app().asDirect().classpathClasses();
-    Set<DexType> classpath =
-        SetUtils.newIdentityHashSet(classpathClasses.size() + prunedClasspathTypes.size());
-    for (DexClasspathClass cp : classpathClasses) {
-      classpath.add(cp.getType());
-    }
-    classpath.addAll(prunedClasspathTypes);
-    return classpath;
   }
 
   public DexClassAndMethod lookupSingleTarget(

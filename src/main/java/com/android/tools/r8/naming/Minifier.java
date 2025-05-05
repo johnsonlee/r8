@@ -76,7 +76,7 @@ public class Minifier {
 
     assert new MinifiedRenaming(
             appView, classRenaming, MethodRenaming.empty(), FieldRenaming.empty())
-        .verifyNoCollisions(appView.appInfo(), appView.dexItemFactory());
+        .verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
 
     MemberNamingStrategy minifyMembers = new MinifierMemberNamingStrategy(appView);
     timing.begin("MinifyMethods");
@@ -86,7 +86,7 @@ public class Minifier {
     timing.end();
 
     assert new MinifiedRenaming(appView, classRenaming, methodRenaming, FieldRenaming.empty())
-        .verifyNoCollisions(appView.appInfo(), appView.dexItemFactory());
+        .verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
 
     timing.begin("MinifyFields");
     FieldRenaming fieldRenaming =
@@ -100,7 +100,7 @@ public class Minifier {
     timing.end();
 
     NamingLens lens = new MinifiedRenaming(appView, classRenaming, methodRenaming, fieldRenaming);
-    assert lens.verifyNoCollisions(appView.appInfo(), appView.dexItemFactory());
+    assert lens.verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
 
     appView.testing().namingLensConsumer.accept(appView.dexItemFactory(), lens);
     appView.notifyOptimizationFinishedForTesting();

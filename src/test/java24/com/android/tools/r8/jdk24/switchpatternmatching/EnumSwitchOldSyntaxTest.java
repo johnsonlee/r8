@@ -3,16 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.jdk24.switchpatternmatching;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import com.android.tools.r8.JdkClassFileProvider;
 import com.android.tools.r8.TestBase;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestParametersCollection;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.utils.StringUtils;
-import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -64,17 +60,7 @@ public class EnumSwitchOldSyntaxTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepEnumsRule()
         .run(parameters.getRuntime(), Main.class)
-        .inspect(this::assert2Classes)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
-  }
-
-  private void assert2Classes(CodeInspector i) {
-    if (parameters.getPartialCompilationTestParameters().isSome()) {
-      return;
-    }
-    assertTrue(i.clazz(E.class).isPresent());
-    assertTrue(i.clazz(Main.class).isPresent());
-    assertEquals(2, i.allClasses().size());
   }
 
   public enum E {

@@ -36,7 +36,6 @@ public class EnqueuerFactory {
       ImmediateAppSubtypingInfo subtypingInfo,
       GraphConsumer keptGraphConsumer,
       Set<DexType> initialPrunedTypes,
-      Set<DexType> prunedClasspathTypes,
       RuntimeTypeCheckInfo.Builder runtimeTypeCheckInfoBuilder) {
     ProfileCollectionAdditions profileCollectionAdditions =
         ProfileCollectionAdditions.create(appView);
@@ -49,7 +48,6 @@ public class EnqueuerFactory {
             keptGraphConsumer,
             Mode.FINAL_TREE_SHAKING,
             initialPrunedTypes,
-            prunedClasspathTypes,
             runtimeTypeCheckInfoBuilder);
     appView.withProtoShrinker(
         shrinker -> enqueuer.setInitialDeadProtoTypes(shrinker.getDeadProtoTypes()));

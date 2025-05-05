@@ -88,18 +88,11 @@ class ClassNameMinifier {
   ClassRenaming computeRenaming(Timing timing) {
     // Collect names we have to keep.
     timing.begin("reserve");
-    if (appView.options().isMinifying()
-        && !appView.options().getProguardConfiguration().hasApplyMappingFile()) {
-      for (DexType reserved : appView.appInfo().getClasspathTypesIncludingPruned()) {
-        registerClassAsUsed(reserved, reserved.getDescriptor());
-      }
-    }
     for (ProgramOrClasspathClass clazz : classes) {
-      DexType type = clazz.getType();
-      DexString descriptor = classNamingStrategy.reservedDescriptor(type);
+      DexString descriptor = classNamingStrategy.reservedDescriptor(clazz.getType());
       if (descriptor != null) {
-        assert !renaming.containsKey(type);
-        registerClassAsUsed(type, descriptor);
+        assert !renaming.containsKey(clazz.getType());
+        registerClassAsUsed(clazz.getType(), descriptor);
       }
     }
     appView

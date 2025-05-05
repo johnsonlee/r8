@@ -137,10 +137,6 @@ public class FieldAccessFlags extends AccessFlags<FieldAccessFlags> {
     set(Constants.ACC_ENUM);
   }
 
-  public void unsetEnum() {
-    unset(Constants.ACC_ENUM);
-  }
-
   public static class Builder extends BuilderBase<Builder, FieldAccessFlags> {
 
     public Builder() {
