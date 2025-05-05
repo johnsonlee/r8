@@ -687,11 +687,13 @@ public class AndroidApp {
   private void dumpPartialCompilationConfiguration(
       R8PartialCompilationConfiguration partialCompilationConfiguration, ZipOutputStream out)
       throws IOException {
-    writeToZipStream(
-        out,
-        dumpR8IncludeFileName,
-        partialCompilationConfiguration.getIncludePredicates().getDumpFileContent(),
-        ZipEntry.DEFLATED);
+    if (!partialCompilationConfiguration.getIncludePredicates().isEmpty()) {
+      writeToZipStream(
+          out,
+          dumpR8IncludeFileName,
+          partialCompilationConfiguration.getIncludePredicates().getDumpFileContent(),
+          ZipEntry.DEFLATED);
+    }
     if (!partialCompilationConfiguration.getExcludePredicates().isEmpty()) {
       writeToZipStream(
           out,
