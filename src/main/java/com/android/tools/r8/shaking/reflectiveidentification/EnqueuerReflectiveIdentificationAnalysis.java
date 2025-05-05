@@ -4,8 +4,8 @@
 package com.android.tools.r8.shaking.reflectiveidentification;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
+import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
-import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflectionMethod;
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
@@ -47,6 +47,7 @@ import java.lang.reflect.InvocationHandler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class EnqueuerReflectiveIdentificationAnalysis {
 
@@ -141,20 +142,63 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
   private void processInvoke(ProgramMethod method, InvokeMethod invoke) {
     DexMethod invokedMethod = invoke.getInvokedMethod();
-    if (factory.classMethods.isReflectiveClassLookup(invokedMethod)) {
-      handleJavaLangClassForName(method, invoke);
-    } else if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
-      handleJavaLangClassNewInstance(method, invoke);
-    } else if (invokedMethod.isIdenticalTo(factory.constructorMethods.newInstance)) {
-      handleJavaLangReflectConstructorNewInstance(method, invoke);
-    } else if (invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
-      handleJavaLangReflectProxyNewProxyInstance(method, invoke);
-    } else if (factory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
-      handleServiceLoaderInvocation(method, invoke);
+    DexType holder = invokedMethod.getHolderType();
+    if (holder.isIdenticalTo(factory.classType)) {
+      // java.lang.Class
+      if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
+        handleJavaLangClassNewInstance(method, invoke);
+      } else if (factory.classMethods.isReflectiveClassLookup(invokedMethod)) {
+        handleJavaLangClassForName(method, invoke);
+      } else if (factory.classMethods.isReflectiveMemberLookup(invokedMethod)) {
+        handleJavaLangClassGetMember(method, invoke);
+      }
+    } else if (holder.isIdenticalTo(factory.constructorType)) {
+      // java.lang.reflect.Constructor
+      if (invokedMethod.isIdenticalTo(factory.constructorMethods.newInstance)) {
+        handleJavaLangReflectConstructorNewInstance(method, invoke);
+      }
+    } else if (holder.isIdenticalTo(factory.proxyType)) {
+      // java.lang.reflect.Proxy
+      if (invokedMethod.isIdenticalTo(factory.proxyMethods.newProxyInstance)) {
+        handleJavaLangReflectProxyNewProxyInstance(method, invoke);
+      }
+    } else if (holder.isIdenticalTo(factory.serviceLoaderType)) {
+      // java.util.ServiceLoader
+      if (factory.serviceLoaderMethods.isLoadMethod(invokedMethod)) {
+        handleJavaUtilServiceLoaderLoad(method, invoke);
+      }
+    } else if (holder.isIdenticalTo(factory.javaUtilConcurrentAtomicAtomicIntegerFieldUpdater)) {
+      // java.util.concurrent.atomic.AtomicIntegerFieldUpdater
+      if (factory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
+        handleJavaUtilConcurrentAtomicAtomicFieldUpdater(
+            method,
+            invoke,
+            field ->
+                eventConsumer.onJavaUtilConcurrentAtomicAtomicIntegerFieldUpdaterNewUpdater(
+                    field, method));
+      }
+    } else if (holder.isIdenticalTo(factory.javaUtilConcurrentAtomicAtomicLongFieldUpdater)) {
+      // java.util.concurrent.atomic.AtomicLongFieldUpdater
+      if (factory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
+        handleJavaUtilConcurrentAtomicAtomicFieldUpdater(
+            method,
+            invoke,
+            field ->
+                eventConsumer.onJavaUtilConcurrentAtomicAtomicLongFieldUpdaterNewUpdater(
+                    field, method));
+      }
+    } else if (holder.isIdenticalTo(factory.javaUtilConcurrentAtomicAtomicReferenceFieldUpdater)) {
+      // java.util.concurrent.atomic.AtomicReferenceFieldUpdater
+      if (factory.atomicFieldUpdaterMethods.isFieldUpdater(invokedMethod)) {
+        handleJavaUtilConcurrentAtomicAtomicFieldUpdater(
+            method,
+            invoke,
+            field ->
+                eventConsumer.onJavaUtilConcurrentAtomicAtomicReferenceFieldUpdaterNewUpdater(
+                    field, method));
+      }
     } else if (enqueuer.getAnalyses().handleReflectiveInvoke(method, invoke)) {
       // Intentionally empty.
-    } else if (isReflectionMethod(factory, invokedMethod)) {
-      handleReflectiveLookup(method, invoke);
     }
   }
 
@@ -358,7 +402,22 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     }
   }
 
-  private void handleServiceLoaderInvocation(ProgramMethod method, InvokeMethod invoke) {
+  private void handleJavaUtilConcurrentAtomicAtomicFieldUpdater(
+      ProgramMethod method, InvokeMethod invoke, Consumer<ProgramField> notifier) {
+    IdentifierNameStringLookupResult<?> identifierLookupResult =
+        identifyIdentifier(invoke, appView, method);
+    if (identifierLookupResult == null) {
+      return;
+    }
+    DexField fieldReference = identifierLookupResult.getReference().asDexField();
+    assert fieldReference != null;
+    ProgramField field = asProgramFieldOrNull(appView.definitionFor(fieldReference));
+    if (field != null) {
+      notifier.accept(field);
+    }
+  }
+
+  private void handleJavaUtilServiceLoaderLoad(ProgramMethod method, InvokeMethod invoke) {
     if (invoke.inValues().isEmpty()) {
       // Should never happen.
       return;
@@ -392,7 +451,7 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     }
   }
 
-  private void handleReflectiveLookup(ProgramMethod method, InvokeMethod invoke) {
+  private void handleJavaLangClassGetMember(ProgramMethod method, InvokeMethod invoke) {
     IdentifierNameStringLookupResult<?> identifierLookupResult =
         identifyIdentifier(invoke, appView, method);
     if (identifierLookupResult != null) {

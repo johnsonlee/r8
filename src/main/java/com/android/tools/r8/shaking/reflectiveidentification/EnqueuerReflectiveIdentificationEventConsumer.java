@@ -10,9 +10,13 @@ import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
+import com.android.tools.r8.graph.ProgramField;
 import com.android.tools.r8.graph.ProgramMethod;
 import com.android.tools.r8.shaking.Enqueuer;
+import com.android.tools.r8.shaking.EnqueuerWorklist;
+import com.android.tools.r8.shaking.InstantiationReason;
 import com.android.tools.r8.shaking.KeepClassInfo;
+import com.android.tools.r8.shaking.KeepFieldInfo;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.KeepReason;
 import com.android.tools.r8.utils.InternalOptions;
@@ -117,6 +121,47 @@ public class EnqueuerReflectiveIdentificationEventConsumer
           worklist.addIfNotSeen(implementedClass);
         }
       }
+    }
+  }
+
+  @Override
+  public void onJavaUtilConcurrentAtomicAtomicIntegerFieldUpdaterNewUpdater(
+      ProgramField field, ProgramMethod context) {
+    internalOnJavaUtilConcurrentAtomicAtomicFieldUpdaterNewUpdater(field, context);
+  }
+
+  @Override
+  public void onJavaUtilConcurrentAtomicAtomicLongFieldUpdaterNewUpdater(
+      ProgramField field, ProgramMethod context) {
+    internalOnJavaUtilConcurrentAtomicAtomicFieldUpdaterNewUpdater(field, context);
+  }
+
+  @Override
+  public void onJavaUtilConcurrentAtomicAtomicReferenceFieldUpdaterNewUpdater(
+      ProgramField field, ProgramMethod context) {
+    internalOnJavaUtilConcurrentAtomicAtomicFieldUpdaterNewUpdater(field, context);
+  }
+
+  private void internalOnJavaUtilConcurrentAtomicAtomicFieldUpdaterNewUpdater(
+      ProgramField field, ProgramMethod context) {
+    // Normally, we generate a -keepclassmembers rule for the field, such that the field is only
+    // kept if it is a static field, or if the holder or one of its subtypes are instantiated.
+    // However, if the invoked method is a field updater, then we always need to keep instance
+    // fields since the creation of a field updater throws a NoSuchFieldException if the field
+    // is not present.
+    KeepReason reason = KeepReason.reflectiveUseIn(context);
+    if (!field.getAccessFlags().isStatic()) {
+      EnqueuerWorklist worklist = enqueuer.getWorklist();
+      worklist.enqueueMarkInstantiatedAction(
+          field.getHolder(), null, InstantiationReason.REFLECTION, reason);
+    }
+    if (enqueuer.getKeepInfo(field).isShrinkingAllowed(options)) {
+      enqueuer.applyMinimumKeepInfoWhenLive(
+          field,
+          KeepFieldInfo.newEmptyJoiner()
+              .disallowOptimization()
+              .disallowShrinking()
+              .addReason(reason));
     }
   }
 
