@@ -261,7 +261,7 @@ public class RootSetUtils {
                     .build();
 
             @Override
-            protected synchronized void keep(
+            public synchronized void keep(
                 Definition definition, DefinitionContext referencedFrom, boolean allowObfuscation) {
               if (definition.isProgramDefinition()) {
                 ReferencedFromExcludedClassInR8PartialRule rule =

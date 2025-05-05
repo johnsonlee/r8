@@ -101,6 +101,10 @@ public class UseCollector implements UseCollectorEventConsumer {
     return this;
   }
 
+  protected void notifyReflectiveIdentification(DexMethod invokedMethod, ProgramMethod method) {
+    // Intentionally empty. Overridden in R8PartialUseCollector.
+  }
+
   public void traceClasses(Collection<DexProgramClass> classes) {
     for (DexProgramClass clazz : classes) {
       traceClass(clazz);
@@ -616,6 +620,18 @@ public class UseCollector implements UseCollectorEventConsumer {
     }
   }
 
+  private void handleInvoke(
+      DexMethod method,
+      MethodResolutionResult resolutionResult,
+      Function<SingleResolutionResult<?>, DexClassAndMethod> getResult,
+      ProgramMethod context,
+      DefinitionContext referencedFrom,
+      UseCollectorEventConsumer eventConsumer) {
+    handleMethodResolution(
+        method, resolutionResult, getResult, context, referencedFrom, eventConsumer);
+    notifyReflectiveIdentification(method, context);
+  }
+
   private void handleMethodResolution(
       DexMethod method,
       MethodResolutionResult resolutionResult,
@@ -701,7 +717,7 @@ public class UseCollector implements UseCollectorEventConsumer {
     @Override
     public void registerInvokeDirect(DexMethod method) {
       if (getContext().getHolder().originatesFromDexResource()) {
-        handleMethodResolution(
+        handleInvoke(
             method,
             appInfo().unsafeResolveMethodDueToDexFormat(method),
             SingleResolutionResult::getResolutionPair,
@@ -734,7 +750,7 @@ public class UseCollector implements UseCollectorEventConsumer {
 
     @Override
     public void registerInvokeStatic(DexMethod method) {
-      handleMethodResolution(
+      handleInvoke(
           method,
           appInfo().unsafeResolveMethodDueToDexFormat(method),
           SingleResolutionResult::getResolutionPair,
@@ -745,7 +761,7 @@ public class UseCollector implements UseCollectorEventConsumer {
 
     @Override
     public void registerInvokeSuper(DexMethod method) {
-      handleMethodResolution(
+      handleInvoke(
           method,
           appInfo().unsafeResolveMethodDueToDexFormat(method),
           result -> result.lookupInvokeSuperTarget(getContext().getHolder(), appView, appInfo()),
@@ -766,7 +782,7 @@ public class UseCollector implements UseCollectorEventConsumer {
         return;
       }
       assert invokeType.isInterface() || invokeType.isVirtual();
-      handleMethodResolution(
+      handleInvoke(
           method,
           invokeType.isInterface()
               ? appInfo().resolveMethodOnInterfaceHolder(method)

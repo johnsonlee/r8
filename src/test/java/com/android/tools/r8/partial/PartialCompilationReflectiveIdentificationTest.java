@@ -31,8 +31,7 @@ public class PartialCompilationReflectiveIdentificationTest extends TestBase {
         .addR8ExcludedClasses(ExcludedMain.class)
         .compile()
         .run(parameters.getRuntime(), ExcludedMain.class)
-        // TODO(b/414763615): Enable reflective identification for excluded classes.
-        .assertFailureWithErrorThatThrows(ClassNotFoundException.class);
+        .assertSuccessWithEmptyOutput();
   }
 
   static class ExcludedMain {
