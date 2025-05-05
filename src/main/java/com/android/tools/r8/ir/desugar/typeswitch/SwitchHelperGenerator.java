@@ -6,9 +6,9 @@ package com.android.tools.r8.ir.desugar.typeswitch;
 
 import static com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider.allowsInlinedIntegerEquality;
 
-import com.android.tools.r8.cf.code.CfConstClass;
 import com.android.tools.r8.cf.code.CfConstNumber;
 import com.android.tools.r8.cf.code.CfInstruction;
+import com.android.tools.r8.cf.code.CfInvoke;
 import com.android.tools.r8.cf.code.CfNewArray;
 import com.android.tools.r8.cf.code.CfReturnVoid;
 import com.android.tools.r8.cf.code.CfStaticFieldWrite;
@@ -146,7 +146,21 @@ public class SwitchHelperGenerator {
           CfCode cfCode = TypeSwitchMethods.TypeSwitchMethods_switchEnumEq(factory, methodSig);
           List<CfInstruction> newInstructions =
               ListUtils.map(
-                  cfCode.getInstructions(), i -> i.isConstClass() ? new CfConstClass(enumType) : i);
+                  cfCode.getInstructions(),
+                  i -> {
+                    if (i.isInvokeStatic()) {
+                      CfInvoke invoke = i.asInvoke();
+                      if (invoke.getMethod().getName().isIdenticalTo(factory.valueOfMethodName)) {
+                        DexMethod newMethod =
+                            factory.createMethod(
+                                enumType,
+                                factory.createProto(enumType, factory.stringType),
+                                factory.valueOfMethodName);
+                        return new CfInvoke(invoke.getOpcode(), newMethod, invoke.isInterface());
+                      }
+                    }
+                    return i;
+                  });
           cfCode.setInstructions(newInstructions);
           return cfCode;
         },
