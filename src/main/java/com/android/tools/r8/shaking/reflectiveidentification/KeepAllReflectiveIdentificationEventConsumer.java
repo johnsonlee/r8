@@ -88,7 +88,9 @@ public class KeepAllReflectiveIdentificationEventConsumer
       DexProgramClass serviceClass,
       Collection<DexProgramClass> implementationClasses,
       ProgramMethod context) {
-    keep(serviceClass, context);
+    if (serviceClass != null) {
+      keep(serviceClass, context);
+    }
     for (DexProgramClass implementationClass : implementationClasses) {
       keep(implementationClass, context);
       ProgramMethod defaultInitializer = implementationClass.getProgramDefaultInitializer();
