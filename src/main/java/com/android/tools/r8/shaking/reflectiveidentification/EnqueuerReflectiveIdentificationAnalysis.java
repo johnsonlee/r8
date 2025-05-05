@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 package com.android.tools.r8.shaking.reflectiveidentification;
 
+import static com.android.tools.r8.graph.DexClassAndMethod.asProgramMethodOrNull;
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 import static com.android.tools.r8.graph.ProgramField.asProgramFieldOrNull;
 import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIdentifier;
@@ -10,7 +11,6 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.identifyIden
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DexClass;
-import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.graph.DexItemFactory.ClassMethods;
@@ -32,11 +32,6 @@ import com.android.tools.r8.ir.code.Value;
 import com.android.tools.r8.ir.conversion.MethodConversionOptions;
 import com.android.tools.r8.naming.identifiernamestring.IdentifierNameStringLookupResult;
 import com.android.tools.r8.shaking.Enqueuer;
-import com.android.tools.r8.shaking.InstantiationReason;
-import com.android.tools.r8.shaking.KeepFieldInfo;
-import com.android.tools.r8.shaking.KeepMethodInfo;
-import com.android.tools.r8.shaking.KeepReason;
-import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.collections.ProgramMethodSet;
 import com.android.tools.r8.utils.timing.Timing;
@@ -53,7 +48,6 @@ public class EnqueuerReflectiveIdentificationAnalysis {
   private final DexItemFactory factory;
   private final Enqueuer enqueuer;
   private final ReflectiveIdentificationEventConsumer eventConsumer;
-  private final InternalOptions options;
 
   private final Set<DexMember<?, ?>> identifierNameStrings = Sets.newIdentityHashSet();
   private final ProgramMethodSet worklist = ProgramMethodSet.create();
@@ -66,7 +60,6 @@ public class EnqueuerReflectiveIdentificationAnalysis {
     this.factory = appView.dexItemFactory();
     this.enqueuer = enqueuer;
     this.eventConsumer = eventConsumer;
-    this.options = appView.options();
   }
 
   public Set<DexMember<?, ?>> getIdentifierNameStrings() {
@@ -222,40 +215,12 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       return;
     }
 
-    DexField field = identifierLookupResult.getReference().asDexField();
-    assert field != null;
+    DexField fieldReference = identifierLookupResult.getReference().asDexField();
+    assert fieldReference != null;
 
-    DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(field.holder, method);
-    if (clazz == null) {
-      return;
-    }
-    DexEncodedField encodedField = clazz.lookupField(field);
-    if (encodedField == null) {
-      return;
-    }
-    // Normally, we generate a -keepclassmembers rule for the field, such that the field is only
-    // kept if it is a static field, or if the holder or one of its subtypes are instantiated.
-    // However, if the invoked method is a field updater, then we always need to keep instance
-    // fields since the creation of a field updater throws a NoSuchFieldException if the field
-    // is not present.
-    boolean keepClass =
-        !encodedField.isStatic()
-            && factory.atomicFieldUpdaterMethods.isFieldUpdater(invoke.getInvokedMethod());
-    if (keepClass) {
-      enqueuer
-          .getWorklist()
-          .enqueueMarkInstantiatedAction(
-              clazz, null, InstantiationReason.REFLECTION, KeepReason.reflectiveUseIn(method));
-    }
-    if (enqueuer.getKeepInfo().getFieldInfo(encodedField, clazz).isShrinkingAllowed(options)) {
-      ProgramField programField = new ProgramField(clazz, encodedField);
-      enqueuer.applyMinimumKeepInfoWhenLive(
-          programField,
-          KeepFieldInfo.newEmptyJoiner()
-              .disallowOptimization()
-              .disallowShrinking()
-              .addReason(KeepReason.reflectiveUseIn(method)));
+    ProgramField field = asProgramFieldOrNull(appView.definitionFor(fieldReference));
+    if (field != null) {
+      eventConsumer.onJavaLangClassGetField(field, method);
     }
   }
 
@@ -266,27 +231,14 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       return;
     }
 
-    DexMethod targetedMethodReference = identifierLookupResult.getReference().asDexMethod();
-    assert targetedMethodReference != null;
+    DexMethod referencedMethodReference = identifierLookupResult.getReference().asDexMethod();
+    assert referencedMethodReference != null;
 
-    DexProgramClass clazz =
-        enqueuer.getProgramClassOrNullFromReflectiveAccess(targetedMethodReference.holder, method);
-    if (clazz == null) {
-      return;
+    ProgramMethod referencedMethod =
+        asProgramMethodOrNull(appView.definitionFor(referencedMethodReference));
+    if (referencedMethod != null) {
+      eventConsumer.onJavaLangClassGetMethod(referencedMethod, method);
     }
-    ProgramMethod targetedMethod = clazz.lookupProgramMethod(targetedMethodReference);
-    if (targetedMethod == null) {
-      return;
-    }
-    KeepReason reason = KeepReason.reflectiveUseIn(method);
-    if (targetedMethod.getDefinition().belongsToDirectPool()) {
-      enqueuer.markMethodAsTargeted(targetedMethod, reason);
-      enqueuer.markDirectStaticOrConstructorMethodAsLive(targetedMethod, reason);
-    } else {
-      enqueuer.markVirtualMethodAsLive(targetedMethod, reason);
-    }
-    enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
-        targetedMethod, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
   }
 
   /** Handles reflective uses of {@link Class#newInstance()}. */

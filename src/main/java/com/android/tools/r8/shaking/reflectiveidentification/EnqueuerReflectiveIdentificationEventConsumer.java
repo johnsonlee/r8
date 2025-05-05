@@ -66,6 +66,31 @@ public class EnqueuerReflectiveIdentificationEventConsumer
   }
 
   @Override
+  public void onJavaLangClassGetField(ProgramField field, ProgramMethod context) {
+    if (enqueuer.getKeepInfo(field).isShrinkingAllowed(options)) {
+      enqueuer.applyMinimumKeepInfoWhenLive(
+          field,
+          KeepFieldInfo.newEmptyJoiner()
+              .disallowOptimization()
+              .disallowShrinking()
+              .addReason(KeepReason.reflectiveUseIn(context)));
+    }
+  }
+
+  @Override
+  public void onJavaLangClassGetMethod(ProgramMethod method, ProgramMethod context) {
+    KeepReason reason = KeepReason.reflectiveUseIn(context);
+    if (method.getDefinition().belongsToDirectPool()) {
+      enqueuer.markMethodAsTargeted(method, reason);
+      enqueuer.markDirectStaticOrConstructorMethodAsLive(method, reason);
+    } else {
+      enqueuer.markVirtualMethodAsLive(method, reason);
+    }
+    enqueuer.applyMinimumKeepInfoWhenLiveOrTargeted(
+        method, KeepMethodInfo.newEmptyJoiner().disallowOptimization());
+  }
+
+  @Override
   public void onJavaLangClassNewInstance(DexProgramClass clazz, ProgramMethod context) {
     ProgramMethod defaultInitializer = clazz.getProgramDefaultInitializer();
     if (defaultInitializer != null) {

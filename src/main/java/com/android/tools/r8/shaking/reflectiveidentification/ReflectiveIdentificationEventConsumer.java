@@ -14,6 +14,10 @@ public interface ReflectiveIdentificationEventConsumer {
 
   void onJavaLangClassForName(DexClass clazz, ProgramMethod context);
 
+  void onJavaLangClassGetField(ProgramField field, ProgramMethod context);
+
+  void onJavaLangClassGetMethod(ProgramMethod method, ProgramMethod context);
+
   void onJavaLangClassNewInstance(DexProgramClass clazz, ProgramMethod context);
 
   void onJavaLangReflectConstructorNewInstance(ProgramMethod initializer, ProgramMethod context);
