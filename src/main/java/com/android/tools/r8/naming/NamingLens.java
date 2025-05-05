@@ -24,6 +24,8 @@ import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.collections.DexClassAndMethodSet;
 import com.google.common.collect.Sets;
 import java.util.Arrays;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -157,14 +159,35 @@ public abstract class NamingLens {
   public abstract boolean verifyRenamingConsistentWithResolution(DexMethod item);
 
   public final boolean verifyNoCollisions(
-      Iterable<DexProgramClass> classes, DexItemFactory dexItemFactory) {
+      AppInfoWithLiveness appInfo, DexItemFactory dexItemFactory) {
     Set<DexReference> references = Sets.newIdentityHashSet();
-    for (DexProgramClass clazz : classes) {
+    Map<DexType, DexType> classpathTypes = new IdentityHashMap<>();
+    appInfo
+        .getClasspathTypesIncludingPruned()
+        .forEach(
+            type -> {
+              DexType newType = lookupType(type, dexItemFactory);
+              classpathTypes.put(newType, type);
+            });
+    for (DexProgramClass clazz : appInfo.classes()) {
       {
         DexType newType = lookupType(clazz.type, dexItemFactory);
         boolean referencesChanged = references.add(newType);
         assert referencesChanged
             : "Duplicate definition of type `" + newType.toSourceString() + "`";
+        if (classpathTypes.containsKey(newType)) {
+          // If we have a classpath and program type, then it can be renamed the same way. It is
+          // forbidden to rename a program type into a classpath type, since it would lead to
+          // duplicated types.
+          assert classpathTypes.get(newType).isIdenticalTo(clazz.type)
+              : "Duplicate predecessor of type `"
+                  + newType.toSourceString()
+                  + "`: `"
+                  + classpathTypes.get(newType).toSourceString()
+                  + "`,`"
+                  + clazz.type.toSourceString()
+                  + "`";
+        }
       }
 
       for (DexEncodedField field : clazz.fields()) {

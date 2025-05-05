@@ -541,6 +541,8 @@ public class R8 {
       // Collect the already pruned types before creating a new app info without liveness.
       // TODO: we should avoid removing liveness.
       Set<DexType> prunedTypes = appView.withLiveness().appInfo().getPrunedTypes();
+      Set<DexType> prunedClasspathTypes =
+          appView.withLiveness().appInfo().getClasspathTypesIncludingPruned();
 
       assert ArtProfileCompletenessChecker.verify(appView);
 
@@ -584,6 +586,7 @@ public class R8 {
                   ImmediateAppSubtypingInfo.create(appView),
                   keptGraphConsumer,
                   prunedTypes,
+                  prunedClasspathTypes,
                   finalRuntimeTypeCheckInfoBuilder);
           EnqueuerResult enqueuerResult =
               enqueuer.traceApplication(appView.rootSet(), executorService, timing);
