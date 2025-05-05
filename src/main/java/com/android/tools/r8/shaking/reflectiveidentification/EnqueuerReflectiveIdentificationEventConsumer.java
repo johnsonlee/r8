@@ -5,6 +5,9 @@ package com.android.tools.r8.shaking.reflectiveidentification;
 
 import static com.android.tools.r8.graph.DexProgramClass.asProgramClassOrNull;
 
+import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
+import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexProgramClass;
 import com.android.tools.r8.graph.DexType;
 import com.android.tools.r8.graph.ProgramMethod;
@@ -12,6 +15,7 @@ import com.android.tools.r8.shaking.Enqueuer;
 import com.android.tools.r8.shaking.KeepClassInfo;
 import com.android.tools.r8.shaking.KeepMethodInfo;
 import com.android.tools.r8.shaking.KeepReason;
+import com.android.tools.r8.utils.InternalOptions;
 import com.android.tools.r8.utils.WorkList;
 import java.util.Collection;
 import java.util.Set;
@@ -19,10 +23,42 @@ import java.util.Set;
 public class EnqueuerReflectiveIdentificationEventConsumer
     implements ReflectiveIdentificationEventConsumer {
 
+  private final AppView<? extends AppInfoWithClassHierarchy> appView;
   private final Enqueuer enqueuer;
+  private final InternalOptions options;
 
-  public EnqueuerReflectiveIdentificationEventConsumer(Enqueuer enqueuer) {
+  public EnqueuerReflectiveIdentificationEventConsumer(
+      AppView<? extends AppInfoWithClassHierarchy> appView, Enqueuer enqueuer) {
+    this.appView = appView;
     this.enqueuer = enqueuer;
+    this.options = appView.options();
+  }
+
+  @Override
+  public void onJavaLangClassForName(DexClass clazz, ProgramMethod context) {
+    if (clazz.isProgramClass()) {
+      DexProgramClass programClass = clazz.asProgramClass();
+      if (appView.allMergedClasses().isMergeSource(programClass.getType())) {
+        return;
+      }
+      KeepReason reason = KeepReason.reflectiveUseIn(context);
+      enqueuer.markTypeAsLive(programClass, reason);
+      if (programClass.canBeInstantiatedByNewInstance()
+          && options.isForceProguardCompatibilityEnabled()) {
+        enqueuer.markClassAsInstantiatedWithCompatRule(programClass, () -> reason);
+      } else {
+        enqueuer.markDirectAndIndirectClassInitializersAsLive(programClass);
+      }
+      // To ensure we are not moving the class because we cannot prune it when there is a reflective
+      // use of it.
+      if (enqueuer.getKeepInfo().getClassInfo(programClass).isShrinkingAllowed(options)) {
+        enqueuer
+            .getKeepInfo()
+            .joinClass(programClass, joiner -> joiner.disallowOptimization().disallowShrinking());
+      }
+    } else {
+      enqueuer.recordNonProgramClassWithNoMissingReporting(clazz, context);
+    }
   }
 
   @Override

@@ -9,6 +9,7 @@ import static com.android.tools.r8.naming.IdentifierNameStringUtils.isReflection
 
 import com.android.tools.r8.graph.AppInfoWithClassHierarchy;
 import com.android.tools.r8.graph.AppView;
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexEncodedField;
 import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexItemFactory;
@@ -140,7 +141,9 @@ public class EnqueuerReflectiveIdentificationAnalysis {
 
   private void processInvoke(ProgramMethod method, InvokeMethod invoke) {
     DexMethod invokedMethod = invoke.getInvokedMethod();
-    if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
+    if (factory.classMethods.isReflectiveClassLookup(invokedMethod)) {
+      handleJavaLangClassForName(method, invoke);
+    } else if (invokedMethod.isIdenticalTo(factory.classMethods.newInstance)) {
       handleJavaLangClassNewInstance(method, invoke);
     } else if (invokedMethod.isIdenticalTo(factory.constructorMethods.newInstance)) {
       handleJavaLangReflectConstructorNewInstance(method, invoke);
@@ -152,6 +155,16 @@ public class EnqueuerReflectiveIdentificationAnalysis {
       // Intentionally empty.
     } else if (isReflectionMethod(factory, invokedMethod)) {
       handleReflectiveLookup(method, invoke);
+    }
+  }
+
+  private void handleJavaLangClassForName(ProgramMethod method, InvokeMethod invoke) {
+    if (!invoke.isInvokeStatic()) {
+      return;
+    }
+    DexClass clazz = ConstantValueUtils.getClassFromClassForName(invoke.asInvokeStatic(), appView);
+    if (clazz != null) {
+      eventConsumer.onJavaLangClassForName(clazz, method);
     }
   }
 

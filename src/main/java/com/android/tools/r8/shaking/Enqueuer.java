@@ -506,7 +506,7 @@ public class Enqueuer {
     this.keepInfo = new MutableKeepInfoCollection(options);
     this.reflectiveIdentificationAnalysis =
         new EnqueuerReflectiveIdentificationAnalysis(
-            appView, this, new EnqueuerReflectiveIdentificationEventConsumer(this));
+            appView, this, new EnqueuerReflectiveIdentificationEventConsumer(appView, this));
     this.useRegistryFactory = createUseRegistryFactory();
     this.worklist =
         EnqueuerWorklist.createWorklist(this, executorService, options.getThreadingModule());
@@ -2787,7 +2787,7 @@ public class Enqueuer {
     }
   }
 
-  private void recordNonProgramClassWithNoMissingReporting(
+  public void recordNonProgramClassWithNoMissingReporting(
       DexClass clazz, ProgramDerivedContext context) {
     if (!clazz.isProgramClass()) {
       addLiveNonProgramType(

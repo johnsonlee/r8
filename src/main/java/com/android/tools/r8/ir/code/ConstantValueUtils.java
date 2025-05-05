@@ -4,6 +4,7 @@
 
 package com.android.tools.r8.ir.code;
 
+import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexDefinitionSupplier;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
@@ -35,6 +36,15 @@ public class ConstantValueUtils {
       }
     }
 
+    return null;
+  }
+
+  public static DexClass getClassFromClassForName(
+      InvokeStatic invoke, DexDefinitionSupplier definitions) {
+    DexType type = getDexTypeFromClassForName(invoke, definitions);
+    if (type != null && type.isClassType()) {
+      return definitions.definitionFor(type);
+    }
     return null;
   }
 
