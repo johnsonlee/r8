@@ -85,6 +85,7 @@ public final class BackportedMethods {
     factory.createSynthesizedType("Ljava/lang/reflect/Method;");
     factory.createSynthesizedType("Ljava/math/BigDecimal;");
     factory.createSynthesizedType("Ljava/math/BigInteger;");
+    factory.createSynthesizedType("Ljava/time/Duration;");
     factory.createSynthesizedType("Ljava/util/AbstractMap$SimpleImmutableEntry;");
     factory.createSynthesizedType("Ljava/util/ArrayList;");
     factory.createSynthesizedType("Ljava/util/Arrays;");
@@ -2406,6 +2407,61 @@ public final class BackportedMethods {
                 new Int2ObjectAVLTreeMap<>(
                     new int[] {0, 1},
                     new FrameType[] {FrameType.doubleType(), FrameType.doubleHighType()}),
+                new ArrayDeque<>(Arrays.asList(FrameType.intType()))),
+            new CfReturn(ValueType.INT),
+            label3),
+        ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode DurationMethods_isPositive(DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        1,
+        1,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.createType("Ljava/time/Duration;"),
+                    factory.createProto(factory.booleanType),
+                    factory.createString("isZero")),
+                false),
+            new CfIf(IfType.NE, ValueType.INT, label1),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfInvoke(
+                182,
+                factory.createMethod(
+                    factory.createType("Ljava/time/Duration;"),
+                    factory.createProto(factory.booleanType),
+                    factory.createString("isNegative")),
+                false),
+            new CfIf(IfType.NE, ValueType.INT, label1),
+            new CfConstNumber(1, ValueType.INT),
+            new CfGoto(label2),
+            label1,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/time/Duration;"))
+                    })),
+            new CfConstNumber(0, ValueType.INT),
+            label2,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(
+                          factory.createType("Ljava/time/Duration;"))
+                    }),
                 new ArrayDeque<>(Arrays.asList(FrameType.intType()))),
             new CfReturn(ValueType.INT),
             label3),

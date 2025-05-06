@@ -502,6 +502,7 @@ public class DexItemFactory {
   public final DexType mapEntryType = createStaticallyKnownType(mapEntryDescriptor);
   public final DexType abstractMapSimpleEntryType =
       createStaticallyKnownType("Ljava/util/AbstractMap$SimpleEntry;");
+  public final DexType durationType = createStaticallyKnownType("Ljava/time/Duration;");
   public final DexType collectionType = createStaticallyKnownType(collectionDescriptor);
   public final DexType comparatorType = createStaticallyKnownType(comparatorDescriptor);
   public final DexType callableType = createStaticallyKnownType(callableDescriptor);
