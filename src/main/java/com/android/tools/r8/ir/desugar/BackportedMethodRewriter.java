@@ -1875,7 +1875,9 @@ public final class BackportedMethodRewriter implements CfInstructionDesugaring {
         addProvider(
             new StatifyingMethodGenerator(
                 method,
-                BackportedMethods::ExecutorServiceMethods_closeExecutorService,
+                appView.options().getMinApiLevel().isGreaterThanOrEqualTo(AndroidApiLevel.N)
+                    ? BackportedMethods::ExecutorServiceMethods_closeExecutorServiceNPlus
+                    : BackportedMethods::ExecutorServiceMethods_closeExecutorService,
                 "closeExecutorService",
                 type));
       }

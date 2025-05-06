@@ -35,4 +35,33 @@ public class ExecutorServiceMethods {
       }
     }
   }
+
+  /**
+   * Similar to {@link #closeExecutorService(ExecutorService)}, but assumes SDK_INT is > 23. This
+   * avoids synthesizing a reference to android.os.Build.SDK_INT when compiling libcore. See also
+   * b/415072833.
+   */
+  public static void closeExecutorServiceNPlus(ExecutorService executorService) {
+    if (executorService == ForkJoinPool.commonPool()) {
+      return;
+    }
+    boolean terminated = executorService.isTerminated();
+    if (!terminated) {
+      executorService.shutdown();
+      boolean interrupted = false;
+      while (!terminated) {
+        try {
+          terminated = executorService.awaitTermination(1L, TimeUnit.DAYS);
+        } catch (InterruptedException e) {
+          if (!interrupted) {
+            executorService.shutdownNow();
+            interrupted = true;
+          }
+        }
+      }
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
 }
