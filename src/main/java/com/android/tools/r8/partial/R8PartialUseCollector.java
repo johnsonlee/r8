@@ -11,6 +11,7 @@ import com.android.tools.r8.graph.Definition;
 import com.android.tools.r8.graph.DexClass;
 import com.android.tools.r8.graph.DexClassAndField;
 import com.android.tools.r8.graph.DexClassAndMethod;
+import com.android.tools.r8.graph.DexField;
 import com.android.tools.r8.graph.DexMethod;
 import com.android.tools.r8.graph.DexReference;
 import com.android.tools.r8.graph.DexType;
@@ -27,6 +28,7 @@ import com.android.tools.r8.shaking.reflectiveidentification.KeepAllReflectiveId
 import com.android.tools.r8.shaking.reflectiveidentification.ReflectiveIdentification;
 import com.android.tools.r8.tracereferences.TraceReferencesConsumer;
 import com.android.tools.r8.tracereferences.UseCollector;
+import com.android.tools.r8.tracereferences.UseCollectorEventConsumer;
 import com.android.tools.r8.utils.ListUtils;
 import com.android.tools.r8.utils.NopDiagnosticsHandler;
 import com.android.tools.r8.utils.timing.Timing;
@@ -53,6 +55,11 @@ public abstract class R8PartialUseCollector extends UseCollector {
     this.reflectiveIdentification =
         new ReflectiveIdentification(
             appView, new KeepAllReflectiveIdentificationEventConsumer(this));
+  }
+
+  @Override
+  protected UseCollectorEventConsumer getEventConsumerForNativeMethod() {
+    return new KeepNativeMethodSignatureEventConsumer();
   }
 
   public static Predicate<DexType> getTargetPredicate(
@@ -94,36 +101,40 @@ public abstract class R8PartialUseCollector extends UseCollector {
 
   @Override
   public void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
-    notifyPresentItem(clazz, referencedFrom);
+    keepAllowObfuscation(clazz, referencedFrom);
   }
 
   @Override
   public void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
-    notifyPresentItem(field, referencedFrom);
+    keepAllowObfuscation(field, referencedFrom);
   }
 
   @Override
   public void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
-    notifyPresentItem(method, referencedFrom);
+    keepAllowObfuscation(method, referencedFrom);
   }
 
   @Override
   public void notifyPresentMethod(
       DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
-    notifyPresentItem(method, referencedFrom);
+    keepAllowObfuscation(method, referencedFrom);
   }
 
   @Override
   public void notifyPresentMethodOverride(
       DexClassAndMethod method, ProgramMethod override, DefinitionContext referencedFrom) {
-    if (seenDisallowObfuscation.add(method.getReference())) {
-      keep(method, referencedFrom, false);
+    keepDisallowObfuscation(method, referencedFrom);
+  }
+
+  private void keepAllowObfuscation(Definition definition, DefinitionContext referencedFrom) {
+    if (seenAllowObfuscation.add(definition.getReference())) {
+      keep(definition, referencedFrom, true);
     }
   }
 
-  private void notifyPresentItem(Definition definition, DefinitionContext referencedFrom) {
-    if (seenAllowObfuscation.add(definition.getReference())) {
-      keep(definition, referencedFrom, true);
+  private void keepDisallowObfuscation(Definition definition, DefinitionContext referencedFrom) {
+    if (seenDisallowObfuscation.add(definition.getReference())) {
+      keep(definition, referencedFrom, false);
     }
   }
 
@@ -135,6 +146,56 @@ public abstract class R8PartialUseCollector extends UseCollector {
   @Override
   protected void notifyReflectiveIdentification(DexMethod invokedMethod, ProgramMethod method) {
     reflectiveIdentification.scanInvoke(invokedMethod, method);
+  }
+
+  private class KeepNativeMethodSignatureEventConsumer implements UseCollectorEventConsumer {
+
+    @Override
+    public void notifyPresentClass(DexClass clazz, DefinitionContext referencedFrom) {
+      keepDisallowObfuscation(clazz, referencedFrom);
+    }
+
+    @Override
+    public void notifyMissingClass(DexType type, DefinitionContext referencedFrom) {
+      R8PartialUseCollector.this.notifyMissingClass(type, referencedFrom);
+    }
+
+    @Override
+    public void notifyPackageOf(Definition definition) {
+      R8PartialUseCollector.this.notifyPackageOf(definition);
+    }
+
+    @Override
+    public void notifyPresentField(DexClassAndField field, DefinitionContext referencedFrom) {
+      assert false;
+    }
+
+    @Override
+    public void notifyMissingField(DexField field, DefinitionContext referencedFrom) {
+      assert false;
+    }
+
+    @Override
+    public void notifyPresentMethod(DexClassAndMethod method, DefinitionContext referencedFrom) {
+      assert false;
+    }
+
+    @Override
+    public void notifyPresentMethod(
+        DexClassAndMethod method, DefinitionContext referencedFrom, DexMethod reference) {
+      assert false;
+    }
+
+    @Override
+    public void notifyPresentMethodOverride(
+        DexClassAndMethod method, ProgramMethod override, DefinitionContext referencedFrom) {
+      assert false;
+    }
+
+    @Override
+    public void notifyMissingMethod(DexMethod method, DefinitionContext referencedFrom) {
+      assert false;
+    }
   }
 
   private static class MissingReferencesConsumer implements TraceReferencesConsumer {

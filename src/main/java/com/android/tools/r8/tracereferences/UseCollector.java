@@ -101,6 +101,10 @@ public class UseCollector implements UseCollectorEventConsumer {
     return this;
   }
 
+  protected UseCollectorEventConsumer getEventConsumerForNativeMethod() {
+    return getDefaultEventConsumer();
+  }
+
   protected void notifyReflectiveIdentification(DexMethod invokedMethod, ProgramMethod method) {
     // Intentionally empty. Overridden in R8PartialUseCollector.
   }
@@ -429,8 +433,10 @@ public class UseCollector implements UseCollectorEventConsumer {
 
   private void registerMethod(ProgramMethod method, UseCollectorEventConsumer eventConsumer) {
     DefinitionContext referencedFrom = DefinitionContextUtils.create(method);
-    addTypes(method.getParameters(), referencedFrom, eventConsumer);
-    addType(method.getReturnType(), referencedFrom, eventConsumer);
+    UseCollectorEventConsumer signatureEventConsumer =
+        method.getAccessFlags().isNative() ? getEventConsumerForNativeMethod() : eventConsumer;
+    addTypes(method.getParameters(), referencedFrom, signatureEventConsumer);
+    addType(method.getReturnType(), referencedFrom, signatureEventConsumer);
     method
         .getAnnotations()
         .forEach(
