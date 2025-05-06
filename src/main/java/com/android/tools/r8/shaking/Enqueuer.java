@@ -334,6 +334,9 @@ public class Enqueuer {
   /** Set of types that was pruned during the first round of tree shaking. */
   private final Set<DexType> initialPrunedTypes;
 
+  /** List of classpath types that was pruned during the first round of tree shaking. */
+  private final Set<DexType> prunedClasspathTypes;
+
   private final Set<DexType> noClassMerging = Sets.newIdentityHashSet();
 
   /** Mapping from each unused interface to the set of live types that implements the interface. */
@@ -477,6 +480,7 @@ public class Enqueuer {
         keptGraphConsumer,
         mode,
         null,
+        null,
         null);
   }
 
@@ -488,6 +492,7 @@ public class Enqueuer {
       GraphConsumer keptGraphConsumer,
       Mode mode,
       Set<DexType> initialPrunedTypes,
+      Set<DexType> prunedClasspathTypes,
       RuntimeTypeCheckInfo.Builder runtimeTypeCheckInfoBuilder) {
     assert appView.appServices() != null;
     InternalOptions options = appView.options();
@@ -512,6 +517,7 @@ public class Enqueuer {
             ? ProguardCompatibilityActions.builder()
             : null;
     this.initialPrunedTypes = initialPrunedTypes;
+    this.prunedClasspathTypes = prunedClasspathTypes;
 
     if (options.isOptimizedResourceShrinking()) {
       R8ResourceShrinkerState resourceShrinkerState = appView.getResourceShrinkerState();
@@ -4530,6 +4536,15 @@ public class Enqueuer {
 
     // Add just referenced non-program types. We can't replace the program classes at this point as
     // they are needed in tree pruning.
+    ImmutableSet.Builder<DexType> prunedClasspathTypesBuilder = ImmutableSet.builder();
+    if (prunedClasspathTypes != null) {
+      prunedClasspathTypesBuilder.addAll(prunedClasspathTypes);
+    }
+    for (DexClasspathClass classpathClass : appInfo.app().asDirect().classpathClasses()) {
+      if (!classpathClasses.contains(classpathClass)) {
+        prunedClasspathTypesBuilder.add(classpathClass.getType());
+      }
+    }
     DirectMappedDexApplication app =
         appInfo
             .app()
@@ -4585,6 +4600,7 @@ public class Enqueuer {
             joinIdentifierNameStrings(
                 rootSet.identifierNameStrings, reflectiveIdentification.getIdentifierNameStrings()),
             emptySet(),
+            prunedClasspathTypesBuilder.build(),
             Collections.emptyMap(),
             lockCandidates,
             initClassReferences,

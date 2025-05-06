@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -413,7 +414,7 @@ public class ProguardMapMinifier {
     }
 
     @Override
-    public DexString reservedDescriptor(DexType type) {
+    public DexString reservedDescriptor(DexType type, Function<DexType, DexClass> definitionFor) {
       // TODO(b/136694827): Check for already used and report an error. It seems like this can be
       //  done already in the reservation step for classes since there is only one 'path', unlike
       //  members that can be reserved differently in the hierarchy.

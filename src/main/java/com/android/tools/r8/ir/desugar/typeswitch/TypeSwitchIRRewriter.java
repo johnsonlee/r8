@@ -4,7 +4,6 @@
 
 package com.android.tools.r8.ir.desugar.typeswitch;
 
-import com.android.tools.r8.dex.code.CfOrDexInstruction;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.DefaultUseRegistryWithResult;
 import com.android.tools.r8.graph.DexField;
@@ -35,7 +34,6 @@ import com.android.tools.r8.utils.collections.BidirectionalManyToOneHashMap;
 import com.android.tools.r8.utils.collections.BidirectionalManyToOneMap;
 import com.google.common.collect.ImmutableList;
 import java.util.IdentityHashMap;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -77,12 +75,13 @@ public class TypeSwitchIRRewriter {
         UseRegistryWithResult<DexType, ProgramMethod> registry =
             new DefaultUseRegistryWithResult<>(appView, uniqueStaticMethod) {
               @Override
-              public void registerConstClass(
-                  DexType type,
-                  ListIterator<? extends CfOrDexInstruction> iterator,
-                  boolean ignoreCompatRules) {
+              public void registerInvokeStatic(DexMethod method) {
                 assert getResult() == null;
-                setResult(type);
+                if (method.getName().isIdenticalTo(dexItemFactory().valueOfMethodName)
+                    && method.getArity() == 1
+                    && method.getParameter(0).isIdenticalTo(dexItemFactory().stringType)) {
+                  setResult(method.getHolderType());
+                }
               }
             };
         DexType enumType = uniqueStaticMethod.registerCodeReferencesWithResult(registry);

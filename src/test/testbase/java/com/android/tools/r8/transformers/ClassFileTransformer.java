@@ -415,6 +415,53 @@ public class ClassFileTransformer {
         });
   }
 
+  // Note that this clears <init> and <clinit> methods.
+  public ClassFileTransformer clearEnum() {
+    return addClassTransformer(
+        new ClassTransformer() {
+          @Override
+          public void visit(
+              int version,
+              int access,
+              String name,
+              String signature,
+              String superName,
+              String[] interfaces) {
+            ClassAccessFlags classAccessFlags = ClassAccessFlags.fromCfAccessFlags(access);
+            assert classAccessFlags.isEnum();
+            classAccessFlags.unsetEnum();
+            String newSuper = superName.equals("java/lang/Enum") ? "java/lang/Object" : superName;
+            super.visit(
+                version,
+                classAccessFlags.getAsCfAccessFlags(),
+                name,
+                signature,
+                newSuper,
+                interfaces);
+          }
+
+          @Override
+          public MethodVisitor visitMethod(
+              int access, String name, String descriptor, String signature, String[] exceptions) {
+            if (name.equals("<clinit>") || name.equals("<init>")) {
+              return null;
+            }
+            return super.visitMethod(access, name, descriptor, signature, exceptions);
+          }
+
+          @Override
+          public FieldVisitor visitField(
+              int access, String name, String descriptor, String signature, Object value) {
+            FieldAccessFlags fieldAccessFlags = FieldAccessFlags.fromCfAccessFlags(access);
+            if (fieldAccessFlags.isEnum()) {
+              fieldAccessFlags.unsetEnum();
+            }
+            return super.visitField(
+                fieldAccessFlags.getAsCfAccessFlags(), name, descriptor, signature, value);
+          }
+        });
+  }
+
   public ClassFileTransformer clearNest() {
     return setMinVersion(CfVm.JDK11)
         .addClassTransformer(

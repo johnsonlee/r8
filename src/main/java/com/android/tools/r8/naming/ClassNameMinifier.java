@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 class ClassNameMinifier {
@@ -88,17 +89,30 @@ class ClassNameMinifier {
   ClassRenaming computeRenaming(Timing timing) {
     // Collect names we have to keep.
     timing.begin("reserve");
+    if (appView.options().isMinifying()
+        && !appView.options().getProguardConfiguration().hasApplyMappingFile()) {
+      for (DexType reserved : appView.appInfo().getClasspathTypesIncludingPruned()) {
+        registerClassAsUsed(
+            reserved,
+            reserved.getDescriptor(),
+            appView.appInfo()::definitionForWithoutExistenceAssert);
+      }
+    }
     for (ProgramOrClasspathClass clazz : classes) {
-      DexString descriptor = classNamingStrategy.reservedDescriptor(clazz.getType());
+      DexType type = clazz.getType();
+      DexString descriptor = classNamingStrategy.reservedDescriptor(type, appView::definitionFor);
       if (descriptor != null) {
-        assert !renaming.containsKey(clazz.getType());
-        registerClassAsUsed(clazz.getType(), descriptor);
+        assert !renaming.containsKey(type);
+        registerClassAsUsed(type, descriptor, appView::definitionFor);
       }
     }
     appView
         .appInfo()
         .getMissingClasses()
-        .forEach(missingClass -> registerClassAsUsed(missingClass, missingClass.getDescriptor()));
+        .forEach(
+            missingClass ->
+                registerClassAsUsed(
+                    missingClass, missingClass.getDescriptor(), appView::definitionFor));
     timing.end();
 
     timing.begin("rename-classes");
@@ -167,29 +181,30 @@ class ClassNameMinifier {
       // return type. As we don't need the class, we can rename it to anything as long as it is
       // unique.
       assert appView.definitionFor(type) == null;
-      DexString descriptor = classNamingStrategy.reservedDescriptor(type);
+      DexString descriptor = classNamingStrategy.reservedDescriptor(type, appView::definitionFor);
       renaming.put(type, descriptor != null ? descriptor : topLevelState.nextTypeName(type));
     }
   }
 
-  private void registerClassAsUsed(DexType type, DexString descriptor) {
+  private void registerClassAsUsed(
+      DexType type, DexString descriptor, Function<DexType, DexClass> definitionFor) {
     renaming.put(type, descriptor);
     setUsedTypeName(descriptor.toString());
     if (keepInnerClassStructure) {
-      DexType outerClass = getOutClassForType(type);
+      DexType outerClass = getOutClassForType(type, definitionFor);
       if (outerClass != null) {
         if (!renaming.containsKey(outerClass)
-            && classNamingStrategy.reservedDescriptor(outerClass) == null) {
+            && classNamingStrategy.reservedDescriptor(outerClass, definitionFor) == null) {
           // The outer class was not previously kept and will not be kept.
           // We have to force keep the outer class now.
-          registerClassAsUsed(outerClass, outerClass.descriptor);
+          registerClassAsUsed(outerClass, outerClass.descriptor, definitionFor);
         }
       }
     }
   }
 
-  private DexType getOutClassForType(DexType type) {
-    DexClass clazz = appView.definitionFor(type);
+  private DexType getOutClassForType(DexType type, Function<DexType, DexClass> definitionFor) {
+    DexClass clazz = definitionFor.apply(type);
     if (clazz == null) {
       return null;
     }
@@ -211,7 +226,7 @@ class ClassNameMinifier {
       // When keeping the nesting structure of inner classes, bind this type to the live context.
       // Note that such live context might not be always the enclosing class. E.g., a local class
       // does not have a direct enclosing class, but we use the holder of the enclosing method here.
-      DexType outerClass = getOutClassForType(type);
+      DexType outerClass = getOutClassForType(type, appView::definitionFor);
       if (outerClass != null) {
         DexClass clazz = appView.definitionFor(type);
         assert clazz != null;
@@ -320,7 +335,7 @@ class ClassNameMinifier {
      * @param type The type to find a reserved descriptor for
      * @return The reserved descriptor
      */
-    DexString reservedDescriptor(DexType type);
+    DexString reservedDescriptor(DexType type, Function<DexType, DexClass> definitionFor);
 
     boolean isRenamedByApplyMapping(DexType type);
   }

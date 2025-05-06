@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class Minifier {
@@ -76,7 +77,7 @@ public class Minifier {
 
     assert new MinifiedRenaming(
             appView, classRenaming, MethodRenaming.empty(), FieldRenaming.empty())
-        .verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
+        .verifyNoCollisions(appView.appInfo(), appView.dexItemFactory());
 
     MemberNamingStrategy minifyMembers = new MinifierMemberNamingStrategy(appView);
     timing.begin("MinifyMethods");
@@ -86,7 +87,7 @@ public class Minifier {
     timing.end();
 
     assert new MinifiedRenaming(appView, classRenaming, methodRenaming, FieldRenaming.empty())
-        .verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
+        .verifyNoCollisions(appView.appInfo(), appView.dexItemFactory());
 
     timing.begin("MinifyFields");
     FieldRenaming fieldRenaming =
@@ -100,7 +101,7 @@ public class Minifier {
     timing.end();
 
     NamingLens lens = new MinifiedRenaming(appView, classRenaming, methodRenaming, fieldRenaming);
-    assert lens.verifyNoCollisions(appView.appInfo().classes(), appView.dexItemFactory());
+    assert lens.verifyNoCollisions(appView.appInfo(), appView.dexItemFactory());
 
     appView.testing().namingLensConsumer.accept(appView.dexItemFactory(), lens);
     appView.notifyOptimizationFinishedForTesting();
@@ -289,8 +290,8 @@ public class Minifier {
     }
 
     @Override
-    public DexString reservedDescriptor(DexType type) {
-      DexProgramClass clazz = asProgramClassOrNull(appView.definitionFor(type));
+    public DexString reservedDescriptor(DexType type, Function<DexType, DexClass> definitionFor) {
+      DexProgramClass clazz = asProgramClassOrNull(definitionFor.apply(type));
       if (clazz == null || !appView.getKeepInfo(clazz).isMinificationAllowed(appView.options())) {
         return type.getDescriptor();
       }

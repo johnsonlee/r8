@@ -6,17 +6,17 @@ package com.android.tools.r8.cfmethodgeneration;
 
 public class TypeSwitchMethods {
 
+  private enum Enum {
+    A;
+  }
+
   // By design this is lock-free so the JVM may compute several times the same value.
   public static boolean switchEnumEq(Object value, Object[] cache, int index, String name) {
     if (cache[index] == null) {
       Object resolved = null;
       try {
         // Enum.class should be replaced when used by the correct enum class.
-        Class<?> clazz = Enum.class;
-        if (clazz.isEnum()) {
-          Class<? extends Enum> enumClazz = (Class<? extends Enum>) clazz;
-          resolved = Enum.valueOf(enumClazz, name);
-        }
+        resolved = Enum.valueOf(name);
       } catch (Throwable t) {
       }
       // R8 sets a sentinel if resolution has failed.
