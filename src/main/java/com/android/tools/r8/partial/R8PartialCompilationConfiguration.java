@@ -129,7 +129,8 @@ public class R8PartialCompilationConfiguration {
   }
 
   public static R8PartialCompilationConfiguration fromSystemProperties(boolean printSeed) {
-    if (System.getProperty(RANDOMIZE_PROPERTY_NAME) != null) {
+    if (System.getProperty(RANDOMIZE_PROPERTY_NAME) != null
+        || System.getProperty(RANDOMIZE_SEED_PROPERTY_NAME) != null) {
       if (System.getProperty(RANDOMIZE_SEED_PROPERTY_NAME) != null) {
         long seed = Long.parseLong(System.getProperty(RANDOMIZE_SEED_PROPERTY_NAME));
         return builder().randomizeForTesting(printSeed, seed).build();
