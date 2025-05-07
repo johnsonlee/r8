@@ -35,6 +35,7 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethodTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -74,9 +75,8 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethodTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         // Windows does not like the non ascii characters.
         .run(parameters.getRuntime(), Main.class, ToolHelper.isWindows() ? "ascii" : "")
         .assertSuccessWithOutput(ToolHelper.isWindows() ? EXPECTED_OUTPUT_ASCII : EXPECTED_OUTPUT);
@@ -85,12 +85,11 @@ public class EnumSwitchUsingEnumSwitchBootstrapMethodTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .addKeepEnumsRule()
         .run(parameters.getRuntime(), Main.class)

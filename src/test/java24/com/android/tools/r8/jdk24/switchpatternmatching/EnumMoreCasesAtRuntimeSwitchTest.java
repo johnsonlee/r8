@@ -39,6 +39,7 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -109,9 +110,8 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .apply(this::addModifiedProgramClasses)
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(
             String.format(EXPECTED_OUTPUT, desugarMatchException(), desugarMatchException()));
@@ -120,12 +120,11 @@ public class EnumMoreCasesAtRuntimeSwitchTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .apply(this::addModifiedProgramClasses)
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .addKeepEnumsRule()
         .run(parameters.getRuntime(), Main.class)

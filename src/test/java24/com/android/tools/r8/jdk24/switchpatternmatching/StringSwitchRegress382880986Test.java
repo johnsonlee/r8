@@ -32,6 +32,7 @@ public class StringSwitchRegress382880986Test extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -55,9 +56,8 @@ public class StringSwitchRegress382880986Test extends TestBase {
   @Test
   public void testD8() throws Exception {
     parameters.assumeDexRuntime();
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
@@ -65,12 +65,11 @@ public class StringSwitchRegress382880986Test extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .setMinApi(parameters)
         .addKeepMainRule(TestClass.class)
         .run(parameters.getRuntime(), TestClass.class, "hello", "goodbye", "")
         .assertSuccessWithOutput(EXPECTED_OUTPUT);

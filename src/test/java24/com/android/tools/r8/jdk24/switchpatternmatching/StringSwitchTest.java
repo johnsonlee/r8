@@ -35,6 +35,7 @@ public class StringSwitchTest extends TestBase {
         .withCfRuntimesStartingFromIncluding(CfVm.JDK24)
         .withDexRuntimes()
         .withAllApiLevelsAlsoForCf()
+        .withPartialCompilation()
         .build();
   }
 
@@ -59,9 +60,8 @@ public class StringSwitchTest extends TestBase {
 
   @Test
   public void testD8() throws Exception {
-    testForD8(parameters.getBackend())
+    testForD8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
-        .setMinApi(parameters)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
@@ -69,12 +69,11 @@ public class StringSwitchTest extends TestBase {
   @Test
   public void testR8() throws Exception {
     parameters.assumeR8TestParameters();
-    testForR8(parameters.getBackend())
+    testForR8(parameters)
         .addInnerClassesAndStrippedOuter(getClass())
         .applyIf(
             parameters.isCfRuntime(),
             b -> b.addLibraryProvider(JdkClassFileProvider.fromSystemJdk()))
-        .setMinApi(parameters)
         .addKeepMainRule(Main.class)
         .run(parameters.getRuntime(), Main.class)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
