@@ -54,6 +54,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
   private final DexMethod intEq;
   private final Map<DexType, DexMethod> enumEqMethods;
   private final DexField enumFieldCache;
+  private final DexField enumFieldSetCache;
 
   @FunctionalInterface
   public interface Dispatcher {
@@ -75,7 +76,8 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
       Dispatcher dispatcher,
       DexMethod intEq,
       Map<DexType, DexMethod> enumEqMethods,
-      DexField enumFieldCache) {
+      DexField enumFieldCache,
+      DexField enumFieldSetCache) {
     super(appView, holder);
     this.arg0Type = arg0Type;
     this.bootstrapArgs = bootstrapArgs;
@@ -83,6 +85,7 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
     this.intEq = intEq;
     this.enumEqMethods = enumEqMethods;
     this.enumFieldCache = enumFieldCache;
+    this.enumFieldSetCache = enumFieldSetCache;
   }
 
   @Override
@@ -204,6 +207,9 @@ public class TypeSwitchSyntheticCfCodeProvider extends SyntheticCfCodeProvider {
                   assert enumEq != null;
                   instructions.add(loadArg0());
                   instructions.add(new CfStaticFieldRead(enumFieldCache));
+                  if (enumFieldSetCache != null) {
+                    instructions.add(new CfStaticFieldRead(enumFieldSetCache));
+                  }
                   instructions.add(new CfConstNumber(enumIndex.getAndIncrement(), ValueType.INT));
                   instructions.add(new CfConstString(enumField));
                   instructions.add(new CfInvoke(Opcodes.INVOKESTATIC, enumEq, false));

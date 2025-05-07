@@ -64,17 +64,22 @@ public class EnumSwitchOldSyntaxTest extends TestBase {
         .addKeepMainRule(Main.class)
         .addKeepEnumsRule()
         .run(parameters.getRuntime(), Main.class)
-        .inspect(this::assert2Classes)
+        .inspect(this::assertClasses)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
   }
 
-  private void assert2Classes(CodeInspector i) {
+  private void assertClasses(CodeInspector i) {
     if (parameters.getPartialCompilationTestParameters().isSome()) {
       return;
     }
-    assertTrue(i.clazz(E.class).isPresent());
     assertTrue(i.clazz(Main.class).isPresent());
-    assertEquals(2, i.allClasses().size());
+    if (parameters.isCfRuntime()) {
+      assertTrue(i.clazz(E.class).isPresent());
+      assertEquals(2, i.allClasses().size());
+      return;
+    }
+    // The enum is unboxed when compiling to dex.
+    assertEquals(1, i.allClasses().size());
   }
 
   public enum E {

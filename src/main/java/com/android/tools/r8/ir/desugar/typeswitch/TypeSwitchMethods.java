@@ -44,6 +44,8 @@ public final class TypeSwitchMethods {
     factory.createSynthesizedType(
         "Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;");
     factory.createSynthesizedType("Ljava/lang/Number;");
+    factory.createSynthesizedType(
+        "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;");
     factory.createSynthesizedType("[Ljava/lang/Object;");
   }
 
@@ -338,6 +340,154 @@ public final class TypeSwitchMethods {
             new CfReturn(ValueType.INT),
             label11),
         ImmutableList.of(),
+        ImmutableList.of());
+  }
+
+  public static CfCode TypeSwitchMethods_switchSpecializedEnumEq(
+      DexItemFactory factory, DexMethod method) {
+    CfLabel label0 = new CfLabel();
+    CfLabel label1 = new CfLabel();
+    CfLabel label2 = new CfLabel();
+    CfLabel label3 = new CfLabel();
+    CfLabel label4 = new CfLabel();
+    CfLabel label5 = new CfLabel();
+    CfLabel label6 = new CfLabel();
+    CfLabel label7 = new CfLabel();
+    CfLabel label8 = new CfLabel();
+    CfLabel label9 = new CfLabel();
+    CfLabel label10 = new CfLabel();
+    return new CfCode(
+        method.holder,
+        3,
+        6,
+        ImmutableList.of(
+            label0,
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.INT, 3),
+            new CfArrayLoad(MemberType.BOOLEAN_OR_BYTE),
+            new CfIf(IfType.NE, ValueType.INT, label5),
+            label1,
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.INT, 3),
+            new CfLoad(ValueType.OBJECT, 4),
+            new CfInvoke(
+                184,
+                factory.createMethod(
+                    factory.createType(
+                        "Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;"),
+                    factory.createProto(
+                        factory.createType(
+                            "Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;"),
+                        factory.stringType),
+                    factory.createString("valueOf")),
+                false),
+            new CfArrayStore(MemberType.OBJECT),
+            label2,
+            new CfGoto(label4),
+            label3,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(factory.objectType),
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;")),
+                      FrameType.initializedNonNullReference(factory.booleanArrayType),
+                      FrameType.intType(),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    }),
+                new ArrayDeque<>(
+                    Arrays.asList(FrameType.initializedNonNullReference(factory.throwableType)))),
+            new CfStore(ValueType.OBJECT, 5),
+            label4,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(factory.objectType),
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;")),
+                      FrameType.initializedNonNullReference(factory.booleanArrayType),
+                      FrameType.intType(),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    })),
+            new CfLoad(ValueType.OBJECT, 2),
+            new CfLoad(ValueType.INT, 3),
+            new CfConstNumber(1, ValueType.INT),
+            new CfArrayStore(MemberType.BOOLEAN_OR_BYTE),
+            label5,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(factory.objectType),
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;")),
+                      FrameType.initializedNonNullReference(factory.booleanArrayType),
+                      FrameType.intType(),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    })),
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfIf(IfType.NE, ValueType.OBJECT, label7),
+            label6,
+            new CfConstNumber(0, ValueType.INT),
+            new CfReturn(ValueType.INT),
+            label7,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(factory.objectType),
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;")),
+                      FrameType.initializedNonNullReference(factory.booleanArrayType),
+                      FrameType.intType(),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    })),
+            new CfLoad(ValueType.OBJECT, 0),
+            new CfLoad(ValueType.OBJECT, 1),
+            new CfLoad(ValueType.INT, 3),
+            new CfArrayLoad(MemberType.OBJECT),
+            new CfIfCmp(IfType.NE, ValueType.OBJECT, label8),
+            new CfConstNumber(1, ValueType.INT),
+            new CfGoto(label9),
+            label8,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(factory.objectType),
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;")),
+                      FrameType.initializedNonNullReference(factory.booleanArrayType),
+                      FrameType.intType(),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    })),
+            new CfConstNumber(0, ValueType.INT),
+            label9,
+            new CfFrame(
+                new Int2ObjectAVLTreeMap<>(
+                    new int[] {0, 1, 2, 3, 4},
+                    new FrameType[] {
+                      FrameType.initializedNonNullReference(factory.objectType),
+                      FrameType.initializedNonNullReference(
+                          factory.createType(
+                              "[Lcom/android/tools/r8/cfmethodgeneration/TypeSwitchMethods$Enum;")),
+                      FrameType.initializedNonNullReference(factory.booleanArrayType),
+                      FrameType.intType(),
+                      FrameType.initializedNonNullReference(factory.stringType)
+                    }),
+                new ArrayDeque<>(Arrays.asList(FrameType.intType()))),
+            new CfReturn(ValueType.INT),
+            label10),
+        ImmutableList.of(
+            new CfTryCatch(
+                label1, label2, ImmutableList.of(factory.throwableType), ImmutableList.of(label3))),
         ImmutableList.of());
   }
 }

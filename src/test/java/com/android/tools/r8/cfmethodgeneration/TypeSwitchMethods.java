@@ -25,6 +25,25 @@ public class TypeSwitchMethods {
     return value == cache[index];
   }
 
+  // Specialized version for a single enum to avoid unboxing.
+  public static boolean switchSpecializedEnumEq(
+      Object value, Enum[] cache, boolean[] cacheValueSet, int index, String name) {
+    if (!cacheValueSet[index]) {
+      try {
+        // Enum.class will be replaced when used by the correct enum class.
+        cache[index] = Enum.valueOf(name);
+      } catch (Throwable t) {
+        // If this is hit, null is left in the cache.
+      }
+      cacheValueSet[index] = true;
+    }
+    if (cache == null) {
+      // The cache is null if the enum class is missing.
+      return false;
+    }
+    return value == cache[index];
+  }
+
   public static boolean switchIntEq(Object value, int constant) {
     if (value instanceof Number) {
       Number num = (Number) value;

@@ -4,14 +4,23 @@
 
 package com.android.tools.r8.ir.desugar.typeswitch;
 
+import static com.android.tools.r8.ir.desugar.typeswitch.SwitchHelperGenerator.EnumEqMethodType.GENERIC;
+import static com.android.tools.r8.ir.desugar.typeswitch.SwitchHelperGenerator.EnumEqMethodType.SINGLE_ENUM_ONLY;
 import static com.android.tools.r8.ir.synthetic.TypeSwitchSyntheticCfCodeProvider.allowsInlinedIntegerEquality;
 
 import com.android.tools.r8.cf.code.CfConstNumber;
+import com.android.tools.r8.cf.code.CfFrame;
+import com.android.tools.r8.cf.code.CfGoto;
 import com.android.tools.r8.cf.code.CfInstruction;
 import com.android.tools.r8.cf.code.CfInvoke;
+import com.android.tools.r8.cf.code.CfLabel;
 import com.android.tools.r8.cf.code.CfNewArray;
 import com.android.tools.r8.cf.code.CfReturnVoid;
+import com.android.tools.r8.cf.code.CfStackInstruction;
+import com.android.tools.r8.cf.code.CfStackInstruction.Opcode;
 import com.android.tools.r8.cf.code.CfStaticFieldWrite;
+import com.android.tools.r8.cf.code.CfTryCatch;
+import com.android.tools.r8.cf.code.frame.FrameType;
 import com.android.tools.r8.contexts.CompilationContext.MethodProcessingContext;
 import com.android.tools.r8.graph.AppView;
 import com.android.tools.r8.graph.CfCode;
@@ -36,6 +45,7 @@ import com.android.tools.r8.synthesis.SyntheticProgramClassBuilder;
 import com.android.tools.r8.utils.ListUtils;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,15 +55,18 @@ import java.util.function.Function;
 public class SwitchHelperGenerator {
 
   private final AppView<?> appView;
+  private final DexItemFactory factory;
   private final DexCallSite dexCallSite;
   private DexMethod dispatchMethod;
   private DexMethod intEq;
   private DexField enumCacheField;
+  private DexField enumCacheSetField;
   private int enumCases = 0;
   private final Map<DexType, DexMethod> enumEqMethods = new IdentityHashMap<>();
 
   SwitchHelperGenerator(AppView<?> appView, DexCallSite dexCallSite) {
     this.appView = appView;
+    this.factory = appView.dexItemFactory();
     this.dexCallSite = dexCallSite;
   }
 
@@ -64,16 +77,11 @@ public class SwitchHelperGenerator {
       ProgramMethod context,
       CfInstructionDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
-    DexItemFactory factory = appView.dexItemFactory();
     scanArguments(
         dexCallSite.bootstrapArgs, scanner, context, eventConsumer, methodProcessingContext);
     DexEncodedMethod clinitMethod = null;
     if (enumCases > 0) {
-      enumCacheField =
-          factory.createField(
-              builder.getType(), factory.objectArrayType, factory.createString("enumCache"));
-      synthesizeStaticField(builder);
-      clinitMethod = synthesizeClinit(enumCacheField);
+      clinitMethod = setUpEnumCases(builder, context, eventConsumer, methodProcessingContext);
     }
     dispatchMethod =
         factory.createMethod(
@@ -86,6 +94,49 @@ public class SwitchHelperGenerator {
       directMethods.add(clinitMethod);
     }
     builder.setDirectMethods(directMethods);
+  }
+
+  private DexType receiverType() {
+    assert !dexCallSite.getMethodProto().getParameter(0).isPrimitiveType();
+    return dexCallSite.getMethodProto().getParameter(0);
+  }
+
+  private DexEncodedMethod setUpEnumCases(
+      SyntheticProgramClassBuilder builder,
+      ProgramMethod context,
+      CfInstructionDesugaringEventConsumer eventConsumer,
+      MethodProcessingContext methodProcessingContext) {
+    DexEncodedMethod clinitMethod;
+    assert enumEqMethods.size() > 0;
+    if (enumEqMethods.size() == 1) {
+      DexType enumType = enumEqMethods.keySet().iterator().next();
+      enumCacheSetField =
+          factory.createField(
+              builder.getType(), factory.booleanArrayType, factory.createString("enumCacheSet"));
+      enumCacheField =
+          factory.createField(
+              builder.getType(),
+              factory.createArrayType(1, enumType),
+              factory.createString("enumCache"));
+      enumEqMethods.put(
+          enumType,
+          generateEnumEqMethod(
+              enumType, context, eventConsumer, methodProcessingContext, SINGLE_ENUM_ONLY));
+    } else {
+      enumCacheField =
+          factory.createField(
+              builder.getType(), factory.objectArrayType, factory.createString("enumCache"));
+      List<DexType> types = new ArrayList<>(enumEqMethods.keySet());
+      types.sort(Comparator.naturalOrder());
+      for (DexType type : types) {
+        enumEqMethods.put(
+            type,
+            generateEnumEqMethod(type, context, eventConsumer, methodProcessingContext, GENERIC));
+      }
+    }
+    synthesizeStaticFields(builder);
+    clinitMethod = synthesizeClinit();
+    return clinitMethod;
   }
 
   public DexMethod getDispatchMethod() {
@@ -108,7 +159,6 @@ public class SwitchHelperGenerator {
       scanner.scan(
           bootstrapArg,
           () -> {
-            DexItemFactory factory = appView.dexItemFactory();
             DexType arg0Type = dexCallSite.methodProto.getParameter(0);
             if (arg0Type.isPrimitiveType() || allowsInlinedIntegerEquality(arg0Type, factory)) {
               return;
@@ -117,33 +167,47 @@ public class SwitchHelperGenerator {
           },
           type -> {
             enumCases++;
-            enumEqMethods.computeIfAbsent(
-                type,
-                t -> generateEnumEqMethod(t, context, eventConsumer, methodProcessingContext));
+            enumEqMethods.put(type, null);
           });
     }
+  }
+
+  private enum EnumEqMethodType {
+    GENERIC,
+    SINGLE_ENUM_ONLY
   }
 
   private DexMethod generateEnumEqMethod(
       DexType enumType,
       ProgramMethod context,
       TypeSwitchDesugaringEventConsumer eventConsumer,
-      MethodProcessingContext methodProcessingContext) {
-    DexItemFactory factory = appView.dexItemFactory();
+      MethodProcessingContext methodProcessingContext,
+      EnumEqMethodType enumEqMethodType) {
     DexProto proto =
-        factory.createProto(
-            factory.booleanType,
-            factory.objectType,
-            factory.objectArrayType,
-            factory.intType,
-            factory.stringType);
+        enumEqMethodType == SINGLE_ENUM_ONLY
+            ? factory.createProto(
+                factory.booleanType,
+                receiverType(),
+                enumCacheField.type,
+                factory.booleanArrayType,
+                factory.intType,
+                factory.stringType)
+            : factory.createProto(
+                factory.booleanType,
+                receiverType(),
+                enumCacheField.type,
+                factory.intType,
+                factory.stringType);
     return generateMethod(
         context,
         eventConsumer,
         methodProcessingContext,
         proto,
         methodSig -> {
-          CfCode cfCode = TypeSwitchMethods.TypeSwitchMethods_switchEnumEq(factory, methodSig);
+          CfCode cfCode =
+              enumEqMethodType == SINGLE_ENUM_ONLY
+                  ? TypeSwitchMethods.TypeSwitchMethods_switchSpecializedEnumEq(factory, methodSig)
+                  : TypeSwitchMethods.TypeSwitchMethods_switchEnumEq(factory, methodSig);
           List<CfInstruction> newInstructions =
               ListUtils.map(
                   cfCode.getInstructions(),
@@ -159,6 +223,12 @@ public class SwitchHelperGenerator {
                         return new CfInvoke(invoke.getOpcode(), newMethod, invoke.isInterface());
                       }
                     }
+                    if (i.isFrame()) {
+                      CfFrame cfFrame = i.asFrame();
+                      cfFrame
+                          .getLocals()
+                          .put(1, FrameType.initializedNonNullReference(enumCacheField.getType()));
+                    }
                     return i;
                   });
           cfCode.setInstructions(newInstructions);
@@ -171,7 +241,6 @@ public class SwitchHelperGenerator {
       ProgramMethod context,
       TypeSwitchDesugaringEventConsumer eventConsumer,
       MethodProcessingContext methodProcessingContext) {
-    DexItemFactory factory = appView.dexItemFactory();
     DexProto proto = factory.createProto(factory.booleanType, factory.objectType, factory.intType);
     return generateMethod(
         context,
@@ -189,7 +258,6 @@ public class SwitchHelperGenerator {
       DexProto proto,
       Function<DexMethod, CfCode> cfCodeGen,
       SyntheticKindSelector kindSelector) {
-    DexItemFactory factory = appView.dexItemFactory();
     ProgramMethod method =
         appView
             .getSyntheticItems()
@@ -215,36 +283,68 @@ public class SwitchHelperGenerator {
     return method.getReference();
   }
 
-  private void synthesizeStaticField(SyntheticProgramClassBuilder builder) {
-    builder.setStaticFields(
-        ImmutableList.of(
-            DexEncodedField.syntheticBuilder()
-                .setField(enumCacheField)
-                .setAccessFlags(FieldAccessFlags.createPublicStaticSynthetic())
-                .disableAndroidApiLevelCheck()
-                .build()));
+  private void synthesizeStaticFields(SyntheticProgramClassBuilder builder) {
+    List<DexEncodedField> fields = new ArrayList<>();
+    fields.add(createField(enumCacheField));
+    if (enumCacheSetField != null) {
+      fields.add(createField(enumCacheSetField));
+    }
+    builder.setStaticFields(fields);
   }
 
-  private DexEncodedMethod synthesizeClinit(DexField enumCacheField) {
-    DexItemFactory factory = appView.dexItemFactory();
-    DexMethod clinitMethod = factory.createClinitMethod(enumCacheField.getHolderType());
-    return DexEncodedMethod.syntheticBuilder()
-        .setMethod(clinitMethod)
-        .setAccessFlags(MethodAccessFlags.createForClassInitializer())
-        .setCode(
-            new CfCode(enumCacheField.getHolderType(), 2, 1, instructionsForClinit(enumCacheField)))
+  private DexEncodedField createField(DexField field) {
+    return DexEncodedField.syntheticBuilder()
+        .setField(field)
+        .setAccessFlags(FieldAccessFlags.createPublicStaticSynthetic())
         .disableAndroidApiLevelCheck()
         .build();
   }
 
-  private List<CfInstruction> instructionsForClinit(DexField enumCacheField) {
-    DexItemFactory factory = appView.dexItemFactory();
+  private DexEncodedMethod synthesizeClinit() {
+    DexMethod clinitMethod = factory.createClinitMethod(enumCacheField.getHolderType());
+    return DexEncodedMethod.syntheticBuilder()
+        .setMethod(clinitMethod)
+        .setAccessFlags(MethodAccessFlags.createForClassInitializer())
+        .setCode(codeForClinit())
+        .disableAndroidApiLevelCheck()
+        .build();
+  }
+
+  private CfCode codeForClinit() {
     List<CfInstruction> instructions = new ArrayList<>();
+    if (enumCacheSetField != null) {
+      instructions.add(new CfConstNumber(enumCases, ValueType.INT));
+      instructions.add(new CfNewArray(enumCacheSetField.type));
+      instructions.add(new CfStaticFieldWrite(enumCacheSetField));
+    }
+    CfLabel tryCatchStart = new CfLabel();
+    instructions.add(tryCatchStart);
+    instructions.add(new CfFrame());
     instructions.add(new CfConstNumber(enumCases, ValueType.INT));
-    instructions.add(new CfNewArray(factory.objectArrayType));
+    instructions.add(new CfNewArray(enumCacheField.type));
     instructions.add(new CfStaticFieldWrite(enumCacheField));
+    CfLabel tryCatchEnd = new CfLabel();
+    instructions.add(tryCatchEnd);
+    instructions.add(new CfFrame());
     instructions.add(new CfReturnVoid());
-    return instructions;
+    CfLabel catchLabel = new CfLabel();
+    instructions.add(catchLabel);
+    instructions.add(
+        CfFrame.builder().apply(b -> b.push(FrameType.initialized(factory.throwableType))).build());
+    instructions.add(new CfStackInstruction(Opcode.Pop));
+    instructions.add(new CfGoto(tryCatchEnd));
+    return new CfCode(
+        enumCacheField.getHolderType(),
+        2,
+        1,
+        instructions,
+        ImmutableList.of(
+            new CfTryCatch(
+                tryCatchStart,
+                tryCatchEnd,
+                ImmutableList.of(factory.throwableType),
+                ImmutableList.of(catchLabel))),
+        ImmutableList.of());
   }
 
   private DexEncodedMethod synthesizeDispatchMethod(
@@ -264,7 +364,8 @@ public class SwitchHelperGenerator {
                     dispatcher,
                     intEq,
                     enumEqMethods,
-                    enumCacheField)
+                    enumCacheField,
+                    enumCacheSetField)
                 .generateCfCode())
         .disableAndroidApiLevelCheck()
         .build();

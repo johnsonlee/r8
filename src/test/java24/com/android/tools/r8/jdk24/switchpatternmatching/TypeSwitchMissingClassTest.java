@@ -14,6 +14,7 @@ import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.TestRunResult;
 import com.android.tools.r8.TestRuntime.CfVm;
 import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import java.util.List;
@@ -35,7 +36,7 @@ public class TypeSwitchMissingClassTest extends TestBase {
   @Parameter(1)
   public ClassHolder present;
 
-  @Parameters(name = "{0}, {1}")
+  @Parameters(name = "{0}, present: {1}")
   public static List<Object[]> data() {
     return buildParameters(
         getTestParameters()
@@ -79,7 +80,13 @@ public class TypeSwitchMissingClassTest extends TestBase {
 
   private void assertResult(TestRunResult<?> r) {
     if (present.clazz.equals(C.class)) {
-      r.assertSuccessWithOutput(EXPECTED_OUTPUT);
+      if (parameters.isDexRuntime()
+          && parameters.getDexRuntimeVersion().isOlderThanOrEqual(Version.V4_4_4)) {
+        // Type switch desugaring is not supported below api 21.
+        r.assertFailureWithErrorThatThrows(VerifyError.class);
+      } else {
+        r.assertSuccessWithOutput(EXPECTED_OUTPUT);
+      }
     } else {
       r.assertFailureWithErrorThatThrows(NoClassDefFoundError.class);
     }
