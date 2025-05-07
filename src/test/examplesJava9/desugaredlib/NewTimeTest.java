@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package desugaredlib;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
@@ -10,7 +10,6 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugari
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
@@ -19,8 +18,12 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,10 +37,8 @@ public class NewTimeTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "newtime.jar");
   private static final String EXPECTED_OUTPUT = StringUtils.lines("UTC", "-31557014135553600");
-  private static final String MAIN_CLASS = "newtime.NewTimeMain";
+  private static final Class<?> MAIN_CLASS = NewTimeMain.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -59,7 +60,7 @@ public class NewTimeTest extends DesugaredLibraryTestBase {
   @Test
   public void test() throws Exception {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(MAIN_CLASS)
         .compile()
         .withArt6Plus64BitsLib()
@@ -73,7 +74,7 @@ public class NewTimeTest extends DesugaredLibraryTestBase {
         .clazz(MAIN_CLASS)
         .uniqueMethodWithOriginalName("main")
         .streamInstructions()
-        .filter(c -> c.isInvoke())
+        .filter(InstructionSubject::isInvoke)
         .forEach(this::assertCorrectInvoke);
   }
 
@@ -92,6 +93,16 @@ public class NewTimeTest extends DesugaredLibraryTestBase {
       } else {
         assertEquals("j$.time.DesugarOffsetTime", invoke.getMethod().getHolderType().toString());
       }
+    }
+  }
+
+  public static class NewTimeMain {
+
+    public static void main(String[] args) {
+      Clock utc = Clock.tickMillis(ZoneId.of("UTC"));
+      System.out.println(utc.getZone());
+      OffsetTime ot = OffsetTime.of(LocalTime.NOON, ZoneOffset.UTC);
+      System.out.println(ot.toEpochSecond(LocalDate.MIN));
     }
   }
 }
