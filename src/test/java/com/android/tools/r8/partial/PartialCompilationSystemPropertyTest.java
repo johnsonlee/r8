@@ -19,6 +19,7 @@ import com.android.tools.r8.dex.Marker.Tool;
 import com.android.tools.r8.utils.ExtractMarkerUtils;
 import com.android.tools.r8.utils.codeinspector.ClassSubject;
 import java.util.Collection;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,6 +35,14 @@ public class PartialCompilationSystemPropertyTest extends TestBase {
   @Parameters(name = "{0}")
   public static TestParametersCollection data() {
     return getTestParameters().withNoneRuntime().build();
+  }
+
+  @After
+  public void clearR8PartialSystemProperties() {
+    System.clearProperty(R8PartialCompilationConfiguration.RANDOMIZE_PROPERTY_NAME);
+    System.clearProperty(R8PartialCompilationConfiguration.RANDOMIZE_SEED_PROPERTY_NAME);
+    System.clearProperty(R8PartialCompilationConfiguration.INCLUDE_PROPERTY_NAME);
+    System.clearProperty(R8PartialCompilationConfiguration.EXCLUDE_PROPERTY_NAME);
   }
 
   @Test
