@@ -5,6 +5,7 @@ package com.android.tools.r8.debug;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 
 import com.android.tools.r8.KotlinCompilerTool.KotlinCompilerVersion;
 import com.android.tools.r8.KotlinTestParameters;
@@ -268,6 +269,8 @@ public class KotlinInlineTest extends KotlinDebugTestBase {
 
   @Test
   public void testNestedInlining() throws Throwable {
+    assumeFalse(
+        kotlinParameters.getCompilerVersion().equals(KotlinCompilerVersion.KOTLINC_2_2_0_Beta2));
     // Count the number of lines in the source file. This is needed to check that inlined code
     // refers to non-existing line numbers.
     Path sourceFilePath =

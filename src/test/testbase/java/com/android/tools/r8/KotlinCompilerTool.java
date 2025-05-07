@@ -79,12 +79,13 @@ public class KotlinCompilerTool {
     KOTLINC_1_9_21("kotlin-compiler-1.9.21", KotlinLambdaGeneration.CLASS),
     KOTLINC_2_0_20("kotlin-compiler-2.0.20", KotlinLambdaGeneration.INVOKE_DYNAMIC),
     KOTLINC_2_1_10("kotlin-compiler-2.1.10", KotlinLambdaGeneration.INVOKE_DYNAMIC),
+    KOTLINC_2_2_0_Beta2("kotlin-compiler-2.2.0-Beta2", KotlinLambdaGeneration.INVOKE_DYNAMIC),
     KOTLIN_DEV("kotlin-compiler-dev", KotlinLambdaGeneration.INVOKE_DYNAMIC);
 
     public static final KotlinCompilerVersion MIN_SUPPORTED_VERSION = KOTLINC_2_1_10;
     public static final KotlinCompilerVersion MAX_SUPPORTED_VERSION = KOTLINC_2_1_10;
     public static final KotlinCompilerVersion[] DEV_COMPILERS =
-        new KotlinCompilerVersion[] {KotlinCompilerVersion.KOTLIN_DEV};
+        new KotlinCompilerVersion[] {KOTLINC_2_2_0_Beta2, KOTLIN_DEV};
 
     private final String folder;
     private final KotlinLambdaGeneration defaultLambdaGeneration;
