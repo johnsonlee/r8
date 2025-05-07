@@ -249,8 +249,8 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       }
     }
 
-    if (lhs.hasValueRange()) {
-      LongInterval interval = lhs.getValueRange();
+    if (hasValueRange(lhs)) {
+      LongInterval interval = getValueRange(lhs);
       if (!interval.containsValue(0)) {
         // Interval doesn't contain zero at all.
         int sign = Long.signum(interval.getMin());
@@ -351,11 +351,11 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
       }
     }
 
-    if (lhs.hasValueRange() && rhs.hasValueRange()) {
+    if (hasValueRange(lhs) && hasValueRange(rhs)) {
       // Zero test with a value range, or comparison between between two values,
       // each with a value ranges.
-      LongInterval leftRange = lhs.getValueRange();
-      LongInterval rightRange = rhs.getValueRange();
+      LongInterval leftRange = getValueRange(lhs);
+      LongInterval rightRange = getValueRange(rhs);
       // Two overlapping ranges. Check for single point overlap.
       if (!leftRange.overlapsWith(rightRange)) {
         // No overlap.
@@ -438,6 +438,31 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     }
 
     return false;
+  }
+
+  private boolean hasValueRange(Value value) {
+    if (value.hasValueRange()) {
+      return true;
+    }
+    return value.isPhi()
+        && value.asPhi().allOperandsMatch(val -> val.getType().isInt() && val.isConstInt());
+  }
+
+  private LongInterval getValueRange(Value value) {
+    if (value.hasValueRange()) {
+      return value.getValueRange();
+    }
+    assert hasValueRange(value);
+    assert value.isPhi();
+    Phi phi = value.asPhi();
+    int min = phi.getOperand(0).getConstInt();
+    int max = min;
+    for (Value operand : phi.getOperands()) {
+      int constInt = operand.getConstInt();
+      min = Math.min(min, constInt);
+      max = Math.max(max, constInt);
+    }
+    return new LongInterval(min, max);
   }
 
   private void simplifyIfWithKnownCondition(BasicBlock block, If theIf, BasicBlock target) {
