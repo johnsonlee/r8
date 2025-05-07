@@ -172,7 +172,7 @@ public class SwitchHelperGenerator {
     }
   }
 
-  private enum EnumEqMethodType {
+  enum EnumEqMethodType {
     GENERIC,
     SINGLE_ENUM_ONLY
   }
