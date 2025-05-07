@@ -48,6 +48,7 @@ public class CodeRewriterPassCollection {
     passes.add(new ArrayConstructionSimplifier(appView));
     passes.add(new MoveResultRewriter(appView));
     passes.add(new StringBuilderAppendOptimizer(appView));
+    passes.add(new SplitIntSwitch(appView));
     passes.add(new SparseConditionalConstantPropagation(appView));
     passes.add(new ThrowCatchOptimizer(appView));
     passes.add(new BranchSimplifier(appView));
