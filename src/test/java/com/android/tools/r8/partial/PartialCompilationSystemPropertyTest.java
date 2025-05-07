@@ -80,7 +80,6 @@ public class PartialCompilationSystemPropertyTest extends TestBase {
           testForR8(Backend.DEX)
               .addInnerClasses(getClass())
               .addKeepMainRule(IncludedMain.class)
-              .allowUnusedProguardConfigurationRules()
               .collectStdout()
               .setMinApi(apiLevelWithNativeMultiDexSupport())
               .compile()
