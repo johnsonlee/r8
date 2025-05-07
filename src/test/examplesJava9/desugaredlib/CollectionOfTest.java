@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary;
+package desugaredlib;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
@@ -10,14 +10,13 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugari
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.getJdk8Jdk11;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
+import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,11 +30,9 @@ public class CollectionOfTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "collectionof.jar");
   private static final String EXPECTED_OUTPUT_BACKPORT = StringUtils.lines("false", "false");
   private static final String EXPECTED_OUTPUT_CORRECT = StringUtils.lines("npe", "npe");
-  private static final String MAIN_CLASS = "collectionof.CollectionOfMain";
+  private static final Class<?> MAIN_CLASS = CollectionOfMain.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -64,7 +61,7 @@ public class CollectionOfTest extends DesugaredLibraryTestBase {
   @Test
   public void testCollectionOf() throws Throwable {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClasses(getClass())
         .addKeepMainRule(MAIN_CLASS)
         .compile()
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -77,9 +74,25 @@ public class CollectionOfTest extends DesugaredLibraryTestBase {
         "Run only once",
         libraryDesugaringSpecification == JDK8 && compilationSpecification == D8_L8DEBUG);
     testForD8()
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClasses(getClass())
         .setMinApi(parameters)
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutput(getExpectedOutput());
+  }
+
+  public static class CollectionOfMain {
+
+    public static void main(String[] args) {
+      try {
+        System.out.println(Set.of("one").contains(null));
+      } catch (NullPointerException npe) {
+        System.out.println("npe");
+      }
+      try {
+        System.out.println(List.of("one").contains(null));
+      } catch (NullPointerException npe) {
+        System.out.println("npe");
+      }
+    }
   }
 }

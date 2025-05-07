@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package desugaredlib.flow;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.D8_L8DEBUG;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
@@ -11,7 +11,6 @@ import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugari
 import static org.junit.Assert.assertEquals;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
@@ -22,9 +21,8 @@ import com.android.tools.r8.utils.StringUtils;
 import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.FoundMethodSubject;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
+import java.util.concurrent.Flow.Publisher;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -38,11 +36,8 @@ public class Flow2Test extends DesugaredLibraryTestBase {
   private final CompilationSpecification compilationSpecification;
 
   private static final AndroidApiLevel MIN_SUPPORTED = AndroidApiLevel.R;
-  private static final Path INPUT_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flow.jar");
-  private static final Path INPUT_LIB_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flowlib.jar");
   private static final String EXPECTED_OUTPUT = StringUtils.lines("OneShotPublisher");
-  private static final String MAIN_CLASS = "flow.FlowExample2";
+  private static final Class<?> MAIN_CLASS = FlowExample2.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -68,10 +63,11 @@ public class Flow2Test extends DesugaredLibraryTestBase {
   @Test
   public void test() throws Throwable {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClasses(getClass())
+        .addProgramClassesAndInnerClasses(FlowExample.class)
         .addKeepMainRule(MAIN_CLASS)
         .setCustomLibrarySpecification(
-            new CustomLibrarySpecification(INPUT_LIB_JAR, AndroidApiLevel.S))
+            new CustomLibrarySpecification(FlowLib.class, AndroidApiLevel.S))
         .compile()
         .inspect(this::assertWrapping)
         .run(parameters.getRuntime(), MAIN_CLASS)
@@ -81,9 +77,20 @@ public class Flow2Test extends DesugaredLibraryTestBase {
   private void assertWrapping(CodeInspector inspector) {
     List<FoundMethodSubject> getPublisherMethods =
         inspector
-            .clazz("flow.FlowExample2")
+            .clazz(FlowExample2.class)
             .allMethods(m -> m.getMethod().getName().toString().equals("getPublisher"));
     int numMethods = parameters.getApiLevel().isLessThanOrEqualTo(AndroidApiLevel.Q) ? 2 : 1;
     assertEquals(numMethods, getPublisherMethods.size());
+  }
+
+  public static class FlowExample2 extends FlowLib {
+
+    public static void main(String[] args) {
+      System.out.println(new FlowExample2().getPublisher().getClass().getSimpleName());
+    }
+
+    public Publisher<?> getPublisher() {
+      return new FlowExample.OneShotPublisher();
+    }
   }
 }

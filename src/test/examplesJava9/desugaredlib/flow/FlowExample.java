@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package flow;
+package desugaredlib.flow;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Publisher;
@@ -32,7 +32,7 @@ public class FlowExample {
         subscriber.onError(new IllegalStateException()); // only one allowed
       } else {
         subscribed = true;
-        subscriber.onSubscribe(new OneShotSubscription(subscriber, executor));
+        subscriber.onSubscribe(new OneShotPublisher.OneShotSubscription(subscriber, executor));
       }
     }
 

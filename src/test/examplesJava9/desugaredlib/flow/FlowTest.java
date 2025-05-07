@@ -2,21 +2,18 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package desugaredlib.flow;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11;
 
 import com.android.tools.r8.TestParameters;
-import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm.Version;
 import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,11 +27,8 @@ public class FlowTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path FLOW_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flow.jar");
-  private static final Path FLOWLIB_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "flowlib.jar");
   private static final String EXPECTED_OUTPUT = StringUtils.lines("true");
-  private static final String MAIN_CLASS = "flow.FlowExample";
+  private static final Class<?> MAIN_CLASS = FlowExample.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -60,7 +54,8 @@ public class FlowTest extends DesugaredLibraryTestBase {
   @Test
   public void test() throws Exception {
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(FLOW_JAR, FLOWLIB_JAR)
+        .addProgramClassesAndInnerClasses(FlowExample.class)
+        .addProgramClasses(FlowLib.class)
         .addKeepMainRule(MAIN_CLASS)
         .compile()
         .withArt6Plus64BitsLib()
