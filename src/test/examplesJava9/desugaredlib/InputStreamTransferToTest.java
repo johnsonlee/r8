@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary.jdk11;
+package desugaredlib;
 
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.SPECIFICATIONS_WITH_CF2CF;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification.JDK11_PATH;
@@ -16,8 +16,11 @@ import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpeci
 import com.android.tools.r8.utils.AndroidApiLevel;
 import com.android.tools.r8.utils.StringUtils;
 import com.google.common.collect.ImmutableList;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import org.junit.Assume;
 import org.junit.Test;
@@ -32,11 +35,9 @@ public class InputStreamTransferToTest extends DesugaredLibraryTestBase {
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
   private final CompilationSpecification compilationSpecification;
 
-  private static final Path INPUT_JAR =
-      Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "transferto.jar");
   private static final String EXPECTED_OUTPUT =
       StringUtils.lines("Hello World!", "Hello World!", "Hello World!", "$Hello World!");
-  private static final String MAIN_CLASS = "transferto.TestClass";
+  private static final Class<?> MAIN_CLASS = TestClass.class;
 
   @Parameters(name = "{0}, spec: {1}, {2}")
   public static List<Object[]> data() {
@@ -63,7 +64,7 @@ public class InputStreamTransferToTest extends DesugaredLibraryTestBase {
             && !libraryDesugaringSpecification.hasNioFileDesugaring(parameters)
             && compilationSpecification.isCfToCf());
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(MAIN_CLASS)
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
@@ -81,10 +82,54 @@ public class InputStreamTransferToTest extends DesugaredLibraryTestBase {
             && !libraryDesugaringSpecification.hasNioFileDesugaring(parameters)
             && compilationSpecification.isCfToCf());
     testForDesugaredLibrary(parameters, libraryDesugaringSpecification, compilationSpecification)
-        .addProgramFiles(INPUT_JAR)
+        .addInnerClassesAndStrippedOuter(getClass())
         .addKeepMainRule(MAIN_CLASS)
         .overrideLibraryFiles(ToolHelper.getAndroidJar(AndroidApiLevel.T))
         .run(parameters.getRuntime(), MAIN_CLASS)
         .assertSuccessWithOutput(EXPECTED_OUTPUT);
+  }
+
+  public static class MyInputStream extends ByteArrayInputStream {
+
+    public MyInputStream(byte[] buf) {
+      super(buf);
+    }
+
+    @Override
+    public long transferTo(OutputStream out) throws IOException {
+      out.write((int) '$');
+      return super.transferTo(out);
+    }
+  }
+
+  public static class TestClass {
+    public static void main(String[] args) throws IOException {
+      transferTo();
+      transferToOverride();
+    }
+
+    public static void transferTo() throws IOException {
+      String initialString = "Hello World!";
+      System.out.println(initialString);
+
+      try (InputStream inputStream = new ByteArrayInputStream(initialString.getBytes());
+          ByteArrayOutputStream targetStream = new ByteArrayOutputStream()) {
+        inputStream.transferTo(targetStream);
+        String copied = new String(targetStream.toByteArray());
+        System.out.println(copied);
+      }
+    }
+
+    public static void transferToOverride() throws IOException {
+      String initialString = "Hello World!";
+      System.out.println(initialString);
+
+      try (MyInputStream inputStream = new MyInputStream(initialString.getBytes());
+          ByteArrayOutputStream targetStream = new ByteArrayOutputStream()) {
+        inputStream.transferTo(targetStream);
+        String copied = new String(targetStream.toByteArray());
+        System.out.println(copied);
+      }
+    }
   }
 }

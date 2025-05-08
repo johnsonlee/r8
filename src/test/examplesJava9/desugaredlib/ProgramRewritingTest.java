@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-package com.android.tools.r8.desugar.desugaredlibrary;
+package desugaredlib;
 
 import static com.android.tools.r8.ToolHelper.DESUGARED_JDK_8_LIB_JAR;
 import static com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification.DEFAULT_SPECIFICATIONS;
@@ -20,6 +20,7 @@ import com.android.tools.r8.SingleTestRunResult;
 import com.android.tools.r8.TestParameters;
 import com.android.tools.r8.ToolHelper;
 import com.android.tools.r8.ToolHelper.DexVm;
+import com.android.tools.r8.desugar.desugaredlibrary.DesugaredLibraryTestBase;
 import com.android.tools.r8.desugar.desugaredlibrary.test.CompilationSpecification;
 import com.android.tools.r8.desugar.desugaredlibrary.test.LibraryDesugaringSpecification;
 import com.android.tools.r8.utils.AndroidApiLevel;
@@ -30,9 +31,19 @@ import com.android.tools.r8.utils.codeinspector.CodeInspector;
 import com.android.tools.r8.utils.codeinspector.InstructionSubject;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -41,7 +52,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class ProgramRewritingTest extends DesugaredLibraryTestBase {
 
-  private static final String TEST_CLASS = "stream.ProgramRewritingTestClass";
+  private static final Class<?> TEST_CLASS = ProgramRewritingTestClass.class;
 
   private final TestParameters parameters;
   private final LibraryDesugaringSpecification libraryDesugaringSpecification;
@@ -92,7 +103,7 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
     SingleTestRunResult<?> run =
         testForDesugaredLibrary(
                 parameters, libraryDesugaringSpecification, compilationSpecification)
-            .addProgramFiles(Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR + "stream.jar"))
+            .addInnerClassesAndStrippedOuter(getClass())
             .addKeepMainRule(TEST_CLASS)
             .compile()
             .inspect(this::checkRewrittenInvokes)
@@ -235,5 +246,67 @@ public class ProgramRewritingTest extends DesugaredLibraryTestBase {
           StringUtils.lines("-keep interface java.util.function.ToIntFunction {", "}");
     }
     assertEquals(expectedResult.trim(), keepRules.trim());
+  }
+
+  public static class ProgramRewritingTestClass {
+
+    // Each print to the console is immediately followed by the expected result so the tests
+    // can assert the results by checking the lines 2 by 2.
+    public static void main(String[] args) {
+      Set<Object> set = new HashSet<>();
+      List<Object> list = new ArrayList<>();
+      ArrayList<Object> aList = new ArrayList<>();
+      Queue<Object> queue = new LinkedList<>();
+      LinkedHashSet<Object> lhs = new LinkedHashSet<>();
+      // Following should be rewritten to invokeStatic to the dispatch class.
+      System.out.println(set.spliterator().getClass().getName());
+      System.out.println("j$.util.Spliterators$IteratorSpliterator");
+      // Following should be rewritten to invokeStatic to Collection dispatch class.
+      System.out.println(set.stream().getClass().getName());
+      System.out.println("j$.util.stream.ReferencePipeline$Head");
+      // Following should not be rewritten.
+      System.out.println(set.iterator().getClass().getName());
+      System.out.println("java.util.HashMap$KeyIterator");
+      // Following should be rewritten to invokeStatic to Collection dispatch class.
+      System.out.println(queue.stream().getClass().getName());
+      System.out.println("j$.util.stream.ReferencePipeline$Head");
+      // Following should be rewritten as retarget core lib member.
+      System.out.println(lhs.spliterator().getClass().getName());
+      System.out.println("j$.util.Spliterators$IteratorSpliterator");
+      // Remove follows the don't rewrite rule.
+      list.add(new Object());
+      Iterator iterator = list.iterator();
+      iterator.next();
+      iterator.remove();
+      // Static methods (same name, different signatures).
+      System.out.println(Arrays.spliterator(new Object[] {new Object()}).getClass().getName());
+      System.out.println("j$.util.Spliterators$ArraySpliterator");
+      System.out.println(
+          Arrays.spliterator(new Object[] {new Object()}, 0, 0).getClass().getName());
+      System.out.println("j$.util.Spliterators$ArraySpliterator");
+      System.out.println(Arrays.stream(new Object[] {new Object()}).getClass().getName());
+      System.out.println("j$.util.stream.ReferencePipeline$Head");
+      System.out.println(Arrays.stream(new Object[] {new Object()}, 0, 0).getClass().getName());
+      System.out.println("j$.util.stream.ReferencePipeline$Head");
+      // Following should be rewritten to invokeStatic to dispatch class.
+      System.out.println(list.stream().getClass().getName());
+      System.out.println("j$.util.stream.ReferencePipeline$Head");
+      // Following should call companion method (desugared library class).
+      System.out.println(IntStream.range(0, 5).getClass().getName());
+      System.out.println("j$.util.stream.IntPipeline$Head");
+      // Following should call List dispatch (sort), rewritten from invoke interface.
+      // Comparator.comparingInt should call companion method (desugared library class).
+      Collections.addAll(list, new Object(), new Object());
+      list.sort(Comparator.comparingInt(Object::hashCode));
+      // Following  should call List dispatch (sort), rewritten from invoke virtual.
+      // Comparator.comparingInt should call companion method (desugared library class).
+      Collections.addAll(aList, new Object(), new Object());
+      aList.sort(Comparator.comparingInt(Object::hashCode));
+      // Following should be rewritten to invokeStatic to Collection dispatch class.
+      System.out.println(list.stream().getClass().getName());
+      System.out.println("j$.util.stream.ReferencePipeline$Head");
+      // Following should call companion method (desugared library class) [Java 9].
+      // System.out.println(Stream.iterate(0,x->x<10,x->x+1).getClass().getName());
+    }
   }
 }
