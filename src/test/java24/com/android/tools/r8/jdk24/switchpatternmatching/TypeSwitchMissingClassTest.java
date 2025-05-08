@@ -24,9 +24,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-// This is a copy of the same test from JDK-21. The reason for the copy is that from JDK-23 the
-// code generation for pattern matching switch changed (the bootstrap method signature used in the
-// invokedynamic changed).
 @RunWith(Parameterized.class)
 public class TypeSwitchMissingClassTest extends TestBase {
 
