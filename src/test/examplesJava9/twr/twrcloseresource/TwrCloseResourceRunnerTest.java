@@ -27,7 +27,7 @@ import twr.twrcloseresource.asm.TwrCloseResourceTestDump;
 @RunWith(Parameterized.class)
 public class TwrCloseResourceRunnerTest extends TestBase {
 
-  public static Path ANY_REACHABLE_JAR = Paths.get(ToolHelper.EXAMPLES_JAVA9_BUILD_DIR, "flow.jar");
+  public static Path ANY_REACHABLE_JAR = Paths.get(ToolHelper.CORE_LAMBDA_STUBS);
 
   private static final String EXPECTED_RESULT =
       StringUtils.lines(
