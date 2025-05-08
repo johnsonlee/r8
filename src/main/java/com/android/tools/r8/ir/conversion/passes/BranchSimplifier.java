@@ -444,8 +444,21 @@ public class BranchSimplifier extends CodeRewriterPass<AppInfo> {
     if (value.hasValueRange()) {
       return true;
     }
-    return value.isPhi()
-        && value.asPhi().allOperandsMatch(val -> val.getType().isInt() && val.isConstInt());
+    if (!value.isPhi()) {
+      return false;
+    }
+    Phi phi = value.asPhi();
+    if (!(phi.getOperands().size() > 1
+        && phi.allOperandsMatch(val -> val.getType().isInt() && val.isConstInt()))) {
+      return false;
+    }
+    int first = phi.getOperand(0).getConstInt();
+    for (int i = 1; i < phi.getOperands().size(); i++) {
+      if (phi.getOperand(i).getConstInt() != first) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private LongInterval getValueRange(Value value) {
