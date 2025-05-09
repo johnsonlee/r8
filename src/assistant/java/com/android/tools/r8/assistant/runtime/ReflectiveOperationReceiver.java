@@ -25,6 +25,8 @@ public interface ReflectiveOperationReceiver {
 
   void onClassGetName(Stack stack, Class<?> clazz, NameLookupType lookupType);
 
+  void onClassGetSuperclass(Stack stack, Class<?> clazz);
+
   @KeepForApi
   enum NameLookupType {
     NAME,

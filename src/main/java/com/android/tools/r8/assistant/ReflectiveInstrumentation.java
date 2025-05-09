@@ -132,7 +132,9 @@ public class ReflectiveInstrumentation {
         dexItemFactory.classMethods.getSimpleName,
         getMethodReferenceWithClassParameter("onClassGetSimpleName"),
         dexItemFactory.classMethods.getTypeName,
-        getMethodReferenceWithClassParameter("onClassGetTypeName"));
+        getMethodReferenceWithClassParameter("onClassGetTypeName"),
+        dexItemFactory.classMethods.getSuperclass,
+        getMethodReferenceWithClassParameter("onClassGetSuperclass"));
   }
 
   private DexMethod getMethodReferenceWithClassParameter(String name) {

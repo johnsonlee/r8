@@ -2024,6 +2024,8 @@ public class DexItemFactory {
     public final DexMethod getDeclaredMethod;
     public final DexMethod getPackage =
         createMethod(classType, createProto(packageType), "getPackage");
+    public final DexMethod getSuperclass =
+        createMethod(classType, createProto(classType), "getSuperclass");
     public final DexMethod newInstance;
     private final Set<DexMethod> getMembers;
     public final Set<DexMethod> getNames;

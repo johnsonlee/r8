@@ -101,6 +101,10 @@ public class ReflectiveOracle {
     getInstance().onClassGetName(Stack.createStack(), clazz, NameLookupType.TYPE_NAME);
   }
 
+  public static void onClassGetSuperclass(Class<?> clazz) {
+    getInstance().onClassGetSuperclass(Stack.createStack(), clazz);
+  }
+
   @KeepForApi
   public static class ReflectiveOperationLogger implements ReflectiveOperationReceiver {
     @Override
@@ -133,6 +137,11 @@ public class ReflectiveOracle {
     @Override
     public void onClassForName(Stack stack, String className) {
       System.out.println("Reflectively called Class.forName on " + className);
+    }
+
+    @Override
+    public void onClassGetSuperclass(Stack stack, Class<?> clazz) {
+      System.out.println("Reflectively called Class.getSuperclass on " + clazz.getName());
     }
 
     @Override

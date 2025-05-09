@@ -35,7 +35,7 @@ public class JavaLangClassTest extends TestBase {
         .setMinApi(parameters)
         .compile()
         .run(parameters.getRuntime(), JavaLangClassTestClass.class)
-        .assertSuccessWithOutputLines("5", "1", "2", "3", "3", "4", "5", "6", "7", "8");
+        .assertSuccessWithOutputLines("5", "1", "9", "2", "3", "3", "4", "5", "6", "7", "8");
   }
 
   public static class Instrumentation extends EmptyReflectiveOperationReceiver {
@@ -89,6 +89,11 @@ public class JavaLangClassTest extends TestBase {
     @Override
     public void onClassNewInstance(Stack stack, Class<?> clazz) {
       super.onClassNewInstance(stack, clazz);
+    }
+
+    @Override
+    public void onClassGetSuperclass(Stack stack, Class<?> clazz) {
+      printNumIfTrue(clazz.getName().endsWith("Foo"), 9);
     }
   }
 }

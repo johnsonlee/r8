@@ -11,6 +11,7 @@ public class JavaLangClassTestClass {
   public static void main(String[] args) {
     try {
       Class<?> clazz = Class.forName(Foo.class.getName());
+      Class<?> superClass = clazz.getSuperclass();
       clazz.getDeclaredMethod("bar");
       clazz.getDeclaredField("a");
       clazz.getDeclaredField("b");
