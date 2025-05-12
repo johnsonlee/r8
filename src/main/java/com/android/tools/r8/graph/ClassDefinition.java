@@ -34,12 +34,4 @@ public interface ClassDefinition extends Definition {
   default boolean isClass() {
     return true;
   }
-
-  boolean isClasspathClass();
-
-  DexClasspathClass asClasspathClass();
-
-  boolean isLibraryClass();
-
-  DexLibraryClass asLibraryClass();
 }

@@ -675,27 +675,7 @@ public abstract class DexClass extends DexDefinition
     return this;
   }
 
-  @Override
-  public boolean isClasspathClass() {
-    return false;
-  }
-
-  @Override
-  public DexClasspathClass asClasspathClass() {
-    return null;
-  }
-
   public abstract boolean isNotProgramClass();
-
-  @Override
-  public boolean isLibraryClass() {
-    return false;
-  }
-
-  @Override
-  public DexLibraryClass asLibraryClass() {
-    return null;
-  }
 
   public boolean isPrivate() {
     return accessFlags.isPrivate();

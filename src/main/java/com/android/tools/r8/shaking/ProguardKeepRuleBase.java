@@ -74,6 +74,10 @@ public class ProguardKeepRuleBase extends ProguardConfigurationRule {
     this.modifiers = modifiers;
   }
 
+  public boolean getIncludeDescriptorClasses() {
+    return modifiers.includeDescriptorClasses;
+  }
+
   public ProguardKeepRuleType getType() {
     return type;
   }

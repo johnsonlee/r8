@@ -21,4 +21,14 @@ public interface ClasspathDefinition
   default ProgramDerivedContext asProgramDerivedContext(ProgramDerivedContext witness) {
     return ClasspathOrLibraryContext.create(this, witness);
   }
+
+  @Override
+  default boolean isClasspathDefinition() {
+    return true;
+  }
+
+  @Override
+  default ClasspathDefinition asClasspathDefinition() {
+    return this;
+  }
 }

@@ -20,4 +20,9 @@ public interface LibraryDefinition extends ClasspathOrLibraryDefinition {
   default ProgramDerivedContext asProgramDerivedContext(ProgramDerivedContext witness) {
     return ClasspathOrLibraryContext.create(this, witness);
   }
+
+  @Override
+  default boolean isLibraryDefinition() {
+    return true;
+  }
 }

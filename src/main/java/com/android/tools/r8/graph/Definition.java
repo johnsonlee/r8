@@ -76,6 +76,22 @@ public interface Definition {
     return null;
   }
 
+  default boolean isClasspathClass() {
+    return false;
+  }
+
+  default DexClasspathClass asClasspathClass() {
+    return null;
+  }
+
+  default boolean isClasspathDefinition() {
+    return false;
+  }
+
+  default ClasspathDefinition asClasspathDefinition() {
+    return null;
+  }
+
   default boolean isClasspathField() {
     return false;
   }
@@ -94,6 +110,18 @@ public interface Definition {
 
   default ClasspathMethod asClasspathMethod() {
     return null;
+  }
+
+  default boolean isLibraryClass() {
+    return false;
+  }
+
+  default DexLibraryClass asLibraryClass() {
+    return null;
+  }
+
+  default boolean isLibraryDefinition() {
+    return false;
   }
 
   default boolean isLibraryField() {
