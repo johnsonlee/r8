@@ -254,15 +254,16 @@ def ArchiveBenchmarkResult(benchmark, target, benchmark_result_json_files,
     ArchiveOutputFile(result_file,
                       GetArtifactLocation(benchmark, target, options.version,
                                           'result.json'),
-                      outdir=options.outdir)
+                      outdir=options.outdir, options=options)
 
 
-def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None):
+def ArchiveOutputFile(file, dest, bucket=BUCKET, header=None, outdir=None,
+                      options=None):
     if outdir:
         dest_in_outdir = os.path.join(outdir, dest)
         os.makedirs(os.path.dirname(dest_in_outdir), exist_ok=True)
         shutil.copyfile(file, dest_in_outdir)
-    else:
+    elif not options or not options.no_upload_benchmark_data_to_google_storage:
         utils.upload_file_to_cloud_storage(file,
                                            GetGSLocation(dest, bucket=bucket),
                                            header=header)
