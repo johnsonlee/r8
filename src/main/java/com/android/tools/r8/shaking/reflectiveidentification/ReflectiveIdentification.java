@@ -103,7 +103,7 @@ public class ReflectiveIdentification {
     }
   }
 
-  public void enqueue(ProgramMethod method) {
+  public synchronized void enqueue(ProgramMethod method) {
     worklist.add(method);
   }
 
